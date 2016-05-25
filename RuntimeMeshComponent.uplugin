@@ -1,0 +1,28 @@
+{
+  "FileVersion": 3,
+  "Version": 1,
+  "VersionName": "1.0",
+  "FriendlyName": "Runtime Mesh Component",
+  "Description": "A renderable component with utilities for creating and modifying mesh geometry procedurally at runtime.",
+  "Category": "Rendering",
+	"CreatedBy" : "Chris Conway (Koderz)",
+	"CreatedByURL" : "https://answers.unrealengine.com/users/29368/koderz.html",
+  "DocsURL": "",
+  "MarketplaceURL": "",
+  "SupportURL": "",
+  "EnabledByDefault": true,
+  "CanContainContent": false,
+  "IsBetaVersion": true,
+  "Installed": false,
+  "Modules": [
+    {
+      "Name": "RuntimeMeshComponent",
+      "Type": "Runtime",
+      "LoadingPhase": "Default",
+			"BlacklistPlatforms" :
+			[
+				"HTML5"
+			]
+    }
+  ]
+}
