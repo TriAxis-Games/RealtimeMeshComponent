@@ -41,12 +41,18 @@ template<int32 TextureChannels, bool HalfPrecision> struct FRuntimeMeshUVCompone
 template<> struct FRuntimeMeshUVComponents<1, false>
 {
 	FVector2D UV0;
+
+	FRuntimeMeshUVComponents() : UV0(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0) : UV0(InUV0) { }
 };
 
 /* Defines the UV coordinates for a vertex (Specialized to 1 channels, Half Precision) */
 template<> struct FRuntimeMeshUVComponents<1, true>
 {
 	FVector2DHalf UV0;
+
+	FRuntimeMeshUVComponents() : UV0(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0) : UV0(InUV0) { }
 };
 
 /* Defines the UV coordinates for a vertex (Specialized to 2 channels) */
@@ -54,6 +60,10 @@ template<> struct FRuntimeMeshUVComponents<2, false>
 {
 	FVector2D UV0;
 	FVector2D UV1;
+
+	FRuntimeMeshUVComponents() : UV0(0, 0), UV1(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0) : UV0(InUV0), UV1(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1) : UV0(InUV0), UV1(InUV1) { }
 };
 
 /* Defines the UV coordinates for a vertex (Specialized to 2 channels, Half Precision) */
@@ -61,6 +71,10 @@ template<> struct FRuntimeMeshUVComponents<2, true>
 {
 	FVector2DHalf UV0;
 	FVector2DHalf UV1;
+
+	FRuntimeMeshUVComponents() : UV0(0, 0), UV1(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0) : UV0(InUV0), UV1(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1) : UV0(InUV0), UV1(InUV1) { }
 };
 
 /* Defines the UV coordinates for a vertex (Specialized to 3 channels) */
@@ -69,6 +83,15 @@ template<> struct FRuntimeMeshUVComponents<3, false>
 	FVector2D UV0;
 	FVector2D UV1;
 	FVector2D UV2;
+
+	FRuntimeMeshUVComponents() :
+		UV0(0, 0), UV1(0, 0), UV2(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0) :
+		UV0(InUV0), UV1(0, 0), UV2(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1) :
+		UV0(InUV0), UV1(InUV1), UV2(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1, const FVector2D& InUV2) :
+		UV0(InUV0), UV1(InUV1), UV2(InUV2) { }
 };
 
 /* Defines the UV coordinates for a vertex (Specialized to 3 channels, Half Precision) */
@@ -77,6 +100,15 @@ template<> struct FRuntimeMeshUVComponents<3, true>
 	FVector2DHalf UV0;
 	FVector2DHalf UV1;
 	FVector2DHalf UV2;
+
+	FRuntimeMeshUVComponents() :
+		UV0(0, 0), UV1(0, 0), UV2(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0) :
+		UV0(InUV0), UV1(0, 0), UV2(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1) :
+		UV0(InUV0), UV1(InUV1), UV2(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1, const FVector2D& InUV2) :
+		UV0(InUV0), UV1(InUV1), UV2(InUV2) { }
 };
 
 /* Defines the UV coordinates for a vertex (Specialized to 4 channels) */
@@ -86,6 +118,17 @@ template<> struct FRuntimeMeshUVComponents<4, false>
 	FVector2D UV1;
 	FVector2D UV2;
 	FVector2D UV3;
+
+	FRuntimeMeshUVComponents() :
+		UV0(0, 0), UV1(0, 0), UV2(0, 0), UV3(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0) :
+		UV0(InUV0), UV1(0, 0), UV2(0, 0), UV3(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1) :
+		UV0(InUV0), UV1(InUV1), UV2(0, 0), UV3(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1, const FVector2D& InUV2) :
+		UV0(InUV0), UV1(InUV1), UV2(InUV2), UV3(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1, const FVector2D& InUV2, const FVector2D& InUV3) :
+		UV0(InUV0), UV1(InUV1), UV2(InUV2), UV3(InUV3) { }
 };
 
 /* Defines the UV coordinates for a vertex (Specialized to 4 channels, Half Precision) */
@@ -95,6 +138,17 @@ template<> struct FRuntimeMeshUVComponents<4, true>
 	FVector2DHalf UV1;
 	FVector2DHalf UV2;
 	FVector2DHalf UV3;
+
+	FRuntimeMeshUVComponents() :
+		UV0(0, 0), UV1(0, 0), UV2(0, 0), UV3(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0) :
+		UV0(InUV0), UV1(0, 0), UV2(0, 0), UV3(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1) :
+		UV0(InUV0), UV1(InUV1), UV2(0, 0), UV3(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1, const FVector2D& InUV2) :
+		UV0(InUV0), UV1(InUV1), UV2(InUV2), UV3(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1, const FVector2D& InUV2, const FVector2D& InUV3) :
+		UV0(InUV0), UV1(InUV1), UV2(InUV2), UV3(InUV3) { }
 };
 
 /* Defines the UV coordinates for a vertex (Specialized to 5 channels) */
@@ -105,6 +159,19 @@ template<> struct FRuntimeMeshUVComponents<5, false>
 	FVector2D UV2;
 	FVector2D UV3;
 	FVector2D UV4;
+
+	FRuntimeMeshUVComponents() :
+		UV0(0, 0), UV1(0, 0), UV2(0, 0), UV3(0, 0), UV4(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0) :
+		UV0(InUV0), UV1(0, 0), UV2(0, 0), UV3(0, 0), UV4(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1) :
+		UV0(InUV0), UV1(InUV1), UV2(0, 0), UV3(0, 0), UV4(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1, const FVector2D& InUV2) :
+		UV0(InUV0), UV1(InUV1), UV2(InUV2), UV3(0, 0), UV4(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1, const FVector2D& InUV2, const FVector2D& InUV3) :
+		UV0(InUV0), UV1(InUV1), UV2(InUV2), UV3(InUV3), UV4(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1, const FVector2D& InUV2, const FVector2D& InUV3,
+		const FVector2D& InUV4) : UV0(InUV0), UV1(InUV1), UV2(InUV2), UV3(InUV3), UV4(InUV4) { }
 };
 
 /* Defines the UV coordinates for a vertex (Specialized to 5 channels, Half Precision) */
@@ -115,6 +182,19 @@ template<> struct FRuntimeMeshUVComponents<5, true>
 	FVector2DHalf UV2;
 	FVector2DHalf UV3;
 	FVector2DHalf UV4;
+
+	FRuntimeMeshUVComponents() :
+		UV0(0, 0), UV1(0, 0), UV2(0, 0), UV3(0, 0), UV4(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0) :
+		UV0(InUV0), UV1(0, 0), UV2(0, 0), UV3(0, 0), UV4(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1) :
+		UV0(InUV0), UV1(InUV1), UV2(0, 0), UV3(0, 0), UV4(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1, const FVector2D& InUV2) :
+		UV0(InUV0), UV1(InUV1), UV2(InUV2), UV3(0, 0), UV4(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1, const FVector2D& InUV2, const FVector2D& InUV3) :
+		UV0(InUV0), UV1(InUV1), UV2(InUV2), UV3(InUV3), UV4(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1, const FVector2D& InUV2, const FVector2D& InUV3,
+		const FVector2D& InUV4) : UV0(InUV0), UV1(InUV1), UV2(InUV2), UV3(InUV3), UV4(InUV4) { }
 };
 
 /* Defines the UV coordinates for a vertex (Specialized to 6 channels) */
@@ -126,6 +206,23 @@ template<> struct FRuntimeMeshUVComponents<6, false>
 	FVector2D UV3;
 	FVector2D UV4;
 	FVector2D UV5;
+
+	FRuntimeMeshUVComponents() :
+		UV0(0, 0), UV1(0, 0), UV2(0, 0), UV3(0, 0), UV4(0, 0), UV5(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0) :
+		UV0(InUV0), UV1(0, 0), UV2(0, 0), UV3(0, 0), UV4(0, 0), UV5(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1) :
+		UV0(InUV0), UV1(InUV1), UV2(0, 0), UV3(0, 0), UV4(0, 0), UV5(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1, const FVector2D& InUV2) :
+		UV0(InUV0), UV1(InUV1), UV2(InUV2), UV3(0, 0), UV4(0, 0), UV5(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1, const FVector2D& InUV2, const FVector2D& InUV3) :
+		UV0(InUV0), UV1(InUV1), UV2(InUV2), UV3(InUV3), UV4(0, 0), UV5(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1, const FVector2D& InUV2, const FVector2D& InUV3,
+		const FVector2D& InUV4) :
+		UV0(InUV0), UV1(InUV1), UV2(InUV2), UV3(InUV3), UV4(InUV4), UV5(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1, const FVector2D& InUV2, const FVector2D& InUV3,
+		const FVector2D& InUV4, const FVector2D& InUV5) :
+		UV0(InUV0), UV1(InUV1), UV2(InUV2), UV3(InUV3), UV4(InUV4), UV5(InUV5) { }
 };
 
 /* Defines the UV coordinates for a vertex (Specialized to 6 channels, Half Precision) */
@@ -137,6 +234,23 @@ template<> struct FRuntimeMeshUVComponents<6, true>
 	FVector2DHalf UV3;
 	FVector2DHalf UV4;
 	FVector2DHalf UV5;
+
+	FRuntimeMeshUVComponents() :
+		UV0(0, 0), UV1(0, 0), UV2(0, 0), UV3(0, 0), UV4(0, 0), UV5(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0) :
+		UV0(InUV0), UV1(0, 0), UV2(0, 0), UV3(0, 0), UV4(0, 0), UV5(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1) :
+		UV0(InUV0), UV1(InUV1), UV2(0, 0), UV3(0, 0), UV4(0, 0), UV5(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1, const FVector2D& InUV2) :
+		UV0(InUV0), UV1(InUV1), UV2(InUV2), UV3(0, 0), UV4(0, 0), UV5(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1, const FVector2D& InUV2, const FVector2D& InUV3) :
+		UV0(InUV0), UV1(InUV1), UV2(InUV2), UV3(InUV3), UV4(0, 0), UV5(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1, const FVector2D& InUV2, const FVector2D& InUV3,
+		const FVector2D& InUV4) :
+		UV0(InUV0), UV1(InUV1), UV2(InUV2), UV3(InUV3), UV4(InUV4), UV5(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1, const FVector2D& InUV2, const FVector2D& InUV3,
+		const FVector2D& InUV4, const FVector2D& InUV5) :
+		UV0(InUV0), UV1(InUV1), UV2(InUV2), UV3(InUV3), UV4(InUV4), UV5(InUV5) { }
 };
 
 /* Defines the UV coordinates for a vertex (Specialized to 7 channels) */
@@ -149,6 +263,26 @@ template<> struct FRuntimeMeshUVComponents<7, false>
 	FVector2D UV4;
 	FVector2D UV5;
 	FVector2D UV6;
+
+	FRuntimeMeshUVComponents() :
+		UV0(0, 0), UV1(0, 0), UV2(0, 0), UV3(0, 0), UV4(0, 0), UV5(0, 0), UV6(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0) :
+		UV0(InUV0), UV1(0, 0), UV2(0, 0), UV3(0, 0), UV4(0, 0), UV5(0, 0), UV6(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1) :
+		UV0(InUV0), UV1(InUV1), UV2(0, 0), UV3(0, 0), UV4(0, 0), UV5(0, 0), UV6(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1, const FVector2D& InUV2) :
+		UV0(InUV0), UV1(InUV1), UV2(InUV2), UV3(0, 0), UV4(0, 0), UV5(0, 0), UV6(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1, const FVector2D& InUV2, const FVector2D& InUV3) :
+		UV0(InUV0), UV1(InUV1), UV2(InUV2), UV3(InUV3), UV4(0, 0), UV5(0, 0), UV6(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1, const FVector2D& InUV2, const FVector2D& InUV3,
+		const FVector2D& InUV4) :
+		UV0(InUV0), UV1(InUV1), UV2(InUV2), UV3(InUV3), UV4(InUV4), UV5(0, 0), UV6(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1, const FVector2D& InUV2, const FVector2D& InUV3,
+		const FVector2D& InUV4, const FVector2D& InUV5) :
+		UV0(InUV0), UV1(InUV1), UV2(InUV2), UV3(InUV3), UV4(InUV4), UV5(InUV5), UV6(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1, const FVector2D& InUV2, const FVector2D& InUV3,
+		const FVector2D& InUV4, const FVector2D& InUV5, const FVector2D& InUV6) :
+		UV0(InUV0), UV1(InUV1), UV2(InUV2), UV3(InUV3), UV4(InUV4), UV5(InUV5), UV6(InUV6) { }
 };
 
 /* Defines the UV coordinates for a vertex (Specialized to 7 channels, Half Precision) */
@@ -161,6 +295,26 @@ template<> struct FRuntimeMeshUVComponents<7, true>
 	FVector2DHalf UV4;
 	FVector2DHalf UV5;
 	FVector2DHalf UV6;
+
+	FRuntimeMeshUVComponents() :
+		UV0(0, 0), UV1(0, 0), UV2(0, 0), UV3(0, 0), UV4(0, 0), UV5(0, 0), UV6(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0) :
+		UV0(InUV0), UV1(0, 0), UV2(0, 0), UV3(0, 0), UV4(0, 0), UV5(0, 0), UV6(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1) :
+		UV0(InUV0), UV1(InUV1), UV2(0, 0), UV3(0, 0), UV4(0, 0), UV5(0, 0), UV6(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1, const FVector2D& InUV2) :
+		UV0(InUV0), UV1(InUV1), UV2(InUV2), UV3(0, 0), UV4(0, 0), UV5(0, 0), UV6(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1, const FVector2D& InUV2, const FVector2D& InUV3) :
+		UV0(InUV0), UV1(InUV1), UV2(InUV2), UV3(InUV3), UV4(0, 0), UV5(0, 0), UV6(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1, const FVector2D& InUV2, const FVector2D& InUV3,
+		const FVector2D& InUV4) :
+		UV0(InUV0), UV1(InUV1), UV2(InUV2), UV3(InUV3), UV4(InUV4), UV5(0, 0), UV6(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1, const FVector2D& InUV2, const FVector2D& InUV3,
+		const FVector2D& InUV4, const FVector2D& InUV5) :
+		UV0(InUV0), UV1(InUV1), UV2(InUV2), UV3(InUV3), UV4(InUV4), UV5(InUV5), UV6(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1, const FVector2D& InUV2, const FVector2D& InUV3,
+		const FVector2D& InUV4, const FVector2D& InUV5, const FVector2D& InUV6) :
+		UV0(InUV0), UV1(InUV1), UV2(InUV2), UV3(InUV3), UV4(InUV4), UV5(InUV5), UV6(InUV6) { }
 };
 
 /* Defines the UV coordinates for a vertex (Specialized to 8 channels) */
@@ -174,6 +328,29 @@ template<> struct FRuntimeMeshUVComponents<8, false>
 	FVector2D UV5;
 	FVector2D UV6;
 	FVector2D UV7;
+
+	FRuntimeMeshUVComponents() :
+		UV0(0, 0), UV1(0, 0), UV2(0, 0), UV3(0, 0), UV4(0, 0), UV5(0, 0), UV6(0, 0), UV7(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0) :
+		UV0(InUV0), UV1(0, 0), UV2(0, 0), UV3(0, 0), UV4(0, 0), UV5(0, 0), UV6(0, 0), UV7(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1) :
+		UV0(InUV0), UV1(InUV1), UV2(0, 0), UV3(0, 0), UV4(0, 0), UV5(0, 0), UV6(0, 0), UV7(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1, const FVector2D& InUV2) :
+		UV0(InUV0), UV1(InUV1), UV2(InUV2), UV3(0, 0), UV4(0, 0), UV5(0, 0), UV6(0, 0), UV7(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1, const FVector2D& InUV2, const FVector2D& InUV3) :
+		UV0(InUV0), UV1(InUV1), UV2(InUV2), UV3(InUV3), UV4(0, 0), UV5(0, 0), UV6(0, 0), UV7(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1, const FVector2D& InUV2, const FVector2D& InUV3,
+		const FVector2D& InUV4) :
+		UV0(InUV0), UV1(InUV1), UV2(InUV2), UV3(InUV3), UV4(InUV4), UV5(0, 0), UV6(0, 0), UV7(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1, const FVector2D& InUV2, const FVector2D& InUV3,
+		const FVector2D& InUV4, const FVector2D& InUV5) :
+		UV0(InUV0), UV1(InUV1), UV2(InUV2), UV3(InUV3), UV4(InUV4), UV5(InUV5), UV6(0, 0), UV7(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1, const FVector2D& InUV2, const FVector2D& InUV3,
+		const FVector2D& InUV4, const FVector2D& InUV5, const FVector2D& InUV6) :
+		UV0(InUV0), UV1(InUV1), UV2(InUV2), UV3(InUV3), UV4(InUV4), UV5(InUV5), UV6(InUV6), UV7(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1, const FVector2D& InUV2, const FVector2D& InUV3,
+		const FVector2D& InUV4, const FVector2D& InUV5, const FVector2D& InUV6, const FVector2D& InUV7) :
+		UV0(InUV0), UV1(InUV1), UV2(InUV2), UV3(InUV3), UV4(InUV4), UV5(InUV5), UV6(InUV6), UV7(InUV7) { }
 };
 
 /* Defines the UV coordinates for a vertex (Specialized to 8 channels, Half Precision) */
@@ -187,6 +364,29 @@ template<> struct FRuntimeMeshUVComponents<8, true>
 	FVector2DHalf UV5;
 	FVector2DHalf UV6;
 	FVector2DHalf UV7;
+
+	FRuntimeMeshUVComponents() :
+		UV0(0,0), UV1(0, 0), UV2(0, 0), UV3(0, 0), UV4(0, 0), UV5(0, 0), UV6(0, 0), UV7(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0) :
+		UV0(InUV0), UV1(0,0), UV2(0, 0), UV3(0, 0), UV4(0, 0), UV5(0, 0), UV6(0, 0), UV7(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1) :
+		UV0(InUV0), UV1(InUV1), UV2(0,0), UV3(0, 0), UV4(0, 0), UV5(0, 0), UV6(0, 0), UV7(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1, const FVector2D& InUV2) :
+		UV0(InUV0), UV1(InUV1), UV2(InUV2), UV3(0,0), UV4(0, 0), UV5(0, 0), UV6(0, 0), UV7(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1, const FVector2D& InUV2, const FVector2D& InUV3) :
+		UV0(InUV0), UV1(InUV1), UV2(InUV2), UV3(InUV3), UV4(0,0), UV5(0, 0), UV6(0, 0), UV7(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1, const FVector2D& InUV2, const FVector2D& InUV3,
+		const FVector2D& InUV4) :
+		UV0(InUV0), UV1(InUV1), UV2(InUV2), UV3(InUV3), UV4(InUV4), UV5(0,0), UV6(0, 0), UV7(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1, const FVector2D& InUV2, const FVector2D& InUV3,
+		const FVector2D& InUV4, const FVector2D& InUV5) :
+		UV0(InUV0), UV1(InUV1), UV2(InUV2), UV3(InUV3), UV4(InUV4), UV5(InUV5), UV6(0,0), UV7(0, 0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1, const FVector2D& InUV2, const FVector2D& InUV3,
+		const FVector2D& InUV4, const FVector2D& InUV5, const FVector2D& InUV6) :
+		UV0(InUV0), UV1(InUV1), UV2(InUV2), UV3(InUV3), UV4(InUV4), UV5(InUV5), UV6(InUV6), UV7(0,0) { }
+	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1, const FVector2D& InUV2, const FVector2D& InUV3,
+		const FVector2D& InUV4, const FVector2D& InUV5, const FVector2D& InUV6,	const FVector2D& InUV7) :
+		UV0(InUV0),	UV1(InUV1),	UV2(InUV2),	UV3(InUV3),	UV4(InUV4),	UV5(InUV5),	UV6(InUV6),	UV7(InUV7) { }
 };
 
 
@@ -202,6 +402,19 @@ struct FRuntimeMeshVertexBase
 	FPackedNormal Normal;
 	FPackedNormal Tangent;
 	FColor Color;
+
+	FRuntimeMeshVertexBase(const FVector& InPosition, const FVector& InNormal, const FRuntimeMeshTangent& InTangent, const FColor& InColor)
+		: Position(InPosition), Normal(InNormal), Tangent(InTangent.TangentX), Color(InColor) 
+	{
+		InTangent.AdjustNormal(Normal);
+	}
+
+	FRuntimeMeshVertexBase(const FVector& InPosition, const FVector& InTangentX, const FVector& InTangentY, const FVector& InTangentZ, const FColor& InColor)
+		: Position(InPosition), Normal(InTangentZ), Tangent(InTangentX), Color(InColor)
+	{ 
+		// store determinant of basis in w component of normal vector
+		Normal.Vector.W = GetBasisDeterminantSign(InTangentX, InTangentY, InTangentZ) < 0.0f ? 0 : 255;
+	}
 };
 
 template<int32 TextureChannels, bool HalfPrecisionUVs = false>
@@ -209,7 +422,7 @@ struct FRuntimeMeshVertex :
 	public FRuntimeMeshVertexBase,
 	public FRuntimeMeshUVComponents<TextureChannels, HalfPrecisionUVs>
 {
-	static_assert(TextureChannels >= 0 && TextureChannels <= 8, "You must have between 0 and 8 (inclusive) UV channels)");
+	static_assert(TextureChannels >= 1 && TextureChannels <= 8, "You must have between 1 and 8 (inclusive) UV channels)");
 
 	typedef FRuntimeMeshVertex<TextureChannels, HalfPrecisionUVs> SelfType;
 
@@ -217,10 +430,107 @@ struct FRuntimeMeshVertex :
 	{
 		return CreateVertexStructure<TextureChannels, HalfPrecisionUVs>(VertexBuffer);
 	}
+
+
+	FRuntimeMeshVertex() :
+		FRuntimeMeshVertexBase(FVector::ZeroVector, FVector(0, 0, 1), FRuntimeMeshTangent(), FColor::White),
+		FRuntimeMeshUVComponents() { }
+ 	FRuntimeMeshVertex(const FVector& InPosition) :
+		FRuntimeMeshVertexBase(InPosition, FVector(0, 0, 1), FRuntimeMeshTangent(), FColor::White),
+		FRuntimeMeshUVComponents() { }
+ 	FRuntimeMeshVertex(const FVector& InPosition, const FColor& InColor) :
+		FRuntimeMeshVertexBase(InPosition, FVector(0, 0, 1), FRuntimeMeshTangent(), InColor),
+		FRuntimeMeshUVComponents() { }
+
+ 	FRuntimeMeshVertex(const FVector& InPosition, const FVector& InNormal, const FRuntimeMeshTangent& InTangent) :
+		FRuntimeMeshVertexBase(InPosition, InNormal, InTangent, FColor::White),
+		FRuntimeMeshUVComponents() { }
+	FRuntimeMeshVertex(const FVector& InPosition, const FVector& InTangentX, const FVector& InTangentY, const FVector& InTangentZ) :
+		FRuntimeMeshVertexBase(InPosition, InTangentX, InTangentY, InTangentZ, FColor::White),
+		FRuntimeMeshUVComponents() { }
+
+	FRuntimeMeshVertex(const FVector& InPosition, const FVector& InNormal, const FRuntimeMeshTangent& InTangent, const FVector2D& InUV0) :
+		FRuntimeMeshVertexBase(InPosition, InNormal, InTangent, FColor::White),
+		FRuntimeMeshUVComponents(InUV0) { }
+	FRuntimeMeshVertex(const FVector& InPosition, const FVector& InTangentX, const FVector& InTangentY, const FVector& InTangentZ, const FVector2D& InUV0) :
+		FRuntimeMeshVertexBase(InPosition, InTangentX, InTangentY, InTangentZ, FColor::White),
+		FRuntimeMeshUVComponents(InUV0) { }
+
+	FRuntimeMeshVertex(const FVector& InPosition, const FVector& InNormal, const FRuntimeMeshTangent& InTangent, const FColor& InColor, const FVector2D& InUV0) :
+		FRuntimeMeshVertexBase(InPosition, InNormal, InTangent, InColor),
+		FRuntimeMeshUVComponents(InUV0) { }
+	FRuntimeMeshVertex(const FVector& InPosition, const FVector& InTangentX, const FVector& InTangentY, const FVector& InTangentZ, const FColor& InColor, const FVector2D& InUV0) :
+		FRuntimeMeshVertexBase(InPosition, InTangentX, InTangentY, InTangentZ, InColor),
+		FRuntimeMeshUVComponents(InUV0) { }
+
+
+	FRuntimeMeshVertex(const FVector& InPosition, const FVector& InNormal, const FRuntimeMeshTangent& InTangent, const FVector2D& InUV0, const FVector2D& InUV1) :
+		FRuntimeMeshVertexBase(InPosition, InNormal, InTangent, FColor::White),
+		FRuntimeMeshUVComponents(InUV0, InUV1) { }
+	FRuntimeMeshVertex(const FVector& InPosition, const FVector& InTangentX, const FVector& InTangentY, const FVector& InTangentZ, const FVector2D& InUV0, const FVector2D& InUV1) :
+		FRuntimeMeshVertexBase(InPosition, InTangentX, InTangentY, InTangentZ, FColor::White),
+		FRuntimeMeshUVComponents(InUV0, InUV1) { }
+
+	FRuntimeMeshVertex(const FVector& InPosition, const FVector& InNormal, const FRuntimeMeshTangent& InTangent, const FColor& InColor, const FVector2D& InUV0, const FVector2D& InUV1) :
+		FRuntimeMeshVertexBase(InPosition, InNormal, InTangent, InColor),
+		FRuntimeMeshUVComponents(InUV0, InUV1) { }
+	FRuntimeMeshVertex(const FVector& InPosition, const FVector& InTangentX, const FVector& InTangentY, const FVector& InTangentZ, const FColor& InColor, const FVector2D& InUV0, const FVector2D& InUV1) :
+		FRuntimeMeshVertexBase(InPosition, InTangentX, InTangentY, InTangentZ, InColor),
+		FRuntimeMeshUVComponents(InUV0, InUV1) { }
 };
 
+
+template<bool HalfPrecisionUVs>
+struct FRuntimeMeshVertex<1, HalfPrecisionUVs> :
+	public FRuntimeMeshVertexBase,
+	public FRuntimeMeshUVComponents<1, HalfPrecisionUVs>
+{
+	typedef FRuntimeMeshVertex<1, HalfPrecisionUVs> SelfType;
+
+	static RuntimeMeshVertexStructure GetVertexStructure(const FRuntimeMeshVertexBuffer<SelfType>& VertexBuffer)
+	{
+		return CreateVertexStructure<1, HalfPrecisionUVs>(VertexBuffer);
+	}
+
+
+	FRuntimeMeshVertex() :
+		FRuntimeMeshVertexBase(FVector::ZeroVector, FVector(0, 0, 1), FRuntimeMeshTangent(), FColor::White),
+		FRuntimeMeshUVComponents() { }
+	FRuntimeMeshVertex(const FVector& InPosition) :
+		FRuntimeMeshVertexBase(InPosition, FVector(0, 0, 1), FRuntimeMeshTangent(), FColor::White),
+		FRuntimeMeshUVComponents() { }
+	FRuntimeMeshVertex(const FVector& InPosition, const FColor& InColor) :
+		FRuntimeMeshVertexBase(InPosition, FVector(0, 0, 1), FRuntimeMeshTangent(), InColor),
+		FRuntimeMeshUVComponents() { }
+
+	FRuntimeMeshVertex(const FVector& InPosition, const FVector& InNormal, const FRuntimeMeshTangent& InTangent) :
+		FRuntimeMeshVertexBase(InPosition, InNormal, InTangent, FColor::White),
+		FRuntimeMeshUVComponents() { }
+	FRuntimeMeshVertex(const FVector& InPosition, const FVector& InTangentX, const FVector& InTangentY, const FVector& InTangentZ) :
+		FRuntimeMeshVertexBase(InPosition, InTangentX, InTangentY, InTangentZ, FColor::White),
+		FRuntimeMeshUVComponents() { }
+
+	FRuntimeMeshVertex(const FVector& InPosition, const FVector& InNormal, const FRuntimeMeshTangent& InTangent, const FVector2D& InUV0) :
+		FRuntimeMeshVertexBase(InPosition, InNormal, InTangent, FColor::White),
+		FRuntimeMeshUVComponents(InUV0) { }
+	FRuntimeMeshVertex(const FVector& InPosition, const FVector& InTangentX, const FVector& InTangentY, const FVector& InTangentZ, const FVector2D& InUV0) :
+		FRuntimeMeshVertexBase(InPosition, InTangentX, InTangentY, InTangentZ, FColor::White),
+		FRuntimeMeshUVComponents(InUV0) { }
+
+	FRuntimeMeshVertex(const FVector& InPosition, const FVector& InNormal, const FRuntimeMeshTangent& InTangent, const FColor& InColor, const FVector2D& InUV0) :
+		FRuntimeMeshVertexBase(InPosition, InNormal, InTangent, InColor),
+		FRuntimeMeshUVComponents(InUV0) { }
+	FRuntimeMeshVertex(const FVector& InPosition, const FVector& InTangentX, const FVector& InTangentY, const FVector& InTangentZ, const FColor& InColor, const FVector2D& InUV0) :
+		FRuntimeMeshVertexBase(InPosition, InTangentX, InTangentY, InTangentZ, InColor),
+		FRuntimeMeshUVComponents(InUV0) { }
+};
+
+/** Simple vertex with 1 UV channel */
 using FRuntimeMeshVertexSimple = FRuntimeMeshVertex<1, false>;
+
+/** Simple vertex with 2 UV channels */
 using FRuntimeMeshVertexDualUV = FRuntimeMeshVertex<2, false>;
+
 
 
 

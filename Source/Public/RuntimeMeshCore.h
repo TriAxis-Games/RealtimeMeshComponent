@@ -80,6 +80,11 @@ struct FRuntimeMeshTangent
 		: TangentX(InTangentX)
 		, bFlipTangentY(bInFlipTangentY)
 	{}
+
+	void AdjustNormal(FPackedNormal& Normal) const
+	{
+		Normal.Vector.W = bFlipTangentY ? 0 : 255;
+	}
 };
 
 
