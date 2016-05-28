@@ -415,6 +415,15 @@ struct FRuntimeMeshVertexBase
 		// store determinant of basis in w component of normal vector
 		Normal.Vector.W = GetBasisDeterminantSign(InTangentX, InTangentY, InTangentZ) < 0.0f ? 0 : 255;
 	}
+
+	void SetNormalAndTangent(const FVector& InTangentX, const FVector& InTangentY, const FVector& InTangentZ)
+	{
+		Normal = InTangentZ;
+		Tangent = InTangentX;
+		
+		// store determinant of basis in w component of normal vector
+		Normal.Vector.W = GetBasisDeterminantSign(InTangentX, InTangentY, InTangentZ) < 0.0f ? 0 : 255;
+	}
 };
 
 template<int32 TextureChannels, bool HalfPrecisionUVs = false>
@@ -524,6 +533,8 @@ struct FRuntimeMeshVertex<1, HalfPrecisionUVs> :
 		FRuntimeMeshVertexBase(InPosition, InTangentX, InTangentY, InTangentZ, InColor),
 		FRuntimeMeshUVComponents(InUV0) { }
 };
+
+
 
 /** Simple vertex with 1 UV channel */
 using FRuntimeMeshVertexSimple = FRuntimeMeshVertex<1, false>;
