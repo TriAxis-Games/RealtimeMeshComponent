@@ -429,13 +429,13 @@ public:
 	*	Controls whether the complex (Per poly) geometry should be treated as 'simple' collision.
 	*	Should be set to false if this component is going to be given simple collision and simulated.
 	*/
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Components|RuntimeMesh")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Runtime Mesh")
 	bool bUseComplexAsSimpleCollision;
 
 	/**
 	*	Controls whether the mesh data should be serialized with the component.
 	*/
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Components|RuntimeMesh")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Runtime Mesh")
 	bool bShouldSerializeMeshData;
 
 	/** Collision data */
