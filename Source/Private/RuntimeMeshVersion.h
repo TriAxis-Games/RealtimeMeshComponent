@@ -12,6 +12,9 @@ namespace FRuntimeMeshVersion
 	{
 		Initial = 0,
 		TemplatedVertexFix = 1,
+		SerializationOptional = 2,
+
+
 
 		// -----<new versions can be added above this line>-------------------------------------------------
 		VersionPlusOne,

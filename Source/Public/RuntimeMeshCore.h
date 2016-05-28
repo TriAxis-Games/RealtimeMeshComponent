@@ -658,6 +658,38 @@ struct FRuntimeMeshCollisionSection
 		VertexBuffer.Empty();
 		IndexBuffer.Empty();
 	}
+
+	friend FArchive& operator <<(FArchive& Ar, FRuntimeMeshCollisionSection& Section)
+	{
+		Ar << Section.VertexBuffer;
+		Ar << Section.IndexBuffer;
+		return Ar;
+	}
+}; 
+
+USTRUCT()
+struct FRuntimeConvexCollisionSection
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	TArray<FVector> VertexBuffer;
+
+	UPROPERTY()
+	FBox BoundingBox;
+
+	void Reset()
+	{
+		VertexBuffer.Empty();
+		BoundingBox.Init();
+	}
+
+	friend FArchive& operator <<(FArchive& Ar, FRuntimeConvexCollisionSection& Section)
+	{
+		Ar << Section.VertexBuffer;
+		Ar << Section.BoundingBox;
+		return Ar;
+	}
 };
 
 

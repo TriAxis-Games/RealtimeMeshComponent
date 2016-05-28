@@ -410,7 +410,7 @@ FString FRuntimeMeshComponentPrePhysicsTickFunction::DiagnosticMessage()
 
 
 URuntimeMeshComponent::URuntimeMeshComponent(const FObjectInitializer& ObjectInitializer)
-	: Super(ObjectInitializer), bCollisionDirty(true), bUseComplexAsSimpleCollision(true)
+	: Super(ObjectInitializer), bCollisionDirty(true), bUseComplexAsSimpleCollision(true), bShouldSerializeMeshData(true)
 {
 	PrePhysicsTick.TickGroup = TG_PrePhysics;
 	PrePhysicsTick.bCanEverTick = true;
@@ -1103,14 +1103,10 @@ void URuntimeMeshComponent::AddCollisionConvexMesh(TArray<FVector> ConvexVerts)
 
 	if (ConvexVerts.Num() >= 4)
 	{
-		// New element
-		FKConvexElem NewConvexElem;
-		// Copy in vertex info
-		NewConvexElem.VertexData = ConvexVerts;
-		// Update bounding box
-		NewConvexElem.ElemBox = FBox(NewConvexElem.VertexData);
-		// Add to array of convex elements
-		CollisionConvexElems.Add(NewConvexElem);
+		FRuntimeConvexCollisionSection ConvexSection;
+		ConvexSection.VertexBuffer = ConvexVerts;
+		ConvexSection.BoundingBox = FBox(ConvexVerts);
+		ConvexCollisionSections.Add(ConvexSection);
 		
 
 		// Are we in a batch update?
@@ -1130,7 +1126,7 @@ void URuntimeMeshComponent::ClearCollisionConvexMeshes()
 	SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_ClearCollisionConvexMeshes);
 
 	// Empty simple collision info
-	CollisionConvexElems.Empty();
+	ConvexCollisionSections.Empty();
 
 
 	// Are we in a batch update?
@@ -1148,16 +1144,15 @@ void URuntimeMeshComponent::SetCollisionConvexMeshes(const TArray< TArray<FVecto
 {
 	SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_SetCollisionConvexMeshes);
 
-	CollisionConvexElems.Reset();
+	ConvexCollisionSections.Empty(ConvexMeshes.Num());
 
 	// Create element for each convex mesh
 	for (int32 ConvexIndex = 0; ConvexIndex < ConvexMeshes.Num(); ConvexIndex++)
 	{
-		FKConvexElem NewConvexElem;
-		NewConvexElem.VertexData = ConvexMeshes[ConvexIndex];
-		NewConvexElem.ElemBox = FBox(NewConvexElem.VertexData);
-
-		CollisionConvexElems.Add(NewConvexElem);
+		FRuntimeConvexCollisionSection ConvexSection;
+		ConvexSection.VertexBuffer = ConvexMeshes[ConvexIndex];
+		ConvexSection.BoundingBox = FBox(ConvexSection.VertexBuffer);
+		ConvexCollisionSections.Add(ConvexSection);
 	}
 
 
@@ -1459,7 +1454,14 @@ void URuntimeMeshComponent::UpdateCollision()
 	EnsureBodySetupCreated();
 
 	// Fill in simple collision convex elements
-	BodySetup->AggGeom.ConvexElems = CollisionConvexElems;
+	BodySetup->AggGeom.ConvexElems.SetNum(ConvexCollisionSections.Num());
+	for (int32 Index = 0; Index < ConvexCollisionSections.Num(); Index++)
+	{
+		FKConvexElem& NewConvexElem = BodySetup->AggGeom.ConvexElems[Index];
+
+		NewConvexElem.VertexData = ConvexCollisionSections[Index].VertexBuffer;
+		NewConvexElem.ElemBox = FBox(NewConvexElem.VertexData);
+	} 
 
 	// Set trace flag
 	BodySetup->CollisionTraceFlag = bUseComplexAsSimpleCollision ? CTF_UseComplexAsSimple : CTF_UseDefault;
@@ -1532,14 +1534,14 @@ void URuntimeMeshComponent::RegisterComponentTickFunctions(bool bRegister)
 void URuntimeMeshComponent::Serialize(FArchive& Ar)
 {
 	SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_Serialize);
-
+	
 	Super::Serialize(Ar);
 
 	Ar.UsingCustomVersion(FRuntimeMeshVersion::GUID);
 
 	if (Ar.CustomVer(FRuntimeMeshVersion::GUID) >= FRuntimeMeshVersion::Initial)
 	{
-		int32 SectionsCount = MeshSections.Num();
+		int32 SectionsCount = bShouldSerializeMeshData ? MeshSections.Num() : 0;
 		Ar << SectionsCount;
 		if (Ar.IsLoading())
 		{
@@ -1603,4 +1605,34 @@ void URuntimeMeshComponent::Serialize(FArchive& Ar)
 			}
 		}
 	}
+
+	if (Ar.CustomVer(FRuntimeMeshVersion::GUID) >= FRuntimeMeshVersion::SerializationOptional)
+	{		
+		
+		if (bShouldSerializeMeshData || Ar.IsLoading())
+		{
+			// Serialize the real data if we want it, also use this path for loading to get anything that was in the last save
+
+			// Serialize the collision data
+			Ar << MeshCollisionSections;
+			Ar << ConvexCollisionSections;
+		}
+		else
+		{
+			// serialize empty arrays if we don't want serialization
+			TArray<FRuntimeMeshCollisionSection> NullCollisionSections;
+			Ar << NullCollisionSections;
+			TArray<FRuntimeConvexCollisionSection> NullConvexBodies;
+			Ar << NullConvexBodies;
+		}
+	}
 }	
+
+void URuntimeMeshComponent::PostLoad()
+{
+	Super::PostLoad();
+
+	// Rebuild collision and local bounds.
+	MarkCollisionDirty();
+	UpdateLocalBounds();
+}

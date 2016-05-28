@@ -432,6 +432,12 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Components|RuntimeMesh")
 	bool bUseComplexAsSimpleCollision;
 
+	/**
+	*	Controls whether the mesh data should be serialized with the component.
+	*/
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Components|RuntimeMesh")
+	bool bShouldSerializeMeshData;
+
 	/** Collision data */
 	UPROPERTY(Transient, DuplicateTransient)
 	class UBodySetup* BodySetup;
@@ -530,7 +536,7 @@ private:
 
 	virtual void Serialize(FArchive& Ar) override;
 
-	//virtual void PostLoad() override;
+	virtual void PostLoad() override;
 
 	virtual void RegisterComponentTickFunctions(bool bRegister) override;
 
@@ -543,18 +549,18 @@ private:
 	/** Array of sections of mesh */	
 	TArray<RuntimeMeshSectionPtr> MeshSections;
 
-	UPROPERTY()
+	UPROPERTY(Transient)
 	TArray<FRuntimeMeshCollisionSection> MeshCollisionSections;
 
 	/** Convex shapes used for simple collision */
-	UPROPERTY()
-	TArray<FKConvexElem> CollisionConvexElems;
+	UPROPERTY(Transient)
+	TArray<FRuntimeConvexCollisionSection> ConvexCollisionSections;
 
 	/** Local space bounds of mesh */
-	UPROPERTY()
+	UPROPERTY(Transient)
 	FBoxSphereBounds LocalBounds;
 
-	UPROPERTY()
+	UPROPERTY(Transient)
 	FRuntimeMeshComponentPrePhysicsTickFunction PrePhysicsTick;
 
 
