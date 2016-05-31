@@ -11,23 +11,18 @@
 class FRuntimeMeshVertexFactory;
 
 
-template<typename Type, typename = void>
-struct FVertexHasPositionComponent 
-{ 
-	enum
-	{
-		Value = false
-	};
+template<typename T> struct FVertexHasPositionComponent {
+	struct Fallback { FVector Position; };
+	struct Derived : T, Fallback { };
+
+	template<typename C, C> struct ChT;
+
+	template<typename C> static char(&f(ChT<FVector Fallback::*, &C::Position>*))[1];
+	template<typename C> static char(&f(...))[2];
+
+	static bool const Value = sizeof(f<Derived>(0)) == 2;
 };
 
-template<typename Type>
-struct FVertexHasPositionComponent<Type, decltype(Type().Position, void())>
-{
-	enum
-	{
-		Value = true
-	};
-};
 
 
 
