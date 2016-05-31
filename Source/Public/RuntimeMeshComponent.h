@@ -4,24 +4,12 @@
 
 #include "Components/MeshComponent.h"
 #include "RuntimeMeshCore.h"
+#include "RuntimeMeshSection.h"
 #include "RuntimeMeshGenericVertex.h"
 #include "PhysicsEngine/ConvexElem.h"
 #include "RuntimeMeshComponent.generated.h"
 
-enum class ERMCBatchSectionUpdateType
-{
-	None = 0x0,
-	Create = 0x1,
-	Destroy = 0x2,
-	VerticesUpdate = 0x4,
-	IndicesUpdate = 0x8,
-	VisibilityOrShadowsUpdate = 0x10,
 
-
-
-};
-
-ENUM_CLASS_FLAGS(ERMCBatchSectionUpdateType)
 
 USTRUCT()
 struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshComponentPrePhysicsTickFunction : public FTickFunction
@@ -48,7 +36,7 @@ class RUNTIMEMESHCOMPONENT_API URuntimeMeshComponent : public UMeshComponent, pu
 private:
 	
 	template<typename SectionType>
-	TSharedPtr<SectionType> CreateOrResetSection(int32 SectionIndex)
+	TSharedPtr<SectionType> CreateOrResetSection(int32 SectionIndex, bool bWantsSeparatePositionBuffer)
 	{
 		// Ensure sections array is long enough
 		if (SectionIndex >= MeshSections.Num())
@@ -57,75 +45,86 @@ private:
 		}
 
 		// Create new section
-		TSharedPtr<SectionType> NewSection = MakeShareable(new SectionType());
+		TSharedPtr<SectionType> NewSection = MakeShareable(new SectionType(bWantsSeparatePositionBuffer));
 
 		MeshSections[SectionIndex] = NewSection;
 
 		return NewSection;
 	}
-
-	
+		
 	TSharedPtr<FRuntimeMeshSectionInterface> CreateOrResetSectionInternalType(int32 SectionIndex, int32 NumUVChannels, bool WantsHalfPrecsionUVs);
 
-	void FinishCreateSectionInternal(int32 SectionIndex, RuntimeMeshSectionPtr& Section, bool bNeedsBoundsUpdate);
 
-	void FinishUpdateSectionInternal(int32 SectionIndex, RuntimeMeshSectionPtr& Section, bool bHadPositionUpdates, bool bHadIndexUpdates, bool bNeedsBoundsUpdate);
+	UMaterialInterface* GetSectionMaterial(int32 Index)
+	{
+		auto Material = GetMaterial(Index);
+		return Material ? Material : UMaterial::GetDefaultMaterial(MD_Surface);
+	}
+
+
+	void CreateSectionInternal(int32 SectionIndex, bool bNeedsBoundsUpdate);
+
+	void UpdateSectionInternal(int32 SectionIndex, bool bHadVertexPositionsUpdate, bool bHadVertexUpdates, bool bHadIndexUpdates, bool bNeedsBoundsUpdate);
+
+	void UpdateSectionVertexPositionsInternal(int32 SectionIndex, bool bNeedsBoundsUpdate);
+
+	void UpdateSectionPropertiesInternal(int32 SectionIndex, bool bUpdateRequiresProxyRecreateIfStatic);
+
+
+
+
+
+
+// 	void FinishCreateSectionInternal(int32 SectionIndex, RuntimeMeshSectionPtr& Section, bool bNeedsBoundsUpdate);
+// 
+// 	void FinishUpdateSectionInternal(int32 SectionIndex, RuntimeMeshSectionPtr& Section, bool bHadPositionUpdates, bool bHadVertexUpdates, bool bHadIndexUpdates, bool bNeedsBoundsUpdate);
+// 
+// 	void FinishUpdateSectionPropertiesInternal(int32 SectionIndex, RuntimeMeshSectionPtr& Section, bool bUpdateRequiresProxyRecreateIfStatic);
+// 
+// 	void FinishPositionOnlyUpdateSectionInternal(int32 SectionIndex, RuntimeMeshSectionPtr& Section, bool bNeedsBoundsUpdate);
 
 public:
 	URuntimeMeshComponent(const FObjectInitializer& ObjectInitializer);
+
+
+	template<typename VertexType>
+	void CreateMeshSection(int32 SectionIndex, bool bCreateCollision = false, EUpdateFrequency UpdateFrequency = EUpdateFrequency::Average);
+
 
 	template<typename VertexType>
 	void CreateMeshSection(int32 SectionIndex, TArray<VertexType>& Vertices, TArray<int32>& Triangles, bool bCreateCollision = false, 
 		EUpdateFrequency UpdateFrequency = EUpdateFrequency::Average, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
 	{
 		SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_CreateMeshSection_VertexType);
-		TSharedPtr<FRuntimeMeshSection<VertexType>> Section = CreateOrResetSection<FRuntimeMeshSection<VertexType>>(SectionIndex);
-
-		if ((UpdateFlags & ESectionUpdateFlags::MoveArrays) != ESectionUpdateFlags::None)
-		{
-			Section->UpdateVertexBufferMove(Vertices);
-			Section->UpdateIndexBufferMove(Triangles);
-		}
-		else
-		{
-			Section->UpdateVertexBuffer(Vertices);
-			Section->UpdateIndexBuffer(Triangles);
-		}
+		TSharedPtr<FRuntimeMeshSection<VertexType>> Section = CreateOrResetSection<FRuntimeMeshSection<VertexType>>(SectionIndex, false);
+		
+		bool bShouldUseMove = (UpdateFlags & ESectionUpdateFlags::MoveArrays) != ESectionUpdateFlags::None;
+		Section->UpdateVertexBuffer(Vertices, nullptr, bShouldUseMove);
+		Section->UpdateIndexBuffer(Triangles, bShouldUseMove);
 
 		// Track collision status and update collision information if necessary
 		Section->CollisionEnabled = bCreateCollision;
 		Section->UpdateFrequency = UpdateFrequency;
 
-		auto DownCastSection = StaticCastSharedPtr<FRuntimeMeshSectionInterface>(Section);
-		FinishCreateSectionInternal(SectionIndex, DownCastSection, true);
+		CreateSectionInternal(SectionIndex, true);
 	}
 
 	template<typename VertexType>
 	void CreateMeshSection(int32 SectionIndex, TArray<VertexType>& Vertices, TArray<int32>& Triangles, const FBox& BoundingBox, bool bCreateCollision = false,
 		EUpdateFrequency UpdateFrequency = EUpdateFrequency::Average, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
 	{
-		SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_CreateMeshSection_VertexType);
-		TSharedPtr<FRuntimeMeshSection<VertexType>> Section = CreateOrResetSection<FRuntimeMeshSection<VertexType>>(SectionIndex);
+		SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_CreateMeshSection_VertexType_WithBoundingBox);
+		TSharedPtr<FRuntimeMeshSection<VertexType>> Section = CreateOrResetSection<FRuntimeMeshSection<VertexType>>(SectionIndex, false);
 
-		bool bNeedsBoundsUpdate;
-
-		if ((UpdateFlags & ESectionUpdateFlags::MoveArrays) != ESectionUpdateFlags::None)
-		{
-			bNeedsBoundsUpdate = Section->UpdateVertexBufferMove(Vertices, BoundingBox);
-			Section->UpdateIndexBufferMove(Triangles);
-		}
-		else
-		{
-			bNeedsBoundsUpdate = Section->UpdateVertexBuffer(Vertices, BoundingBox);
-			Section->UpdateIndexBuffer(Triangles);
-		}
+		bool bShouldUseMove = (UpdateFlags & ESectionUpdateFlags::MoveArrays) != ESectionUpdateFlags::None;
+		Section->UpdateVertexBuffer(Vertices, &BoundingBox, bShouldUseMove);
+		Section->UpdateIndexBuffer(Triangles, bShouldUseMove);
 
 		// Track collision status and update collision information if necessary
 		Section->CollisionEnabled = bCreateCollision;
 		Section->UpdateFrequency = UpdateFrequency;
 
-		auto DownCastSection = StaticCastSharedPtr<FRuntimeMeshSectionInterface>(Section);
-		FinishCreateSectionInternal(SectionIndex, DownCastSection, bNeedsBoundsUpdate);
+		CreateSectionInternal(SectionIndex, true);
 	}
 
 	template<typename VertexType>
@@ -134,152 +133,108 @@ public:
 		SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_UpdateMeshSection_VertexType);
 		check(SectionIndex < MeshSections.Num() && MeshSections[SectionIndex].IsValid())
 		TSharedPtr<FRuntimeMeshSection<VertexType>> Section = StaticCastSharedPtr<FRuntimeMeshSection<VertexType>>(MeshSections[SectionIndex]);
+		
+		bool bShouldUseMove = (UpdateFlags & ESectionUpdateFlags::MoveArrays) != ESectionUpdateFlags::None;
+		bool bNeedsBoundsUpdate = Section->UpdateVertexBuffer(Vertices, nullptr, bShouldUseMove);
 
-		if ((UpdateFlags & ESectionUpdateFlags::MoveArrays) != ESectionUpdateFlags::None)
-		{
-			Section->UpdateVertexBufferMove(Vertices);
-		}
-		else
-		{
-			Section->UpdateVertexBuffer(Vertices);
-		}
-
-		auto DownCastSection = StaticCastSharedPtr<FRuntimeMeshSectionInterface>(Section);
-		FinishUpdateSectionInternal(SectionIndex, DownCastSection, true, false, true);
+		UpdateSectionInternal(SectionIndex, false, true, false, bNeedsBoundsUpdate);
 	}
 
 	template<typename VertexType>
 	void UpdateMeshSection(int32 SectionIndex, TArray<VertexType>& Vertices, const FBox& BoundingBox, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
 	{
-		SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_UpdateMeshSection_VertexType);
+		SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_UpdateMeshSection_VertexType_WithBoundingBox);
 		check(SectionIndex < MeshSections.Num() && MeshSections[SectionIndex].IsValid())
 			TSharedPtr<FRuntimeMeshSection<VertexType>> Section = StaticCastSharedPtr<FRuntimeMeshSection<VertexType>>(MeshSections[SectionIndex]);
 
-		bool bNeedsBoundsUpdate;
+		bool bShouldUseMove = (UpdateFlags & ESectionUpdateFlags::MoveArrays) != ESectionUpdateFlags::None;
+		bool bNeedsBoundsUpdate = Section->UpdateVertexBuffer(Vertices, &BoundingBox, bShouldUseMove);
 
-		if ((UpdateFlags & ESectionUpdateFlags::MoveArrays) != ESectionUpdateFlags::None)
-		{
-			bNeedsBoundsUpdate = Section->UpdateVertexBufferMove(Vertices, BoundingBox);
-		}
-		else
-		{
-			bNeedsBoundsUpdate = Section->UpdateVertexBuffer(Vertices, BoundingBox);
-		}
-
-		auto DownCastSection = StaticCastSharedPtr<FRuntimeMeshSectionInterface>(Section);
-		FinishUpdateSectionInternal(SectionIndex, DownCastSection, true, false, bNeedsBoundsUpdate);
+		UpdateSectionInternal(SectionIndex, false, true, false, bNeedsBoundsUpdate);
 	}
 
 	template<typename VertexType>
 	void UpdateMeshSection(int32 SectionIndex, TArray<VertexType>& Vertices, TArray<int32>& Triangles, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
 	{
+		SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_UpdateMeshSection_VertexType_WithTriangles);
+		
 		check(SectionIndex < MeshSections.Num() && MeshSections[SectionIndex].IsValid())
 			TSharedPtr<FRuntimeMeshSection<VertexType>> Section = StaticCastSharedPtr<FRuntimeMeshSection<VertexType>>(MeshSections[SectionIndex]);
 
-		if ((UpdateFlags & ESectionUpdateFlags::MoveArrays) != ESectionUpdateFlags::None)
-		{
-			Section->UpdateVertexBufferMove(Vertices);
-			Section->UpdateIndexBufferMove(Triangles);
-		}
-		else
-		{
-			Section->UpdateVertexBuffer(Vertices);
-			Section->UpdateIndexBuffer(Triangles);
-		}
+		bool bShouldUseMove = (UpdateFlags & ESectionUpdateFlags::MoveArrays) != ESectionUpdateFlags::None;
+		bool bNeedsBoundsUpdate = Section->UpdateVertexBuffer(Vertices, nullptr, bShouldUseMove);
+		Section->UpdateIndexBuffer(Triangles, bShouldUseMove);
 
-		auto DownCastSection = StaticCastSharedPtr<FRuntimeMeshSectionInterface>(Section);
-		FinishUpdateSectionInternal(SectionIndex, DownCastSection, true, true, true);
+		UpdateSectionInternal(SectionIndex, false, true, true, true);
 	}
 
 	template<typename VertexType>
 	void UpdateMeshSection(int32 SectionIndex, TArray<VertexType>& Vertices, TArray<int32>& Triangles, const FBox& BoundingBox, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
 	{
+		SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_UpdateMeshSection_VertexType_WithTrianglesAndBoundinBox);
+
 		check(SectionIndex < MeshSections.Num() && MeshSections[SectionIndex].IsValid())
 		TSharedPtr<FRuntimeMeshSection<VertexType>> Section = StaticCastSharedPtr<FRuntimeMeshSection<VertexType>>(MeshSections[SectionIndex]);
 
-		bool bNeedsBoundsUpdate;
+		bool bShouldUseMove = (UpdateFlags & ESectionUpdateFlags::MoveArrays) != ESectionUpdateFlags::None;
+		bool bNeedsBoundsUpdate = Section->UpdateVertexBuffer(Vertices, &BoundingBox, bShouldUseMove);
+		Section->UpdateIndexBuffer(Triangles, bShouldUseMove);
 
-		if ((UpdateFlags & ESectionUpdateFlags::MoveArrays) != ESectionUpdateFlags::None)
-		{
-			bNeedsBoundsUpdate = Section->UpdateVertexBufferMove(Vertices, BoundingBox);
-			Section->UpdateIndexBufferMove(Triangles);
-		}
-		else
-		{
-			bNeedsBoundsUpdate = Section->UpdateVertexBuffer(Vertices, BoundingBox);
-			Section->UpdateIndexBuffer(Triangles);
-		}
-
-		auto DownCastSection = StaticCastSharedPtr<FRuntimeMeshSectionInterface>(Section);
-		FinishUpdateSectionInternal(SectionIndex, DownCastSection, true, true, bNeedsBoundsUpdate);
+		UpdateSectionInternal(SectionIndex, false, true, true, bNeedsBoundsUpdate);
 	}
 
 
 
-	void CreateMeshSectionSimple(int32 SectionIndex, TArray<FRuntimeMeshVertexSimple>& Vertices, TArray<int32>& Triangles, bool bCreateCollision = false,
+
+	template<typename VertexType>
+	void CreateMeshSectionDualBuffer(int32 SectionIndex, TArray<FVector>& VertexPositions, TArray<VertexType>& VertexData, TArray<int32>& Triangles, bool bCreateCollision = false,
 		EUpdateFrequency UpdateFrequency = EUpdateFrequency::Average, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
 	{
-		CreateMeshSection<FRuntimeMeshVertexSimple>(SectionIndex, Vertices, Triangles, bCreateCollision, UpdateFrequency, UpdateFlags);
-	}
+		SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_CreateMeshSectionDualBuffer);
 
-	void CreateMeshSectionSimple(int32 SectionIndex, TArray<FRuntimeMeshVertexSimple>& Vertices, TArray<int32>& Triangles, const FBox& BoundingBox, bool bCreateCollision = false,
-		EUpdateFrequency UpdateFrequency = EUpdateFrequency::Average, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
+		TSharedPtr<FRuntimeMeshSection<VertexType>> Section = CreateOrResetSection<FRuntimeMeshSection<VertexType>>(SectionIndex, true);
+
+		bool bShouldUseMove = (UpdateFlags & ESectionUpdateFlags::MoveArrays) != ESectionUpdateFlags::None;
+		Section->UpdateVertexPositionBuffer(VertexPositions, nullptr, bShouldUseMove);
+		Section->UpdateVertexBuffer(VertexData, nullptr, bShouldUseMove);
+		Section->UpdateIndexBuffer(Triangles, bShouldUseMove);
+		
+		// Track collision status and update collision information if necessary
+		Section->CollisionEnabled = bCreateCollision;
+		Section->UpdateFrequency = UpdateFrequency;
+
+		CreateSectionInternal(SectionIndex, true);
+	}
+	
+	template<typename VertexType>
+	void UpdateMeshSectionPositionsImmediate(int32 SectionIndex, TArray<FVector>& VertexPositions, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
 	{
-		CreateMeshSection<FRuntimeMeshVertexSimple>(SectionIndex, Vertices, Triangles, BoundingBox, bCreateCollision, UpdateFrequency, UpdateFlags);
+		SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_UpdateMeshSectionPositionsImmediate);
+
+		check(SectionIndex < MeshSections.Num() && MeshSections[SectionIndex].IsValid())
+		TSharedPtr<FRuntimeMeshSection<VertexType>> Section = StaticCastSharedPtr<FRuntimeMeshSection<VertexType>>(MeshSections[SectionIndex]);
+
+		bool bShouldUseMove = (UpdateFlags & ESectionUpdateFlags::MoveArrays) != ESectionUpdateFlags::None;
+		Section->UpdateVertexPositionBuffer(VertexPositions, nullptr, bShouldUseMove);
+
+		UpdateSectionVertexPositionsInternal(SectionIndex, true);
 	}
 
-	void CreateMeshSectionSimple(int32 SectionIndex, TArray<FRuntimeMeshVertexSimple>& Vertices, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
+	template<typename VertexType>
+	void UpdateMeshSectionPositionsImmediate(int32 SectionIndex, TArray<FVector>& VertexPositions, const FBox& BoundingBox, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
 	{
-		UpdateMeshSection<FRuntimeMeshVertexSimple>(SectionIndex, Vertices, UpdateFlags);
-	}
+		SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_UpdateMeshSectionPositionsImmediate_WithBoundinBox);
 
-	void CreateMeshSectionSimple(int32 SectionIndex, TArray<FRuntimeMeshVertexSimple>& Vertices, const FBox& BoundingBox, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
-	{
-		UpdateMeshSection<FRuntimeMeshVertexSimple>(SectionIndex, Vertices, BoundingBox, UpdateFlags);
-	}
-
-	void CreateMeshSectionSimple(int32 SectionIndex, TArray<FRuntimeMeshVertexSimple>& Vertices, TArray<int32>& Triangles, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
-	{
-		UpdateMeshSection<FRuntimeMeshVertexSimple>(SectionIndex, Vertices, Triangles, UpdateFlags);
-	}
-
-	void CreateMeshSectionSimple(int32 SectionIndex, TArray<FRuntimeMeshVertexSimple>& Vertices, TArray<int32>& Triangles, const FBox& BoundingBox, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
-	{
-		UpdateMeshSection<FRuntimeMeshVertexSimple>(SectionIndex, Vertices, Triangles, BoundingBox, UpdateFlags);
-	}
+		check(SectionIndex < MeshSections.Num() && MeshSections[SectionIndex].IsValid())
+		TSharedPtr<FRuntimeMeshSection<VertexType>> Section = StaticCastSharedPtr<FRuntimeMeshSection<VertexType>>(MeshSections[SectionIndex]);
 
 
-	void CreateMeshSectionDualUV(int32 SectionIndex, TArray<FRuntimeMeshVertexDualUV>& Vertices, TArray<int32>& Triangles, bool bCreateCollision = false,
-		EUpdateFrequency UpdateFrequency = EUpdateFrequency::Average, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
-	{
-		CreateMeshSection<FRuntimeMeshVertexDualUV>(SectionIndex, Vertices, Triangles, bCreateCollision, UpdateFrequency, UpdateFlags);
+		bool bShouldUseMove = (UpdateFlags & ESectionUpdateFlags::MoveArrays) != ESectionUpdateFlags::None;
+		bool bNeedsBoundsUpdate = Section->UpdateVertexPositionBuffer(VertexPositions, &BoundingBox, bShouldUseMove);
+
+		UpdateSectionVertexPositionsInternal(SectionIndex, bNeedsBoundsUpdate);
 	}
 
-	void CreateMeshSectionDualUV(int32 SectionIndex, TArray<FRuntimeMeshVertexDualUV>& Vertices, TArray<int32>& Triangles, const FBox& BoundingBox, bool bCreateCollision = false,
-		EUpdateFrequency UpdateFrequency = EUpdateFrequency::Average, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
-	{
-		CreateMeshSection<FRuntimeMeshVertexDualUV>(SectionIndex, Vertices, Triangles, BoundingBox, bCreateCollision, UpdateFrequency, UpdateFlags);
-	}
-
-	void CreateMeshSectionDualUV(int32 SectionIndex, TArray<FRuntimeMeshVertexDualUV>& Vertices, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
-	{
-		UpdateMeshSection<FRuntimeMeshVertexDualUV>(SectionIndex, Vertices, UpdateFlags);
-	}
-
-	void CreateMeshSectionDualUV(int32 SectionIndex, TArray<FRuntimeMeshVertexDualUV>& Vertices, const FBox& BoundingBox, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
-	{
-		UpdateMeshSection<FRuntimeMeshVertexDualUV>(SectionIndex, Vertices, BoundingBox, UpdateFlags);
-	}
-
-	void CreateMeshSectionDualUV(int32 SectionIndex, TArray<FRuntimeMeshVertexDualUV>& Vertices, TArray<int32>& Triangles, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
-	{
-		UpdateMeshSection<FRuntimeMeshVertexDualUV>(SectionIndex, Vertices, Triangles, UpdateFlags);
-	}
-
-	void CreateMeshSectionDualUV(int32 SectionIndex, TArray<FRuntimeMeshVertexDualUV>& Vertices, TArray<int32>& Triangles, const FBox& BoundingBox, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
-	{
-		UpdateMeshSection<FRuntimeMeshVertexDualUV>(SectionIndex, Vertices, Triangles, BoundingBox, UpdateFlags);
-	}
 
 
 
@@ -416,7 +371,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
 	void BeginBatchUpdates()
 	{
-		BatchUpdateInfo.bIsPending = true;
+		BatchState.StartBatch();
 	}
 
 	/** Ends a batch of updates started with BeginBatchUpdates() */
@@ -429,13 +384,13 @@ public:
 	*	Controls whether the complex (Per poly) geometry should be treated as 'simple' collision.
 	*	Should be set to false if this component is going to be given simple collision and simulated.
 	*/
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Runtime Mesh")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Components|RuntimeMesh")
 	bool bUseComplexAsSimpleCollision;
 
 	/**
 	*	Controls whether the mesh data should be serialized with the component.
 	*/
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Runtime Mesh")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Components|RuntimeMesh")
 	bool bShouldSerializeMeshData;
 
 	/** Collision data */
@@ -443,60 +398,6 @@ public:
 	class UBodySetup* BodySetup;
 
 private:
-
-
-	struct {
-
-
-		bool bIsPending;
-		bool bRequiresSceneProxyReCreate;
-		bool bRequiresBoundsUpdate;
-		bool bRequiresCollisionUpdate;
-		TArray<ERMCBatchSectionUpdateType> SectionUpdates;
-
-		void Reset()
-		{
-			bIsPending = false;
-			bRequiresSceneProxyReCreate = false;
-			bRequiresBoundsUpdate = false;
-			bRequiresCollisionUpdate = false;		
-			
-			SectionUpdates.Empty();
-		}
-
-		void AddSectionToAdd(int32 SectionIndex) 
-		{
-			int32 UpperBound = SectionIndex + 1;
-			if (UpperBound > SectionUpdates.Num())
-			{
-				SectionUpdates.AddZeroed(UpperBound - SectionUpdates.Num());
-			}
-			SectionUpdates[SectionIndex] &= ~ERMCBatchSectionUpdateType::Destroy;
-			SectionUpdates[SectionIndex] |= ERMCBatchSectionUpdateType::Create; 
-		}
-
-		void AddUpdateForSection(int32 SectionIndex, ERMCBatchSectionUpdateType UpdateType)
-		{
-			int32 UpperBound = SectionIndex + 1;
-			if (UpperBound > SectionUpdates.Num())
-			{
-				SectionUpdates.AddZeroed(UpperBound - SectionUpdates.Num());
-			}
-			SectionUpdates[SectionIndex] |= UpdateType;
-		}
-
-		void AddSectionToRemove(int32 SectionIndex) 
-		{
-			int32 UpperBound = SectionIndex + 1;
-			if (UpperBound > SectionUpdates.Num())
-			{
-				SectionUpdates.AddZeroed(UpperBound - SectionUpdates.Num());
-			}
-			SectionUpdates[SectionIndex] &= ~ERMCBatchSectionUpdateType::Create;
-			SectionUpdates[SectionIndex] |= ERMCBatchSectionUpdateType::Destroy;
-		}
-
-	} BatchUpdateInfo;
 
 
 	//~ Begin Interface_CollisionDataProvider Interface
@@ -541,7 +442,8 @@ private:
 	virtual void RegisterComponentTickFunctions(bool bRegister) override;
 
 
-
+	/* Current state of a batch update. */
+	FRuntimeMeshBatchUpdateState BatchState;
 
 
 	bool bCollisionDirty;

@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "RuntimeMeshComponentPluginPrivatePCH.h"
+#include "RuntimeMeshComponentPlugin.h"
 
 
 // Custom version for runtime mesh serialization
@@ -13,7 +13,7 @@ namespace FRuntimeMeshVersion
 		Initial = 0,
 		TemplatedVertexFix = 1,
 		SerializationOptional = 2,
-
+		DualVertexBuffer = 3,
 
 
 		// -----<new versions can be added above this line>-------------------------------------------------

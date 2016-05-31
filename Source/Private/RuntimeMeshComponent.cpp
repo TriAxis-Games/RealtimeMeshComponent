@@ -8,30 +8,6 @@
 #include "RuntimeMeshVersion.h"
 
 
-struct FRMCBatchUpdateCreateUpdateSection
-{
-	bool bIsCreate;
-	FRuntimeMeshSectionUpdateDataInterface* SectionData;
-};
-
-struct FRMCBatchUpdatePropertyUpdateSection
-{
-	int32 TargetSection;
-	bool bIsVisible;
-	bool bCastsShadow;
-};
-
-
-struct FRMCBatchUpdateData
-{
-	TArray<FRMCBatchUpdateCreateUpdateSection> CreateUpdateSections;
-	TArray<int32> DestroySections;
-	TArray<FRMCBatchUpdatePropertyUpdateSection> PropertyUpdateSections;
-};
-
-
-
-
 /** Runtime mesh scene proxy */
 class FRuntimeMeshSceneProxy : public FPrimitiveSceneProxy
 {
@@ -53,11 +29,18 @@ public:
 			RuntimeMeshSectionPtr& SourceSection = Component->MeshSections[SectionIdx];
 			if (SourceSection.IsValid())
 			{
+				UMaterialInterface* Material = Component->GetMaterial(SectionIdx);
+				if (Material == nullptr)
+				{
+					Material = UMaterial::GetDefaultMaterial(MD_Surface);
+				}
+
+
 				// Get the section creation data
-				auto* SectionData = SourceSection->GetSectionCreationData(Component->GetMaterial(SectionIdx));
+				auto* SectionData = SourceSection->GetSectionCreationData(Material);
 				
 
-				auto Proxy = SectionData->GetNewProxy();
+				auto Proxy = SectionData->NewProxy;
 
 				if (!IsInRenderingThread())
 				{
@@ -65,7 +48,7 @@ public:
 					ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
 						FRuntimeMeshCreateSectionInternalCommand,
 						FRuntimeMeshSectionProxyInterface*, Proxy, Proxy,
-						FRuntimeMeshSectionUpdateDataInterface*, SectionData, SectionData,
+						FRuntimeMeshSectionCreateDataInterface*, SectionData, SectionData,
 						{
 							Proxy->FinishCreate_RenderThread(SectionData);
 						}
@@ -95,7 +78,7 @@ public:
 	}
 
 	/** Called on render thread to create a new dynamic section. (Static sections are handled differently) */
-	void CreateSection_RenderThread(FRuntimeMeshSectionUpdateDataInterface* SectionData)
+	void CreateSection_RenderThread(FRuntimeMeshSectionCreateDataInterface* SectionData)
 	{
 		SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_CreateSection_RenderThread);
 
@@ -105,7 +88,10 @@ public:
 		int32 SectionIndex = SectionData->GetTargetSection();
 
 		// Make sure the array is big enough
-		Sections.SetNum(SectionIndex + 1, false);
+		if (SectionIndex >= Sections.Num())
+		{
+			Sections.SetNum(SectionIndex + 1, false);
+		}
 		
 		// If a section already exists... destroy it!
 		if (FRuntimeMeshSectionProxyInterface* Section = Sections[SectionIndex])
@@ -113,8 +99,8 @@ public:
 			delete Section;
 		}
 		
-		FRuntimeMeshSectionProxyInterface* Section = SectionData->GetNewProxy();
-
+		// Get the proxy and finish the creation here on the render thread.
+		FRuntimeMeshSectionProxyInterface* Section = SectionData->NewProxy;
 		Section->FinishCreate_RenderThread(SectionData);		
 
 		// Save ref to new section
@@ -124,7 +110,7 @@ public:
 	}
 
 	/** Called on render thread to assign new dynamic data */
-  	void UpdateSection_RenderThread(FRuntimeMeshSectionUpdateDataInterface* SectionData)
+  	void UpdateSection_RenderThread(FRuntimeMeshRenderThreadCommandInterface* SectionData)
   	{
 		SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_UpdateSection_RenderThread);
 
@@ -139,29 +125,36 @@ public:
 		delete SectionData;
  	}
 
-	void SetSectionVisibility_RenderThread(int32 SectionIndex, bool bIsVisible)
+	void UpdateSectionPositionOnly_RenderThread(FRuntimeMeshRenderThreadCommandInterface* SectionData)
 	{
-		SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_SetSectionVisibility_RenderThread);
-
- 		check(IsInRenderingThread());
- 
- 		if (SectionIndex < Sections.Num() && Sections[SectionIndex] != nullptr)
- 		{
- 			Sections[SectionIndex]->SetIsVisible(bIsVisible);
- 		}
-	}
-
-	void SetSectionCastsShadow_RenderThread(int32 SectionIndex, bool bCastsShadow)
-	{
-		SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_SetSectionCastsShadow_RenderThread);
+		SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_UpdateSectionPositionOnly_RenderThread);
 
 		check(IsInRenderingThread());
+		check(SectionData);
+
+		if (SectionData->GetTargetSection() < Sections.Num() && Sections[SectionData->GetTargetSection()] != nullptr)
+		{
+			Sections[SectionData->GetTargetSection()]->FinishPositionUpdate_RenderThread(SectionData);
+		}
+
+		delete SectionData;
+	}
+
+	void UpdateSectionProperties_RenderThread(FRuntimeMeshRenderThreadCommandInterface* SectionData)
+	{
+		SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_UpdateSectionProperties_RenderThread);
+
+		check(IsInRenderingThread());
+		check(SectionData);
+
+		int32 SectionIndex = SectionData->GetTargetSection();
 
 		if (SectionIndex < Sections.Num() && Sections[SectionIndex] != nullptr)
 		{
-			Sections[SectionIndex]->SetCastsShadow(bCastsShadow);
+			Sections[SectionIndex]->FinishPropertyUpdate_RenderThread(SectionData);
 		}
 	}
+
 
 	void DestroySection_RenderThread(int32 SectionIndex)
 	{
@@ -174,9 +167,10 @@ public:
 		}
 	}
 
-	void ApplyBatchUpdate_RenderThread(FRMCBatchUpdateData* BatchUpdateData)
+	void ApplyBatchUpdate_RenderThread(FRuntimeMeshBatchUpdateData* BatchUpdateData)
 	{
 		SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_ApplyBatchUpdate_RenderThread);
+
 		check(IsInRenderingThread());
 		check(BatchUpdateData);
 
@@ -187,29 +181,21 @@ public:
 		}
 
 		// Create new sections
-		for (auto& SectionToCreate : BatchUpdateData->CreateUpdateSections)
+		for (auto& SectionToCreate : BatchUpdateData->CreateSections)
 		{
-			if (SectionToCreate.bIsCreate)
-			{
-				CreateSection_RenderThread(SectionToCreate.SectionData);
-			}
-			else
-			{
-				UpdateSection_RenderThread(SectionToCreate.SectionData);
-			}
+			CreateSection_RenderThread(static_cast<FRuntimeMeshSectionCreateDataInterface*>(SectionToCreate));
 		}
+
+		// Update sections
+		for (auto& SectionToUpdate : BatchUpdateData->UpdateSections)
+		{
+			UpdateSection_RenderThread(SectionToUpdate);
+		}		
 
 		// Apply section property updates
 		for (auto& SectionToUpdate : BatchUpdateData->PropertyUpdateSections)
 		{
-
-			if (SectionToUpdate.TargetSection < Sections.Num() && Sections[SectionToUpdate.TargetSection] != nullptr)
-			{
-				auto& Section = Sections[SectionToUpdate.TargetSection];
-
-				Section->SetIsVisible(SectionToUpdate.bIsVisible);
-				Section->SetCastsShadow(SectionToUpdate.bCastsShadow);
-			}
+			UpdateSectionProperties_RenderThread(SectionToUpdate);
 		}
 
 		delete BatchUpdateData;
@@ -230,7 +216,7 @@ public:
 	{
 		for (FRuntimeMeshSectionProxyInterface* Section : Sections)
 		{
-			if (Section && Section->GetUpdateFrequency() != EUpdateFrequency::Infrequent)
+			if (Section && !Section->WantsToRenderInStaticPath())
 			{
 				return true;
 			}
@@ -242,15 +228,14 @@ public:
 	{
 		for (FRuntimeMeshSectionProxyInterface* Section : Sections)
 		{
-			if (Section && Section->GetUpdateFrequency() == EUpdateFrequency::Infrequent)
+			if (Section && Section->WantsToRenderInStaticPath())
 			{
 				return true;
 			}
 		}
 		return false;
 	}
-
-
+	
 	virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View) const
 	{
 		FPrimitiveViewRelevance Result;
@@ -268,40 +253,28 @@ public:
 		return Result;
 	}
 
-
-	void CreateMeshBatch(FMeshBatch& MeshBatch, FRuntimeMeshSectionProxyInterface* Section, FMaterialRenderProxy* MaterialProxy) const
+	void CreateMeshBatch(FMeshBatch& MeshBatch, FRuntimeMeshSectionProxyInterface* Section, FMaterialRenderProxy* WireframeMaterial) const
 	{
-		MeshBatch.bWireframe = MaterialProxy == nullptr;
-		MeshBatch.VertexFactory = &Section->GetVertexFactory();
-		MeshBatch.MaterialRenderProxy = MaterialProxy;
-		MeshBatch.ReverseCulling = IsLocalToWorldDeterminantNegative();
-		MeshBatch.Type = PT_TriangleList;
-		MeshBatch.DepthPriorityGroup = SDPG_World;
-		MeshBatch.bCanApplyViewModeOverrides = false;
-		MeshBatch.CastShadow = Section->CastsShadow();
+		Section->CreateMeshBatch(MeshBatch, WireframeMaterial, IsSelected());
 
+		MeshBatch.ReverseCulling = IsLocalToWorldDeterminantNegative();
+		MeshBatch.bCanApplyViewModeOverrides = false;
+		
 		FMeshBatchElement& BatchElement = MeshBatch.Elements[0];
 		BatchElement.PrimitiveUniformBuffer = MeshUniformBuffer;
-		BatchElement.IndexBuffer = &Section->GetIndexBuffer();
-		BatchElement.FirstIndex = 0;
-		BatchElement.NumPrimitives = Section->GetIndexCount() / 3;
-		BatchElement.MinVertexIndex = 0;
-		BatchElement.MaxVertexIndex = Section->GetVertexCount() - 1;
 	}
-
+	
 	virtual void DrawStaticElements(FStaticPrimitiveDrawInterface* PDI) override
 	{
 		SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_DrawStaticElements);
 
 		for (FRuntimeMeshSectionProxyInterface* Section : Sections)
 		{
-			if (Section && Section->ShouldRender() && Section->GetUpdateFrequency() == EUpdateFrequency::Infrequent)
+			if (Section && Section->ShouldRender() && Section->WantsToRenderInStaticPath())
 			{
-				FMaterialRenderProxy* MaterialProxy = Section->GetMaterial()->GetRenderProxy(IsSelected());
-
-				FMeshBatch Batch;
-				CreateMeshBatch(Batch, Section, MaterialProxy);
-				PDI->DrawMesh(Batch, FLT_MAX);
+				FMeshBatch MeshBatch;
+				CreateMeshBatch(MeshBatch, Section, nullptr);
+				PDI->DrawMesh(MeshBatch, FLT_MAX);
 			}
 		}
 	}
@@ -313,11 +286,11 @@ public:
 		// Set up wireframe material (if needed)
 		const bool bWireframe = AllowDebugViewmodes() && ViewFamily.EngineShowFlags.Wireframe;
 
-		FColoredMaterialRenderProxy* WireframeMaterialInstance = NULL;
+		FColoredMaterialRenderProxy* WireframeMaterialInstance = nullptr;
 		if (bWireframe)
 		{
 			WireframeMaterialInstance = new FColoredMaterialRenderProxy(
-				GEngine->WireframeMaterial ? GEngine->WireframeMaterial->GetRenderProxy(IsSelected()) : NULL,
+				GEngine->WireframeMaterial ? GEngine->WireframeMaterial->GetRenderProxy(IsSelected()) : nullptr,
 				FLinearColor(0, 0.5f, 1.f)
 				);
 
@@ -329,8 +302,6 @@ public:
 		{
 			if (Section && Section->ShouldRender())
 			{
-				FMaterialRenderProxy* MaterialProxy = bWireframe ? WireframeMaterialInstance : Section->GetMaterial()->GetRenderProxy(IsSelected());
-
 				// Add the mesh batch to every view it's visible in
 				for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
 				{
@@ -338,10 +309,10 @@ public:
 					{
 						bool bForceDynamicPath = IsRichView(*Views[ViewIndex]->Family) || Views[ViewIndex]->Family->EngineShowFlags.Wireframe || IsSelected() || !IsStaticPathAvailable();
 
-						if (bForceDynamicPath || Section->GetUpdateFrequency() != EUpdateFrequency::Infrequent)
+						if (bForceDynamicPath || !Section->WantsToRenderInStaticPath())
 						{
 							FMeshBatch& MeshBatch = Collector.AllocateMesh();
-							CreateMeshBatch(MeshBatch, Section, MaterialProxy);
+							CreateMeshBatch(MeshBatch, Section, WireframeMaterialInstance);
 
 							Collector.AddMesh(ViewIndex, MeshBatch);
 						}
@@ -412,12 +383,13 @@ FString FRuntimeMeshComponentPrePhysicsTickFunction::DiagnosticMessage()
 URuntimeMeshComponent::URuntimeMeshComponent(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer), bCollisionDirty(true), bUseComplexAsSimpleCollision(true), bShouldSerializeMeshData(true)
 {
+	// Setup the collision update ticker
 	PrePhysicsTick.TickGroup = TG_PrePhysics;
 	PrePhysicsTick.bCanEverTick = true;
 	PrePhysicsTick.bStartWithTickEnabled = true;
 
-
-	BatchUpdateInfo.Reset();
+	// Reset the batch state
+	BatchState.ResetBatch();
 }
 
 TSharedPtr<FRuntimeMeshSectionInterface> URuntimeMeshComponent::CreateOrResetSectionInternalType(int32 SectionIndex, int32 NumUVChannels, bool WantsHalfPrecsionUVs)
@@ -519,52 +491,46 @@ TSharedPtr<FRuntimeMeshSectionInterface> URuntimeMeshComponent::CreateOrResetSec
 	return MeshSections[SectionIndex];
 }
 
-void URuntimeMeshComponent::FinishCreateSectionInternal(int32 SectionIndex, RuntimeMeshSectionPtr& Section, bool bNeedsBoundsUpdate)
-{
-	SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_FinishCreateSectionInternal);
-	
-	// Are we in a batch update?
-	if (BatchUpdateInfo.bIsPending)
-	{
-		// add section to add or force recreate if this section is static
-		if (Section->UpdateFrequency == EUpdateFrequency::Infrequent)
-		{
-			BatchUpdateInfo.bRequiresSceneProxyReCreate = true;
-		}
-		else
-		{
-			BatchUpdateInfo.AddSectionToAdd(SectionIndex);
-		}
 
-		// Flag collision update needed if necessary
+void URuntimeMeshComponent::CreateSectionInternal(int32 SectionIndex, bool bNeedsBoundsUpdate)
+{
+	RuntimeMeshSectionPtr Section = MeshSections[SectionIndex];
+	check(Section.IsValid());
+
+	// Use the batch update if one is running
+	if (BatchState.IsBatchPending())
+	{
+		// Mark section created
+		BatchState.MarkSectionCreated(SectionIndex, Section->UpdateFrequency == EUpdateFrequency::Infrequent);
+
+		// Flag collision if this section affects it
 		if (Section->CollisionEnabled)
 		{
-			BatchUpdateInfo.bRequiresCollisionUpdate = true;
+			BatchState.MarkCollisionDirty();
 		}
-
+		
+		// Flag bounds update if needed.
 		if (bNeedsBoundsUpdate)
 		{
-			// Flag bounds update needed
-			BatchUpdateInfo.bRequiresBoundsUpdate = true;
+			BatchState.MarkBoundsDirty();
 		}
 
-		// Bail as the rest is only for non batched creates
+		// bail since we don't update directly in this case.
 		return;
 	}
-
 
 	// Enqueue the RT command if we already have a SceneProxy
 	if (SceneProxy && Section->UpdateFrequency != EUpdateFrequency::Infrequent)
 	{
 		// Gather all needed update info
-		auto* SectionData = Section->GetSectionCreationData(GetMaterial(SectionIndex));
+		auto* SectionData = Section->GetSectionCreationData(GetSectionMaterial(SectionIndex));
 		SectionData->SetTargetSection(SectionIndex);
 
 		// Enqueue update on RT
 		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
 			FRuntimeMeshSectionCreate,
 			FRuntimeMeshSceneProxy*, RuntimeMeshSceneProxy, (FRuntimeMeshSceneProxy*)SceneProxy,
-			FRuntimeMeshSectionUpdateDataInterface*, SectionData, SectionData,
+			FRuntimeMeshSectionCreateDataInterface*, SectionData, SectionData,
 			{
 				RuntimeMeshSceneProxy->CreateSection_RenderThread(SectionData);
 			}
@@ -582,69 +548,69 @@ void URuntimeMeshComponent::FinishCreateSectionInternal(int32 SectionIndex, Runt
 		MarkCollisionDirty();
 	}
 
+	// Update overall bounds if needed
 	if (bNeedsBoundsUpdate)
 	{
-		// Update overall bounds
 		UpdateLocalBounds();
 	}
+
 }
 
-void URuntimeMeshComponent::FinishUpdateSectionInternal(int32 SectionIndex, RuntimeMeshSectionPtr& Section, bool bHadPositionUpdates, bool bHadIndexUpdates, bool bNeedsBoundsUpdate)
+void URuntimeMeshComponent::UpdateSectionInternal(int32 SectionIndex, bool bHadVertexPositionsUpdate, bool bHadVertexUpdates, bool bHadIndexUpdates, bool bNeedsBoundsUpdate)
 {
-	SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_FinishUpdateSectionInternal);
-	check(bHadPositionUpdates || bHadIndexUpdates);
+	check(bHadVertexPositionsUpdate || bHadVertexUpdates || bNeedsBoundsUpdate);
 
-	// Are we in a batch update?
-	if (BatchUpdateInfo.bIsPending)
+	RuntimeMeshSectionPtr Section = MeshSections[SectionIndex];
+	check(Section.IsValid());
+
+	bool bHadPositionUpdates = bHadVertexUpdates || (Section->IsDualBufferSection() && bHadVertexPositionsUpdate);
+
+	
+	// Use the batch update if one is running
+	if (BatchState.IsBatchPending())
 	{
-		// add section to add or force recreate if this section is static
+		// Mark update for section or promote to proxy recreate if static section
 		if (Section->UpdateFrequency == EUpdateFrequency::Infrequent)
 		{
-			BatchUpdateInfo.bRequiresSceneProxyReCreate = true;
+			BatchState.MarkRenderStateDirty();
 		}
 		else
 		{
-			ERMCBatchSectionUpdateType UpdateType = ERMCBatchSectionUpdateType::None;
-			if (bHadPositionUpdates)
-			{
-				UpdateType |= ERMCBatchSectionUpdateType::VerticesUpdate;
-			}
+			ERuntimeMeshSectionBatchUpdateType UpdateType = ERuntimeMeshSectionBatchUpdateType::None;
+			UpdateType |= bHadPositionUpdates ? ERuntimeMeshSectionBatchUpdateType::VerticesUpdate : ERuntimeMeshSectionBatchUpdateType::None;
+			UpdateType |= bHadIndexUpdates ? ERuntimeMeshSectionBatchUpdateType::IndicesUpdate : ERuntimeMeshSectionBatchUpdateType::None;
 
-			if (bHadIndexUpdates)
-			{
-				UpdateType |= ERMCBatchSectionUpdateType::IndicesUpdate;
-			}
-
-			BatchUpdateInfo.AddUpdateForSection(SectionIndex, UpdateType);
+			BatchState.MarkUpdateForSection(SectionIndex, UpdateType);
 		}
 
-		// Flag collision update needed if necessary
-		if (Section->CollisionEnabled)
+		// Flag collision if this section affects it
+		if (Section->CollisionEnabled && bHadPositionUpdates)
 		{
-			BatchUpdateInfo.bRequiresCollisionUpdate = true;
+			BatchState.MarkCollisionDirty();
 		}
-		
+
+		// Flag bounds update if needed.
 		if (bNeedsBoundsUpdate)
 		{
-			// Flag bounds update needed
-			BatchUpdateInfo.bRequiresBoundsUpdate = true;
+			BatchState.MarkBoundsDirty();
 		}
 
-		// Bail as the rest is only for non batched updates
+		// bail since we don't update directly in this case.
 		return;
 	}
+
 
 	// Send the update to the render thread if the scene proxy exists
 	if (SceneProxy && Section->UpdateFrequency != EUpdateFrequency::Infrequent)
 	{
-		auto* SectionData = Section->GetSectionUpdateData(bHadIndexUpdates);
+		auto* SectionData = Section->GetSectionUpdateData(bHadVertexPositionsUpdate, bHadVertexUpdates, bHadIndexUpdates);
 		SectionData->SetTargetSection(SectionIndex);
 
 		// Enqueue update on RT
 		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
 			FRuntimeMeshSectionUpdate,
 			FRuntimeMeshSceneProxy*, RuntimeMeshSceneProxy, (FRuntimeMeshSceneProxy*)SceneProxy,
-			FRuntimeMeshSectionUpdateDataInterface*, SectionData, SectionData,
+			FRuntimeMeshRenderThreadCommandInterface*, SectionData, SectionData,
 			{
 				RuntimeMeshSceneProxy->UpdateSection_RenderThread(SectionData);
 			}
@@ -656,22 +622,105 @@ void URuntimeMeshComponent::FinishUpdateSectionInternal(int32 SectionIndex, Runt
 		MarkRenderStateDirty();
 	}
 
-	// Update bounds and flag RT to update as well if we changed any vertex positions
-	if (bHadPositionUpdates || bHadIndexUpdates)
+	// If we had positions update
+	if (bHadPositionUpdates)
 	{
-		// Mark collision dirty so it's rebaked at the end of this frame
+		// Mark collision dirty so it's re-baked at the end of this frame
 		if (Section->CollisionEnabled)
 		{
 			MarkCollisionDirty();
 		}
 
+		// Update overall bounds if needed
 		if (bNeedsBoundsUpdate)
 		{
-			// Update overall bounds
 			UpdateLocalBounds();
 		}
 	}
 }
+
+void URuntimeMeshComponent::UpdateSectionVertexPositionsInternal(int32 SectionIndex, bool bNeedsBoundsUpdate)
+{
+	RuntimeMeshSectionPtr Section = MeshSections[SectionIndex];
+	check(Section.IsValid());
+
+	if (SceneProxy)
+	{
+		auto SectionData = Section->GetSectionPositionUpdateData();
+		SectionData->SetTargetSection(SectionIndex);
+
+		// Enqueue command to modify render thread info
+		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
+			FRuntimeMeshSectionPositionUpdate,
+			FRuntimeMeshSceneProxy*, RuntimeMeshSceneProxy, (FRuntimeMeshSceneProxy*)SceneProxy,
+			FRuntimeMeshRenderThreadCommandInterface*, SectionData, SectionData,
+			{
+				RuntimeMeshSceneProxy->UpdateSectionPositionOnly_RenderThread(SectionData);
+			}
+		);
+	}
+	else
+	{
+		MarkRenderStateDirty();
+	}
+
+	if (bNeedsBoundsUpdate)
+	{
+		UpdateLocalBounds();
+	}
+}
+
+void URuntimeMeshComponent::UpdateSectionPropertiesInternal(int32 SectionIndex, bool bUpdateRequiresProxyRecreateIfStatic)
+{
+	RuntimeMeshSectionPtr Section = MeshSections[SectionIndex];
+	check(Section.IsValid());
+
+	bool bRequiresRecreate = bUpdateRequiresProxyRecreateIfStatic && Section->UpdateFrequency == EUpdateFrequency::Infrequent;
+
+	// Use the batch update if one is running
+	if (BatchState.IsBatchPending())
+	{
+		if (bRequiresRecreate)
+		{
+			BatchState.MarkRenderStateDirty();
+		}
+		else
+		{
+			BatchState.MarkUpdateForSection(SectionIndex, ERuntimeMeshSectionBatchUpdateType::PropertyUpdate);
+		}
+
+		// bail since we don't update directly in this case.
+		return;
+	}
+
+
+
+	if (SceneProxy && !bRequiresRecreate)
+	{
+		auto SectionData = new FRuntimeMeshSectionPropertyUpdateData();
+		SectionData->SetTargetSection(SectionIndex);
+		SectionData->bIsVisible = Section->bIsVisible;
+		SectionData->bCastsShadow = Section->bCastsShadow;
+
+
+		// Enqueue command to modify render thread info
+		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
+			FRuntimeMeshSectionPropertyUpdate,
+			FRuntimeMeshSceneProxy*, RuntimeMeshSceneProxy, (FRuntimeMeshSceneProxy*)SceneProxy,
+			FRuntimeMeshRenderThreadCommandInterface*, SectionData, SectionData,
+			{
+				RuntimeMeshSceneProxy->UpdateSectionProperties_RenderThread(SectionData);
+			}
+		);
+	}
+	else
+	{
+		MarkRenderStateDirty();
+	}
+}
+
+
+
 
 
 void ConvertLinearColorToFColor(const TArray<FLinearColor>& LinearColors, TArray<FColor>& Colors)
@@ -691,13 +740,15 @@ void URuntimeMeshComponent::CreateMeshSection(int32 SectionIndex, const TArray<F
 
 	// Update the mesh data in the section
 	NewSection->UpdateVertexBufferInternal(Vertices, Normals, Tangents, UV0, TArray<FVector2D>(), Colors);
-	NewSection->UpdateIndexBuffer(Triangles);
+
+	TArray<int32>& TrianglesRef = const_cast<TArray<int32>&>(Triangles);
+	NewSection->UpdateIndexBuffer(TrianglesRef, false);
 
 	// Track collision status and update collision information if necessary
 	NewSection->CollisionEnabled = bCreateCollision;
 	NewSection->UpdateFrequency = UpdateFrequency;
 
-	FinishCreateSectionInternal(SectionIndex, NewSection, true);
+	CreateSectionInternal(SectionIndex, true);
 }
 
 void URuntimeMeshComponent::CreateMeshSection(int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals,
@@ -708,13 +759,15 @@ void URuntimeMeshComponent::CreateMeshSection(int32 SectionIndex, const TArray<F
 
 	// Update the mesh data in the section
 	NewSection->UpdateVertexBufferInternal(Vertices, Normals, Tangents, UV0, UV1, Colors);
-	NewSection->UpdateIndexBuffer(Triangles);
+
+	TArray<int32>& TrianglesRef = const_cast<TArray<int32>&>(Triangles);
+	NewSection->UpdateIndexBuffer(TrianglesRef, false);
 
 	// Track collision status and update collision information if necessary
 	NewSection->CollisionEnabled = bCreateCollision;
 	NewSection->UpdateFrequency = UpdateFrequency;
 
-	FinishCreateSectionInternal(SectionIndex, NewSection, true);
+	CreateSectionInternal(SectionIndex, true);
 }
 
 
@@ -722,50 +775,19 @@ void URuntimeMeshComponent::CreateMeshSection(int32 SectionIndex, const TArray<F
 void URuntimeMeshComponent::UpdateMeshSection(int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<FVector>& Normals, const TArray<FVector2D>& UV0,
 	const TArray<FColor>& Colors, const TArray<FRuntimeMeshTangent>& Tangents)
 {
-	check(SectionIndex < MeshSections.Num() && MeshSections[SectionIndex].IsValid())
-	RuntimeMeshSectionPtr& Section = MeshSections[SectionIndex];
-
-	check(Section->bIsInternalSectionType);
-
-	// Tell the section to update the vertex buffer
-	TArray<FVector2D> BlankUVs;
-	Section->UpdateVertexBufferInternal(Vertices, Normals, Tangents, UV0, BlankUVs, Colors);
-	
-	FinishUpdateSectionInternal(SectionIndex, Section, Vertices.Num() > 0, false, true);
+	UpdateMeshSection(SectionIndex, Vertices, TArray<int32>(), Normals, UV0, TArray<FVector2D>(), Colors, Tangents);
 }
 
 void URuntimeMeshComponent::UpdateMeshSection(int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<FVector>& Normals, const TArray<FVector2D>& UV0,
 	const TArray<FVector2D>& UV1, const TArray<FColor>& Colors, const TArray<FRuntimeMeshTangent>& Tangents)
 {
-	check(SectionIndex < MeshSections.Num() && MeshSections[SectionIndex].IsValid())
-	RuntimeMeshSectionPtr& Section = MeshSections[SectionIndex];
-
-	check(Section->bIsInternalSectionType);
-
-	// Tell the section to update the vertex buffer
-	Section->UpdateVertexBufferInternal(Vertices, Normals, Tangents, UV0, UV1, Colors);
-	
-	FinishUpdateSectionInternal(SectionIndex, Section, Vertices.Num() > 0, false, true);
+	UpdateMeshSection(SectionIndex, Vertices, TArray<int32>(), Normals, UV0, UV1, Colors, Tangents);
 }
 
 void URuntimeMeshComponent::UpdateMeshSection(int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals,
 	const TArray<FVector2D>& UV0, const TArray<FColor>& Colors, const TArray<FRuntimeMeshTangent>& Tangents)
 {
-	check(SectionIndex < MeshSections.Num() && MeshSections[SectionIndex].IsValid())
-	RuntimeMeshSectionPtr& Section = MeshSections[SectionIndex];
-
-	check(Section->bIsInternalSectionType);
-
-	// Tell the section to update the vertex buffer
-	TArray<FVector2D> BlankUVs;
-	Section->UpdateVertexBufferInternal(Vertices, Normals, Tangents, UV0, BlankUVs, Colors);
-
-	if (Triangles.Num() > 0)
-	{
-		Section->UpdateIndexBuffer(Triangles);
-	}
-
-	FinishUpdateSectionInternal(SectionIndex, Section, Vertices.Num() > 0, Triangles.Num() > 0, true);
+	UpdateMeshSection(SectionIndex, Vertices, Triangles, Normals, UV0, TArray<FVector2D>(), Colors, Tangents);
 }
 
 void URuntimeMeshComponent::UpdateMeshSection(int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals,
@@ -781,10 +803,12 @@ void URuntimeMeshComponent::UpdateMeshSection(int32 SectionIndex, const TArray<F
 
 	if (Triangles.Num() > 0)
 	{
-		Section->UpdateIndexBuffer(Triangles);
+		TArray<int32>& TrianglesRef = const_cast<TArray<int32>&>(Triangles);
+
+		Section->UpdateIndexBuffer(TrianglesRef, false);
 	}
 
-	FinishUpdateSectionInternal(SectionIndex, Section, Vertices.Num() > 0, Triangles.Num() > 0, true);
+	UpdateSectionInternal(SectionIndex, false, Vertices.Num() > 0, Triangles.Num() > 0, true);
 }
 
 
@@ -822,29 +846,22 @@ void URuntimeMeshComponent::ClearMeshSection(int32 SectionIndex)
 		// Clear the section
 		MeshSections[SectionIndex].Reset();
 		
-		// Are we in a batch update?
-		if (BatchUpdateInfo.bIsPending)
+		// Use the batch update if one is running
+		if (BatchState.IsBatchPending())
 		{
-			// Mark the section to remove
-			if (bWasStaticSection)
-			{
-				BatchUpdateInfo.bRequiresSceneProxyReCreate = true;
-			}
-			else
-			{
-				BatchUpdateInfo.AddSectionToRemove(SectionIndex);
-			}
+			// Mark section created
+			BatchState.MarkSectionDestroyed(SectionIndex, bWasStaticSection);
 
-			// Flag bounds updates
-			BatchUpdateInfo.bRequiresBoundsUpdate = true;
-
-			// Flag collision if necessary
+			// Flag collision if this section affects it
 			if (HadCollision)
 			{
-				BatchUpdateInfo.bRequiresCollisionUpdate = true;
+				BatchState.MarkCollisionDirty();
 			}
 
-			// Bail as the rest is only for non batched
+			// Flag bounds update
+			BatchState.MarkBoundsDirty();
+			
+			// bail since we don't update directly in this case.
 			return;
 		}
 
@@ -860,45 +877,46 @@ void URuntimeMeshComponent::ClearMeshSection(int32 SectionIndex)
 					RuntimeMeshSceneProxy->DestroySection_RenderThread(SectionIndex);
 				}
 			);
-
 		}
 		else
 		{
 			MarkRenderStateDirty();
 		}
-		
-		UpdateLocalBounds();
 
 		// Update our collision info only if this section had any influence on it
 		if (HadCollision)
 		{
 			MarkCollisionDirty();
 		}
+		
+		UpdateLocalBounds();
+
  	}
 }
 
 void URuntimeMeshComponent::ClearAllMeshSections()
 {
  	MeshSections.Empty();
-	
-	// Are we in a batch update?
-	if (BatchUpdateInfo.bIsPending)
+
+	// Use the batch update if one is running
+	if (BatchState.IsBatchPending())
 	{
-		// Recreate the scene proxy
-		BatchUpdateInfo.bRequiresSceneProxyReCreate = true;
+		// Mark render state dirty
+		BatchState.MarkRenderStateDirty();
 
-		// Flag bounds updates
-		BatchUpdateInfo.bRequiresBoundsUpdate = true;
+		// Flag collision
+		BatchState.MarkCollisionDirty();
 
-		BatchUpdateInfo.bRequiresCollisionUpdate = true;
-		
-		// Bail as the rest is only for non batched
+		// Flag bounds update
+		BatchState.MarkBoundsDirty();
+
+		// bail since we don't update directly in this case.
 		return;
 	}
 	
- 	UpdateLocalBounds();
- 	MarkCollisionDirty();
  	MarkRenderStateDirty();
+	MarkCollisionDirty();
+	UpdateLocalBounds();
 }
 
 bool URuntimeMeshComponent::GetSectionBoundingBox(int32 SectionIndex, FBox& OutBoundingBox)
@@ -918,33 +936,8 @@ void URuntimeMeshComponent::SetMeshSectionVisible(int32 SectionIndex, bool bNewV
  		// Set game thread state
  		MeshSections[SectionIndex]->bIsVisible = bNewVisibility;
 
-		// Are we in a batch update?
-		if (BatchUpdateInfo.bIsPending)
-		{
-			// Flag for property update
-			BatchUpdateInfo.AddUpdateForSection(SectionIndex, ERMCBatchSectionUpdateType::VisibilityOrShadowsUpdate);
-
-			// Bail as the rest is only for non batched
-			return;
-		}
- 
-		if (SceneProxy)
-		{
-			// Enqueue command to modify render thread info
-			ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER(
-				FRuntimeMeshSectionVisibilityUpdate,
-				FRuntimeMeshSceneProxy*, RuntimeMeshSceneProxy, (FRuntimeMeshSceneProxy*)SceneProxy,
-				int32, SectionIndex, SectionIndex,
-				bool, bNewVisibility, bNewVisibility,
-				{
-					RuntimeMeshSceneProxy->SetSectionVisibility_RenderThread(SectionIndex, bNewVisibility);
-				}
-			);
-		}
-		else
-		{
-			MarkRenderStateDirty();
-		}
+		// Finish the update
+		UpdateSectionPropertiesInternal(SectionIndex, false);
  	}
 }
 
@@ -960,33 +953,8 @@ void URuntimeMeshComponent::SetMeshSectionCastsShadow(int32 SectionIndex, bool b
 		// Set game thread state
 		MeshSections[SectionIndex]->bCastsShadow = bNewCastsShadow;
 
-		// Are we in a batch update?
-		if (BatchUpdateInfo.bIsPending)
-		{
-			// Flag for property update
-			BatchUpdateInfo.AddUpdateForSection(SectionIndex, ERMCBatchSectionUpdateType::VisibilityOrShadowsUpdate);
-
-			// Bail as the rest is only for non batched
-			return;
-		}
-
-		if (SceneProxy && MeshSections[SectionIndex]->UpdateFrequency != EUpdateFrequency::Infrequent)
-		{
-			// Enqueue command to modify render thread info
-			ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER(
-				FRuntimeMeshSectionCastsShadowUpdate,
-				FRuntimeMeshSceneProxy*, RuntimeMeshSceneProxy, (FRuntimeMeshSceneProxy*)SceneProxy,
-				int32, SectionIndex, SectionIndex,
-				bool, bNewCastsShadow, bNewCastsShadow,
-				{
-					RuntimeMeshSceneProxy->SetSectionCastsShadow_RenderThread(SectionIndex, bNewCastsShadow);
-				}
-			);
-		}
-		else
-		{
-			MarkRenderStateDirty();
-		}
+		// Finish the update
+		UpdateSectionPropertiesInternal(SectionIndex, true);
 	}
 }
 
@@ -1004,10 +972,11 @@ void URuntimeMeshComponent::SetMeshSectionCollisionEnabled(int32 SectionIndex, b
 		{
 			Section->CollisionEnabled = bNewCollisionEnabled;
 			
-			// Are we in a batch update?
-			if (BatchUpdateInfo.bIsPending)
+			// Use the batch update if one is running
+			if (BatchState.IsBatchPending())
 			{
-				BatchUpdateInfo.bRequiresCollisionUpdate;
+				// Mark render state dirty
+				BatchState.MarkCollisionDirty();
 			}
 			else
 			{
@@ -1048,10 +1017,11 @@ void URuntimeMeshComponent::SetMeshCollisionSection(int32 CollisionSectionIndex,
 	Section.VertexBuffer = Vertices;
 	Section.IndexBuffer = Triangles;
 
-	// Are we in a batch update?
-	if (BatchUpdateInfo.bIsPending)
+	// Use the batch update if one is running
+	if (BatchState.IsBatchPending())
 	{
-		BatchUpdateInfo.bRequiresCollisionUpdate;
+		// Mark render state dirty
+		BatchState.MarkCollisionDirty();
 	}
 	else
 	{
@@ -1068,10 +1038,11 @@ void URuntimeMeshComponent::ClearMeshCollisionSection(int32 CollisionSectionInde
 
 	MeshCollisionSections[CollisionSectionIndex].Reset();
 
-	// Are we in a batch update?
-	if (BatchUpdateInfo.bIsPending)
+	// Use the batch update if one is running
+	if (BatchState.IsBatchPending())
 	{
-		BatchUpdateInfo.bRequiresCollisionUpdate;
+		// Mark render state dirty
+		BatchState.MarkCollisionDirty();
 	}
 	else
 	{
@@ -1085,10 +1056,11 @@ void URuntimeMeshComponent::ClearAllMeshCollisionSections()
 
 	MeshCollisionSections.Empty();
 
-	// Are we in a batch update?
-	if (BatchUpdateInfo.bIsPending)
+	// Use the batch update if one is running
+	if (BatchState.IsBatchPending())
 	{
-		BatchUpdateInfo.bRequiresCollisionUpdate;
+		// Mark render state dirty
+		BatchState.MarkCollisionDirty();
 	}
 	else
 	{
@@ -1109,10 +1081,11 @@ void URuntimeMeshComponent::AddCollisionConvexMesh(TArray<FVector> ConvexVerts)
 		ConvexCollisionSections.Add(ConvexSection);
 		
 
-		// Are we in a batch update?
-		if (BatchUpdateInfo.bIsPending)
+		// Use the batch update if one is running
+		if (BatchState.IsBatchPending())
 		{
-			BatchUpdateInfo.bRequiresCollisionUpdate;
+			// Mark render state dirty
+			BatchState.MarkCollisionDirty();
 		}
 		else
 		{
@@ -1129,10 +1102,11 @@ void URuntimeMeshComponent::ClearCollisionConvexMeshes()
 	ConvexCollisionSections.Empty();
 
 
-	// Are we in a batch update?
-	if (BatchUpdateInfo.bIsPending)
+	// Use the batch update if one is running
+	if (BatchState.IsBatchPending())
 	{
-		BatchUpdateInfo.bRequiresCollisionUpdate;
+		// Mark render state dirty
+		BatchState.MarkCollisionDirty();
 	}
 	else
 	{
@@ -1156,10 +1130,11 @@ void URuntimeMeshComponent::SetCollisionConvexMeshes(const TArray< TArray<FVecto
 	}
 
 
-	// Are we in a batch update?
-	if (BatchUpdateInfo.bIsPending)
+	// Use the batch update if one is running
+	if (BatchState.IsBatchPending())
 	{
-		BatchUpdateInfo.bRequiresCollisionUpdate;
+		// Mark render state dirty
+		BatchState.MarkCollisionDirty();
 	}
 	else
 	{
@@ -1218,82 +1193,84 @@ FBoxSphereBounds URuntimeMeshComponent::CalcBounds(const FTransform& LocalToWorl
 void URuntimeMeshComponent::EndBatchUpdates()
 {
 	// Bail if we have no pending updates
-	if (!BatchUpdateInfo.bIsPending)
+	if (!BatchState.IsBatchPending())
 		return;
 
 	// Handle all pending rendering updates..
-	if (BatchUpdateInfo.bRequiresSceneProxyReCreate)
+	if (BatchState.RequiresSceneProxyRecreate())
 	{
 		MarkRenderStateDirty();
 	}
 	else
 	{
-		FRMCBatchUpdateData* BatchUpdateData = new FRMCBatchUpdateData;
+		auto* BatchUpdateData = new FRuntimeMeshBatchUpdateData;
 
-		for (int32 Index = 0; Index < BatchUpdateInfo.SectionUpdates.Num(); Index++)
+		for (int32 Index = 0; Index <= BatchState.GetMaxSection(); Index++)
 		{
-			// Fetch Update info
-			ERMCBatchSectionUpdateType UpdateType = BatchUpdateInfo.SectionUpdates[Index];
-
-			// Bail if this section had no updates
-			if (UpdateType == ERMCBatchSectionUpdateType::None)
+			// Skip this section if it has no updates.
+			if (!BatchState.HasAnyFlagSet(Index))
 			{
 				continue;
 			}
 
 			// Check that we don't have both create and destroy flagged
-			check(!(((UpdateType & ERMCBatchSectionUpdateType::Create) != ERMCBatchSectionUpdateType::None) && ((UpdateType & ERMCBatchSectionUpdateType::Destroy) != ERMCBatchSectionUpdateType::None)));
+			check(!(BatchState.HasFlagSet(Index, ERuntimeMeshSectionBatchUpdateType::Create) && BatchState.HasFlagSet(Index, ERuntimeMeshSectionBatchUpdateType::Destroy)));
 
-
-			// Handle Create
-			if ((UpdateType & ERMCBatchSectionUpdateType::Create) != ERMCBatchSectionUpdateType::None)
+			// Handle section created
+			if (BatchState.HasFlagSet(Index, ERuntimeMeshSectionBatchUpdateType::Create))
 			{
 				// Validate section exists
 				check(MeshSections.Num() >= Index && MeshSections[Index].IsValid());
+				
+				UMaterialInterface* Material = GetMaterial(Index);
+				if (Material == nullptr)
+				{
+					Material = UMaterial::GetDefaultMaterial(MD_Surface);
+				}
 
-				auto CreateSection = new(BatchUpdateData->CreateUpdateSections) FRMCBatchUpdateCreateUpdateSection;
+				// Get the section create data and add it to the list
+				auto SectionCreateData = MeshSections[Index]->GetSectionCreationData(Material);
+				SectionCreateData->SetTargetSection(Index);
 
-				CreateSection->bIsCreate = true;
-				CreateSection->SectionData = MeshSections[Index]->GetSectionCreationData(GetMaterial(Index));
-				CreateSection->SectionData->SetTargetSection(Index);
+				BatchUpdateData->CreateSections.Add(SectionCreateData);
 			}
 			// Handle destroy
-			else if ((UpdateType & ERMCBatchSectionUpdateType::Destroy) != ERMCBatchSectionUpdateType::None)
+			else if (BatchState.HasFlagSet(Index, ERuntimeMeshSectionBatchUpdateType::Destroy))
+			{
+				BatchUpdateData->DestroySections.Add(Index);
+			}
+			// Handle vertex/index updates
+			else if (BatchState.HasFlagSet(Index, ERuntimeMeshSectionBatchUpdateType::VerticesUpdate) || BatchState.HasFlagSet(Index, ERuntimeMeshSectionBatchUpdateType::IndicesUpdate))
 			{
 				// Validate section exists
 				check(MeshSections.Num() >= Index && MeshSections[Index].IsValid());
 
-				BatchUpdateData->DestroySections.Add(Index);
+				// Get the section update data and add it to the list.
+				bool bHadVertexUpdates = BatchState.HasFlagSet(Index, ERuntimeMeshSectionBatchUpdateType::VerticesUpdate);
+				bool bHadIndexUpdates = BatchState.HasFlagSet(Index, ERuntimeMeshSectionBatchUpdateType::IndicesUpdate);
+				auto SectionUpdateData = MeshSections[Index]->GetSectionUpdateData(bHadVertexUpdates, bHadVertexUpdates, bHadIndexUpdates);
+				SectionUpdateData->SetTargetSection(Index);
 
+				BatchUpdateData->UpdateSections.Add(SectionUpdateData);
 			}
-			// Handle other update types
+			// Handle property updates
+			else if (BatchState.HasFlagSet(Index, ERuntimeMeshSectionBatchUpdateType::PropertyUpdate))
+			{
+				// Validate section exists
+				check(MeshSections.Num() >= Index && MeshSections[Index].IsValid());
+
+				auto SectionProperties = new(BatchUpdateData->PropertyUpdateSections) FRuntimeMeshSectionPropertyUpdateData;
+
+				auto& Section = MeshSections[Index];
+
+				SectionProperties->SetTargetSection(Index);
+				SectionProperties->bIsVisible = Section->bIsVisible;
+				SectionProperties->bCastsShadow = Section->bCastsShadow;
+			}
 			else
 			{
-
-				if ((UpdateType & ERMCBatchSectionUpdateType::VerticesUpdate) != ERMCBatchSectionUpdateType::None)
-				{
-					// Validate section exists
-					check(MeshSections.Num() >= Index && MeshSections[Index].IsValid());
-
-					auto CreateSection = new(BatchUpdateData->CreateUpdateSections) FRMCBatchUpdateCreateUpdateSection;
-
-					CreateSection->bIsCreate = false;
-					CreateSection->SectionData = MeshSections[Index]->GetSectionUpdateData((UpdateType & ERMCBatchSectionUpdateType::IndicesUpdate) != ERMCBatchSectionUpdateType::None);
-				}
-
-				if ((UpdateType & ERMCBatchSectionUpdateType::VisibilityOrShadowsUpdate) != ERMCBatchSectionUpdateType::None)
-				{
-					// Validate section exists
-					check(MeshSections.Num() >= Index && MeshSections[Index].IsValid());
-
-					auto SectionProperties = new(BatchUpdateData->PropertyUpdateSections) FRMCBatchUpdatePropertyUpdateSection;
-
-					auto& Section = MeshSections[Index];
-
-					SectionProperties->TargetSection = Index;
-					SectionProperties->bIsVisible = Section->bIsVisible;
-					SectionProperties->bCastsShadow = Section->bCastsShadow;
-				}
+				// Unknown update type.
+				checkNoEntry();
 			}
 		}
 
@@ -1303,7 +1280,7 @@ void URuntimeMeshComponent::EndBatchUpdates()
 		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
 			FRuntimeMeshBatchUpdateCommand,
 			FRuntimeMeshSceneProxy*, RuntimeMeshSceneProxy, (FRuntimeMeshSceneProxy*)SceneProxy,
-			FRMCBatchUpdateData*, BatchUpdateData, BatchUpdateData,
+			FRuntimeMeshBatchUpdateData*, BatchUpdateData, BatchUpdateData,
 			{
 				RuntimeMeshSceneProxy->ApplyBatchUpdate_RenderThread(BatchUpdateData);
 			}
@@ -1313,19 +1290,19 @@ void URuntimeMeshComponent::EndBatchUpdates()
 	}
 
 	// Update collision if necessary
-	if (BatchUpdateInfo.bRequiresCollisionUpdate)
+	if (BatchState.RequiresCollisionUpdate())
 	{
 		MarkCollisionDirty();
 	}
 
 	// Update local bounds if necessary
-	if (BatchUpdateInfo.bRequiresBoundsUpdate)
+	if (BatchState.RequiresBoundsUpdate())
 	{
-		UpdateLocalBounds(!BatchUpdateInfo.bRequiresSceneProxyReCreate);
+		UpdateLocalBounds(!BatchState.RequiresSceneProxyRecreate());
 	}
 
 	// Clear batch info
-	BatchUpdateInfo.Reset();
+	BatchState.ResetBatch();
 }
 
 
@@ -1543,7 +1520,7 @@ void URuntimeMeshComponent::Serialize(FArchive& Ar)
 	{
 		int32 SectionsCount = bShouldSerializeMeshData ? MeshSections.Num() : 0;
 		Ar << SectionsCount;
-		if (Ar.IsLoading())
+		if (Ar.IsLoading() && MeshSections.Num() < SectionsCount)
 		{
 			MeshSections.SetNum(SectionsCount);
 		}
