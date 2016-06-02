@@ -159,3 +159,61 @@ struct FRuntimeConvexCollisionSection
 		return Ar;
 	}
 };
+
+
+
+
+
+
+struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshVertexTypeInfo
+{
+	FString TypeName;
+	FGuid TypeGuid;
+
+	FRuntimeMeshVertexTypeInfo(FString Name, FGuid Guid) : TypeName(Name), TypeGuid(Guid) { }
+
+	bool Equals(const FRuntimeMeshVertexTypeInfo* Other) const
+	{
+		if (TypeGuid != Other->TypeGuid)
+		{
+			return false;
+		}
+
+		return EqualsAdvanced(Other);
+	}
+
+	template<typename Type>
+	void EnsureEquals() const
+	{
+		if (!Equals(&Type::TypeInfo))
+		{
+			ThrowMismatchException(Type::TypeInfo.TypeName);
+		}
+	}
+
+protected:
+
+	void ThrowMismatchException(const FString& OtherName) const
+	{
+		UE_LOG(RuntimeMeshLog, Fatal, TEXT("Vertex Type Mismatch: %s  and  %s"), *TypeName, *OtherName);
+	}
+
+	/*
+	*	This is called only if the Guids match. This is meant to due further
+	*	checking like in the case of the generic vertex, how it's configured.
+	*/
+	virtual bool EqualsAdvanced(const FRuntimeMeshVertexTypeInfo* Other) const { return true; }
+};
+
+
+
+#define DECLARE_RUNTIMEMESH_VERTEXTYPEINFO_SIMPLE(TypeName, Guid) \
+	struct FRuntimeMeshVertexTypeInfo_##TypeName : public FRuntimeMeshVertexTypeInfo \
+	{ \
+		FRuntimeMeshVertexTypeInfo_##TypeName() : FRuntimeMeshVertexTypeInfo(TEXT(#TypeName), Guid) { } \
+	}; \
+	static const FRuntimeMeshVertexTypeInfo_##TypeName TypeInfo;
+
+#define DEFINE_RUNTIMEMESH_VERTEXTYPEINFO(TypeName) \
+	const  TypeName::FRuntimeMeshVertexTypeInfo_##TypeName TypeName::TypeInfo = TypeName::FRuntimeMeshVertexTypeInfo_##TypeName();
+

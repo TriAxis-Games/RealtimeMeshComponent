@@ -33,3 +33,6 @@ public:
 		return FModuleManager::Get().IsModuleLoaded("RuntimeMeshComponentPlugin");
 	}
 };
+
+
+DECLARE_LOG_CATEGORY_EXTERN(RuntimeMeshLog, Log, All);

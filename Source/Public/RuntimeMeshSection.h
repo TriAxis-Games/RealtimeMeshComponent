@@ -139,6 +139,10 @@ protected:
 
 	// This is only meant for internal use for supporting the old style create/update sections
 	virtual void UpdateVertexBufferInternal(const TArray<FVector>& Positions, const TArray<FVector>& Normals, const TArray<FRuntimeMeshTangent>& Tangents, const TArray<FVector2D>& UV0, const TArray<FVector2D>& UV1, const TArray<FColor>& Colors) { }
+	
+
+	virtual const FRuntimeMeshVertexTypeInfo* GetVertexType() const = 0;
+
 
 	virtual void Serialize(FArchive& Ar)
 	{
@@ -192,7 +196,7 @@ namespace RuntimeMeshSectionInternal
 
 	template<typename Type>
 	static typename TEnableIf<FVertexHasPositionComponent<Type>::Value, bool>::Type
-		UpdateVertexBufferInternal(TArray<Type>& VertexBuffer, FBox& LocalBoundingBox, const TArray<Type>& Vertices, const FBox* BoundingBox, bool bShouldMoveArray)
+		UpdateVertexBufferInternal(TArray<Type>& VertexBuffer, FBox& LocalBoundingBox, TArray<Type>& Vertices, const FBox* BoundingBox, bool bShouldMoveArray)
 	{
 		// Holds the new bounding box after this update.
 		FBox NewBoundingBox(0);
@@ -251,7 +255,7 @@ namespace RuntimeMeshSectionInternal
 
 	template<typename Type>
 	static typename TEnableIf<!FVertexHasPositionComponent<Type>::Value, bool>::Type
-		UpdateVertexBufferInternal(TArray<Type>& VertexBuffer, FBox& LocalBoundingBox, const TArray<Type>& Vertices, const FBox* BoundingBox, bool bShouldMoveArray)
+		UpdateVertexBufferInternal(TArray<Type>& VertexBuffer, FBox& LocalBoundingBox, TArray<Type>& Vertices, const FBox* BoundingBox, bool bShouldMoveArray)
 	{
 		if (bShouldMoveArray)
 		{
@@ -346,6 +350,8 @@ protected:
 	{
 		return RuntimeMeshSectionInternal::GetAllVertexPositions<VertexType>(VertexBuffer, PositionVertexBuffer, Positions);
 	}
+
+	virtual const FRuntimeMeshVertexTypeInfo* GetVertexType() const { return &VertexType::TypeInfo; }
 
 	friend class URuntimeMeshComponent;
 };

@@ -775,7 +775,7 @@ void URuntimeMeshComponent::CreateMeshSection(int32 SectionIndex, const TArray<F
 void URuntimeMeshComponent::UpdateMeshSection(int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<FVector>& Normals, const TArray<FVector2D>& UV0,
 	const TArray<FColor>& Colors, const TArray<FRuntimeMeshTangent>& Tangents)
 {
-	UpdateMeshSection(SectionIndex, Vertices, TArray<int32>(), Normals, UV0, TArray<FVector2D>(), Colors, Tangents);
+	UpdateMeshSection(SectionIndex, Vertices, TArray<int32>(), Normals, UV0, Colors, Tangents);
 }
 
 void URuntimeMeshComponent::UpdateMeshSection(int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<FVector>& Normals, const TArray<FVector2D>& UV0,
@@ -787,13 +787,40 @@ void URuntimeMeshComponent::UpdateMeshSection(int32 SectionIndex, const TArray<F
 void URuntimeMeshComponent::UpdateMeshSection(int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals,
 	const TArray<FVector2D>& UV0, const TArray<FColor>& Colors, const TArray<FRuntimeMeshTangent>& Tangents)
 {
-	UpdateMeshSection(SectionIndex, Vertices, Triangles, Normals, UV0, TArray<FVector2D>(), Colors, Tangents);
+	// Validate section exists
+	check(SectionIndex < MeshSections.Num() && MeshSections[SectionIndex].IsValid());
+
+	// Validate section type
+	MeshSections[SectionIndex]->GetVertexType()->EnsureEquals<FRuntimeMeshVertex<1>>();
+
+	// Get section
+	RuntimeMeshSectionPtr& Section = MeshSections[SectionIndex];
+
+	check(Section->bIsInternalSectionType);
+
+	// Tell the section to update the vertex buffer
+	Section->UpdateVertexBufferInternal(Vertices, Normals, Tangents, UV0, TArray<FVector2D>(), Colors);
+
+	if (Triangles.Num() > 0)
+	{
+		TArray<int32>& TrianglesRef = const_cast<TArray<int32>&>(Triangles);
+
+		Section->UpdateIndexBuffer(TrianglesRef, false);
+	}
+
+	UpdateSectionInternal(SectionIndex, false, Vertices.Num() > 0, Triangles.Num() > 0, true);
 }
 
 void URuntimeMeshComponent::UpdateMeshSection(int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals,
 	const TArray<FVector2D>& UV0, const TArray<FVector2D>& UV1, const TArray<FColor>& Colors, const TArray<FRuntimeMeshTangent>& Tangents)
 {
-	check(SectionIndex < MeshSections.Num() && MeshSections[SectionIndex].IsValid())
+	// Validate section exists
+	check(SectionIndex < MeshSections.Num() && MeshSections[SectionIndex].IsValid());
+
+	// Validate section type
+	MeshSections[SectionIndex]->GetVertexType()->EnsureEquals<FRuntimeMeshVertex<2>>();
+
+	// Get section
 	RuntimeMeshSectionPtr& Section = MeshSections[SectionIndex];
 
 	check(Section->bIsInternalSectionType);

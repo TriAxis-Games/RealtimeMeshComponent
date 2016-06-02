@@ -88,10 +88,6 @@ public:
 
 
 	template<typename VertexType>
-	void CreateMeshSection(int32 SectionIndex, bool bCreateCollision = false, EUpdateFrequency UpdateFrequency = EUpdateFrequency::Average);
-
-
-	template<typename VertexType>
 	void CreateMeshSection(int32 SectionIndex, TArray<VertexType>& Vertices, TArray<int32>& Triangles, bool bCreateCollision = false, 
 		EUpdateFrequency UpdateFrequency = EUpdateFrequency::Average, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
 	{
@@ -131,7 +127,14 @@ public:
 	void UpdateMeshSection(int32 SectionIndex, TArray<VertexType>& Vertices, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
 	{
 		SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_UpdateMeshSection_VertexType);
-		check(SectionIndex < MeshSections.Num() && MeshSections[SectionIndex].IsValid())
+
+		// Validate section exists
+		check(SectionIndex < MeshSections.Num() && MeshSections[SectionIndex].IsValid());
+
+		// Validate section type
+		MeshSections[SectionIndex]->GetVertexType()->EnsureEquals<VertexType>();
+
+		// Cast section to correct type
 		TSharedPtr<FRuntimeMeshSection<VertexType>> Section = StaticCastSharedPtr<FRuntimeMeshSection<VertexType>>(MeshSections[SectionIndex]);
 		
 		bool bShouldUseMove = (UpdateFlags & ESectionUpdateFlags::MoveArrays) != ESectionUpdateFlags::None;
@@ -144,8 +147,15 @@ public:
 	void UpdateMeshSection(int32 SectionIndex, TArray<VertexType>& Vertices, const FBox& BoundingBox, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
 	{
 		SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_UpdateMeshSection_VertexType_WithBoundingBox);
-		check(SectionIndex < MeshSections.Num() && MeshSections[SectionIndex].IsValid())
-			TSharedPtr<FRuntimeMeshSection<VertexType>> Section = StaticCastSharedPtr<FRuntimeMeshSection<VertexType>>(MeshSections[SectionIndex]);
+
+		// Validate section exists
+		check(SectionIndex < MeshSections.Num() && MeshSections[SectionIndex].IsValid());
+
+		// Validate section type
+		MeshSections[SectionIndex]->GetVertexType()->EnsureEquals<VertexType>();
+
+		// Cast section to correct type
+		TSharedPtr<FRuntimeMeshSection<VertexType>> Section = StaticCastSharedPtr<FRuntimeMeshSection<VertexType>>(MeshSections[SectionIndex]);
 
 		bool bShouldUseMove = (UpdateFlags & ESectionUpdateFlags::MoveArrays) != ESectionUpdateFlags::None;
 		bool bNeedsBoundsUpdate = Section->UpdateVertexBuffer(Vertices, &BoundingBox, bShouldUseMove);
@@ -157,9 +167,15 @@ public:
 	void UpdateMeshSection(int32 SectionIndex, TArray<VertexType>& Vertices, TArray<int32>& Triangles, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
 	{
 		SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_UpdateMeshSection_VertexType_WithTriangles);
-		
-		check(SectionIndex < MeshSections.Num() && MeshSections[SectionIndex].IsValid())
-			TSharedPtr<FRuntimeMeshSection<VertexType>> Section = StaticCastSharedPtr<FRuntimeMeshSection<VertexType>>(MeshSections[SectionIndex]);
+
+		// Validate section exists
+		check(SectionIndex < MeshSections.Num() && MeshSections[SectionIndex].IsValid());
+
+		// Validate section type
+		MeshSections[SectionIndex]->GetVertexType()->EnsureEquals<VertexType>();
+
+		// Cast section to correct type
+		TSharedPtr<FRuntimeMeshSection<VertexType>> Section = StaticCastSharedPtr<FRuntimeMeshSection<VertexType>>(MeshSections[SectionIndex]);
 
 		bool bShouldUseMove = (UpdateFlags & ESectionUpdateFlags::MoveArrays) != ESectionUpdateFlags::None;
 		bool bNeedsBoundsUpdate = Section->UpdateVertexBuffer(Vertices, nullptr, bShouldUseMove);
@@ -173,7 +189,13 @@ public:
 	{
 		SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_UpdateMeshSection_VertexType_WithTrianglesAndBoundinBox);
 
-		check(SectionIndex < MeshSections.Num() && MeshSections[SectionIndex].IsValid())
+		// Validate section exists
+		check(SectionIndex < MeshSections.Num() && MeshSections[SectionIndex].IsValid());
+
+		// Validate section type
+		MeshSections[SectionIndex]->GetVertexType()->EnsureEquals<VertexType>();
+
+		// Cast section to correct type
 		TSharedPtr<FRuntimeMeshSection<VertexType>> Section = StaticCastSharedPtr<FRuntimeMeshSection<VertexType>>(MeshSections[SectionIndex]);
 
 		bool bShouldUseMove = (UpdateFlags & ESectionUpdateFlags::MoveArrays) != ESectionUpdateFlags::None;
@@ -211,7 +233,13 @@ public:
 	{
 		SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_UpdateMeshSectionPositionsImmediate);
 
-		check(SectionIndex < MeshSections.Num() && MeshSections[SectionIndex].IsValid())
+		// Validate section exists
+		check(SectionIndex < MeshSections.Num() && MeshSections[SectionIndex].IsValid());
+
+		// Validate section type
+		MeshSections[SectionIndex]->GetVertexType()->EnsureEquals<VertexType>();
+
+		// Cast section to correct type
 		TSharedPtr<FRuntimeMeshSection<VertexType>> Section = StaticCastSharedPtr<FRuntimeMeshSection<VertexType>>(MeshSections[SectionIndex]);
 
 		bool bShouldUseMove = (UpdateFlags & ESectionUpdateFlags::MoveArrays) != ESectionUpdateFlags::None;
@@ -225,7 +253,13 @@ public:
 	{
 		SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_UpdateMeshSectionPositionsImmediate_WithBoundinBox);
 
-		check(SectionIndex < MeshSections.Num() && MeshSections[SectionIndex].IsValid())
+		// Validate section exists
+		check(SectionIndex < MeshSections.Num() && MeshSections[SectionIndex].IsValid());
+
+		// Validate section type
+		MeshSections[SectionIndex]->GetVertexType()->EnsureEquals<VertexType>();
+
+		// Cast section to correct type
 		TSharedPtr<FRuntimeMeshSection<VertexType>> Section = StaticCastSharedPtr<FRuntimeMeshSection<VertexType>>(MeshSections[SectionIndex]);
 
 

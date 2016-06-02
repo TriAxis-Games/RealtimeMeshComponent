@@ -459,6 +459,25 @@ struct FRuntimeMeshVertexBase<false>
 };
 
 
+template<int32 TextureChannels, bool HalfPrecisionUVs, bool HasPositionComponent>
+struct FRuntimeMeshVertexTypeInfo_GenericVertex : public FRuntimeMeshVertexTypeInfo
+{
+	FRuntimeMeshVertexTypeInfo_GenericVertex() :
+		FRuntimeMeshVertexTypeInfo(FString::Printf(TEXT("RuntimeMeshVertex<%d, %d, %d>"), TextureChannels, HalfPrecisionUVs, HasPositionComponent), FGuid(0x00FFEB44, 0x31094597, 0x93918032, 0x015678C3)) { }
+
+	const int32 TexChannels = TextureChannels;
+	const bool HalfPrecUVs = HalfPrecisionUVs;
+	const bool HasPosComponent = HasPositionComponent;
+
+	virtual bool EqualsAdvanced(const FRuntimeMeshVertexTypeInfo* Other) const
+	{
+		const FRuntimeMeshVertexTypeInfo_GenericVertex* OtherGenericVertex = static_cast<const FRuntimeMeshVertexTypeInfo_GenericVertex*>(Other);
+
+		return TexChannels == OtherGenericVertex->TexChannels &&
+			HalfPrecUVs == OtherGenericVertex->HalfPrecUVs &&
+			HasPosComponent == OtherGenericVertex->HasPosComponent;
+	}
+};
 
 template<int32 TextureChannels, bool HalfPrecisionUVs = false, bool HasPositionComponent = true>
 struct FRuntimeMeshVertex :
@@ -473,6 +492,8 @@ struct FRuntimeMeshVertex :
 	{
 		return CreateVertexStructure<TextureChannels, HalfPrecisionUVs, HasPositionComponent>(VertexBuffer);
 	}
+
+	static const FRuntimeMeshVertexTypeInfo_GenericVertex<TextureChannels, HalfPrecisionUVs, HasPositionComponent> TypeInfo;
 
 
 	FRuntimeMeshVertex() :
@@ -523,6 +544,11 @@ struct FRuntimeMeshVertex :
 };
 
 
+template<int32 TextureChannels, bool HalfPrecisionUVs, bool HasPositionComponent>
+const FRuntimeMeshVertexTypeInfo_GenericVertex<TextureChannels, HalfPrecisionUVs, HasPositionComponent> 
+		FRuntimeMeshVertex<TextureChannels, HalfPrecisionUVs, HasPositionComponent>::TypeInfo;
+
+
 template<bool HalfPrecisionUVs, bool HasPositionComponent>
 struct FRuntimeMeshVertex<1, HalfPrecisionUVs, HasPositionComponent> :
 	public FRuntimeMeshVertexBase<HasPositionComponent>,
@@ -535,6 +561,7 @@ struct FRuntimeMeshVertex<1, HalfPrecisionUVs, HasPositionComponent> :
 		return CreateVertexStructure<1, HalfPrecisionUVs, HasPositionComponent>(VertexBuffer);
 	}
 
+	static const FRuntimeMeshVertexTypeInfo_GenericVertex<1, HalfPrecisionUVs, HasPositionComponent> TypeInfo;
 
 	FRuntimeMeshVertex() :
 		FRuntimeMeshVertexBase(FVector::ZeroVector, FVector(0, 0, 1), FRuntimeMeshTangent(), FColor::White),
@@ -568,6 +595,10 @@ struct FRuntimeMeshVertex<1, HalfPrecisionUVs, HasPositionComponent> :
 		FRuntimeMeshUVComponents(InUV0) { }
 };
 
+template<bool HalfPrecisionUVs, bool HasPositionComponent>
+const FRuntimeMeshVertexTypeInfo_GenericVertex<1, HalfPrecisionUVs, HasPositionComponent>
+	FRuntimeMeshVertex<1, HalfPrecisionUVs, HasPositionComponent>::TypeInfo;
+
 
 template<int32 TextureChannels, bool HalfPrecisionUVs>
 struct FRuntimeMeshVertex<TextureChannels, HalfPrecisionUVs, false> :
@@ -583,6 +614,7 @@ struct FRuntimeMeshVertex<TextureChannels, HalfPrecisionUVs, false> :
 		return CreateVertexStructure<TextureChannels, HalfPrecisionUVs, false>(VertexBuffer);
 	}
 
+	static const FRuntimeMeshVertexTypeInfo_GenericVertex<TextureChannels, HalfPrecisionUVs, false> TypeInfo;
 
 	FRuntimeMeshVertex() :
 		FRuntimeMeshVertexBase(FVector(0, 0, 1), FRuntimeMeshTangent(), FColor::White),
@@ -628,6 +660,10 @@ struct FRuntimeMeshVertex<TextureChannels, HalfPrecisionUVs, false> :
 		FRuntimeMeshUVComponents(InUV0, InUV1) { }
 };
 
+template<int32 TextureChannels, bool HalfPrecisionUVs>
+const FRuntimeMeshVertexTypeInfo_GenericVertex<TextureChannels, HalfPrecisionUVs, false>
+	FRuntimeMeshVertex<TextureChannels, HalfPrecisionUVs, false>::TypeInfo;
+
 
 template<bool HalfPrecisionUVs>
 struct FRuntimeMeshVertex<1, HalfPrecisionUVs, false> :
@@ -641,6 +677,7 @@ struct FRuntimeMeshVertex<1, HalfPrecisionUVs, false> :
 		return CreateVertexStructure<1, HalfPrecisionUVs, false>(VertexBuffer);
 	}
 
+	static const FRuntimeMeshVertexTypeInfo_GenericVertex<1, HalfPrecisionUVs, false> TypeInfo;
 
 	FRuntimeMeshVertex() :
 		FRuntimeMeshVertexBase(FVector(0, 0, 1), FRuntimeMeshTangent(), FColor::White),
@@ -670,6 +707,10 @@ struct FRuntimeMeshVertex<1, HalfPrecisionUVs, false> :
 		FRuntimeMeshVertexBase(InTangentX, InTangentY, InTangentZ, InColor),
 		FRuntimeMeshUVComponents(InUV0) { }
 };
+
+template<bool HalfPrecisionUVs>
+const FRuntimeMeshVertexTypeInfo_GenericVertex<1, HalfPrecisionUVs, false>
+	FRuntimeMeshVertex<1, HalfPrecisionUVs, false>::TypeInfo;
 
 
 
