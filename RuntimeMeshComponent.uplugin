@@ -18,11 +18,7 @@
     {
       "Name": "RuntimeMeshComponent",
       "Type": "Runtime",
-      "LoadingPhase": "Default",
-			"BlacklistPlatforms" :
-			[
-				"HTML5"
-			]
+      "LoadingPhase": "Default"
     }
   ]
 }

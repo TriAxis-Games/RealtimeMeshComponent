@@ -497,50 +497,50 @@ struct FRuntimeMeshVertex :
 
 
 	FRuntimeMeshVertex() :
-		FRuntimeMeshVertexBase(FVector::ZeroVector, FVector(0, 0, 1), FRuntimeMeshTangent(), FColor::White),
-		FRuntimeMeshUVComponents() { }
+		FRuntimeMeshVertexBase<HasPositionComponent>(FVector::ZeroVector, FVector(0, 0, 1), FRuntimeMeshTangent(), FColor::White),
+		FRuntimeMeshUVComponents<TextureChannels, HalfPrecisionUVs>() { }
  	FRuntimeMeshVertex(const FVector& InPosition) :
-		FRuntimeMeshVertexBase(InPosition, FVector(0, 0, 1), FRuntimeMeshTangent(), FColor::White),
-		FRuntimeMeshUVComponents() { }
+		FRuntimeMeshVertexBase<HasPositionComponent>(InPosition, FVector(0, 0, 1), FRuntimeMeshTangent(), FColor::White),
+		FRuntimeMeshUVComponents<TextureChannels, HalfPrecisionUVs>() { }
  	FRuntimeMeshVertex(const FVector& InPosition, const FColor& InColor) :
-		FRuntimeMeshVertexBase(InPosition, FVector(0, 0, 1), FRuntimeMeshTangent(), InColor),
-		FRuntimeMeshUVComponents() { }
+		FRuntimeMeshVertexBase<HasPositionComponent>(InPosition, FVector(0, 0, 1), FRuntimeMeshTangent(), InColor),
+		FRuntimeMeshUVComponents<TextureChannels, HalfPrecisionUVs>() { }
 
  	FRuntimeMeshVertex(const FVector& InPosition, const FVector& InNormal, const FRuntimeMeshTangent& InTangent) :
-		FRuntimeMeshVertexBase(InPosition, InNormal, InTangent, FColor::White),
-		FRuntimeMeshUVComponents() { }
+		FRuntimeMeshVertexBase<HasPositionComponent>(InPosition, InNormal, InTangent, FColor::White),
+		FRuntimeMeshUVComponents<TextureChannels, HalfPrecisionUVs>() { }
 	FRuntimeMeshVertex(const FVector& InPosition, const FVector& InTangentX, const FVector& InTangentY, const FVector& InTangentZ) :
-		FRuntimeMeshVertexBase(InPosition, InTangentX, InTangentY, InTangentZ, FColor::White),
-		FRuntimeMeshUVComponents() { }
+		FRuntimeMeshVertexBase<HasPositionComponent>(InPosition, InTangentX, InTangentY, InTangentZ, FColor::White),
+		FRuntimeMeshUVComponents<TextureChannels, HalfPrecisionUVs>() { }
 
 	FRuntimeMeshVertex(const FVector& InPosition, const FVector& InNormal, const FRuntimeMeshTangent& InTangent, const FVector2D& InUV0) :
-		FRuntimeMeshVertexBase(InPosition, InNormal, InTangent, FColor::White),
-		FRuntimeMeshUVComponents(InUV0) { }
+		FRuntimeMeshVertexBase<HasPositionComponent>(InPosition, InNormal, InTangent, FColor::White),
+		FRuntimeMeshUVComponents<TextureChannels, HalfPrecisionUVs>(InUV0) { }
 	FRuntimeMeshVertex(const FVector& InPosition, const FVector& InTangentX, const FVector& InTangentY, const FVector& InTangentZ, const FVector2D& InUV0) :
-		FRuntimeMeshVertexBase(InPosition, InTangentX, InTangentY, InTangentZ, FColor::White),
-		FRuntimeMeshUVComponents(InUV0) { }
+		FRuntimeMeshVertexBase<HasPositionComponent>(InPosition, InTangentX, InTangentY, InTangentZ, FColor::White),
+		FRuntimeMeshUVComponents<TextureChannels, HalfPrecisionUVs>(InUV0) { }
 
 	FRuntimeMeshVertex(const FVector& InPosition, const FVector& InNormal, const FRuntimeMeshTangent& InTangent, const FColor& InColor, const FVector2D& InUV0) :
-		FRuntimeMeshVertexBase(InPosition, InNormal, InTangent, InColor),
-		FRuntimeMeshUVComponents(InUV0) { }
+		FRuntimeMeshVertexBase<HasPositionComponent>(InPosition, InNormal, InTangent, InColor),
+		FRuntimeMeshUVComponents<TextureChannels, HalfPrecisionUVs>(InUV0) { }
 	FRuntimeMeshVertex(const FVector& InPosition, const FVector& InTangentX, const FVector& InTangentY, const FVector& InTangentZ, const FColor& InColor, const FVector2D& InUV0) :
-		FRuntimeMeshVertexBase(InPosition, InTangentX, InTangentY, InTangentZ, InColor),
-		FRuntimeMeshUVComponents(InUV0) { }
+		FRuntimeMeshVertexBase<HasPositionComponent>(InPosition, InTangentX, InTangentY, InTangentZ, InColor),
+		FRuntimeMeshUVComponents<TextureChannels, HalfPrecisionUVs>(InUV0) { }
 
 
 	FRuntimeMeshVertex(const FVector& InPosition, const FVector& InNormal, const FRuntimeMeshTangent& InTangent, const FVector2D& InUV0, const FVector2D& InUV1) :
-		FRuntimeMeshVertexBase(InPosition, InNormal, InTangent, FColor::White),
-		FRuntimeMeshUVComponents(InUV0, InUV1) { }
+		FRuntimeMeshVertexBase<HasPositionComponent>(InPosition, InNormal, InTangent, FColor::White),
+		FRuntimeMeshUVComponents<TextureChannels, HalfPrecisionUVs>(InUV0, InUV1) { }
 	FRuntimeMeshVertex(const FVector& InPosition, const FVector& InTangentX, const FVector& InTangentY, const FVector& InTangentZ, const FVector2D& InUV0, const FVector2D& InUV1) :
-		FRuntimeMeshVertexBase(InPosition, InTangentX, InTangentY, InTangentZ, FColor::White),
-		FRuntimeMeshUVComponents(InUV0, InUV1) { }
+		FRuntimeMeshVertexBase<HasPositionComponent>(InPosition, InTangentX, InTangentY, InTangentZ, FColor::White),
+		FRuntimeMeshUVComponents<TextureChannels, HalfPrecisionUVs>(InUV0, InUV1) { }
 
 	FRuntimeMeshVertex(const FVector& InPosition, const FVector& InNormal, const FRuntimeMeshTangent& InTangent, const FColor& InColor, const FVector2D& InUV0, const FVector2D& InUV1) :
-		FRuntimeMeshVertexBase(InPosition, InNormal, InTangent, InColor),
-		FRuntimeMeshUVComponents(InUV0, InUV1) { }
+		FRuntimeMeshVertexBase<HasPositionComponent>(InPosition, InNormal, InTangent, InColor),
+		FRuntimeMeshUVComponents<TextureChannels, HalfPrecisionUVs>(InUV0, InUV1) { }
 	FRuntimeMeshVertex(const FVector& InPosition, const FVector& InTangentX, const FVector& InTangentY, const FVector& InTangentZ, const FColor& InColor, const FVector2D& InUV0, const FVector2D& InUV1) :
-		FRuntimeMeshVertexBase(InPosition, InTangentX, InTangentY, InTangentZ, InColor),
-		FRuntimeMeshUVComponents(InUV0, InUV1) { }
+		FRuntimeMeshVertexBase<HasPositionComponent>(InPosition, InTangentX, InTangentY, InTangentZ, InColor),
+		FRuntimeMeshUVComponents<TextureChannels, HalfPrecisionUVs>(InUV0, InUV1) { }
 };
 
 
@@ -564,35 +564,35 @@ struct FRuntimeMeshVertex<1, HalfPrecisionUVs, HasPositionComponent> :
 	static const FRuntimeMeshVertexTypeInfo_GenericVertex<1, HalfPrecisionUVs, HasPositionComponent> TypeInfo;
 
 	FRuntimeMeshVertex() :
-		FRuntimeMeshVertexBase(FVector::ZeroVector, FVector(0, 0, 1), FRuntimeMeshTangent(), FColor::White),
-		FRuntimeMeshUVComponents() { }
+		FRuntimeMeshVertexBase<HasPositionComponent>(FVector::ZeroVector, FVector(0, 0, 1), FRuntimeMeshTangent(), FColor::White),
+		FRuntimeMeshUVComponents<1, HalfPrecisionUVs>() { }
 	FRuntimeMeshVertex(const FVector& InPosition) :
-		FRuntimeMeshVertexBase(InPosition, FVector(0, 0, 1), FRuntimeMeshTangent(), FColor::White),
-		FRuntimeMeshUVComponents() { }
+		FRuntimeMeshVertexBase<HasPositionComponent>(InPosition, FVector(0, 0, 1), FRuntimeMeshTangent(), FColor::White),
+		FRuntimeMeshUVComponents<1, HalfPrecisionUVs>() { }
 	FRuntimeMeshVertex(const FVector& InPosition, const FColor& InColor) :
-		FRuntimeMeshVertexBase(InPosition, FVector(0, 0, 1), FRuntimeMeshTangent(), InColor),
-		FRuntimeMeshUVComponents() { }
+		FRuntimeMeshVertexBase<HasPositionComponent>(InPosition, FVector(0, 0, 1), FRuntimeMeshTangent(), InColor),
+		FRuntimeMeshUVComponents<1, HalfPrecisionUVs>() { }
 
 	FRuntimeMeshVertex(const FVector& InPosition, const FVector& InNormal, const FRuntimeMeshTangent& InTangent) :
-		FRuntimeMeshVertexBase(InPosition, InNormal, InTangent, FColor::White),
-		FRuntimeMeshUVComponents() { }
+		FRuntimeMeshVertexBase<HasPositionComponent>(InPosition, InNormal, InTangent, FColor::White),
+		FRuntimeMeshUVComponents<1, HalfPrecisionUVs>() { }
 	FRuntimeMeshVertex(const FVector& InPosition, const FVector& InTangentX, const FVector& InTangentY, const FVector& InTangentZ) :
-		FRuntimeMeshVertexBase(InPosition, InTangentX, InTangentY, InTangentZ, FColor::White),
-		FRuntimeMeshUVComponents() { }
+		FRuntimeMeshVertexBase<HasPositionComponent>(InPosition, InTangentX, InTangentY, InTangentZ, FColor::White),
+		FRuntimeMeshUVComponents<1, HalfPrecisionUVs>() { }
 
 	FRuntimeMeshVertex(const FVector& InPosition, const FVector& InNormal, const FRuntimeMeshTangent& InTangent, const FVector2D& InUV0) :
-		FRuntimeMeshVertexBase(InPosition, InNormal, InTangent, FColor::White),
-		FRuntimeMeshUVComponents(InUV0) { }
+		FRuntimeMeshVertexBase<HasPositionComponent>(InPosition, InNormal, InTangent, FColor::White),
+		FRuntimeMeshUVComponents<1, HalfPrecisionUVs>(InUV0) { }
 	FRuntimeMeshVertex(const FVector& InPosition, const FVector& InTangentX, const FVector& InTangentY, const FVector& InTangentZ, const FVector2D& InUV0) :
-		FRuntimeMeshVertexBase(InPosition, InTangentX, InTangentY, InTangentZ, FColor::White),
-		FRuntimeMeshUVComponents(InUV0) { }
+		FRuntimeMeshVertexBase<HasPositionComponent>(InPosition, InTangentX, InTangentY, InTangentZ, FColor::White),
+		FRuntimeMeshUVComponents<1, HalfPrecisionUVs>(InUV0) { }
 
 	FRuntimeMeshVertex(const FVector& InPosition, const FVector& InNormal, const FRuntimeMeshTangent& InTangent, const FColor& InColor, const FVector2D& InUV0) :
-		FRuntimeMeshVertexBase(InPosition, InNormal, InTangent, InColor),
-		FRuntimeMeshUVComponents(InUV0) { }
+		FRuntimeMeshVertexBase<HasPositionComponent>(InPosition, InNormal, InTangent, InColor),
+		FRuntimeMeshUVComponents<1, HalfPrecisionUVs>(InUV0) { }
 	FRuntimeMeshVertex(const FVector& InPosition, const FVector& InTangentX, const FVector& InTangentY, const FVector& InTangentZ, const FColor& InColor, const FVector2D& InUV0) :
-		FRuntimeMeshVertexBase(InPosition, InTangentX, InTangentY, InTangentZ, InColor),
-		FRuntimeMeshUVComponents(InUV0) { }
+		FRuntimeMeshVertexBase<HasPositionComponent>(InPosition, InTangentX, InTangentY, InTangentZ, InColor),
+		FRuntimeMeshUVComponents<1, HalfPrecisionUVs>(InUV0) { }
 };
 
 template<bool HalfPrecisionUVs, bool HasPositionComponent>
@@ -617,47 +617,47 @@ struct FRuntimeMeshVertex<TextureChannels, HalfPrecisionUVs, false> :
 	static const FRuntimeMeshVertexTypeInfo_GenericVertex<TextureChannels, HalfPrecisionUVs, false> TypeInfo;
 
 	FRuntimeMeshVertex() :
-		FRuntimeMeshVertexBase(FVector(0, 0, 1), FRuntimeMeshTangent(), FColor::White),
-		FRuntimeMeshUVComponents() { }
+		FRuntimeMeshVertexBase<false>(FVector(0, 0, 1), FRuntimeMeshTangent(), FColor::White),
+		FRuntimeMeshUVComponents<TextureChannels, HalfPrecisionUVs>() { }
 	FRuntimeMeshVertex(const FColor& InColor) :
-		FRuntimeMeshVertexBase(FVector(0, 0, 1), FRuntimeMeshTangent(), InColor),
-		FRuntimeMeshUVComponents() { }
+		FRuntimeMeshVertexBase<false>(FVector(0, 0, 1), FRuntimeMeshTangent(), InColor),
+		FRuntimeMeshUVComponents<TextureChannels, HalfPrecisionUVs>() { }
 
 	FRuntimeMeshVertex(const FVector& InNormal, const FRuntimeMeshTangent& InTangent) :
-		FRuntimeMeshVertexBase(InNormal, InTangent, FColor::White),
-		FRuntimeMeshUVComponents() { }
+		FRuntimeMeshVertexBase<false>(InNormal, InTangent, FColor::White),
+		FRuntimeMeshUVComponents<TextureChannels, HalfPrecisionUVs>() { }
 	FRuntimeMeshVertex(const FVector& InTangentX, const FVector& InTangentY, const FVector& InTangentZ) :
-		FRuntimeMeshVertexBase(InTangentX, InTangentY, InTangentZ, FColor::White),
-		FRuntimeMeshUVComponents() { }
+		FRuntimeMeshVertexBase<false>(InTangentX, InTangentY, InTangentZ, FColor::White),
+		FRuntimeMeshUVComponents<TextureChannels, HalfPrecisionUVs>() { }
 
 	FRuntimeMeshVertex(const FVector& InNormal, const FRuntimeMeshTangent& InTangent, const FVector2D& InUV0) :
-		FRuntimeMeshVertexBase(InNormal, InTangent, FColor::White),
-		FRuntimeMeshUVComponents(InUV0) { }
+		FRuntimeMeshVertexBase<false>(InNormal, InTangent, FColor::White),
+		FRuntimeMeshUVComponents<TextureChannels, HalfPrecisionUVs>(InUV0) { }
 	FRuntimeMeshVertex(const FVector& InTangentX, const FVector& InTangentY, const FVector& InTangentZ, const FVector2D& InUV0) :
-		FRuntimeMeshVertexBase(InTangentX, InTangentY, InTangentZ, FColor::White),
-		FRuntimeMeshUVComponents(InUV0) { }
+		FRuntimeMeshVertexBase<false>(InTangentX, InTangentY, InTangentZ, FColor::White),
+		FRuntimeMeshUVComponents<TextureChannels, HalfPrecisionUVs>(InUV0) { }
 
 	FRuntimeMeshVertex(const FVector& InNormal, const FRuntimeMeshTangent& InTangent, const FColor& InColor, const FVector2D& InUV0) :
-		FRuntimeMeshVertexBase(InNormal, InTangent, InColor),
-		FRuntimeMeshUVComponents(InUV0) { }
+		FRuntimeMeshVertexBase<false>(InNormal, InTangent, InColor),
+		FRuntimeMeshUVComponents<TextureChannels, HalfPrecisionUVs>(InUV0) { }
 	FRuntimeMeshVertex(const FVector& InTangentX, const FVector& InTangentY, const FVector& InTangentZ, const FColor& InColor, const FVector2D& InUV0) :
-		FRuntimeMeshVertexBase(InTangentX, InTangentY, InTangentZ, InColor),
-		FRuntimeMeshUVComponents(InUV0) { }
+		FRuntimeMeshVertexBase<false>(InTangentX, InTangentY, InTangentZ, InColor),
+		FRuntimeMeshUVComponents<TextureChannels, HalfPrecisionUVs>(InUV0) { }
 
 
 	FRuntimeMeshVertex(const FVector& InNormal, const FRuntimeMeshTangent& InTangent, const FVector2D& InUV0, const FVector2D& InUV1) :
-		FRuntimeMeshVertexBase(InNormal, InTangent, FColor::White),
-		FRuntimeMeshUVComponents(InUV0, InUV1) { }
+		FRuntimeMeshVertexBase<false>(InNormal, InTangent, FColor::White),
+		FRuntimeMeshUVComponents<TextureChannels, HalfPrecisionUVs>(InUV0, InUV1) { }
 	FRuntimeMeshVertex(const FVector& InTangentX, const FVector& InTangentY, const FVector& InTangentZ, const FVector2D& InUV0, const FVector2D& InUV1) :
-		FRuntimeMeshVertexBase(InTangentX, InTangentY, InTangentZ, FColor::White),
-		FRuntimeMeshUVComponents(InUV0, InUV1) { }
+		FRuntimeMeshVertexBase<false>(InTangentX, InTangentY, InTangentZ, FColor::White),
+		FRuntimeMeshUVComponents<TextureChannels, HalfPrecisionUVs>(InUV0, InUV1) { }
 
 	FRuntimeMeshVertex(const FVector& InNormal, const FRuntimeMeshTangent& InTangent, const FColor& InColor, const FVector2D& InUV0, const FVector2D& InUV1) :
-		FRuntimeMeshVertexBase(InNormal, InTangent, InColor),
-		FRuntimeMeshUVComponents(InUV0, InUV1) { }
+		FRuntimeMeshVertexBase<false>(InNormal, InTangent, InColor),
+		FRuntimeMeshUVComponents<TextureChannels, HalfPrecisionUVs>(InUV0, InUV1) { }
 	FRuntimeMeshVertex(const FVector& InTangentX, const FVector& InTangentY, const FVector& InTangentZ, const FColor& InColor, const FVector2D& InUV0, const FVector2D& InUV1) :
-		FRuntimeMeshVertexBase(InTangentX, InTangentY, InTangentZ, InColor),
-		FRuntimeMeshUVComponents(InUV0, InUV1) { }
+		FRuntimeMeshVertexBase<false>(InTangentX, InTangentY, InTangentZ, InColor),
+		FRuntimeMeshUVComponents<TextureChannels, HalfPrecisionUVs>(InUV0, InUV1) { }
 };
 
 template<int32 TextureChannels, bool HalfPrecisionUVs>
@@ -680,32 +680,32 @@ struct FRuntimeMeshVertex<1, HalfPrecisionUVs, false> :
 	static const FRuntimeMeshVertexTypeInfo_GenericVertex<1, HalfPrecisionUVs, false> TypeInfo;
 
 	FRuntimeMeshVertex() :
-		FRuntimeMeshVertexBase(FVector(0, 0, 1), FRuntimeMeshTangent(), FColor::White),
-		FRuntimeMeshUVComponents() { }
+		FRuntimeMeshVertexBase<false>(FVector(0, 0, 1), FRuntimeMeshTangent(), FColor::White),
+		FRuntimeMeshUVComponents<1, HalfPrecisionUVs>() { }
 	FRuntimeMeshVertex(const FColor& InColor) :
-		FRuntimeMeshVertexBase(FVector(0, 0, 1), FRuntimeMeshTangent(), InColor),
-		FRuntimeMeshUVComponents() { }
+		FRuntimeMeshVertexBase<false>(FVector(0, 0, 1), FRuntimeMeshTangent(), InColor),
+		FRuntimeMeshUVComponents<1, HalfPrecisionUVs>() { }
 
 	FRuntimeMeshVertex(const FVector& InNormal, const FRuntimeMeshTangent& InTangent) :
-		FRuntimeMeshVertexBase(InNormal, InTangent, FColor::White),
-		FRuntimeMeshUVComponents() { }
+		FRuntimeMeshVertexBase<false>(InNormal, InTangent, FColor::White),
+		FRuntimeMeshUVComponents<1, HalfPrecisionUVs>() { }
 	FRuntimeMeshVertex(const FVector& InTangentX, const FVector& InTangentY, const FVector& InTangentZ) :
-		FRuntimeMeshVertexBase(InTangentX, InTangentY, InTangentZ, FColor::White),
-		FRuntimeMeshUVComponents() { }
+		FRuntimeMeshVertexBase<false>(InTangentX, InTangentY, InTangentZ, FColor::White),
+		FRuntimeMeshUVComponents<1, HalfPrecisionUVs>() { }
 
 	FRuntimeMeshVertex(const FVector& InNormal, const FRuntimeMeshTangent& InTangent, const FVector2D& InUV0) :
-		FRuntimeMeshVertexBase(InNormal, InTangent, FColor::White),
-		FRuntimeMeshUVComponents(InUV0) { }
+		FRuntimeMeshVertexBase<false>(InNormal, InTangent, FColor::White),
+		FRuntimeMeshUVComponents<1, HalfPrecisionUVs>(InUV0) { }
 	FRuntimeMeshVertex(const FVector& InTangentX, const FVector& InTangentY, const FVector& InTangentZ, const FVector2D& InUV0) :
-		FRuntimeMeshVertexBase(InTangentX, InTangentY, InTangentZ, FColor::White),
-		FRuntimeMeshUVComponents(InUV0) { }
+		FRuntimeMeshVertexBase<false>(InTangentX, InTangentY, InTangentZ, FColor::White),
+		FRuntimeMeshUVComponents<1, HalfPrecisionUVs>(InUV0) { }
 
 	FRuntimeMeshVertex(const FVector& InNormal, const FRuntimeMeshTangent& InTangent, const FColor& InColor, const FVector2D& InUV0) :
-		FRuntimeMeshVertexBase(InNormal, InTangent, InColor),
-		FRuntimeMeshUVComponents(InUV0) { }
+		FRuntimeMeshVertexBase<false>(InNormal, InTangent, InColor),
+		FRuntimeMeshUVComponents<1, HalfPrecisionUVs>(InUV0) { }
 	FRuntimeMeshVertex(const FVector& InTangentX, const FVector& InTangentY, const FVector& InTangentZ, const FColor& InColor, const FVector2D& InUV0) :
-		FRuntimeMeshVertexBase(InTangentX, InTangentY, InTangentZ, InColor),
-		FRuntimeMeshUVComponents(InUV0) { }
+		FRuntimeMeshVertexBase<false>(InTangentX, InTangentY, InTangentZ, InColor),
+		FRuntimeMeshUVComponents<1, HalfPrecisionUVs>(InUV0) { }
 };
 
 template<bool HalfPrecisionUVs>
@@ -978,40 +978,42 @@ public:
 	};
 
 
+	typedef FRuntimeMeshSection<FRuntimeMeshVertex<TextureChannels, HalfPrecisionUVs>> Super;
 
-	FRuntimeMeshSectionInternal(bool bWantsSeparatePositionBuffer /*Ignored for this section type*/) : FRuntimeMeshSection(false) { }
+
+	FRuntimeMeshSectionInternal(bool bWantsSeparatePositionBuffer /*Ignored for this section type*/) : Super(false) { }
 	virtual ~FRuntimeMeshSectionInternal() override { }
 
 	virtual bool UpdateVertexBufferInternal(const TArray<FVector>& Positions, const TArray<FVector>& Normals, const TArray<FRuntimeMeshTangent>& Tangents, const TArray<FVector2D>& UV0, const TArray<FVector2D>& UV1, const TArray<FColor>& Colors) override
 	{
-		int32 NewVertexCount = (Positions.Num() > 0) ? Positions.Num() : VertexBuffer.Num();
-		int32 OldVertexCount = FMath::Min(VertexBuffer.Num(), NewVertexCount);
+		int32 NewVertexCount = (Positions.Num() > 0) ? Positions.Num() : Super::VertexBuffer.Num();
+		int32 OldVertexCount = FMath::Min(Super::VertexBuffer.Num(), NewVertexCount);
 
 		// Check existence of data components
 		const bool HasPositions = Positions.Num() == NewVertexCount;
 		
 		// Size the vertex buffer correctly
-		if (NewVertexCount != VertexBuffer.Num())
+		if (NewVertexCount != Super::VertexBuffer.Num())
 		{
-			VertexBuffer.SetNumZeroed(NewVertexCount);
+			Super::VertexBuffer.SetNumZeroed(NewVertexCount);
 		}
 
 		// Clear the bounding box if we have new positions
 		if (HasPositions)
 		{
-			LocalBoundingBox.Init();
+			Super::LocalBoundingBox.Init();
 		}
 		
 		// Loop through existing range to update data
 		for (int32 VertexIdx = 0; VertexIdx < OldVertexCount; VertexIdx++)
 		{
-			auto& Vertex = VertexBuffer[VertexIdx];
+			auto& Vertex = Super::VertexBuffer[VertexIdx];
 
 			// Update position and bounding box
 			if (Positions.Num() == NewVertexCount)
 			{
 				Vertex.Position = Positions[VertexIdx];
-				LocalBoundingBox += Vertex.Position;
+				Super::LocalBoundingBox += Vertex.Position;
 			}
 
 			// see if we have a new normal and/or tangent
@@ -1052,12 +1054,12 @@ public:
 		// Loop through additional range to add new data
 		for (int32 VertexIdx = OldVertexCount; VertexIdx < NewVertexCount; VertexIdx++)
 		{
-			auto& Vertex = VertexBuffer[VertexIdx];
+			auto& Vertex = Super::VertexBuffer[VertexIdx];
 
 			// Set position
 			Vertex.Position = Positions[VertexIdx];
 			// Update bounding box
-			LocalBoundingBox += Vertex.Position;
+			Super::LocalBoundingBox += Vertex.Position;
 
 			// see if we have a new normal and/or tangent
 			bool HasNormal = Normals.Num() > VertexIdx;
@@ -1110,18 +1112,18 @@ public:
 
 	virtual void Serialize(FArchive& Ar) override
 	{
-		FRuntimeMeshSection::Serialize(Ar);
+		Super::Serialize(Ar);
 	
-		int32 VertexBufferLength = VertexBuffer.Num();
+		int32 VertexBufferLength = Super::VertexBuffer.Num();
 		Ar << VertexBufferLength;
 		if (Ar.IsLoading())
 		{
-			VertexBuffer.SetNum(VertexBufferLength);
+			Super::VertexBuffer.SetNum(VertexBufferLength);
 		}
 
 		for (int32 Index = 0; Index < VertexBufferLength; Index++)
 		{
-			auto& Vertex = VertexBuffer[Index];
+			auto& Vertex = Super::VertexBuffer[Index];
 
 			Ar << Vertex.Position;
 			Ar << Vertex.Normal;

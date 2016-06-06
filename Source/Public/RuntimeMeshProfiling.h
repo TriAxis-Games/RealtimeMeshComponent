@@ -36,7 +36,7 @@ DECLARE_CYCLE_STAT(TEXT("UpdateMeshSection<VertexType> (With Triangles and Bound
 DECLARE_CYCLE_STAT(TEXT("UpdateMeshSection<VertexType> (Dual) (GT)"), STAT_RuntimeMesh_UpdateMeshSection_Dual_VertexType, STATGROUP_RuntimeMesh);
 DECLARE_CYCLE_STAT(TEXT("UpdateMeshSection<VertexType> (Dual) (With Bounding Box) (GT)"), STAT_RuntimeMesh_UpdateMeshSection_Dual_VertexType_WithBoundingBox, STATGROUP_RuntimeMesh);
 DECLARE_CYCLE_STAT(TEXT("UpdateMeshSection<VertexType> (Dual) (With Triangles) (GT)"), STAT_RuntimeMesh_UpdateMeshSection_Dual_VertexType_WithTriangles, STATGROUP_RuntimeMesh);
-DECLARE_CYCLE_STAT(TEXT("UpdateMeshSection<VertexType> (Dual) (With Triangles and Bounding Box) (GT)"), STAT_RuntimeMesh_Dual_UpdateMeshSection_VertexType_WithTrianglesAndBoundinBox, STATGROUP_RuntimeMesh);
+DECLARE_CYCLE_STAT(TEXT("UpdateMeshSection<VertexType> (Dual) (With Triangles and Bounding Box) (GT)"), STAT_RuntimeMesh_UpdateMeshSection_Dual_VertexType_WithTrianglesAndBoundinBox, STATGROUP_RuntimeMesh);
 
 DECLARE_CYCLE_STAT(TEXT("UpdateMeshSection (GT)"), STAT_RuntimeMesh_UpdateMeshSection, STATGROUP_RuntimeMesh);
 DECLARE_CYCLE_STAT(TEXT("UpdateMeshSection (GT)"), STAT_RuntimeMesh_UpdateMeshSection_DualUV, STATGROUP_RuntimeMesh);

@@ -2,8 +2,8 @@
 
 #pragma once
 
-#define RMC_KEEPTESTMACROS 1 // Keep test macros from the RMC header so we can use them here.
 #include "RuntimeMeshComponentPluginPrivatePCH.h"
+#include "RuntimeMeshComponent.h"
 #include "RuntimeMeshCore.h"
 #include "RuntimeMeshGenericVertex.h"
 #include "RuntimeMeshVersion.h"
@@ -236,8 +236,12 @@ public:
 		}
 		return false;
 	}
-	
-	virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View) const
+
+#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION >= 11
+	virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View) const override
+#else
+	virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View) override
+#endif
 	{
 		FPrimitiveViewRelevance Result;
 		Result.bDrawRelevance = IsShown(View);
@@ -248,7 +252,9 @@ public:
 		Result.bDynamicRelevance = bForceDynamicPath || HasDynamicSections();
 		
 		Result.bRenderInMainPass = ShouldRenderInMainPass();
+#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION >= 11
 		Result.bUsesLightingChannels = GetLightingChannelMask() != GetDefaultLightingChannelMask();
+#endif
 		Result.bRenderCustomDepth = ShouldRenderCustomDepth();
 		MaterialRelevance.SetPrimitiveViewRelevance(Result);
 		return Result;
@@ -364,7 +370,14 @@ private:
 void FRuntimeMeshComponentPrePhysicsTickFunction::ExecuteTick( float DeltaTime, ELevelTick TickType, ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
 {
 	/* Ensure target still exists */
-	if (Target && !Target->IsPendingKillOrUnreachable())
+
+#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION >= 11
+	bool bIsValid = Target && !Target->IsPendingKillOrUnreachable();
+#else
+	bool bIsValid = Target && !Target->HasAnyFlags(RF_PendingKill | RF_Unreachable);
+#endif
+
+	if (bIsValid)
 	{
 		FScopeCycleCounterUObject ActorScope(Target);
 		Target->BakeCollision();

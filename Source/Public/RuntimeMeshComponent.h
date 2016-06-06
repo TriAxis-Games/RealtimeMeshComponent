@@ -565,7 +565,7 @@ public:
 	template<typename VertexType>
 	void UpdateMeshSection(int32 SectionIndex, TArray<FVector>& VertexPositions, TArray<VertexType>& VertexData, const FBox& BoundingBox, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
 	{
-		SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_UpdateMeshSection_VertexType_Dual_WithBoundingBox);
+		SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_UpdateMeshSection_Dual_VertexType_WithBoundingBox);
 
 		// Validate all update parameters
 		RMC_VALIDATE_UPDATEPARAMETERS_DUALBUFFER(SectionIndex);
@@ -631,7 +631,7 @@ public:
 	template<typename VertexType>
 	void UpdateMeshSection(int32 SectionIndex, TArray<FVector>& VertexPositions, TArray<VertexType>& VertexData, TArray<int32>& Triangles, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
 	{
-		SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_UpdateMeshSection_VertexType_Dual_WithTriangles);
+		SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_UpdateMeshSection_Dual_VertexType_WithTriangles);
 
 		// Validate all update parameters
 		RMC_VALIDATE_UPDATEPARAMETERS_DUALBUFFER(SectionIndex);
@@ -709,7 +709,7 @@ public:
 	template<typename VertexType>
 	void UpdateMeshSection(int32 SectionIndex, TArray<FVector>& VertexPositions, TArray<VertexType>& VertexData, TArray<int32>& Triangles, const FBox& BoundingBox, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
 	{
-		SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_UpdateMeshSection_VertexType_Dual_WithTrianglesAndBoundinBox);
+		SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_UpdateMeshSection_Dual_VertexType_WithTrianglesAndBoundinBox);
 
 		// Validate all update parameters
 		RMC_VALIDATE_UPDATEPARAMETERS_DUALBUFFER(SectionIndex);
@@ -1099,14 +1099,3 @@ private:
 	friend class FRuntimeMeshSceneProxy;
 	friend struct FRuntimeMeshComponentPrePhysicsTickFunction;
 };
-
-
-
-// Undefine the test macros unless this is being included by the RuntimeMeshComponent.cpp file
-#if !defined RMC_KEEPTESTMACROS
-#undef RMC_VALIDATE_CREATIONPARAMETERS
-#undef RMC_VALIDATE_CREATIONPARAMETERS_DUALBUFFER
-#undef RMC_VALIDATE_BOUNDINGBOX
-#undef RMC_VALIDATE_UPDATEPARAMETERS
-#undef RMC_VALIDATE_UPDATEPARAMETERS_DUALBUFFER
-#endif
