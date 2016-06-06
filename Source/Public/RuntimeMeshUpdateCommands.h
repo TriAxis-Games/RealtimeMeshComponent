@@ -124,9 +124,10 @@ enum class ERuntimeMeshSectionBatchUpdateType
 	None = 0x0,
 	Create = 0x1,
 	Destroy = 0x2,
-	VerticesUpdate = 0x4,
-	IndicesUpdate = 0x8,
-	PropertyUpdate = 0x10,
+	PositionsUpdate = 0x4,
+	VerticesUpdate = 0x8,
+	IndicesUpdate = 0x10,
+	PropertyUpdate = 0x20,
 };
 
 ENUM_CLASS_FLAGS(ERuntimeMeshSectionBatchUpdateType)

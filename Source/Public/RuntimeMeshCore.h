@@ -6,11 +6,13 @@
 #include "Components/MeshComponent.h"
 #include "RuntimeMeshProfiling.h"
 #include "RuntimeMeshVersion.h"
+#include "Runtime/Launch/Resources/Version.h"
 #include "RuntimeMeshCore.generated.h"
 
 class FRuntimeMeshVertexFactory;
 
 
+/* Helper for determining if a struct has a member of type "FVector" with the name "Position" */
 template<typename T> struct FVertexHasPositionComponent {
 	struct Fallback { FVector Position; };
 	struct Derived : T, Fallback { };
@@ -216,4 +218,5 @@ protected:
 
 #define DEFINE_RUNTIMEMESH_VERTEXTYPEINFO(TypeName) \
 	const  TypeName::FRuntimeMeshVertexTypeInfo_##TypeName TypeName::TypeInfo = TypeName::FRuntimeMeshVertexTypeInfo_##TypeName();
+
 

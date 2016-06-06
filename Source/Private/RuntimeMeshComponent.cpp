@@ -2,6 +2,7 @@
 
 #pragma once
 
+#define RMC_KEEPTESTMACROS 1 // Keep test macros from the RMC header so we can use them here.
 #include "RuntimeMeshComponentPluginPrivatePCH.h"
 #include "RuntimeMeshCore.h"
 #include "RuntimeMeshGenericVertex.h"
@@ -362,6 +363,7 @@ private:
 
 void FRuntimeMeshComponentPrePhysicsTickFunction::ExecuteTick( float DeltaTime, ELevelTick TickType, ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
 {
+	/* Ensure target still exists */
 	if (Target && !Target->IsPendingKillOrUnreachable())
 	{
 		FScopeCycleCounterUObject ActorScope(Target);
@@ -376,12 +378,21 @@ FString FRuntimeMeshComponentPrePhysicsTickFunction::DiagnosticMessage()
 
 
 
+/* Helper for converting an array of FLinearColor to an array of FColors*/
+void ConvertLinearColorToFColor(const TArray<FLinearColor>& LinearColors, TArray<FColor>& Colors)
+{
+	Colors.SetNumUninitialized(LinearColors.Num());
+	for (int32 Index = 0; Index < LinearColors.Num(); Index++)
+	{
+		Colors[Index] = LinearColors[Index].ToFColor(true);
+	}
+}
 
 
 
 
 URuntimeMeshComponent::URuntimeMeshComponent(const FObjectInitializer& ObjectInitializer)
-	: Super(ObjectInitializer), bCollisionDirty(true), bUseComplexAsSimpleCollision(true), bShouldSerializeMeshData(true)
+	: Super(ObjectInitializer), bUseComplexAsSimpleCollision(true), bShouldSerializeMeshData(true), bCollisionDirty(true)
 {
 	// Setup the collision update ticker
 	PrePhysicsTick.TickGroup = TG_PrePhysics;
@@ -394,105 +405,97 @@ URuntimeMeshComponent::URuntimeMeshComponent(const FObjectInitializer& ObjectIni
 
 TSharedPtr<FRuntimeMeshSectionInterface> URuntimeMeshComponent::CreateOrResetSectionInternalType(int32 SectionIndex, int32 NumUVChannels, bool WantsHalfPrecsionUVs)
 {
-	// Ensure sections array is long enough
-	if (SectionIndex >= MeshSections.Num())
-	{
-		MeshSections.SetNum(SectionIndex + 1, false);
-	}
-
 	switch (NumUVChannels)
 	{
 	case 1:
 		if (WantsHalfPrecsionUVs)
 		{
-			MeshSections[SectionIndex] = MakeShareable(new FRuntimeMeshSectionInternal<1, true>);
+			return CreateOrResetSection<FRuntimeMeshSectionInternal<1, true>>(SectionIndex, false, true);
 		}
 		else
 		{
-			MeshSections[SectionIndex] = MakeShareable(new FRuntimeMeshSectionInternal<1, false>);
+			return CreateOrResetSection<FRuntimeMeshSectionInternal<1, false>>(SectionIndex, false, true);
 		}
 		break;
 	case 2:
 		if (WantsHalfPrecsionUVs)
 		{
-			MeshSections[SectionIndex] = MakeShareable(new FRuntimeMeshSectionInternal<2, true>);
+			return CreateOrResetSection<FRuntimeMeshSectionInternal<2, true>>(SectionIndex, false, true);
 		}
 		else
 		{
-			MeshSections[SectionIndex] = MakeShareable(new FRuntimeMeshSectionInternal<2, false>);
+			return CreateOrResetSection<FRuntimeMeshSectionInternal<2, false>>(SectionIndex, false, true);
 		}
 		break;
 	case 3:
 		if (WantsHalfPrecsionUVs)
 		{
-			MeshSections[SectionIndex] = MakeShareable(new FRuntimeMeshSectionInternal<3, true>);
+			return CreateOrResetSection<FRuntimeMeshSectionInternal<3, true>>(SectionIndex, false, true);
 		}
 		else
 		{
-			MeshSections[SectionIndex] = MakeShareable(new FRuntimeMeshSectionInternal<3, false>);
+			return CreateOrResetSection<FRuntimeMeshSectionInternal<3, false>>(SectionIndex, false, true);
 		}
 		break;
 	case 4:
 		if (WantsHalfPrecsionUVs)
 		{
-			MeshSections[SectionIndex] = MakeShareable(new FRuntimeMeshSectionInternal<4, true>);
+			return CreateOrResetSection<FRuntimeMeshSectionInternal<4, true>>(SectionIndex, false, true);
 		}
 		else
 		{
-			MeshSections[SectionIndex] = MakeShareable(new FRuntimeMeshSectionInternal<4, false>);
+			return CreateOrResetSection<FRuntimeMeshSectionInternal<4, false>>(SectionIndex, false, true);
 		}
 		break;
 	case 5:
 		if (WantsHalfPrecsionUVs)
 		{
-			MeshSections[SectionIndex] = MakeShareable(new FRuntimeMeshSectionInternal<5, true>);
+			return CreateOrResetSection<FRuntimeMeshSectionInternal<5, true>>(SectionIndex, false, true);
 		}
 		else
 		{
-			MeshSections[SectionIndex] = MakeShareable(new FRuntimeMeshSectionInternal<5, false>);
+			return CreateOrResetSection<FRuntimeMeshSectionInternal<5, false>>(SectionIndex, false, true);
 		}
 		break;
 	case 6:
 		if (WantsHalfPrecsionUVs)
 		{
-			MeshSections[SectionIndex] = MakeShareable(new FRuntimeMeshSectionInternal<6, true>);
+			return CreateOrResetSection<FRuntimeMeshSectionInternal<6, true>>(SectionIndex, false, true);
 		}
 		else
 		{
-			MeshSections[SectionIndex] = MakeShareable(new FRuntimeMeshSectionInternal<6, false>);
+			return CreateOrResetSection<FRuntimeMeshSectionInternal<6, false>>(SectionIndex, false, true);
 		}
 		break;
 	case 7:
 		if (WantsHalfPrecsionUVs)
 		{
-			MeshSections[SectionIndex] = MakeShareable(new FRuntimeMeshSectionInternal<7, true>);
+			return CreateOrResetSection<FRuntimeMeshSectionInternal<7, true>>(SectionIndex, false, true);
 		}
 		else
 		{
-			MeshSections[SectionIndex] = MakeShareable(new FRuntimeMeshSectionInternal<7, false>);
+			return CreateOrResetSection<FRuntimeMeshSectionInternal<7, false>>(SectionIndex, false, true);
 		}
 		break;
 	case 8:
 		if (WantsHalfPrecsionUVs)
 		{
-			MeshSections[SectionIndex] = MakeShareable(new FRuntimeMeshSectionInternal<8, true>);
+			return CreateOrResetSection<FRuntimeMeshSectionInternal<8, true>>(SectionIndex, false, true);
 		}
 		else
 		{
-			MeshSections[SectionIndex] = MakeShareable(new FRuntimeMeshSectionInternal<8, false>);
+			return CreateOrResetSection<FRuntimeMeshSectionInternal<8, false>>(SectionIndex, false, true);
 		}
 		break;
 
 	default:
 		check(false && "Invalid number of UV channels for section.");
+		return nullptr;
 	}
-
-	MeshSections[SectionIndex]->bIsInternalSectionType = true;
-	return MeshSections[SectionIndex];
 }
 
 
-void URuntimeMeshComponent::CreateSectionInternal(int32 SectionIndex, bool bNeedsBoundsUpdate)
+void URuntimeMeshComponent::CreateSectionInternal(int32 SectionIndex)
 {
 	RuntimeMeshSectionPtr Section = MeshSections[SectionIndex];
 	check(Section.IsValid());
@@ -509,11 +512,8 @@ void URuntimeMeshComponent::CreateSectionInternal(int32 SectionIndex, bool bNeed
 			BatchState.MarkCollisionDirty();
 		}
 		
-		// Flag bounds update if needed.
-		if (bNeedsBoundsUpdate)
-		{
-			BatchState.MarkBoundsDirty();
-		}
+		// Flag bounds update
+		BatchState.MarkBoundsDirty();
 
 		// bail since we don't update directly in this case.
 		return;
@@ -548,23 +548,22 @@ void URuntimeMeshComponent::CreateSectionInternal(int32 SectionIndex, bool bNeed
 		MarkCollisionDirty();
 	}
 
-	// Update overall bounds if needed
-	if (bNeedsBoundsUpdate)
-	{
-		UpdateLocalBounds();
-	}
+	// Update overall bounds
+	UpdateLocalBounds();
 
 }
 
 void URuntimeMeshComponent::UpdateSectionInternal(int32 SectionIndex, bool bHadVertexPositionsUpdate, bool bHadVertexUpdates, bool bHadIndexUpdates, bool bNeedsBoundsUpdate)
 {
+	// Ensure that something was updated
 	check(bHadVertexPositionsUpdate || bHadVertexUpdates || bNeedsBoundsUpdate);
 
+	check(SectionIndex < MeshSections.Num() && MeshSections[SectionIndex].IsValid());	
 	RuntimeMeshSectionPtr Section = MeshSections[SectionIndex];
-	check(Section.IsValid());
 
-	bool bHadPositionUpdates = bHadVertexUpdates || (Section->IsDualBufferSection() && bHadVertexPositionsUpdate);
-
+	/* Make sure this is only flagged if the section is dual buffer */
+	bHadVertexPositionsUpdate = Section->IsDualBufferSection() && bHadVertexPositionsUpdate;
+	bool bNeedsCollisionUpdate = Section->CollisionEnabled && (bHadVertexPositionsUpdate || (!Section->IsDualBufferSection() && bHadVertexUpdates));
 	
 	// Use the batch update if one is running
 	if (BatchState.IsBatchPending())
@@ -577,14 +576,15 @@ void URuntimeMeshComponent::UpdateSectionInternal(int32 SectionIndex, bool bHadV
 		else
 		{
 			ERuntimeMeshSectionBatchUpdateType UpdateType = ERuntimeMeshSectionBatchUpdateType::None;
-			UpdateType |= bHadPositionUpdates ? ERuntimeMeshSectionBatchUpdateType::VerticesUpdate : ERuntimeMeshSectionBatchUpdateType::None;
+			UpdateType |= bHadVertexPositionsUpdate ? ERuntimeMeshSectionBatchUpdateType::PositionsUpdate : ERuntimeMeshSectionBatchUpdateType::None;
+			UpdateType |= bHadVertexUpdates ? ERuntimeMeshSectionBatchUpdateType::VerticesUpdate : ERuntimeMeshSectionBatchUpdateType::None;
 			UpdateType |= bHadIndexUpdates ? ERuntimeMeshSectionBatchUpdateType::IndicesUpdate : ERuntimeMeshSectionBatchUpdateType::None;
 
 			BatchState.MarkUpdateForSection(SectionIndex, UpdateType);
 		}
 
 		// Flag collision if this section affects it
-		if (Section->CollisionEnabled && bHadPositionUpdates)
+		if (bNeedsCollisionUpdate)
 		{
 			BatchState.MarkCollisionDirty();
 		}
@@ -622,27 +622,23 @@ void URuntimeMeshComponent::UpdateSectionInternal(int32 SectionIndex, bool bHadV
 		MarkRenderStateDirty();
 	}
 
-	// If we had positions update
-	if (bHadPositionUpdates)
+	// Mark collision dirty so it's re-baked at the end of this frame
+	if (bNeedsCollisionUpdate)
 	{
-		// Mark collision dirty so it's re-baked at the end of this frame
-		if (Section->CollisionEnabled)
-		{
-			MarkCollisionDirty();
-		}
+		MarkCollisionDirty();
+	}
 
-		// Update overall bounds if needed
-		if (bNeedsBoundsUpdate)
-		{
-			UpdateLocalBounds();
-		}
+	// Update overall bounds if needed
+	if (bNeedsBoundsUpdate)
+	{
+		UpdateLocalBounds();
 	}
 }
 
 void URuntimeMeshComponent::UpdateSectionVertexPositionsInternal(int32 SectionIndex, bool bNeedsBoundsUpdate)
 {
+	check(SectionIndex < MeshSections.Num() && MeshSections[SectionIndex].IsValid());
 	RuntimeMeshSectionPtr Section = MeshSections[SectionIndex];
-	check(Section.IsValid());
 
 	if (SceneProxy)
 	{
@@ -672,8 +668,8 @@ void URuntimeMeshComponent::UpdateSectionVertexPositionsInternal(int32 SectionIn
 
 void URuntimeMeshComponent::UpdateSectionPropertiesInternal(int32 SectionIndex, bool bUpdateRequiresProxyRecreateIfStatic)
 {
+	check(SectionIndex < MeshSections.Num() && MeshSections[SectionIndex].IsValid());
 	RuntimeMeshSectionPtr Section = MeshSections[SectionIndex];
-	check(Section.IsValid());
 
 	bool bRequiresRecreate = bUpdateRequiresProxyRecreateIfStatic && Section->UpdateFrequency == EUpdateFrequency::Infrequent;
 
@@ -720,22 +716,101 @@ void URuntimeMeshComponent::UpdateSectionPropertiesInternal(int32 SectionIndex, 
 }
 
 
-
-
-
-void ConvertLinearColorToFColor(const TArray<FLinearColor>& LinearColors, TArray<FColor>& Colors)
+void URuntimeMeshComponent::UpdateMeshSectionPositionsImmediate(int32 SectionIndex, TArray<FVector>& VertexPositions, ESectionUpdateFlags UpdateFlags)
 {
-	Colors.SetNumUninitialized(LinearColors.Num());
-	for (int32 Index = 0; Index < LinearColors.Num(); Index++)
+	SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_UpdateMeshSectionPositionsImmediate);
+
+	// Validate all update parameters
+	RMC_VALIDATE_UPDATEPARAMETERS_DUALBUFFER(SectionIndex);
+
+	// Get section
+	RuntimeMeshSectionPtr& Section = MeshSections[SectionIndex];
+
+	// Check dual buffer section status
+	if (Section->IsDualBufferSection() && VertexPositions.Num() != Section->PositionVertexBuffer.Num())
 	{
-		Colors[Index] = LinearColors[Index].ToFColor(true);
+		Log(TEXT("UpdateMeshSection() - Positions cannot change length unless the vertexdata is updated as well."), true);
+		return;
+	}
+
+	bool bShouldUseMove = (UpdateFlags & ESectionUpdateFlags::MoveArrays) != ESectionUpdateFlags::None;
+	bool bNeedsBoundsUpdate = false;
+
+	// Update vertex positions if supplied
+	bool bUpdatedVertexPositions = false;
+	if (VertexPositions.Num() > 0)
+	{
+		bNeedsBoundsUpdate = Section->UpdateVertexPositionBuffer(VertexPositions, nullptr, bShouldUseMove);
+		bUpdatedVertexPositions = true;
+	}
+	else
+	{
+		Log(TEXT("UpdatemeshSection() - Vertex positions empty. They will not be updated."));
+	}
+
+	// Finalize section update if we have anything to apply
+	if (bUpdatedVertexPositions)
+	{
+		UpdateSectionVertexPositionsInternal(SectionIndex, bNeedsBoundsUpdate);
 	}
 }
+
+void URuntimeMeshComponent::UpdateMeshSectionPositionsImmediate(int32 SectionIndex, TArray<FVector>& VertexPositions, const FBox& BoundingBox, ESectionUpdateFlags UpdateFlags)
+{
+	SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_UpdateMeshSectionPositionsImmediate_WithBoundinBox);
+
+	// Validate all update parameters
+	RMC_VALIDATE_UPDATEPARAMETERS_DUALBUFFER(SectionIndex);
+
+	// Get section
+	RuntimeMeshSectionPtr& Section = MeshSections[SectionIndex];
+
+	// Check dual buffer section status
+	if (Section->IsDualBufferSection() && VertexPositions.Num() != Section->PositionVertexBuffer.Num())
+	{
+		Log(TEXT("UpdateMeshSection() - Positions cannot change length unless the vertexdata is updated as well."), true);
+		return;
+	}
+
+	bool bShouldUseMove = (UpdateFlags & ESectionUpdateFlags::MoveArrays) != ESectionUpdateFlags::None;
+	bool bNeedsBoundsUpdate = false;
+
+	// Update vertex positions if supplied
+	bool bUpdatedVertexPositions = false;
+	if (VertexPositions.Num() > 0)
+	{
+		bNeedsBoundsUpdate = Section->UpdateVertexPositionBuffer(VertexPositions, &BoundingBox, bShouldUseMove);
+		bUpdatedVertexPositions = true;
+	}
+	else
+	{
+		Log(TEXT("UpdatemeshSection() - Vertex positions empty. They will not be updated."));
+	}
+
+	// Finalize section update if we have anything to apply
+	if (bUpdatedVertexPositions)
+	{
+		UpdateSectionVertexPositionsInternal(SectionIndex, bNeedsBoundsUpdate);
+	}
+}
+
+
+
+
+
+
+
 
 
 void URuntimeMeshComponent::CreateMeshSection(int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals,
 	const TArray<FVector2D>& UV0, const TArray<FColor>& Colors, const TArray<FRuntimeMeshTangent>& Tangents, bool bCreateCollision,	EUpdateFrequency UpdateFrequency)
 {
+	SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_CreateMeshSection);
+
+	// Validate all creation parameters
+	RMC_VALIDATE_CREATIONPARAMETERS(SectionIndex, Vertices, Triangles);
+
+	// Create the section
 	auto NewSection = CreateOrResetSectionInternalType(SectionIndex, 1, false);
 
 	// Update the mesh data in the section
@@ -748,13 +823,20 @@ void URuntimeMeshComponent::CreateMeshSection(int32 SectionIndex, const TArray<F
 	NewSection->CollisionEnabled = bCreateCollision;
 	NewSection->UpdateFrequency = UpdateFrequency;
 
-	CreateSectionInternal(SectionIndex, true);
+	// Finalize section.
+	CreateSectionInternal(SectionIndex);
 }
 
 void URuntimeMeshComponent::CreateMeshSection(int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals,
 	const TArray<FVector2D>& UV0, const TArray<FVector2D>& UV1, const TArray<FColor>& Colors, const TArray<FRuntimeMeshTangent>& Tangents,
 	bool bCreateCollision, EUpdateFrequency UpdateFrequency)
 {
+	SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_CreateMeshSection_DualUV);
+
+	// Validate all creation parameters
+	RMC_VALIDATE_CREATIONPARAMETERS(SectionIndex, Vertices, Triangles);
+
+	// Create the section
 	auto NewSection = CreateOrResetSectionInternalType(SectionIndex, 2, false);
 
 	// Update the mesh data in the section
@@ -767,7 +849,8 @@ void URuntimeMeshComponent::CreateMeshSection(int32 SectionIndex, const TArray<F
 	NewSection->CollisionEnabled = bCreateCollision;
 	NewSection->UpdateFrequency = UpdateFrequency;
 
-	CreateSectionInternal(SectionIndex, true);
+	// Finalize section.
+	CreateSectionInternal(SectionIndex);
 }
 
 
@@ -787,73 +870,79 @@ void URuntimeMeshComponent::UpdateMeshSection(int32 SectionIndex, const TArray<F
 void URuntimeMeshComponent::UpdateMeshSection(int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals,
 	const TArray<FVector2D>& UV0, const TArray<FColor>& Colors, const TArray<FRuntimeMeshTangent>& Tangents)
 {
-	// Validate section exists
-	check(SectionIndex < MeshSections.Num() && MeshSections[SectionIndex].IsValid());
+	SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_UpdateMeshSection);
+
+	// Validate all update parameters
+	RMC_VALIDATE_UPDATEPARAMETERS_INTERNALSECTION(SectionIndex);
 
 	// Validate section type
 	MeshSections[SectionIndex]->GetVertexType()->EnsureEquals<FRuntimeMeshVertex<1>>();
 
 	// Get section
 	RuntimeMeshSectionPtr& Section = MeshSections[SectionIndex];
-
-	check(Section->bIsInternalSectionType);
-
+	
 	// Tell the section to update the vertex buffer
-	Section->UpdateVertexBufferInternal(Vertices, Normals, Tangents, UV0, TArray<FVector2D>(), Colors);
+	bool bHadVertexUpdates = Section->UpdateVertexBufferInternal(Vertices, Normals, Tangents, UV0, TArray<FVector2D>(), Colors);
 
-	if (Triangles.Num() > 0)
+	bool bHadTriangleUpdates = Triangles.Num() > 0;
+	if (bHadTriangleUpdates)
 	{
 		TArray<int32>& TrianglesRef = const_cast<TArray<int32>&>(Triangles);
 
 		Section->UpdateIndexBuffer(TrianglesRef, false);
 	}
 
-	UpdateSectionInternal(SectionIndex, false, Vertices.Num() > 0, Triangles.Num() > 0, true);
+	UpdateSectionInternal(SectionIndex, false, bHadVertexUpdates, bHadTriangleUpdates, true);
 }
 
 void URuntimeMeshComponent::UpdateMeshSection(int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals,
 	const TArray<FVector2D>& UV0, const TArray<FVector2D>& UV1, const TArray<FColor>& Colors, const TArray<FRuntimeMeshTangent>& Tangents)
 {
-	// Validate section exists
-	check(SectionIndex < MeshSections.Num() && MeshSections[SectionIndex].IsValid());
+	SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_UpdateMeshSection_DualUV);
+
+	// Validate all update parameters
+	RMC_VALIDATE_UPDATEPARAMETERS_INTERNALSECTION(SectionIndex);
 
 	// Validate section type
 	MeshSections[SectionIndex]->GetVertexType()->EnsureEquals<FRuntimeMeshVertex<2>>();
 
 	// Get section
 	RuntimeMeshSectionPtr& Section = MeshSections[SectionIndex];
-
-	check(Section->bIsInternalSectionType);
 	
 	// Tell the section to update the vertex buffer
-	Section->UpdateVertexBufferInternal(Vertices, Normals, Tangents, UV0, UV1, Colors);
+	bool bHadVertexUpdates = Section->UpdateVertexBufferInternal(Vertices, Normals, Tangents, UV0, UV1, Colors);
 
-	if (Triangles.Num() > 0)
+	bool bHadTriangleUpdates = Triangles.Num() > 0;
+	if (bHadTriangleUpdates)
 	{
 		TArray<int32>& TrianglesRef = const_cast<TArray<int32>&>(Triangles);
 
 		Section->UpdateIndexBuffer(TrianglesRef, false);
 	}
 
-	UpdateSectionInternal(SectionIndex, false, Vertices.Num() > 0, Triangles.Num() > 0, true);
+	UpdateSectionInternal(SectionIndex, false, bHadVertexUpdates, bHadTriangleUpdates, true);
 }
 
 
 void URuntimeMeshComponent::CreateMeshSection_Blueprint(int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals, const TArray<FRuntimeMeshTangent>& Tangents,
 	const TArray<FVector2D>& UV0, const TArray<FVector2D>& UV1, const TArray<FLinearColor>& VertexColors, bool bCreateCollision, EUpdateFrequency UpdateFrequency)
 {	
+	// Convert vertex colors to FColor
 	TArray<FColor> Colors;
 	ConvertLinearColorToFColor(VertexColors, Colors);
 
+	// Create section
 	CreateMeshSection(SectionIndex, Vertices, Triangles, Normals, UV0, UV1, Colors, Tangents, bCreateCollision, UpdateFrequency);
 }
 
 void URuntimeMeshComponent::UpdateMeshSection_Blueprint(int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals, const TArray<FRuntimeMeshTangent>& Tangents,
 	const TArray<FVector2D>& UV0, const TArray<FVector2D>& UV1, const TArray<FLinearColor>& VertexColors)
 {
+	// Convert vertex colors to FColor
 	TArray<FColor> Colors;
 	ConvertLinearColorToFColor(VertexColors, Colors);
 
+	// Update section
 	UpdateMeshSection(SectionIndex, Vertices, Triangles, Normals, UV0, UV1, Colors, Tangents);
 }
 
@@ -1273,9 +1362,10 @@ void URuntimeMeshComponent::EndBatchUpdates()
 				check(MeshSections.Num() >= Index && MeshSections[Index].IsValid());
 
 				// Get the section update data and add it to the list.
+				bool bHadPositionUpdates = BatchState.HasFlagSet(Index, ERuntimeMeshSectionBatchUpdateType::PositionsUpdate);
 				bool bHadVertexUpdates = BatchState.HasFlagSet(Index, ERuntimeMeshSectionBatchUpdateType::VerticesUpdate);
 				bool bHadIndexUpdates = BatchState.HasFlagSet(Index, ERuntimeMeshSectionBatchUpdateType::IndicesUpdate);
-				auto SectionUpdateData = MeshSections[Index]->GetSectionUpdateData(bHadVertexUpdates, bHadVertexUpdates, bHadIndexUpdates);
+				auto SectionUpdateData = MeshSections[Index]->GetSectionUpdateData(bHadPositionUpdates, bHadVertexUpdates, bHadIndexUpdates);
 				SectionUpdateData->SetTargetSection(Index);
 
 				BatchUpdateData->UpdateSections.Add(SectionUpdateData);

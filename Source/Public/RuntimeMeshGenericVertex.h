@@ -979,18 +979,17 @@ public:
 
 
 
-	FRuntimeMeshSectionInternal() : FRuntimeMeshSection(false) { }
+	FRuntimeMeshSectionInternal(bool bWantsSeparatePositionBuffer /*Ignored for this section type*/) : FRuntimeMeshSection(false) { }
 	virtual ~FRuntimeMeshSectionInternal() override { }
 
-	virtual void UpdateVertexBufferInternal(const TArray<FVector>& Positions, const TArray<FVector>& Normals, const TArray<FRuntimeMeshTangent>& Tangents, const TArray<FVector2D>& UV0, const TArray<FVector2D>& UV1, const TArray<FColor>& Colors) override
+	virtual bool UpdateVertexBufferInternal(const TArray<FVector>& Positions, const TArray<FVector>& Normals, const TArray<FRuntimeMeshTangent>& Tangents, const TArray<FVector2D>& UV0, const TArray<FVector2D>& UV1, const TArray<FColor>& Colors) override
 	{
 		int32 NewVertexCount = (Positions.Num() > 0) ? Positions.Num() : VertexBuffer.Num();
 		int32 OldVertexCount = FMath::Min(VertexBuffer.Num(), NewVertexCount);
 
 		// Check existence of data components
 		const bool HasPositions = Positions.Num() == NewVertexCount;
-
-
+		
 		// Size the vertex buffer correctly
 		if (NewVertexCount != VertexBuffer.Num())
 		{
@@ -1002,45 +1001,51 @@ public:
 		{
 			LocalBoundingBox.Init();
 		}
-
-
+		
 		// Loop through existing range to update data
 		for (int32 VertexIdx = 0; VertexIdx < OldVertexCount; VertexIdx++)
 		{
 			auto& Vertex = VertexBuffer[VertexIdx];
 
+			// Update position and bounding box
 			if (Positions.Num() == NewVertexCount)
 			{
 				Vertex.Position = Positions[VertexIdx];
 				LocalBoundingBox += Vertex.Position;
 			}
 
+			// see if we have a new normal and/or tangent
 			bool HasNormal = Normals.Num() > VertexIdx;
 			bool HasTangent = Tangents.Num() > VertexIdx;
 
+			// Update normal and tangent together
 			if (HasNormal && HasTangent)
 			{
 				Vertex.Normal = Normals[VertexIdx];
 				Vertex.Normal.Vector.W = Tangents[VertexIdx].bFlipTangentY ? 0 : 255;
 				Vertex.Tangent = Tangents[VertexIdx].TangentX;
 			}
+			// Else update only normal keeping the W component 
 			else if (HasNormal)
 			{
 				float W = Vertex.Normal.Vector.W;
 				Vertex.Normal = Normals[VertexIdx];
 				Vertex.Normal.Vector.W = W;
 			}
+			// Else update tangent updating the normals W component
 			else if (HasTangent)
 			{
 				Vertex.Tangent = Tangents[VertexIdx].TangentX;
 				Vertex.Normal.Vector.W = Tangents[VertexIdx].bFlipTangentY ? 0 : 255;
 			}
 
+			// Update color
 			if (Colors.Num() > VertexIdx)
 			{
 				Vertex.Color = Colors[VertexIdx];
 			}
 
+			// Set the UVs
 			FUVSetter<VertexType, (TextureChannels > 1)>::Set(Vertex, UV0, UV1, VertexIdx, false);
 		}
 
@@ -1049,29 +1054,37 @@ public:
 		{
 			auto& Vertex = VertexBuffer[VertexIdx];
 
+			// Set position
 			Vertex.Position = Positions[VertexIdx];
+			// Update bounding box
+			LocalBoundingBox += Vertex.Position;
 
+			// see if we have a new normal and/or tangent
 			bool HasNormal = Normals.Num() > VertexIdx;
 			bool HasTangent = Tangents.Num() > VertexIdx;
 
+			// Set normal and tangent both
 			if (HasNormal && HasTangent)
 			{
 				Vertex.Normal = Normals[VertexIdx];
 				Vertex.Normal.Vector.W = Tangents[VertexIdx].bFlipTangentY ? 0 : 255;
 				Vertex.Tangent = Tangents[VertexIdx].TangentX;
 			}
+			// Set normal and default tangent
 			else if (HasNormal)
 			{
 				Vertex.Normal = Normals[VertexIdx];
 				Vertex.Normal.Vector.W = 255;
 				Vertex.Tangent = FVector(1.0f, 0.0f, 0.0f);
 			}
+			// Default normal and set tangent
 			else if (HasTangent)
 			{
 				Vertex.Normal = FVector(0.0f, 0.0f, 1.0f);
 				Vertex.Normal.Vector.W = Tangents[VertexIdx].bFlipTangentY ? 0 : 255;
 				Vertex.Tangent = Tangents[VertexIdx].TangentX;
 			}
+			// Default normal and tangent
 			else
 			{
 				Vertex.Normal = FVector(0.0f, 0.0f, 1.0f);
@@ -1079,13 +1092,14 @@ public:
 				Vertex.Tangent = FVector(1.0f, 0.0f, 0.0f);
 			}
 
-			Vertex.Color = Colors.Num() > VertexIdx ? Colors[VertexIdx] : FColor::Transparent;
+			// Set color or default 
+			Vertex.Color = Colors.Num() > VertexIdx ? Colors[VertexIdx] : FColor::White;
 
-
+			// Set UVs or default
 			FUVSetter<VertexType, (TextureChannels > 1)>::Set(Vertex, UV0, UV1, VertexIdx, true);
-
-			LocalBoundingBox += Vertex.Position;
 		}
+
+		return true;
 	}
 
 	virtual void GetInternalVertexComponents(int32& NumUVChannels, bool& WantsHalfPrecisionUVs) override

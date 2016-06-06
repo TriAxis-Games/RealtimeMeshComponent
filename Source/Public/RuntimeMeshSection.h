@@ -138,7 +138,7 @@ protected:
 	virtual void GetInternalVertexComponents(int32& NumUVChannels, bool& WantsHalfPrecisionUVs) { }
 
 	// This is only meant for internal use for supporting the old style create/update sections
-	virtual void UpdateVertexBufferInternal(const TArray<FVector>& Positions, const TArray<FVector>& Normals, const TArray<FRuntimeMeshTangent>& Tangents, const TArray<FVector2D>& UV0, const TArray<FVector2D>& UV1, const TArray<FColor>& Colors) { }
+	virtual bool UpdateVertexBufferInternal(const TArray<FVector>& Positions, const TArray<FVector>& Normals, const TArray<FRuntimeMeshTangent>& Tangents, const TArray<FVector2D>& UV0, const TArray<FVector2D>& UV1, const TArray<FColor>& Colors) { return false; }
 	
 
 	virtual const FRuntimeMeshVertexTypeInfo* GetVertexType() const = 0;
@@ -267,9 +267,6 @@ namespace RuntimeMeshSectionInternal
 		}
 		return false;
 	}
-
-
-
 }
 
 /** Templated class for a single mesh section */
