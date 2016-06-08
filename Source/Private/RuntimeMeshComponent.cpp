@@ -1124,12 +1124,33 @@ bool URuntimeMeshComponent::IsMeshSectionCollisionEnabled(int32 SectionIndex)
 
 int32 URuntimeMeshComponent::GetNumSections() const
 {
-	return MeshSections.Num();
+	int32 SectionCount = 0;
+	for (int32 Index = 0; Index < MeshSections.Num(); Index++)
+	{
+		if (MeshSections[Index].IsValid())
+		{
+			SectionCount++;
+		}
+	}
+
+	return SectionCount;
 }
 
 bool URuntimeMeshComponent::DoesSectionExist(int32 SectionIndex) const
 {
 	return SectionIndex < MeshSections.Num() && MeshSections[SectionIndex].IsValid();
+}
+
+int32 URuntimeMeshComponent::FirstAvailableMeshSectionIndex(int32 SectionIndex) const
+{
+	for (int32 Index = 0; Index < MeshSections.Num(); Index++)
+	{
+		if (!MeshSections[Index].IsValid())
+		{
+			return Index;
+		}
+	}
+	return MeshSections.Num();
 }
 
 

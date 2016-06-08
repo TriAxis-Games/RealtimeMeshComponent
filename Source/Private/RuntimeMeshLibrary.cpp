@@ -54,7 +54,7 @@ void URuntimeMeshLibrary::CreateGridMeshTriangles(int32 NumX, int32 NumY, bool b
 }
 
 
-void URuntimeMeshLibrary::GenerateBoxMesh(FVector BoxRadius, TArray<FVector>& Vertices, TArray<int32>& Triangles, TArray<FVector>& Normals, TArray<FVector2D>& UVs, TArray<FRuntimeMeshTangent>& Tangents)
+void URuntimeMeshLibrary::CreateBoxMesh(FVector BoxRadius, TArray<FVector>& Vertices, TArray<int32>& Triangles, TArray<FVector>& Normals, TArray<FVector2D>& UVs, TArray<FRuntimeMeshTangent>& Tangents)
 {
 	// Generate verts
 	FVector BoxVerts[8];

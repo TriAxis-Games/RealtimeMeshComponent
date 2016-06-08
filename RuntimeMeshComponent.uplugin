@@ -7,12 +7,12 @@
   "Category": "Rendering",
 	"CreatedBy" : "Chris Conway (Koderz)",
 	"CreatedByURL" : "https://answers.unrealengine.com/users/29368/koderz.html",
-  "DocsURL": "",
+  "DocsURL": "https://github.com/Koderz/UE4RuntimeMeshComponent/wiki",
   "MarketplaceURL": "",
-  "SupportURL": "",
+  "SupportURL": "https://github.com/Koderz/UE4RuntimeMeshComponent/issues",
   "EnabledByDefault": true,
   "CanContainContent": false,
-  "IsBetaVersion": true,
+  "IsBetaVersion": false,
   "Installed": false,
   "Modules": [
     {

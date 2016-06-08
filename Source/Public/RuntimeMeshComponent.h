@@ -56,7 +56,7 @@ struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshComponentPrePhysicsTickFunction : pu
 /**
 *	Component that allows you to specify custom triangle mesh geometry for rendering and collision.
 */
-UCLASS(HideCategories = (Object, LOD), Meta = (BlueprintSpawnableComponent), Experimental, ClassGroup = Experimental)
+UCLASS(HideCategories = (Object, LOD), Meta = (BlueprintSpawnableComponent))
 class RUNTIMEMESHCOMPONENT_API URuntimeMeshComponent : public UMeshComponent, public IInterface_CollisionDataProvider
 {
 	GENERATED_BODY()
@@ -966,6 +966,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
 	bool DoesSectionExist(int32 SectionIndex) const;
 
+	/** Returns first available section index */
+	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
+	int32 FirstAvailableMeshSectionIndex(int32 SectionIndex) const;
+
 
 	/** Sets the geometry for a collision only section */
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
@@ -978,6 +982,7 @@ public:
 	/** Clears the geometry for ALL collision only sections */
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
 	void ClearAllMeshCollisionSections();
+
 
 
 	/** Add simple collision convex to this component */
