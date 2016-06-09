@@ -740,7 +740,7 @@ void URuntimeMeshComponent::UpdateMeshSectionPositionsImmediate(int32 SectionInd
 	RuntimeMeshSectionPtr& Section = MeshSections[SectionIndex];
 
 	// Check dual buffer section status
-	if (Section->IsDualBufferSection() && VertexPositions.Num() != Section->PositionVertexBuffer.Num())
+	if (VertexPositions.Num() != Section->PositionVertexBuffer.Num())
 	{
 		Log(TEXT("UpdateMeshSection() - Positions cannot change length unless the vertexdata is updated as well."), true);
 		return;
@@ -779,7 +779,7 @@ void URuntimeMeshComponent::UpdateMeshSectionPositionsImmediate(int32 SectionInd
 	RuntimeMeshSectionPtr& Section = MeshSections[SectionIndex];
 
 	// Check dual buffer section status
-	if (Section->IsDualBufferSection() && VertexPositions.Num() != Section->PositionVertexBuffer.Num())
+	if (VertexPositions.Num() != Section->PositionVertexBuffer.Num())
 	{
 		Log(TEXT("UpdateMeshSection() - Positions cannot change length unless the vertexdata is updated as well."), true);
 		return;
@@ -807,6 +807,45 @@ void URuntimeMeshComponent::UpdateMeshSectionPositionsImmediate(int32 SectionInd
 	}
 }
 
+
+TArray<FVector>* URuntimeMeshComponent::BeginMeshSectionPositionUpdate(int32 SectionIndex)
+{
+	// Validate all update parameters
+	RMC_VALIDATE_UPDATEPARAMETERS_DUALBUFFER(SectionIndex);
+
+	// Get section
+	RuntimeMeshSectionPtr& Section = MeshSections[SectionIndex];
+	
+	return &Section->PositionVertexBuffer;
+}
+
+void URuntimeMeshComponent::EndMeshSectionPositionUpdate(int32 SectionIndex)
+{
+	// Validate all update parameters
+	RMC_VALIDATE_UPDATEPARAMETERS_DUALBUFFER(SectionIndex);
+	
+	// TODO: Validate that the position buffer is still the same length
+
+	UpdateSectionVertexPositionsInternal(SectionIndex, true);
+}
+
+void URuntimeMeshComponent::EndMeshSectionPositionUpdate(int32 SectionIndex, const FBox& BoundingBox)
+{
+	// Validate all update parameters
+	RMC_VALIDATE_UPDATEPARAMETERS_DUALBUFFER(SectionIndex);
+
+	RuntimeMeshSectionPtr& Section = MeshSections[SectionIndex];
+	
+	bool bNeedsBoundingBoxUpdate = !(Section->LocalBoundingBox == BoundingBox);
+	if (bNeedsBoundingBoxUpdate)
+	{
+		Section->LocalBoundingBox = BoundingBox;
+	}
+	
+	// TODO: Validate that the position buffer is still the same length
+
+	UpdateSectionVertexPositionsInternal(SectionIndex, bNeedsBoundingBoxUpdate);
+}
 
 
 

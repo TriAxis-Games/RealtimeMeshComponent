@@ -795,6 +795,26 @@ public:
 	void UpdateMeshSectionPositionsImmediate(int32 SectionIndex, TArray<FVector>& VertexPositions, const FBox& BoundingBox, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None);
 	
 
+	/**
+	*	Starts an in place update of vertex positions. 
+	*	@param	SectionIndex		Index of the section to update.
+	*/
+	TArray<FVector>* BeginMeshSectionPositionUpdate(int32 SectionIndex);
+
+	/**
+	*	Finishes an in place update of vertex positions.
+	*	This will push the update to the GPU and calculate the new Bounding Box
+	*	@param	SectionIndex		Index of the section to update.
+	*/
+	void EndMeshSectionPositionUpdate(int32 SectionIndex);
+
+	/**
+	*	Finishes an in place update of vertex positions.
+	*	This will push the update to the GPU
+	*	@param	SectionIndex		Index of the section to update.
+	*	@param	BoundingBox			The bounds of this section. Faster than the RMC automatically calculating it.
+	*/
+	void EndMeshSectionPositionUpdate(int32 SectionIndex, const FBox& BoundingBox);
 
 
 	/**
