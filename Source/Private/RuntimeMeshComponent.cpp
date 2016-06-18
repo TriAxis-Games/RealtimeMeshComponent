@@ -52,12 +52,14 @@ public:
 						FRuntimeMeshSectionCreateDataInterface*, SectionData, SectionData,
 						{
 							Proxy->FinishCreate_RenderThread(SectionData);
+							delete SectionData;
 						}
 					);
 				}
 				else
 				{
 					Proxy->FinishCreate_RenderThread(SectionData);
+					delete SectionData;
 				}
 
 				// Save ref to new section
