@@ -1,6 +1,5 @@
 // Copyright 2016 Chris Conway (Koderz). All Rights Reserved.
 
-
 #include "RuntimeMeshComponentPluginPrivatePCH.h"
 #include "RuntimeMeshComponent.h"
 #include "RuntimeMeshCore.h"
@@ -13,10 +12,6 @@ class FRuntimeMeshSceneProxy : public FPrimitiveSceneProxy
 {
 private:
 	TUniformBufferRef<FPrimitiveUniformShaderParameters> MeshUniformBuffer;
-
-	// Temporarily holds all section creation data until this proxy is passsed to the RT.
-	// After this data is applied this array is cleared.
-	TArray<FRuntimeMeshSectionCreateDataInterface*> SectionCreationData;
 
 public:
 
@@ -42,8 +37,29 @@ public:
 
 				// Get the section creation data
 				auto* SectionData = SourceSection->GetSectionCreationData(Material);
-				SectionData->SetTargetSection(SectionIdx);
-				SectionCreationData.Add(SectionData);
+				
+
+				auto Proxy = SectionData->NewProxy;
+
+				if (!IsInRenderingThread())
+				{
+					// Enqueue update on RT
+					ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
+						FRuntimeMeshCreateSectionInternalCommand,
+						FRuntimeMeshSectionProxyInterface*, Proxy, Proxy,
+						FRuntimeMeshSectionCreateDataInterface*, SectionData, SectionData,
+						{
+							Proxy->FinishCreate_RenderThread(SectionData);
+						}
+					);
+				}
+				else
+				{
+					Proxy->FinishCreate_RenderThread(SectionData);
+				}
+
+				// Save ref to new section
+				Sections[SectionIdx] = Proxy;
 
 			}
 		}
@@ -59,19 +75,6 @@ public:
 			}
 		}
 	}
-
-	void CreateRenderThreadResources() override 
-	{
-		FPrimitiveSceneProxy::CreateRenderThreadResources();
-
-		for (auto Section : SectionCreationData)
-		{
-			CreateSection_RenderThread(Section);
-		}
-
-		SectionCreationData.Empty();
-	}
-
 
 	/** Called on render thread to create a new dynamic section. (Static sections are handled differently) */
 	void CreateSection_RenderThread(FRuntimeMeshSectionCreateDataInterface* SectionData)
