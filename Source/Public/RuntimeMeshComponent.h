@@ -9,29 +9,43 @@
 #include "PhysicsEngine/ConvexElem.h"
 #include "RuntimeMeshComponent.generated.h"
 
-#define RMC_VALIDATE_CREATIONPARAMETERS(SectionIndex, Vertices, Triangles) \
-		check(SectionIndex >= 0 && "SectionIndex cannot be negative."); \
-		check(Vertices.Num() > 0 && "Vertices length must not be 0."); \
-		check(Triangles.Num() > 0 && "Triangles length must not be 0");
+// This set of macros is only meant for argument validation as it will return out of whatever scope.
+#if WITH_EDITOR
+#define RMC_CHECKINGAME_LOGINEDITOR(Condition, Message, RetVal) \
+	{ if (!(Condition)) \
+	{ \
+		Log(TEXT(Message), true); \
+		return RetVal; \
+	} }
+#else
+#define RMC_CHECKINGAME_LOGINEDITOR(Condition, Message, RetVal) \
+	check(Condition && Message);
+#endif
 
-#define RMC_VALIDATE_CREATIONPARAMETERS_DUALBUFFER(SectionIndex, Vertices, Triangles, Positions) \
-		RMC_VALIDATE_CREATIONPARAMETERS(SectionIndex, Vertices, Triangles) \
-		check((Positions.Num() == Vertices.Num()) && "Positions must be the same length as Vertices");
 
-#define RMC_VALIDATE_BOUNDINGBOX(BoundingBox) \
-		check(BoundingBox.IsValid && "BoundingBox must be valid.");
+#define RMC_VALIDATE_CREATIONPARAMETERS(SectionIndex, Vertices, Triangles, RetVal) \
+		RMC_CHECKINGAME_LOGINEDITOR((SectionIndex >= 0), "SectionIndex cannot be negative.", RetVal); \
+		RMC_CHECKINGAME_LOGINEDITOR((Vertices.Num() > 0), "Vertices length must not be 0.", RetVal); \
+		RMC_CHECKINGAME_LOGINEDITOR((Triangles.Num() > 0), "Triangles length must not be 0", RetVal);
 
-#define RMC_VALIDATE_UPDATEPARAMETERS(SectionIndex) \
-		check(SectionIndex >= 0 && "SectionIndex cannot be negative."); \
-		check(SectionIndex < MeshSections.Num() && MeshSections[SectionIndex].IsValid() && "Invalid SectionIndex.");
+#define RMC_VALIDATE_CREATIONPARAMETERS_DUALBUFFER(SectionIndex, Vertices, Triangles, Positions, RetVal) \
+		RMC_VALIDATE_CREATIONPARAMETERS(SectionIndex, Vertices, Triangles, RetVal) \
+		RMC_CHECKINGAME_LOGINEDITOR((Positions.Num() == Vertices.Num()), "Positions must be the same length as Vertices", RetVal);
 
-#define RMC_VALIDATE_UPDATEPARAMETERS_INTERNALSECTION(SectionIndex) \
-		RMC_VALIDATE_UPDATEPARAMETERS(SectionIndex) \
-		check(MeshSections[SectionIndex]->bIsInternalSectionType && "Section is not of legacy type.");
+#define RMC_VALIDATE_BOUNDINGBOX(BoundingBox, RetVal) \
+		RMC_CHECKINGAME_LOGINEDITOR(BoundingBox.IsValid, "BoundingBox must be valid.", RetVal);
+
+#define RMC_VALIDATE_UPDATEPARAMETERS(SectionIndex, RetVal) \
+		RMC_CHECKINGAME_LOGINEDITOR((SectionIndex >= 0), "SectionIndex cannot be negative.", RetVal); \
+		RMC_CHECKINGAME_LOGINEDITOR((SectionIndex < MeshSections.Num() && MeshSections[SectionIndex].IsValid()), "Invalid SectionIndex.", RetVal);
+
+#define RMC_VALIDATE_UPDATEPARAMETERS_INTERNALSECTION(SectionIndex, RetVal) \
+		RMC_VALIDATE_UPDATEPARAMETERS(SectionIndex, RetVal) \
+		RMC_CHECKINGAME_LOGINEDITOR((MeshSections[SectionIndex]->bIsInternalSectionType), "Section is not of legacy type.", RetVal);
 		
-#define RMC_VALIDATE_UPDATEPARAMETERS_DUALBUFFER(SectionIndex) \
-		RMC_VALIDATE_UPDATEPARAMETERS(SectionIndex) \
-		check(MeshSections[SectionIndex]->IsDualBufferSection() && "Section is not dual buffer.");
+#define RMC_VALIDATE_UPDATEPARAMETERS_DUALBUFFER(SectionIndex, RetVal) \
+		RMC_VALIDATE_UPDATEPARAMETERS(SectionIndex, RetVal) \
+		RMC_CHECKINGAME_LOGINEDITOR((MeshSections[SectionIndex]->IsDualBufferSection()), "Section is not dual buffer.", RetVal);
 
 
 
@@ -139,7 +153,7 @@ public:
 		SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_CreateMeshSection_VertexType);
 
 		// Validate all creation parameters
-		RMC_VALIDATE_CREATIONPARAMETERS(SectionIndex, Vertices, Triangles);
+		RMC_VALIDATE_CREATIONPARAMETERS(SectionIndex, Vertices, Triangles, /*VoidReturn*/);
 
 		// Create the section
 		TSharedPtr<FRuntimeMeshSection<VertexType>> Section = CreateOrResetSection<FRuntimeMeshSection<VertexType>>(SectionIndex, false);
@@ -174,8 +188,8 @@ public:
 		SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_CreateMeshSection_VertexType_WithBoundingBox);
 
 		// Validate all creation parameters
-		RMC_VALIDATE_CREATIONPARAMETERS(SectionIndex, Vertices, Triangles);
-		RMC_VALIDATE_BOUNDINGBOX(BoundingBox);
+		RMC_VALIDATE_CREATIONPARAMETERS(SectionIndex, Vertices, Triangles, /*VoidReturn*/);
+		RMC_VALIDATE_BOUNDINGBOX(BoundingBox, /*VoidReturn*/);
 
 		// Create the section
 		TSharedPtr<FRuntimeMeshSection<VertexType>> Section = CreateOrResetSection<FRuntimeMeshSection<VertexType>>(SectionIndex, false);
@@ -210,7 +224,7 @@ public:
 		SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_CreateMeshSectionDualBuffer_VertexType);
 
 		// Validate all creation parameters
-		RMC_VALIDATE_CREATIONPARAMETERS_DUALBUFFER(SectionIndex, VertexData, Triangles, VertexPositions);
+		RMC_VALIDATE_CREATIONPARAMETERS_DUALBUFFER(SectionIndex, VertexData, Triangles, VertexPositions, /*VoidReturn*/);
 
 		TSharedPtr<FRuntimeMeshSection<VertexType>> Section = CreateOrResetSection<FRuntimeMeshSection<VertexType>>(SectionIndex, true);
 
@@ -245,8 +259,8 @@ public:
 		SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_CreateMeshSectionDualBuffer_VertexType_WithBoundingBox);
 
 		// Validate all creation parameters
-		RMC_VALIDATE_CREATIONPARAMETERS_DUALBUFFER(SectionIndex, VertexData, Triangles, VertexPositions);
-		RMC_VALIDATE_BOUNDINGBOX(BoundingBox);
+		RMC_VALIDATE_CREATIONPARAMETERS_DUALBUFFER(SectionIndex, VertexData, Triangles, VertexPositions, /*VoidReturn*/);
+		RMC_VALIDATE_BOUNDINGBOX(BoundingBox, /*VoidReturn*/);
 
 		TSharedPtr<FRuntimeMeshSection<VertexType>> Section = CreateOrResetSection<FRuntimeMeshSection<VertexType>>(SectionIndex, true);
 
@@ -275,7 +289,7 @@ public:
 		SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_UpdateMeshSection_VertexType);
 
 		// Validate all update parameters
-		RMC_VALIDATE_UPDATEPARAMETERS(SectionIndex);
+		RMC_VALIDATE_UPDATEPARAMETERS(SectionIndex, /*VoidReturn*/);
 		
 		// Validate section type
 		MeshSections[SectionIndex]->GetVertexType()->EnsureEquals<VertexType>();
@@ -325,8 +339,8 @@ public:
 		SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_UpdateMeshSection_VertexType_WithBoundingBox);
 
 		// Validate all update parameters
-		RMC_VALIDATE_UPDATEPARAMETERS(SectionIndex);
-		RMC_VALIDATE_BOUNDINGBOX(BoundingBox);
+		RMC_VALIDATE_UPDATEPARAMETERS(SectionIndex, /*VoidReturn*/);
+		RMC_VALIDATE_BOUNDINGBOX(BoundingBox, /*VoidReturn*/);
 
 		// Validate section type
 		MeshSections[SectionIndex]->GetVertexType()->EnsureEquals<VertexType>();
@@ -376,7 +390,7 @@ public:
 		SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_UpdateMeshSection_VertexType_WithTriangles);
 
 		// Validate all update parameters
-		RMC_VALIDATE_UPDATEPARAMETERS(SectionIndex);
+		RMC_VALIDATE_UPDATEPARAMETERS(SectionIndex, /*VoidReturn*/);
 
 		// Validate section type
 		MeshSections[SectionIndex]->GetVertexType()->EnsureEquals<VertexType>();
@@ -439,8 +453,8 @@ public:
 		SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_UpdateMeshSection_VertexType_WithTrianglesAndBoundinBox);
 
 		// Validate all update parameters
-		RMC_VALIDATE_UPDATEPARAMETERS(SectionIndex);
-		RMC_VALIDATE_BOUNDINGBOX(BoundingBox);
+		RMC_VALIDATE_UPDATEPARAMETERS(SectionIndex, /*VoidReturn*/);
+		RMC_VALIDATE_BOUNDINGBOX(BoundingBox, /*VoidReturn*/);
 
 		// Validate section type
 		MeshSections[SectionIndex]->GetVertexType()->EnsureEquals<VertexType>();
@@ -503,7 +517,7 @@ public:
 		SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_UpdateMeshSection_Dual_VertexType);
 
 		// Validate all update parameters
-		RMC_VALIDATE_UPDATEPARAMETERS_DUALBUFFER(SectionIndex);
+		RMC_VALIDATE_UPDATEPARAMETERS_DUALBUFFER(SectionIndex, /*VoidReturn*/);
 
 		// Validate section type
 		MeshSections[SectionIndex]->GetVertexType()->EnsureEquals<VertexType>();
@@ -568,8 +582,8 @@ public:
 		SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_UpdateMeshSection_Dual_VertexType_WithBoundingBox);
 
 		// Validate all update parameters
-		RMC_VALIDATE_UPDATEPARAMETERS_DUALBUFFER(SectionIndex);
-		RMC_VALIDATE_BOUNDINGBOX(BoundingBox);
+		RMC_VALIDATE_UPDATEPARAMETERS_DUALBUFFER(SectionIndex, /*VoidReturn*/);
+		RMC_VALIDATE_BOUNDINGBOX(BoundingBox, /*VoidReturn*/);
 
 		// Validate section type
 		MeshSections[SectionIndex]->GetVertexType()->EnsureEquals<VertexType>();
@@ -634,7 +648,7 @@ public:
 		SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_UpdateMeshSection_Dual_VertexType_WithTriangles);
 
 		// Validate all update parameters
-		RMC_VALIDATE_UPDATEPARAMETERS_DUALBUFFER(SectionIndex);
+		RMC_VALIDATE_UPDATEPARAMETERS_DUALBUFFER(SectionIndex, /*VoidReturn*/);
 
 		// Validate section type
 		MeshSections[SectionIndex]->GetVertexType()->EnsureEquals<VertexType>();
@@ -712,8 +726,8 @@ public:
 		SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_UpdateMeshSection_Dual_VertexType_WithTrianglesAndBoundinBox);
 
 		// Validate all update parameters
-		RMC_VALIDATE_UPDATEPARAMETERS_DUALBUFFER(SectionIndex);
-		RMC_VALIDATE_BOUNDINGBOX(BoundingBox);
+		RMC_VALIDATE_UPDATEPARAMETERS_DUALBUFFER(SectionIndex, /*VoidReturn*/);
+		RMC_VALIDATE_BOUNDINGBOX(BoundingBox, /*VoidReturn*/);
 
 		// Validate section type
 		MeshSections[SectionIndex]->GetVertexType()->EnsureEquals<VertexType>();

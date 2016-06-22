@@ -727,7 +727,7 @@ void URuntimeMeshComponent::UpdateMeshSectionPositionsImmediate(int32 SectionInd
 	SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_UpdateMeshSectionPositionsImmediate);
 
 	// Validate all update parameters
-	RMC_VALIDATE_UPDATEPARAMETERS_DUALBUFFER(SectionIndex);
+	RMC_VALIDATE_UPDATEPARAMETERS_DUALBUFFER(SectionIndex, /*VoidReturn*/);
 
 	// Get section
 	RuntimeMeshSectionPtr& Section = MeshSections[SectionIndex];
@@ -766,7 +766,7 @@ void URuntimeMeshComponent::UpdateMeshSectionPositionsImmediate(int32 SectionInd
 	SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_UpdateMeshSectionPositionsImmediate_WithBoundinBox);
 
 	// Validate all update parameters
-	RMC_VALIDATE_UPDATEPARAMETERS_DUALBUFFER(SectionIndex);
+	RMC_VALIDATE_UPDATEPARAMETERS_DUALBUFFER(SectionIndex, /*VoidReturn*/);
 
 	// Get section
 	RuntimeMeshSectionPtr& Section = MeshSections[SectionIndex];
@@ -804,7 +804,7 @@ void URuntimeMeshComponent::UpdateMeshSectionPositionsImmediate(int32 SectionInd
 TArray<FVector>* URuntimeMeshComponent::BeginMeshSectionPositionUpdate(int32 SectionIndex)
 {
 	// Validate all update parameters
-	RMC_VALIDATE_UPDATEPARAMETERS_DUALBUFFER(SectionIndex);
+	RMC_VALIDATE_UPDATEPARAMETERS_DUALBUFFER(SectionIndex, nullptr);
 
 	// Get section
 	RuntimeMeshSectionPtr& Section = MeshSections[SectionIndex];
@@ -815,7 +815,7 @@ TArray<FVector>* URuntimeMeshComponent::BeginMeshSectionPositionUpdate(int32 Sec
 void URuntimeMeshComponent::EndMeshSectionPositionUpdate(int32 SectionIndex)
 {
 	// Validate all update parameters
-	RMC_VALIDATE_UPDATEPARAMETERS_DUALBUFFER(SectionIndex);
+	RMC_VALIDATE_UPDATEPARAMETERS_DUALBUFFER(SectionIndex, /*VoidReturn*/);
 	
 	// TODO: Validate that the position buffer is still the same length
 
@@ -825,7 +825,7 @@ void URuntimeMeshComponent::EndMeshSectionPositionUpdate(int32 SectionIndex)
 void URuntimeMeshComponent::EndMeshSectionPositionUpdate(int32 SectionIndex, const FBox& BoundingBox)
 {
 	// Validate all update parameters
-	RMC_VALIDATE_UPDATEPARAMETERS_DUALBUFFER(SectionIndex);
+	RMC_VALIDATE_UPDATEPARAMETERS_DUALBUFFER(SectionIndex, /*VoidReturn*/);
 
 	RuntimeMeshSectionPtr& Section = MeshSections[SectionIndex];
 	
@@ -853,7 +853,7 @@ void URuntimeMeshComponent::CreateMeshSection(int32 SectionIndex, const TArray<F
 	SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_CreateMeshSection);
 
 	// Validate all creation parameters
-	RMC_VALIDATE_CREATIONPARAMETERS(SectionIndex, Vertices, Triangles);
+	RMC_VALIDATE_CREATIONPARAMETERS(SectionIndex, Vertices, Triangles, /*VoidReturn*/);
 
 	// Create the section
 	auto NewSection = CreateOrResetSectionInternalType(SectionIndex, 1, false);
@@ -879,7 +879,7 @@ void URuntimeMeshComponent::CreateMeshSection(int32 SectionIndex, const TArray<F
 	SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_CreateMeshSection_DualUV);
 
 	// Validate all creation parameters
-	RMC_VALIDATE_CREATIONPARAMETERS(SectionIndex, Vertices, Triangles);
+	RMC_VALIDATE_CREATIONPARAMETERS(SectionIndex, Vertices, Triangles, /*VoidReturn*/);
 
 	// Create the section
 	auto NewSection = CreateOrResetSectionInternalType(SectionIndex, 2, false);
@@ -918,7 +918,7 @@ void URuntimeMeshComponent::UpdateMeshSection(int32 SectionIndex, const TArray<F
 	SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_UpdateMeshSection);
 
 	// Validate all update parameters
-	RMC_VALIDATE_UPDATEPARAMETERS_INTERNALSECTION(SectionIndex);
+	RMC_VALIDATE_UPDATEPARAMETERS_INTERNALSECTION(SectionIndex, /*VoidReturn*/);
 
 	// Validate section type
 	MeshSections[SectionIndex]->GetVertexType()->EnsureEquals<FRuntimeMeshVertex<1>>();
@@ -946,7 +946,7 @@ void URuntimeMeshComponent::UpdateMeshSection(int32 SectionIndex, const TArray<F
 	SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_UpdateMeshSection_DualUV);
 
 	// Validate all update parameters
-	RMC_VALIDATE_UPDATEPARAMETERS_INTERNALSECTION(SectionIndex);
+	RMC_VALIDATE_UPDATEPARAMETERS_INTERNALSECTION(SectionIndex, /*VoidReturn*/);
 
 	// Validate section type
 	MeshSections[SectionIndex]->GetVertexType()->EnsureEquals<FRuntimeMeshVertex<2>>();
