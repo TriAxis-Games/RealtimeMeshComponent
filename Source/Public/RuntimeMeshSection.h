@@ -270,7 +270,7 @@ namespace RuntimeMeshSectionInternal
 
 
 	template<typename Type>
-	static typename TEnableIf<FVertexHasPositionComponent<Type>::Value, bool>::Type	RecalculateBoundingBox(TArray<Type>& VertexBuffer, FBox& BoundingBox)
+	static typename TEnableIf<FVertexHasPositionComponent<Type>::Value>::Type	RecalculateBoundingBox(TArray<Type>& VertexBuffer, FBox& BoundingBox)
 	{
 		for (int32 Index = 0; Index < VertexBuffer.Num(); Index++)
 		{
@@ -279,7 +279,7 @@ namespace RuntimeMeshSectionInternal
 	}
 
 	template<typename Type>
-	static typename TEnableIf<!FVertexHasPositionComponent<Type>::Value, bool>::Type RecalculateBoundingBox(TArray<Type>& VertexBuffer, FBox& BoundingBox)
+	static typename TEnableIf<!FVertexHasPositionComponent<Type>::Value>::Type RecalculateBoundingBox(TArray<Type>& VertexBuffer, FBox& BoundingBox)
 	{
 	}
 
@@ -379,7 +379,7 @@ protected:
 		}
 		else
 		{
-			RecalculateBoundingBox<VertexType>(VertexBuffer, LocalBoundingBox);
+			RuntimeMeshSectionInternal::RecalculateBoundingBox<VertexType>(VertexBuffer, LocalBoundingBox);
 		}
 	}
 
