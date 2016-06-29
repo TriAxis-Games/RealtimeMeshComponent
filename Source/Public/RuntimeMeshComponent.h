@@ -831,6 +831,77 @@ public:
 	void EndMeshSectionPositionUpdate(int32 SectionIndex, const FBox& BoundingBox);
 
 
+	template<typename VertexType>
+	void BeginMeshSectionUpdate(int32 SectionIndex, TArray<VertexType>** Vertices)
+	{
+		RMC_VALIDATE_UPDATEPARAMETERS(SectionIndex, /*VoidReturn*/);
+
+		// Validate section type
+		MeshSections[SectionIndex]->GetVertexType()->EnsureEquals<VertexType>();
+
+		// Cast section to correct type
+		TSharedPtr<FRuntimeMeshSection<VertexType>> Section = StaticCastSharedPtr<FRuntimeMeshSection<VertexType>>(MeshSections[SectionIndex]);
+
+		Vertices = &Section->VertexBuffer;
+	}
+
+	template<typename VertexType>
+	void BeginMeshSectionUpdate(int32 SectionIndex, TArray<VertexType>** Vertices, TArray<int32>** Triangles)
+	{
+		RMC_VALIDATE_UPDATEPARAMETERS(SectionIndex, /*VoidReturn*/);
+
+		// Validate section type
+		MeshSections[SectionIndex]->GetVertexType()->EnsureEquals<VertexType>();
+
+		// Cast section to correct type
+		TSharedPtr<FRuntimeMeshSection<VertexType>> Section = StaticCastSharedPtr<FRuntimeMeshSection<VertexType>>(MeshSections[SectionIndex]);
+
+		Vertices = &Section->VertexBuffer;
+		Triangles = &Section->IndexBuffer;
+	}
+
+	template<typename VertexType>
+	void BeginMeshSectionUpdate(int32 SectionIndex, TArray<FVector>** Positions, TArray<VertexType>** Vertices)
+	{
+		RMC_VALIDATE_UPDATEPARAMETERS(SectionIndex, /*VoidReturn*/);
+
+		// Validate section type
+		MeshSections[SectionIndex]->GetVertexType()->EnsureEquals<VertexType>();
+
+		// Cast section to correct type
+		TSharedPtr<FRuntimeMeshSection<VertexType>> Section = StaticCastSharedPtr<FRuntimeMeshSection<VertexType>>(MeshSections[SectionIndex]);
+
+		Positions = &Section->PositionVertexBuffer;
+		Vertices = &Section->VertexBuffer;
+	}
+
+	template<typename VertexType>
+	void BeginMeshSectionUpdate(int32 SectionIndex, TArray<FVector>** Positions, TArray<VertexType>** Vertices, TArray<int32>** Triangles)
+	{
+		RMC_VALIDATE_UPDATEPARAMETERS(SectionIndex, /*VoidReturn*/);
+
+		// Validate section type
+		MeshSections[SectionIndex]->GetVertexType()->EnsureEquals<VertexType>();
+
+		// Cast section to correct type
+		TSharedPtr<FRuntimeMeshSection<VertexType>> Section = StaticCastSharedPtr<FRuntimeMeshSection<VertexType>>(MeshSections[SectionIndex]);
+
+		Positions = &Section->PositionVertexBuffer;
+		Vertices = &Section->VertexBuffer;
+		Triangles = &Section->IndexBuffer;
+	}
+
+	void EndMeshSectionUpdate(int32 SectionIndex, ERuntimeMeshBuffer UpdatedBuffers);
+
+	void EndMeshSectionUpdate(int32 SectionIndex, ERuntimeMeshBuffer UpdatedBuffers, const FBox& BoundingBox);
+	
+
+
+
+
+
+
+
 	/**
 	*	Create/replace a section.
 	*	@param	SectionIndex		Index of the section to create or replace.
@@ -1068,6 +1139,10 @@ private:
 	virtual bool GetPhysicsTriMeshData(struct FTriMeshCollisionData* CollisionData, bool InUseAllTriData) override;
 	virtual bool ContainsPhysicsTriMeshData(bool InUseAllTriData) const override;
 	virtual bool WantsNegXTriMesh() override { return false; }
+	
+	// This is for work currently being done to improve cooking performance. Not usable yet.
+	//virtual int32 GetAdditionalCookingParams() override { return ERuntimePhysxCookOptimizationFlags::CookingPerformance | ERuntimePhysxCookOptimizationFlags::SuppressFaceRemapTable | ERuntimePhysxCookOptimizationFlags::DisableActiveEdgePrecompute | ERuntimePhysxCookOptimizationFlags::DisableCleanMesh; }
+	
 	//~ End Interface_CollisionDataProvider Interface
 
 

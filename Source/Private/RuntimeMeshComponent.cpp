@@ -843,7 +843,50 @@ void URuntimeMeshComponent::EndMeshSectionPositionUpdate(int32 SectionIndex, con
 
 
 
+void URuntimeMeshComponent::EndMeshSectionUpdate(int32 SectionIndex, ERuntimeMeshBuffer UpdatedBuffers)
+{
+	// Bail if we have no buffers to update.
+	if ((UpdatedBuffers & ERuntimeMeshBuffer::None) == ERuntimeMeshBuffer::None)
+	{
+		return;
+	}
 
+	// Validate all update parameters
+	RMC_VALIDATE_UPDATEPARAMETERS(SectionIndex, /*VoidReturn*/);
+
+	// Get section and update bounding box
+	RuntimeMeshSectionPtr& Section = MeshSections[SectionIndex];
+	Section->RecalculateBoundingBox();
+
+	// Finalize section update
+	UpdateSectionInternal(SectionIndex, 
+		(UpdatedBuffers & ERuntimeMeshBuffer::Positions) == ERuntimeMeshBuffer::Positions, 
+		(UpdatedBuffers & ERuntimeMeshBuffer::Vertices) == ERuntimeMeshBuffer::Vertices, 
+		(UpdatedBuffers & ERuntimeMeshBuffer::Triangles) == ERuntimeMeshBuffer::Triangles, true);
+}
+
+
+void URuntimeMeshComponent::EndMeshSectionUpdate(int32 SectionIndex, ERuntimeMeshBuffer UpdatedBuffers, const FBox& BoundingBox)
+{
+	// Bail if we have no buffers to update.
+	if ((UpdatedBuffers & ERuntimeMeshBuffer::None) == ERuntimeMeshBuffer::None)
+	{
+		return;
+	}
+
+	// Validate all update parameters
+	RMC_VALIDATE_UPDATEPARAMETERS(SectionIndex, /*VoidReturn*/);
+
+	// Get section and update bounding box
+	RuntimeMeshSectionPtr& Section = MeshSections[SectionIndex];
+	Section->LocalBoundingBox = BoundingBox;
+
+	// Finalize section update
+	UpdateSectionInternal(SectionIndex,
+		(UpdatedBuffers & ERuntimeMeshBuffer::Positions) == ERuntimeMeshBuffer::Positions,
+		(UpdatedBuffers & ERuntimeMeshBuffer::Vertices) == ERuntimeMeshBuffer::Vertices,
+		(UpdatedBuffers & ERuntimeMeshBuffer::Triangles) == ERuntimeMeshBuffer::Triangles, true);
+}
 
 
 

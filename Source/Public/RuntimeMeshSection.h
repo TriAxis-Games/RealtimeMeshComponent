@@ -130,7 +130,7 @@ protected:
 
 	virtual FRuntimeMeshRenderThreadCommandInterface* GetSectionPositionUpdateData() const = 0;
 
-
+	virtual void RecalculateBoundingBox() = 0;
 
 
 	virtual int32 GetAllVertexPositions(TArray<FVector>& Positions) = 0;
@@ -267,6 +267,22 @@ namespace RuntimeMeshSectionInternal
 		}
 		return false;
 	}
+
+
+	template<typename Type>
+	static typename TEnableIf<FVertexHasPositionComponent<Type>::Value, bool>::Type	RecalculateBoundingBox(TArray<Type>& VertexBuffer, FBox& BoundingBox)
+	{
+		for (int32 Index = 0; Index < VertexBuffer.Num(); Index++)
+		{
+			BoundingBox += VertexBuffer[Index].Position;
+		}
+	}
+
+	template<typename Type>
+	static typename TEnableIf<!FVertexHasPositionComponent<Type>::Value, bool>::Type RecalculateBoundingBox(TArray<Type>& VertexBuffer, FBox& BoundingBox)
+	{
+	}
+
 }
 
 /** Templated class for a single mesh section */
@@ -349,6 +365,24 @@ protected:
 	}
 
 	virtual const FRuntimeMeshVertexTypeInfo* GetVertexType() const { return &VertexType::TypeInfo; }
+
+	virtual void RecalculateBoundingBox() override
+	{
+		LocalBoundingBox.Init();
+
+		if (IsDualBufferSection())
+		{
+			for (int32 Index = 0; Index < PositionVertexBuffer.Num(); Index++)
+			{
+				LocalBoundingBox += PositionVertexBuffer[Index];
+			}
+		}
+		else
+		{
+			RecalculateBoundingBox<VertexType>(VertexBuffer, LocalBoundingBox);
+		}
+	}
+
 
 	friend class URuntimeMeshComponent;
 };

@@ -108,7 +108,15 @@ struct FRuntimeMeshTangent
 	}
 };
 
-
+/* The different buffers within the Runtime Mesh Component */
+enum class ERuntimeMeshBuffer
+{
+	None = 0x0,
+	Vertices = 0x1,
+	Triangles = 0x2,
+	Positions = 0x4
+};
+ENUM_CLASS_FLAGS(ERuntimeMeshBuffer)
 
 
 
