@@ -846,7 +846,7 @@ void URuntimeMeshComponent::EndMeshSectionPositionUpdate(int32 SectionIndex, con
 void URuntimeMeshComponent::EndMeshSectionUpdate(int32 SectionIndex, ERuntimeMeshBuffer UpdatedBuffers)
 {
 	// Bail if we have no buffers to update.
-	if ((UpdatedBuffers & ERuntimeMeshBuffer::None) == ERuntimeMeshBuffer::None)
+	if (UpdatedBuffers == ERuntimeMeshBuffer::None)
 	{
 		return;
 	}
@@ -869,7 +869,7 @@ void URuntimeMeshComponent::EndMeshSectionUpdate(int32 SectionIndex, ERuntimeMes
 void URuntimeMeshComponent::EndMeshSectionUpdate(int32 SectionIndex, ERuntimeMeshBuffer UpdatedBuffers, const FBox& BoundingBox)
 {
 	// Bail if we have no buffers to update.
-	if ((UpdatedBuffers & ERuntimeMeshBuffer::None) == ERuntimeMeshBuffer::None)
+	if (UpdatedBuffers == ERuntimeMeshBuffer::None)
 	{
 		return;
 	}
