@@ -832,7 +832,7 @@ public:
 
 
 	template<typename VertexType>
-	void BeginMeshSectionUpdate(int32 SectionIndex, TArray<VertexType>** Vertices)
+	void BeginMeshSectionUpdate(int32 SectionIndex, TArray<VertexType>*& Vertices)
 	{
 		RMC_VALIDATE_UPDATEPARAMETERS(SectionIndex, /*VoidReturn*/);
 
@@ -846,7 +846,7 @@ public:
 	}
 
 	template<typename VertexType>
-	void BeginMeshSectionUpdate(int32 SectionIndex, TArray<VertexType>** Vertices, TArray<int32>** Triangles)
+	void BeginMeshSectionUpdate(int32 SectionIndex, TArray<VertexType>* Vertices, TArray<int32>** Triangles)
 	{
 		RMC_VALIDATE_UPDATEPARAMETERS(SectionIndex, /*VoidReturn*/);
 
