@@ -398,7 +398,14 @@ void ConvertLinearColorToFColor(const TArray<FLinearColor>& LinearColors, TArray
 
 
 URuntimeMeshComponent::URuntimeMeshComponent(const FObjectInitializer& ObjectInitializer)
-	: Super(ObjectInitializer), bUseComplexAsSimpleCollision(true), bShouldSerializeMeshData(true), bCollisionDirty(true)
+	: Super(ObjectInitializer)
+	, bUseComplexAsSimpleCollision(true)
+	, bShouldSerializeMeshData(true)
+	, bCollisionDirty(true)
+#if WITH_IMPROVED_PHYSX_COOKER_CONTROL
+	, CookingHint(ERuntimeMeshComponentCookingHint::Average)
+	, CurrentCookingHint(ERuntimeMeshComponentCookingHint::Average)
+#endif
 {
 	// Setup the collision update ticker
 	PrePhysicsTick.TickGroup = TG_PrePhysics;
@@ -1627,6 +1634,49 @@ bool URuntimeMeshComponent::GetPhysicsTriMeshData(struct FTriMeshCollisionData* 
  
  	return false;
  }
+
+#if WITH_IMPROVED_PHYSX_COOKER_CONTROL
+ void URuntimeMeshComponent::AdjustCookingParameters(int32& CookingParameters) const
+ {
+	 // Here we'll explicitly set the cooking parameters as to not worry about what was set prior.
+	 if (CookingHint == ERuntimeMeshComponentCookingHint::Speed)
+	 {
+		 // Disable mesh cleaning
+		 CookingParameters |= ERuntimePhysxCookOptimizationFlags::DisableCleanMesh;
+		 CookingParameters |= ERuntimePhysxCookOptimizationFlags::DisableActiveEdgePrecompute;
+
+		 // Turn on cook performance
+		 CookingParameters |= ERuntimePhysxCookOptimizationFlags::EnableCookingPerformance;
+
+		 // Turn off face remap as we won't need it
+		 CookingParameters |= ERuntimePhysxCookOptimizationFlags::SuppressFaceRemapTable;
+	 }
+	 else if (CookingHint == ERuntimeMeshComponentCookingHint::Average)
+	 {
+		 // Enable mesh cleaning
+		 CookingParameters &= ~ERuntimePhysxCookOptimizationFlags::DisableCleanMesh;
+		 CookingParameters &= ~ERuntimePhysxCookOptimizationFlags::DisableActiveEdgePrecompute;
+
+		 // Turn on cook performance
+		 CookingParameters |= ERuntimePhysxCookOptimizationFlags::EnableCookingPerformance;
+
+		 // Turn on face remap
+		 CookingParameters &= ~ERuntimePhysxCookOptimizationFlags::SuppressFaceRemapTable;
+	 }
+	 else // EProceduralMeshComponentCookingHint::Quality
+	 {
+		 // Enable mesh cleaning
+		 CookingParameters &= ~ERuntimePhysxCookOptimizationFlags::DisableCleanMesh;
+		 CookingParameters &= ~ERuntimePhysxCookOptimizationFlags::DisableActiveEdgePrecompute;
+
+		 // Turn off cook performance
+		 CookingParameters &= ~ERuntimePhysxCookOptimizationFlags::EnableCookingPerformance;
+
+		 // Turn on face remap
+		 CookingParameters &= ~ERuntimePhysxCookOptimizationFlags::SuppressFaceRemapTable;
+	 }
+ }
+#endif
 
 void URuntimeMeshComponent::EnsureBodySetupCreated()
 {

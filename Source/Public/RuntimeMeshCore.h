@@ -119,6 +119,18 @@ enum class ERuntimeMeshBuffer
 ENUM_CLASS_FLAGS(ERuntimeMeshBuffer)
 
 
+#if WITH_IMPROVED_PHYSX_COOKER_CONTROL
+
+/* Hint for the collision cooker */
+UENUM(BlueprintType)
+enum class ERuntimeMeshComponentCookingHint : uint8
+{
+	Speed UMETA(DisplayName = "Speed"),
+	Average UMETA(DisplayName = "Average"),
+	Quality UMETA(DisplayName = "Quality"),
+};
+
+#endif
 
 USTRUCT()
 struct FRuntimeMeshCollisionSection
