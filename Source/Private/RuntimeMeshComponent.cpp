@@ -11,8 +11,6 @@
 class FRuntimeMeshSceneProxy : public FPrimitiveSceneProxy
 {
 private:
-	TUniformBufferRef<FPrimitiveUniformShaderParameters> MeshUniformBuffer;
-
 	// Temporarily holds all section creation data until this proxy is passsed to the RT.
 	// After this data is applied this array is cleared.
 	TArray<FRuntimeMeshSectionCreateDataInterface*> SectionCreationData;
@@ -22,6 +20,9 @@ public:
 	FRuntimeMeshSceneProxy(URuntimeMeshComponent* Component)
 		: FPrimitiveSceneProxy(Component), MaterialRelevance(Component->GetMaterialRelevance(GetScene().GetFeatureLevel()))
 	{
+		bStaticElementsAlwaysUseProxyPrimitiveUniformBuffer = true;
+
+
 		// Get the proxy for all mesh sections
 
 		const int32 NumSections = Component->MeshSections.Num();
@@ -197,15 +198,6 @@ public:
 	}
 
 
-	
-	virtual void OnTransformChanged() override
-	{
-		SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_OnTransformChanged);
-
-		// Create a uniform buffer with the transform for this mesh.
-		MeshUniformBuffer = CreatePrimitiveUniformBufferImmediate(GetLocalToWorld(), GetBounds(), GetLocalBounds(), true, UseEditorDepthTest());
-	}
-
 	bool HasDynamicSections() const
 	{
 		for (FRuntimeMeshSectionProxyInterface* Section : Sections)
@@ -261,7 +253,7 @@ public:
 		MeshBatch.bCanApplyViewModeOverrides = false;
 		
 		FMeshBatchElement& BatchElement = MeshBatch.Elements[0];
-		BatchElement.PrimitiveUniformBuffer = MeshUniformBuffer;
+		BatchElement.PrimitiveUniformBufferResource = &GetUniformBuffer();
 	}
 	
 	virtual void DrawStaticElements(FStaticPrimitiveDrawInterface* PDI) override
