@@ -7,12 +7,32 @@
 
 //////////////////////////////////////////////////////////////////////////
 //	
-//	This file contains a generic vertex structure capable of efficiently representing a vertex with anywhere between 
-//	1 and 8 UV channels, including half precision UVs //
+//	This file contains a generic vertex structure capable of efficiently representing a vertex 
+//	with any combination of position, normal, tangent, color, and 0-8 uv channels.
 //
-//	Example use: (This defines a vertex with 1 full precision UV channel)
+//	To get around an issue with MSVC and potentially other compilers not performing
+//	empty base class optimizations (EBO) to children in multiple inheritance, 
+//	this vertex is built via a tree of inheritance using partial specializations.
 //
-//	typdef FRuntimeMeshVertex<1, false> MyVertex;
+//	At each tier of this tree partial specialization will choose which components 
+//	we need to add in, thereby removing entire inherited classes when we don't need them.
+//
+//  Structure:
+//											  FRuntimeMeshVertex
+//											/					\
+//	FRuntimeMeshPositionNormalTangentComponentCombiner			FRuntimeMeshColorUVComponentCombiner
+//					/					\								/					\
+//	FRuntimeMeshPositionComponent		 \					FRuntimeMeshColorComponent		 \
+//										  \													  \
+//						FRuntimeMeshNormalTangentComponents							FRuntimeMeshUVComponents
+//
+//
+//
+//
+//
+//	Example use: (This defines a vertex with all components and 1 UV with default precision for normal/tangent and UV)
+//
+//	using MyVertex = FRuntimeMeshVertex<true, true, true, true, 1, ERuntimeMeshVertexTangentBasisType::Default, ERuntimeMeshVertexUVType::Default>;
 //
 //	MyVertex Vertex;
 //	Vertex.Position = FVector(0,0,0);
@@ -27,82 +47,84 @@ template<int32 TextureChannels, bool HalfPrecisionUVs, bool HasPositionComponent
 RuntimeMeshVertexStructure CreateVertexStructure(const FVertexBuffer& VertexBuffer);
 
 
+//////////////////////////////////////////////////////////////////////////
+// Texture Component Type Selector
+//////////////////////////////////////////////////////////////////////////
+
+enum class ERuntimeMeshVertexUVType
+{
+	Default = 1,
+	HighPrecision = 2,
+};
+
+template<ERuntimeMeshVertexUVType UVType>
+struct FRuntimeMeshVertexUVsTypeSelector;
+
+template<>
+struct FRuntimeMeshVertexUVsTypeSelector<ERuntimeMeshVertexUVType::Default>
+{
+	typedef FVector2DHalf UVsType;
+	static const EVertexElementType VertexElementType1Channel = VET_Half2;
+	static const EVertexElementType VertexElementType2Channel = VET_Half4;
+
+};
+
+template<>
+struct FRuntimeMeshVertexUVsTypeSelector<ERuntimeMeshVertexUVType::HighPrecision>
+{
+	typedef FVector2D UVsType;
+	static const EVertexElementType VertexElementType1Channel = VET_Float2;
+	static const EVertexElementType VertexElementType2Channel = VET_Float4;
+};
 
 //////////////////////////////////////////////////////////////////////////
-// Texture Components
+// Texture Component
 //////////////////////////////////////////////////////////////////////////
 
 /* Defines the UV coordinates for a vertex (Defaulted to 0 channels) */
-template<int32 TextureChannels, bool HalfPrecision> struct FRuntimeMeshUVComponents
-{ 
-	static_assert(TextureChannels >= 1 && TextureChannels <= 8, "You must have between 1 and 8 (inclusive) UV channels");
+template<int32 TextureChannels, typename UVType> struct FRuntimeMeshUVComponents
+{
+	static_assert(TextureChannels >= 0 && TextureChannels <= 8, "You must have between 0 and 8 (inclusive) UV channels");
+};
+
+/* Defines the UV coordinates for a vertex (Specialized to 0 channels) */
+template<typename UVType> struct FRuntimeMeshUVComponents<0, UVType>
+{
+	FRuntimeMeshUVComponents() { }
+	FRuntimeMeshUVComponents(EForceInit) { }
 };
 
 /* Defines the UV coordinates for a vertex (Specialized to 1 channels) */
-template<> struct FRuntimeMeshUVComponents<1, false>
+template<typename UVType> struct FRuntimeMeshUVComponents<1, UVType>
 {
-	FVector2D UV0;
+	UVType UV0;
 
-	FRuntimeMeshUVComponents() : UV0(0, 0) { }
-	FRuntimeMeshUVComponents(const FVector2D& InUV0) : UV0(InUV0) { }
-};
-
-/* Defines the UV coordinates for a vertex (Specialized to 1 channels, Half Precision) */
-template<> struct FRuntimeMeshUVComponents<1, true>
-{
-	FVector2DHalf UV0;
-
-	FRuntimeMeshUVComponents() : UV0(0, 0) { }
+	FRuntimeMeshUVComponents() { }
+	FRuntimeMeshUVComponents(EForceInit) : UV0(0, 0) { }
 	FRuntimeMeshUVComponents(const FVector2D& InUV0) : UV0(InUV0) { }
 };
 
 /* Defines the UV coordinates for a vertex (Specialized to 2 channels) */
-template<> struct FRuntimeMeshUVComponents<2, false>
+template<typename UVType> struct FRuntimeMeshUVComponents<2, UVType>
 {
-	FVector2D UV0;
-	FVector2D UV1;
+	UVType UV0;
+	UVType UV1;
 
-	FRuntimeMeshUVComponents() : UV0(0, 0), UV1(0, 0) { }
-	FRuntimeMeshUVComponents(const FVector2D& InUV0) : UV0(InUV0), UV1(0, 0) { }
-	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1) : UV0(InUV0), UV1(InUV1) { }
-};
-
-/* Defines the UV coordinates for a vertex (Specialized to 2 channels, Half Precision) */
-template<> struct FRuntimeMeshUVComponents<2, true>
-{
-	FVector2DHalf UV0;
-	FVector2DHalf UV1;
-
-	FRuntimeMeshUVComponents() : UV0(0, 0), UV1(0, 0) { }
+	FRuntimeMeshUVComponents() { }
+	FRuntimeMeshUVComponents(EForceInit) : UV0(0, 0), UV1(0, 0) { }
 	FRuntimeMeshUVComponents(const FVector2D& InUV0) : UV0(InUV0), UV1(0, 0) { }
 	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1) : UV0(InUV0), UV1(InUV1) { }
 };
 
 /* Defines the UV coordinates for a vertex (Specialized to 3 channels) */
-template<> struct FRuntimeMeshUVComponents<3, false>
+template<typename UVType> struct FRuntimeMeshUVComponents<3, UVType>
 {
-	FVector2D UV0;
-	FVector2D UV1;
-	FVector2D UV2;
+	UVType UV0;
+	UVType UV1;
+	UVType UV2;
 
-	FRuntimeMeshUVComponents() :
-		UV0(0, 0), UV1(0, 0), UV2(0, 0) { }
-	FRuntimeMeshUVComponents(const FVector2D& InUV0) :
-		UV0(InUV0), UV1(0, 0), UV2(0, 0) { }
-	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1) :
-		UV0(InUV0), UV1(InUV1), UV2(0, 0) { }
-	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1, const FVector2D& InUV2) :
-		UV0(InUV0), UV1(InUV1), UV2(InUV2) { }
-};
-
-/* Defines the UV coordinates for a vertex (Specialized to 3 channels, Half Precision) */
-template<> struct FRuntimeMeshUVComponents<3, true>
-{
-	FVector2DHalf UV0;
-	FVector2DHalf UV1;
-	FVector2DHalf UV2;
-
-	FRuntimeMeshUVComponents() :
+	FRuntimeMeshUVComponents() { }
+	FRuntimeMeshUVComponents(EForceInit) :
 		UV0(0, 0), UV1(0, 0), UV2(0, 0) { }
 	FRuntimeMeshUVComponents(const FVector2D& InUV0) :
 		UV0(InUV0), UV1(0, 0), UV2(0, 0) { }
@@ -113,34 +135,15 @@ template<> struct FRuntimeMeshUVComponents<3, true>
 };
 
 /* Defines the UV coordinates for a vertex (Specialized to 4 channels) */
-template<> struct FRuntimeMeshUVComponents<4, false>
+template<typename UVType> struct FRuntimeMeshUVComponents<4, UVType>
 {
-	FVector2D UV0;
-	FVector2D UV1;
-	FVector2D UV2;
-	FVector2D UV3;
+	UVType UV0;
+	UVType UV1;
+	UVType UV2;
+	UVType UV3;
 
-	FRuntimeMeshUVComponents() :
-		UV0(0, 0), UV1(0, 0), UV2(0, 0), UV3(0, 0) { }
-	FRuntimeMeshUVComponents(const FVector2D& InUV0) :
-		UV0(InUV0), UV1(0, 0), UV2(0, 0), UV3(0, 0) { }
-	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1) :
-		UV0(InUV0), UV1(InUV1), UV2(0, 0), UV3(0, 0) { }
-	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1, const FVector2D& InUV2) :
-		UV0(InUV0), UV1(InUV1), UV2(InUV2), UV3(0, 0) { }
-	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1, const FVector2D& InUV2, const FVector2D& InUV3) :
-		UV0(InUV0), UV1(InUV1), UV2(InUV2), UV3(InUV3) { }
-};
-
-/* Defines the UV coordinates for a vertex (Specialized to 4 channels, Half Precision) */
-template<> struct FRuntimeMeshUVComponents<4, true>
-{
-	FVector2DHalf UV0;
-	FVector2DHalf UV1;
-	FVector2DHalf UV2;
-	FVector2DHalf UV3;
-
-	FRuntimeMeshUVComponents() :
+	FRuntimeMeshUVComponents() { }
+	FRuntimeMeshUVComponents(EForceInit) :
 		UV0(0, 0), UV1(0, 0), UV2(0, 0), UV3(0, 0) { }
 	FRuntimeMeshUVComponents(const FVector2D& InUV0) :
 		UV0(InUV0), UV1(0, 0), UV2(0, 0), UV3(0, 0) { }
@@ -153,15 +156,16 @@ template<> struct FRuntimeMeshUVComponents<4, true>
 };
 
 /* Defines the UV coordinates for a vertex (Specialized to 5 channels) */
-template<> struct FRuntimeMeshUVComponents<5, false>
+template<typename UVType> struct FRuntimeMeshUVComponents<5, UVType>
 {
-	FVector2D UV0;
-	FVector2D UV1;
-	FVector2D UV2;
-	FVector2D UV3;
-	FVector2D UV4;
+	UVType UV0;
+	UVType UV1;
+	UVType UV2;
+	UVType UV3;
+	UVType UV4;
 
-	FRuntimeMeshUVComponents() :
+	FRuntimeMeshUVComponents() { }
+	FRuntimeMeshUVComponents(EForceInit) :
 		UV0(0, 0), UV1(0, 0), UV2(0, 0), UV3(0, 0), UV4(0, 0) { }
 	FRuntimeMeshUVComponents(const FVector2D& InUV0) :
 		UV0(InUV0), UV1(0, 0), UV2(0, 0), UV3(0, 0), UV4(0, 0) { }
@@ -173,70 +177,20 @@ template<> struct FRuntimeMeshUVComponents<5, false>
 		UV0(InUV0), UV1(InUV1), UV2(InUV2), UV3(InUV3), UV4(0, 0) { }
 	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1, const FVector2D& InUV2, const FVector2D& InUV3,
 		const FVector2D& InUV4) : UV0(InUV0), UV1(InUV1), UV2(InUV2), UV3(InUV3), UV4(InUV4) { }
-};
-
-/* Defines the UV coordinates for a vertex (Specialized to 5 channels, Half Precision) */
-template<> struct FRuntimeMeshUVComponents<5, true>
-{
-	FVector2DHalf UV0;
-	FVector2DHalf UV1;
-	FVector2DHalf UV2;
-	FVector2DHalf UV3;
-	FVector2DHalf UV4;
-
-	FRuntimeMeshUVComponents() :
-		UV0(0, 0), UV1(0, 0), UV2(0, 0), UV3(0, 0), UV4(0, 0) { }
-	FRuntimeMeshUVComponents(const FVector2D& InUV0) :
-		UV0(InUV0), UV1(0, 0), UV2(0, 0), UV3(0, 0), UV4(0, 0) { }
-	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1) :
-		UV0(InUV0), UV1(InUV1), UV2(0, 0), UV3(0, 0), UV4(0, 0) { }
-	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1, const FVector2D& InUV2) :
-		UV0(InUV0), UV1(InUV1), UV2(InUV2), UV3(0, 0), UV4(0, 0) { }
-	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1, const FVector2D& InUV2, const FVector2D& InUV3) :
-		UV0(InUV0), UV1(InUV1), UV2(InUV2), UV3(InUV3), UV4(0, 0) { }
-	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1, const FVector2D& InUV2, const FVector2D& InUV3,
-		const FVector2D& InUV4) : UV0(InUV0), UV1(InUV1), UV2(InUV2), UV3(InUV3), UV4(InUV4) { }
-};
-
-/* Defines the UV coordinates for a vertex (Specialized to 6 channels) */
-template<> struct FRuntimeMeshUVComponents<6, false>
-{
-	FVector2D UV0;
-	FVector2D UV1;
-	FVector2D UV2;
-	FVector2D UV3;
-	FVector2D UV4;
-	FVector2D UV5;
-
-	FRuntimeMeshUVComponents() :
-		UV0(0, 0), UV1(0, 0), UV2(0, 0), UV3(0, 0), UV4(0, 0), UV5(0, 0) { }
-	FRuntimeMeshUVComponents(const FVector2D& InUV0) :
-		UV0(InUV0), UV1(0, 0), UV2(0, 0), UV3(0, 0), UV4(0, 0), UV5(0, 0) { }
-	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1) :
-		UV0(InUV0), UV1(InUV1), UV2(0, 0), UV3(0, 0), UV4(0, 0), UV5(0, 0) { }
-	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1, const FVector2D& InUV2) :
-		UV0(InUV0), UV1(InUV1), UV2(InUV2), UV3(0, 0), UV4(0, 0), UV5(0, 0) { }
-	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1, const FVector2D& InUV2, const FVector2D& InUV3) :
-		UV0(InUV0), UV1(InUV1), UV2(InUV2), UV3(InUV3), UV4(0, 0), UV5(0, 0) { }
-	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1, const FVector2D& InUV2, const FVector2D& InUV3,
-		const FVector2D& InUV4) :
-		UV0(InUV0), UV1(InUV1), UV2(InUV2), UV3(InUV3), UV4(InUV4), UV5(0, 0) { }
-	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1, const FVector2D& InUV2, const FVector2D& InUV3,
-		const FVector2D& InUV4, const FVector2D& InUV5) :
-		UV0(InUV0), UV1(InUV1), UV2(InUV2), UV3(InUV3), UV4(InUV4), UV5(InUV5) { }
 };
 
 /* Defines the UV coordinates for a vertex (Specialized to 6 channels, Half Precision) */
-template<> struct FRuntimeMeshUVComponents<6, true>
+template<typename UVType> struct FRuntimeMeshUVComponents<6, UVType>
 {
-	FVector2DHalf UV0;
-	FVector2DHalf UV1;
-	FVector2DHalf UV2;
-	FVector2DHalf UV3;
-	FVector2DHalf UV4;
-	FVector2DHalf UV5;
+	UVType UV0;
+	UVType UV1;
+	UVType UV2;
+	UVType UV3;
+	UVType UV4;
+	UVType UV5;
 
-	FRuntimeMeshUVComponents() :
+	FRuntimeMeshUVComponents() { }
+	FRuntimeMeshUVComponents(EForceInit) :
 		UV0(0, 0), UV1(0, 0), UV2(0, 0), UV3(0, 0), UV4(0, 0), UV5(0, 0) { }
 	FRuntimeMeshUVComponents(const FVector2D& InUV0) :
 		UV0(InUV0), UV1(0, 0), UV2(0, 0), UV3(0, 0), UV4(0, 0), UV5(0, 0) { }
@@ -255,49 +209,18 @@ template<> struct FRuntimeMeshUVComponents<6, true>
 };
 
 /* Defines the UV coordinates for a vertex (Specialized to 7 channels) */
-template<> struct FRuntimeMeshUVComponents<7, false>
+template<typename UVType> struct FRuntimeMeshUVComponents<7, UVType>
 {
-	FVector2D UV0;
-	FVector2D UV1;
-	FVector2D UV2;
-	FVector2D UV3;
-	FVector2D UV4;
-	FVector2D UV5;
-	FVector2D UV6;
+	UVType UV0;
+	UVType UV1;
+	UVType UV2;
+	UVType UV3;
+	UVType UV4;
+	UVType UV5;
+	UVType UV6;
 
-	FRuntimeMeshUVComponents() :
-		UV0(0, 0), UV1(0, 0), UV2(0, 0), UV3(0, 0), UV4(0, 0), UV5(0, 0), UV6(0, 0) { }
-	FRuntimeMeshUVComponents(const FVector2D& InUV0) :
-		UV0(InUV0), UV1(0, 0), UV2(0, 0), UV3(0, 0), UV4(0, 0), UV5(0, 0), UV6(0, 0) { }
-	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1) :
-		UV0(InUV0), UV1(InUV1), UV2(0, 0), UV3(0, 0), UV4(0, 0), UV5(0, 0), UV6(0, 0) { }
-	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1, const FVector2D& InUV2) :
-		UV0(InUV0), UV1(InUV1), UV2(InUV2), UV3(0, 0), UV4(0, 0), UV5(0, 0), UV6(0, 0) { }
-	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1, const FVector2D& InUV2, const FVector2D& InUV3) :
-		UV0(InUV0), UV1(InUV1), UV2(InUV2), UV3(InUV3), UV4(0, 0), UV5(0, 0), UV6(0, 0) { }
-	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1, const FVector2D& InUV2, const FVector2D& InUV3,
-		const FVector2D& InUV4) :
-		UV0(InUV0), UV1(InUV1), UV2(InUV2), UV3(InUV3), UV4(InUV4), UV5(0, 0), UV6(0, 0) { }
-	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1, const FVector2D& InUV2, const FVector2D& InUV3,
-		const FVector2D& InUV4, const FVector2D& InUV5) :
-		UV0(InUV0), UV1(InUV1), UV2(InUV2), UV3(InUV3), UV4(InUV4), UV5(InUV5), UV6(0, 0) { }
-	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1, const FVector2D& InUV2, const FVector2D& InUV3,
-		const FVector2D& InUV4, const FVector2D& InUV5, const FVector2D& InUV6) :
-		UV0(InUV0), UV1(InUV1), UV2(InUV2), UV3(InUV3), UV4(InUV4), UV5(InUV5), UV6(InUV6) { }
-};
-
-/* Defines the UV coordinates for a vertex (Specialized to 7 channels, Half Precision) */
-template<> struct FRuntimeMeshUVComponents<7, true>
-{
-	FVector2DHalf UV0;
-	FVector2DHalf UV1;
-	FVector2DHalf UV2;
-	FVector2DHalf UV3;
-	FVector2DHalf UV4;
-	FVector2DHalf UV5;
-	FVector2DHalf UV6;
-
-	FRuntimeMeshUVComponents() :
+	FRuntimeMeshUVComponents() { }
+	FRuntimeMeshUVComponents(EForceInit) :
 		UV0(0, 0), UV1(0, 0), UV2(0, 0), UV3(0, 0), UV4(0, 0), UV5(0, 0), UV6(0, 0) { }
 	FRuntimeMeshUVComponents(const FVector2D& InUV0) :
 		UV0(InUV0), UV1(0, 0), UV2(0, 0), UV3(0, 0), UV4(0, 0), UV5(0, 0), UV6(0, 0) { }
@@ -319,18 +242,19 @@ template<> struct FRuntimeMeshUVComponents<7, true>
 };
 
 /* Defines the UV coordinates for a vertex (Specialized to 8 channels) */
-template<> struct FRuntimeMeshUVComponents<8, false>
+template<typename UVType> struct FRuntimeMeshUVComponents<8, UVType>
 {
-	FVector2D UV0;
-	FVector2D UV1;
-	FVector2D UV2;
-	FVector2D UV3;
-	FVector2D UV4;
-	FVector2D UV5;
-	FVector2D UV6;
-	FVector2D UV7;
+	UVType UV0;
+	UVType UV1;
+	UVType UV2;
+	UVType UV3;
+	UVType UV4;
+	UVType UV5;
+	UVType UV6;
+	UVType UV7;
 
-	FRuntimeMeshUVComponents() :
+	FRuntimeMeshUVComponents() { }
+	FRuntimeMeshUVComponents(EForceInit) :
 		UV0(0, 0), UV1(0, 0), UV2(0, 0), UV3(0, 0), UV4(0, 0), UV5(0, 0), UV6(0, 0), UV7(0, 0) { }
 	FRuntimeMeshUVComponents(const FVector2D& InUV0) :
 		UV0(InUV0), UV1(0, 0), UV2(0, 0), UV3(0, 0), UV4(0, 0), UV5(0, 0), UV6(0, 0), UV7(0, 0) { }
@@ -354,100 +278,102 @@ template<> struct FRuntimeMeshUVComponents<8, false>
 		UV0(InUV0), UV1(InUV1), UV2(InUV2), UV3(InUV3), UV4(InUV4), UV5(InUV5), UV6(InUV6), UV7(InUV7) { }
 };
 
-/* Defines the UV coordinates for a vertex (Specialized to 8 channels, Half Precision) */
-template<> struct FRuntimeMeshUVComponents<8, true>
-{
-	FVector2DHalf UV0;
-	FVector2DHalf UV1;
-	FVector2DHalf UV2;
-	FVector2DHalf UV3;
-	FVector2DHalf UV4;
-	FVector2DHalf UV5;
-	FVector2DHalf UV6;
-	FVector2DHalf UV7;
 
-	FRuntimeMeshUVComponents() :
-		UV0(0,0), UV1(0, 0), UV2(0, 0), UV3(0, 0), UV4(0, 0), UV5(0, 0), UV6(0, 0), UV7(0, 0) { }
-	FRuntimeMeshUVComponents(const FVector2D& InUV0) :
-		UV0(InUV0), UV1(0,0), UV2(0, 0), UV3(0, 0), UV4(0, 0), UV5(0, 0), UV6(0, 0), UV7(0, 0) { }
-	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1) :
-		UV0(InUV0), UV1(InUV1), UV2(0,0), UV3(0, 0), UV4(0, 0), UV5(0, 0), UV6(0, 0), UV7(0, 0) { }
-	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1, const FVector2D& InUV2) :
-		UV0(InUV0), UV1(InUV1), UV2(InUV2), UV3(0,0), UV4(0, 0), UV5(0, 0), UV6(0, 0), UV7(0, 0) { }
-	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1, const FVector2D& InUV2, const FVector2D& InUV3) :
-		UV0(InUV0), UV1(InUV1), UV2(InUV2), UV3(InUV3), UV4(0,0), UV5(0, 0), UV6(0, 0), UV7(0, 0) { }
-	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1, const FVector2D& InUV2, const FVector2D& InUV3,
-		const FVector2D& InUV4) :
-		UV0(InUV0), UV1(InUV1), UV2(InUV2), UV3(InUV3), UV4(InUV4), UV5(0,0), UV6(0, 0), UV7(0, 0) { }
-	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1, const FVector2D& InUV2, const FVector2D& InUV3,
-		const FVector2D& InUV4, const FVector2D& InUV5) :
-		UV0(InUV0), UV1(InUV1), UV2(InUV2), UV3(InUV3), UV4(InUV4), UV5(InUV5), UV6(0,0), UV7(0, 0) { }
-	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1, const FVector2D& InUV2, const FVector2D& InUV3,
-		const FVector2D& InUV4, const FVector2D& InUV5, const FVector2D& InUV6) :
-		UV0(InUV0), UV1(InUV1), UV2(InUV2), UV3(InUV3), UV4(InUV4), UV5(InUV5), UV6(InUV6), UV7(0,0) { }
-	FRuntimeMeshUVComponents(const FVector2D& InUV0, const FVector2D& InUV1, const FVector2D& InUV2, const FVector2D& InUV3,
-		const FVector2D& InUV4, const FVector2D& InUV5, const FVector2D& InUV6,	const FVector2D& InUV7) :
-		UV0(InUV0),	UV1(InUV1),	UV2(InUV2),	UV3(InUV3),	UV4(InUV4),	UV5(InUV5),	UV6(InUV6),	UV7(InUV7) { }
+//////////////////////////////////////////////////////////////////////////
+// Tangent Basis Component Type Selector
+//////////////////////////////////////////////////////////////////////////
+
+enum class ERuntimeMeshVertexTangentBasisType
+{
+	Default = 1,
+	HighPrecision = 2,
 };
 
+template<ERuntimeMeshVertexTangentBasisType TangentBasisType>
+struct FRuntimeMeshVertexTangentTypeSelector;
 
-
-
-
-
-template<bool HasPosition = true>
-struct FRuntimeMeshVertexBase
+template<>
+struct FRuntimeMeshVertexTangentTypeSelector<ERuntimeMeshVertexTangentBasisType::Default>
 {
-
-	FVector Position;
-	FPackedNormal Normal;
-	FPackedNormal Tangent;
-	FColor Color;
-
-	FRuntimeMeshVertexBase(const FVector& InPosition, const FVector& InNormal, const FRuntimeMeshTangent& InTangent, const FColor& InColor)
-		: Position(InPosition), Normal(InNormal), Tangent(InTangent.TangentX), Color(InColor)
-	{
-		InTangent.AdjustNormal(Normal);
-	}
-
-	FRuntimeMeshVertexBase(const FVector& InPosition, const FVector& InTangentX, const FVector& InTangentY, const FVector& InTangentZ, const FColor& InColor)
-		: Position(InPosition), Normal(InTangentZ), Tangent(InTangentX), Color(InColor)
-	{
-		// store determinant of basis in w component of normal vector
-		Normal.Vector.W = GetBasisDeterminantSign(InTangentX, InTangentY, InTangentZ) < 0.0f ? 0 : 255;
-	}
-
-	void SetNormalAndTangent(const FVector& InTangentX, const FVector& InTangentY, const FVector& InTangentZ)
-	{
-		Normal = InTangentZ;
-		Tangent = InTangentX;
-
-		// store determinant of basis in w component of normal vector
-		Normal.Vector.W = GetBasisDeterminantSign(InTangentX, InTangentY, InTangentZ) < 0.0f ? 0 : 255;
-	}
+	typedef FPackedNormal TangentType;
+	static const EVertexElementType VertexElementType = VET_PackedNormal;
 };
 
 template<>
-struct FRuntimeMeshVertexBase<false>
+struct FRuntimeMeshVertexTangentTypeSelector<ERuntimeMeshVertexTangentBasisType::HighPrecision>
 {
-	// We drop position here as it will be supplied in a separate buffer.
-	FPackedNormal Normal;
-	FPackedNormal Tangent;
-	FColor Color;
+	typedef FPackedRGBA16N TangentType;
+	static const EVertexElementType VertexElementType = VET_UShort4N;
+};
 
-	FRuntimeMeshVertexBase(const FVector& InNormal, const FRuntimeMeshTangent& InTangent, const FColor& InColor)
-		: Normal(InNormal), Tangent(InTangent.TangentX), Color(InColor)
+
+//////////////////////////////////////////////////////////////////////////
+// Tangent Basis Components
+//////////////////////////////////////////////////////////////////////////
+
+template<bool WantsNormal, bool WantsTangent, typename TangentType>
+struct FRuntimeMeshNormalTangentComponents;
+
+template<typename TangentType>
+struct FRuntimeMeshNormalTangentComponents<true, false, TangentType>
+{
+	TangentType Normal;
+
+	FRuntimeMeshNormalTangentComponents() { }
+	FRuntimeMeshNormalTangentComponents(EForceInit) : Normal(FVector4(0.0f, 0.0f, 1.0f, 1.0f)) { }
+
+	void SetNormalAndTangent(const FVector& InNormal, const FRuntimeMeshTangent& InTangent)
 	{
+		Normal = InNormal;
+
 		InTangent.AdjustNormal(Normal);
 	}
 
-	FRuntimeMeshVertexBase(const FVector& InTangentX, const FVector& InTangentY, const FVector& InTangentZ, const FColor& InColor)
-		: Normal(InTangentZ), Tangent(InTangentX), Color(InColor)
+	void SetNormalAndTangent(const FVector& InTangentX, const FVector& InTangentY, const FVector& InTangentZ)
 	{
+		Normal = InTangentZ;
+
 		// store determinant of basis in w component of normal vector
 		Normal.Vector.W = GetBasisDeterminantSign(InTangentX, InTangentY, InTangentZ) < 0.0f ? 0 : 255;
 	}
+};
 
+template<typename TangentType>
+struct FRuntimeMeshNormalTangentComponents<false, true, TangentType>
+{
+	TangentType Tangent;
+
+	FRuntimeMeshNormalTangentComponents() { }
+	FRuntimeMeshNormalTangentComponents(EForceInit) : Tangent(FVector(1.0f, 0.0f, 0.0f)) { }
+
+	void SetNormalAndTangent(const FVector& InNormal, const FRuntimeMeshTangent& InTangent)
+	{
+		Tangent = InTangent.TangentX;
+	}
+
+	void SetNormalAndTangent(const FVector& InTangentX, const FVector& InTangentY, const FVector& InTangentZ)
+	{
+		Tangent = InTangentX;
+	}
+};
+
+template<typename TangentType>
+struct FRuntimeMeshNormalTangentComponents<true, true, TangentType>
+{
+	TangentType Normal;
+	TangentType Tangent;
+
+	FRuntimeMeshNormalTangentComponents() { }
+	FRuntimeMeshNormalTangentComponents(EForceInit) : Normal(FVector4(0.0f, 0.0f, 1.0f, 1.0f)), Tangent(FVector(1.0f, 0.0f, 0.0f)) { }
+
+	void SetNormalAndTangent(const FVector& InNormal, const FRuntimeMeshTangent& InTangent)
+	{
+		Normal = InNormal;
+		Tangent = InTangent.TangentX;
+
+		InTangent.AdjustNormal(Normal);
+	}
+	
 	void SetNormalAndTangent(const FVector& InTangentX, const FVector& InTangentY, const FVector& InTangentZ)
 	{
 		Normal = InTangentZ;
@@ -459,258 +385,447 @@ struct FRuntimeMeshVertexBase<false>
 };
 
 
-template<int32 TextureChannels, bool HalfPrecisionUVs, bool HasPositionComponent>
+
+//////////////////////////////////////////////////////////////////////////
+// Position Component
+//////////////////////////////////////////////////////////////////////////
+
+template<bool WantsPosition>
+struct FRuntimeMeshPositionComponent;
+
+template<>
+struct FRuntimeMeshPositionComponent<true>
+{
+	FVector Position;
+
+	FRuntimeMeshPositionComponent() { }
+	FRuntimeMeshPositionComponent(EForceInit) : Position(0.0f, 0.0f, 0.0f) { }
+};
+
+
+
+//////////////////////////////////////////////////////////////////////////
+// Color Component
+//////////////////////////////////////////////////////////////////////////
+
+template<bool WantsColor>
+struct FRuntimeMeshColorComponent;
+
+template<>
+struct FRuntimeMeshColorComponent<true>
+{
+	FColor Color;
+
+	FRuntimeMeshColorComponent() { }
+	FRuntimeMeshColorComponent(EForceInit) : Color(FColor::White) { }
+};
+
+
+
+
+//////////////////////////////////////////////////////////////////////////
+// Position Normal Tangent Combiner
+//////////////////////////////////////////////////////////////////////////
+
+template<bool WantsPosition, bool WantsNormal, bool WantsTangent, typename TangentBasisType>
+struct FRuntimeMeshPositionNormalTangentComponentCombiner :
+	public FRuntimeMeshPositionComponent<WantsPosition>,
+	public FRuntimeMeshNormalTangentComponents<WantsNormal, WantsTangent, TangentBasisType>
+{
+	FRuntimeMeshPositionNormalTangentComponentCombiner() { }
+	FRuntimeMeshPositionNormalTangentComponentCombiner(EForceInit)
+		: FRuntimeMeshPositionComponent<WantsPosition>(EForceInit::ForceInit)
+		, FRuntimeMeshNormalTangentComponents<WantsNormal, WantsTangent, TangentBasisType>(EForceInit::ForceInit)
+	{ }
+};
+
+template<bool WantsPosition, typename TangentBasisType>
+struct FRuntimeMeshPositionNormalTangentComponentCombiner<WantsPosition, false, false, TangentBasisType> :
+	public FRuntimeMeshPositionComponent<WantsPosition>
+{
+	FRuntimeMeshPositionNormalTangentComponentCombiner() { }
+	FRuntimeMeshPositionNormalTangentComponentCombiner(EForceInit)
+		: FRuntimeMeshPositionComponent<WantsPosition>(EForceInit::ForceInit)
+	{ }
+};
+
+template<bool WantsNormal, bool WantsTangent, typename TangentBasisType>
+struct FRuntimeMeshPositionNormalTangentComponentCombiner<false, WantsNormal, WantsTangent, TangentBasisType> :
+	public FRuntimeMeshNormalTangentComponents<WantsNormal, WantsTangent, TangentBasisType>
+{
+	FRuntimeMeshPositionNormalTangentComponentCombiner() { }
+	FRuntimeMeshPositionNormalTangentComponentCombiner(EForceInit)
+		: FRuntimeMeshNormalTangentComponents<WantsNormal, WantsTangent, TangentBasisType>(EForceInit::ForceInit)
+	{ }
+};
+
+template<typename TangentBasisType>
+struct FRuntimeMeshPositionNormalTangentComponentCombiner<false, false, false, TangentBasisType>;
+
+
+
+//////////////////////////////////////////////////////////////////////////
+// Color UV Combiner
+//////////////////////////////////////////////////////////////////////////
+
+template<bool WantsColor, int32 NumWantedUVChannels, typename UVType>
+struct FRuntimeMeshColorUVComponentCombiner :
+	public FRuntimeMeshColorComponent<WantsColor>,
+	public FRuntimeMeshUVComponents<NumWantedUVChannels, UVType>
+{
+	FRuntimeMeshColorUVComponentCombiner() { }
+	FRuntimeMeshColorUVComponentCombiner(EForceInit)
+		: FRuntimeMeshColorComponent<WantsColor>(EForceInit::ForceInit)
+		, FRuntimeMeshUVComponents<NumWantedUVChannels, UVType>(EForceInit::ForceInit)
+	{ }
+};
+
+template<int32 NumWantedUVChannels, typename UVType>
+struct FRuntimeMeshColorUVComponentCombiner<false, NumWantedUVChannels, UVType> :
+	public FRuntimeMeshUVComponents<NumWantedUVChannels, UVType>
+{
+	FRuntimeMeshColorUVComponentCombiner() { }
+	FRuntimeMeshColorUVComponentCombiner(EForceInit)
+		: FRuntimeMeshUVComponents<NumWantedUVChannels, UVType>(EForceInit::ForceInit)
+	{ }
+};
+
+template<bool WantsColor, typename UVType>
+struct FRuntimeMeshColorUVComponentCombiner<WantsColor, 0, UVType> :
+	public FRuntimeMeshColorComponent<WantsColor>
+{
+	FRuntimeMeshColorUVComponentCombiner() { }
+	FRuntimeMeshColorUVComponentCombiner(EForceInit)
+		: FRuntimeMeshColorComponent<WantsColor>(EForceInit::ForceInit)
+	{ }
+};
+
+template<typename UVType>
+struct FRuntimeMeshColorUVComponentCombiner<false, 0, UVType>;
+
+
+
+
+
+
+
+//////////////////////////////////////////////////////////////////////////
+// Template Vertex Type Info Structure
+//////////////////////////////////////////////////////////////////////////
+
+template<bool WantsPosition, bool WantsNormal, bool WantsTangent, bool WantsColor, int32 NumWantedUVChannels,
+	ERuntimeMeshVertexTangentBasisType NormalTangentType, ERuntimeMeshVertexUVType UVType>
 struct FRuntimeMeshVertexTypeInfo_GenericVertex : public FRuntimeMeshVertexTypeInfo
 {
 	FRuntimeMeshVertexTypeInfo_GenericVertex() :
-		FRuntimeMeshVertexTypeInfo(FString::Printf(TEXT("RuntimeMeshVertex<%d, %d, %d>"), TextureChannels, HalfPrecisionUVs, HasPositionComponent), FGuid(0x00FFEB44, 0x31094597, 0x93918032, 0x015678C3)) { }
+		FRuntimeMeshVertexTypeInfo(
+			FString::Printf(TEXT("RuntimeMeshVertex<%d, %d, %d, %d, %d, %d, %d>"), WantsPosition, WantsNormal, WantsTangent, WantsColor, NumWantedUVChannels, (int32)NormalTangentType, (int32)UVType),
+			FGuid(0x00FFEB44, 0x31094597, 0x93918032, 0x015678C3)) { }
 
-	const int32 TexChannels = TextureChannels;
-	const bool HalfPrecUVs = HalfPrecisionUVs;
-	const bool HasPosComponent = HasPositionComponent;
+	static uint32 ComputeRuntimeMeshVertexTemplateTypeID(bool bWantsPosition, bool bWantsNormal, bool bWantsTangent, bool bWantsColor, int32 NumUVChannels, ERuntimeMeshVertexTangentBasisType NormalTangentBasisType, ERuntimeMeshVertexUVType UVChannelsType)
+	{
+		uint32 TypeID = 0;
+		TypeID = (TypeID << 1) | (bWantsPosition ? 1 : 0);
+		TypeID = (TypeID << 1) | (bWantsNormal ? 1 : 0);
+		TypeID = (TypeID << 1) | (bWantsTangent ? 1 : 0);
+		TypeID = (TypeID << 2) | (NormalTangentBasisType == ERuntimeMeshVertexTangentBasisType::HighPrecision ? 1 : 0);
+		TypeID = (TypeID << 1) | (bWantsColor ? 1 : 0);
+		TypeID = (TypeID << 8) | (NumUVChannels & 0xFF);
+		TypeID = (TypeID << 2) | (UVChannelsType == ERuntimeMeshVertexUVType::HighPrecision ? 1 : 0);
+		return TypeID;
+	}
+
+	const uint32 TemplateTypeID = ComputeRuntimeMeshVertexTemplateTypeID(WantsPosition, WantsNormal, WantsTangent, WantsColor, NumWantedUVChannels, NormalTangentType, UVType);
 
 	virtual bool EqualsAdvanced(const FRuntimeMeshVertexTypeInfo* Other) const
 	{
 		const FRuntimeMeshVertexTypeInfo_GenericVertex* OtherGenericVertex = static_cast<const FRuntimeMeshVertexTypeInfo_GenericVertex*>(Other);
 
-		return TexChannels == OtherGenericVertex->TexChannels &&
-			HalfPrecUVs == OtherGenericVertex->HalfPrecUVs &&
-			HasPosComponent == OtherGenericVertex->HasPosComponent;
+		return TemplateTypeID == OtherGenericVertex->TemplateTypeID;
 	}
 };
 
-template<int32 TextureChannels, bool HalfPrecisionUVs = false, bool HasPositionComponent = true>
+
+
+
+
+//////////////////////////////////////////////////////////////////////////
+// Template Vertex
+//////////////////////////////////////////////////////////////////////////
+
+// This version uses both sub combiners since there's at least 1 thing we need from both.
+template<bool WantsPosition, bool WantsNormal, bool WantsTangent, bool WantsColor, int32 NumWantedUVChannels,
+ERuntimeMeshVertexTangentBasisType NormalTangentType = ERuntimeMeshVertexTangentBasisType::Default, ERuntimeMeshVertexUVType UVType = ERuntimeMeshVertexUVType::Default>
 struct FRuntimeMeshVertex :
-	public FRuntimeMeshVertexBase<HasPositionComponent>,
-	public FRuntimeMeshUVComponents<TextureChannels, HalfPrecisionUVs>
+	public FRuntimeMeshPositionNormalTangentComponentCombiner<WantsPosition, WantsNormal, WantsTangent, typename FRuntimeMeshVertexTangentTypeSelector<NormalTangentType>::TangentType>,
+	public FRuntimeMeshColorUVComponentCombiner<WantsColor, NumWantedUVChannels, typename FRuntimeMeshVertexUVsTypeSelector<UVType>::UVsType>
 {
-	static_assert(TextureChannels >= 1 && TextureChannels <= 8, "You must have between 1 and 8 (inclusive) UV channels)");
+	// Make sure something is enabled
+	static_assert((WantsPosition || WantsNormal || WantsTangent || WantsColor || NumWantedUVChannels > 0), "Invalid configuration... You must have at least 1 component enabled.");
 
-	typedef FRuntimeMeshVertex<TextureChannels, HalfPrecisionUVs, HasPositionComponent> SelfType;
+	// Type Info
+	static const FRuntimeMeshVertexTypeInfo_GenericVertex<WantsPosition, WantsNormal, WantsTangent, WantsColor, NumWantedUVChannels, NormalTangentType, UVType> TypeInfo;
+	
+	// Typedef self
+	using SelfType = FRuntimeMeshVertex<WantsPosition, WantsNormal, WantsTangent, WantsColor, NumWantedUVChannels, NormalTangentType, UVType>;
 
-	static RuntimeMeshVertexStructure GetVertexStructure(const FRuntimeMeshVertexBuffer<SelfType>& VertexBuffer)
+	// Get vertex structure
+	static RuntimeMeshVertexStructure GetVertexStructure(const FVertexBuffer& VertexBuffer)
 	{
-		return CreateVertexStructure<TextureChannels, HalfPrecisionUVs, HasPositionComponent>(VertexBuffer);
+	 	return FRuntimemeshVertexStructureHelper::CreateVertexStructure<WantsPosition, WantsNormal, WantsTangent, WantsColor, NumWantedUVChannels, NormalTangentType, UVType>(VertexBuffer);
 	}
 
-	static const FRuntimeMeshVertexTypeInfo_GenericVertex<TextureChannels, HalfPrecisionUVs, HasPositionComponent> TypeInfo;
+	FRuntimeMeshVertex() { }
+	FRuntimeMeshVertex(EForceInit)
+		: FRuntimeMeshPositionNormalTangentComponentCombiner<WantsPosition, WantsNormal, WantsTangent, typename FRuntimeMeshVertexTangentTypeSelector<NormalTangentType>::TangentType>(EForceInit::ForceInit)
+		, FRuntimeMeshColorUVComponentCombiner<WantsColor, NumWantedUVChannels, typename FRuntimeMeshVertexUVsTypeSelector<UVType>::UVsType>(EForceInit::ForceInit)
+	{ }
+};
 
+// This version only uses the position/normal/tangent combiner as we don't need anything from the other
+template<bool WantsPosition, bool WantsNormal, bool WantsTangent, ERuntimeMeshVertexTangentBasisType NormalTangentType, ERuntimeMeshVertexUVType UVType>
+struct FRuntimeMeshVertex<WantsPosition, WantsNormal, WantsTangent, false, 0, NormalTangentType, UVType> :
+	public FRuntimeMeshPositionNormalTangentComponentCombiner<WantsPosition, WantsNormal, WantsTangent, typename FRuntimeMeshVertexTangentTypeSelector<NormalTangentType>::TangentType>
+{
+	// Type Info
+	static const FRuntimeMeshVertexTypeInfo_GenericVertex<WantsPosition, WantsNormal, WantsTangent, false, 0, NormalTangentType, UVType> TypeInfo;
 
-	FRuntimeMeshVertex() :
-		FRuntimeMeshVertexBase<HasPositionComponent>(FVector::ZeroVector, FVector(0, 0, 1), FRuntimeMeshTangent(), FColor::White),
-		FRuntimeMeshUVComponents<TextureChannels, HalfPrecisionUVs>() { }
- 	FRuntimeMeshVertex(const FVector& InPosition) :
-		FRuntimeMeshVertexBase<HasPositionComponent>(InPosition, FVector(0, 0, 1), FRuntimeMeshTangent(), FColor::White),
-		FRuntimeMeshUVComponents<TextureChannels, HalfPrecisionUVs>() { }
- 	FRuntimeMeshVertex(const FVector& InPosition, const FColor& InColor) :
-		FRuntimeMeshVertexBase<HasPositionComponent>(InPosition, FVector(0, 0, 1), FRuntimeMeshTangent(), InColor),
-		FRuntimeMeshUVComponents<TextureChannels, HalfPrecisionUVs>() { }
+	// Typedef self
+	using SelfType = FRuntimeMeshVertex<WantsPosition, WantsNormal, WantsTangent, false, 0, NormalTangentType, UVType>;
 
- 	FRuntimeMeshVertex(const FVector& InPosition, const FVector& InNormal, const FRuntimeMeshTangent& InTangent) :
-		FRuntimeMeshVertexBase<HasPositionComponent>(InPosition, InNormal, InTangent, FColor::White),
-		FRuntimeMeshUVComponents<TextureChannels, HalfPrecisionUVs>() { }
-	FRuntimeMeshVertex(const FVector& InPosition, const FVector& InTangentX, const FVector& InTangentY, const FVector& InTangentZ) :
-		FRuntimeMeshVertexBase<HasPositionComponent>(InPosition, InTangentX, InTangentY, InTangentZ, FColor::White),
-		FRuntimeMeshUVComponents<TextureChannels, HalfPrecisionUVs>() { }
+	// Get vertex structure
+	static RuntimeMeshVertexStructure GetVertexStructure(const FVertexBuffer& VertexBuffer)
+	{
+		return FRuntimemeshVertexStructureHelper::CreateVertexStructure<WantsPosition, WantsNormal, WantsTangent, false, 0, NormalTangentType, UVType>(VertexBuffer);
+	}
 
-	FRuntimeMeshVertex(const FVector& InPosition, const FVector& InNormal, const FRuntimeMeshTangent& InTangent, const FVector2D& InUV0) :
-		FRuntimeMeshVertexBase<HasPositionComponent>(InPosition, InNormal, InTangent, FColor::White),
-		FRuntimeMeshUVComponents<TextureChannels, HalfPrecisionUVs>(InUV0) { }
-	FRuntimeMeshVertex(const FVector& InPosition, const FVector& InTangentX, const FVector& InTangentY, const FVector& InTangentZ, const FVector2D& InUV0) :
-		FRuntimeMeshVertexBase<HasPositionComponent>(InPosition, InTangentX, InTangentY, InTangentZ, FColor::White),
-		FRuntimeMeshUVComponents<TextureChannels, HalfPrecisionUVs>(InUV0) { }
+	FRuntimeMeshVertex() { }
+	FRuntimeMeshVertex(EForceInit)
+		: FRuntimeMeshPositionNormalTangentComponentCombiner<WantsPosition, WantsNormal, WantsTangent, typename FRuntimeMeshVertexTangentTypeSelector<NormalTangentType>::TangentType>(EForceInit::ForceInit)
+	{ }
+};
 
-	FRuntimeMeshVertex(const FVector& InPosition, const FVector& InNormal, const FRuntimeMeshTangent& InTangent, const FColor& InColor, const FVector2D& InUV0) :
-		FRuntimeMeshVertexBase<HasPositionComponent>(InPosition, InNormal, InTangent, InColor),
-		FRuntimeMeshUVComponents<TextureChannels, HalfPrecisionUVs>(InUV0) { }
-	FRuntimeMeshVertex(const FVector& InPosition, const FVector& InTangentX, const FVector& InTangentY, const FVector& InTangentZ, const FColor& InColor, const FVector2D& InUV0) :
-		FRuntimeMeshVertexBase<HasPositionComponent>(InPosition, InTangentX, InTangentY, InTangentZ, InColor),
-		FRuntimeMeshUVComponents<TextureChannels, HalfPrecisionUVs>(InUV0) { }
+// This version only uses the color/uv combiner as we don't need anything from the other
+template<bool WantsColor, int32 NumWantedUVChannels, ERuntimeMeshVertexTangentBasisType NormalTangentType, ERuntimeMeshVertexUVType UVType>
+struct FRuntimeMeshVertex<false, false, false, WantsColor, NumWantedUVChannels, NormalTangentType, UVType> :
+	public FRuntimeMeshColorUVComponentCombiner<WantsColor, NumWantedUVChannels, typename FRuntimeMeshVertexUVsTypeSelector<UVType>::UVsType>
+{
+	// Type Info
+	static const FRuntimeMeshVertexTypeInfo_GenericVertex<false, false, false, WantsColor, NumWantedUVChannels, NormalTangentType, UVType> TypeInfo;
 
+	// Typedef self
+	using SelfType = FRuntimeMeshVertex<false, false, false, WantsColor, NumWantedUVChannels, NormalTangentType, UVType>;
 
-	FRuntimeMeshVertex(const FVector& InPosition, const FVector& InNormal, const FRuntimeMeshTangent& InTangent, const FVector2D& InUV0, const FVector2D& InUV1) :
-		FRuntimeMeshVertexBase<HasPositionComponent>(InPosition, InNormal, InTangent, FColor::White),
-		FRuntimeMeshUVComponents<TextureChannels, HalfPrecisionUVs>(InUV0, InUV1) { }
-	FRuntimeMeshVertex(const FVector& InPosition, const FVector& InTangentX, const FVector& InTangentY, const FVector& InTangentZ, const FVector2D& InUV0, const FVector2D& InUV1) :
-		FRuntimeMeshVertexBase<HasPositionComponent>(InPosition, InTangentX, InTangentY, InTangentZ, FColor::White),
-		FRuntimeMeshUVComponents<TextureChannels, HalfPrecisionUVs>(InUV0, InUV1) { }
+	// Get vertex structure
+	static RuntimeMeshVertexStructure GetVertexStructure(const FVertexBuffer& VertexBuffer)
+	{
+		return FRuntimemeshVertexStructureHelper::CreateVertexStructure<false, false, false, WantsColor, NumWantedUVChannels, NormalTangentType, UVType>(VertexBuffer);
+	}
 
-	FRuntimeMeshVertex(const FVector& InPosition, const FVector& InNormal, const FRuntimeMeshTangent& InTangent, const FColor& InColor, const FVector2D& InUV0, const FVector2D& InUV1) :
-		FRuntimeMeshVertexBase<HasPositionComponent>(InPosition, InNormal, InTangent, InColor),
-		FRuntimeMeshUVComponents<TextureChannels, HalfPrecisionUVs>(InUV0, InUV1) { }
-	FRuntimeMeshVertex(const FVector& InPosition, const FVector& InTangentX, const FVector& InTangentY, const FVector& InTangentZ, const FColor& InColor, const FVector2D& InUV0, const FVector2D& InUV1) :
-		FRuntimeMeshVertexBase<HasPositionComponent>(InPosition, InTangentX, InTangentY, InTangentZ, InColor),
-		FRuntimeMeshUVComponents<TextureChannels, HalfPrecisionUVs>(InUV0, InUV1) { }
+	FRuntimeMeshVertex() { }
+	FRuntimeMeshVertex(EForceInit)
+		: FRuntimeMeshColorUVComponentCombiner<WantsColor, NumWantedUVChannels, typename FRuntimeMeshVertexUVsTypeSelector<UVType>::UVsType>(EForceInit::ForceInit)
+	{ }
 };
 
 
-template<int32 TextureChannels, bool HalfPrecisionUVs, bool HasPositionComponent>
-const FRuntimeMeshVertexTypeInfo_GenericVertex<TextureChannels, HalfPrecisionUVs, HasPositionComponent> 
-		FRuntimeMeshVertex<TextureChannels, HalfPrecisionUVs, HasPositionComponent>::TypeInfo;
+
+// Type Info Definition
+template<bool WantsPosition, bool WantsNormal, bool WantsTangent, bool WantsColor, int32 NumWantedUVChannels, ERuntimeMeshVertexTangentBasisType NormalTangentType, ERuntimeMeshVertexUVType UVType>
+const FRuntimeMeshVertexTypeInfo_GenericVertex<WantsPosition, WantsNormal, WantsTangent, WantsColor, NumWantedUVChannels, NormalTangentType, UVType>
+	FRuntimeMeshVertex<WantsPosition, WantsNormal, WantsTangent, WantsColor, NumWantedUVChannels, NormalTangentType, UVType>::TypeInfo;
+
+// Type Info Definition
+template<bool WantsPosition, bool WantsNormal, bool WantsTangent, ERuntimeMeshVertexTangentBasisType NormalTangentType, ERuntimeMeshVertexUVType UVType>
+const FRuntimeMeshVertexTypeInfo_GenericVertex<WantsPosition, WantsNormal, WantsTangent, false, 0, NormalTangentType, UVType>
+	FRuntimeMeshVertex<WantsPosition, WantsNormal, WantsTangent, false, 0, NormalTangentType, UVType>::TypeInfo;
+
+// Type Info Definition
+template<bool WantsColor, int32 NumWantedUVChannels, ERuntimeMeshVertexTangentBasisType NormalTangentType, ERuntimeMeshVertexUVType UVType>
+const FRuntimeMeshVertexTypeInfo_GenericVertex<false, false, false, WantsColor, NumWantedUVChannels, NormalTangentType, UVType>
+	FRuntimeMeshVertex<false, false, false, WantsColor, NumWantedUVChannels, NormalTangentType, UVType>::TypeInfo;
 
 
-template<bool HalfPrecisionUVs, bool HasPositionComponent>
-struct FRuntimeMeshVertex<1, HalfPrecisionUVs, HasPositionComponent> :
-	public FRuntimeMeshVertexBase<HasPositionComponent>,
-	public FRuntimeMeshUVComponents<1, HalfPrecisionUVs>
-{
-	typedef FRuntimeMeshVertex<1, HalfPrecisionUVs, HasPositionComponent> SelfType;
 
-	static RuntimeMeshVertexStructure GetVertexStructure(const FRuntimeMeshVertexBuffer<SelfType>& VertexBuffer)
-	{
-		return CreateVertexStructure<1, HalfPrecisionUVs, HasPositionComponent>(VertexBuffer);
+
+//////////////////////////////////////////////////////////////////////////
+// Macros to create a custom vertex type based on the generic vertex and implement some common constructors
+//////////////////////////////////////////////////////////////////////////
+
+
+
+#define RUNTIMEMESH_VERTEX_DEFAULTINIT_POSITION_true Position = FVector(0.0f, 0.0f, 0.0f);
+#define RUNTIMEMESH_VERTEX_DEFAULTINIT_POSITION_false 
+#define RUNTIMEMESH_VERTEX_DEFAULTINIT_POSITION(HasPosition) RUNTIMEMESH_VERTEX_DEFAULTINIT_POSITION_##HasPosition
+
+#define RUNTIMEMESH_VERTEX_DEFAULTINIT_NORMAL_true Normal = FVector4(0.0f, 0.0f, 1.0f, 1.0f);
+#define RUNTIMEMESH_VERTEX_DEFAULTINIT_NORMAL_false 
+#define RUNTIMEMESH_VERTEX_DEFAULTINIT_NORMAL(HasNormal) RUNTIMEMESH_VERTEX_DEFAULTINIT_NORMAL_##HasNormal
+
+#define RUNTIMEMESH_VERTEX_DEFAULTINIT_TANGENT_true Tangent = FVector(1.0f, 0.0f, 0.0f);
+#define RUNTIMEMESH_VERTEX_DEFAULTINIT_TANGENT_false 
+#define RUNTIMEMESH_VERTEX_DEFAULTINIT_TANGENT(HasTangent) RUNTIMEMESH_VERTEX_DEFAULTINIT_TANGENT_##HasTangent
+
+#define RUNTIMEMESH_VERTEX_DEFAULTINIT_COLOR_true Color = FColor::White;
+#define RUNTIMEMESH_VERTEX_DEFAULTINIT_COLOR_false 
+#define RUNTIMEMESH_VERTEX_DEFAULTINIT_COLOR(HasColor) RUNTIMEMESH_VERTEX_DEFAULTINIT_COLOR_##HasColor
+
+#define RUNTIMEMESH_VERTEX_DEFAULTINIT_UVCHANNEL_0
+
+#define RUNTIMEMESH_VERTEX_DEFAULTINIT_UVCHANNEL_1 \
+	UV0 = FVector2D(0.0f, 0.0f);
+
+#define RUNTIMEMESH_VERTEX_DEFAULTINIT_UVCHANNEL_2 \
+	RUNTIMEMESH_VERTEX_DEFAULTINIT_UVCHANNEL_1 \
+	UV1 = FVector2D(0.0f, 0.0f);
+
+#define RUNTIMEMESH_VERTEX_DEFAULTINIT_UVCHANNEL_3 \
+	RUNTIMEMESH_VERTEX_DEFAULTINIT_UVCHANNEL_2 \
+	UV2 = FVector2D(0.0f, 0.0f);
+
+#define RUNTIMEMESH_VERTEX_DEFAULTINIT_UVCHANNEL_4 \
+	RUNTIMEMESH_VERTEX_DEFAULTINIT_UVCHANNEL_3 \
+	UV3 = FVector2D(0.0f, 0.0f);
+
+#define RUNTIMEMESH_VERTEX_DEFAULTINIT_UVCHANNEL_5 \
+	RUNTIMEMESH_VERTEX_DEFAULTINIT_UVCHANNEL_4 \
+	UV4 = FVector2D(0.0f, 0.0f);
+
+#define RUNTIMEMESH_VERTEX_DEFAULTINIT_UVCHANNEL_6 \
+	RUNTIMEMESH_VERTEX_DEFAULTINIT_UVCHANNEL_5 \
+	UV5 = FVector2D(0.0f, 0.0f);
+
+#define RUNTIMEMESH_VERTEX_DEFAULTINIT_UVCHANNEL_7 \
+	RUNTIMEMESH_VERTEX_DEFAULTINIT_UVCHANNEL_6 \
+	UV6 = FVector2D(0.0f, 0.0f);
+
+#define RUNTIMEMESH_VERTEX_DEFAULTINIT_UVCHANNEL_8 \
+	RUNTIMEMESH_VERTEX_DEFAULTINIT_UVCHANNEL_7 \
+	UV7 = FVector2D(0.0f, 0.0f);
+
+#define RUNTIMEMESH_VERTEX_DEFAULTINIT_UVCHANNELS(NumChannels) RUNTIMEMESH_VERTEX_DEFAULTINIT_UVCHANNEL_##NumChannels
+
+
+
+
+#define RUNTIMEMESH_VERTEX_PARAMETER_UVCHANNEL_0
+#define RUNTIMEMESH_VERTEX_PARAMETER_UVCHANNEL_1 , const FVector2D& InUV0 = FVector2D::ZeroVector
+#define RUNTIMEMESH_VERTEX_PARAMETER_UVCHANNEL_2 RUNTIMEMESH_VERTEX_PARAMETER_UVCHANNEL_1 , const FVector2D& InUV1 = FVector2D::ZeroVector
+#define RUNTIMEMESH_VERTEX_PARAMETER_UVCHANNEL_3 RUNTIMEMESH_VERTEX_PARAMETER_UVCHANNEL_2 , const FVector2D& InUV2 = FVector2D::ZeroVector
+#define RUNTIMEMESH_VERTEX_PARAMETER_UVCHANNEL_4 RUNTIMEMESH_VERTEX_PARAMETER_UVCHANNEL_3 , const FVector2D& InUV3 = FVector2D::ZeroVector
+#define RUNTIMEMESH_VERTEX_PARAMETER_UVCHANNEL_5 RUNTIMEMESH_VERTEX_PARAMETER_UVCHANNEL_4 , const FVector2D& InUV4 = FVector2D::ZeroVector
+#define RUNTIMEMESH_VERTEX_PARAMETER_UVCHANNEL_6 RUNTIMEMESH_VERTEX_PARAMETER_UVCHANNEL_5 , const FVector2D& InUV5 = FVector2D::ZeroVector
+#define RUNTIMEMESH_VERTEX_PARAMETER_UVCHANNEL_7 RUNTIMEMESH_VERTEX_PARAMETER_UVCHANNEL_6 , const FVector2D& InUV6 = FVector2D::ZeroVector
+#define RUNTIMEMESH_VERTEX_PARAMETER_UVCHANNEL_8 RUNTIMEMESH_VERTEX_PARAMETER_UVCHANNEL_7 , const FVector2D& InUV7 = FVector2D::ZeroVector
+
+#define RUNTIMEMESH_VERTEX_PARAMETER_UVCHANNELS(NumChannels) RUNTIMEMESH_VERTEX_PARAMETER_UVCHANNEL_##NumChannels
+
+
+
+
+#define RUNTIMEMESH_VERTEX_INIT_UVCHANNEL_0
+
+#define RUNTIMEMESH_VERTEX_INIT_UVCHANNEL_1 \
+	UV0 = InUV0;
+
+#define RUNTIMEMESH_VERTEX_INIT_UVCHANNEL_2 \
+	RUNTIMEMESH_VERTEX_INIT_UVCHANNEL_1 \
+	UV1 = InUV1;
+
+#define RUNTIMEMESH_VERTEX_INIT_UVCHANNEL_3 \
+	RUNTIMEMESH_VERTEX_INIT_UVCHANNEL_2 \
+	UV2 = InUV2;
+
+#define RUNTIMEMESH_VERTEX_INIT_UVCHANNEL_4 \
+	RUNTIMEMESH_VERTEX_INIT_UVCHANNEL_3 \
+	UV3 = InUV3;
+
+#define RUNTIMEMESH_VERTEX_INIT_UVCHANNEL_5 \
+	RUNTIMEMESH_VERTEX_INIT_UVCHANNEL_4 \
+	UV4 = InUV4;
+
+#define RUNTIMEMESH_VERTEX_INIT_UVCHANNEL_6 \
+	RUNTIMEMESH_VERTEX_INIT_UVCHANNEL_5 \
+	UV5 = InUV5;
+
+#define RUNTIMEMESH_VERTEX_INIT_UVCHANNEL_7 \
+	RUNTIMEMESH_VERTEX_INIT_UVCHANNEL_6 \
+	UV6 = InUV6;
+
+#define RUNTIMEMESH_VERTEX_INIT_UVCHANNEL_8 \
+	RUNTIMEMESH_VERTEX_INIT_UVCHANNEL_7 \
+	UV7 = InUV7;
+
+#define RUNTIMEMESH_VERTEX_INIT_UVCHANNELS(NumChannels) RUNTIMEMESH_VERTEX_INIT_UVCHANNEL_##NumChannels
+
+
+
+#define RUNTIMEMESH_VERTEX_PARAMETER_POSITION_true const FVector& InPosition, 
+#define RUNTIMEMESH_VERTEX_PARAMETER_POSITION_false
+#define RUNTIMEMESH_VERTEX_PARAMETER_POSITION(NeedsPosition) RUNTIMEMESH_VERTEX_PARAMETER_POSITION_##NeedsPosition
+
+#define RUNTIMEMESH_VERTEX_INIT_POSITION_true Position = InPosition;
+#define RUNTIMEMESH_VERTEX_INIT_POSITION_false
+#define RUNTIMEMESH_VERTEX_INIT_POSITION(NeedsPosition) RUNTIMEMESH_VERTEX_INIT_POSITION_##NeedsPosition
+
+
+// PreProcessor IF with pass through for all the constructor arguments
+#define RUNTIMEMESH_VERTEX_CONSTRUCTOR_DEFINITION_IF(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType, Condition, IfTrue) \
+	RUNTIMEMESH_VERTEX_CONSTRUCTOR_DEFINITION_IF_##Condition(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType, IfTrue)
+#define RUNTIMEMESH_VERTEX_CONSTRUCTOR_DEFINITION_IF_false(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType, IfTrue)
+#define RUNTIMEMESH_VERTEX_CONSTRUCTOR_DEFINITION_IF_true(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType, IfTrue) IfTrue
+
+
+// Implementation of Position only Constructor
+#define RUNTIMEMESH_VERTEX_CONSTRUCTOR_POSITION_IMPLEMENTATION(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType) \
+	VertexName(const FVector& InPosition)							\
+	{																\
+		RUNTIMEMESH_VERTEX_INIT_POSITION(NeedsPosition)				\
+		RUNTIMEMESH_VERTEX_DEFAULTINIT_NORMAL(NeedsNormal)			\
+		RUNTIMEMESH_VERTEX_DEFAULTINIT_TANGENT(NeedsTangent)		\
+		RUNTIMEMESH_VERTEX_DEFAULTINIT_COLOR(NeedsColor)			\
+		RUNTIMEMESH_VERTEX_DEFAULTINIT_UVCHANNELS(UVChannelCount)	\
 	}
 
-	static const FRuntimeMeshVertexTypeInfo_GenericVertex<1, HalfPrecisionUVs, HasPositionComponent> TypeInfo;
+// Defines the Position Constuctor if it's wanted
+#define RUNTIMEMESH_VERTEX_CONSTRUCTOR_POSITION(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType)								\
+	RUNTIMEMESH_VERTEX_CONSTRUCTOR_DEFINITION_IF(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType, NeedsPosition,				\
+		RUNTIMEMESH_VERTEX_CONSTRUCTOR_POSITION_IMPLEMENTATION(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType)				\
+	)
 
-	FRuntimeMeshVertex() :
-		FRuntimeMeshVertexBase<HasPositionComponent>(FVector::ZeroVector, FVector(0, 0, 1), FRuntimeMeshTangent(), FColor::White),
-		FRuntimeMeshUVComponents<1, HalfPrecisionUVs>() { }
-	FRuntimeMeshVertex(const FVector& InPosition) :
-		FRuntimeMeshVertexBase<HasPositionComponent>(InPosition, FVector(0, 0, 1), FRuntimeMeshTangent(), FColor::White),
-		FRuntimeMeshUVComponents<1, HalfPrecisionUVs>() { }
-	FRuntimeMeshVertex(const FVector& InPosition, const FColor& InColor) :
-		FRuntimeMeshVertexBase<HasPositionComponent>(InPosition, FVector(0, 0, 1), FRuntimeMeshTangent(), InColor),
-		FRuntimeMeshUVComponents<1, HalfPrecisionUVs>() { }
-
-	FRuntimeMeshVertex(const FVector& InPosition, const FVector& InNormal, const FRuntimeMeshTangent& InTangent) :
-		FRuntimeMeshVertexBase<HasPositionComponent>(InPosition, InNormal, InTangent, FColor::White),
-		FRuntimeMeshUVComponents<1, HalfPrecisionUVs>() { }
-	FRuntimeMeshVertex(const FVector& InPosition, const FVector& InTangentX, const FVector& InTangentY, const FVector& InTangentZ) :
-		FRuntimeMeshVertexBase<HasPositionComponent>(InPosition, InTangentX, InTangentY, InTangentZ, FColor::White),
-		FRuntimeMeshUVComponents<1, HalfPrecisionUVs>() { }
-
-	FRuntimeMeshVertex(const FVector& InPosition, const FVector& InNormal, const FRuntimeMeshTangent& InTangent, const FVector2D& InUV0) :
-		FRuntimeMeshVertexBase<HasPositionComponent>(InPosition, InNormal, InTangent, FColor::White),
-		FRuntimeMeshUVComponents<1, HalfPrecisionUVs>(InUV0) { }
-	FRuntimeMeshVertex(const FVector& InPosition, const FVector& InTangentX, const FVector& InTangentY, const FVector& InTangentZ, const FVector2D& InUV0) :
-		FRuntimeMeshVertexBase<HasPositionComponent>(InPosition, InTangentX, InTangentY, InTangentZ, FColor::White),
-		FRuntimeMeshUVComponents<1, HalfPrecisionUVs>(InUV0) { }
-
-	FRuntimeMeshVertex(const FVector& InPosition, const FVector& InNormal, const FRuntimeMeshTangent& InTangent, const FColor& InColor, const FVector2D& InUV0) :
-		FRuntimeMeshVertexBase<HasPositionComponent>(InPosition, InNormal, InTangent, InColor),
-		FRuntimeMeshUVComponents<1, HalfPrecisionUVs>(InUV0) { }
-	FRuntimeMeshVertex(const FVector& InPosition, const FVector& InTangentX, const FVector& InTangentY, const FVector& InTangentZ, const FColor& InColor, const FVector2D& InUV0) :
-		FRuntimeMeshVertexBase<HasPositionComponent>(InPosition, InTangentX, InTangentY, InTangentZ, InColor),
-		FRuntimeMeshUVComponents<1, HalfPrecisionUVs>(InUV0) { }
-};
-
-template<bool HalfPrecisionUVs, bool HasPositionComponent>
-const FRuntimeMeshVertexTypeInfo_GenericVertex<1, HalfPrecisionUVs, HasPositionComponent>
-	FRuntimeMeshVertex<1, HalfPrecisionUVs, HasPositionComponent>::TypeInfo;
-
-
-template<int32 TextureChannels, bool HalfPrecisionUVs>
-struct FRuntimeMeshVertex<TextureChannels, HalfPrecisionUVs, false> :
-	public FRuntimeMeshVertexBase<false>,
-	public FRuntimeMeshUVComponents<TextureChannels, HalfPrecisionUVs>
-{
-	static_assert(TextureChannels >= 1 && TextureChannels <= 8, "You must have between 1 and 8 (inclusive) UV channels)");
-
-	typedef FRuntimeMeshVertex<TextureChannels, HalfPrecisionUVs, false> SelfType;
-
-	static RuntimeMeshVertexStructure GetVertexStructure(const FRuntimeMeshVertexBuffer<SelfType>& VertexBuffer)
-	{
-		return CreateVertexStructure<TextureChannels, HalfPrecisionUVs, false>(VertexBuffer);
+// Implementation of Position/Normal Constructor
+#define RUNTIMEMESH_VERTEX_CONSTRUCTOR_POSITION_NORMAL_IMPLEMENTATION(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType) \
+	VertexName(RUNTIMEMESH_VERTEX_PARAMETER_POSITION(NeedsPosition) const FVector& InNormal)	\
+	{																\
+		RUNTIMEMESH_VERTEX_INIT_POSITION(NeedsPosition)				\
+		Normal = InNormal;											\
+		RUNTIMEMESH_VERTEX_DEFAULTINIT_TANGENT(NeedsTangent)		\
+		RUNTIMEMESH_VERTEX_DEFAULTINIT_COLOR(NeedsColor)			\
+		RUNTIMEMESH_VERTEX_DEFAULTINIT_UVCHANNELS(UVChannelCount)	\
 	}
 
-	static const FRuntimeMeshVertexTypeInfo_GenericVertex<TextureChannels, HalfPrecisionUVs, false> TypeInfo;
+// Defines the Position/Normal Constuctor if it's wanted
+#define RUNTIMEMESH_VERTEX_CONSTRUCTOR_POSITION_NORMAL(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType)						\
+	RUNTIMEMESH_VERTEX_CONSTRUCTOR_DEFINITION_IF(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType, NeedsNormal,				\
+		RUNTIMEMESH_VERTEX_CONSTRUCTOR_POSITION_NORMAL_IMPLEMENTATION(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType)		\
+	)
 
-	FRuntimeMeshVertex() :
-		FRuntimeMeshVertexBase<false>(FVector(0, 0, 1), FRuntimeMeshTangent(), FColor::White),
-		FRuntimeMeshUVComponents<TextureChannels, HalfPrecisionUVs>() { }
-	FRuntimeMeshVertex(const FColor& InColor) :
-		FRuntimeMeshVertexBase<false>(FVector(0, 0, 1), FRuntimeMeshTangent(), InColor),
-		FRuntimeMeshUVComponents<TextureChannels, HalfPrecisionUVs>() { }
-
-	FRuntimeMeshVertex(const FVector& InNormal, const FRuntimeMeshTangent& InTangent) :
-		FRuntimeMeshVertexBase<false>(InNormal, InTangent, FColor::White),
-		FRuntimeMeshUVComponents<TextureChannels, HalfPrecisionUVs>() { }
-	FRuntimeMeshVertex(const FVector& InTangentX, const FVector& InTangentY, const FVector& InTangentZ) :
-		FRuntimeMeshVertexBase<false>(InTangentX, InTangentY, InTangentZ, FColor::White),
-		FRuntimeMeshUVComponents<TextureChannels, HalfPrecisionUVs>() { }
-
-	FRuntimeMeshVertex(const FVector& InNormal, const FRuntimeMeshTangent& InTangent, const FVector2D& InUV0) :
-		FRuntimeMeshVertexBase<false>(InNormal, InTangent, FColor::White),
-		FRuntimeMeshUVComponents<TextureChannels, HalfPrecisionUVs>(InUV0) { }
-	FRuntimeMeshVertex(const FVector& InTangentX, const FVector& InTangentY, const FVector& InTangentZ, const FVector2D& InUV0) :
-		FRuntimeMeshVertexBase<false>(InTangentX, InTangentY, InTangentZ, FColor::White),
-		FRuntimeMeshUVComponents<TextureChannels, HalfPrecisionUVs>(InUV0) { }
-
-	FRuntimeMeshVertex(const FVector& InNormal, const FRuntimeMeshTangent& InTangent, const FColor& InColor, const FVector2D& InUV0) :
-		FRuntimeMeshVertexBase<false>(InNormal, InTangent, InColor),
-		FRuntimeMeshUVComponents<TextureChannels, HalfPrecisionUVs>(InUV0) { }
-	FRuntimeMeshVertex(const FVector& InTangentX, const FVector& InTangentY, const FVector& InTangentZ, const FColor& InColor, const FVector2D& InUV0) :
-		FRuntimeMeshVertexBase<false>(InTangentX, InTangentY, InTangentZ, InColor),
-		FRuntimeMeshUVComponents<TextureChannels, HalfPrecisionUVs>(InUV0) { }
-
-
-	FRuntimeMeshVertex(const FVector& InNormal, const FRuntimeMeshTangent& InTangent, const FVector2D& InUV0, const FVector2D& InUV1) :
-		FRuntimeMeshVertexBase<false>(InNormal, InTangent, FColor::White),
-		FRuntimeMeshUVComponents<TextureChannels, HalfPrecisionUVs>(InUV0, InUV1) { }
-	FRuntimeMeshVertex(const FVector& InTangentX, const FVector& InTangentY, const FVector& InTangentZ, const FVector2D& InUV0, const FVector2D& InUV1) :
-		FRuntimeMeshVertexBase<false>(InTangentX, InTangentY, InTangentZ, FColor::White),
-		FRuntimeMeshUVComponents<TextureChannels, HalfPrecisionUVs>(InUV0, InUV1) { }
-
-	FRuntimeMeshVertex(const FVector& InNormal, const FRuntimeMeshTangent& InTangent, const FColor& InColor, const FVector2D& InUV0, const FVector2D& InUV1) :
-		FRuntimeMeshVertexBase<false>(InNormal, InTangent, InColor),
-		FRuntimeMeshUVComponents<TextureChannels, HalfPrecisionUVs>(InUV0, InUV1) { }
-	FRuntimeMeshVertex(const FVector& InTangentX, const FVector& InTangentY, const FVector& InTangentZ, const FColor& InColor, const FVector2D& InUV0, const FVector2D& InUV1) :
-		FRuntimeMeshVertexBase<false>(InTangentX, InTangentY, InTangentZ, InColor),
-		FRuntimeMeshUVComponents<TextureChannels, HalfPrecisionUVs>(InUV0, InUV1) { }
-};
-
-template<int32 TextureChannels, bool HalfPrecisionUVs>
-const FRuntimeMeshVertexTypeInfo_GenericVertex<TextureChannels, HalfPrecisionUVs, false>
-	FRuntimeMeshVertex<TextureChannels, HalfPrecisionUVs, false>::TypeInfo;
-
-
-template<bool HalfPrecisionUVs>
-struct FRuntimeMeshVertex<1, HalfPrecisionUVs, false> :
-	public FRuntimeMeshVertexBase<false>,
-	public FRuntimeMeshUVComponents<1, HalfPrecisionUVs>
-{
-	typedef FRuntimeMeshVertex<1, HalfPrecisionUVs, false> SelfType;
-
-	static RuntimeMeshVertexStructure GetVertexStructure(const FRuntimeMeshVertexBuffer<SelfType>& VertexBuffer)
-	{
-		return CreateVertexStructure<1, HalfPrecisionUVs, false>(VertexBuffer);
+// Implementation of Position/Color Constructor
+#define RUNTIMEMESH_VERTEX_CONSTRUCTOR_POSITION_COLOR_IMPLEMENTATION(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType) \
+	VertexName(RUNTIMEMESH_VERTEX_PARAMETER_POSITION(NeedsPosition) const FColor& InColor)	\
+	{																\
+		RUNTIMEMESH_VERTEX_INIT_POSITION(NeedsPosition)				\
+		RUNTIMEMESH_VERTEX_DEFAULTINIT_NORMAL(NeedsNormal)			\
+		RUNTIMEMESH_VERTEX_DEFAULTINIT_TANGENT(NeedsTangent)		\
+		Color = InColor;											\
+		RUNTIMEMESH_VERTEX_DEFAULTINIT_UVCHANNELS(UVChannelCount)	\
 	}
 
-	static const FRuntimeMeshVertexTypeInfo_GenericVertex<1, HalfPrecisionUVs, false> TypeInfo;
-
-	FRuntimeMeshVertex() :
-		FRuntimeMeshVertexBase<false>(FVector(0, 0, 1), FRuntimeMeshTangent(), FColor::White),
-		FRuntimeMeshUVComponents<1, HalfPrecisionUVs>() { }
-	FRuntimeMeshVertex(const FColor& InColor) :
-		FRuntimeMeshVertexBase<false>(FVector(0, 0, 1), FRuntimeMeshTangent(), InColor),
-		FRuntimeMeshUVComponents<1, HalfPrecisionUVs>() { }
-
-	FRuntimeMeshVertex(const FVector& InNormal, const FRuntimeMeshTangent& InTangent) :
-		FRuntimeMeshVertexBase<false>(InNormal, InTangent, FColor::White),
-		FRuntimeMeshUVComponents<1, HalfPrecisionUVs>() { }
-	FRuntimeMeshVertex(const FVector& InTangentX, const FVector& InTangentY, const FVector& InTangentZ) :
-		FRuntimeMeshVertexBase<false>(InTangentX, InTangentY, InTangentZ, FColor::White),
-		FRuntimeMeshUVComponents<1, HalfPrecisionUVs>() { }
-
-	FRuntimeMeshVertex(const FVector& InNormal, const FRuntimeMeshTangent& InTangent, const FVector2D& InUV0) :
-		FRuntimeMeshVertexBase<false>(InNormal, InTangent, FColor::White),
-		FRuntimeMeshUVComponents<1, HalfPrecisionUVs>(InUV0) { }
-	FRuntimeMeshVertex(const FVector& InTangentX, const FVector& InTangentY, const FVector& InTangentZ, const FVector2D& InUV0) :
-		FRuntimeMeshVertexBase<false>(InTangentX, InTangentY, InTangentZ, FColor::White),
-		FRuntimeMeshUVComponents<1, HalfPrecisionUVs>(InUV0) { }
-
-	FRuntimeMeshVertex(const FVector& InNormal, const FRuntimeMeshTangent& InTangent, const FColor& InColor, const FVector2D& InUV0) :
-		FRuntimeMeshVertexBase<false>(InNormal, InTangent, InColor),
-		FRuntimeMeshUVComponents<1, HalfPrecisionUVs>(InUV0) { }
-	FRuntimeMeshVertex(const FVector& InTangentX, const FVector& InTangentY, const FVector& InTangentZ, const FColor& InColor, const FVector2D& InUV0) :
-		FRuntimeMeshVertexBase<false>(InTangentX, InTangentY, InTangentZ, InColor),
-		FRuntimeMeshUVComponents<1, HalfPrecisionUVs>(InUV0) { }
-};
-
-template<bool HalfPrecisionUVs>
-const FRuntimeMeshVertexTypeInfo_GenericVertex<1, HalfPrecisionUVs, false>
-	FRuntimeMeshVertex<1, HalfPrecisionUVs, false>::TypeInfo;
+// Defines the Position/Color Constructor if it's wanted
+#define RUNTIMEMESH_VERTEX_CONSTRUCTOR_POSITION_COLOR(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType)						\
+	RUNTIMEMESH_VERTEX_CONSTRUCTOR_DEFINITION_IF(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType, NeedsColor,				\
+		RUNTIMEMESH_VERTEX_CONSTRUCTOR_POSITION_COLOR_IMPLEMENTATION(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType)		\
+	)
 
 
 
@@ -719,6 +834,44 @@ const FRuntimeMeshVertexTypeInfo_GenericVertex<1, HalfPrecisionUVs, false>
 
 
 
+// Implementation of Position/Normal/Tangent Constructor
+#define RUNTIMEMESH_VERTEX_CONSTRUCTOR_POSITION_NORMAL_TANGENT_IMPLEMENTATION(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType) \
+	VertexName(RUNTIMEMESH_VERTEX_PARAMETER_POSITION(NeedsPosition) const FVector& InNormal, const FRuntimeMeshTangent& InTangent RUNTIMEMESH_VERTEX_PARAMETER_UVCHANNELS(UVChannelCount))	\
+	{																\
+		RUNTIMEMESH_VERTEX_INIT_POSITION(NeedsPosition)				\
+		Normal = InNormal;											\
+		Tangent = InTangent.TangentX;								\
+		InTangent.AdjustNormal(Normal);								\
+		RUNTIMEMESH_VERTEX_DEFAULTINIT_COLOR(NeedsColor)			\
+		RUNTIMEMESH_VERTEX_INIT_UVCHANNELS(UVChannelCount)			\
+	}
+
+// Defines the Position/Normal/Tangent Constructor if it's wanted
+#define RUNTIMEMESH_VERTEX_CONSTRUCTOR_POSITION_NORMAL_TANGENT(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType)						\
+	RUNTIMEMESH_VERTEX_CONSTRUCTOR_DEFINITION_IF(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType, NeedsNormal,						\
+		RUNTIMEMESH_VERTEX_CONSTRUCTOR_DEFINITION_IF(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType, NeedsTangent,					\
+			RUNTIMEMESH_VERTEX_CONSTRUCTOR_POSITION_NORMAL_TANGENT_IMPLEMENTATION(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType)	\
+		)																																															\
+	)
+
+
+// Implementation of Position/TangentX/TangentY/TangentZ Constructor
+#define RUNTIMEMESH_VERTEX_CONSTRUCTOR_POSITION_TANGENTX_TANGENTY_TANGENTZ_IMPLEMENTATION(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType) \
+	VertexName(RUNTIMEMESH_VERTEX_PARAMETER_POSITION(NeedsPosition) const FVector& InTangentX, const FVector& InTangentY, const FVector& InTangentZ RUNTIMEMESH_VERTEX_PARAMETER_UVCHANNELS(UVChannelCount))	\
+	{																\
+		RUNTIMEMESH_VERTEX_INIT_POSITION(NeedsPosition)				\
+		SetNormalAndTangent(InTangentX, InTangentY, InTangentZ);	\
+		RUNTIMEMESH_VERTEX_DEFAULTINIT_COLOR(NeedsColor)			\
+		RUNTIMEMESH_VERTEX_INIT_UVCHANNELS(UVChannelCount)			\
+	}
+
+// Defines the Position/TangentX/TangentY/TangentZ Constructor if it's wanted
+#define RUNTIMEMESH_VERTEX_CONSTRUCTOR_POSITION_TANGENTX_TANGENTY_TANGENTZ(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType)						\
+	RUNTIMEMESH_VERTEX_CONSTRUCTOR_DEFINITION_IF(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType, NeedsNormal,									\
+		RUNTIMEMESH_VERTEX_CONSTRUCTOR_DEFINITION_IF(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType, NeedsTangent,								\
+			RUNTIMEMESH_VERTEX_CONSTRUCTOR_POSITION_TANGENTX_TANGENTY_TANGENTZ_IMPLEMENTATION(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType)	\
+		)																																																		\
+	)
 
 
 
@@ -726,189 +879,508 @@ const FRuntimeMeshVertexTypeInfo_GenericVertex<1, HalfPrecisionUVs, false>
 
 
 
+// Implementation of Position/Normal/Tangent Constructor
+#define RUNTIMEMESH_VERTEX_CONSTRUCTOR_POSITION_NORMAL_TANGENT_COLOR_IMPLEMENTATION(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType) \
+	VertexName(RUNTIMEMESH_VERTEX_PARAMETER_POSITION(NeedsPosition) const FVector& InNormal, const FRuntimeMeshTangent& InTangent, const FColor& InColor RUNTIMEMESH_VERTEX_PARAMETER_UVCHANNELS(UVChannelCount))	\
+	{																\
+		RUNTIMEMESH_VERTEX_INIT_POSITION(NeedsPosition)				\
+		Normal = InNormal;											\
+		Tangent = InTangent.TangentX;								\
+		InTangent.AdjustNormal(Normal);								\
+		Color = InColor;											\
+		RUNTIMEMESH_VERTEX_INIT_UVCHANNELS(UVChannelCount)			\
+	}
+
+// Defines the Position/Normal/Tangent Constructor if it's wanted
+#define RUNTIMEMESH_VERTEX_CONSTRUCTOR_POSITION_NORMAL_TANGENT_COLOR(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType)									\
+	RUNTIMEMESH_VERTEX_CONSTRUCTOR_DEFINITION_IF(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType, NeedsNormal,									\
+		RUNTIMEMESH_VERTEX_CONSTRUCTOR_DEFINITION_IF(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType, NeedsTangent,								\
+			RUNTIMEMESH_VERTEX_CONSTRUCTOR_DEFINITION_IF(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType, NeedsColor,								\
+				RUNTIMEMESH_VERTEX_CONSTRUCTOR_POSITION_NORMAL_TANGENT_COLOR_IMPLEMENTATION(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType)		\
+			)																																																		\
+		)																																																			\
+	)
+
+
+// Implementation of Position/TangentX/TangentY/TangentZ Constructor
+#define RUNTIMEMESH_VERTEX_CONSTRUCTOR_POSITION_TANGENTX_TANGENTY_TANGENTZ_COLOR_IMPLEMENTATION(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType) \
+	VertexName(RUNTIMEMESH_VERTEX_PARAMETER_POSITION(NeedsPosition) const FVector& InTangentX, const FVector& InTangentY, const FVector& InTangentZ, const FColor& InColor RUNTIMEMESH_VERTEX_PARAMETER_UVCHANNELS(UVChannelCount))	\
+	{																\
+		RUNTIMEMESH_VERTEX_INIT_POSITION(NeedsPosition)				\
+		SetNormalAndTangent(InTangentX, InTangentY, InTangentZ);	\
+		Color = InColor;											\
+		RUNTIMEMESH_VERTEX_INIT_UVCHANNELS(UVChannelCount)			\
+	}
+
+// Defines the Position/TangentX/TangentY/TangentZ Constructor if it's wanted
+#define RUNTIMEMESH_VERTEX_CONSTRUCTOR_POSITION_TANGENTX_TANGENTY_TANGENTZ_COLOR(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType)								\
+	RUNTIMEMESH_VERTEX_CONSTRUCTOR_DEFINITION_IF(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType, NeedsNormal,											\
+		RUNTIMEMESH_VERTEX_CONSTRUCTOR_DEFINITION_IF(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType, NeedsTangent,										\
+			RUNTIMEMESH_VERTEX_CONSTRUCTOR_DEFINITION_IF(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType, NeedsColor,										\
+				RUNTIMEMESH_VERTEX_CONSTRUCTOR_POSITION_TANGENTX_TANGENTY_TANGENTZ_COLOR_IMPLEMENTATION(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType)	\
+			)																																																				\
+		)																																																					\
+	)
+
+
+
+
+
+
+
+
+
+
+#define DECLARE_RUNTIME_MESH_VERTEX(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType)												\
+	struct VertexName : public FRuntimeMeshVertex<NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType>											\
+	{																																															\
+		typedef FRuntimeMeshVertex<NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType> Super;													\
+																																																\
+		VertexName() { }																																										\
+																																																\
+		VertexName(EForceInit) : Super(EForceInit::ForceInit) { }																																\
+																																																\
+		RUNTIMEMESH_VERTEX_CONSTRUCTOR_POSITION(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType)									\
+																																																\
+		RUNTIMEMESH_VERTEX_CONSTRUCTOR_POSITION_NORMAL(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType)							\
+																																																\
+		RUNTIMEMESH_VERTEX_CONSTRUCTOR_POSITION_COLOR(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType)							\
+																																																\
+		RUNTIMEMESH_VERTEX_CONSTRUCTOR_POSITION_NORMAL_TANGENT(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType)					\
+																																																\
+		RUNTIMEMESH_VERTEX_CONSTRUCTOR_POSITION_TANGENTX_TANGENTY_TANGENTZ(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType)		\
+																																																\
+		RUNTIMEMESH_VERTEX_CONSTRUCTOR_POSITION_NORMAL_TANGENT_COLOR(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType)				\
+																																																\
+		RUNTIMEMESH_VERTEX_CONSTRUCTOR_POSITION_TANGENTX_TANGENTY_TANGENTZ_COLOR(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType)	\
+																																																\
+	};		
+
+
+// Define FRuntimeMeshVertexSimple
+
+//////////////////////////////////////////////////////////////////////////
+// Name Vertex Configurations
+//////////////////////////////////////////////////////////////////////////
 
 /** Simple vertex with 1 UV channel */
-using FRuntimeMeshVertexSimple = FRuntimeMeshVertex<1, false, true>;
+DECLARE_RUNTIME_MESH_VERTEX(FRuntimeMeshVertexSimple, true, true, true, true, 1, ERuntimeMeshVertexTangentBasisType::Default, ERuntimeMeshVertexUVType::HighPrecision)
 
 /** Simple vertex with 2 UV channels */
-using FRuntimeMeshVertexDualUV = FRuntimeMeshVertex<2, false, true>;
+DECLARE_RUNTIME_MESH_VERTEX(FRuntimeMeshVertexDualUV, true, true, true, true, 2, ERuntimeMeshVertexTangentBasisType::Default, ERuntimeMeshVertexUVType::HighPrecision)
 
 /** Simple vertex with 1 UV channel and NO position component (Meant to be used with separate position buffer) */
-using FRuntimeMeshVertexNoPosition = FRuntimeMeshVertex<1, false, false>;
+DECLARE_RUNTIME_MESH_VERTEX(FRuntimeMeshVertexNoPosition, false, true, true, true, 1, ERuntimeMeshVertexTangentBasisType::Default, ERuntimeMeshVertexUVType::HighPrecision)
 
 /** Simple vertex with 2 UV channels and NO position component (Meant to be used with separate position buffer) */
-using FRuntimeMeshVertexNoPositionDualUV = FRuntimeMeshVertex<2, false, false>;
+DECLARE_RUNTIME_MESH_VERTEX(FRuntimeMeshVertexNoPositionDualUV, false, true, true, true, 2, ERuntimeMeshVertexTangentBasisType::Default, ERuntimeMeshVertexUVType::HighPrecision)
 
 
 
 //////////////////////////////////////////////////////////////////////////
-//	Texture Channels Vertex Structure
+// Vertex Structure Generator
 //////////////////////////////////////////////////////////////////////////
 
-template<typename RuntimeVertexType, int32 TextureChannels, bool HalfPrecision>
-struct FRuntimeMeshTextureChannelsVertexStructure
+struct FRuntimemeshVertexStructureHelper
 {
-	static void AddChannels(const FVertexBuffer& VertexBuffer, RuntimeMeshVertexStructure& VertexStructure)
+	//////////////////////////////////////////////////////////////////////////
+	// Position Component
+	//////////////////////////////////////////////////////////////////////////
+	template<typename RuntimeVertexType, bool WantsPosition>
+	struct FRuntimeMeshPositionComponentVertexStructure
 	{
+		static void AddComponent(const FVertexBuffer& VertexBuffer, RuntimeMeshVertexStructure& VertexStructure)
+		{
+			VertexStructure.PositionComponent = RUNTIMEMESH_VERTEXCOMPONENT(VertexBuffer, RuntimeVertexType, Position, VET_Float3);
+		}
+	};
+
+	template<typename RuntimeVertexType>
+	struct FRuntimeMeshPositionComponentVertexStructure<RuntimeVertexType, false>
+	{
+		static void AddComponent(const FVertexBuffer& VertexBuffer, RuntimeMeshVertexStructure& VertexStructure)
+		{
+		}
+	};
+
+	//////////////////////////////////////////////////////////////////////////
+	// Normal/Tangent Components
+	//////////////////////////////////////////////////////////////////////////
+	template<typename RuntimeVertexType, bool WantsNormal, bool WantsTangent, ERuntimeMeshVertexTangentBasisType NormalTangentType>
+	struct FRuntimeMeshNormalTangentComponentVertexStructure
+	{
+		static void AddComponent(const FVertexBuffer& VertexBuffer, RuntimeMeshVertexStructure& VertexStructure)
+		{
+			VertexStructure.TangentBasisComponents[1] = RUNTIMEMESH_VERTEXCOMPONENT(VertexBuffer, RuntimeVertexType, Normal,
+				FRuntimeMeshVertexTangentTypeSelector<NormalTangentType>::VertexElementType);
+			VertexStructure.TangentBasisComponents[0] = RUNTIMEMESH_VERTEXCOMPONENT(VertexBuffer, RuntimeVertexType, Tangent,
+				FRuntimeMeshVertexTangentTypeSelector<NormalTangentType>::VertexElementType);
+		}
+	};
+
+	template<typename RuntimeVertexType, ERuntimeMeshVertexTangentBasisType NormalTangentType>
+	struct FRuntimeMeshNormalTangentComponentVertexStructure<RuntimeVertexType, true, false, NormalTangentType>
+	{
+		static void AddComponent(const FVertexBuffer& VertexBuffer, RuntimeMeshVertexStructure& VertexStructure)
+		{
+			VertexStructure.TangentBasisComponents[1] = RUNTIMEMESH_VERTEXCOMPONENT(VertexBuffer, RuntimeVertexType, Normal,
+				FRuntimeMeshVertexTangentTypeSelector<NormalTangentType>::VertexElementType);
+		}
+	};
+
+	template<typename RuntimeVertexType, ERuntimeMeshVertexTangentBasisType NormalTangentType>
+	struct FRuntimeMeshNormalTangentComponentVertexStructure<RuntimeVertexType, false, true, NormalTangentType>
+	{
+		static void AddComponent(const FVertexBuffer& VertexBuffer, RuntimeMeshVertexStructure& VertexStructure)
+		{
+			VertexStructure.TangentBasisComponents[0] = RUNTIMEMESH_VERTEXCOMPONENT(VertexBuffer, RuntimeVertexType, Tangent,
+				FRuntimeMeshVertexTangentTypeSelector<NormalTangentType>::VertexElementType);
+		}
+	};
+
+	template<typename RuntimeVertexType, ERuntimeMeshVertexTangentBasisType NormalTangentType>
+	struct FRuntimeMeshNormalTangentComponentVertexStructure<RuntimeVertexType, false, false, NormalTangentType>
+	{
+		static void AddComponent(const FVertexBuffer& VertexBuffer, RuntimeMeshVertexStructure& VertexStructure)
+		{
+		}
+	};
+
+	//////////////////////////////////////////////////////////////////////////
+	// Color Component
+	//////////////////////////////////////////////////////////////////////////
+	template<typename RuntimeVertexType, bool WantsColor>
+	struct FRuntimeMeshColorComponentVertexStructure
+	{
+		static void AddComponent(const FVertexBuffer& VertexBuffer, RuntimeMeshVertexStructure& VertexStructure)
+		{
+			VertexStructure.ColorComponent = RUNTIMEMESH_VERTEXCOMPONENT(VertexBuffer, RuntimeVertexType, Color, VET_Color);
+		}
+	};
+
+	template<typename RuntimeVertexType>
+	struct FRuntimeMeshColorComponentVertexStructure<RuntimeVertexType, false>
+	{
+		static void AddComponent(const FVertexBuffer& VertexBuffer, RuntimeMeshVertexStructure& VertexStructure)
+		{
+		}
+	};
+
+
+	//////////////////////////////////////////////////////////////////////////
+	// UV Components
+	//////////////////////////////////////////////////////////////////////////
+	template<typename RuntimeVertexType, int32 NumWantedUVChannels, ERuntimeMeshVertexUVType UVType>
+	struct FRuntimeMeshTextureChannelsVertexStructure
+	{
+		static void AddChannels(const FVertexBuffer& VertexBuffer, RuntimeMeshVertexStructure& VertexStructure)
+		{
+		}
+	};
+
+	template<typename RuntimeVertexType, ERuntimeMeshVertexUVType UVType>
+	struct FRuntimeMeshTextureChannelsVertexStructure<RuntimeVertexType, 1, UVType>
+	{
+		static void AddChannels(const FVertexBuffer& VertexBuffer, RuntimeMeshVertexStructure& VertexStructure)
+		{
+			VertexStructure.TextureCoordinates.Add(RUNTIMEMESH_VERTEXCOMPONENT(VertexBuffer, RuntimeVertexType, UV0, FRuntimeMeshVertexUVsTypeSelector<UVType>::VertexElementType1Channel));
+		}
+	};
+
+	template<typename RuntimeVertexType, ERuntimeMeshVertexUVType UVType>
+	struct FRuntimeMeshTextureChannelsVertexStructure<RuntimeVertexType, 2, UVType>
+	{
+		static void AddChannels(const FVertexBuffer& VertexBuffer, RuntimeMeshVertexStructure& VertexStructure)
+		{
+			VertexStructure.TextureCoordinates.Add(RUNTIMEMESH_VERTEXCOMPONENT(VertexBuffer, RuntimeVertexType, UV0, FRuntimeMeshVertexUVsTypeSelector<UVType>::VertexElementType2Channel));
+		}
+	};
+	
+	template<typename RuntimeVertexType, ERuntimeMeshVertexUVType UVType>
+	struct FRuntimeMeshTextureChannelsVertexStructure<RuntimeVertexType, 3, UVType>
+	{
+		static void AddChannels(const FVertexBuffer& VertexBuffer, RuntimeMeshVertexStructure& VertexStructure)
+		{
+
+			VertexStructure.TextureCoordinates.Add(RUNTIMEMESH_VERTEXCOMPONENT(VertexBuffer, RuntimeVertexType, UV0, FRuntimeMeshVertexUVsTypeSelector<UVType>::VertexElementType2Channel));
+			VertexStructure.TextureCoordinates.Add(RUNTIMEMESH_VERTEXCOMPONENT(VertexBuffer, RuntimeVertexType, UV2, FRuntimeMeshVertexUVsTypeSelector<UVType>::VertexElementType1Channel));
+		}
+	};
+	
+	template<typename RuntimeVertexType, ERuntimeMeshVertexUVType UVType>
+	struct FRuntimeMeshTextureChannelsVertexStructure<RuntimeVertexType, 4, UVType>
+	{
+		static void AddChannels(const FVertexBuffer& VertexBuffer, RuntimeMeshVertexStructure& VertexStructure)
+		{
+			VertexStructure.TextureCoordinates.Add(RUNTIMEMESH_VERTEXCOMPONENT(VertexBuffer, RuntimeVertexType, UV0, FRuntimeMeshVertexUVsTypeSelector<UVType>::VertexElementType2Channel));
+			VertexStructure.TextureCoordinates.Add(RUNTIMEMESH_VERTEXCOMPONENT(VertexBuffer, RuntimeVertexType, UV2, FRuntimeMeshVertexUVsTypeSelector<UVType>::VertexElementType2Channel));
+		}
+	};
+	
+	template<typename RuntimeVertexType, ERuntimeMeshVertexUVType UVType>
+	struct FRuntimeMeshTextureChannelsVertexStructure<RuntimeVertexType, 5, UVType>
+	{
+		static void AddChannels(const FVertexBuffer& VertexBuffer, RuntimeMeshVertexStructure& VertexStructure)
+		{
+			VertexStructure.TextureCoordinates.Add(RUNTIMEMESH_VERTEXCOMPONENT(VertexBuffer, RuntimeVertexType, UV0, FRuntimeMeshVertexUVsTypeSelector<UVType>::VertexElementType2Channel));
+			VertexStructure.TextureCoordinates.Add(RUNTIMEMESH_VERTEXCOMPONENT(VertexBuffer, RuntimeVertexType, UV2, FRuntimeMeshVertexUVsTypeSelector<UVType>::VertexElementType2Channel));
+			VertexStructure.TextureCoordinates.Add(RUNTIMEMESH_VERTEXCOMPONENT(VertexBuffer, RuntimeVertexType, UV4, FRuntimeMeshVertexUVsTypeSelector<UVType>::VertexElementType1Channel));
+		}
+	};
+	
+	template<typename RuntimeVertexType, ERuntimeMeshVertexUVType UVType>
+	struct FRuntimeMeshTextureChannelsVertexStructure<RuntimeVertexType, 6, UVType>
+	{
+		static void AddChannels(const FVertexBuffer& VertexBuffer, RuntimeMeshVertexStructure& VertexStructure)
+		{
+			VertexStructure.TextureCoordinates.Add(RUNTIMEMESH_VERTEXCOMPONENT(VertexBuffer, RuntimeVertexType, UV0, FRuntimeMeshVertexUVsTypeSelector<UVType>::VertexElementType2Channel));
+			VertexStructure.TextureCoordinates.Add(RUNTIMEMESH_VERTEXCOMPONENT(VertexBuffer, RuntimeVertexType, UV2, FRuntimeMeshVertexUVsTypeSelector<UVType>::VertexElementType2Channel));
+			VertexStructure.TextureCoordinates.Add(RUNTIMEMESH_VERTEXCOMPONENT(VertexBuffer, RuntimeVertexType, UV4, FRuntimeMeshVertexUVsTypeSelector<UVType>::VertexElementType2Channel));
+		}
+	};
+
+	template<typename RuntimeVertexType, ERuntimeMeshVertexUVType UVType>
+	struct FRuntimeMeshTextureChannelsVertexStructure<RuntimeVertexType, 7, UVType>
+	{
+		static void AddChannels(const FVertexBuffer& VertexBuffer, RuntimeMeshVertexStructure& VertexStructure)
+		{
+			VertexStructure.TextureCoordinates.Add(RUNTIMEMESH_VERTEXCOMPONENT(VertexBuffer, RuntimeVertexType, UV0, FRuntimeMeshVertexUVsTypeSelector<UVType>::VertexElementType2Channel));
+			VertexStructure.TextureCoordinates.Add(RUNTIMEMESH_VERTEXCOMPONENT(VertexBuffer, RuntimeVertexType, UV2, FRuntimeMeshVertexUVsTypeSelector<UVType>::VertexElementType2Channel));
+			VertexStructure.TextureCoordinates.Add(RUNTIMEMESH_VERTEXCOMPONENT(VertexBuffer, RuntimeVertexType, UV4, FRuntimeMeshVertexUVsTypeSelector<UVType>::VertexElementType2Channel));
+			VertexStructure.TextureCoordinates.Add(RUNTIMEMESH_VERTEXCOMPONENT(VertexBuffer, RuntimeVertexType, UV6, FRuntimeMeshVertexUVsTypeSelector<UVType>::VertexElementType1Channel));
+		}
+	};
+	
+	template<typename RuntimeVertexType, ERuntimeMeshVertexUVType UVType>
+	struct FRuntimeMeshTextureChannelsVertexStructure<RuntimeVertexType, 8, UVType>
+	{
+		static void AddChannels(const FVertexBuffer& VertexBuffer, RuntimeMeshVertexStructure& VertexStructure)
+		{
+			VertexStructure.TextureCoordinates.Add(RUNTIMEMESH_VERTEXCOMPONENT(VertexBuffer, RuntimeVertexType, UV0, FRuntimeMeshVertexUVsTypeSelector<UVType>::VertexElementType2Channel));
+			VertexStructure.TextureCoordinates.Add(RUNTIMEMESH_VERTEXCOMPONENT(VertexBuffer, RuntimeVertexType, UV2, FRuntimeMeshVertexUVsTypeSelector<UVType>::VertexElementType2Channel));
+			VertexStructure.TextureCoordinates.Add(RUNTIMEMESH_VERTEXCOMPONENT(VertexBuffer, RuntimeVertexType, UV4, FRuntimeMeshVertexUVsTypeSelector<UVType>::VertexElementType2Channel));
+			VertexStructure.TextureCoordinates.Add(RUNTIMEMESH_VERTEXCOMPONENT(VertexBuffer, RuntimeVertexType, UV6, FRuntimeMeshVertexUVsTypeSelector<UVType>::VertexElementType2Channel));
+		}
+	};
+
+
+
+	//////////////////////////////////////////////////////////////////////////
+	// Vertex Structure Helper
+	//////////////////////////////////////////////////////////////////////////
+	template<bool WantsPosition, bool WantsNormal, bool WantsTangent, bool WantsColor, int32 NumWantedUVChannels, 
+		ERuntimeMeshVertexTangentBasisType NormalTangentType, ERuntimeMeshVertexUVType UVType>
+	static RuntimeMeshVertexStructure CreateVertexStructure(const FVertexBuffer& VertexBuffer)
+	{
+		typedef FRuntimeMeshVertex<WantsPosition, WantsNormal, WantsTangent, WantsColor, NumWantedUVChannels, NormalTangentType, UVType> RuntimeVertexType;
+
+		RuntimeMeshVertexStructure VertexStructure;
+
+		// Add Position component if necessary
+		FRuntimeMeshPositionComponentVertexStructure<RuntimeVertexType, WantsPosition>::AddComponent(VertexBuffer, VertexStructure);
+
+		// Add normal and tangent components if necessary
+		FRuntimeMeshNormalTangentComponentVertexStructure<RuntimeVertexType, WantsNormal, WantsTangent, NormalTangentType>::AddComponent(VertexBuffer, VertexStructure);
+
+		// Add color component if necessary
+		FRuntimeMeshColorComponentVertexStructure<RuntimeVertexType, WantsColor>::AddComponent(VertexBuffer, VertexStructure);
+
+		// Add all texture channels
+		FRuntimeMeshTextureChannelsVertexStructure<RuntimeVertexType, NumWantedUVChannels, UVType>::AddChannels(VertexBuffer, VertexStructure);
+
+		return VertexStructure;
 	}
 };
 
-template<typename RuntimeVertexType, bool HalfPrecision>
-struct FRuntimeMeshTextureChannelsVertexStructure<RuntimeVertexType, 1, HalfPrecision>
-{
-	static void AddChannels(const FVertexBuffer& VertexBuffer, RuntimeMeshVertexStructure& VertexStructure)
-	{
-		EVertexElementType OneChannelType = HalfPrecision ? VET_Half2 : VET_Float2;
-		EVertexElementType TwoChannelType = HalfPrecision ? VET_Half4 : VET_Float4;
 
-		VertexStructure.TextureCoordinates.Add(RUNTIMEMESH_VERTEXCOMPONENT(VertexBuffer, RuntimeVertexType, UV0, OneChannelType));
+
+
+//////////////////////////////////////////////////////////////////////////
+// Vertex Section Instantiator
+//////////////////////////////////////////////////////////////////////////
+
+// This is meant to support serialization where it can create any variation of the vertex.
+// This has the unfortunate side-effect of instantiating every variation of the template.
+
+struct FRuntimeMeshVertexSectionInstantiator
+{
+	//////////////////////////////////////////////////////////////////////////
+	// Type Creator (Only creates type if it's not an empty vertex)
+	//////////////////////////////////////////////////////////////////////////
+private:
+	template<bool WantsPosition, bool WantsNormal, bool WantsTangent, bool WantsColor, int32 NumWantedUVChannels, ERuntimeMeshVertexTangentBasisType NormalTangentType, ERuntimeMeshVertexUVType UVType>
+	static typename TEnableIf<(WantsPosition || WantsNormal || WantsTangent || WantsColor || (NumWantedUVChannels > 0)), FRuntimeMeshSectionInterface*>::Type CreateSection_Internal(bool bInNeedsPositionOnlyBuffer)
+	{
+		return new FRuntimeMeshSection<FRuntimeMeshVertex<WantsPosition, WantsNormal, WantsTangent, WantsColor, NumWantedUVChannels,
+			NormalTangentType, UVType>>(bInNeedsPositionOnlyBuffer);
+	}
+
+	template<bool WantsPosition, bool WantsNormal, bool WantsTangent, bool WantsColor, int32 NumWantedUVChannels, ERuntimeMeshVertexTangentBasisType NormalTangentType, ERuntimeMeshVertexUVType UVType>
+	static typename TEnableIf<!(WantsPosition || WantsNormal || WantsTangent || WantsColor || (NumWantedUVChannels > 0)), FRuntimeMeshSectionInterface*>::Type CreateSection_Internal(bool bInNeedsPositionOnlyBuffer)
+	{
+		checkNoEntry();
+		return nullptr; 
+	}
+
+
+public:
+
+
+
+
+
+	//////////////////////////////////////////////////////////////////////////
+	// UV Type Selection
+	//////////////////////////////////////////////////////////////////////////
+	template<bool WantsPosition, bool WantsNormal, bool WantsTangent, bool WantsColor, int32 NumWantedUVChannels, ERuntimeMeshVertexTangentBasisType NormalTangentType>
+	struct FRuntimeMeshVertexInstantiator_UVType
+	{
+		static FRuntimeMeshSectionInterface* CreateSection(ERuntimeMeshVertexUVType UVType, bool bInNeedsPositionOnlyBuffer)
+		{
+			switch (UVType)
+			{
+			case ERuntimeMeshVertexUVType::Default:
+				return CreateSection_Internal<WantsPosition, WantsNormal, WantsTangent, WantsColor, NumWantedUVChannels,
+					NormalTangentType, ERuntimeMeshVertexUVType::Default>(bInNeedsPositionOnlyBuffer);
+			case ERuntimeMeshVertexUVType::HighPrecision:
+				return CreateSection_Internal<WantsPosition, WantsNormal, WantsTangent, WantsColor, NumWantedUVChannels,
+					NormalTangentType, ERuntimeMeshVertexUVType::HighPrecision>(bInNeedsPositionOnlyBuffer);
+			}
+			checkNoEntry();
+		}
+	};
+
+	//////////////////////////////////////////////////////////////////////////
+	// Tangent Type Selection
+	//////////////////////////////////////////////////////////////////////////
+	template<bool WantsPosition, bool WantsNormal, bool WantsTangent, bool WantsColor, int32 NumWantedUVChannels>
+	struct FRuntimeMeshVertexInstantiator_NormalTangentType
+	{
+		static FRuntimeMeshSectionInterface* CreateSection(ERuntimeMeshVertexTangentBasisType NormalTangentType, ERuntimeMeshVertexUVType UVType, bool bInNeedsPositionOnlyBuffer)
+		{
+			switch (NormalTangentType)
+			{
+			case ERuntimeMeshVertexTangentBasisType::Default:
+				return FRuntimeMeshVertexInstantiator_UVType<WantsPosition, WantsNormal, WantsTangent, WantsColor, NumWantedUVChannels, 
+					ERuntimeMeshVertexTangentBasisType::Default>::CreateSection(UVType, bInNeedsPositionOnlyBuffer);
+			case ERuntimeMeshVertexTangentBasisType::HighPrecision:
+				return FRuntimeMeshVertexInstantiator_UVType<WantsPosition, WantsNormal, WantsTangent, WantsColor, NumWantedUVChannels, 
+					ERuntimeMeshVertexTangentBasisType::HighPrecision>::CreateSection(UVType, bInNeedsPositionOnlyBuffer);
+			}
+			checkNoEntry();
+		}
+	};
+
+	//////////////////////////////////////////////////////////////////////////
+	// Num UV Channels Selection
+	//////////////////////////////////////////////////////////////////////////
+	template<bool WantsPosition, bool WantsNormal, bool WantsTangent, bool WantsColor>
+	struct FRuntimeMeshVertexInstantiator_NumWantedUVChannels
+	{
+		static FRuntimeMeshSectionInterface* CreateSection(int32 NumWantedUVChannels, ERuntimeMeshVertexTangentBasisType NormalTangentType, ERuntimeMeshVertexUVType UVType, bool bInNeedsPositionOnlyBuffer)
+		{
+			switch (NumWantedUVChannels)
+			{
+			case 0:
+				return FRuntimeMeshVertexInstantiator_NormalTangentType<WantsPosition, WantsNormal, WantsTangent, WantsColor, 0>::CreateSection(NormalTangentType, UVType, bInNeedsPositionOnlyBuffer);
+			case 1:
+				return FRuntimeMeshVertexInstantiator_NormalTangentType<WantsPosition, WantsNormal, WantsTangent, WantsColor, 1>::CreateSection(NormalTangentType, UVType, bInNeedsPositionOnlyBuffer);
+			case 2:
+				return FRuntimeMeshVertexInstantiator_NormalTangentType<WantsPosition, WantsNormal, WantsTangent, WantsColor, 2>::CreateSection(NormalTangentType, UVType, bInNeedsPositionOnlyBuffer);
+			case 3:
+				return FRuntimeMeshVertexInstantiator_NormalTangentType<WantsPosition, WantsNormal, WantsTangent, WantsColor, 3>::CreateSection(NormalTangentType, UVType, bInNeedsPositionOnlyBuffer);
+			case 4:
+				return FRuntimeMeshVertexInstantiator_NormalTangentType<WantsPosition, WantsNormal, WantsTangent, WantsColor, 4>::CreateSection(NormalTangentType, UVType, bInNeedsPositionOnlyBuffer);
+			case 5:
+				return FRuntimeMeshVertexInstantiator_NormalTangentType<WantsPosition, WantsNormal, WantsTangent, WantsColor, 5>::CreateSection(NormalTangentType, UVType, bInNeedsPositionOnlyBuffer);
+			case 6:
+				return FRuntimeMeshVertexInstantiator_NormalTangentType<WantsPosition, WantsNormal, WantsTangent, WantsColor, 6>::CreateSection(NormalTangentType, UVType, bInNeedsPositionOnlyBuffer);
+			case 7:
+				return FRuntimeMeshVertexInstantiator_NormalTangentType<WantsPosition, WantsNormal, WantsTangent, WantsColor, 7>::CreateSection(NormalTangentType, UVType, bInNeedsPositionOnlyBuffer);
+			}
+			checkNoEntry();
+		}
+	};
+
+	//////////////////////////////////////////////////////////////////////////
+	// Wants Color Selection
+	//////////////////////////////////////////////////////////////////////////
+	template<bool WantsPosition, bool WantsNormal, bool WantsTangent>
+	struct FRuntimeMeshVertexInstantiator_WantsColor
+	{
+		static FRuntimeMeshSectionInterface* CreateSection(bool WantsColor, int32 NumWantedUVChannels, ERuntimeMeshVertexTangentBasisType NormalTangentType, ERuntimeMeshVertexUVType UVType, bool bInNeedsPositionOnlyBuffer)
+		{
+			if (WantsColor)
+			{
+				return FRuntimeMeshVertexInstantiator_NumWantedUVChannels<WantsPosition, WantsNormal, WantsTangent, true>::CreateSection(NumWantedUVChannels, NormalTangentType, UVType, bInNeedsPositionOnlyBuffer);
+			}
+			else
+			{
+				return FRuntimeMeshVertexInstantiator_NumWantedUVChannels<WantsPosition, WantsNormal, WantsTangent, false>::CreateSection(NumWantedUVChannels, NormalTangentType, UVType, bInNeedsPositionOnlyBuffer);
+			}
+		}
+	};
+
+	//////////////////////////////////////////////////////////////////////////
+	// Wants Tangent Selection
+	//////////////////////////////////////////////////////////////////////////
+	template<bool WantsPosition, bool WantsNormal>
+	struct FRuntimeMeshVertexInstantiator_WantsTangent
+	{
+		static FRuntimeMeshSectionInterface* CreateSection(bool WantsTangent, bool WantsColor, int32 NumWantedUVChannels, ERuntimeMeshVertexTangentBasisType NormalTangentType, ERuntimeMeshVertexUVType UVType, bool bInNeedsPositionOnlyBuffer)
+		{
+			if (WantsTangent)
+			{
+				return FRuntimeMeshVertexInstantiator_WantsColor<WantsPosition, WantsNormal, true>::CreateSection(WantsColor, NumWantedUVChannels, NormalTangentType, UVType, bInNeedsPositionOnlyBuffer);
+			}
+			else
+			{
+				return FRuntimeMeshVertexInstantiator_WantsColor<WantsPosition, WantsNormal, false>::CreateSection(WantsColor, NumWantedUVChannels, NormalTangentType, UVType, bInNeedsPositionOnlyBuffer);
+			}
+		}
+	};
+
+	//////////////////////////////////////////////////////////////////////////
+	// Wants Normal Selection
+	//////////////////////////////////////////////////////////////////////////
+	template<bool WantsPosition>
+	struct FRuntimeMeshVertexInstantiator_WantsNormal
+	{
+		static FRuntimeMeshSectionInterface* CreateSection(bool WantsNormal, bool WantsTangent, bool WantsColor, int32 NumWantedUVChannels, ERuntimeMeshVertexTangentBasisType NormalTangentType, ERuntimeMeshVertexUVType UVType, bool bInNeedsPositionOnlyBuffer)
+		{
+			if (WantsNormal)
+			{
+				return FRuntimeMeshVertexInstantiator_WantsTangent<WantsPosition, true>::CreateSection(WantsTangent, WantsColor, NumWantedUVChannels, NormalTangentType, UVType, bInNeedsPositionOnlyBuffer);
+			}
+			else
+			{
+				return FRuntimeMeshVertexInstantiator_WantsTangent<WantsPosition, false>::CreateSection(WantsTangent, WantsColor, NumWantedUVChannels, NormalTangentType, UVType, bInNeedsPositionOnlyBuffer);
+			}
+		}
+	};
+
+
+	//////////////////////////////////////////////////////////////////////////
+	// Vertex Section Instantiator
+	//////////////////////////////////////////////////////////////////////////
+	static FRuntimeMeshSectionInterface* CreateVertexStructure(bool WantsPosition, bool WantsNormal, bool WantsTangent, bool WantsColor, int32 NumWantedUVChannels, ERuntimeMeshVertexTangentBasisType NormalTangentType, ERuntimeMeshVertexUVType UVType, bool bInNeedsPositionOnlyBuffer)
+	{
+		// We do position selection right here
+		if (WantsPosition)
+		{
+			return FRuntimeMeshVertexInstantiator_WantsNormal<true>::CreateSection(WantsNormal, WantsTangent, WantsColor, NumWantedUVChannels, NormalTangentType, UVType, bInNeedsPositionOnlyBuffer);
+		}
+		else
+		{
+			return FRuntimeMeshVertexInstantiator_WantsNormal<false>::CreateSection(WantsNormal, WantsTangent, WantsColor, NumWantedUVChannels, NormalTangentType, UVType, bInNeedsPositionOnlyBuffer);
+		}
 	}
 };
 
-template<typename RuntimeVertexType, bool HalfPrecision>
-struct FRuntimeMeshTextureChannelsVertexStructure<RuntimeVertexType, 2, HalfPrecision>
-{
-	static void AddChannels(const FVertexBuffer& VertexBuffer, RuntimeMeshVertexStructure& VertexStructure)
-	{
-		EVertexElementType OneChannelType = HalfPrecision ? VET_Half2 : VET_Float2;
-		EVertexElementType TwoChannelType = HalfPrecision ? VET_Half4 : VET_Float4;
-
-		VertexStructure.TextureCoordinates.Add(RUNTIMEMESH_VERTEXCOMPONENT(VertexBuffer, RuntimeVertexType, UV0, TwoChannelType));
-	}
-};
-
-
-template<typename RuntimeVertexType, bool HalfPrecision>
-struct FRuntimeMeshTextureChannelsVertexStructure<RuntimeVertexType, 3, HalfPrecision>
-{
-	static void AddChannels(const FVertexBuffer& VertexBuffer, RuntimeMeshVertexStructure& VertexStructure)
-	{
-		EVertexElementType OneChannelType = HalfPrecision ? VET_Half2 : VET_Float2;
-		EVertexElementType TwoChannelType = HalfPrecision ? VET_Half4 : VET_Float4;
-
-		VertexStructure.TextureCoordinates.Add(RUNTIMEMESH_VERTEXCOMPONENT(VertexBuffer, RuntimeVertexType, UV0, TwoChannelType));
-		VertexStructure.TextureCoordinates.Add(RUNTIMEMESH_VERTEXCOMPONENT(VertexBuffer, RuntimeVertexType, UV2, OneChannelType));
-	}
-};
-
-
-template<typename RuntimeVertexType, bool HalfPrecision>
-struct FRuntimeMeshTextureChannelsVertexStructure<RuntimeVertexType, 4, HalfPrecision>
-{
-	static void AddChannels(const FVertexBuffer& VertexBuffer, RuntimeMeshVertexStructure& VertexStructure)
-	{
-		EVertexElementType OneChannelType = HalfPrecision ? VET_Half2 : VET_Float2;
-		EVertexElementType TwoChannelType = HalfPrecision ? VET_Half4 : VET_Float4;
-
-		VertexStructure.TextureCoordinates.Add(RUNTIMEMESH_VERTEXCOMPONENT(VertexBuffer, RuntimeVertexType, UV0, TwoChannelType));
-		VertexStructure.TextureCoordinates.Add(RUNTIMEMESH_VERTEXCOMPONENT(VertexBuffer, RuntimeVertexType, UV2, TwoChannelType));
-	}
-};
-
-
-template<typename RuntimeVertexType, bool HalfPrecision>
-struct FRuntimeMeshTextureChannelsVertexStructure<RuntimeVertexType, 5, HalfPrecision>
-{
-	static void AddChannels(const FVertexBuffer& VertexBuffer, RuntimeMeshVertexStructure& VertexStructure)
-	{
-		EVertexElementType OneChannelType = HalfPrecision ? VET_Half2 : VET_Float2;
-		EVertexElementType TwoChannelType = HalfPrecision ? VET_Half4 : VET_Float4;
-
-		VertexStructure.TextureCoordinates.Add(RUNTIMEMESH_VERTEXCOMPONENT(VertexBuffer, RuntimeVertexType, UV0, TwoChannelType));
-		VertexStructure.TextureCoordinates.Add(RUNTIMEMESH_VERTEXCOMPONENT(VertexBuffer, RuntimeVertexType, UV2, TwoChannelType));
-		VertexStructure.TextureCoordinates.Add(RUNTIMEMESH_VERTEXCOMPONENT(VertexBuffer, RuntimeVertexType, UV4, OneChannelType));
-	}
-};
-
-
-template<typename RuntimeVertexType, bool HalfPrecision>
-struct FRuntimeMeshTextureChannelsVertexStructure<RuntimeVertexType, 6, HalfPrecision>
-{
-	static void AddChannels(const FVertexBuffer& VertexBuffer, RuntimeMeshVertexStructure& VertexStructure)
-	{
-		EVertexElementType OneChannelType = HalfPrecision ? VET_Half2 : VET_Float2;
-		EVertexElementType TwoChannelType = HalfPrecision ? VET_Half4 : VET_Float4;
-
-		VertexStructure.TextureCoordinates.Add(RUNTIMEMESH_VERTEXCOMPONENT(VertexBuffer, RuntimeVertexType, UV0, TwoChannelType));
-		VertexStructure.TextureCoordinates.Add(RUNTIMEMESH_VERTEXCOMPONENT(VertexBuffer, RuntimeVertexType, UV2, TwoChannelType));
-		VertexStructure.TextureCoordinates.Add(RUNTIMEMESH_VERTEXCOMPONENT(VertexBuffer, RuntimeVertexType, UV4, TwoChannelType));
-	}
-};
-
-template<typename RuntimeVertexType, bool HalfPrecision>
-struct FRuntimeMeshTextureChannelsVertexStructure<RuntimeVertexType, 7, HalfPrecision>
-{
-	static void AddChannels(const FVertexBuffer& VertexBuffer, RuntimeMeshVertexStructure& VertexStructure)
-	{
-		EVertexElementType OneChannelType = HalfPrecision ? VET_Half2 : VET_Float2;
-		EVertexElementType TwoChannelType = HalfPrecision ? VET_Half4 : VET_Float4;
-
-		VertexStructure.TextureCoordinates.Add(RUNTIMEMESH_VERTEXCOMPONENT(VertexBuffer, RuntimeVertexType, UV0, TwoChannelType));
-		VertexStructure.TextureCoordinates.Add(RUNTIMEMESH_VERTEXCOMPONENT(VertexBuffer, RuntimeVertexType, UV2, TwoChannelType));
-		VertexStructure.TextureCoordinates.Add(RUNTIMEMESH_VERTEXCOMPONENT(VertexBuffer, RuntimeVertexType, UV4, TwoChannelType));
-		VertexStructure.TextureCoordinates.Add(RUNTIMEMESH_VERTEXCOMPONENT(VertexBuffer, RuntimeVertexType, UV6, OneChannelType));
-	}
-};
-
-
-template<typename RuntimeVertexType, bool HalfPrecision>
-struct FRuntimeMeshTextureChannelsVertexStructure<RuntimeVertexType, 8, HalfPrecision>
-{
-	static void AddChannels(const FVertexBuffer& VertexBuffer, RuntimeMeshVertexStructure& VertexStructure)
-	{
-		EVertexElementType OneChannelType = HalfPrecision ? VET_Half2 : VET_Float2;
-		EVertexElementType TwoChannelType = HalfPrecision ? VET_Half4 : VET_Float4;
-
-		VertexStructure.TextureCoordinates.Add(RUNTIMEMESH_VERTEXCOMPONENT(VertexBuffer, RuntimeVertexType, UV0, TwoChannelType));
-		VertexStructure.TextureCoordinates.Add(RUNTIMEMESH_VERTEXCOMPONENT(VertexBuffer, RuntimeVertexType, UV2, TwoChannelType));
-		VertexStructure.TextureCoordinates.Add(RUNTIMEMESH_VERTEXCOMPONENT(VertexBuffer, RuntimeVertexType, UV4, TwoChannelType));
-		VertexStructure.TextureCoordinates.Add(RUNTIMEMESH_VERTEXCOMPONENT(VertexBuffer, RuntimeVertexType, UV6, TwoChannelType));
-	}
-};
-
-
-template<typename RuntimeVertexType, bool HasPositionComponent>
-struct FRuntimeMeshPositionComponentVertexStructure
-{
-	static void AddComponent(const FVertexBuffer& VertexBuffer, RuntimeMeshVertexStructure& VertexStructure)
-	{
-		VertexStructure.PositionComponent = RUNTIMEMESH_VERTEXCOMPONENT(VertexBuffer, RuntimeVertexType, Position, VET_Float3);
-	}
-}; 
-
-template<typename RuntimeVertexType>
-struct FRuntimeMeshPositionComponentVertexStructure<RuntimeVertexType, false>
-{
-	static void AddComponent(const FVertexBuffer& VertexBuffer, RuntimeMeshVertexStructure& VertexStructure)
-	{
-	}
-};
 
 
 
-/* Creates the vertex structure definition for a particular configuration */
-template <int32 TextureChannels, bool HalfPrecisionUVs, bool HasPositionComponent>
-RuntimeMeshVertexStructure CreateVertexStructure(const FVertexBuffer& VertexBuffer)
-{
-	typedef FRuntimeMeshVertex<TextureChannels, HalfPrecisionUVs, HasPositionComponent> RuntimeVertexType;
 
-	RuntimeMeshVertexStructure VertexStructure;
-
-	// Add Position component if necessary
-	FRuntimeMeshPositionComponentVertexStructure<RuntimeVertexType, HasPositionComponent>::AddComponent(VertexBuffer, VertexStructure);
-
-	// Add Normal/Tangent components
-	VertexStructure.TangentBasisComponents[0] = RUNTIMEMESH_VERTEXCOMPONENT(VertexBuffer, RuntimeVertexType, Tangent, VET_PackedNormal);
-	VertexStructure.TangentBasisComponents[1] = RUNTIMEMESH_VERTEXCOMPONENT(VertexBuffer, RuntimeVertexType, Normal, VET_PackedNormal);
-
-	// Add color component
-	VertexStructure.ColorComponent = RUNTIMEMESH_VERTEXCOMPONENT(VertexBuffer, RuntimeVertexType, Color, VET_Color);
-		
-	// Add all texture channels using template specialization.
-	FRuntimeMeshTextureChannelsVertexStructure<RuntimeVertexType, TextureChannels, HalfPrecisionUVs>::AddChannels(VertexBuffer, VertexStructure);
-
-	return VertexStructure;
-}
 
 
 
@@ -918,11 +1390,13 @@ RuntimeMeshVertexStructure CreateVertexStructure(const FVertexBuffer& VertexBuff
 /** Section meant to support the old style interface for creating/updating sections */
 template <int32 TextureChannels, bool HalfPrecisionUVs>
 struct FRuntimeMeshSectionInternal :
-	public FRuntimeMeshSection<FRuntimeMeshVertex<TextureChannels, HalfPrecisionUVs>>
+	public FRuntimeMeshSection<FRuntimeMeshVertex<true, true, true, true, TextureChannels, 
+		ERuntimeMeshVertexTangentBasisType::Default, HalfPrecisionUVs? ERuntimeMeshVertexUVType::Default : ERuntimeMeshVertexUVType::HighPrecision>>
 {
 public:
 
-	typedef FRuntimeMeshVertex<TextureChannels, HalfPrecisionUVs> VertexType;
+	typedef FRuntimeMeshVertex<true, true, true, true, TextureChannels,
+		ERuntimeMeshVertexTangentBasisType::Default, HalfPrecisionUVs ? ERuntimeMeshVertexUVType::Default : ERuntimeMeshVertexUVType::HighPrecision> VertexType;
 
 
 	template<typename Type, bool HasSecondUV>
@@ -978,7 +1452,7 @@ public:
 	};
 
 
-	typedef FRuntimeMeshSection<FRuntimeMeshVertex<TextureChannels, HalfPrecisionUVs>> Super;
+	typedef FRuntimeMeshSection<VertexType> Super;
 
 
 	FRuntimeMeshSectionInternal(bool bWantsSeparatePositionBuffer /*Ignored for this section type*/) : Super(false) { }

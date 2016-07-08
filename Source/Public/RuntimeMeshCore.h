@@ -106,6 +106,11 @@ struct FRuntimeMeshTangent
 	{
 		Normal.Vector.W = bFlipTangentY ? 0 : 255;
 	}
+
+	void AdjustNormal(FPackedRGBA16N& Normal) const
+	{
+		Normal.W = bFlipTangentY ? 0 : 65535;
+	}
 };
 
 /* The different buffers within the Runtime Mesh Component */
