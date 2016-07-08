@@ -971,7 +971,7 @@ void URuntimeMeshComponent::UpdateMeshSection(int32 SectionIndex, const TArray<F
 	RMC_VALIDATE_UPDATEPARAMETERS_INTERNALSECTION(SectionIndex, /*VoidReturn*/);
 
 	// Validate section type
-	MeshSections[SectionIndex]->GetVertexType()->EnsureEquals<FRuntimeMeshVertex<1>>();
+	MeshSections[SectionIndex]->GetVertexType()->EnsureEquals<FRuntimeMeshVertexSimple>();
 
 	// Get section
 	RuntimeMeshSectionPtr& Section = MeshSections[SectionIndex];
@@ -999,7 +999,7 @@ void URuntimeMeshComponent::UpdateMeshSection(int32 SectionIndex, const TArray<F
 	RMC_VALIDATE_UPDATEPARAMETERS_INTERNALSECTION(SectionIndex, /*VoidReturn*/);
 
 	// Validate section type
-	MeshSections[SectionIndex]->GetVertexType()->EnsureEquals<FRuntimeMeshVertex<2>>();
+	MeshSections[SectionIndex]->GetVertexType()->EnsureEquals<FRuntimeMeshVertexDualUV>();
 
 	// Get section
 	RuntimeMeshSectionPtr& Section = MeshSections[SectionIndex];
