@@ -1128,17 +1128,6 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "RuntimeMesh")
 	bool bShouldSerializeMeshData;
 
-#if WITH_IMPROVED_PHYSX_COOKER_CONTROL
-	/* Allows controlling the cooker for either fast cooking, or better collision performance */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural Mesh")
-	ERuntimeMeshComponentCookingHint CookingHint;
-
-	/*
-	*	Current cooking config, used to know what route to take on updates until
-	*	We don't want to force a cook just because you changed config, instead apply on the next full cook
-	*/
-	ERuntimeMeshComponentCookingHint CurrentCookingHint;
-#endif
 
 	/** Collision data */
 	UPROPERTY(Transient, DuplicateTransient)
@@ -1151,9 +1140,6 @@ private:
 	virtual bool GetPhysicsTriMeshData(struct FTriMeshCollisionData* CollisionData, bool InUseAllTriData) override;
 	virtual bool ContainsPhysicsTriMeshData(bool InUseAllTriData) const override;
 	virtual bool WantsNegXTriMesh() override { return false; }
-#if WITH_IMPROVED_PHYSX_COOKER_CONTROL
-	virtual void AdjustCookingParameters(int32& CookingParameters) const override;
-#endif
 	//~ End Interface_CollisionDataProvider Interface
 
 
