@@ -314,6 +314,19 @@ struct FRuntimeMeshVertexTangentTypeSelector<ERuntimeMeshVertexTangentBasisType:
 template<bool WantsNormal, bool WantsTangent, typename TangentType>
 struct FRuntimeMeshNormalTangentComponents;
 
+struct RuntimeMeshNormalUtil
+{
+	static void SetNormalW(FPackedNormal& Target, float Determinant)
+	{
+		Target.Vector.W = Determinant < 0.0f ? 0 : 255;
+	}
+
+	static void SetNormalW(FPackedRGBA16N& Target, float Determinant)
+	{
+		Target.W = Determinant < 0.0f ? 0 : 65535;
+	}
+};
+
 template<typename TangentType>
 struct FRuntimeMeshNormalTangentComponents<true, false, TangentType>
 {
@@ -334,7 +347,7 @@ struct FRuntimeMeshNormalTangentComponents<true, false, TangentType>
 		Normal = InTangentZ;
 
 		// store determinant of basis in w component of normal vector
-		Normal.Vector.W = GetBasisDeterminantSign(InTangentX, InTangentY, InTangentZ) < 0.0f ? 0 : 255;
+		RuntimeMeshNormalUtil::SetNormalW(Normal, GetBasisDeterminantSign(InTangentX, InTangentY, InTangentZ));
 	}
 };
 
@@ -380,7 +393,7 @@ struct FRuntimeMeshNormalTangentComponents<true, true, TangentType>
 		Tangent = InTangentX;
 
 		// store determinant of basis in w component of normal vector
-		Normal.Vector.W = GetBasisDeterminantSign(InTangentX, InTangentY, InTangentZ) < 0.0f ? 0 : 255;
+		RuntimeMeshNormalUtil::SetNormalW(Normal, GetBasisDeterminantSign(InTangentX, InTangentY, InTangentZ));
 	}
 };
 
@@ -975,6 +988,17 @@ DECLARE_RUNTIME_MESH_VERTEX(FRuntimeMeshVertexNoPosition, false, true, true, tru
 /** Simple vertex with 2 UV channels and NO position component (Meant to be used with separate position buffer) */
 DECLARE_RUNTIME_MESH_VERTEX(FRuntimeMeshVertexNoPositionDualUV, false, true, true, true, 2, ERuntimeMeshVertexTangentBasisType::Default, ERuntimeMeshVertexUVType::HighPrecision)
 
+/** Simple vertex with 1 UV channel */
+DECLARE_RUNTIME_MESH_VERTEX(FRuntimeMeshVertexHiPrecisionNormals, true, true, true, true, 1, ERuntimeMeshVertexTangentBasisType::HighPrecision, ERuntimeMeshVertexUVType::HighPrecision)
+
+/** Simple vertex with 2 UV channels */
+DECLARE_RUNTIME_MESH_VERTEX(FRuntimeMeshVertexDualUVHiPrecisionNormals, true, true, true, true, 2, ERuntimeMeshVertexTangentBasisType::HighPrecision, ERuntimeMeshVertexUVType::HighPrecision)
+
+/** Simple vertex with 1 UV channel and NO position component (Meant to be used with separate position buffer) */
+DECLARE_RUNTIME_MESH_VERTEX(FRuntimeMeshVertexNoPositionHiPrecisionNormals, false, true, true, true, 1, ERuntimeMeshVertexTangentBasisType::HighPrecision, ERuntimeMeshVertexUVType::HighPrecision)
+
+/** Simple vertex with 2 UV channels and NO position component (Meant to be used with separate position buffer) */
+DECLARE_RUNTIME_MESH_VERTEX(FRuntimeMeshVertexNoPositionDualUVHiPrecisionNormals, false, true, true, true, 2, ERuntimeMeshVertexTangentBasisType::HighPrecision, ERuntimeMeshVertexUVType::HighPrecision)
 
 
 //////////////////////////////////////////////////////////////////////////

@@ -121,7 +121,7 @@ private:
 	void UpdateSectionPropertiesInternal(int32 SectionIndex, bool bUpdateRequiresProxyRecreateIfStatic);
 	
 	/* Internal log helper for the templates to be able to use the internal logger */
-	void Log(FString Text, bool bIsError = false)
+	static void Log(FString Text, bool bIsError = false)
 	{
 		if (bIsError)
 		{

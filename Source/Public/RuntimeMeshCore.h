@@ -12,19 +12,138 @@
 class FRuntimeMeshVertexFactory;
 
 
-/* Helper for determining if a struct has a member of type "FVector" with the name "Position" */
-template<typename T> struct FVertexHasPositionComponent {
-	struct Fallback { FVector Position; };
-	struct Derived : T, Fallback { };
-
+template<typename T>
+struct FRuntimeMeshVertexTraits
+{
+private:
 	template<typename C, C> struct ChT;
 
-	template<typename C> static char(&f(ChT<FVector Fallback::*, &C::Position>*))[1];
-	template<typename C> static char(&f(...))[2];
+	struct FallbackPosition { FVector Position; };
+	struct DerivedPosition : T, FallbackPosition { };
+	template<typename C> static char(&PositionCheck(ChT<FVector FallbackPosition::*, &C::Position>*))[1];
+	template<typename C> static char(&PositionCheck(...))[2];
 
-	static bool const Value = sizeof(f<Derived>(0)) == 2;
+	struct FallbackNormal { FPackedRGBA16N Normal; };
+	struct DerivedNormal : T, FallbackNormal { };
+	template<typename C> static char(&NormalCheck(ChT<FPackedRGBA16N FallbackNormal::*, &C::Normal>*))[1];
+	template<typename C> static char(&NormalCheck(...))[2];
+
+	struct FallbackTangent { FPackedRGBA16N Tangent; };
+	struct DerivedTangent : T, FallbackTangent { };
+	template<typename C> static char(&TangentCheck(ChT<FPackedRGBA16N FallbackTangent::*, &C::Tangent>*))[1];
+	template<typename C> static char(&TangentCheck(...))[2];
+
+	struct FallbackColor { FColor Color; };
+	struct DerivedColor : T, FallbackColor { };
+	template<typename C> static char(&ColorCheck(ChT<FColor FallbackColor::*, &C::Color>*))[1];
+	template<typename C> static char(&ColorCheck(...))[2];
+
+	struct FallbackUV0 { FVector2D UV0; };
+	struct DerivedUV0 : T, FallbackUV0 { };
+	template<typename C> static char(&UV0Check(ChT<FVector2D FallbackUV0::*, &C::UV0>*))[1];
+	template<typename C> static char(&UV0Check(...))[2];
+
+	struct FallbackUV1 { FVector2D UV1; };
+	struct DerivedUV1 : T, FallbackUV1 { };
+	template<typename C> static char(&UV1Check(ChT<FVector2D FallbackUV1::*, &C::UV1>*))[1];
+	template<typename C> static char(&UV1Check(...))[2];
+
+	struct FallbackUV2 { FVector2D UV2; };
+	struct DerivedUV2 : T, FallbackUV2 { };
+	template<typename C> static char(&UV2Check(ChT<FVector2D FallbackUV2::*, &C::UV2>*))[1];
+	template<typename C> static char(&UV2Check(...))[2];
+
+	struct FallbackUV3 { FVector2D UV3; };
+	struct DerivedUV3 : T, FallbackUV3 { };
+	template<typename C> static char(&UV3Check(ChT<FVector2D FallbackUV3::*, &C::UV3>*))[1];
+	template<typename C> static char(&UV3Check(...))[2];
+
+	struct FallbackUV4 { FVector2D UV4; };
+	struct DerivedUV4 : T, FallbackUV4 { };
+	template<typename C> static char(&UV4Check(ChT<FVector2D FallbackUV4::*, &C::UV4>*))[1];
+	template<typename C> static char(&UV4Check(...))[2];
+
+	struct FallbackUV5 { FVector2D UV5; };
+	struct DerivedUV5 : T, FallbackUV5 { };
+	template<typename C> static char(&UV5Check(ChT<FVector2D FallbackUV5::*, &C::UV5>*))[1];
+	template<typename C> static char(&UV5Check(...))[2];
+
+	struct FallbackUV6 { FVector2D UV6; };
+	struct DerivedUV6 : T, FallbackUV6 { };
+	template<typename C> static char(&UV6Check(ChT<FVector2D FallbackUV6::*, &C::UV6>*))[1];
+	template<typename C> static char(&UV6Check(...))[2];
+
+	struct FallbackUV7 { FVector2D UV7; };
+	struct DerivedUV7 : T, FallbackUV7 { };
+	template<typename C> static char(&UV7Check(ChT<FVector2D FallbackUV7::*, &C::UV7>*))[1];
+	template<typename C> static char(&UV7Check(...))[2];
+
+
+
+	template<typename T, typename U>
+	struct IsSameType
+	{
+		static const bool Value = false;
+	};
+
+	template<typename T>
+	struct IsSameType<T, T>
+	{
+		static const bool Value = true;
+	};
+
+
+	template<bool HasNormal, bool HasTangent, typename Type>
+	struct TangentBasisHighPrecisionDetector
+	{
+		static const bool Value = false;
+	};
+
+	template<typename Type>
+	struct TangentBasisHighPrecisionDetector<true, false, Type>
+	{
+		static const bool Value = IsSameType<decltype(DeclVal<T>().Normal), FPackedRGBA16N>::Value;
+	};
+
+	template<bool HasNormal, typename Type>
+	struct TangentBasisHighPrecisionDetector<HasNormal, true, Type>
+	{
+		static const bool Value = IsSameType<decltype(DeclVal<T>().Tangent), FPackedRGBA16N>::Value;
+	};
+
+	template<bool HasUV0, typename Type>
+	struct UVChannelHighPrecisionDetector
+	{
+		static const bool Value = false;
+	};
+
+	template<typename Type>
+	struct UVChannelHighPrecisionDetector<true, Type>
+	{
+		static const bool Value = IsSameType<decltype(DeclVal<T>().UV0), FVector2D>::Value;
+	};
+	
+
+
+public:
+	static const bool HasPosition = sizeof(PositionCheck<DerivedPosition>(0)) == 2;
+	static const bool HasNormal = sizeof(NormalCheck<DerivedNormal>(0)) == 2;
+	static const bool HasTangent = sizeof(TangentCheck<DerivedTangent>(0)) == 2;
+	static const bool HasColor = sizeof(ColorCheck<DerivedColor>(0)) == 2;
+	static const bool HasUV0 = sizeof(UV0Check<DerivedUV0>(0)) == 2;
+	static const bool HasUV1 = sizeof(UV1Check<DerivedUV1>(0)) == 2;
+	static const bool HasUV2 = sizeof(UV2Check<DerivedUV2>(0)) == 2;
+	static const bool HasUV3 = sizeof(UV3Check<DerivedUV3>(0)) == 2;
+	static const bool HasUV4 = sizeof(UV4Check<DerivedUV4>(0)) == 2;
+	static const bool HasUV5 = sizeof(UV5Check<DerivedUV5>(0)) == 2;
+	static const bool HasUV6 = sizeof(UV6Check<DerivedUV6>(0)) == 2;
+	static const bool HasUV7 = sizeof(UV7Check<DerivedUV7>(0)) == 2;
+
+
+	
+	static const bool HasHighPrecisionNormals = TangentBasisHighPrecisionDetector<HasNormal, HasTangent, T>::Value;
+	static const bool HasHighPrecisionUVs = UVChannelHighPrecisionDetector<HasUV0, T>::Value;
 };
-
 
 
 

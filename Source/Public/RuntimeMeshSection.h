@@ -173,7 +173,7 @@ protected:
 namespace RuntimeMeshSectionInternal
 {
 	template<typename Type>
-	static typename TEnableIf<FVertexHasPositionComponent<Type>::Value, int32>::Type
+	static typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasPosition, int32>::Type
 		GetAllVertexPositions(const TArray<Type>& VertexBuffer, const TArray<FVector>& PositionVertexBuffer, TArray<FVector>& Positions)
 	{
 		int32 VertexCount = VertexBuffer.Num();
@@ -185,7 +185,7 @@ namespace RuntimeMeshSectionInternal
 	}
 
 	template<typename Type>
-	static typename TEnableIf<!FVertexHasPositionComponent<Type>::Value, int32>::Type
+	static typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasPosition, int32>::Type
 		GetAllVertexPositions(const TArray<Type>& VertexBuffer, const TArray<FVector>& PositionVertexBuffer, TArray<FVector>& Positions)
 	{
 		Positions.Append(PositionVertexBuffer);
@@ -195,7 +195,7 @@ namespace RuntimeMeshSectionInternal
 
 
 	template<typename Type>
-	static typename TEnableIf<FVertexHasPositionComponent<Type>::Value, bool>::Type
+	static typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasPosition, bool>::Type
 		UpdateVertexBufferInternal(TArray<Type>& VertexBuffer, FBox& LocalBoundingBox, TArray<Type>& Vertices, const FBox* BoundingBox, bool bShouldMoveArray)
 	{
 		// Holds the new bounding box after this update.
@@ -254,7 +254,7 @@ namespace RuntimeMeshSectionInternal
 	}
 
 	template<typename Type>
-	static typename TEnableIf<!FVertexHasPositionComponent<Type>::Value, bool>::Type
+	static typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasPosition, bool>::Type
 		UpdateVertexBufferInternal(TArray<Type>& VertexBuffer, FBox& LocalBoundingBox, TArray<Type>& Vertices, const FBox* BoundingBox, bool bShouldMoveArray)
 	{
 		if (bShouldMoveArray)
@@ -270,7 +270,7 @@ namespace RuntimeMeshSectionInternal
 
 
 	template<typename Type>
-	static typename TEnableIf<FVertexHasPositionComponent<Type>::Value>::Type	RecalculateBoundingBox(TArray<Type>& VertexBuffer, FBox& BoundingBox)
+	static typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasPosition>::Type	RecalculateBoundingBox(TArray<Type>& VertexBuffer, FBox& BoundingBox)
 	{
 		for (int32 Index = 0; Index < VertexBuffer.Num(); Index++)
 		{
@@ -279,7 +279,7 @@ namespace RuntimeMeshSectionInternal
 	}
 
 	template<typename Type>
-	static typename TEnableIf<!FVertexHasPositionComponent<Type>::Value>::Type RecalculateBoundingBox(TArray<Type>& VertexBuffer, FBox& BoundingBox)
+	static typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasPosition>::Type RecalculateBoundingBox(TArray<Type>& VertexBuffer, FBox& BoundingBox)
 	{
 	}
 
