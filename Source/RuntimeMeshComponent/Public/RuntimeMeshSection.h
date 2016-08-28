@@ -22,6 +22,9 @@ public:
 	/** Index buffer for this section */
 	TArray<int32> IndexBuffer;
 
+	/** Index buffer used for tessellation containing the needed adjacency info */
+	TArray<int32> TessellationIndexBuffer;
+
 	/** Local bounding box of section */
 	FBox LocalBoundingBox;
 

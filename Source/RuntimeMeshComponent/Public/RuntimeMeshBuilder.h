@@ -538,10 +538,10 @@ class FRuntimeMeshIndicesBuilder
 public:
 
 	FRuntimeMeshIndicesBuilder()
-		: bOwnsIndexArray(true), Indices(new TArray<int32>()), CurrentPosition(-1)
+		: bOwnsIndexArray(true), Indices(new TArray<int32>()), CurrentPosition(0)
 	{ }
 	FRuntimeMeshIndicesBuilder(TArray<int32>* InVertices)
-		: bOwnsIndexArray(false), Indices(InVertices), CurrentPosition(-1)
+		: bOwnsIndexArray(false), Indices(InVertices), CurrentPosition(0)
 	{ }
 	FRuntimeMeshIndicesBuilder(const FRuntimeMeshIndicesBuilder& Other) = delete;
 	FRuntimeMeshIndicesBuilder& operator=(const FRuntimeMeshIndicesBuilder& Other) = delete;
@@ -557,49 +557,48 @@ public:
 
 	void AddTriangle(int32 Index0, int32 Index1, int32 Index2)
 	{
-		if ((CurrentPosition + 3 + 1) >= Indices->Num())
+		if ((CurrentPosition + 3) >= Indices->Num())
 		{
-			Indices->SetNum(CurrentPosition + 3 + 1);
+			Indices->SetNum(CurrentPosition + 3);
 		}
 
-		(*Indices)[++CurrentPosition] = Index0;
-		(*Indices)[++CurrentPosition] = Index1;
-		(*Indices)[++CurrentPosition] = Index2;
+		(*Indices)[CurrentPosition++] = Index0;
+		(*Indices)[CurrentPosition++] = Index1;
+		(*Indices)[CurrentPosition++] = Index2;
 	}
 
 	void AddIndex(int32 Index)
 	{
-		if ((CurrentPosition + 1 + 1) >= Indices->Num())
+		if ((CurrentPosition + 1) >= Indices->Num())
 		{
-			Indices->SetNum(CurrentPosition + 1 + 1);
+			Indices->SetNum(CurrentPosition + 1);
 		}
-		(*Indices)[++CurrentPosition] = Index;
+		(*Indices)[CurrentPosition++] = Index;
+	}
+	int32 ReadOne() const
+	{
+		return (*Indices)[const_cast<FRuntimeMeshIndicesBuilder*>(this)->CurrentPosition++];
 	}
 
-	int32 GetIndex() const
+	int32 GetIndex(int32 Position) const
 	{
+		const_cast<FRuntimeMeshIndicesBuilder*>(this)->CurrentPosition = Position;
 		return (*Indices)[CurrentPosition];
 	}
 
 	int32 TriangleLength() const { return Length() / 3; }
 	int32 Length() const { return Indices->Num(); }
+
+	bool HasRemaining() const { return CurrentPosition < Indices->Num(); }
 	
 	void Seek(int32 Position) const
 	{
 		const_cast<FRuntimeMeshIndicesBuilder*>(this)->CurrentPosition = Position;
 	}
-	int32 MoveNext() const
+	void Reset(int32 NewSize = 0)
 	{
-		return ++const_cast<FRuntimeMeshIndicesBuilder*>(this)->CurrentPosition;
-	}
-	int32 MoveNextOrAdd()
-	{
-		return ++CurrentPosition;
-	}
-	void Reset()
-	{
-		Indices->Reset();
-		CurrentPosition = -1;
+		Indices->Reset(NewSize);
+		CurrentPosition = 0;
 	}
 
 	TArray<int32>* GetIndices()

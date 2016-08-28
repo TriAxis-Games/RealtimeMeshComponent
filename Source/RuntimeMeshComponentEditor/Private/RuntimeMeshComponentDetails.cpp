@@ -134,10 +134,10 @@ FReply FRuntimeMeshComponentDetails::ClickedOnConvertToStaticMesh()
 				}
  
  				// Copy 'wedge' info
-				Indices->Seek(-1);
-				while (Indices->MoveNext() < Indices->Length())
+				Indices->Seek(0);
+				while (Indices->HasRemaining())
  				{
-					int32 Index = Indices->GetIndex();
+					int32 Index = Indices->ReadOne();
  
  					RawMesh.WedgeIndices.Add(Index + VertexBase);
  
