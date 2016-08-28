@@ -7,6 +7,7 @@
 #include "RuntimeMeshProfiling.h"
 #include "RuntimeMeshVersion.h"
 #include "RuntimeMeshSectionProxy.h"
+#include "RuntimeMeshBuilder.h"
 
 /** Interface class for a single mesh section */
 class FRuntimeMeshSectionInterface
@@ -140,6 +141,7 @@ protected:
 	// This is only meant for internal use for supporting the old style create/update sections
 	virtual bool UpdateVertexBufferInternal(const TArray<FVector>& Positions, const TArray<FVector>& Normals, const TArray<FRuntimeMeshTangent>& Tangents, const TArray<FVector2D>& UV0, const TArray<FVector2D>& UV1, const TArray<FColor>& Colors) { return false; }
 	
+	virtual void GetSectionMesh(const IRuntimeMeshVerticesBuilder*& Vertices, const FRuntimeMeshIndicesBuilder*& Indices) = 0;
 
 	virtual const FRuntimeMeshVertexTypeInfo* GetVertexType() const = 0;
 
@@ -362,6 +364,12 @@ protected:
 	virtual int32 GetAllVertexPositions(TArray<FVector>& Positions) override
 	{
 		return RuntimeMeshSectionInternal::GetAllVertexPositions<VertexType>(VertexBuffer, PositionVertexBuffer, Positions);
+	}
+
+	virtual void GetSectionMesh(const IRuntimeMeshVerticesBuilder*& Vertices, const FRuntimeMeshIndicesBuilder*& Indices) override
+	{
+		Vertices = new FRuntimeMeshPackedVerticesBuilder<VertexType>(&VertexBuffer);
+		Indices = new FRuntimeMeshIndicesBuilder(&IndexBuffer);
 	}
 
 	virtual const FRuntimeMeshVertexTypeInfo* GetVertexType() const { return &VertexType::TypeInfo; }

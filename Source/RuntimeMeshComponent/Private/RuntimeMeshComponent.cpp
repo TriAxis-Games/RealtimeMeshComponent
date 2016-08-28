@@ -1529,6 +1529,13 @@ void URuntimeMeshComponent::EndBatchUpdates()
 
 
 
+void URuntimeMeshComponent::GetSectionMesh(int32 SectionIndex, const IRuntimeMeshVerticesBuilder*& Vertices, const FRuntimeMeshIndicesBuilder*& Indices)
+{
+	RMC_VALIDATE_UPDATEPARAMETERS(SectionIndex, /*VoidReturn*/);
+
+	MeshSections[SectionIndex]->GetSectionMesh(Vertices, Indices); 
+}
+
 
 
 

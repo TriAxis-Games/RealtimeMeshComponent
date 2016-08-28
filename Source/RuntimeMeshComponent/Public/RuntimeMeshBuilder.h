@@ -56,7 +56,7 @@ public:
 	FRuntimeMeshPackedVerticesBuilder()
 		: bOwnsVertexArray(true), Vertices(new TArray<VertexType>()), CurrentPosition(-1)
 	{ }
-	FRuntimeMeshPackedVerticesBuilder(TArray<VertexType>*& InVertices)
+	FRuntimeMeshPackedVerticesBuilder(TArray<VertexType>* InVertices)
 		: bOwnsVertexArray(false), Vertices(InVertices), CurrentPosition(-1)
 	{ }
 	FRuntimeMeshPackedVerticesBuilder(const FRuntimeMeshPackedVerticesBuilder& Other) = delete;
@@ -166,13 +166,11 @@ public:
 	virtual int32 Length() const override { return Vertices->Num(); }
 	virtual void Seek(int32 Position) const override 
 	{ 
-		check(Position < Vertices->Num());
-		CurrentPosition = Position; 
+		const_cast<FRuntimeMeshPackedVerticesBuilder<VertexType>*>(this)->CurrentPosition = Position;
 	}
 	virtual int32 MoveNext() const override
 	{
-		check((CurrentPosition + 1) < Vertices->Num());
-		return ++CurrentPosition; 
+		return ++const_cast<FRuntimeMeshPackedVerticesBuilder<VertexType>*>(this)->CurrentPosition;
 	}
 	virtual int32 MoveNextOrAdd() override
 	{
@@ -493,12 +491,10 @@ public:
 	virtual int32 Length() const override { return Positions->Num(); }
 	virtual void Seek(int32 Position) const override
 	{
-		check(Position < Positions->Num());
 		const_cast<FRuntimeMeshComponentVerticesBuilder*>(this)->CurrentPosition = Position;
 	}
 	virtual int32 MoveNext() const override
 	{
-		check((CurrentPosition + 1) < Positions->Num());
 		return ++const_cast<FRuntimeMeshComponentVerticesBuilder*>(this)->CurrentPosition;
 	}
 	virtual int32 MoveNextOrAdd() override
@@ -520,7 +516,7 @@ public:
 	FRuntimeMeshIndicesBuilder()
 		: bOwnsIndexArray(true), Indices(new TArray<int32>()), CurrentPosition(-1)
 	{ }
-	FRuntimeMeshIndicesBuilder(TArray<int32>*& InVertices)
+	FRuntimeMeshIndicesBuilder(TArray<int32>* InVertices)
 		: bOwnsIndexArray(false), Indices(InVertices), CurrentPosition(-1)
 	{ }
 	FRuntimeMeshIndicesBuilder(const FRuntimeMeshIndicesBuilder& Other) = delete;
@@ -556,16 +552,19 @@ public:
 		(*Indices)[++CurrentPosition] = Index;
 	}
 
+	int32 GetIndex() const
+	{
+		return (*Indices)[CurrentPosition];
+	}
+
 	int32 TriangleLength() const { return Length() / 3; }
 	int32 Length() const { return Indices->Num(); }
 	virtual void Seek(int32 Position) const
 	{
-		check(Position < Indices->Num());
 		const_cast<FRuntimeMeshIndicesBuilder*>(this)->CurrentPosition = Position;
 	}
 	virtual int32 MoveNext() const
 	{
-		check((CurrentPosition + 1) < Indices->Num());
 		return ++const_cast<FRuntimeMeshIndicesBuilder*>(this)->CurrentPosition;
 	}
 	virtual int32 MoveNextOrAdd()

@@ -6,6 +6,7 @@
 #include "RuntimeMeshCore.h"
 #include "RuntimeMeshSection.h"
 #include "RuntimeMeshGenericVertex.h"
+#include "RuntimeMeshBuilder.h"
 #include "PhysicsEngine/ConvexElem.h"
 #include "RuntimeMeshComponent.generated.h"
 
@@ -896,7 +897,7 @@ public:
 	void EndMeshSectionUpdate(int32 SectionIndex, ERuntimeMeshBuffer UpdatedBuffers, const FBox& BoundingBox);
 	
 
-
+	void GetSectionMesh(int32 SectionIndex, const IRuntimeMeshVerticesBuilder*& Vertices, const FRuntimeMeshIndicesBuilder*& Indices);
 
 
 
