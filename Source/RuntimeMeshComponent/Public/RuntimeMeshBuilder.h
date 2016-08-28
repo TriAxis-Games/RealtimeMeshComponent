@@ -41,6 +41,8 @@ public:
 	virtual void Seek(int32 Position) const = 0;
 	virtual int32 MoveNext() const = 0;
 	virtual int32 MoveNextOrAdd() = 0;
+
+	virtual void Reset() = 0;
 };
 
 
@@ -180,6 +182,17 @@ public:
 			Vertices->SetNumZeroed(CurrentPosition + 1, false);
 		}
 		return CurrentPosition;
+	}
+
+	virtual void Reset() override
+	{
+		Vertices->Reset();
+		CurrentPosition = -1;
+	}
+
+	TArray<VertexType>* GetVertices()
+	{
+		return Vertices;
 	}
 
 
@@ -501,7 +514,18 @@ public:
 	{
 		return ++CurrentPosition;
 	}
-	
+
+
+	virtual void Reset() override
+	{
+		Positions->Reset();
+		Normals->Reset();
+		Tangents->Reset();
+		Colors->Reset();
+		UV0s->Reset();
+		UV1s->Reset();
+		CurrentPosition = -1;
+	}
 };
 
 
@@ -559,16 +583,27 @@ public:
 
 	int32 TriangleLength() const { return Length() / 3; }
 	int32 Length() const { return Indices->Num(); }
-	virtual void Seek(int32 Position) const
+	
+	void Seek(int32 Position) const
 	{
 		const_cast<FRuntimeMeshIndicesBuilder*>(this)->CurrentPosition = Position;
 	}
-	virtual int32 MoveNext() const
+	int32 MoveNext() const
 	{
 		return ++const_cast<FRuntimeMeshIndicesBuilder*>(this)->CurrentPosition;
 	}
-	virtual int32 MoveNextOrAdd()
+	int32 MoveNextOrAdd()
 	{
 		return ++CurrentPosition;
+	}
+	void Reset()
+	{
+		Indices->Reset();
+		CurrentPosition = -1;
+	}
+
+	TArray<int32>* GetIndices()
+	{
+		return Indices;
 	}
 };

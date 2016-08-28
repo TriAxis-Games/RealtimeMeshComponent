@@ -28,6 +28,25 @@ class RUNTIMEMESHCOMPONENT_API URuntimeMeshLibrary : public UBlueprintFunctionLi
 	/** Generate vertex and index buffer for a simple box, given the supplied dimensions. Normals, UVs and tangents are also generated for each vertex. */
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
 	static void CreateBoxMesh(FVector BoxRadius, TArray<FVector>& Vertices, TArray<int32>& Triangles, TArray<FVector>& Normals, TArray<FVector2D>& UVs, TArray<FRuntimeMeshTangent>& Tangents);
+	
+
+
+
+	static void GetSectionFromStaticMesh(UStaticMesh* InMesh, int32 LODIndex, int32 SectionIndex,
+		IRuntimeMeshVerticesBuilder* Vertices, FRuntimeMeshIndicesBuilder* Triangles);
+
+	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
+	static void CopyRuntimeMeshFromStaticMeshComponent(UStaticMeshComponent* StaticMeshComp, int32 LODIndex, 
+		URuntimeMeshComponent* RuntimeMeshComp, bool bShouldCreateCollision);
+
+	
+// 	/** Grab geometry data from a StaticMesh asset. */
+// 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
+// 	static void GetSectionFromStaticMesh(UStaticMesh* InMesh, int32 LODIndex, int32 SectionIndex, TArray<FVector>& Vertices, TArray<int32>& Triangles, TArray<FVector>& Normals, TArray<FVector2D>& UVs, TArray<FProcMeshTangent>& Tangents);
+// 
+// 	/** Copy materials from StaticMeshComponent to ProceduralMeshComponent. */
+// 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
+// 	static void CopyRuntimeMeshFromStaticMeshComponent(UStaticMeshComponent* StaticMeshComponent, int32 LODIndex, UProceduralMeshComponent* ProcMeshComponent, bool bCreateCollision);
 
 	
 };

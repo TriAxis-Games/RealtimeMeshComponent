@@ -24,6 +24,9 @@ DECLARE_CYCLE_STAT(TEXT("CreateMeshSection<VertexType> (GT)"), STAT_RuntimeMesh_
 DECLARE_CYCLE_STAT(TEXT("CreateMeshSection<VertexType> (With Bounding Box) (GT)"), STAT_RuntimeMesh_CreateMeshSection_VertexType_WithBoundingBox, STATGROUP_RuntimeMesh);
 DECLARE_CYCLE_STAT(TEXT("CreateMeshSectionDualBuffer<VertexType> (GT)"), STAT_RuntimeMesh_CreateMeshSectionDualBuffer_VertexType, STATGROUP_RuntimeMesh);
 DECLARE_CYCLE_STAT(TEXT("CreateMeshSectionDualBuffer<VertexType> (With Bounding Box) (GT)"), STAT_RuntimeMesh_CreateMeshSectionDualBuffer_VertexType_WithBoundingBox, STATGROUP_RuntimeMesh);
+DECLARE_CYCLE_STAT(TEXT("CreateMeshSection<VertexType> (From Mesh Builder) (GT)"), STAT_RuntimeMesh_CreateMeshSection_VertexType_FromMeshBuilder, STATGROUP_RuntimeMesh);
+
+
 
 DECLARE_CYCLE_STAT(TEXT("CreateMeshSection (GT)"), STAT_RuntimeMesh_CreateMeshSection, STATGROUP_RuntimeMesh);
 DECLARE_CYCLE_STAT(TEXT("CreateMeshSection (GT)"), STAT_RuntimeMesh_CreateMeshSection_DualUV, STATGROUP_RuntimeMesh);

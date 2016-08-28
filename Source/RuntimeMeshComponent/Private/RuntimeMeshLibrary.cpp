@@ -2,7 +2,12 @@
 
 #include "RuntimeMeshComponentPluginPrivatePCH.h"
 #include "RuntimeMeshLibrary.h"
+#include "MessageLog.h"
+#include "UObjectToken.h"
+#include "StaticMeshResources.h"
+#include "GeomTools.h"
 
+#define LOCTEXT_NAMESPACE "RuntimeMeshLibrary"
 
 
 URuntimeMeshLibrary::URuntimeMeshLibrary(const FObjectInitializer& ObjectInitializer)
@@ -138,3 +143,172 @@ void URuntimeMeshLibrary::CreateBoxMesh(FVector BoxRadius, TArray<FVector>& Vert
 	UVs[3] = UVs[7] = UVs[11] = UVs[15] = UVs[19] = UVs[23] = FVector2D(1.f, 0.f);
 }
 
+
+
+static int32 GetNewIndexForOldVertIndex(int32 MeshVertIndex, TMap<int32, int32>& MeshToSectionVertMap, const FPositionVertexBuffer* PosBuffer, const FStaticMeshVertexBuffer* VertBuffer, const FColorVertexBuffer* ColorBuffer, IRuntimeMeshVerticesBuilder* Vertices, FRuntimeMeshIndicesBuilder* Triangles)
+{
+	int32* NewIndexPtr = MeshToSectionVertMap.Find(MeshVertIndex);
+	if (NewIndexPtr != nullptr)
+	{
+		return *NewIndexPtr;
+	}
+	else
+	{
+		// Copy position
+		int32 SectionVertIndex = Vertices->MoveNextOrAdd();
+
+		Vertices->SetPosition(PosBuffer->VertexPosition(MeshVertIndex));
+		Vertices->SetNormal(VertBuffer->VertexTangentZ(MeshVertIndex));
+		Vertices->SetTangent(VertBuffer->VertexTangentX(MeshVertIndex));
+		if (ColorBuffer && ColorBuffer->GetNumVertices())
+		{
+			Vertices->SetColor(ColorBuffer->VertexColor(MeshVertIndex));
+		}
+
+		// copy all uv channels
+		for (uint32 Index = 0; Index < VertBuffer->GetNumTexCoords(); Index++)
+		{
+			Vertices->SetUV(Index, VertBuffer->GetVertexUV(MeshVertIndex, Index));
+		}
+
+		MeshToSectionVertMap.Add(MeshVertIndex, SectionVertIndex);
+
+		return SectionVertIndex;
+	}
+}
+
+
+
+void URuntimeMeshLibrary::GetSectionFromStaticMesh(UStaticMesh* InMesh, int32 LODIndex, int32 SectionIndex,
+	IRuntimeMeshVerticesBuilder* Vertices, FRuntimeMeshIndicesBuilder* Triangles)
+{
+	if (InMesh)
+	{
+#if !WITH_EDITOR && (ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION >= 13)
+		if (!InMesh->bAllowCPUAccess)
+		{
+			FMessageLog("PIE").Warning()
+				->AddToken(FTextToken::Create(LOCTEXT("GetSectionFromStaticMeshStart", "Calling GetSectionFromStaticMesh on")))
+				->AddToken(FUObjectToken::Create(InMesh))
+				->AddToken(FTextToken::Create(LOCTEXT("GetSectionFromStaticMeshEnd", "but 'Allow CPU Access' is not enabled. This is required for converting StaticMesh to RuntimeMeshComponent in cooked builds.")));
+		}
+		else 
+#endif
+#if WITH_EDITOR || (ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION >= 13)
+		if (InMesh->RenderData != nullptr && InMesh->RenderData->LODResources.IsValidIndex(LODIndex))
+		{
+			const FStaticMeshLODResources& LOD = InMesh->RenderData->LODResources[LODIndex];
+			if (LOD.Sections.IsValidIndex(SectionIndex))
+			{
+				// Empty output buffers
+				Vertices->Reset();
+				Triangles->Reset();
+
+				// Map from vert buffer for whole mesh to vert buffer for section of interest
+				TMap<int32, int32> MeshToSectionVertMap;
+
+				const FStaticMeshSection& Section = LOD.Sections[SectionIndex];
+				const uint32 OnePastLastIndex = Section.FirstIndex + Section.NumTriangles * 3;
+				FIndexArrayView Indices = LOD.IndexBuffer.GetArrayView();
+
+				// Iterate over section index buffer, copying verts as needed
+				for (uint32 i = Section.FirstIndex; i < OnePastLastIndex; i++)
+				{
+					uint32 MeshVertIndex = Indices[i];
+
+					// See if we have this vert already in our section vert buffer, and copy vert in if not 
+					int32 SectionVertIndex = GetNewIndexForOldVertIndex(MeshVertIndex, MeshToSectionVertMap, &LOD.PositionVertexBuffer, &LOD.VertexBuffer, &LOD.ColorVertexBuffer, Vertices, Triangles);
+
+					// Add to index buffer
+					Triangles->AddIndex(SectionVertIndex);
+				}
+			}
+		}
+#endif
+	}
+}
+
+void URuntimeMeshLibrary::CopyRuntimeMeshFromStaticMeshComponent(UStaticMeshComponent* StaticMeshComp, int32 LODIndex,
+	URuntimeMeshComponent* RuntimeMeshComp, bool bShouldCreateCollision)
+{
+	if (StaticMeshComp != nullptr && StaticMeshComp->StaticMesh != nullptr && RuntimeMeshComp != nullptr)
+	{
+		UStaticMesh* StaticMesh = StaticMeshComp->StaticMesh;
+
+		//// MESH DATA
+
+		// Make sure LOD index is valid
+		if (StaticMesh->RenderData == nullptr || !StaticMesh->RenderData->LODResources.IsValidIndex(LODIndex))
+		{
+			return;
+		}
+		
+		int32 NumSections = StaticMesh->GetNumSections(LODIndex);
+		for (int32 SectionIndex = 0; SectionIndex < NumSections; SectionIndex++)
+		{
+			// Buffers for copying geom data
+			const FStaticMeshLODResources& LOD = StaticMesh->RenderData->LODResources[LODIndex];
+			if (LOD.Sections.IsValidIndex(SectionIndex))
+			{
+				int32 NumUVChannels = LOD.GetNumTexCoords();
+
+				if (NumUVChannels <= 1)
+				{
+					FRuntimeMeshPackedVerticesBuilder<FRuntimeMeshVertexSimple> Vertices;
+					FRuntimeMeshIndicesBuilder Triangles;
+
+					// Get geom data from static mesh
+					GetSectionFromStaticMesh(StaticMesh, LODIndex, SectionIndex, &Vertices, &Triangles);
+
+					// Create section using data
+					RuntimeMeshComp->CreateMeshSection(SectionIndex, &Vertices, &Triangles,
+						bShouldCreateCollision, EUpdateFrequency::Infrequent, ESectionUpdateFlags::MoveArrays);
+				}
+				else
+				{
+					FRuntimeMeshPackedVerticesBuilder<FRuntimeMeshVertexDualUV> Vertices;
+					FRuntimeMeshIndicesBuilder Triangles;
+
+					// Get geom data from static mesh
+					GetSectionFromStaticMesh(StaticMesh, LODIndex, SectionIndex, &Vertices, &Triangles);
+
+					// Create section using data
+					RuntimeMeshComp->CreateMeshSection(SectionIndex, &Vertices, &Triangles,
+						bShouldCreateCollision, EUpdateFrequency::Infrequent, ESectionUpdateFlags::MoveArrays);
+				}
+			}
+		}
+
+		//// SIMPLE COLLISION
+
+		// Clear any existing collision hulls
+		RuntimeMeshComp->ClearCollisionConvexMeshes();
+
+		if (StaticMesh->BodySetup != nullptr)
+		{
+			// Iterate over all convex hulls on static mesh..
+			const int32 NumConvex = StaticMesh->BodySetup->AggGeom.ConvexElems.Num();
+			for (int ConvexIndex = 0; ConvexIndex < NumConvex; ConvexIndex++)
+			{
+				// Copy convex verts to ProcMesh
+				FKConvexElem& MeshConvex = StaticMesh->BodySetup->AggGeom.ConvexElems[ConvexIndex];
+				RuntimeMeshComp->AddCollisionConvexMesh(MeshConvex.VertexData);
+			}
+		}
+
+		//// MATERIALS
+
+		for (int32 MatIndex = 0; MatIndex < StaticMeshComp->GetNumMaterials(); MatIndex++)
+		{
+			RuntimeMeshComp->SetMaterial(MatIndex, StaticMeshComp->GetMaterial(MatIndex));
+		}
+	}
+}
+
+
+
+
+
+
+
+#undef LOCTEXT_NAMESPACE

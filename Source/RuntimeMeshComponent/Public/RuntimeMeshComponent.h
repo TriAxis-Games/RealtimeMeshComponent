@@ -278,6 +278,31 @@ public:
 		CreateSectionInternal(SectionIndex);
 	}
 	
+	template<typename VertexType>
+	void CreateMeshSection(int32 SectionIndex, FRuntimeMeshPackedVerticesBuilder<VertexType>* Vertices, FRuntimeMeshIndicesBuilder* Triangles, bool bCreateCollision = false,
+		EUpdateFrequency UpdateFrequency = EUpdateFrequency::Average, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
+	{
+		SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_CreateMeshSection_VertexType_FromMeshBuilder);
+
+		// Validate all creation parameters
+		RMC_VALIDATE_CREATIONPARAMETERS(SectionIndex, (*Vertices->GetVertices()), (*Triangles->GetIndices()), /*VoidReturn*/);
+
+		TSharedPtr<FRuntimeMeshSection<VertexType>> Section = CreateOrResetSection<FRuntimeMeshSection<VertexType>>(SectionIndex, false);
+
+		bool bShouldUseMove = (UpdateFlags & ESectionUpdateFlags::MoveArrays) != ESectionUpdateFlags::None;
+		Section->UpdateVertexBuffer(*Vertices->GetVertices(), nullptr, bShouldUseMove);
+		Section->UpdateIndexBuffer(*Triangles->GetIndices(), bShouldUseMove);
+
+		// Track collision status and update collision information if necessary
+		Section->CollisionEnabled = bCreateCollision;
+		Section->UpdateFrequency = UpdateFrequency;
+
+		// Finalize section.
+		CreateSectionInternal(SectionIndex);
+
+	}
+
+
 	/**
 	*	Updates a section. This is faster than CreateMeshSection. If this is a dual buffer section, you cannot change the length of the vertices.
 	*	@param	SectionIndex		Index of the section to update.
