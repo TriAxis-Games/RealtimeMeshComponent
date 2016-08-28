@@ -17,13 +17,13 @@ public:
 	virtual ~IRuntimeMeshVerticesBuilder() { }
 
 
-	virtual bool HasPositionComponent() = 0;
-	virtual bool HasNormalComponent() = 0;
-	virtual bool HasTangentComponent() = 0;
-	virtual bool HasColorComponent() = 0;
-	virtual bool HasUVComponent(int32 Index) = 0;
-	virtual bool HasHighPrecisionNormals() = 0;
-	virtual bool HasHighPrecisionUVs() = 0;
+	virtual bool HasPositionComponent() const = 0;
+	virtual bool HasNormalComponent() const = 0;
+	virtual bool HasTangentComponent() const = 0;
+	virtual bool HasColorComponent() const = 0;
+	virtual bool HasUVComponent(int32 Index) const = 0;
+	virtual bool HasHighPrecisionNormals() const = 0;
+	virtual bool HasHighPrecisionUVs() const = 0;
 
 	virtual void SetPosition(const FVector& InPosition) = 0;
 	virtual void SetNormal(const FVector4& InNormal) = 0;
@@ -31,15 +31,16 @@ public:
 	virtual void SetColor(const FColor& InColor) = 0;
 	virtual void SetUV(int32 Index, const FVector2D& InUV) = 0;
 
-	virtual FVector GetPosition() = 0;
-	virtual FVector4 GetNormal() = 0;
-	virtual FVector GetTangent() = 0;
-	virtual FColor GetColor() = 0;
-	virtual FVector2D GetUV(int32 Index) = 0;
+	virtual FVector GetPosition() const = 0;
+	virtual FVector4 GetNormal() const = 0;
+	virtual FVector GetTangent() const = 0;
+	virtual FColor GetColor() const = 0;
+	virtual FVector2D GetUV(int32 Index) const = 0;
 
-	virtual int32 Length() = 0;
-	virtual void Seek(int32 Position) = 0;
-	virtual int32 MoveNext() = 0;
+	virtual int32 Length() const = 0;
+	virtual void Seek(int32 Position) const = 0;
+	virtual int32 MoveNext() const = 0;
+	virtual int32 MoveNextOrAdd() = 0;
 };
 
 
@@ -69,11 +70,11 @@ public:
 	}
 
 
-	virtual bool HasPositionComponent() override { return FRuntimeMeshVertexTraits<VertexType>::HasPosition; }
-	virtual bool HasNormalComponent() override { return FRuntimeMeshVertexTraits<VertexType>::HasNormal; }
-	virtual bool HasTangentComponent() override { return FRuntimeMeshVertexTraits<VertexType>::HasTangent; }
-	virtual bool HasColorComponent() override { return FRuntimeMeshVertexTraits<VertexType>::HasColor; }
-	virtual bool HasUVComponent(int32 Index) override
+	virtual bool HasPositionComponent() const override { return FRuntimeMeshVertexTraits<VertexType>::HasPosition; }
+	virtual bool HasNormalComponent() const override { return FRuntimeMeshVertexTraits<VertexType>::HasNormal; }
+	virtual bool HasTangentComponent() const override { return FRuntimeMeshVertexTraits<VertexType>::HasTangent; }
+	virtual bool HasColorComponent() const override { return FRuntimeMeshVertexTraits<VertexType>::HasColor; }
+	virtual bool HasUVComponent(int32 Index) const override
 	{
 		switch (Index)
 		{
@@ -96,8 +97,8 @@ public:
 		}
 		return false;
 	}
-	virtual bool HasHighPrecisionNormals() override { return FRuntimeMeshVertexTraits<VertexType>::HasHighPrecisionNormals; }
-	virtual bool HasHighPrecisionUVs() override { return FRuntimeMeshVertexTraits<VertexType>::HasHighPrecisionUVs; }
+	virtual bool HasHighPrecisionNormals() const override { return FRuntimeMeshVertexTraits<VertexType>::HasHighPrecisionNormals; }
+	virtual bool HasHighPrecisionUVs() const override { return FRuntimeMeshVertexTraits<VertexType>::HasHighPrecisionUVs; }
 
 	virtual void SetPosition(const FVector& InPosition) override { SetPositionInternal<VertexType>((*Vertices)[CurrentPosition], InPosition); }
 	virtual void SetNormal(const FVector4& InNormal) override { SetNormalInternal<VertexType>((*Vertices)[CurrentPosition], InNormal); }
@@ -134,11 +135,11 @@ public:
 		}
 	}
 
-	virtual FVector GetPosition() override { return GetPositionInternal<VertexType>((*Vertices)[CurrentPosition]); }
-	virtual FVector4 GetNormal() override { return GetNormalInternal<VertexType>((*Vertices)[CurrentPosition]); }
-	virtual FVector GetTangent() override { return GetTangentInternal<VertexType>((*Vertices)[CurrentPosition]); }
-	virtual FColor GetColor() override { return GetColorInternal<VertexType>((*Vertices)[CurrentPosition]); }
-	virtual FVector2D GetUV(int32 Index) override
+	virtual FVector GetPosition() const override { return GetPositionInternal<VertexType>((*Vertices)[CurrentPosition]); }
+	virtual FVector4 GetNormal() const override { return GetNormalInternal<VertexType>((*Vertices)[CurrentPosition]); }
+	virtual FVector GetTangent() const override { return GetTangentInternal<VertexType>((*Vertices)[CurrentPosition]); }
+	virtual FColor GetColor() const override { return GetColorInternal<VertexType>((*Vertices)[CurrentPosition]); }
+	virtual FVector2D GetUV(int32 Index) const override
 	{
 		switch (Index)
 		{
@@ -162,16 +163,25 @@ public:
 		return FVector2D::ZeroVector;
 	}
 
-	virtual int32 Length() override { return Vertices->Num(); }
-	virtual void Seek(int32 Position) override { CurrentPosition = Position; }
-	virtual int32 MoveNext() override 
+	virtual int32 Length() const override { return Vertices->Num(); }
+	virtual void Seek(int32 Position) const override 
 	{ 
+		check(Position < Vertices->Num());
+		CurrentPosition = Position; 
+	}
+	virtual int32 MoveNext() const override
+	{
+		check((CurrentPosition + 1) < Vertices->Num());
+		return ++CurrentPosition; 
+	}
+	virtual int32 MoveNextOrAdd() override
+	{
 		CurrentPosition++;
 		if (CurrentPosition >= Vertices->Num())
 		{
 			Vertices->SetNumZeroed(CurrentPosition + 1, false);
 		}
-		return CurrentPosition; 
+		return CurrentPosition;
 	}
 
 
@@ -188,12 +198,12 @@ private:
 
 	}	
 	template<typename Type>
-	static typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasPosition, FVector>::Type GetPositionInternal(Type& Vertex)
+	static typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasPosition, FVector>::Type GetPositionInternal(const Type& Vertex)
 	{
 		return Vertex.Position;
 	}
 	template<typename Type>
-	static typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasPosition, FVector>::Type GetPositionInternal(Type& Vertex)
+	static typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasPosition, FVector>::Type GetPositionInternal(const Type& Vertex)
 	{
 		return FVector::ZeroVector;
 	}
@@ -210,12 +220,12 @@ private:
 
 	}
 	template<typename Type>
-	static typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasNormal, FVector4>::Type GetNormalInternal(Type& Vertex)
+	static typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasNormal, FVector4>::Type GetNormalInternal(const Type& Vertex)
 	{
 		return Vertex.Normal;
 	}
 	template<typename Type>
-	static typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasNormal, FVector4>::Type GetNormalInternal(Type& Vertex)
+	static typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasNormal, FVector4>::Type GetNormalInternal(const Type& Vertex)
 	{
 		return FVector::ZeroVector;
 	}
@@ -232,12 +242,12 @@ private:
 
 	}
 	template<typename Type>
-	static typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasTangent, FVector4>::Type GetTangentInternal(Type& Vertex)
+	static typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasTangent, FVector4>::Type GetTangentInternal(const Type& Vertex)
 	{
 		return Vertex.Tangent;
 	}
 	template<typename Type>
-	static typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasTangent, FVector4>::Type GetTangentInternal(Type& Vertex)
+	static typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasTangent, FVector4>::Type GetTangentInternal(const Type& Vertex)
 	{
 		return FVector::ZeroVector;
 	}
@@ -254,12 +264,12 @@ static typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasColor>::Type SetCo
 
 }
 template<typename Type>
-static typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasColor, FColor>::Type GetColorInternal(Type& Vertex)
+static typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasColor, FColor>::Type GetColorInternal(const Type& Vertex)
 {
 	return Vertex.Color;
 }
 template<typename Type>
-static typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasColor, FColor>::Type GetColorInternal(Type& Vertex)
+static typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasColor, FColor>::Type GetColorInternal(const Type& Vertex)
 {
 	return FColor::Transparent;
 }
@@ -277,12 +287,12 @@ static typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasColor, FColor>::Ty
 	{																																				\
 	}																																				\
 	template<typename Type>																															\
-	static typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasUV##Index, FVector2D>::Type GetUV##Index##Internal(Type& Vertex)						\
+	static typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasUV##Index, FVector2D>::Type GetUV##Index##Internal(const Type& Vertex)						\
 	{																																				\
 		return Vertex.UV##Index;																													\
 	}																																				\
 	template<typename Type>																															\
-	static typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasUV##Index, FVector2D>::Type GetUV##Index##Internal(Type& Vertex)					\
+	static typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasUV##Index, FVector2D>::Type GetUV##Index##Internal(const Type& Vertex)					\
 	{																																				\
 		return FVector2D::ZeroVector;																												\
 	}																																				
@@ -353,11 +363,11 @@ public:
 	}
 
 
-	virtual bool HasPositionComponent() override { return Positions != nullptr; }
-	virtual bool HasNormalComponent() override { return Normals != nullptr; }
-	virtual bool HasTangentComponent() override { return Tangents != nullptr; }
-	virtual bool HasColorComponent() override { return Colors != nullptr; }
-	virtual bool HasUVComponent(int32 Index) override
+	virtual bool HasPositionComponent() const override { return Positions != nullptr; }
+	virtual bool HasNormalComponent() const override { return Normals != nullptr; }
+	virtual bool HasTangentComponent() const override { return Tangents != nullptr; }
+	virtual bool HasColorComponent() const override { return Colors != nullptr; }
+	virtual bool HasUVComponent(int32 Index) const override
 	{
 		switch (Index)
 		{
@@ -369,8 +379,8 @@ public:
 			return false;
 		}
 	}
-	virtual bool HasHighPrecisionNormals() override { return false; }
-	virtual bool HasHighPrecisionUVs() override { return true; }
+	virtual bool HasHighPrecisionNormals() const override { return false; }
+	virtual bool HasHighPrecisionUVs() const override { return true; }
 
 	virtual void SetPosition(const FVector& InPosition) override 
 	{
@@ -445,28 +455,28 @@ public:
 		}
 	}
 
-	virtual FVector GetPosition() override
+	virtual FVector GetPosition() const override
 	{
 		check(Positions && Positions->Num() > CurrentPosition);
 		return (*Positions)[CurrentPosition];
 	}
-	virtual FVector4 GetNormal() override
+	virtual FVector4 GetNormal() const override
 	{
 		check(Normals && Normals->Num() > CurrentPosition);
 		float W = (Tangents && Tangents->Num() > CurrentPosition) ? ((*Tangents)[CurrentPosition].bFlipTangentY ? -1.0f : 1.0f) : 1.0f;
 		return FVector4((*Normals)[CurrentPosition], W);
 	}
-	virtual FVector GetTangent() override
+	virtual FVector GetTangent() const override
 	{
 		check(Tangents && Tangents->Num() > CurrentPosition);
 		return (*Tangents)[CurrentPosition].TangentX;
 	}
-	virtual FColor GetColor() override
+	virtual FColor GetColor() const override
 	{
 		check(Colors && Colors->Num() > CurrentPosition);
 		return (*Colors)[CurrentPosition];
 	}
-	virtual FVector2D GetUV(int32 Index) override
+	virtual FVector2D GetUV(int32 Index) const override
 	{
 		switch (Index)
 		{
@@ -480,14 +490,21 @@ public:
 		return FVector2D::ZeroVector;
 	}
 
-	virtual int32 Length() override { return Positions->Num(); }
-	virtual void Seek(int32 Position) override { CurrentPosition = Position; }
-	virtual int32 MoveNext() override
+	virtual int32 Length() const override { return Positions->Num(); }
+	virtual void Seek(int32 Position) const override
+	{
+		check(Position < Positions->Num());
+		const_cast<FRuntimeMeshComponentVerticesBuilder*>(this)->CurrentPosition = Position;
+	}
+	virtual int32 MoveNext() const override
+	{
+		check((CurrentPosition + 1) < Positions->Num());
+		return ++const_cast<FRuntimeMeshComponentVerticesBuilder*>(this)->CurrentPosition;
+	}
+	virtual int32 MoveNextOrAdd() override
 	{
 		return ++CurrentPosition;
 	}
-
-
 	
 };
 
@@ -539,8 +556,20 @@ public:
 		(*Indices)[++CurrentPosition] = Index;
 	}
 
-	int32 TriangleLength() { return Length() / 3; }
-	int32 Length() { return Indices->Num(); }
-	void Seek(int32 Position) { CurrentPosition = Position - 1; }
-	int32 MoveNext() { CurrentPosition++; }
+	int32 TriangleLength() const { return Length() / 3; }
+	int32 Length() const { return Indices->Num(); }
+	virtual void Seek(int32 Position) const
+	{
+		check(Position < Indices->Num());
+		const_cast<FRuntimeMeshIndicesBuilder*>(this)->CurrentPosition = Position;
+	}
+	virtual int32 MoveNext() const
+	{
+		check((CurrentPosition + 1) < Indices->Num());
+		return ++const_cast<FRuntimeMeshIndicesBuilder*>(this)->CurrentPosition;
+	}
+	virtual int32 MoveNextOrAdd()
+	{
+		return ++CurrentPosition;
+	}
 };
