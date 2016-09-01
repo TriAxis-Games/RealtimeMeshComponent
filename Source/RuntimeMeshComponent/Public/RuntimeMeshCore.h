@@ -78,20 +78,17 @@ private:
 	template<typename C> static char(&UV7Check(ChT<FVector2D FallbackUV7::*, &C::UV7>*))[1];
 	template<typename C> static char(&UV7Check(...))[2];
 
-
-
-	template<typename T, typename U>
+	template<typename A, typename B>
 	struct IsSameType
 	{
 		static const bool Value = false;
 	};
 
-	template<typename T>
-	struct IsSameType<T, T>
+	template<typename A>
+	struct IsSameType<A, A>
 	{
 		static const bool Value = true;
 	};
-
 
 	template<bool HasNormal, bool HasTangent, typename Type>
 	struct TangentBasisHighPrecisionDetector
