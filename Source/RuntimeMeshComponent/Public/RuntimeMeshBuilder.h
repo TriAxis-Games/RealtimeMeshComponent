@@ -56,10 +56,10 @@ private:
 public:
 
 	FRuntimeMeshPackedVerticesBuilder()
-		: bOwnsVertexArray(true), Vertices(new TArray<VertexType>()), CurrentPosition(-1)
+		: Vertices(new TArray<VertexType>()), CurrentPosition(-1), bOwnsVertexArray(true)
 	{ }
 	FRuntimeMeshPackedVerticesBuilder(TArray<VertexType>* InVertices)
-		: bOwnsVertexArray(false), Vertices(InVertices), CurrentPosition(-1)
+		: Vertices(InVertices), CurrentPosition(-1), bOwnsVertexArray(false)
 	{ }
 	FRuntimeMeshPackedVerticesBuilder(const FRuntimeMeshPackedVerticesBuilder& Other) = delete;
 	FRuntimeMeshPackedVerticesBuilder& operator=(const FRuntimeMeshPackedVerticesBuilder& Other) = delete;
@@ -338,25 +338,25 @@ private:
 public:
 
 	FRuntimeMeshComponentVerticesBuilder(bool bInWantsNormal, bool bInWantsTangent, bool bInWantsColor, bool bInWantsUV0, bool bInWantsUV1)
-		: bOwnsBuffers(true)
-		, CurrentPosition(-1)
-		, Positions(new TArray<FVector>())
+    	: Positions(new TArray<FVector>())
 		, Normals(bInWantsNormal ? new TArray<FVector>() : nullptr)
 		, Tangents(bInWantsTangent ? new TArray<FRuntimeMeshTangent>() : nullptr)
 		, Colors(bInWantsColor ? new TArray<FColor>() : nullptr)
 		, UV0s(bInWantsUV0 ? new TArray<FVector2D>() : nullptr)
 		, UV1s(bInWantsUV1 ? new TArray<FVector2D>() : nullptr)
+	    , CurrentPosition(-1)
+    	, bOwnsBuffers(true)
 	{ }
 	FRuntimeMeshComponentVerticesBuilder(TArray<FVector>* InPositions, TArray<FVector>* InNormals, TArray<FRuntimeMeshTangent>* InTangents,
 		TArray<FColor>* InColors, TArray<FVector2D>* InUV0s, TArray<FVector2D>* InUV1s)
-		: bOwnsBuffers(false)
-		, CurrentPosition(-1)
-		, Positions(InPositions)
+		: Positions(InPositions)
 		, Normals(InNormals)
 		, Tangents(InTangents)
 		, Colors(InColors)
 		, UV0s(InUV0s)
 		, UV1s(InUV1s)
+	    , CurrentPosition(-1)
+	    , bOwnsBuffers(false)
 	{ }
 	FRuntimeMeshComponentVerticesBuilder(const FRuntimeMeshComponentVerticesBuilder& Other) = delete;
 	FRuntimeMeshComponentVerticesBuilder& operator=(const FRuntimeMeshComponentVerticesBuilder& Other) = delete;
