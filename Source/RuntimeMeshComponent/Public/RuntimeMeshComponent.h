@@ -137,6 +137,10 @@ private:
 public:
 	URuntimeMeshComponent(const FObjectInitializer& ObjectInitializer);
 	
+	virtual bool IsSupportedForNetworking() const override
+	{
+		return true;
+	}
 
 	/**
 	*	Create/replace a section.
