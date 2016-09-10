@@ -11,7 +11,7 @@
 class TessellationUtilities
 {
 public:
-	static void BuildTessellationBuffer(IRuntimeMeshVerticesBuilder* Vertices, FRuntimeMeshIndicesBuilder* Indices, FRuntimeMeshIndicesBuilder* TessellationIndices);
+	static void BuildTessellationBuffer(const IRuntimeMeshVerticesBuilder* Vertices, const FRuntimeMeshIndicesBuilder* Indices, FRuntimeMeshIndicesBuilder* TessellationIndices);
 
 
 

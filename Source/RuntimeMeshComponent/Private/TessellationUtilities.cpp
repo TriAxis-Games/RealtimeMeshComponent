@@ -16,7 +16,7 @@ void TessellationUtilities::AddIfLeastUV(PositionDictionary& PosDict, const Vert
 	auto* Pos = PosDict.Find(Vert.Position);
 	if (Pos == nullptr)
 	{
-		PosDict[Vert.Position] = Corner(Index, Vert.TexCoord);
+		PosDict.Add(Vert.Position, Corner(Index, Vert.TexCoord));
 	}
 	else if (Vert.TexCoord < Pos->TexCoord)
 	{
@@ -25,7 +25,7 @@ void TessellationUtilities::AddIfLeastUV(PositionDictionary& PosDict, const Vert
 }
 
 
-void TessellationUtilities::BuildTessellationBuffer(IRuntimeMeshVerticesBuilder* Vertices, FRuntimeMeshIndicesBuilder* Indices, FRuntimeMeshIndicesBuilder* TessellationIndices)
+void TessellationUtilities::BuildTessellationBuffer(const IRuntimeMeshVerticesBuilder* Vertices, const FRuntimeMeshIndicesBuilder* Indices, FRuntimeMeshIndicesBuilder* TessellationIndices)
 {
 	EdgeDictionary EdgeDict;
 	EdgeDict.Reserve(Indices->Length());
@@ -83,9 +83,9 @@ void TessellationUtilities::ExpandIB(const IRuntimeMeshVerticesBuilder* Vertices
 		Edge Rev1 = Tri.GetEdge(1).GetReverse();
 		Edge Rev2 = Tri.GetEdge(2).GetReverse();
 
-		OutEdgeDict[Rev0] = Rev0;
-		OutEdgeDict[Rev1] = Rev1;
-		OutEdgeDict[Rev2] = Rev2;
+		OutEdgeDict.Add(Rev0, Rev0);
+		OutEdgeDict.Add(Rev1, Rev1);
+		OutEdgeDict.Add(Rev2, Rev2);
 
 		AddIfLeastUV(OutPosDict, Vertex0, Index0);
 		AddIfLeastUV(OutPosDict, Vertex1, Index1);

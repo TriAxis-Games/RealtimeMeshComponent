@@ -6,6 +6,7 @@
 #include "UObjectToken.h"
 #include "StaticMeshResources.h"
 #include "GeomTools.h"
+#include "TessellationUtilities.h"
 
 #define LOCTEXT_NAMESPACE "RuntimeMeshLibrary"
 
@@ -307,7 +308,10 @@ void URuntimeMeshLibrary::CopyRuntimeMeshFromStaticMeshComponent(UStaticMeshComp
 
 
 
-
+void URuntimeMeshLibrary::GenerateTessellationIndexBuffer(const IRuntimeMeshVerticesBuilder* Vertices, const FRuntimeMeshIndicesBuilder* Indices, FRuntimeMeshIndicesBuilder* OutTessellationIndices)
+{
+TessellationUtilities::BuildTessellationBuffer(Vertices, Indices, OutTessellationIndices);
+}
 
 
 

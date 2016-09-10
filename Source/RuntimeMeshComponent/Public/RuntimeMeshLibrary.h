@@ -29,9 +29,7 @@ class RUNTIMEMESHCOMPONENT_API URuntimeMeshLibrary : public UBlueprintFunctionLi
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
 	static void CreateBoxMesh(FVector BoxRadius, TArray<FVector>& Vertices, TArray<int32>& Triangles, TArray<FVector>& Normals, TArray<FVector2D>& UVs, TArray<FRuntimeMeshTangent>& Tangents);
 	
-
-
-
+	
 	static void GetSectionFromStaticMesh(UStaticMesh* InMesh, int32 LODIndex, int32 SectionIndex,
 		IRuntimeMeshVerticesBuilder* Vertices, FRuntimeMeshIndicesBuilder* Triangles);
 
@@ -44,9 +42,12 @@ class RUNTIMEMESHCOMPONENT_API URuntimeMeshLibrary : public UBlueprintFunctionLi
 // 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
 // 	static void GetSectionFromStaticMesh(UStaticMesh* InMesh, int32 LODIndex, int32 SectionIndex, TArray<FVector>& Vertices, TArray<int32>& Triangles, TArray<FVector>& Normals, TArray<FVector2D>& UVs, TArray<FProcMeshTangent>& Tangents);
 // 
-// 	/** Copy materials from StaticMeshComponent to ProceduralMeshComponent. */
-// 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
-// 	static void CopyRuntimeMeshFromStaticMeshComponent(UStaticMeshComponent* StaticMeshComponent, int32 LODIndex, UProceduralMeshComponent* ProcMeshComponent, bool bCreateCollision);
+
+
+	static void GenerateTessellationIndexBuffer(const IRuntimeMeshVerticesBuilder* Vertices, const FRuntimeMeshIndicesBuilder* Indices, FRuntimeMeshIndicesBuilder* OutTessellationIndices);
+
+
+
 
 	
 };

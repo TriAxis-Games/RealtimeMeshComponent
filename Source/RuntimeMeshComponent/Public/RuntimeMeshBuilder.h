@@ -51,15 +51,17 @@ class FRuntimeMeshPackedVerticesBuilder : public IRuntimeMeshVerticesBuilder
 {
 private:
 	TArray<VertexType>* Vertices;
+	TArray<FVector>* Positions;
 	int32 CurrentPosition;
 	bool bOwnsVertexArray;
 public:
 
-	FRuntimeMeshPackedVerticesBuilder()
-		: bOwnsVertexArray(true), Vertices(new TArray<VertexType>()), CurrentPosition(-1)
+	FRuntimeMeshPackedVerticesBuilder(bool bWantsSeparatePositions = false)
+		: bOwnsVertexArray(true), Vertices(new TArray<VertexType>())
+		, Positions(bWantsSeparatePositions? new TArray<FVector>() : nullptr), CurrentPosition(-1)
 	{ }
-	FRuntimeMeshPackedVerticesBuilder(TArray<VertexType>* InVertices)
-		: bOwnsVertexArray(false), Vertices(InVertices), CurrentPosition(-1)
+	FRuntimeMeshPackedVerticesBuilder(TArray<VertexType>* InVertices, TArray<FVector>* InPositions = nullptr)
+		: bOwnsVertexArray(false), Vertices(InVertices), Positions(InPositions), CurrentPosition(-1)
 	{ }
 	FRuntimeMeshPackedVerticesBuilder(const FRuntimeMeshPackedVerticesBuilder& Other) = delete;
 	FRuntimeMeshPackedVerticesBuilder& operator=(const FRuntimeMeshPackedVerticesBuilder& Other) = delete;
@@ -68,6 +70,11 @@ public:
 		if (bOwnsVertexArray)
 		{
 			delete Vertices;
+
+			if (Positions)
+			{
+				delete Positions;
+			}
 		}
 	}
 
@@ -348,7 +355,7 @@ public:
 		, UV1s(bInWantsUV1 ? new TArray<FVector2D>() : nullptr)
 	{ }
 	FRuntimeMeshComponentVerticesBuilder(TArray<FVector>* InPositions, TArray<FVector>* InNormals, TArray<FRuntimeMeshTangent>* InTangents,
-		TArray<FColor>* InColors, TArray<FVector2D>* InUV0s, TArray<FVector2D>* InUV1s)
+		TArray<FColor>* InColors, TArray<FVector2D>* InUV0s, TArray<FVector2D>* InUV1s = nullptr)
 		: bOwnsBuffers(false)
 		, CurrentPosition(-1)
 		, Positions(InPositions)
@@ -364,7 +371,7 @@ public:
 	{
 		if (bOwnsBuffers)
 		{			
-			delete Positions;
+			if (Positions) delete Positions;
 			if (Normals) delete Normals;
 			if (Tangents) delete Tangents;
 			if (Colors) delete Colors;
