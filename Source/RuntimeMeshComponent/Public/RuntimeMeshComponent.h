@@ -1058,6 +1058,16 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
 	void ClearAllMeshSections();
 
+
+	/** Sets the tessellation triangles needed to correctly support tessellation on a section. */
+	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
+	void SetSectionTessellationTriangles(int32 SectionIndex, const TArray<int32>& TessellationTriangles);
+
+
+
+
+
+
 	/** Gets the bounding box of a specific section */
 	bool GetSectionBoundingBox(int32 SectionIndex, FBox& OutBoundingBox);
 

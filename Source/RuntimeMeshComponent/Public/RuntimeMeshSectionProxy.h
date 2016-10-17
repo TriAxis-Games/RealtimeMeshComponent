@@ -22,6 +22,8 @@ public:
 	virtual bool ShouldRender() = 0;
 	virtual bool WantsToRenderInStaticPath() const = 0;
 
+	virtual bool ShouldUseAdjacencyIndexBuffer() const = 0;
+
 
 	virtual void CreateMeshBatch(FMeshBatch& MeshBatch, FMaterialRenderProxy* WireframeMaterial, bool bIsSelected) = 0;
 
@@ -44,6 +46,12 @@ protected:
 	/** Should this section cast a shadow */
 	bool bCastsShadow;
 
+	/** Whether this section should be using an adjacency index buffer */
+	bool bShouldUseAdjacency;
+
+	/** Whether this section is using a tessellation adjacency index buffer */
+	bool bIsUsingAdjacency;
+
 	/** Update frequency of this section */
 	const EUpdateFrequency UpdateFrequency;
 
@@ -62,9 +70,13 @@ protected:
 	FRuntimeMeshVertexFactory VertexFactory;
 
 public:
-	FRuntimeMeshSectionProxy(EUpdateFrequency InUpdateFrequency, bool bInIsVisible, bool bInCastsShadow, UMaterialInterface* InMaterial) :
-		bIsVisible(bInIsVisible), bCastsShadow(bInCastsShadow), UpdateFrequency(InUpdateFrequency), Material(InMaterial), 
-		PositionVertexBuffer(nullptr), VertexBuffer(InUpdateFrequency), IndexBuffer(InUpdateFrequency), VertexFactory(this) { }
+	FRuntimeMeshSectionProxy(FSceneInterface* InScene, EUpdateFrequency InUpdateFrequency, bool bInIsVisible, bool bInCastsShadow, UMaterialInterface* InMaterial) :
+		bIsVisible(bInIsVisible), bCastsShadow(bInCastsShadow), UpdateFrequency(InUpdateFrequency), Material(InMaterial),
+		PositionVertexBuffer(nullptr), VertexBuffer(InUpdateFrequency), IndexBuffer(InUpdateFrequency), VertexFactory(this) 
+	{ 
+		bShouldUseAdjacency = RequiresAdjacencyInformation(InMaterial, VertexFactory.GetType(), InScene->GetFeatureLevel());
+	}
+
 	virtual ~FRuntimeMeshSectionProxy() override
 	{
 		VertexBuffer.ReleaseResource();
@@ -84,19 +96,30 @@ public:
 	virtual bool WantsToRenderInStaticPath() const override { return UpdateFrequency == EUpdateFrequency::Infrequent; }
 
 
+	virtual bool ShouldUseAdjacencyIndexBuffer() const override { return bShouldUseAdjacency; }
+
 	virtual void CreateMeshBatch(FMeshBatch& MeshBatch, FMaterialRenderProxy* WireframeMaterial, bool bIsSelected) override
 	{
 		MeshBatch.VertexFactory = &VertexFactory;
 		MeshBatch.bWireframe = WireframeMaterial != nullptr;
 		MeshBatch.MaterialRenderProxy = MeshBatch.bWireframe ? WireframeMaterial : Material->GetRenderProxy(bIsSelected);
-		MeshBatch.Type = PT_TriangleList;
+		
+		if (bIsUsingAdjacency && WireframeMaterial == nullptr)
+		{
+			MeshBatch.Type = PT_12_ControlPointPatchList;
+		}
+		else
+		{
+			MeshBatch.Type = PT_TriangleList;
+		}
+
 		MeshBatch.DepthPriorityGroup = SDPG_World;
 		MeshBatch.CastShadow = bCastsShadow;
 
 		FMeshBatchElement& BatchElement = MeshBatch.Elements[0];
 		BatchElement.IndexBuffer = &IndexBuffer;
 		BatchElement.FirstIndex = 0;
-		BatchElement.NumPrimitives = IndexBuffer.Num() / 3;
+		BatchElement.NumPrimitives = bIsUsingAdjacency? IndexBuffer.Num() / 12 : IndexBuffer.Num() / 3;
 		BatchElement.MinVertexIndex = 0;
 		BatchElement.MaxVertexIndex = VertexBuffer.Num() - 1;
 	}
@@ -139,10 +162,11 @@ public:
 			PositionVertexBuffer->SetNum(PositionVertices.Num());
 			PositionVertexBuffer->SetData(PositionVertices);
 		}
-
+		
 		auto& Indices = SectionUpdateData->IndexBuffer;
 		IndexBuffer.SetNum(Indices.Num());
 		IndexBuffer.SetData(Indices);
+		bIsUsingAdjacency = SectionUpdateData->bIsAdjacencyIndexBuffer;
 	}
 	
 	virtual void FinishUpdate_RenderThread(FRuntimeMeshRenderThreadCommandInterface* UpdateData) override
@@ -171,6 +195,7 @@ public:
 			auto& IndexBufferData = SectionUpdateData->IndexBuffer;
 			IndexBuffer.SetNum(IndexBufferData.Num());
 			IndexBuffer.SetData(IndexBufferData);
+			bIsUsingAdjacency = SectionUpdateData->bIsAdjacencyIndexBuffer;
 		}
 	}
 

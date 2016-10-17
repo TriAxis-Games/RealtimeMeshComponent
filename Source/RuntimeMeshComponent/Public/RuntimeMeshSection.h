@@ -37,6 +37,9 @@ public:
 	/** Should this section cast a shadow */
 	bool bCastsShadow;
 
+	/** If this section is currently using an adjacency index buffer */
+	bool bShouldUseAdjacencyIndexBuffer;
+
 	/** Update frequency of this section */
 	EUpdateFrequency UpdateFrequency;
 
@@ -128,7 +131,19 @@ protected:
 		}
 	}
 
-	virtual FRuntimeMeshSectionCreateDataInterface* GetSectionCreationData(UMaterialInterface* InMaterial) const = 0;
+	void UpdateTessellationIndexBuffer(TArray<int32>& Triangles, bool bShouldMoveArray)
+	{
+		if (bShouldMoveArray)
+		{
+			TessellationIndexBuffer = MoveTemp(Triangles);
+		}
+		else
+		{
+			TessellationIndexBuffer = Triangles;
+		}
+	}
+
+	virtual FRuntimeMeshSectionCreateDataInterface* GetSectionCreationData(FSceneInterface* InScene, UMaterialInterface* InMaterial) const = 0;
 
 	virtual FRuntimeMeshRenderThreadCommandInterface* GetSectionUpdateData(bool bIncludePositionVertices, bool bIncludeVertices, bool bIncludeIndices) const = 0;
 
@@ -309,23 +324,36 @@ protected:
 		return RuntimeMeshSectionInternal::UpdateVertexBufferInternal<VertexType>(VertexBuffer, LocalBoundingBox, Vertices, BoundingBox, bShouldMoveArray);
 	}
 
-	virtual FRuntimeMeshSectionCreateDataInterface* GetSectionCreationData(UMaterialInterface* InMaterial) const override
+	virtual FRuntimeMeshSectionCreateDataInterface* GetSectionCreationData(FSceneInterface* InScene, UMaterialInterface* InMaterial) const override
 	{
 		auto UpdateData = new FRuntimeMeshSectionCreateData<VertexType>();
 
 		// Create new section proxy based on whether we need separate position buffer
 		if (IsDualBufferSection())
 		{
-			UpdateData->NewProxy = new FRuntimeMeshSectionProxy<VertexType, true>(UpdateFrequency, bIsVisible, bCastsShadow, InMaterial);
+			UpdateData->NewProxy = new FRuntimeMeshSectionProxy<VertexType, true>(InScene, UpdateFrequency, bIsVisible, bCastsShadow, InMaterial);
 			UpdateData->PositionVertexBuffer = PositionVertexBuffer;
 		}
 		else
 		{
-			UpdateData->NewProxy = new FRuntimeMeshSectionProxy<VertexType, false>(UpdateFrequency, bIsVisible, bCastsShadow, InMaterial);
+			UpdateData->NewProxy = new FRuntimeMeshSectionProxy<VertexType, false>(InScene, UpdateFrequency, bIsVisible, bCastsShadow, InMaterial);
 		}
+		const_cast<FRuntimeMeshSection*>(this)->bShouldUseAdjacencyIndexBuffer = UpdateData->NewProxy->ShouldUseAdjacencyIndexBuffer();
 
 		UpdateData->VertexBuffer = VertexBuffer;
-		UpdateData->IndexBuffer = IndexBuffer;
+
+		// Switch between normal/tessellation indices
+
+		if (bShouldUseAdjacencyIndexBuffer && TessellationIndexBuffer.Num() > 0)
+		{
+			UpdateData->IndexBuffer = TessellationIndexBuffer;
+			UpdateData->bIsAdjacencyIndexBuffer = true;
+		}
+		else
+		{
+			UpdateData->IndexBuffer = IndexBuffer;
+			UpdateData->bIsAdjacencyIndexBuffer = false;
+		}
 
 		return UpdateData;
 	}
@@ -349,7 +377,16 @@ protected:
 
 		if (bIncludeIndices)
 		{
-			UpdateData->IndexBuffer = IndexBuffer;
+			if (bShouldUseAdjacencyIndexBuffer && TessellationIndexBuffer.Num() > 0)
+			{
+				UpdateData->IndexBuffer = TessellationIndexBuffer;
+				UpdateData->bIsAdjacencyIndexBuffer = true;
+			}
+			else
+			{
+				UpdateData->IndexBuffer = IndexBuffer;
+				UpdateData->bIsAdjacencyIndexBuffer = false;
+			}
 		}
 
 		return UpdateData;

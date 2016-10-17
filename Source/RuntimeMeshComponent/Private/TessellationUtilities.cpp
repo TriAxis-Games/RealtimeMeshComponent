@@ -25,7 +25,7 @@ void TessellationUtilities::AddIfLeastUV(PositionDictionary& PosDict, const Vert
 }
 
 
-void TessellationUtilities::BuildTessellationBuffer(const IRuntimeMeshVerticesBuilder* Vertices, const FRuntimeMeshIndicesBuilder* Indices, FRuntimeMeshIndicesBuilder* TessellationIndices)
+void TessellationUtilities::CalculateTessellationIndices(const IRuntimeMeshVerticesBuilder* Vertices, const FRuntimeMeshIndicesBuilder* Indices, FRuntimeMeshIndicesBuilder* TessellationIndices)
 {
 	EdgeDictionary EdgeDict;
 	EdgeDict.Reserve(Indices->Length());
@@ -143,12 +143,12 @@ void TessellationUtilities::ReplacePlaceholderIndices(const IRuntimeMeshVertices
 		}
 		
 		// Deal with dominant positions.
-		for (uint32 U = 0; U < VerticesPerTriangle; U++)
+		for (uint32 V = 0; V < VerticesPerTriangle; V++)
 		{
-			Corner* Corn = PosDict.Find(Tri.GetEdge(U).GetVertex(0).Position);
+			Corner* Corn = PosDict.Find(Tri.GetEdge(V).GetVertex(0).Position);
 			if (Corn != nullptr)
 			{
-				OutIndices->Seek(StartOutIndex + 9 + U);
+				OutIndices->Seek(StartOutIndex + 9 + V);
 				OutIndices->AddIndex(Corn->Index);
 			}
 		}

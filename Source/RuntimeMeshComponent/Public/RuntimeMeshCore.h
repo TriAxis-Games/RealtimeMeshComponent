@@ -160,7 +160,7 @@ using RuntimeMeshVertexStructure = FLocalVertexFactory::DataType;
 
 /* Update frequency for a section. Used to optimize for update or render speed*/
 UENUM(BlueprintType)
-enum class EUpdateFrequency
+enum class EUpdateFrequency : uint8
 {
 	/* Tries to skip recreating the scene proxy if possible. */
 	Average UMETA(DisplayName = "Average"),
@@ -170,7 +170,7 @@ enum class EUpdateFrequency
 	Infrequent UMETA(DisplayName = "Infrequent")
 };
 
-/* Update frequency for a section. Used to optimize for update or render speed*/
+/* Control flags for update actions */
 enum class ESectionUpdateFlags
 {
 	None = 0x0,
@@ -185,6 +185,12 @@ enum class ESectionUpdateFlags
 
 
 	//CalculateNormalTangent = 0x2,
+
+	/**
+	*	Should the tessellation indices be calculated to support tessellation?
+	*	To do this manually see 
+	*/
+	CalculateTessellationIndices = 0x4,
 	
 };
 ENUM_CLASS_FLAGS(ESectionUpdateFlags)

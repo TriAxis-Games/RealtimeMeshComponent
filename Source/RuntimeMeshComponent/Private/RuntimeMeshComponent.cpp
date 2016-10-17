@@ -41,7 +41,7 @@ public:
 
 
 				// Get the section creation data
-				auto* SectionData = SourceSection->GetSectionCreationData(Material);
+				auto* SectionData = SourceSection->GetSectionCreationData(&GetScene(), Material);
 				SectionData->SetTargetSection(SectionIdx);
 				SectionCreationData.Add(SectionData);
 
@@ -524,7 +524,7 @@ void URuntimeMeshComponent::CreateSectionInternal(int32 SectionIndex)
 	if (SceneProxy && Section->UpdateFrequency != EUpdateFrequency::Infrequent)
 	{
 		// Gather all needed update info
-		auto* SectionData = Section->GetSectionCreationData(GetSectionMaterial(SectionIndex));
+		auto* SectionData = Section->GetSectionCreationData(GetScene(), GetSectionMaterial(SectionIndex));
 		SectionData->SetTargetSection(SectionIndex);
 
 		// Enqueue update on RT
@@ -557,7 +557,7 @@ void URuntimeMeshComponent::CreateSectionInternal(int32 SectionIndex)
 void URuntimeMeshComponent::UpdateSectionInternal(int32 SectionIndex, bool bHadVertexPositionsUpdate, bool bHadVertexUpdates, bool bHadIndexUpdates, bool bNeedsBoundsUpdate)
 {
 	// Ensure that something was updated
-	check(bHadVertexPositionsUpdate || bHadVertexUpdates || bNeedsBoundsUpdate);
+	check(bHadVertexPositionsUpdate || bHadVertexUpdates || bHadIndexUpdates || bNeedsBoundsUpdate);
 
 	check(SectionIndex < MeshSections.Num() && MeshSections[SectionIndex].IsValid());	
 	RuntimeMeshSectionPtr Section = MeshSections[SectionIndex];
@@ -1118,6 +1118,23 @@ void URuntimeMeshComponent::ClearAllMeshSections()
 	UpdateLocalBounds();
 }
 
+void URuntimeMeshComponent::SetSectionTessellationTriangles(int32 SectionIndex, const TArray<int32>& TessellationTriangles)
+{
+	// Validate all update parameters
+	RMC_VALIDATE_UPDATEPARAMETERS_INTERNALSECTION(SectionIndex, /*VoidReturn*/);
+	
+	// Get section
+	RuntimeMeshSectionPtr& Section = MeshSections[SectionIndex];
+
+	// Tell the section to update the tessellation index buffer
+	Section->UpdateTessellationIndexBuffer(const_cast<TArray<int32>&>(TessellationTriangles), false);
+
+	UpdateSectionInternal(SectionIndex, false, false, true, false);
+}
+
+
+
+
 bool URuntimeMeshComponent::GetSectionBoundingBox(int32 SectionIndex, FBox& OutBoundingBox)
 {
 	if (SectionIndex < MeshSections.Num() && MeshSections[SectionIndex].IsValid())
@@ -1449,7 +1466,7 @@ void URuntimeMeshComponent::EndBatchUpdates()
 				}
 
 				// Get the section create data and add it to the list
-				auto SectionCreateData = MeshSections[Index]->GetSectionCreationData(Material);
+				auto SectionCreateData = MeshSections[Index]->GetSectionCreationData(GetScene(), Material);
 				SectionCreateData->SetTargetSection(Index);
 
 				BatchUpdateData->CreateSections.Add(SectionCreateData);

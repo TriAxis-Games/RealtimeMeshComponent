@@ -207,7 +207,11 @@ FReply FRuntimeMeshComponentDetails::ClickedOnConvertToStaticMesh()
  				// Copy materials to new mesh
  				for (UMaterialInterface* Material : MeshMaterials)
  				{
+#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION >= 14
+					StaticMesh->StaticMaterials.Add(FStaticMaterial(Material));
+#else
  					StaticMesh->Materials.Add(Material);
+#endif
  				}
  
  				// Build mesh from source

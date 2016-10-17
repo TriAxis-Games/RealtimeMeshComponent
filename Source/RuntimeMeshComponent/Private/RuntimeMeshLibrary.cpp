@@ -7,6 +7,7 @@
 #include "StaticMeshResources.h"
 #include "GeomTools.h"
 #include "TessellationUtilities.h"
+#include "RuntimeMeshBuilder.h"
 
 #define LOCTEXT_NAMESPACE "RuntimeMeshLibrary"
 
@@ -146,6 +147,184 @@ void URuntimeMeshLibrary::CreateBoxMesh(FVector BoxRadius, TArray<FVector>& Vert
 
 
 
+
+
+void FindVertOverlaps(int32 TestVertIndex, const IRuntimeMeshVerticesBuilder* Vertices, TArray<int32>& VertOverlaps)
+{
+	// Check if Verts is empty or test is outside range
+	if (TestVertIndex < Vertices->Length())
+	{
+		const FVector TestVert = Vertices->GetPosition(TestVertIndex);
+
+		for (int32 VertIdx = 0; VertIdx < Vertices->Length(); VertIdx++)
+		{
+			// First see if we overlap, and smoothing groups are the same
+			if (TestVert.Equals(Vertices->GetPosition(VertIdx)))
+			{
+				// If it, so we are at least considered an 'overlap' for normal gen
+				VertOverlaps.Add(VertIdx);
+			}
+		}
+	}
+}
+
+
+void CalculateTangentsForMesh(IRuntimeMeshVerticesBuilder* Vertices, const FRuntimeMeshIndicesBuilder* Triangles)
+{
+	if (Vertices->Length() == 0) return;
+
+	// Number of triangles
+	const int32 NumTris = Triangles->TriangleLength();
+	// Number of verts
+	const int32 NumVerts = Vertices->Length();
+
+	// Map of vertex to triangles in Triangles array
+	TMultiMap<int32, int32> VertToTriMap;
+	// Map of vertex to triangles to consider for normal calculation
+	TMultiMap<int32, int32> VertToTriSmoothMap;
+
+	// Normal/tangents for each face
+	TArray<FVector> FaceTangentX, FaceTangentY, FaceTangentZ;
+	FaceTangentX.AddUninitialized(NumTris);
+	FaceTangentY.AddUninitialized(NumTris);
+	FaceTangentZ.AddUninitialized(NumTris);
+
+	// Iterate over triangles
+	for (int TriIdx = 0; TriIdx < NumTris; TriIdx++)
+	{
+		int32 CornerIndex[3];
+		FVector P[3];
+
+		for (int32 CornerIdx = 0; CornerIdx < 3; CornerIdx++)
+		{
+			// Find vert index (clamped within range)
+			int32 VertIndex = FMath::Min(Triangles->GetIndex((TriIdx * 3) + CornerIdx), NumVerts - 1);
+
+			CornerIndex[CornerIdx] = VertIndex;
+			P[CornerIdx] = Vertices->GetPosition(VertIndex);
+
+			// Find/add this vert to index buffer
+			TArray<int32> VertOverlaps;
+			FindVertOverlaps(VertIndex, Vertices, VertOverlaps);
+
+			// Remember which triangles map to this vert
+			VertToTriMap.AddUnique(VertIndex, TriIdx);
+			VertToTriSmoothMap.AddUnique(VertIndex, TriIdx);
+
+			// Also update map of triangles that 'overlap' this vert (ie don't match UV, but do match smoothing) and should be considered when calculating normal
+			for (int32 OverlapIdx = 0; OverlapIdx < VertOverlaps.Num(); OverlapIdx++)
+			{
+				// For each vert we overlap..
+				int32 OverlapVertIdx = VertOverlaps[OverlapIdx];
+
+				// Add this triangle to that vert
+				VertToTriSmoothMap.AddUnique(OverlapVertIdx, TriIdx);
+
+				// And add all of its triangles to us
+				TArray<int32> OverlapTris;
+				VertToTriMap.MultiFind(OverlapVertIdx, OverlapTris);
+				for (int32 OverlapTriIdx = 0; OverlapTriIdx < OverlapTris.Num(); OverlapTriIdx++)
+				{
+					VertToTriSmoothMap.AddUnique(VertIndex, OverlapTris[OverlapTriIdx]);
+				}
+			}
+		}
+
+		// Calculate triangle edge vectors and normal
+		const FVector Edge21 = P[1] - P[2];
+		const FVector Edge20 = P[0] - P[2];
+		const FVector TriNormal = (Edge21 ^ Edge20).GetSafeNormal();
+
+		// If we have UVs, use those to calc 
+		if (Vertices->HasUVComponent(0))
+		{
+			const FVector2D T1 = Vertices->GetUV(CornerIndex[0]);
+			const FVector2D T2 = Vertices->GetUV(CornerIndex[1]);
+			const FVector2D T3 = Vertices->GetUV(CornerIndex[2]);
+
+			FMatrix	ParameterToLocal(
+				FPlane(P[1].X - P[0].X, P[1].Y - P[0].Y, P[1].Z - P[0].Z, 0),
+				FPlane(P[2].X - P[0].X, P[2].Y - P[0].Y, P[2].Z - P[0].Z, 0),
+				FPlane(P[0].X, P[0].Y, P[0].Z, 0),
+				FPlane(0, 0, 0, 1)
+			);
+
+			FMatrix ParameterToTexture(
+				FPlane(T2.X - T1.X, T2.Y - T1.Y, 0, 0),
+				FPlane(T3.X - T1.X, T3.Y - T1.Y, 0, 0),
+				FPlane(T1.X, T1.Y, 1, 0),
+				FPlane(0, 0, 0, 1)
+			);
+
+			// Use InverseSlow to catch singular matrices.  Inverse can miss this sometimes.
+			const FMatrix TextureToLocal = ParameterToTexture.Inverse() * ParameterToLocal;
+
+			FaceTangentX[TriIdx] = TextureToLocal.TransformVector(FVector(1, 0, 0)).GetSafeNormal();
+			FaceTangentY[TriIdx] = TextureToLocal.TransformVector(FVector(0, 1, 0)).GetSafeNormal();
+		}
+		else
+		{
+			FaceTangentX[TriIdx] = Edge20.GetSafeNormal();
+			FaceTangentY[TriIdx] = (FaceTangentX[TriIdx] ^ TriNormal).GetSafeNormal();
+		}
+
+		FaceTangentZ[TriIdx] = TriNormal;
+	}
+
+
+	// Arrays to accumulate tangents into
+	TArray<FVector> VertexTangentXSum, VertexTangentYSum, VertexTangentZSum;
+	VertexTangentXSum.AddZeroed(NumVerts);
+	VertexTangentYSum.AddZeroed(NumVerts);
+	VertexTangentZSum.AddZeroed(NumVerts);
+
+	// For each vertex..
+	for (int VertxIdx = 0; VertxIdx < Vertices->Length(); VertxIdx++)
+	{
+		// Find relevant triangles for normal
+		TArray<int32> SmoothTris;
+		VertToTriSmoothMap.MultiFind(VertxIdx, SmoothTris);
+
+		for (int i = 0; i < SmoothTris.Num(); i++)
+		{
+			int32 TriIdx = SmoothTris[i];
+			VertexTangentZSum[VertxIdx] += FaceTangentZ[TriIdx];
+		}
+
+		// Find relevant triangles for tangents
+		TArray<int32> TangentTris;
+		VertToTriMap.MultiFind(VertxIdx, TangentTris);
+
+		for (int i = 0; i < TangentTris.Num(); i++)
+		{
+			int32 TriIdx = TangentTris[i];
+			VertexTangentXSum[VertxIdx] += FaceTangentX[TriIdx];
+			VertexTangentYSum[VertxIdx] += FaceTangentY[TriIdx];
+		}
+	}
+
+	// Finally, normalize tangents and build output arrays
+	
+	for (int VertxIdx = 0; VertxIdx < NumVerts; VertxIdx++)
+	{
+		FVector& TangentX = VertexTangentXSum[VertxIdx];
+		FVector& TangentY = VertexTangentYSum[VertxIdx];
+		FVector& TangentZ = VertexTangentZSum[VertxIdx];
+
+		TangentX.Normalize();
+		TangentZ.Normalize();
+
+		// Use Gram-Schmidt orthogonalization to make sure X is orth with Z
+		TangentX -= TangentZ * (TangentZ | TangentX);
+		TangentX.Normalize();
+
+		Vertices->SetTangents(VertxIdx, TangentX, TangentY, TangentZ);
+	}
+}
+
+
+
+
 static int32 GetNewIndexForOldVertIndex(int32 MeshVertIndex, TMap<int32, int32>& MeshToSectionVertMap, const FPositionVertexBuffer* PosBuffer, const FStaticMeshVertexBuffer* VertBuffer, const FColorVertexBuffer* ColorBuffer, IRuntimeMeshVerticesBuilder* Vertices, FRuntimeMeshIndicesBuilder* Triangles)
 {
 	int32* NewIndexPtr = MeshToSectionVertMap.Find(MeshVertIndex);
@@ -178,10 +357,8 @@ static int32 GetNewIndexForOldVertIndex(int32 MeshVertIndex, TMap<int32, int32>&
 	}
 }
 
-
-
 void URuntimeMeshLibrary::GetSectionFromStaticMesh(UStaticMesh* InMesh, int32 LODIndex, int32 SectionIndex,
-	IRuntimeMeshVerticesBuilder* Vertices, FRuntimeMeshIndicesBuilder* Triangles)
+	IRuntimeMeshVerticesBuilder* Vertices, FRuntimeMeshIndicesBuilder* Triangles, FRuntimeMeshIndicesBuilder* AdjacencyTriangles)
 {
 	if (InMesh)
 	{
@@ -253,13 +430,15 @@ void URuntimeMeshLibrary::CopyRuntimeMeshFromStaticMeshComponent(UStaticMeshComp
 			{
 				int32 NumUVChannels = LOD.GetNumTexCoords();
 
+				FRuntimeMeshIndicesBuilder AdjacencyTriangles;
+
 				if (NumUVChannels <= 1)
 				{
 					FRuntimeMeshPackedVerticesBuilder<FRuntimeMeshVertexSimple> Vertices;
 					FRuntimeMeshIndicesBuilder Triangles;
 
 					// Get geom data from static mesh
-					GetSectionFromStaticMesh(StaticMesh, LODIndex, SectionIndex, &Vertices, &Triangles);
+					GetSectionFromStaticMesh(StaticMesh, LODIndex, SectionIndex, &Vertices, &Triangles, &AdjacencyTriangles);
 
 					// Create section using data
 					RuntimeMeshComp->CreateMeshSection(SectionIndex, &Vertices, &Triangles,
@@ -271,12 +450,14 @@ void URuntimeMeshLibrary::CopyRuntimeMeshFromStaticMeshComponent(UStaticMeshComp
 					FRuntimeMeshIndicesBuilder Triangles;
 
 					// Get geom data from static mesh
-					GetSectionFromStaticMesh(StaticMesh, LODIndex, SectionIndex, &Vertices, &Triangles);
+					GetSectionFromStaticMesh(StaticMesh, LODIndex, SectionIndex, &Vertices, &Triangles, &AdjacencyTriangles);
 
 					// Create section using data
 					RuntimeMeshComp->CreateMeshSection(SectionIndex, &Vertices, &Triangles,
 						bShouldCreateCollision, EUpdateFrequency::Infrequent, ESectionUpdateFlags::MoveArrays);
+
 				}
+
 			}
 		}
 
@@ -310,7 +491,7 @@ void URuntimeMeshLibrary::CopyRuntimeMeshFromStaticMeshComponent(UStaticMeshComp
 
 void URuntimeMeshLibrary::GenerateTessellationIndexBuffer(const IRuntimeMeshVerticesBuilder* Vertices, const FRuntimeMeshIndicesBuilder* Indices, FRuntimeMeshIndicesBuilder* OutTessellationIndices)
 {
-TessellationUtilities::BuildTessellationBuffer(Vertices, Indices, OutTessellationIndices);
+	TessellationUtilities::CalculateTessellationIndices(Vertices, Indices, OutTessellationIndices);
 }
 
 

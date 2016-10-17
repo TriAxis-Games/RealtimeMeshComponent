@@ -57,6 +57,9 @@ public:
 	/* Updated vertex buffer for the section */
 	TArray<VertexType> VertexBuffer;
 
+	/* Whether the supplied index buffer contains adjacency info */
+	bool bIsAdjacencyIndexBuffer;
+
 	/* Updated index buffer for the section */
 	TArray<int32> IndexBuffer;
 
@@ -88,6 +91,9 @@ public:
 
 	/* Should we apply the indices as an update */
 	bool bIncludeIndices;
+
+	/* Whether the supplied index buffer contains adjacency info */
+	bool bIsAdjacencyIndexBuffer;
 
 	FRuntimeMeshSectionUpdateData() {}
 	virtual ~FRuntimeMeshSectionUpdateData() override { }

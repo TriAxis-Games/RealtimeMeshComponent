@@ -29,9 +29,17 @@ class RUNTIMEMESHCOMPONENT_API URuntimeMeshLibrary : public UBlueprintFunctionLi
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
 	static void CreateBoxMesh(FVector BoxRadius, TArray<FVector>& Vertices, TArray<int32>& Triangles, TArray<FVector>& Normals, TArray<FVector2D>& UVs, TArray<FRuntimeMeshTangent>& Tangents);
 	
-	
+	/**
+	*	Automatically generate normals and tangent vectors for a mesh
+	*	UVs are required for correct tangent generation.
+	*/
+// 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh", meta = (AutoCreateRefTerm = "UVs"))
+// 	static void CalculateTangentsForMesh(const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector2D>& UVs, TArray<FVector>& Normals, TArray<FRuntimeMeshTangent>& Tangents);
+// 
+
+
 	static void GetSectionFromStaticMesh(UStaticMesh* InMesh, int32 LODIndex, int32 SectionIndex,
-		IRuntimeMeshVerticesBuilder* Vertices, FRuntimeMeshIndicesBuilder* Triangles);
+		IRuntimeMeshVerticesBuilder* Vertices, FRuntimeMeshIndicesBuilder* Triangles, FRuntimeMeshIndicesBuilder* AdjacencyTriangles);
 
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
 	static void CopyRuntimeMeshFromStaticMeshComponent(UStaticMeshComponent* StaticMeshComp, int32 LODIndex, 
