@@ -1705,6 +1705,13 @@ void URuntimeMeshComponent::UpdateCollision()
 	{
 		CreatePhysicsState();
 	}
+
+	// Update nav mesh even if this component itself is not navigation relevant
+	// checking ShouldUpdateNavOctreeOnComponentChange here is an optimization for static navigation users
+	if (UNavigationSystem::ShouldUpdateNavOctreeOnComponentChange())
+	{
+		PostUpdateNavigationData();
+	}
 }
 
 UBodySetup* URuntimeMeshComponent::GetBodySetup()
