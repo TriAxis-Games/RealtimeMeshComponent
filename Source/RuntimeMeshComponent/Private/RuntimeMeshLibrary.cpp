@@ -58,7 +58,6 @@ void URuntimeMeshLibrary::CreateGridMeshTriangles(int32 NumX, int32 NumY, bool b
 	}
 }
 
-
 void URuntimeMeshLibrary::CreateBoxMesh(FVector BoxRadius, TArray<FVector>& Vertices, TArray<int32>& Triangles, TArray<FVector>& Normals, TArray<FVector2D>& UVs, TArray<FRuntimeMeshTangent>& Tangents)
 {
 	// Generate verts
@@ -168,8 +167,7 @@ void FindVertOverlaps(int32 TestVertIndex, const IRuntimeMeshVerticesBuilder* Ve
 	}
 }
 
-
-void CalculateTangentsForMesh(IRuntimeMeshVerticesBuilder* Vertices, const FRuntimeMeshIndicesBuilder* Triangles)
+void URuntimeMeshLibrary::CalculateTangentsForMesh(IRuntimeMeshVerticesBuilder* Vertices, const FRuntimeMeshIndicesBuilder* Triangles)
 {
 	if (Vertices->Length() == 0) return;
 
@@ -322,10 +320,37 @@ void CalculateTangentsForMesh(IRuntimeMeshVerticesBuilder* Vertices, const FRunt
 	}
 }
 
+void URuntimeMeshLibrary::CalculateTangentsForMesh(const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector2D>& UVs, TArray<FVector>& Normals, TArray<FRuntimeMeshTangent>& Tangents)
+{
+	FRuntimeMeshComponentVerticesBuilder VerticesBuilder(const_cast<TArray<FVector>*>(&Vertices), &Normals, &Tangents, nullptr, const_cast<TArray<FVector2D>*>(&UVs));
+	FRuntimeMeshIndicesBuilder IndicesBuilder(const_cast<TArray<int32>*>(&Triangles));
+
+	CalculateTangentsForMesh(&VerticesBuilder, &IndicesBuilder);
+}
 
 
 
-static int32 GetNewIndexForOldVertIndex(int32 MeshVertIndex, TMap<int32, int32>& MeshToSectionVertMap, const FPositionVertexBuffer* PosBuffer, const FStaticMeshVertexBuffer* VertBuffer, const FColorVertexBuffer* ColorBuffer, IRuntimeMeshVerticesBuilder* Vertices, FRuntimeMeshIndicesBuilder* Triangles)
+
+
+void URuntimeMeshLibrary::GenerateTessellationIndexBuffer(const IRuntimeMeshVerticesBuilder* Vertices, const FRuntimeMeshIndicesBuilder* Indices, FRuntimeMeshIndicesBuilder* OutTessellationIndices)
+{
+	TessellationUtilities::CalculateTessellationIndices(Vertices, Indices, OutTessellationIndices);
+}
+
+void URuntimeMeshLibrary::GenerateTessellationIndexBuffer(const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector2D>& UVs, TArray<FVector>& Normals, TArray<FRuntimeMeshTangent>& Tangents, TArray<int32>& OutTessTriangles)
+{
+	FRuntimeMeshComponentVerticesBuilder VerticesBuilder(const_cast<TArray<FVector>*>(&Vertices), &Normals, &Tangents, nullptr, const_cast<TArray<FVector2D>*>(&UVs));
+	FRuntimeMeshIndicesBuilder IndicesBuilder(const_cast<TArray<int32>*>(&Triangles));
+	FRuntimeMeshIndicesBuilder OutIndicesBuilder(&OutTessTriangles);
+
+	GenerateTessellationIndexBuffer(&VerticesBuilder, &IndicesBuilder, &OutIndicesBuilder);
+}
+
+
+
+
+
+static int32 GetNewIndexForOldVertIndex(int32 MeshVertIndex, TMap<int32, int32>& MeshToSectionVertMap, const FPositionVertexBuffer* PosBuffer, const FStaticMeshVertexBuffer* VertBuffer, const FColorVertexBuffer* ColorBuffer, IRuntimeMeshVerticesBuilder* Vertices)
 {
 	int32* NewIndexPtr = MeshToSectionVertMap.Find(MeshVertIndex);
 	if (NewIndexPtr != nullptr)
@@ -381,6 +406,7 @@ void URuntimeMeshLibrary::GetSectionFromStaticMesh(UStaticMesh* InMesh, int32 LO
 				// Empty output buffers
 				Vertices->Reset();
 				Triangles->Reset();
+				AdjacencyTriangles->Reset();
 
 				// Map from vert buffer for whole mesh to vert buffer for section of interest
 				TMap<int32, int32> MeshToSectionVertMap;
@@ -389,21 +415,51 @@ void URuntimeMeshLibrary::GetSectionFromStaticMesh(UStaticMesh* InMesh, int32 LO
 				const uint32 OnePastLastIndex = Section.FirstIndex + Section.NumTriangles * 3;
 				FIndexArrayView Indices = LOD.IndexBuffer.GetArrayView();
 
+
 				// Iterate over section index buffer, copying verts as needed
 				for (uint32 i = Section.FirstIndex; i < OnePastLastIndex; i++)
 				{
 					uint32 MeshVertIndex = Indices[i];
 
 					// See if we have this vert already in our section vert buffer, and copy vert in if not 
-					int32 SectionVertIndex = GetNewIndexForOldVertIndex(MeshVertIndex, MeshToSectionVertMap, &LOD.PositionVertexBuffer, &LOD.VertexBuffer, &LOD.ColorVertexBuffer, Vertices, Triangles);
+					int32 SectionVertIndex = GetNewIndexForOldVertIndex(MeshVertIndex, MeshToSectionVertMap, &LOD.PositionVertexBuffer, &LOD.VertexBuffer, &LOD.ColorVertexBuffer, Vertices);
 
 					// Add to index buffer
 					Triangles->AddIndex(SectionVertIndex);
+				}
+
+				if (AdjacencyTriangles != nullptr)
+				{
+					// Adjacency indices use 12 per triangle instead of 3. So start position and length both need to be multiplied by 4
+					const uint32 SectionAdjacencyFirstIndex = Section.FirstIndex * 4;
+					const uint32 SectionAdjacencyOnePastLastIndex = SectionAdjacencyFirstIndex + Section.NumTriangles * (3 * 4);
+					FIndexArrayView AdjacencyIndices = LOD.AdjacencyIndexBuffer.GetArrayView();
+
+					// Iterate over section adjacency index buffer, copying any new verts as needed
+					for (uint32 i = SectionAdjacencyFirstIndex; i < SectionAdjacencyOnePastLastIndex; i++)
+					{
+						uint32 MeshVertIndex = Indices[i];
+
+						// See if we have this vert already in our section vert buffer, and copy vert in if not 
+						int32 SectionVertIndex = GetNewIndexForOldVertIndex(MeshVertIndex, MeshToSectionVertMap, &LOD.PositionVertexBuffer, &LOD.VertexBuffer, &LOD.ColorVertexBuffer, Vertices);
+
+						// Add to index buffer
+						AdjacencyTriangles->AddIndex(SectionVertIndex);
+					}
 				}
 			}
 		}
 #endif
 	}
+}
+
+void URuntimeMeshLibrary::GetSectionFromStaticMesh(UStaticMesh* InMesh, int32 LODIndex, int32 SectionIndex, TArray<FVector>& Vertices,
+	TArray<int32>& Triangles, TArray<FVector>& Normals, TArray<FVector2D>& UVs, TArray<FRuntimeMeshTangent>& Tangents)
+{
+	FRuntimeMeshComponentVerticesBuilder VerticesBuilder(&Vertices, &Normals, &Tangents, nullptr, &UVs);
+	FRuntimeMeshIndicesBuilder IndicesBuilder(&Triangles);
+
+	GetSectionFromStaticMesh(InMesh, LODIndex, SectionIndex, &VerticesBuilder, &IndicesBuilder, nullptr);
 }
 
 void URuntimeMeshLibrary::CopyRuntimeMeshFromStaticMeshComponent(UStaticMeshComponent* StaticMeshComp, int32 LODIndex,
@@ -488,11 +544,6 @@ void URuntimeMeshLibrary::CopyRuntimeMeshFromStaticMeshComponent(UStaticMeshComp
 }
 
 
-
-void URuntimeMeshLibrary::GenerateTessellationIndexBuffer(const IRuntimeMeshVerticesBuilder* Vertices, const FRuntimeMeshIndicesBuilder* Indices, FRuntimeMeshIndicesBuilder* OutTessellationIndices)
-{
-	TessellationUtilities::CalculateTessellationIndices(Vertices, Indices, OutTessellationIndices);
-}
 
 
 
