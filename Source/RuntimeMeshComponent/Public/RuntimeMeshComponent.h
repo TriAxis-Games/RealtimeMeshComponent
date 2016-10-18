@@ -136,7 +136,6 @@ private:
 
 public:
 	URuntimeMeshComponent(const FObjectInitializer& ObjectInitializer);
-	
 
 	/**
 	*	Create/replace a section.
@@ -1181,6 +1180,10 @@ private:
 
 	//~ Begin USceneComponent Interface.
 	virtual FBoxSphereBounds CalcBounds(const FTransform& LocalToWorld) const override;
+	virtual bool IsSupportedForNetworking() const override
+	{
+		return true;
+	}
 	//~ Begin USceneComponent Interface.
 
 	//~ Begin UPrimitiveComponent Interface.

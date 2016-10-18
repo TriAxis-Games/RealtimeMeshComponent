@@ -402,6 +402,8 @@ URuntimeMeshComponent::URuntimeMeshComponent(const FObjectInitializer& ObjectIni
 
 	// Reset the batch state
 	BatchState.ResetBatch();
+
+	SetNetAddressable();
 }
 
 TSharedPtr<FRuntimeMeshSectionInterface> URuntimeMeshComponent::CreateOrResetSectionInternalType(int32 SectionIndex, int32 NumUVChannels, bool WantsHalfPrecsionUVs)
