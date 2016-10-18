@@ -1708,12 +1708,7 @@ void URuntimeMeshComponent::UpdateCollision()
 		CreatePhysicsState();
 	}
 
-	// Update nav mesh even if this component itself is not navigation relevant
-	// checking ShouldUpdateNavOctreeOnComponentChange here is an optimization for static navigation users
-	if (UNavigationSystem::ShouldUpdateNavOctreeOnComponentChange())
-	{
-		PostUpdateNavigationData();
-	}
+	UpdateNavigation();
 }
 
 UBodySetup* URuntimeMeshComponent::GetBodySetup()
@@ -1739,6 +1734,20 @@ void URuntimeMeshComponent::BakeCollision()
 
 	bCollisionDirty = false;
 	PrePhysicsTick.SetTickFunctionEnable(false);
+}
+
+
+void URuntimeMeshComponent::UpdateNavigation()
+{
+	if (UNavigationSystem::ShouldUpdateNavOctreeOnComponentChange() && IsRegistered())
+	{
+		UWorld* MyWorld = GetWorld();
+		if (MyWorld != nullptr && MyWorld->GetNavigationSystem() != nullptr &&
+			(MyWorld->GetNavigationSystem()->ShouldAllowClientSideNavigation() || !MyWorld->IsNetMode(ENetMode::NM_Client)))
+		{
+			UNavigationSystem::UpdateComponentInNavOctree(*this);
+		}
+	}
 }
 
 void URuntimeMeshComponent::RegisterComponentTickFunctions(bool bRegister)

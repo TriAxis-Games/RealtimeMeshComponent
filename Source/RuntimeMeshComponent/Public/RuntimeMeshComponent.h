@@ -1210,6 +1210,9 @@ private:
 	/* Cooks the new collision mesh updating the body */
 	void BakeCollision();
 
+	void UpdateNavigation();
+
+
 	/* Serializes this component */
 	virtual void Serialize(FArchive& Ar) override;
 
