@@ -1,5 +1,7 @@
 # UE4 Runtime Mesh Component
 
+# DO NOT USE MASTER BRANCH FOR REAL PROJECTS!! It is expected to be very unstable for the next few days!
+
 The Runtime Mesh Component allows for rendering runtime generated meshes as well as supporting collision with the runtime generated meshes. It is also nearly 100% compatible with the UE4 UProceduralMeshComponent
 
 **Examples project can be found here https://github.com/Koderz/UE4RuntimeMeshComponentExamples**
@@ -16,3 +18,9 @@ The Runtime Mesh Component allows for rendering runtime generated meshes as well
 * Shadow casting controllable per section.
 * Serialization configurable to reduce map sizes when mesh saves aren't necessary.
 * Sections can have separate vertex position buffer allowing for fastest possible updates when updating only the vertex position
+
+** New Features!! **
+* Nav Meshes now work!!
+* Tessellation support!
+* Normal/Tangent calculation implemented (will be improved soon hopefully)
+* StaticMeshComponent <-> RuntimeMeshComponent conversion
