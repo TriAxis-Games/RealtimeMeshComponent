@@ -406,7 +406,6 @@ void URuntimeMeshLibrary::GetSectionFromStaticMesh(UStaticMesh* InMesh, int32 LO
 				// Empty output buffers
 				Vertices->Reset();
 				Triangles->Reset();
-				AdjacencyTriangles->Reset();
 
 				// Map from vert buffer for whole mesh to vert buffer for section of interest
 				TMap<int32, int32> MeshToSectionVertMap;
@@ -430,6 +429,8 @@ void URuntimeMeshLibrary::GetSectionFromStaticMesh(UStaticMesh* InMesh, int32 LO
 
 				if (AdjacencyTriangles != nullptr)
 				{
+					AdjacencyTriangles->Reset();
+
 					// Adjacency indices use 12 per triangle instead of 3. So start position and length both need to be multiplied by 4
 					const uint32 SectionAdjacencyFirstIndex = Section.FirstIndex * 4;
 					const uint32 SectionAdjacencyOnePastLastIndex = SectionAdjacencyFirstIndex + Section.NumTriangles * (3 * 4);
@@ -438,7 +439,7 @@ void URuntimeMeshLibrary::GetSectionFromStaticMesh(UStaticMesh* InMesh, int32 LO
 					// Iterate over section adjacency index buffer, copying any new verts as needed
 					for (uint32 i = SectionAdjacencyFirstIndex; i < SectionAdjacencyOnePastLastIndex; i++)
 					{
-						uint32 MeshVertIndex = Indices[i];
+						uint32 MeshVertIndex = AdjacencyIndices[i];
 
 						// See if we have this vert already in our section vert buffer, and copy vert in if not 
 						int32 SectionVertIndex = GetNewIndexForOldVertIndex(MeshVertIndex, MeshToSectionVertMap, &LOD.PositionVertexBuffer, &LOD.VertexBuffer, &LOD.ColorVertexBuffer, Vertices);
