@@ -250,7 +250,7 @@ public:
 		Section->CreateMeshBatch(MeshBatch, WireframeMaterial, IsSelected());
 
 		MeshBatch.ReverseCulling = IsLocalToWorldDeterminantNegative();
-		MeshBatch.bCanApplyViewModeOverrides = false;
+		MeshBatch.bCanApplyViewModeOverrides = true;
 		
 		FMeshBatchElement& BatchElement = MeshBatch.Elements[0];
 		BatchElement.PrimitiveUniformBufferResource = &GetUniformBuffer();
@@ -382,7 +382,7 @@ void ConvertLinearColorToFColor(const TArray<FLinearColor>& LinearColors, TArray
 	Colors.SetNumUninitialized(LinearColors.Num());
 	for (int32 Index = 0; Index < LinearColors.Num(); Index++)
 	{
-		Colors[Index] = LinearColors[Index].ToFColor(true);
+		Colors[Index] = LinearColors[Index].ToFColor(false);
 	}
 }
 
@@ -1567,6 +1567,13 @@ bool URuntimeMeshComponent::GetPhysicsTriMeshData(struct FTriMeshCollisionData* 
  
 	bool HadCollision = false;
 
+	// See if we should copy UVs
+// 	bool bCopyUVs = UPhysicsSettings::Get()->bSupportUVFromHitResults;
+// 	if (bCopyUVs)
+// 	{
+// 		CollisionData->UVs.AddZeroed(1); // only one UV channel
+// 	}
+
 	// For each section..
 	for (int32 SectionIdx = 0; SectionIdx < MeshSections.Num(); SectionIdx++)
 	{ 
@@ -1576,6 +1583,13 @@ bool URuntimeMeshComponent::GetPhysicsTriMeshData(struct FTriMeshCollisionData* 
 		{
 			// Copy vertex data
 			Section->GetAllVertexPositions(CollisionData->Vertices);
+
+			// Copy UV if desired
+// 			if (bCopyUVs)
+// 			{
+// 				CollisionData->UVs[0].Add(Section.ProcVertexBuffer[VertIdx].UV0);
+// 			}
+
 
 			// Copy indices
 			const int32 NumTriangles = Section->IndexBuffer.Num() / 3;
@@ -1624,6 +1638,9 @@ bool URuntimeMeshComponent::GetPhysicsTriMeshData(struct FTriMeshCollisionData* 
 	}
  
  	CollisionData->bFlipNormals = true;
+
+// 	CollisionData->bDeformableMesh = true;
+// 	CollisionData->bFastCook = true;
  
  	return HadCollision;
  }
@@ -1876,4 +1893,9 @@ void URuntimeMeshComponent::PostLoad()
 	// Rebuild collision and local bounds.
 	MarkCollisionDirty();
 	UpdateLocalBounds();
+
+// 	if (ProcMeshBodySetup && IsTemplate())
+// 	{
+// 		ProcMeshBodySetup->SetFlags(RF_Public);
+// 	}
 }

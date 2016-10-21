@@ -173,19 +173,22 @@ enum class ESectionUpdateFlags
 	None = 0x0,
 
 	/** 
-		This will use move-assignment when copying the supplied vertices/triangles into the section.
-		This is faster as it doesn't require copying the data.
-
-		CAUTION: This means that your copy of the arrays will be cleared!
+	*	This will use move-assignment when copying the supplied vertices/triangles into the section.
+	*	This is faster as it doesn't require copying the data.
+	*
+	*	CAUTION: This means that your copy of the arrays will be cleared!
 	*/
 	MoveArrays = 0x1,
 
-
-	//CalculateNormalTangent = 0x2,
+	/**
+	*	Should the normals and tangents be calculated automatically?
+	*	To do this manually see RuntimeMeshLibrary::CalculateTangentsForMesh()
+	*/
+	CalculateNormalTangent = 0x2,
 
 	/**
 	*	Should the tessellation indices be calculated to support tessellation?
-	*	To do this manually see 
+	*	To do this manually see RuntimeMeshLibrary::GenerateTessellationIndexBuffer()
 	*/
 	CalculateTessellationIndices = 0x4,
 	

@@ -1168,6 +1168,9 @@ public:
 	UPROPERTY(Transient, DuplicateTransient)
 	class UBodySetup* BodySetup;
 
+	// BodySetup got switched to instanced on the PMC, need to look into why.
+	//UPROPERTY(Instanced)
+
 private:
 
 
