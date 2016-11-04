@@ -18,7 +18,7 @@ private:
 public:
 
 	FRuntimeMeshSceneProxy(URuntimeMeshComponent* Component)
-		: FPrimitiveSceneProxy(Component), MaterialRelevance(Component->GetMaterialRelevance(GetScene().GetFeatureLevel()))
+		: FPrimitiveSceneProxy(Component)
 	{
 		bStaticElementsAlwaysUseProxyPrimitiveUniformBuffer = true;
 
@@ -47,6 +47,9 @@ public:
 
 			}
 		}
+
+		// Update material relevancy information needed to control the rendering.
+		UpdateMaterialRelevance();
 	}
 
 	virtual ~FRuntimeMeshSceneProxy()
@@ -102,6 +105,9 @@ public:
 		Sections[SectionIndex] = Section;
 		
 		delete SectionData;
+		
+		// Update material relevancy information needed to control the rendering.
+		UpdateMaterialRelevance();
 	}
 
 	/** Called on render thread to assign new dynamic data */
@@ -160,6 +166,9 @@ public:
 			delete Sections[SectionIndex];
 			Sections[SectionIndex] = nullptr;
 		}
+		
+		// Update material relevancy information needed to control the rendering.
+		UpdateMaterialRelevance();
 	}
 
 	void ApplyBatchUpdate_RenderThread(FRuntimeMeshBatchUpdateData* BatchUpdateData)
@@ -231,10 +240,10 @@ public:
 		FPrimitiveViewRelevance Result;
 		Result.bDrawRelevance = IsShown(View);
 		Result.bShadowRelevance = IsShadowCast(View);
-		
+
 		bool bForceDynamicPath = IsRichView(*View->Family) || View->Family->EngineShowFlags.Wireframe || IsSelected() || !IsStaticPathAvailable();
 		Result.bStaticRelevance = !bForceDynamicPath && HasStaticSections();
-		Result.bDynamicRelevance = bForceDynamicPath || HasDynamicSections();
+		Result.bDynamicRelevance =  bForceDynamicPath || HasDynamicSections();
 		
 		Result.bRenderInMainPass = ShouldRenderInMainPass();
 #if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION >= 11
@@ -340,6 +349,19 @@ public:
 	uint32 GetAllocatedSize(void) const
 	{
 		return(FPrimitiveSceneProxy::GetAllocatedSize());
+	}
+
+	void UpdateMaterialRelevance()
+	{
+		FMaterialRelevance NewMaterialRelevance;
+		for (FRuntimeMeshSectionProxyInterface* Section : Sections)
+		{
+			if (Section)
+			{
+				NewMaterialRelevance |= Section->GetMaterialRelevance();
+			}
+		}
+		MaterialRelevance = NewMaterialRelevance;
 	}
 
 private:

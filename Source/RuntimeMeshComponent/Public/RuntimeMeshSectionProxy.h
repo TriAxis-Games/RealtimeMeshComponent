@@ -24,6 +24,7 @@ public:
 
 	virtual bool ShouldUseAdjacencyIndexBuffer() const = 0;
 
+	virtual FMaterialRelevance GetMaterialRelevance() const = 0;
 
 	virtual void CreateMeshBatch(FMeshBatch& MeshBatch, FMaterialRenderProxy* WireframeMaterial, bool bIsSelected) = 0;
 
@@ -58,6 +59,8 @@ protected:
 	/** Material applied to this section */
 	UMaterialInterface* Material;
 
+	FMaterialRelevance MaterialRelevance;
+
 	FRuntimeMeshVertexBuffer<FVector>* PositionVertexBuffer;
 
 	/** Vertex buffer for this section */
@@ -70,8 +73,8 @@ protected:
 	FRuntimeMeshVertexFactory VertexFactory;
 
 public:
-	FRuntimeMeshSectionProxy(FSceneInterface* InScene, EUpdateFrequency InUpdateFrequency, bool bInIsVisible, bool bInCastsShadow, UMaterialInterface* InMaterial) :
-		bIsVisible(bInIsVisible), bCastsShadow(bInCastsShadow), UpdateFrequency(InUpdateFrequency), Material(InMaterial),
+	FRuntimeMeshSectionProxy(FSceneInterface* InScene, EUpdateFrequency InUpdateFrequency, bool bInIsVisible, bool bInCastsShadow, UMaterialInterface* InMaterial, FMaterialRelevance InMaterialRelevance) :
+		bIsVisible(bInIsVisible), bCastsShadow(bInCastsShadow), UpdateFrequency(InUpdateFrequency), Material(InMaterial), MaterialRelevance(InMaterialRelevance),
 		PositionVertexBuffer(nullptr), VertexBuffer(InUpdateFrequency), IndexBuffer(InUpdateFrequency), VertexFactory(this) 
 	{ 
 		bShouldUseAdjacency = RequiresAdjacencyInformation(InMaterial, VertexFactory.GetType(), InScene->GetFeatureLevel());
@@ -94,10 +97,11 @@ public:
 	virtual bool ShouldRender() override { return bIsVisible && VertexBuffer.Num() > 0 && IndexBuffer.Num() > 0; }
 
 	virtual bool WantsToRenderInStaticPath() const override { return UpdateFrequency == EUpdateFrequency::Infrequent; }
-
-
+	
 	virtual bool ShouldUseAdjacencyIndexBuffer() const override { return bShouldUseAdjacency; }
 
+	virtual FMaterialRelevance GetMaterialRelevance() const { return MaterialRelevance; }
+	
 	virtual void CreateMeshBatch(FMeshBatch& MeshBatch, FMaterialRenderProxy* WireframeMaterial, bool bIsSelected) override
 	{
 		MeshBatch.VertexFactory = &VertexFactory;

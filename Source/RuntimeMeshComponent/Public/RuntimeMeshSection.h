@@ -328,15 +328,19 @@ protected:
 	{
 		auto UpdateData = new FRuntimeMeshSectionCreateData<VertexType>();
 
+		FMaterialRelevance MaterialRelevance = (InMaterial != nullptr) 
+			? InMaterial->GetRelevance(InScene->GetFeatureLevel()) 
+			: UMaterial::GetDefaultMaterial(MD_Surface)->GetRelevance(InScene->GetFeatureLevel());
+
 		// Create new section proxy based on whether we need separate position buffer
 		if (IsDualBufferSection())
 		{
-			UpdateData->NewProxy = new FRuntimeMeshSectionProxy<VertexType, true>(InScene, UpdateFrequency, bIsVisible, bCastsShadow, InMaterial);
+			UpdateData->NewProxy = new FRuntimeMeshSectionProxy<VertexType, true>(InScene, UpdateFrequency, bIsVisible, bCastsShadow, InMaterial, MaterialRelevance);
 			UpdateData->PositionVertexBuffer = PositionVertexBuffer;
 		}
 		else
 		{
-			UpdateData->NewProxy = new FRuntimeMeshSectionProxy<VertexType, false>(InScene, UpdateFrequency, bIsVisible, bCastsShadow, InMaterial);
+			UpdateData->NewProxy = new FRuntimeMeshSectionProxy<VertexType, false>(InScene, UpdateFrequency, bIsVisible, bCastsShadow, InMaterial, MaterialRelevance);
 		}
 		const_cast<FRuntimeMeshSection*>(this)->bShouldUseAdjacencyIndexBuffer = UpdateData->NewProxy->ShouldUseAdjacencyIndexBuffer();
 
