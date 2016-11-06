@@ -110,10 +110,10 @@ private:
 
 
 	/* Finishes creating a section, including entering it for batch updating, or updating the RT directly */
-	void CreateSectionInternal(int32 SectionIndex);
+	void CreateSectionInternal(int32 SectionIndex, ESectionUpdateFlags UpdateFlags);
 
 	/* Finishes updating a section, including entering it for batch updating, or updating the RT directly */
-	void UpdateSectionInternal(int32 SectionIndex, bool bHadVertexPositionsUpdate, bool bHadVertexUpdates, bool bHadIndexUpdates, bool bNeedsBoundsUpdate);
+	void UpdateSectionInternal(int32 SectionIndex, bool bHadVertexPositionsUpdate, bool bHadVertexUpdates, bool bHadIndexUpdates, bool bNeedsBoundsUpdate, ESectionUpdateFlags UpdateFlags);
 
 	/* Finishes updating a sections positions (Only used if section is dual vertex buffer), including entering it for batch updating, or updating the RT directly */
 	void UpdateSectionVertexPositionsInternal(int32 SectionIndex, bool bNeedsBoundsUpdate);
@@ -168,7 +168,7 @@ public:
 		Section->UpdateFrequency = UpdateFrequency;
 
 		// Finalize section.
-		CreateSectionInternal(SectionIndex);
+		CreateSectionInternal(SectionIndex, UpdateFlags);
 	}
 
 	/**
@@ -204,7 +204,7 @@ public:
 		Section->UpdateFrequency = UpdateFrequency;
 
 		// Finalize section.
-		CreateSectionInternal(SectionIndex);
+		CreateSectionInternal(SectionIndex, UpdateFlags);
 	}
 
 	/**
@@ -238,7 +238,7 @@ public:
 		Section->UpdateFrequency = UpdateFrequency;
 
 		// Finalize section.
-		CreateSectionInternal(SectionIndex);
+		CreateSectionInternal(SectionIndex, UpdateFlags);
 	}
 
 	/**
@@ -274,33 +274,9 @@ public:
 		Section->UpdateFrequency = UpdateFrequency;
 
 		// Finalize section.
-		CreateSectionInternal(SectionIndex);
+		CreateSectionInternal(SectionIndex, UpdateFlags);
 	}
 	
-	template<typename VertexType>
-	void CreateMeshSection(int32 SectionIndex, FRuntimeMeshPackedVerticesBuilder<VertexType>* Vertices, FRuntimeMeshIndicesBuilder* Triangles, bool bCreateCollision = false,
-		EUpdateFrequency UpdateFrequency = EUpdateFrequency::Average, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
-	{
-		SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_CreateMeshSection_VertexType_FromMeshBuilder);
-
-		// Validate all creation parameters
-		RMC_VALIDATE_CREATIONPARAMETERS(SectionIndex, (*Vertices->GetVertices()), (*Triangles->GetIndices()), /*VoidReturn*/);
-
-		TSharedPtr<FRuntimeMeshSection<VertexType>> Section = CreateOrResetSection<FRuntimeMeshSection<VertexType>>(SectionIndex, false);
-
-		bool bShouldUseMove = (UpdateFlags & ESectionUpdateFlags::MoveArrays) != ESectionUpdateFlags::None;
-		Section->UpdateVertexBuffer(*Vertices->GetVertices(), nullptr, bShouldUseMove);
-		Section->UpdateIndexBuffer(*Triangles->GetIndices(), bShouldUseMove);
-
-		// Track collision status and update collision information if necessary
-		Section->CollisionEnabled = bCreateCollision;
-		Section->UpdateFrequency = UpdateFrequency;
-
-		// Finalize section.
-		CreateSectionInternal(SectionIndex);
-
-	}
-
 
 	/**
 	*	Updates a section. This is faster than CreateMeshSection. If this is a dual buffer section, you cannot change the length of the vertices.
@@ -347,7 +323,7 @@ public:
 		// Finalize section update if we have anything to apply
 		if (bUpdatedVertices)
 		{
-			UpdateSectionInternal(SectionIndex, false, bUpdatedVertices, false, bNeedsBoundsUpdate);
+			UpdateSectionInternal(SectionIndex, false, bUpdatedVertices, false, bNeedsBoundsUpdate, UpdateFlags);
 		}
 	}
 
@@ -398,7 +374,7 @@ public:
 		// Finalize section update if we have anything to apply
 		if (bUpdatedVertices)
 		{
-			UpdateSectionInternal(SectionIndex, false, bUpdatedVertices, false, bNeedsBoundsUpdate);
+			UpdateSectionInternal(SectionIndex, false, bUpdatedVertices, false, bNeedsBoundsUpdate, UpdateFlags);
 		}
 	}
 
@@ -460,7 +436,7 @@ public:
 		// Finalize section update if we have anything to apply
 		if (bUpdatedVertices || bUpdatedIndices)
 		{
-			UpdateSectionInternal(SectionIndex, false, bUpdatedVertices, bUpdatedIndices, bNeedsBoundsUpdate);
+			UpdateSectionInternal(SectionIndex, false, bUpdatedVertices, bUpdatedIndices, bNeedsBoundsUpdate, UpdateFlags);
 		}
 	}
 
@@ -524,7 +500,7 @@ public:
 		// Finalize section update if we have anything to apply
 		if (bUpdatedVertices || bUpdatedIndices)
 		{
-			UpdateSectionInternal(SectionIndex, false, bUpdatedVertices, bUpdatedIndices, bNeedsBoundsUpdate);
+			UpdateSectionInternal(SectionIndex, false, bUpdatedVertices, bUpdatedIndices, bNeedsBoundsUpdate, UpdateFlags);
 		}
 	}
 
@@ -589,7 +565,7 @@ public:
 		// Finalize section update if we have anything to apply
 		if (bUpdatedVertexPositions || bUpdatedVertices)
 		{
-			UpdateSectionInternal(SectionIndex, bUpdatedVertexPositions, bUpdatedVertices, false, bNeedsBoundsUpdate);
+			UpdateSectionInternal(SectionIndex, bUpdatedVertexPositions, bUpdatedVertices, false, bNeedsBoundsUpdate, UpdateFlags);
 		}
 	}
 
@@ -655,7 +631,7 @@ public:
 		// Finalize section update if we have anything to apply
 		if (bUpdatedVertexPositions || bUpdatedVertices)
 		{
-			UpdateSectionInternal(SectionIndex, bUpdatedVertexPositions, bUpdatedVertices, false, bNeedsBoundsUpdate);
+			UpdateSectionInternal(SectionIndex, bUpdatedVertexPositions, bUpdatedVertices, false, bNeedsBoundsUpdate, UpdateFlags);
 		}
 	}
 
@@ -732,7 +708,7 @@ public:
 		// Finalize section update if we have anything to apply
 		if (bUpdatedVertexPositions || bUpdatedVertices || bUpdatedIndices)
 		{
-			UpdateSectionInternal(SectionIndex, bUpdatedVertexPositions, bUpdatedVertices, bUpdatedIndices, bNeedsBoundsUpdate);
+			UpdateSectionInternal(SectionIndex, bUpdatedVertexPositions, bUpdatedVertices, bUpdatedIndices, bNeedsBoundsUpdate, UpdateFlags);
 		}
 	}
 
@@ -811,7 +787,7 @@ public:
 		// Finalize section update if we have anything to apply
 		if (bUpdatedVertexPositions || bUpdatedVertices || bUpdatedIndices)
 		{
-			UpdateSectionInternal(SectionIndex, bUpdatedVertexPositions, bUpdatedVertices, bUpdatedIndices, bNeedsBoundsUpdate);
+			UpdateSectionInternal(SectionIndex, bUpdatedVertexPositions, bUpdatedVertices, bUpdatedIndices, bNeedsBoundsUpdate, UpdateFlags);
 		}
 	}
 
@@ -916,9 +892,9 @@ public:
 		Triangles = &Section->IndexBuffer;
 	}
 
-	void EndMeshSectionUpdate(int32 SectionIndex, ERuntimeMeshBuffer UpdatedBuffers);
+	void EndMeshSectionUpdate(int32 SectionIndex, ERuntimeMeshBuffer UpdatedBuffers, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None);
 
-	void EndMeshSectionUpdate(int32 SectionIndex, ERuntimeMeshBuffer UpdatedBuffers, const FBox& BoundingBox);
+	void EndMeshSectionUpdate(int32 SectionIndex, ERuntimeMeshBuffer UpdatedBuffers, const FBox& BoundingBox, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None);
 	
 
 	void GetSectionMesh(int32 SectionIndex, const IRuntimeMeshVerticesBuilder*& Vertices, const FRuntimeMeshIndicesBuilder*& Indices);
@@ -941,7 +917,7 @@ public:
 	*/
 	void CreateMeshSection(int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals,
 		const TArray<FVector2D>& UV0, const TArray<FColor>& Colors, const TArray<FRuntimeMeshTangent>& Tangents, bool bCreateCollision = false,
-		EUpdateFrequency UpdateFrequency = EUpdateFrequency::Average);
+		EUpdateFrequency UpdateFrequency = EUpdateFrequency::Average, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None);
 
 	/**
 	*	Create/replace a section.
@@ -958,7 +934,7 @@ public:
 	*/
 	void CreateMeshSection(int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals,
 		const TArray<FVector2D>& UV0, const TArray<FVector2D>& UV1, const TArray<FColor>& Colors, const TArray<FRuntimeMeshTangent>& Tangents,
-		bool bCreateCollision = false, EUpdateFrequency UpdateFrequency = EUpdateFrequency::Average);
+		bool bCreateCollision = false, EUpdateFrequency UpdateFrequency = EUpdateFrequency::Average, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None);
 
 
 	/**
@@ -971,7 +947,7 @@ public:
 	*	@param	Tangents			Optional array of tangent vector for each vertex. If supplied, must be same length as Vertices array.
 	*/
 	void UpdateMeshSection(int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<FVector>& Normals, const TArray<FVector2D>& UV0, 
-		const TArray<FColor>& Colors, const TArray<FRuntimeMeshTangent>& Tangents);
+		const TArray<FColor>& Colors, const TArray<FRuntimeMeshTangent>& Tangents, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None);
 
 	/**
 	*	Updates a section. This is faster than CreateMeshSection.
@@ -984,7 +960,7 @@ public:
 	*	@param	Tangents			Optional array of tangent vector for each vertex. If supplied, must be same length as Vertices array.
 	*/
 	void UpdateMeshSection(int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<FVector>& Normals, const TArray<FVector2D>& UV0, 
-		const TArray<FVector2D>& UV1, const TArray<FColor>& Colors, const TArray<FRuntimeMeshTangent>& Tangents);
+		const TArray<FVector2D>& UV1, const TArray<FColor>& Colors, const TArray<FRuntimeMeshTangent>& Tangents, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None);
 
 	/**
 	*	Updates a section. This is faster than CreateMeshSection.
@@ -997,7 +973,7 @@ public:
 	*	@param	Tangents			Optional array of tangent vector for each vertex. If supplied, must be same length as Vertices array.
 	*/
 	void UpdateMeshSection(int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals, 
-		const TArray<FVector2D>& UV0, const TArray<FColor>& Colors, const TArray<FRuntimeMeshTangent>& Tangents);
+		const TArray<FVector2D>& UV0, const TArray<FColor>& Colors, const TArray<FRuntimeMeshTangent>& Tangents, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None);
 
 	/**
 	*	Updates a section. This is faster than CreateMeshSection.
@@ -1011,7 +987,7 @@ public:
 	*	@param	Tangents			Optional array of tangent vector for each vertex. If supplied, must be same length as Vertices array.
 	*/
 	void UpdateMeshSection(int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals,
-		const TArray<FVector2D>& UV0, const TArray<FVector2D>& UV1, const TArray<FColor>& Colors, const TArray<FRuntimeMeshTangent>& Tangents);
+		const TArray<FVector2D>& UV0, const TArray<FVector2D>& UV1, const TArray<FColor>& Colors, const TArray<FRuntimeMeshTangent>& Tangents, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None);
 
 	
 
@@ -1026,12 +1002,14 @@ public:
 	*	@param	UV1					Optional array of texture co-ordinates for each vertex (UV Channel 1). If supplied, must be same length as Vertices array.
 	*	@param	Colors				Optional array of colors for each vertex. If supplied, must be same length as Vertices array.
 	*	@param	bCreateCollision	Indicates whether collision should be created for this section. This adds significant cost.
+	*	@param	bCalculateNormalTangent	Indicates whether normal/tangent information should be calculated automatically. This can add significant cost.
+	*	@param	bGenerateTessellationTriangles	Indicates whether tessellation supporting triangles should be calculated. This can add significant cost.
 	*	@param	UpdateFrequency		Indicates how frequently the section will be updated. Allows the RMC to optimize itself to a particular use.
 	*/
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh", meta = (DisplayName = "Create Mesh Section", AutoCreateRefTerm = "Normals,Tangents,UV0,UV1,Colors"))
 	void CreateMeshSection_Blueprint(int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals, 
 		const TArray<FRuntimeMeshTangent>& Tangents, const TArray<FVector2D>& UV0, const TArray<FVector2D>& UV1, const TArray<FLinearColor>& Colors, 
-		bool bCreateCollision, EUpdateFrequency UpdateFrequency = EUpdateFrequency::Average);
+		bool bCreateCollision, bool bCalculateNormalTangent, bool bGenerateTessellationTriangles, EUpdateFrequency UpdateFrequency = EUpdateFrequency::Average);
 
 	/**
 	*	Updates a section. This is faster than CreateMeshSection. If you change the vertices count, you must update the other components.
@@ -1043,10 +1021,12 @@ public:
 	*	@param	UV0					Optional array of texture co-ordinates for each vertex (UV Channel 0). If supplied, must be same length as Vertices array.
 	*	@param	UV1					Optional array of texture co-ordinates for each vertex (UV Channel 1). If supplied, must be same length as Vertices array.
 	*	@param	Colors		Optional array of colors for each vertex. If supplied, must be same length as Vertices array.
+	*	@param	bCalculateNormalTangent	Indicates whether normal/tangent information should be calculated automatically. This can add significant cost.
+	*	@param	bGenerateTessellationTriangles	Indicates whether tessellation supporting triangles should be calculated. This can add significant cost.
 	*/
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh", meta = (DisplayName = "Update Mesh Section", AutoCreateRefTerm = "Triangles,Normals,Tangents,UV0,UV1,Colors"))
 	void UpdateMeshSection_Blueprint(int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals, 
-		const TArray<FRuntimeMeshTangent>& Tangents, const TArray<FVector2D>& UV0, const TArray<FVector2D>& UV1, const TArray<FLinearColor>& Colors);
+		const TArray<FRuntimeMeshTangent>& Tangents, const TArray<FVector2D>& UV0, const TArray<FVector2D>& UV1, const TArray<FLinearColor>& Colors, bool bCalculateNormalTangent, bool bGenerateTessellationTriangles);
 	
 
 	/** Clear a section of the procedural mesh. */

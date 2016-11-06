@@ -8,6 +8,7 @@
 #include "RuntimeMeshVersion.h"
 #include "RuntimeMeshSectionProxy.h"
 #include "RuntimeMeshBuilder.h"
+#include "RuntimeMeshLibrary.h"
 
 /** Interface class for a single mesh section */
 class FRuntimeMeshSectionInterface
@@ -162,6 +163,10 @@ protected:
 	virtual void GetSectionMesh(const IRuntimeMeshVerticesBuilder*& Vertices, const FRuntimeMeshIndicesBuilder*& Indices) = 0;
 
 	virtual const FRuntimeMeshVertexTypeInfo* GetVertexType() const = 0;
+
+	virtual void GenerateNormalTangent() = 0;
+
+	virtual void GenerateTessellationIndices() = 0;
 
 
 	virtual void Serialize(FArchive& Ar)
@@ -417,6 +422,32 @@ protected:
 	}
 
 	virtual const FRuntimeMeshVertexTypeInfo* GetVertexType() const { return &VertexType::TypeInfo; }
+
+	virtual void GenerateNormalTangent()
+	{
+		if (IsDualBufferSection())
+		{
+			URuntimeMeshLibrary::CalculateTangentsForMesh<VertexType>(PositionVertexBuffer, VertexBuffer, IndexBuffer);
+		}
+		else
+		{
+			URuntimeMeshLibrary::CalculateTangentsForMesh<VertexType>(VertexBuffer, IndexBuffer);
+		}
+	}
+
+	virtual void GenerateTessellationIndices()
+	{
+		TArray<int32> TessellationIndices;
+		if (IsDualBufferSection())
+		{
+			URuntimeMeshLibrary::GenerateTessellationIndexBuffer<VertexType>(PositionVertexBuffer, VertexBuffer, IndexBuffer, TessellationIndices);
+		}
+		else
+		{
+			URuntimeMeshLibrary::GenerateTessellationIndexBuffer<VertexType>(VertexBuffer, IndexBuffer, TessellationIndices);
+		}
+		UpdateTessellationIndexBuffer(TessellationIndices, true);
+	}
 
 	virtual void RecalculateBoundingBox() override
 	{

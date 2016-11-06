@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "RuntimeMeshComponent.h"
+#include "RuntimeMeshCore.h"
 
 //////////////////////////////////////////////////////////////////////////
 //	This is a work in progress, it's functional, but could use some improvement

@@ -520,10 +520,22 @@ TSharedPtr<FRuntimeMeshSectionInterface> URuntimeMeshComponent::CreateOrResetSec
 }
 
 
-void URuntimeMeshComponent::CreateSectionInternal(int32 SectionIndex)
+void URuntimeMeshComponent::CreateSectionInternal(int32 SectionIndex, ESectionUpdateFlags UpdateFlags)
 {
 	RuntimeMeshSectionPtr Section = MeshSections[SectionIndex];
 	check(Section.IsValid());
+
+	// Update normal/tangents if requested...
+	if (!!(UpdateFlags & ESectionUpdateFlags::CalculateNormalTangent))
+	{
+		Section->GenerateNormalTangent();
+	}
+
+	// calculate tessellation if requested...
+	if (!!(UpdateFlags & ESectionUpdateFlags::CalculateTessellationIndices))
+	{
+		Section->GenerateTessellationIndices();
+	}
 
 	// Use the batch update if one is running
 	if (BatchState.IsBatchPending())
@@ -578,13 +590,25 @@ void URuntimeMeshComponent::CreateSectionInternal(int32 SectionIndex)
 
 }
 
-void URuntimeMeshComponent::UpdateSectionInternal(int32 SectionIndex, bool bHadVertexPositionsUpdate, bool bHadVertexUpdates, bool bHadIndexUpdates, bool bNeedsBoundsUpdate)
+void URuntimeMeshComponent::UpdateSectionInternal(int32 SectionIndex, bool bHadVertexPositionsUpdate, bool bHadVertexUpdates, bool bHadIndexUpdates, bool bNeedsBoundsUpdate, ESectionUpdateFlags UpdateFlags)
 {
 	// Ensure that something was updated
 	check(bHadVertexPositionsUpdate || bHadVertexUpdates || bHadIndexUpdates || bNeedsBoundsUpdate);
 
 	check(SectionIndex < MeshSections.Num() && MeshSections[SectionIndex].IsValid());	
 	RuntimeMeshSectionPtr Section = MeshSections[SectionIndex];
+	
+	// Update normal/tangents if requested...
+	if (!!(UpdateFlags & ESectionUpdateFlags::CalculateNormalTangent))
+	{
+		Section->GenerateNormalTangent();
+	}
+
+	// calculate tessellation if requested...
+	if (!!(UpdateFlags & ESectionUpdateFlags::CalculateTessellationIndices))
+	{
+		Section->GenerateTessellationIndices();
+	}
 
 	/* Make sure this is only flagged if the section is dual buffer */
 	bHadVertexPositionsUpdate = Section->IsDualBufferSection() && bHadVertexPositionsUpdate;
@@ -862,7 +886,7 @@ void URuntimeMeshComponent::EndMeshSectionPositionUpdate(int32 SectionIndex, con
 
 
 
-void URuntimeMeshComponent::EndMeshSectionUpdate(int32 SectionIndex, ERuntimeMeshBuffer UpdatedBuffers)
+void URuntimeMeshComponent::EndMeshSectionUpdate(int32 SectionIndex, ERuntimeMeshBuffer UpdatedBuffers, ESectionUpdateFlags UpdateFlags)
 {
 	// Bail if we have no buffers to update.
 	if (UpdatedBuffers == ERuntimeMeshBuffer::None)
@@ -879,13 +903,13 @@ void URuntimeMeshComponent::EndMeshSectionUpdate(int32 SectionIndex, ERuntimeMes
 
 	// Finalize section update
 	UpdateSectionInternal(SectionIndex, 
-		(UpdatedBuffers & ERuntimeMeshBuffer::Positions) == ERuntimeMeshBuffer::Positions, 
-		(UpdatedBuffers & ERuntimeMeshBuffer::Vertices) == ERuntimeMeshBuffer::Vertices, 
-		(UpdatedBuffers & ERuntimeMeshBuffer::Triangles) == ERuntimeMeshBuffer::Triangles, true);
+		!!(UpdatedBuffers & ERuntimeMeshBuffer::Positions), 
+		!!(UpdatedBuffers & ERuntimeMeshBuffer::Vertices), 
+		!!(UpdatedBuffers & ERuntimeMeshBuffer::Triangles), true, UpdateFlags);
 }
 
 
-void URuntimeMeshComponent::EndMeshSectionUpdate(int32 SectionIndex, ERuntimeMeshBuffer UpdatedBuffers, const FBox& BoundingBox)
+void URuntimeMeshComponent::EndMeshSectionUpdate(int32 SectionIndex, ERuntimeMeshBuffer UpdatedBuffers, const FBox& BoundingBox, ESectionUpdateFlags UpdateFlags)
 {
 	// Bail if we have no buffers to update.
 	if (UpdatedBuffers == ERuntimeMeshBuffer::None)
@@ -902,15 +926,16 @@ void URuntimeMeshComponent::EndMeshSectionUpdate(int32 SectionIndex, ERuntimeMes
 
 	// Finalize section update
 	UpdateSectionInternal(SectionIndex,
-		(UpdatedBuffers & ERuntimeMeshBuffer::Positions) == ERuntimeMeshBuffer::Positions,
-		(UpdatedBuffers & ERuntimeMeshBuffer::Vertices) == ERuntimeMeshBuffer::Vertices,
-		(UpdatedBuffers & ERuntimeMeshBuffer::Triangles) == ERuntimeMeshBuffer::Triangles, true);
+		!!(UpdatedBuffers & ERuntimeMeshBuffer::Positions),
+		!!(UpdatedBuffers & ERuntimeMeshBuffer::Vertices),
+		!!(UpdatedBuffers & ERuntimeMeshBuffer::Triangles), true, UpdateFlags);
 }
 
 
 
 void URuntimeMeshComponent::CreateMeshSection(int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals,
-	const TArray<FVector2D>& UV0, const TArray<FColor>& Colors, const TArray<FRuntimeMeshTangent>& Tangents, bool bCreateCollision,	EUpdateFrequency UpdateFrequency)
+	const TArray<FVector2D>& UV0, const TArray<FColor>& Colors, const TArray<FRuntimeMeshTangent>& Tangents, bool bCreateCollision,	EUpdateFrequency UpdateFrequency, 
+	ESectionUpdateFlags UpdateFlags)
 {
 	SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_CreateMeshSection);
 
@@ -931,12 +956,12 @@ void URuntimeMeshComponent::CreateMeshSection(int32 SectionIndex, const TArray<F
 	NewSection->UpdateFrequency = UpdateFrequency;
 
 	// Finalize section.
-	CreateSectionInternal(SectionIndex);
+	CreateSectionInternal(SectionIndex, UpdateFlags);
 }
 
 void URuntimeMeshComponent::CreateMeshSection(int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals,
 	const TArray<FVector2D>& UV0, const TArray<FVector2D>& UV1, const TArray<FColor>& Colors, const TArray<FRuntimeMeshTangent>& Tangents,
-	bool bCreateCollision, EUpdateFrequency UpdateFrequency)
+	bool bCreateCollision, EUpdateFrequency UpdateFrequency, ESectionUpdateFlags UpdateFlags)
 {
 	SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_CreateMeshSection_DualUV);
 
@@ -957,25 +982,25 @@ void URuntimeMeshComponent::CreateMeshSection(int32 SectionIndex, const TArray<F
 	NewSection->UpdateFrequency = UpdateFrequency;
 
 	// Finalize section.
-	CreateSectionInternal(SectionIndex);
+	CreateSectionInternal(SectionIndex, UpdateFlags);
 }
 
 
 
 void URuntimeMeshComponent::UpdateMeshSection(int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<FVector>& Normals, const TArray<FVector2D>& UV0,
-	const TArray<FColor>& Colors, const TArray<FRuntimeMeshTangent>& Tangents)
+	const TArray<FColor>& Colors, const TArray<FRuntimeMeshTangent>& Tangents, ESectionUpdateFlags UpdateFlags)
 {
-	UpdateMeshSection(SectionIndex, Vertices, TArray<int32>(), Normals, UV0, Colors, Tangents);
+	UpdateMeshSection(SectionIndex, Vertices, TArray<int32>(), Normals, UV0, Colors, Tangents, UpdateFlags);
 }
 
 void URuntimeMeshComponent::UpdateMeshSection(int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<FVector>& Normals, const TArray<FVector2D>& UV0,
-	const TArray<FVector2D>& UV1, const TArray<FColor>& Colors, const TArray<FRuntimeMeshTangent>& Tangents)
+	const TArray<FVector2D>& UV1, const TArray<FColor>& Colors, const TArray<FRuntimeMeshTangent>& Tangents, ESectionUpdateFlags UpdateFlags)
 {
-	UpdateMeshSection(SectionIndex, Vertices, TArray<int32>(), Normals, UV0, UV1, Colors, Tangents);
+	UpdateMeshSection(SectionIndex, Vertices, TArray<int32>(), Normals, UV0, UV1, Colors, Tangents, UpdateFlags);
 }
 
 void URuntimeMeshComponent::UpdateMeshSection(int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals,
-	const TArray<FVector2D>& UV0, const TArray<FColor>& Colors, const TArray<FRuntimeMeshTangent>& Tangents)
+	const TArray<FVector2D>& UV0, const TArray<FColor>& Colors, const TArray<FRuntimeMeshTangent>& Tangents, ESectionUpdateFlags UpdateFlags)
 {
 	SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_UpdateMeshSection);
 
@@ -999,11 +1024,11 @@ void URuntimeMeshComponent::UpdateMeshSection(int32 SectionIndex, const TArray<F
 		Section->UpdateIndexBuffer(TrianglesRef, false);
 	}
 
-	UpdateSectionInternal(SectionIndex, false, bHadVertexUpdates, bHadTriangleUpdates, true);
+	UpdateSectionInternal(SectionIndex, false, bHadVertexUpdates, bHadTriangleUpdates, true, UpdateFlags);
 }
 
 void URuntimeMeshComponent::UpdateMeshSection(int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals,
-	const TArray<FVector2D>& UV0, const TArray<FVector2D>& UV1, const TArray<FColor>& Colors, const TArray<FRuntimeMeshTangent>& Tangents)
+	const TArray<FVector2D>& UV0, const TArray<FVector2D>& UV1, const TArray<FColor>& Colors, const TArray<FRuntimeMeshTangent>& Tangents, ESectionUpdateFlags UpdateFlags)
 {
 	SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_UpdateMeshSection_DualUV);
 
@@ -1027,30 +1052,38 @@ void URuntimeMeshComponent::UpdateMeshSection(int32 SectionIndex, const TArray<F
 		Section->UpdateIndexBuffer(TrianglesRef, false);
 	}
 
-	UpdateSectionInternal(SectionIndex, false, bHadVertexUpdates, bHadTriangleUpdates, true);
+	UpdateSectionInternal(SectionIndex, false, bHadVertexUpdates, bHadTriangleUpdates, true, UpdateFlags);
 }
 
 
 void URuntimeMeshComponent::CreateMeshSection_Blueprint(int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals, const TArray<FRuntimeMeshTangent>& Tangents,
-	const TArray<FVector2D>& UV0, const TArray<FVector2D>& UV1, const TArray<FLinearColor>& VertexColors, bool bCreateCollision, EUpdateFrequency UpdateFrequency)
+	const TArray<FVector2D>& UV0, const TArray<FVector2D>& UV1, const TArray<FLinearColor>& VertexColors, bool bCreateCollision, bool bCalculateNormalTangent, bool bGenerateTessellationTriangles, EUpdateFrequency UpdateFrequency)
 {	
 	// Convert vertex colors to FColor
 	TArray<FColor> Colors;
 	ConvertLinearColorToFColor(VertexColors, Colors);
 
+	ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None;
+	UpdateFlags |= bCalculateNormalTangent ? ESectionUpdateFlags::CalculateNormalTangent : ESectionUpdateFlags::None;
+	UpdateFlags |= bGenerateTessellationTriangles ? ESectionUpdateFlags::CalculateTessellationIndices : ESectionUpdateFlags::None;
+
 	// Create section
-	CreateMeshSection(SectionIndex, Vertices, Triangles, Normals, UV0, UV1, Colors, Tangents, bCreateCollision, UpdateFrequency);
+	CreateMeshSection(SectionIndex, Vertices, Triangles, Normals, UV0, UV1, Colors, Tangents, bCreateCollision, UpdateFrequency, UpdateFlags);
 }
 
 void URuntimeMeshComponent::UpdateMeshSection_Blueprint(int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals, const TArray<FRuntimeMeshTangent>& Tangents,
-	const TArray<FVector2D>& UV0, const TArray<FVector2D>& UV1, const TArray<FLinearColor>& VertexColors)
+	const TArray<FVector2D>& UV0, const TArray<FVector2D>& UV1, const TArray<FLinearColor>& VertexColors, bool bCalculateNormalTangent, bool bGenerateTessellationTriangles)
 {
 	// Convert vertex colors to FColor
 	TArray<FColor> Colors;
 	ConvertLinearColorToFColor(VertexColors, Colors);
 
+	ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None;
+	UpdateFlags |= bCalculateNormalTangent ? ESectionUpdateFlags::CalculateNormalTangent : ESectionUpdateFlags::None;
+	UpdateFlags |= bGenerateTessellationTriangles ? ESectionUpdateFlags::CalculateTessellationIndices : ESectionUpdateFlags::None;
+
 	// Update section
-	UpdateMeshSection(SectionIndex, Vertices, Triangles, Normals, UV0, UV1, Colors, Tangents);
+	UpdateMeshSection(SectionIndex, Vertices, Triangles, Normals, UV0, UV1, Colors, Tangents, UpdateFlags);
 }
 
 
@@ -1153,7 +1186,7 @@ void URuntimeMeshComponent::SetSectionTessellationTriangles(int32 SectionIndex, 
 	// Tell the section to update the tessellation index buffer
 	Section->UpdateTessellationIndexBuffer(const_cast<TArray<int32>&>(TessellationTriangles), false);
 
-	UpdateSectionInternal(SectionIndex, false, false, true, false);
+	UpdateSectionInternal(SectionIndex, false, false, true, false, ESectionUpdateFlags::None);
 }
 
 

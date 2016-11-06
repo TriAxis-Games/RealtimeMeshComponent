@@ -6,6 +6,8 @@
 #include "RuntimeMeshComponent.h"
 #include "RuntimeMeshLibrary.generated.h"
 
+class RuntimeMeshComponent;
+
 UCLASS()
 class RUNTIMEMESHCOMPONENT_API URuntimeMeshLibrary : public UBlueprintFunctionLibrary
 {
@@ -54,6 +56,19 @@ class RUNTIMEMESHCOMPONENT_API URuntimeMeshLibrary : public UBlueprintFunctionLi
 	*	Automatically generate normals and tangent vectors for a mesh
 	*	UVs are required for correct tangent generation.
 	*/
+	template <typename VertexType>
+	static void CalculateTangentsForMesh(TArray<FVector>& Positions, TArray<VertexType>& Vertices, const TArray<int32>& Triangles)
+	{
+		FRuntimeMeshPackedVerticesBuilder<VertexType> VerticesBuilder(&Vertices, &Positions);
+		FRuntimeMeshIndicesBuilder IndicesBuilder(const_cast<TArray<int32>*>(&Triangles));
+
+		CalculateTangentsForMesh(&VerticesBuilder, &IndicesBuilder);
+	}
+
+	/**
+	*	Automatically generate normals and tangent vectors for a mesh
+	*	UVs are required for correct tangent generation.
+	*/
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh", meta = (AutoCreateRefTerm = "UVs"))
 	static void CalculateTangentsForMesh(const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector2D>& UVs, TArray<FVector>& Normals, TArray<FRuntimeMeshTangent>& Tangents);
 
@@ -74,7 +89,20 @@ class RUNTIMEMESHCOMPONENT_API URuntimeMeshLibrary : public UBlueprintFunctionLi
 		FRuntimeMeshIndicesBuilder IndicesBuilder(const_cast<TArray<int32>*>(&Triangles));
 		FRuntimeMeshIndicesBuilder OutIndicesBuilder(&OutTessTriangles);
 
-		GenerateTessellationIndexBuffer(VerticesBuilder, IndicesBuilder, OutIndicesBuilder);
+		GenerateTessellationIndexBuffer(&VerticesBuilder, &IndicesBuilder, &OutIndicesBuilder);
+	}
+
+	/**
+	*	Generates the tessellation indices needed to support tessellation in materials
+	*/
+	template <typename VertexType>
+	static void GenerateTessellationIndexBuffer(TArray<FVector>& Positions, TArray<VertexType>& Vertices, const TArray<int32>& Triangles, TArray<int32>& OutTessTriangles)
+	{
+		FRuntimeMeshPackedVerticesBuilder<VertexType> VerticesBuilder(&Vertices, &Positions);
+		FRuntimeMeshIndicesBuilder IndicesBuilder(const_cast<TArray<int32>*>(&Triangles));
+		FRuntimeMeshIndicesBuilder OutIndicesBuilder(&OutTessTriangles);
+
+		GenerateTessellationIndexBuffer(&VerticesBuilder, &IndicesBuilder, &OutIndicesBuilder);
 	}
 
 	/**

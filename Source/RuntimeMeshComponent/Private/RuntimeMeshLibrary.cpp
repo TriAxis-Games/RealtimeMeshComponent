@@ -8,6 +8,7 @@
 #include "GeomTools.h"
 #include "TessellationUtilities.h"
 #include "RuntimeMeshBuilder.h"
+#include "RuntimeMeshComponent.h"
 
 #define LOCTEXT_NAMESPACE "RuntimeMeshLibrary"
 
@@ -498,7 +499,7 @@ void URuntimeMeshLibrary::CopyRuntimeMeshFromStaticMeshComponent(UStaticMeshComp
 					GetSectionFromStaticMesh(StaticMesh, LODIndex, SectionIndex, &Vertices, &Triangles, &AdjacencyTriangles);
 
 					// Create section using data
-					RuntimeMeshComp->CreateMeshSection(SectionIndex, &Vertices, &Triangles,
+					RuntimeMeshComp->CreateMeshSection(SectionIndex, *Vertices.GetVertices(), *Triangles.GetIndices(),
 						bShouldCreateCollision, EUpdateFrequency::Infrequent, ESectionUpdateFlags::MoveArrays);
 				}
 				else
@@ -510,7 +511,7 @@ void URuntimeMeshLibrary::CopyRuntimeMeshFromStaticMeshComponent(UStaticMeshComp
 					GetSectionFromStaticMesh(StaticMesh, LODIndex, SectionIndex, &Vertices, &Triangles, &AdjacencyTriangles);
 
 					// Create section using data
-					RuntimeMeshComp->CreateMeshSection(SectionIndex, &Vertices, &Triangles,
+					RuntimeMeshComp->CreateMeshSection(SectionIndex, *Vertices.GetVertices(), *Triangles.GetIndices(),
 						bShouldCreateCollision, EUpdateFrequency::Infrequent, ESectionUpdateFlags::MoveArrays);
 
 				}
