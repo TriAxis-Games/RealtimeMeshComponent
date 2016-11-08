@@ -214,6 +214,15 @@ FReply FRuntimeMeshComponentDetails::ClickedOnConvertToStaticMesh()
 #endif
  				}
  
+				// @alleysark: Set up the SectionInfoMap to enable collision (code from StaticMeshEdit.cpp:CreateStaticMesh)
+				for (int32 SectionIdx = 0, NumSections = StaticMesh->StaticMaterials.Num(); SectionIdx < NumSections; ++SectionIdx)
+				{
+					FMeshSectionInfo Info = StaticMesh->SectionInfoMap.Get(0, SectionIdx);
+					Info.MaterialIndex = SectionIdx;
+					Info.bEnableCollision = true;
+					StaticMesh->SectionInfoMap.Set(0, SectionIdx, Info);
+				}
+
  				// Build mesh from source
  				StaticMesh->Build(false);
  				StaticMesh->PostEditChange();
