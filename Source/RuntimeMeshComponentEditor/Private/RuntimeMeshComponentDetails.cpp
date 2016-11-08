@@ -103,8 +103,9 @@ FReply FRuntimeMeshComponentDetails::ClickedOnConvertToStaticMesh()
  
  			// Raw mesh data we are filling in
  			FRawMesh RawMesh;
- 			// Materials to apply to new mesh
- 			TArray<UMaterialInterface*> MeshMaterials;
+ 			
+			// @alleysark: Unique materials to apply to new mesh.
+			TArray<FStaticMaterial> Materials;
  
 			bool bUseHighPrecisionTangents = false;
 			bool bUseFullPrecisionUVs = false;
@@ -164,11 +165,18 @@ FReply FRuntimeMeshComponentDetails::ClickedOnConvertToStaticMesh()
  					RawMesh.WedgeColors.Add(Vertices->GetColor());
  				}
  
+				// @alleysark: Find a material index for this section.
+				UMaterialInterface* Material = RuntimeMeshComp->GetMaterial(SectionIdx);
+
+				int32 MaterialIndex = Materials.AddUnique(FStaticMaterial(Material));
+
  				// copy face info
  				int32 NumTris = Indices->Length() / 3;
  				for (int32 TriIdx=0; TriIdx < NumTris; TriIdx++)
  				{
- 					RawMesh.FaceMaterialIndices.Add(SectionIdx);
+					// @alleysark: Set the face material
+					RawMesh.FaceMaterialIndices.Add(MaterialIndex);
+
  					RawMesh.FaceSmoothingMasks.Add(0); // Assume this is ignored as bRecomputeNormals is false
  				}
  
@@ -204,15 +212,8 @@ FReply FRuntimeMeshComponentDetails::ClickedOnConvertToStaticMesh()
  				SrcModel->BuildSettings.DstLightmapIndex = 1;
  				SrcModel->RawMeshBulkData->SaveRawMesh(RawMesh);
  
- 				// Copy materials to new mesh
- 				for (UMaterialInterface* Material : MeshMaterials)
- 				{
-#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION >= 14
-					StaticMesh->StaticMaterials.Add(FStaticMaterial(Material));
-#else
- 					StaticMesh->Materials.Add(Material);
-#endif
- 				}
+				// @alleysark: Set the materials used for this static mesh
+				StaticMesh->StaticMaterials = Materials;
  
 				// @alleysark: Set up the SectionInfoMap to enable collision (code from StaticMeshEdit.cpp:CreateStaticMesh)
 				for (int32 SectionIdx = 0, NumSections = StaticMesh->StaticMaterials.Num(); SectionIdx < NumSections; ++SectionIdx)
@@ -225,6 +226,10 @@ FReply FRuntimeMeshComponentDetails::ClickedOnConvertToStaticMesh()
 
  				// Build mesh from source
  				StaticMesh->Build(false);
+
+				// @alleysark: Make package dirty.
+				StaticMesh->MarkPackageDirty();
+
  				StaticMesh->PostEditChange();
  
  				// Notify asset registry of new asset
