@@ -430,93 +430,21 @@ URuntimeMeshComponent::URuntimeMeshComponent(const FObjectInitializer& ObjectIni
 
 TSharedPtr<FRuntimeMeshSectionInterface> URuntimeMeshComponent::CreateOrResetSectionInternalType(int32 SectionIndex, int32 NumUVChannels, bool WantsHalfPrecsionUVs)
 {
-	switch (NumUVChannels)
+	// Ensure sections array is long enough
+	if (SectionIndex >= MeshSections.Num())
 	{
-	case 1:
-		if (WantsHalfPrecsionUVs)
-		{
-			return CreateOrResetSection<FRuntimeMeshSectionInternal<1, true>>(SectionIndex, false, true);
-		}
-		else
-		{
-			return CreateOrResetSection<FRuntimeMeshSectionInternal<1, false>>(SectionIndex, false, true);
-		}
-		break;
-	case 2:
-		if (WantsHalfPrecsionUVs)
-		{
-			return CreateOrResetSection<FRuntimeMeshSectionInternal<2, true>>(SectionIndex, false, true);
-		}
-		else
-		{
-			return CreateOrResetSection<FRuntimeMeshSectionInternal<2, false>>(SectionIndex, false, true);
-		}
-		break;
-	case 3:
-		if (WantsHalfPrecsionUVs)
-		{
-			return CreateOrResetSection<FRuntimeMeshSectionInternal<3, true>>(SectionIndex, false, true);
-		}
-		else
-		{
-			return CreateOrResetSection<FRuntimeMeshSectionInternal<3, false>>(SectionIndex, false, true);
-		}
-		break;
-	case 4:
-		if (WantsHalfPrecsionUVs)
-		{
-			return CreateOrResetSection<FRuntimeMeshSectionInternal<4, true>>(SectionIndex, false, true);
-		}
-		else
-		{
-			return CreateOrResetSection<FRuntimeMeshSectionInternal<4, false>>(SectionIndex, false, true);
-		}
-		break;
-	case 5:
-		if (WantsHalfPrecsionUVs)
-		{
-			return CreateOrResetSection<FRuntimeMeshSectionInternal<5, true>>(SectionIndex, false, true);
-		}
-		else
-		{
-			return CreateOrResetSection<FRuntimeMeshSectionInternal<5, false>>(SectionIndex, false, true);
-		}
-		break;
-	case 6:
-		if (WantsHalfPrecsionUVs)
-		{
-			return CreateOrResetSection<FRuntimeMeshSectionInternal<6, true>>(SectionIndex, false, true);
-		}
-		else
-		{
-			return CreateOrResetSection<FRuntimeMeshSectionInternal<6, false>>(SectionIndex, false, true);
-		}
-		break;
-	case 7:
-		if (WantsHalfPrecsionUVs)
-		{
-			return CreateOrResetSection<FRuntimeMeshSectionInternal<7, true>>(SectionIndex, false, true);
-		}
-		else
-		{
-			return CreateOrResetSection<FRuntimeMeshSectionInternal<7, false>>(SectionIndex, false, true);
-		}
-		break;
-	case 8:
-		if (WantsHalfPrecsionUVs)
-		{
-			return CreateOrResetSection<FRuntimeMeshSectionInternal<8, true>>(SectionIndex, false, true);
-		}
-		else
-		{
-			return CreateOrResetSection<FRuntimeMeshSectionInternal<8, false>>(SectionIndex, false, true);
-		}
-		break;
-
-	default:
-		check(false && "Invalid number of UV channels for section.");
-		return nullptr;
+		MeshSections.SetNum(SectionIndex + 1, false);
 	}
+
+	// Create new section
+	TSharedPtr<FRuntimeMeshSectionInterface> NewSection = MakeShareable(FRuntimeMeshVertexSectionInstantiator::CreateVertexStructure(
+		true, true, true, true, NumUVChannels, ERuntimeMeshVertexTangentBasisType::Default, WantsHalfPrecsionUVs ? ERuntimeMeshVertexUVType::Default : ERuntimeMeshVertexUVType::HighPrecision, false));
+	NewSection->bIsInternalSectionType = true;
+
+	// Store section at index
+	MeshSections[SectionIndex] = NewSection;
+
+	return NewSection;
 }
 
 
