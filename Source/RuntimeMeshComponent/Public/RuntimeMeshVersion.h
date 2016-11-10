@@ -15,7 +15,7 @@ namespace FRuntimeMeshVersion
 		SerializationOptional = 2,
 		DualVertexBuffer = 3,
 
-		//SerializationV2 = 4,
+		SerializationV2 = 4,
 
 		// -----<new versions can be added above this line>-------------------------------------------------
 		VersionPlusOne,

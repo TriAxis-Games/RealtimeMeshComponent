@@ -50,15 +50,15 @@ public:
 		CollisionEnabled(false),
 		bIsVisible(true),
 		bCastsShadow(true),
-		bIsInternalSectionType(false)
+		bIsLegacySectionType(false)
 	{}
 
 	virtual ~FRuntimeMeshSectionInterface() { }
-	
+
 protected:
 
 	/** Is this an internal section type. */
-	bool bIsInternalSectionType;
+	bool bIsLegacySectionType;
 
 	bool IsDualBufferSection() const { return bNeedsPositionOnlyBuffer; }
 
@@ -152,7 +152,6 @@ protected:
 
 	virtual void RecalculateBoundingBox() = 0;
 
-
 	virtual int32 GetAllVertexPositions(TArray<FVector>& Positions) = 0;
 
 	virtual void GetInternalVertexComponents(int32& NumUVChannels, bool& WantsHalfPrecisionUVs) { }
@@ -171,25 +170,44 @@ protected:
 
 	virtual void Serialize(FArchive& Ar)
 	{
-		if (Ar.CustomVer(FRuntimeMeshVersion::GUID) >= FRuntimeMeshVersion::DualVertexBuffer)
+		if (Ar.CustomVer(FRuntimeMeshVersion::GUID) >= FRuntimeMeshVersion::SerializationV2)
 		{
-			Ar << PositionVertexBuffer;
+			if (bNeedsPositionOnlyBuffer)
+			{
+				Ar << PositionVertexBuffer;
+			}
+			Ar << IndexBuffer;
+			Ar << TessellationIndexBuffer;
+			Ar << LocalBoundingBox;
+			Ar << CollisionEnabled;
+			Ar << bIsVisible;
+			Ar << bCastsShadow;
+			Ar << bShouldUseAdjacencyIndexBuffer;
+
+			// Serialize the update frequency as an int32
+			int32 UpdateFreq = (int32)UpdateFrequency;
+			Ar << UpdateFreq;
+			UpdateFrequency = (EUpdateFrequency)UpdateFreq;
+
+			Ar << bIsLegacySectionType;
 		}
-		
-		Ar << IndexBuffer;
-		Ar << LocalBoundingBox;
-		Ar << CollisionEnabled;
-		Ar << bIsVisible;
-		int32 UpdateFreq = (int32)UpdateFrequency;
-		Ar << UpdateFreq;
-		UpdateFrequency = (EUpdateFrequency)UpdateFreq;
+		else
+		{
+			if (Ar.CustomVer(FRuntimeMeshVersion::GUID) >= FRuntimeMeshVersion::DualVertexBuffer)
+			{
+				Ar << PositionVertexBuffer;
+			}
+			Ar << IndexBuffer;
+			Ar << LocalBoundingBox;
+			Ar << CollisionEnabled;
+			Ar << bIsVisible;
+			int32 UpdateFreq = (int32)UpdateFrequency;
+			Ar << UpdateFreq;
+			UpdateFrequency = (EUpdateFrequency)UpdateFreq;
+		}
 	}
+
 	
-	friend FArchive& operator <<(FArchive& Ar, FRuntimeMeshSectionInterface& Section)
-	{
-		Section.Serialize(Ar);
-		return Ar;
-	}
 
 	friend class FRuntimeMeshSceneProxy;
 	friend class URuntimeMeshComponent;
@@ -608,10 +626,9 @@ protected:
 		return true;
 	}
 
-	virtual void Serialize(FArchive& Ar) override
+private:
+	void SerializeLegacy(FArchive& Ar)
 	{
-		FRuntimeMeshSectionInterface::Serialize(Ar);
-		
 		int32 VertexBufferLength = VertexBuffer.Num();
 		Ar << VertexBufferLength;
 
@@ -709,8 +726,22 @@ protected:
 				}
 			}
 		}
+	}
 
+public:
+	virtual void Serialize(FArchive& Ar) override
+	{
 
+		if (Ar.CustomVer(FRuntimeMeshVersion::GUID) >= FRuntimeMeshVersion::SerializationV2)
+		{
+			Ar << VertexBuffer;
+			FRuntimeMeshSectionInterface::Serialize(Ar);
+		}
+		else
+		{
+			FRuntimeMeshSectionInterface::Serialize(Ar);
+			SerializeLegacy(Ar);
+		}
 	}
 
 	friend class URuntimeMeshComponent;

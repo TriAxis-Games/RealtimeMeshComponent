@@ -324,7 +324,7 @@ struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshVertexTypeInfo
 
 	FRuntimeMeshVertexTypeInfo(FString Name, FGuid Guid) : TypeName(Name), TypeGuid(Guid) { }
 
-	bool Equals(const FRuntimeMeshVertexTypeInfo* Other) const
+	virtual bool Equals(const FRuntimeMeshVertexTypeInfo* Other) const
 	{
 		return TypeGuid == Other->TypeGuid;
 	}
@@ -338,6 +338,7 @@ struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshVertexTypeInfo
 		}
 	}
 
+	virtual class FRuntimeMeshSectionInterface* CreateSection(bool bInNeedsPositionOnlyBuffer) const = 0;
 protected:
 
 	void ThrowMismatchException(const FString& OtherName) const
@@ -375,19 +376,18 @@ public:
 };
 
 
+template<typename VertexType>
 class FRuntimeMeshVertexTypeRegistration : FNoncopyable
 {
-	const FRuntimeMeshVertexTypeInfo* const TypeInfo;
-
 public:
-	FRuntimeMeshVertexTypeRegistration(const FRuntimeMeshVertexTypeInfo* InTypeInfo) : TypeInfo(InTypeInfo) 	
+	FRuntimeMeshVertexTypeRegistration()
 	{ 
-		FRuntimeMeshVertexTypeRegistrationContainer::GetInstance().Register(TypeInfo);
+		FRuntimeMeshVertexTypeRegistrationContainer::GetInstance().Register(&VertexType::TypeInfo);
 	}
 
 	~FRuntimeMeshVertexTypeRegistration()
 	{
-		FRuntimeMeshVertexTypeRegistrationContainer::GetInstance().UnRegister(TypeInfo);
+		FRuntimeMeshVertexTypeRegistrationContainer::GetInstance().UnRegister(&VertexType::TypeInfo);
 	}
 };
 
@@ -403,6 +403,6 @@ public:
 
 #define DEFINE_RUNTIMEMESH_CUSTOMVERTEX_TYPEINFO(TypeName) \
 	const  TypeName::FRuntimeMeshVertexTypeInfo_##TypeName TypeName::TypeInfo = TypeName::FRuntimeMeshVertexTypeInfo_##TypeName(); \
-    FRuntimeMeshVertexTypeRegistration FRuntimeMeshVertexTypeInfoRegistration_##TypeName(&##TypeName::TypeInfo);
+    FRuntimeMeshVertexTypeRegistration<##TypeName> FRuntimeMeshVertexTypeInfoRegistration_##TypeName(&##TypeName::TypeInfo);
 
 
