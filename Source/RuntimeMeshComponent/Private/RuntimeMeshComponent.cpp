@@ -19,6 +19,7 @@ public:
 
 	FRuntimeMeshSceneProxy(URuntimeMeshComponent* Component)
 		: FPrimitiveSceneProxy(Component)
+		, BodySetup(Component->GetBodySetup())
 	{
 		bStaticElementsAlwaysUseProxyPrimitiveUniformBuffer = true;
 
@@ -327,7 +328,14 @@ public:
 		for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
 		{
 			if (VisibilityMap & (1 << ViewIndex))
-			{
+			{				
+				// Draw simple collision as wireframe if 'show collision', and collision is enabled, and we are not using the complex as the simple
+				if (ViewFamily.EngineShowFlags.Collision && IsCollisionEnabled() && BodySetup->GetCollisionTraceFlag() != ECollisionTraceFlag::CTF_UseComplexAsSimple)
+				{
+					FTransform GeomTransform(GetLocalToWorld());
+					BodySetup->AggGeom.GetAggGeom(GeomTransform, GetSelectionColor(FColor(157, 149, 223, 255), IsSelected(), IsHovered()).ToFColor(true), NULL, false, false, UseEditorDepthTest(), ViewIndex, Collector);
+				}
+
 				// Render bounds
 				RenderBounds(Collector.GetPDI(ViewIndex), ViewFamily.EngineShowFlags, GetBounds(), IsSelected());
 			}
@@ -367,7 +375,7 @@ public:
 private:
 	/** Array of sections */
 	TArray<FRuntimeMeshSectionProxyInterface*> Sections;
-
+	UBodySetup* BodySetup;
 	FMaterialRelevance MaterialRelevance;
 };
 
