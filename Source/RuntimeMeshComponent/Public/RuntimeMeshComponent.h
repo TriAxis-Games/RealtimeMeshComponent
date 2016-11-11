@@ -150,6 +150,9 @@ public:
 	void CreateMeshSection(int32 SectionIndex, TArray<VertexType>& Vertices, TArray<int32>& Triangles, bool bCreateCollision = false, 
 		EUpdateFrequency UpdateFrequency = EUpdateFrequency::Average, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
 	{
+		// It is only safe to call these functions from the game thread.
+		check(IsInGameThread());
+
 		SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_CreateMeshSection_VertexType);
 
 		// Validate all creation parameters
@@ -185,6 +188,9 @@ public:
 	void CreateMeshSection(int32 SectionIndex, TArray<VertexType>& Vertices, TArray<int32>& Triangles, const FBox& BoundingBox, bool bCreateCollision = false,
 		EUpdateFrequency UpdateFrequency = EUpdateFrequency::Average, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
 	{
+		// It is only safe to call these functions from the game thread.
+		check(IsInGameThread());
+
 		SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_CreateMeshSection_VertexType_WithBoundingBox);
 
 		// Validate all creation parameters
