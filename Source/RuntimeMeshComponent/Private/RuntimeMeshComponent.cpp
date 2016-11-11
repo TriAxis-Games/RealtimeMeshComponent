@@ -1101,7 +1101,7 @@ void URuntimeMeshComponent::ClearAllMeshSections()
 	UpdateLocalBounds();
 }
 
-void URuntimeMeshComponent::SetSectionTessellationTriangles(int32 SectionIndex, const TArray<int32>& TessellationTriangles)
+void URuntimeMeshComponent::SetSectionTessellationTriangles(int32 SectionIndex, const TArray<int32>& TessellationTriangles, bool bShouldMoveArray)
 {
 	// Validate all update parameters
 	RMC_VALIDATE_UPDATEPARAMETERS_INTERNALSECTION(SectionIndex, /*VoidReturn*/);
@@ -1110,7 +1110,7 @@ void URuntimeMeshComponent::SetSectionTessellationTriangles(int32 SectionIndex, 
 	RuntimeMeshSectionPtr& Section = MeshSections[SectionIndex];
 
 	// Tell the section to update the tessellation index buffer
-	Section->UpdateTessellationIndexBuffer(const_cast<TArray<int32>&>(TessellationTriangles), false);
+	Section->UpdateTessellationIndexBuffer(const_cast<TArray<int32>&>(TessellationTriangles), bShouldMoveArray);
 
 	UpdateSectionInternal(SectionIndex, false, false, true, false, ESectionUpdateFlags::None);
 }

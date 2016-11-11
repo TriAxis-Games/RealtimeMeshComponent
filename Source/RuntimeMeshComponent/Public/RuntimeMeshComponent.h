@@ -1046,7 +1046,7 @@ public:
 
 	/** Sets the tessellation triangles needed to correctly support tessellation on a section. */
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
-	void SetSectionTessellationTriangles(int32 SectionIndex, const TArray<int32>& TessellationTriangles);
+	void SetSectionTessellationTriangles(int32 SectionIndex, const TArray<int32>& TessellationTriangles, bool bShouldMoveArray = false);
 
 
 

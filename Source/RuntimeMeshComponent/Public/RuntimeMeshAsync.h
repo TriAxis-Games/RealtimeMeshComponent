@@ -18,7 +18,10 @@
 																																				\
 		~FParallelRuntimeMeshComponentTask_##TaskType()																							\
 		{																																		\
-			delete Data;																														\
+			if (Data != nullptr)																												\
+			{																																	\
+				delete Data;																													\
+			}																																	\
 		}																																		\
 																																				\
 		FORCEINLINE TStatId GetStatId() const																									\
@@ -1045,4 +1048,167 @@ public:
 		});
 	}
 
+
+
+	/** Clear a section of the procedural mesh. */
+	void ClearMeshSection(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent, int32 SectionIndex)
+	{
+		struct FRMCAsyncData
+		{
+			int32 SectionIndex;
+		};
+
+		FRMCAsyncData* Data = new FRMCAsyncData;
+		Data->SectionIndex = SectionIndex;
+
+		RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(ClearMeshSection, FRMCAsyncData, Data, InRuntimeMeshComponent,
+		{
+			Mesh->ClearMeshSection(Data->SectionIndex);
+		});
+	}
+
+	/** Clear all mesh sections and reset to empty state */
+	void ClearAllMeshSections(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent)
+	{
+		struct FRMCAsyncData
+		{
+			int32 SectionIndex;
+		};
+		FRMCAsyncData* Data = new FRMCAsyncData;
+
+		RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(ClearAllMeshSections, FRMCAsyncData, Data, InRuntimeMeshComponent,
+		{
+			Mesh->ClearAllMeshSections();
+		});
+	}
+
+
+	/** Sets the tessellation triangles needed to correctly support tessellation on a section. */
+	void SetSectionTessellationTriangles(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent, int32 SectionIndex, 
+		const TArray<int32>& TessellationTriangles, bool bShouldMoveArray = false)
+	{
+		struct FRMCAsyncData
+		{
+			int32 SectionIndex;
+			TArray<int32> TessellationTriangles;
+		};
+		FRMCAsyncData* Data = new FRMCAsyncData;
+		Data->SectionIndex = SectionIndex;
+
+		if (bShouldMoveArray)
+		{
+			Data->TessellationTriangles = MoveTemp(TessellationTriangles);
+		}
+		else
+		{
+			Data->TessellationTriangles = TessellationTriangles;
+		}
+
+
+		RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(SetSectionTessellationTriangles, FRMCAsyncData, Data, InRuntimeMeshComponent,
+		{
+			Mesh->SetSectionTessellationTriangles(Data->SectionIndex, Data->TessellationTriangles, true);
+		});
+	}
+
+
+	/** Sets the geometry for a collision only section */
+	void SetMeshCollisionSection(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent, int32 CollisionSectionIndex, 
+		const TArray<FVector>& Vertices, const TArray<int32>& Triangles)
+	{
+		struct FRMCAsyncData
+		{
+			int32 CollisionSectionIndex;
+			TArray<FVector> Vertices;
+			TArray<int32> Triangles;
+		};
+		FRMCAsyncData* Data = new FRMCAsyncData;
+		Data->CollisionSectionIndex = CollisionSectionIndex;
+		Data->Vertices = Vertices;
+		Data->Triangles = Triangles;
+
+		RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(SetMeshCollisionSection, FRMCAsyncData, Data, InRuntimeMeshComponent,
+		{
+			Mesh->SetMeshCollisionSection(Data->CollisionSectionIndex, Data->Vertices, Data->Triangles);
+		});
+	}
+
+	/** Clears the geometry for a collision only section */
+	void ClearMeshCollisionSection(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent, int32 CollisionSectionIndex)
+	{
+		struct FRMCAsyncData
+		{
+			int32 CollisionSectionIndex;
+		};
+		FRMCAsyncData* Data = new FRMCAsyncData;
+		Data->CollisionSectionIndex = CollisionSectionIndex;
+
+		RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(ClearMeshCollisionSection, FRMCAsyncData, Data, InRuntimeMeshComponent,
+		{
+			Mesh->ClearMeshCollisionSection(Data->CollisionSectionIndex);
+		});
+	}
+
+	/** Clears the geometry for ALL collision only sections */
+	void ClearAllMeshCollisionSections(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent)
+	{
+		struct FRMCAsyncData
+		{
+			int32 CollisionSectionIndex;
+		};
+		FRMCAsyncData* Data = new FRMCAsyncData;
+
+		RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(ClearAllMeshCollisionSections, FRMCAsyncData, Data, InRuntimeMeshComponent,
+		{
+			Mesh->ClearAllMeshCollisionSections();
+		});
+	}
+
+
+	/** Add simple collision convex to this component */
+	void AddCollisionConvexMesh(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent, TArray<FVector> ConvexVerts)
+	{
+		struct FRMCAsyncData
+		{
+			TArray<FVector> ConvexVerts;
+		};
+		FRMCAsyncData* Data = new FRMCAsyncData;
+		Data->ConvexVerts = ConvexVerts;
+
+		RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(AddCollisionConvexMesh, FRMCAsyncData, Data, InRuntimeMeshComponent,
+		{
+			Mesh->AddCollisionConvexMesh(Data->ConvexVerts);
+		});
+	}
+
+	/** Add simple collision convex to this component */
+	void ClearCollisionConvexMeshes(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent)
+	{
+		struct FRMCAsyncData
+		{
+			int32 CollisionSectionIndex;
+		};
+		FRMCAsyncData* Data = new FRMCAsyncData;
+
+		RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(ClearCollisionConvexMeshes, FRMCAsyncData, Data, InRuntimeMeshComponent,
+		{
+			Mesh->ClearCollisionConvexMeshes();
+		});
+	}
+
+	/** Function to replace _all_ simple collision in one go */
+	void SetCollisionConvexMeshes(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent, const TArray< TArray<FVector> >& ConvexMeshes)
+	{
+		struct FRMCAsyncData
+		{
+			TArray<TArray<FVector>> ConvexMeshes;
+		};
+		FRMCAsyncData* Data = new FRMCAsyncData;
+		Data->ConvexMeshes = ConvexMeshes;
+
+		RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(SetCollisionConvexMeshes, FRMCAsyncData, Data, InRuntimeMeshComponent,
+		{
+			Mesh->SetCollisionConvexMeshes(Data->ConvexMeshes);
+		});
+	}
 };
