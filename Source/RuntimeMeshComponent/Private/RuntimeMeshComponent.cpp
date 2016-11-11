@@ -425,6 +425,7 @@ URuntimeMeshComponent::URuntimeMeshComponent(const FObjectInitializer& ObjectIni
 	, bUseComplexAsSimpleCollision(true)
 	, bShouldSerializeMeshData(true)
 	, bCollisionDirty(true)
+	, CollisionMode(ERuntimeMeshCollisionCookingMode::CookingPerformance)
 {
 	// Setup the collision update ticker
 	PrePhysicsTick.TickGroup = TG_PrePhysics;
@@ -1622,8 +1623,12 @@ bool URuntimeMeshComponent::GetPhysicsTriMeshData(struct FTriMeshCollisionData* 
  
  	CollisionData->bFlipNormals = true;
 
-// 	CollisionData->bDeformableMesh = true;
-// 	CollisionData->bFastCook = true;
+#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION >= 14
+	if (CollisionMode == ERuntimeMeshCollisionCookingMode::CookingPerformance)
+	{
+		CollisionData->bFlipNormals = true;
+	}
+#endif
  
  	return HadCollision;
  }

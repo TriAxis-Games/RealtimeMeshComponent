@@ -251,6 +251,25 @@ struct FRuntimeMeshTangent
 	}
 };
 
+/*
+*	Configuration flag for the collision cooking to prioritize cooking speed or collision performance.
+*/
+UENUM(BlueprintType)
+enum class ERuntimeMeshCollisionCookingMode : uint8
+{
+	/*
+	*	Favors runtime collision performance of cooking speed. 
+	*	This means that cooking a new mesh will be slower, but collision will be faster.
+	*/
+	CollisionPerformance UMETA(DisplayName = "Collision Performance"),
+
+	/*
+	*	Favors cooking speed over collision performance.
+	*	This means that cooking a new mesh will be faster, but collision will be slower.
+	*/
+	CookingPerformance UMETA(DisplayName = "Cooking Performance"),
+};
+
 /* The different buffers within the Runtime Mesh Component */
 enum class ERuntimeMeshBuffer
 {

@@ -1148,8 +1148,14 @@ public:
 	*/
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "RuntimeMesh")
 	bool bShouldSerializeMeshData;
-
-
+	
+	/* 
+	*	The current mode of the collision cooker 
+	*	WARNING: This feature will only work in engine version 4.14 or above!
+	*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh")
+	ERuntimeMeshCollisionCookingMode CollisionMode;
+	
 	/** Collision data */
 	UPROPERTY(Instanced)
 	class UBodySetup* BodySetup;
@@ -1220,7 +1226,7 @@ private:
 	/* Current state of a batch update. */
 	FRuntimeMeshBatchUpdateState BatchState;
 
-	/* Is the collision in need of a rebake? */
+	/* Is the collision in need of a recook? */
 	bool bCollisionDirty;
 
 	/** Array of sections of mesh */	
