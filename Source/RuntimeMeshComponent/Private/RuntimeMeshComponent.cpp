@@ -5,6 +5,7 @@
 #include "RuntimeMeshCore.h"
 #include "RuntimeMeshGenericVertex.h"
 #include "RuntimeMeshVersion.h"
+#include "PhysicsEngine/PhysicsSettings.h"
 
 
 /** Runtime mesh scene proxy */
@@ -1557,11 +1558,11 @@ bool URuntimeMeshComponent::GetPhysicsTriMeshData(struct FTriMeshCollisionData* 
 	bool HadCollision = false;
 
 	// See if we should copy UVs
-// 	bool bCopyUVs = UPhysicsSettings::Get()->bSupportUVFromHitResults;
-// 	if (bCopyUVs)
-// 	{
-// 		CollisionData->UVs.AddZeroed(1); // only one UV channel
-// 	}
+	bool bCopyUVs = UPhysicsSettings::Get()->bSupportUVFromHitResults;
+	if (bCopyUVs)
+	{
+		CollisionData->UVs.AddZeroed(1); // only one UV channel
+	}
 
 	// For each section..
 	for (int32 SectionIdx = 0; SectionIdx < MeshSections.Num(); SectionIdx++)
@@ -1571,14 +1572,7 @@ bool URuntimeMeshComponent::GetPhysicsTriMeshData(struct FTriMeshCollisionData* 
 		if (Section.IsValid() && Section->CollisionEnabled)
 		{
 			// Copy vertex data
-			Section->GetAllVertexPositions(CollisionData->Vertices);
-
-			// Copy UV if desired
-// 			if (bCopyUVs)
-// 			{
-// 				CollisionData->UVs[0].Add(Section.ProcVertexBuffer[VertIdx].UV0);
-// 			}
-
+			Section->GetCollisionInformation(CollisionData->Vertices, CollisionData->UVs, bCopyUVs);
 
 			// Copy indices
 			const int32 NumTriangles = Section->IndexBuffer.Num() / 3;

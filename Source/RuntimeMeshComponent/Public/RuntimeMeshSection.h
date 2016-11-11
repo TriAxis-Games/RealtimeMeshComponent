@@ -152,7 +152,7 @@ protected:
 
 	virtual void RecalculateBoundingBox() = 0;
 
-	virtual int32 GetAllVertexPositions(TArray<FVector>& Positions) = 0;
+	virtual int32 GetCollisionInformation(TArray<FVector>& Positions, TArray<TArray<FVector2D>>& UVs, bool bIncludeUVs) = 0;
 
 	virtual void GetInternalVertexComponents(int32& NumUVChannels, bool& WantsHalfPrecisionUVs) { }
 
@@ -313,7 +313,7 @@ namespace RuntimeMeshSectionInternal
 
 
 	template<typename Type>
-	static typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasPosition>::Type	RecalculateBoundingBox(TArray<Type>& VertexBuffer, FBox& BoundingBox)
+	static typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasPosition>::Type RecalculateBoundingBox(TArray<Type>& VertexBuffer, FBox& BoundingBox)
 	{
 		for (int32 Index = 0; Index < VertexBuffer.Num(); Index++)
 		{
@@ -428,9 +428,28 @@ protected:
 		return UpdateData;
 	}
 
-	virtual int32 GetAllVertexPositions(TArray<FVector>& Positions) override
+	virtual int32 GetCollisionInformation(TArray<FVector>& Positions, TArray<TArray<FVector2D>>& UVs, bool bIncludeUVs) override
 	{
-		return RuntimeMeshSectionInternal::GetAllVertexPositions<VertexType>(VertexBuffer, PositionVertexBuffer, Positions);
+		FRuntimeMeshPackedVerticesBuilder<VertexType> VerticesBuilder(&VertexBuffer, bNeedsPositionOnlyBuffer ? &PositionVertexBuffer : nullptr);
+
+		int32 PositionStart = Positions.Num();
+		Positions.SetNum(PositionStart + VerticesBuilder.Length());
+
+		if (bIncludeUVs)
+		{
+			UVs[0].SetNumZeroed(PositionStart + VerticesBuilder.Length());
+		}
+
+		for (int VertexIdx = 0; VertexIdx < VerticesBuilder.Length(); VertexIdx++)
+		{
+			Positions[PositionStart + VertexIdx] = VerticesBuilder.GetPosition(VertexIdx);
+			if (bIncludeUVs && VerticesBuilder.HasUVComponent(0))
+			{
+				UVs[0][PositionStart + VertexIdx] = VerticesBuilder.GetUV(0);
+			}
+		}
+
+		return VerticesBuilder.Length();
 	}
 
 	virtual void GetSectionMesh(const IRuntimeMeshVerticesBuilder*& Vertices, const FRuntimeMeshIndicesBuilder*& Indices) override
