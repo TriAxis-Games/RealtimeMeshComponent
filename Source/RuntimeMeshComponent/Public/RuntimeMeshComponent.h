@@ -1151,12 +1151,8 @@ public:
 
 
 	/** Collision data */
-	UPROPERTY(Transient, DuplicateTransient)
+	UPROPERTY(Instanced)
 	class UBodySetup* BodySetup;
-
-	// BodySetup got switched to instanced on the PMC, need to look into why.
-	//UPROPERTY(Instanced)
-
 
 	/* Serialize the entire RMC to the supplied archive. */
 	void SerializeRMC(FArchive& Ar);

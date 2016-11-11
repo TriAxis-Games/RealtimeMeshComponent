@@ -1654,7 +1654,7 @@ void URuntimeMeshComponent::EnsureBodySetupCreated()
 {
 	if (BodySetup == nullptr)
 	{
-		BodySetup = NewObject<UBodySetup>(this);
+		BodySetup = NewObject<UBodySetup>(this, NAME_None, (IsTemplate() ? RF_Public : RF_NoFlags));
 		BodySetup->BodySetupGuid = FGuid::NewGuid();
 
 		BodySetup->bGenerateMirroredCollision = false;
@@ -2030,8 +2030,8 @@ void URuntimeMeshComponent::PostLoad()
 	MarkCollisionDirty();
 	UpdateLocalBounds();
 
-// 	if (ProcMeshBodySetup && IsTemplate())
-// 	{
-// 		ProcMeshBodySetup->SetFlags(RF_Public);
-// 	}
+	if (BodySetup && IsTemplate())
+	{
+		BodySetup->SetFlags(RF_Public);
+	}
 }
