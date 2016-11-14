@@ -103,9 +103,13 @@ FReply FRuntimeMeshComponentDetails::ClickedOnConvertToStaticMesh()
  
  			// Raw mesh data we are filling in
  			FRawMesh RawMesh;
- 			
-			// @alleysark: Unique materials to apply to new mesh.
+ 					
+			// Unique Materials to apply to new mesh
+#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION >= 14
 			TArray<FStaticMaterial> Materials;
+#else
+			TArray<UMaterialInterface*> Materials;
+#endif
  
 			bool bUseHighPrecisionTangents = false;
 			bool bUseFullPrecisionUVs = false;
@@ -165,23 +169,25 @@ FReply FRuntimeMeshComponentDetails::ClickedOnConvertToStaticMesh()
  					RawMesh.WedgeColors.Add(Vertices->GetColor());
  				}
  
-				// @alleysark: Find a material index for this section.
+				// Find a material index for this section.
 				UMaterialInterface* Material = RuntimeMeshComp->GetMaterial(SectionIdx);
 
+#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION >= 14
 				int32 MaterialIndex = Materials.AddUnique(FStaticMaterial(Material));
+#else
+				int32 MaterialIndex = Materials.AddUnique(Material);
+#endif
+				
 
  				// copy face info
  				int32 NumTris = Indices->Length() / 3;
  				for (int32 TriIdx=0; TriIdx < NumTris; TriIdx++)
  				{
-					// @alleysark: Set the face material
+					// Set the face material
 					RawMesh.FaceMaterialIndices.Add(MaterialIndex);
 
  					RawMesh.FaceSmoothingMasks.Add(0); // Assume this is ignored as bRecomputeNormals is false
  				}
- 
- 				// Remember material
- 				MeshMaterials.Add(RuntimeMeshComp->GetMaterial(SectionIdx));
  
  				// Update offset for creating one big index/vertex buffer
 				VertexBase += Vertices->Length();
@@ -212,11 +218,17 @@ FReply FRuntimeMeshComponentDetails::ClickedOnConvertToStaticMesh()
  				SrcModel->BuildSettings.DstLightmapIndex = 1;
  				SrcModel->RawMeshBulkData->SaveRawMesh(RawMesh);
  
-				// @alleysark: Set the materials used for this static mesh
+				// Set the materials used for this static mesh
+#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION >= 14
 				StaticMesh->StaticMaterials = Materials;
- 
-				// @alleysark: Set up the SectionInfoMap to enable collision (code from StaticMeshEdit.cpp:CreateStaticMesh)
-				for (int32 SectionIdx = 0, NumSections = StaticMesh->StaticMaterials.Num(); SectionIdx < NumSections; ++SectionIdx)
+				int32 NumMaterials = StaticMesh->StaticMaterials.Num();
+#else
+				StaticMesh->Materials = Materials;
+				int32 NumMaterials = StaticMesh->Materials.Num();
+#endif
+
+				// Set up the SectionInfoMap to enable collision
+				for (int32 SectionIdx = 0; SectionIdx < NumMaterials; SectionIdx++)
 				{
 					FMeshSectionInfo Info = StaticMesh->SectionInfoMap.Get(0, SectionIdx);
 					Info.MaterialIndex = SectionIdx;
@@ -224,10 +236,11 @@ FReply FRuntimeMeshComponentDetails::ClickedOnConvertToStaticMesh()
 					StaticMesh->SectionInfoMap.Set(0, SectionIdx, Info);
 				}
 
+
  				// Build mesh from source
  				StaticMesh->Build(false);
 
-				// @alleysark: Make package dirty.
+				// Make package dirty.
 				StaticMesh->MarkPackageDirty();
 
  				StaticMesh->PostEditChange();
