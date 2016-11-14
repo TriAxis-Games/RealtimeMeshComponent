@@ -6,6 +6,8 @@
 #include "DlgPickAssetPath.h"
 #include "AssetToolsModule.h"
 #include "AssetRegistryModule.h"
+#include "PhysicsEngine/PhysicsSettings.h"
+#include "PhysicsEngine/BodySetup.h"
 
 #define LOCTEXT_NAMESPACE "RuntimeMeshComponentDetails"
 
@@ -236,6 +238,9 @@ FReply FRuntimeMeshComponentDetails::ClickedOnConvertToStaticMesh()
 					StaticMesh->SectionInfoMap.Set(0, SectionIdx, Info);
 				}
 
+				// Configure body setup for working collision.
+				StaticMesh->CreateBodySetup();
+				StaticMesh->BodySetup->CollisionTraceFlag = CTF_UseComplexAsSimple;
 
  				// Build mesh from source
  				StaticMesh->Build(false);
