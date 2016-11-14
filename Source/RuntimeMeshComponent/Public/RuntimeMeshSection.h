@@ -50,15 +50,15 @@ public:
 		CollisionEnabled(false),
 		bIsVisible(true),
 		bCastsShadow(true),
-		bIsInternalSectionType(false)
+		bIsLegacySectionType(false)
 	{}
 
 	virtual ~FRuntimeMeshSectionInterface() { }
-	
+
 protected:
 
 	/** Is this an internal section type. */
-	bool bIsInternalSectionType;
+	bool bIsLegacySectionType;
 
 	bool IsDualBufferSection() const { return bNeedsPositionOnlyBuffer; }
 
@@ -152,8 +152,7 @@ protected:
 
 	virtual void RecalculateBoundingBox() = 0;
 
-
-	virtual int32 GetAllVertexPositions(TArray<FVector>& Positions) = 0;
+	virtual int32 GetCollisionInformation(TArray<FVector>& Positions, TArray<TArray<FVector2D>>& UVs, bool bIncludeUVs) = 0;
 
 	virtual void GetInternalVertexComponents(int32& NumUVChannels, bool& WantsHalfPrecisionUVs) { }
 
@@ -171,25 +170,44 @@ protected:
 
 	virtual void Serialize(FArchive& Ar)
 	{
-		if (Ar.CustomVer(FRuntimeMeshVersion::GUID) >= FRuntimeMeshVersion::DualVertexBuffer)
+		if (Ar.CustomVer(FRuntimeMeshVersion::GUID) >= FRuntimeMeshVersion::SerializationV2)
 		{
-			Ar << PositionVertexBuffer;
-		}
+			if (bNeedsPositionOnlyBuffer)
+			{
+				Ar << PositionVertexBuffer;
+			}
+			Ar << IndexBuffer;
+			Ar << TessellationIndexBuffer;
+			Ar << LocalBoundingBox;
+			Ar << CollisionEnabled;
+			Ar << bIsVisible;
+			Ar << bCastsShadow;
+			Ar << bShouldUseAdjacencyIndexBuffer;
 
-		Ar << IndexBuffer;
-		Ar << LocalBoundingBox;
-		Ar << CollisionEnabled;
-		Ar << bIsVisible;
-		int32 UpdateFreq = (int32)UpdateFrequency;
-		Ar << UpdateFreq;
-		UpdateFrequency = (EUpdateFrequency)UpdateFreq;
+			// Serialize the update frequency as an int32
+			int32 UpdateFreq = (int32)UpdateFrequency;
+			Ar << UpdateFreq;
+			UpdateFrequency = (EUpdateFrequency)UpdateFreq;
+
+			Ar << bIsLegacySectionType;
+		}
+		else
+		{
+			if (Ar.CustomVer(FRuntimeMeshVersion::GUID) >= FRuntimeMeshVersion::DualVertexBuffer)
+			{
+				Ar << PositionVertexBuffer;
+			}
+			Ar << IndexBuffer;
+			Ar << LocalBoundingBox;
+			Ar << CollisionEnabled;
+			Ar << bIsVisible;
+			int32 UpdateFreq = (int32)UpdateFrequency;
+			Ar << UpdateFreq;
+			UpdateFrequency = (EUpdateFrequency)UpdateFreq;
+		}
 	}
+
 	
-	friend FArchive& operator <<(FArchive& Ar, FRuntimeMeshSectionInterface& Section)
-	{
-		Section.Serialize(Ar);
-		return Ar;
-	}
 
 	friend class FRuntimeMeshSceneProxy;
 	friend class URuntimeMeshComponent;
@@ -295,7 +313,7 @@ namespace RuntimeMeshSectionInternal
 
 
 	template<typename Type>
-	static typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasPosition>::Type	RecalculateBoundingBox(TArray<Type>& VertexBuffer, FBox& BoundingBox)
+	static typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasPosition>::Type RecalculateBoundingBox(TArray<Type>& VertexBuffer, FBox& BoundingBox)
 	{
 		for (int32 Index = 0; Index < VertexBuffer.Num(); Index++)
 		{
@@ -410,9 +428,28 @@ protected:
 		return UpdateData;
 	}
 
-	virtual int32 GetAllVertexPositions(TArray<FVector>& Positions) override
+	virtual int32 GetCollisionInformation(TArray<FVector>& Positions, TArray<TArray<FVector2D>>& UVs, bool bIncludeUVs) override
 	{
-		return RuntimeMeshSectionInternal::GetAllVertexPositions<VertexType>(VertexBuffer, PositionVertexBuffer, Positions);
+		FRuntimeMeshPackedVerticesBuilder<VertexType> VerticesBuilder(&VertexBuffer, bNeedsPositionOnlyBuffer ? &PositionVertexBuffer : nullptr);
+
+		int32 PositionStart = Positions.Num();
+		Positions.SetNum(PositionStart + VerticesBuilder.Length());
+
+		if (bIncludeUVs)
+		{
+			UVs[0].SetNumZeroed(PositionStart + VerticesBuilder.Length());
+		}
+
+		for (int VertexIdx = 0; VertexIdx < VerticesBuilder.Length(); VertexIdx++)
+		{
+			Positions[PositionStart + VertexIdx] = VerticesBuilder.GetPosition(VertexIdx);
+			if (bIncludeUVs && VerticesBuilder.HasUVComponent(0))
+			{
+				UVs[0][PositionStart + VertexIdx] = VerticesBuilder.GetUV(0);
+			}
+		}
+
+		return VerticesBuilder.Length();
 	}
 
 	virtual void GetSectionMesh(const IRuntimeMeshVerticesBuilder*& Vertices, const FRuntimeMeshIndicesBuilder*& Indices) override
@@ -466,6 +503,265 @@ protected:
 		}
 	}
 
+	virtual void GetInternalVertexComponents(int32& NumUVChannels, bool& WantsHalfPrecisionUVs) override
+	{
+		NumUVChannels = FRuntimeMeshVertexTraits<VertexType>::NumUVChannels;
+		WantsHalfPrecisionUVs = !FRuntimeMeshVertexTraits<VertexType>::HasHighPrecisionUVs;
+	}
+
+	virtual bool UpdateVertexBufferInternal(const TArray<FVector>& Positions, const TArray<FVector>& Normals, const TArray<FRuntimeMeshTangent>& Tangents, const TArray<FVector2D>& UV0, const TArray<FVector2D>& UV1, const TArray<FColor>& Colors) override
+	{
+		// Check existence of data components
+		const bool HasPositions = Positions.Num() > 0;
+
+		int32 NewVertexCount = HasPositions ? Positions.Num() : VertexBuffer.Num();
+		int32 OldVertexCount = FMath::Min(VertexBuffer.Num(), NewVertexCount);
+
+		// Size the vertex buffer correctly
+		if (NewVertexCount != VertexBuffer.Num())
+		{
+			VertexBuffer.SetNumZeroed(NewVertexCount);
+		}
+
+		// Clear the bounding box if we have new positions
+		if (HasPositions)
+		{
+			LocalBoundingBox.Init();
+		}
+
+		FRuntimeMeshPackedVerticesBuilder<VertexType> VerticesBuilder(&VertexBuffer);
+				
+		// Loop through existing range to update data
+		for (int32 VertexIdx = 0; VertexIdx < OldVertexCount; VertexIdx++)
+		{
+			VerticesBuilder.Seek(VertexIdx);
+
+			// Update position and bounding box
+			if (HasPositions)
+			{
+				VerticesBuilder.SetPosition(Positions[VertexIdx]);
+				LocalBoundingBox += Positions[VertexIdx];
+			}
+			
+			// see if we have a new normal and/or tangent
+			bool HasNormal = Normals.Num() > VertexIdx;
+			bool HasTangent = Tangents.Num() > VertexIdx;
+
+			// Update normal and tangent together
+			if (HasNormal && HasTangent)
+			{
+				FVector4 NewNormal(Normals[VertexIdx], Tangents[VertexIdx].bFlipTangentY ? -1.0f : 1.0f);
+				VerticesBuilder.SetNormal(NewNormal);
+				VerticesBuilder.SetTangent(Tangents[VertexIdx].TangentX);
+			}
+			// Else update only normal keeping the W component 
+			else if (HasNormal)
+			{
+				float W = VerticesBuilder.GetNormal().W;
+				VerticesBuilder.SetNormal(FVector4(Normals[VertexIdx], W));
+			}
+			// Else update tangent updating the normals W component
+			else if (HasTangent)
+			{
+				FVector4 Normal = VerticesBuilder.GetNormal();
+				Normal.W = Tangents[VertexIdx].bFlipTangentY ? -1.0f : 1.0f;
+				VerticesBuilder.SetNormal(Normal);
+				VerticesBuilder.SetTangent(Tangents[VertexIdx].TangentX);
+			}
+
+			// Update color
+			if (Colors.Num() > VertexIdx)
+			{
+				VerticesBuilder.SetColor(Colors[VertexIdx]);
+			}
+
+			// Update UV0
+			if (UV0.Num() > VertexIdx)
+			{
+				VerticesBuilder.SetUV(0, UV0[VertexIdx]);
+			}
+
+			// Update UV1 if needed
+			if (UV1.Num() > VertexIdx && VerticesBuilder.HasUVComponent(1))
+			{
+				VerticesBuilder.SetUV(1, UV1[VertexIdx]);
+			}
+		}
+
+		// Loop through additional range to add new data
+		for (int32 VertexIdx = OldVertexCount; VertexIdx < NewVertexCount; VertexIdx++)
+		{
+			VerticesBuilder.Seek(VertexIdx);
+
+			// Set position
+			VerticesBuilder.SetPosition(Positions[VertexIdx]);
+
+			// Update bounding box
+			LocalBoundingBox += Positions[VertexIdx];
+
+			// see if we have a new normal and/or tangent
+			bool HasNormal = Normals.Num() > VertexIdx;
+			bool HasTangent = Tangents.Num() > VertexIdx;
+
+			// Set normal and tangent both
+			if (HasNormal && HasTangent)
+			{
+				FVector4 NewNormal(Normals[VertexIdx], Tangents[VertexIdx].bFlipTangentY ? -1.0f : 1.0f);
+				VerticesBuilder.SetNormal(NewNormal);
+				VerticesBuilder.SetTangent(Tangents[VertexIdx].TangentX);
+			}
+			// Set normal and default tangent
+			else if (HasNormal)
+			{
+				VerticesBuilder.SetNormal(FVector4(Normals[VertexIdx], 1.0f));
+				VerticesBuilder.SetTangent(FVector(1.0f, 0.0f, 0.0f));
+			}
+			// Default normal and set tangent
+			else if (HasTangent)
+			{
+				VerticesBuilder.SetNormal(FVector4(0.0f, 0.0f, 1.0f, Tangents[VertexIdx].bFlipTangentY ? -1.0f : 1.0f));
+				VerticesBuilder.SetTangent(Tangents[VertexIdx].TangentX);
+			}
+			// Default normal and tangent
+			else
+			{
+				VerticesBuilder.SetNormal(FVector4(0.0f, 0.0f, 1.0f, 1.0f));
+				VerticesBuilder.SetTangent(FVector(1.0f, 0.0f, 0.0f));
+			}
+
+			// Set color or default 
+			VerticesBuilder.SetColor(Colors.Num() > VertexIdx ? Colors[VertexIdx] : FColor::White);
+
+			// Update UV0
+			VerticesBuilder.SetUV(0, UV0.Num() > VertexIdx ? UV0[VertexIdx] : FVector2D::ZeroVector);
+
+			// Update UV1 if needed
+			if (VerticesBuilder.HasUVComponent(1))
+			{
+				VerticesBuilder.SetUV(1, UV1.Num() > VertexIdx ? UV1[VertexIdx] : FVector2D::ZeroVector);
+			}
+		}
+
+		return true;
+	}
+
+private:
+	void SerializeLegacy(FArchive& Ar)
+	{
+		int32 VertexBufferLength = VertexBuffer.Num();
+		Ar << VertexBufferLength;
+
+		if (Ar.IsLoading())
+		{
+			VertexBuffer.SetNum(VertexBufferLength);
+			FRuntimeMeshPackedVerticesBuilder<VertexType> VerticesBuilder(&VertexBuffer);
+
+			for (int32 Index = 0; Index < VertexBufferLength; Index++)
+			{
+				VerticesBuilder.Seek(Index);
+
+				FVector TempPosition;
+				Ar << TempPosition;
+				VerticesBuilder.SetPosition(TempPosition);
+
+				FPackedNormal TempNormal;
+				Ar << TempNormal;
+				VerticesBuilder.SetNormal(TempNormal);
+
+				Ar << TempNormal;
+				VerticesBuilder.SetTangent(TempNormal);
+
+				FColor TempColor;
+				Ar << TempColor;
+				VerticesBuilder.SetColor(TempColor);
+
+				if (FRuntimeMeshVertexTraits<VertexType>::HasHighPrecisionUVs)
+				{
+					FVector2D TempUV;
+					Ar << TempUV;
+					VerticesBuilder.SetUV(0, TempUV);
+
+					if (FRuntimeMeshVertexTraits<VertexType>::NumUVChannels > 1)
+					{
+						Ar << TempUV;
+						VerticesBuilder.SetUV(1, TempUV);
+					}
+				}
+				else
+				{
+					FVector2DHalf TempUV;
+					Ar << TempUV;
+					VerticesBuilder.SetUV(0, TempUV);
+
+					if (FRuntimeMeshVertexTraits<VertexType>::NumUVChannels > 1)
+					{
+						Ar << TempUV;
+						VerticesBuilder.SetUV(1, TempUV);
+					}
+				}
+			}
+		}
+		else
+		{
+			FRuntimeMeshPackedVerticesBuilder<VertexType> VerticesBuilder(&VertexBuffer);
+			for (int32 Index = 0; Index < VertexBufferLength; Index++)
+			{
+				VerticesBuilder.Seek(Index);
+
+				FVector TempPosition = VerticesBuilder.GetPosition();
+				Ar << TempPosition;
+
+				FPackedNormal TempNormal = VerticesBuilder.GetNormal();
+				Ar << TempNormal;
+
+				TempNormal = VerticesBuilder.GetTangent();
+				Ar << TempNormal;
+
+				FColor TempColor = VerticesBuilder.GetColor();
+				Ar << TempColor;
+
+
+				if (FRuntimeMeshVertexTraits<VertexType>::HasHighPrecisionUVs)
+				{
+					FVector2D TempUV = VerticesBuilder.GetUV(0);
+					Ar << TempUV;
+
+					if (FRuntimeMeshVertexTraits<VertexType>::NumUVChannels > 1)
+					{
+						TempUV = VerticesBuilder.GetUV(1);
+						Ar << TempUV;
+					}
+				}
+				else
+				{
+					FVector2DHalf TempUV = VerticesBuilder.GetUV(0);
+					Ar << TempUV;
+
+					if (FRuntimeMeshVertexTraits<VertexType>::NumUVChannels > 1)
+					{
+						TempUV = VerticesBuilder.GetUV(1);
+						Ar << TempUV;
+					}
+				}
+			}
+		}
+	}
+
+public:
+	virtual void Serialize(FArchive& Ar) override
+	{
+
+		if (Ar.CustomVer(FRuntimeMeshVersion::GUID) >= FRuntimeMeshVersion::SerializationV2)
+		{
+			Ar << VertexBuffer;
+			FRuntimeMeshSectionInterface::Serialize(Ar);
+		}
+		else
+		{
+			FRuntimeMeshSectionInterface::Serialize(Ar);
+			SerializeLegacy(Ar);
+		}
+	}
 
 	friend class URuntimeMeshComponent;
 };

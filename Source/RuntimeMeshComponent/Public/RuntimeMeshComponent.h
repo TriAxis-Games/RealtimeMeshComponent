@@ -42,7 +42,7 @@
 
 #define RMC_VALIDATE_UPDATEPARAMETERS_INTERNALSECTION(SectionIndex, RetVal) \
 		RMC_VALIDATE_UPDATEPARAMETERS(SectionIndex, RetVal) \
-		RMC_CHECKINGAME_LOGINEDITOR((MeshSections[SectionIndex]->bIsInternalSectionType), "Section is not of legacy type.", RetVal);
+		RMC_CHECKINGAME_LOGINEDITOR((MeshSections[SectionIndex]->bIsLegacySectionType), "Section is not of legacy type.", RetVal);
 		
 #define RMC_VALIDATE_UPDATEPARAMETERS_DUALBUFFER(SectionIndex, RetVal) \
 		RMC_VALIDATE_UPDATEPARAMETERS(SectionIndex, RetVal) \
@@ -80,7 +80,7 @@ private:
 	
 	/* Creates an mesh section of a specified type at the specified index. */
 	template<typename SectionType>
-	TSharedPtr<SectionType> CreateOrResetSection(int32 SectionIndex, bool bWantsSeparatePositionBuffer, bool bIsInternalSectionType = false)
+	TSharedPtr<SectionType> CreateOrResetSection(int32 SectionIndex, bool bWantsSeparatePositionBuffer, bool bInIsLegacySectionType = false)
 	{
 		// Ensure sections array is long enough
 		if (SectionIndex >= MeshSections.Num())
@@ -90,7 +90,7 @@ private:
 
 		// Create new section
 		TSharedPtr<SectionType> NewSection = MakeShareable(new SectionType(bWantsSeparatePositionBuffer));
-		NewSection->bIsInternalSectionType = bIsInternalSectionType;
+		NewSection->bIsLegacySectionType = bInIsLegacySectionType;
 
 		// Store section at index
 		MeshSections[SectionIndex] = NewSection;
@@ -99,7 +99,7 @@ private:
 	}
 		
 	/* Creates a mesh section of an internal type meant for the generic vertex and the old PMC style API */
-	TSharedPtr<FRuntimeMeshSectionInterface> CreateOrResetSectionInternalType(int32 SectionIndex, int32 NumUVChannels, bool WantsHalfPrecsionUVs);
+	TSharedPtr<FRuntimeMeshSectionInterface> CreateOrResetSectionLegacyType(int32 SectionIndex, int32 NumUVChannels);
 
 	/* Gets the material for a section or the default material if one's not provided. */
 	UMaterialInterface* GetSectionMaterial(int32 Index)
@@ -150,6 +150,9 @@ public:
 	void CreateMeshSection(int32 SectionIndex, TArray<VertexType>& Vertices, TArray<int32>& Triangles, bool bCreateCollision = false, 
 		EUpdateFrequency UpdateFrequency = EUpdateFrequency::Average, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
 	{
+		// It is only safe to call these functions from the game thread.
+		check(IsInGameThread());
+
 		SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_CreateMeshSection_VertexType);
 
 		// Validate all creation parameters
@@ -185,6 +188,9 @@ public:
 	void CreateMeshSection(int32 SectionIndex, TArray<VertexType>& Vertices, TArray<int32>& Triangles, const FBox& BoundingBox, bool bCreateCollision = false,
 		EUpdateFrequency UpdateFrequency = EUpdateFrequency::Average, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
 	{
+		// It is only safe to call these functions from the game thread.
+		check(IsInGameThread());
+
 		SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_CreateMeshSection_VertexType_WithBoundingBox);
 
 		// Validate all creation parameters
@@ -1040,7 +1046,7 @@ public:
 
 	/** Sets the tessellation triangles needed to correctly support tessellation on a section. */
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
-	void SetSectionTessellationTriangles(int32 SectionIndex, const TArray<int32>& TessellationTriangles);
+	void SetSectionTessellationTriangles(int32 SectionIndex, const TArray<int32>& TessellationTriangles, bool bShouldMoveArray = false);
 
 
 
@@ -1142,14 +1148,23 @@ public:
 	*/
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "RuntimeMesh")
 	bool bShouldSerializeMeshData;
-
-
+	
+	/* 
+	*	The current mode of the collision cooker 
+	*	WARNING: This feature will only work in engine version 4.14 or above!
+	*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh")
+	ERuntimeMeshCollisionCookingMode CollisionMode;
+	
 	/** Collision data */
-	UPROPERTY(Transient, DuplicateTransient)
+	UPROPERTY(Instanced)
 	class UBodySetup* BodySetup;
 
-	// BodySetup got switched to instanced on the PMC, need to look into why.
-	//UPROPERTY(Instanced)
+	/* Serialize the entire RMC to the supplied archive. */
+	void SerializeRMC(FArchive& Ar);
+
+	/* Serialize the designated section into the supplied archive. */
+	void SerializeRMCSection(FArchive& Ar, int32 SectionIndex);
 
 private:
 
@@ -1198,6 +1213,8 @@ private:
 
 	/* Serializes this component */
 	virtual void Serialize(FArchive& Ar) override;
+	void SerializeInternal(FArchive& Ar, bool bForceSaveAll = false);
+	void SerializeLegacy(FArchive& Ar);
 
 	/* Does post load fixups */
 	virtual void PostLoad() override;
@@ -1209,7 +1226,7 @@ private:
 	/* Current state of a batch update. */
 	FRuntimeMeshBatchUpdateState BatchState;
 
-	/* Is the collision in need of a rebake? */
+	/* Is the collision in need of a recook? */
 	bool bCollisionDirty;
 
 	/** Array of sections of mesh */	

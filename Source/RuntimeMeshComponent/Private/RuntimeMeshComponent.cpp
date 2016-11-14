@@ -5,6 +5,7 @@
 #include "RuntimeMeshCore.h"
 #include "RuntimeMeshGenericVertex.h"
 #include "RuntimeMeshVersion.h"
+#include "PhysicsEngine/PhysicsSettings.h"
 
 
 /** Runtime mesh scene proxy */
@@ -19,6 +20,7 @@ public:
 
 	FRuntimeMeshSceneProxy(URuntimeMeshComponent* Component)
 		: FPrimitiveSceneProxy(Component)
+		, BodySetup(Component->GetBodySetup())
 	{
 		bStaticElementsAlwaysUseProxyPrimitiveUniformBuffer = true;
 
@@ -327,7 +329,14 @@ public:
 		for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
 		{
 			if (VisibilityMap & (1 << ViewIndex))
-			{
+			{				
+				// Draw simple collision as wireframe if 'show collision', and collision is enabled, and we are not using the complex as the simple
+				if (ViewFamily.EngineShowFlags.Collision && IsCollisionEnabled() && BodySetup->GetCollisionTraceFlag() != ECollisionTraceFlag::CTF_UseComplexAsSimple)
+				{
+					FTransform GeomTransform(GetLocalToWorld());
+					BodySetup->AggGeom.GetAggGeom(GeomTransform, GetSelectionColor(FColor(157, 149, 223, 255), IsSelected(), IsHovered()).ToFColor(true), NULL, false, false, UseEditorDepthTest(), ViewIndex, Collector);
+				}
+
 				// Render bounds
 				RenderBounds(Collector.GetPDI(ViewIndex), ViewFamily.EngineShowFlags, GetBounds(), IsSelected());
 			}
@@ -367,7 +376,7 @@ public:
 private:
 	/** Array of sections */
 	TArray<FRuntimeMeshSectionProxyInterface*> Sections;
-
+	UBodySetup* BodySetup;
 	FMaterialRelevance MaterialRelevance;
 };
 
@@ -416,6 +425,7 @@ URuntimeMeshComponent::URuntimeMeshComponent(const FObjectInitializer& ObjectIni
 	, bUseComplexAsSimpleCollision(true)
 	, bShouldSerializeMeshData(true)
 	, bCollisionDirty(true)
+	, CollisionMode(ERuntimeMeshCollisionCookingMode::CookingPerformance)
 {
 	// Setup the collision update ticker
 	PrePhysicsTick.TickGroup = TG_PrePhysics;
@@ -428,93 +438,19 @@ URuntimeMeshComponent::URuntimeMeshComponent(const FObjectInitializer& ObjectIni
 	SetNetAddressable();
 }
 
-TSharedPtr<FRuntimeMeshSectionInterface> URuntimeMeshComponent::CreateOrResetSectionInternalType(int32 SectionIndex, int32 NumUVChannels, bool WantsHalfPrecsionUVs)
+TSharedPtr<FRuntimeMeshSectionInterface> URuntimeMeshComponent::CreateOrResetSectionLegacyType(int32 SectionIndex, int32 NumUVChannels)
 {
-	switch (NumUVChannels)
+	if (NumUVChannels == 1)
 	{
-	case 1:
-		if (WantsHalfPrecsionUVs)
-		{
-			return CreateOrResetSection<FRuntimeMeshSectionInternal<1, true>>(SectionIndex, false, true);
-		}
-		else
-		{
-			return CreateOrResetSection<FRuntimeMeshSectionInternal<1, false>>(SectionIndex, false, true);
-		}
-		break;
-	case 2:
-		if (WantsHalfPrecsionUVs)
-		{
-			return CreateOrResetSection<FRuntimeMeshSectionInternal<2, true>>(SectionIndex, false, true);
-		}
-		else
-		{
-			return CreateOrResetSection<FRuntimeMeshSectionInternal<2, false>>(SectionIndex, false, true);
-		}
-		break;
-	case 3:
-		if (WantsHalfPrecsionUVs)
-		{
-			return CreateOrResetSection<FRuntimeMeshSectionInternal<3, true>>(SectionIndex, false, true);
-		}
-		else
-		{
-			return CreateOrResetSection<FRuntimeMeshSectionInternal<3, false>>(SectionIndex, false, true);
-		}
-		break;
-	case 4:
-		if (WantsHalfPrecsionUVs)
-		{
-			return CreateOrResetSection<FRuntimeMeshSectionInternal<4, true>>(SectionIndex, false, true);
-		}
-		else
-		{
-			return CreateOrResetSection<FRuntimeMeshSectionInternal<4, false>>(SectionIndex, false, true);
-		}
-		break;
-	case 5:
-		if (WantsHalfPrecsionUVs)
-		{
-			return CreateOrResetSection<FRuntimeMeshSectionInternal<5, true>>(SectionIndex, false, true);
-		}
-		else
-		{
-			return CreateOrResetSection<FRuntimeMeshSectionInternal<5, false>>(SectionIndex, false, true);
-		}
-		break;
-	case 6:
-		if (WantsHalfPrecsionUVs)
-		{
-			return CreateOrResetSection<FRuntimeMeshSectionInternal<6, true>>(SectionIndex, false, true);
-		}
-		else
-		{
-			return CreateOrResetSection<FRuntimeMeshSectionInternal<6, false>>(SectionIndex, false, true);
-		}
-		break;
-	case 7:
-		if (WantsHalfPrecsionUVs)
-		{
-			return CreateOrResetSection<FRuntimeMeshSectionInternal<7, true>>(SectionIndex, false, true);
-		}
-		else
-		{
-			return CreateOrResetSection<FRuntimeMeshSectionInternal<7, false>>(SectionIndex, false, true);
-		}
-		break;
-	case 8:
-		if (WantsHalfPrecsionUVs)
-		{
-			return CreateOrResetSection<FRuntimeMeshSectionInternal<8, true>>(SectionIndex, false, true);
-		}
-		else
-		{
-			return CreateOrResetSection<FRuntimeMeshSectionInternal<8, false>>(SectionIndex, false, true);
-		}
-		break;
-
-	default:
-		check(false && "Invalid number of UV channels for section.");
+		return CreateOrResetSection<FRuntimeMeshSection<FRuntimeMeshVertexSimple>>(SectionIndex, false, true);
+	}
+	else if (NumUVChannels == 2)
+	{
+		return CreateOrResetSection<FRuntimeMeshSection<FRuntimeMeshVertexDualUV>>(SectionIndex, false, true);
+	}
+	else
+	{
+		check(false && "Legacy sections only support standard vertex formats wit 1 or 2 uv channels");
 		return nullptr;
 	}
 }
@@ -943,7 +879,7 @@ void URuntimeMeshComponent::CreateMeshSection(int32 SectionIndex, const TArray<F
 	RMC_VALIDATE_CREATIONPARAMETERS(SectionIndex, Vertices, Triangles, /*VoidReturn*/);
 
 	// Create the section
-	auto NewSection = CreateOrResetSectionInternalType(SectionIndex, 1, false);
+	auto NewSection = CreateOrResetSectionLegacyType(SectionIndex, 1);
 
 	// Update the mesh data in the section
 	NewSection->UpdateVertexBufferInternal(Vertices, Normals, Tangents, UV0, TArray<FVector2D>(), Colors);
@@ -969,7 +905,7 @@ void URuntimeMeshComponent::CreateMeshSection(int32 SectionIndex, const TArray<F
 	RMC_VALIDATE_CREATIONPARAMETERS(SectionIndex, Vertices, Triangles, /*VoidReturn*/);
 
 	// Create the section
-	auto NewSection = CreateOrResetSectionInternalType(SectionIndex, 2, false);
+	auto NewSection = CreateOrResetSectionLegacyType(SectionIndex, 2);
 
 	// Update the mesh data in the section
 	NewSection->UpdateVertexBufferInternal(Vertices, Normals, Tangents, UV0, UV1, Colors);
@@ -1175,7 +1111,7 @@ void URuntimeMeshComponent::ClearAllMeshSections()
 	UpdateLocalBounds();
 }
 
-void URuntimeMeshComponent::SetSectionTessellationTriangles(int32 SectionIndex, const TArray<int32>& TessellationTriangles)
+void URuntimeMeshComponent::SetSectionTessellationTriangles(int32 SectionIndex, const TArray<int32>& TessellationTriangles, bool bShouldMoveArray)
 {
 	// Validate all update parameters
 	RMC_VALIDATE_UPDATEPARAMETERS_INTERNALSECTION(SectionIndex, /*VoidReturn*/);
@@ -1184,7 +1120,7 @@ void URuntimeMeshComponent::SetSectionTessellationTriangles(int32 SectionIndex, 
 	RuntimeMeshSectionPtr& Section = MeshSections[SectionIndex];
 
 	// Tell the section to update the tessellation index buffer
-	Section->UpdateTessellationIndexBuffer(const_cast<TArray<int32>&>(TessellationTriangles), false);
+	Section->UpdateTessellationIndexBuffer(const_cast<TArray<int32>&>(TessellationTriangles), bShouldMoveArray);
 
 	UpdateSectionInternal(SectionIndex, false, false, true, false, ESectionUpdateFlags::None);
 }
@@ -1623,11 +1559,11 @@ bool URuntimeMeshComponent::GetPhysicsTriMeshData(struct FTriMeshCollisionData* 
 	bool HadCollision = false;
 
 	// See if we should copy UVs
-// 	bool bCopyUVs = UPhysicsSettings::Get()->bSupportUVFromHitResults;
-// 	if (bCopyUVs)
-// 	{
-// 		CollisionData->UVs.AddZeroed(1); // only one UV channel
-// 	}
+	bool bCopyUVs = UPhysicsSettings::Get()->bSupportUVFromHitResults;
+	if (bCopyUVs)
+	{
+		CollisionData->UVs.AddZeroed(1); // only one UV channel
+	}
 
 	// For each section..
 	for (int32 SectionIdx = 0; SectionIdx < MeshSections.Num(); SectionIdx++)
@@ -1637,14 +1573,7 @@ bool URuntimeMeshComponent::GetPhysicsTriMeshData(struct FTriMeshCollisionData* 
 		if (Section.IsValid() && Section->CollisionEnabled)
 		{
 			// Copy vertex data
-			Section->GetAllVertexPositions(CollisionData->Vertices);
-
-			// Copy UV if desired
-// 			if (bCopyUVs)
-// 			{
-// 				CollisionData->UVs[0].Add(Section.ProcVertexBuffer[VertIdx].UV0);
-// 			}
-
+			Section->GetCollisionInformation(CollisionData->Vertices, CollisionData->UVs, bCopyUVs);
 
 			// Copy indices
 			const int32 NumTriangles = Section->IndexBuffer.Num() / 3;
@@ -1694,8 +1623,12 @@ bool URuntimeMeshComponent::GetPhysicsTriMeshData(struct FTriMeshCollisionData* 
  
  	CollisionData->bFlipNormals = true;
 
-// 	CollisionData->bDeformableMesh = true;
-// 	CollisionData->bFastCook = true;
+#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION >= 14
+	if (CollisionMode == ERuntimeMeshCollisionCookingMode::CookingPerformance)
+	{
+		CollisionData->bFlipNormals = true;
+	}
+#endif
  
  	return HadCollision;
  }
@@ -1726,7 +1659,7 @@ void URuntimeMeshComponent::EnsureBodySetupCreated()
 {
 	if (BodySetup == nullptr)
 	{
-		BodySetup = NewObject<UBodySetup>(this);
+		BodySetup = NewObject<UBodySetup>(this, NAME_None, (IsTemplate() ? RF_Public : RF_NoFlags));
 		BodySetup->BodySetupGuid = FGuid::NewGuid();
 
 		BodySetup->bGenerateMirroredCollision = false;
@@ -1843,15 +1776,8 @@ void URuntimeMeshComponent::RegisterComponentTickFunctions(bool bRegister)
 	}
 }
 
-
-void URuntimeMeshComponent::Serialize(FArchive& Ar)
+void URuntimeMeshComponent::SerializeLegacy(FArchive& Ar)
 {
-	SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_Serialize);
-	
-	Super::Serialize(Ar);
-
-	Ar.UsingCustomVersion(FRuntimeMeshVersion::GUID);
-
 	if (Ar.CustomVer(FRuntimeMeshVersion::GUID) >= FRuntimeMeshVersion::Initial)
 	{
 		int32 SectionsCount = bShouldSerializeMeshData ? MeshSections.Num() : 0;
@@ -1866,7 +1792,7 @@ void URuntimeMeshComponent::Serialize(FArchive& Ar)
 			bool IsSectionValid = MeshSections[Index].IsValid();
 
 			// WE can only load/save internal types (we don't know how to serialize arbitrary vertex types.
-			if (Ar.IsSaving() && (IsSectionValid && !MeshSections[Index]->bIsInternalSectionType))
+			if (Ar.IsSaving() && (IsSectionValid && !MeshSections[Index]->bIsLegacySectionType))
 			{
 				IsSectionValid = false;
 			}
@@ -1890,7 +1816,7 @@ void URuntimeMeshComponent::Serialize(FArchive& Ar)
 
 					if (Ar.IsLoading())
 					{
-						CreateOrResetSectionInternalType(Index, NumUVChannels, WantsHalfPrecisionUVs);
+						CreateOrResetSectionLegacyType(Index, NumUVChannels);
 					}
 
 				}
@@ -1908,20 +1834,20 @@ void URuntimeMeshComponent::Serialize(FArchive& Ar)
 
 					if (Ar.IsLoading())
 					{
-						CreateOrResetSectionInternalType(Index, TextureChannels, false);
+						CreateOrResetSectionLegacyType(Index, TextureChannels);
 					}
 				}
 
 				FRuntimeMeshSectionInterface& SectionPtr = *MeshSections[Index].Get();
-				Ar << SectionPtr;
+				SectionPtr.Serialize(Ar);
 
 			}
 		}
 	}
 
 	if (Ar.CustomVer(FRuntimeMeshVersion::GUID) >= FRuntimeMeshVersion::SerializationOptional)
-	{		
-		
+	{
+
 		if (bShouldSerializeMeshData || Ar.IsLoading())
 		{
 			// Serialize the real data if we want it, also use this path for loading to get anything that was in the last save
@@ -1939,7 +1865,167 @@ void URuntimeMeshComponent::Serialize(FArchive& Ar)
 			Ar << NullConvexBodies;
 		}
 	}
+}
+
+void URuntimeMeshComponent::Serialize(FArchive& Ar)
+{	
+	Super::Serialize(Ar);
+
+	SerializeInternal(Ar);
 }	
+
+void URuntimeMeshComponent::SerializeInternal(FArchive& Ar, bool bForceSaveAll)
+{
+	SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_Serialize);
+
+	Ar.UsingCustomVersion(FRuntimeMeshVersion::GUID);
+
+	// Handle old serialization
+	if (Ar.CustomVer(FRuntimeMeshVersion::GUID) < FRuntimeMeshVersion::SerializationV2)
+	{
+		SerializeLegacy(Ar);
+		return;
+	}
+
+	bool bSerializeMeshData = bShouldSerializeMeshData || bForceSaveAll;
+
+	// Serialize basic settings
+	Ar << bSerializeMeshData;
+	Ar << bUseComplexAsSimpleCollision;
+
+	// Serialize the number of sections...
+	int32 NumSections = bSerializeMeshData ? MeshSections.Num() : 0;
+	Ar << NumSections;
+
+	// Resize the section array if we're loading.
+	if (Ar.IsLoading())
+	{
+		MeshSections.Reset(NumSections);
+		MeshSections.SetNum(NumSections);
+	}
+
+	// Next serialize all the sections...
+	for (int32 Index = 0; Index < NumSections; Index++)
+	{
+		SerializeRMCSection(Ar, Index);
+	}
+
+	if (bSerializeMeshData || Ar.IsLoading())
+	{
+		// Serialize the real data if we want it, also use this path for loading to get anything that was in the last save
+
+		// Serialize the collision data
+		Ar << MeshCollisionSections;
+		Ar << ConvexCollisionSections;
+	}
+	else
+	{
+		// serialize empty arrays if we don't want serialization
+		TArray<FRuntimeMeshCollisionSection> NullCollisionSections;
+		Ar << NullCollisionSections;
+		TArray<FRuntimeConvexCollisionSection> NullConvexBodies;
+		Ar << NullConvexBodies;
+	}
+}
+
+
+void URuntimeMeshComponent::SerializeRMC(FArchive& Ar)
+{
+	SerializeInternal(Ar, true);
+}
+
+void URuntimeMeshComponent::SerializeRMCSection(FArchive& Ar, int32 SectionIndex)
+{
+	if (Ar.IsLoading() && MeshSections.Num() <= SectionIndex)
+	{
+		MeshSections.SetNum(SectionIndex + 1);
+	}
+
+	// Serialize the section validity (default it to section valid + type known for saving reasons)
+	bool bSectionIsValid = MeshSections[SectionIndex].IsValid();
+	bool bSectionTypeFound = bSectionIsValid ? FRuntimeMeshVertexTypeRegistrationContainer::GetInstance().GetVertexType(MeshSections[SectionIndex]->GetVertexType()->TypeGuid) != nullptr : true;
+	bSectionIsValid = bSectionIsValid && bSectionTypeFound;
+	Ar << bSectionIsValid;
+
+	// If section is invalid, skip
+	if (!bSectionIsValid)
+	{
+		if (!bSectionTypeFound)
+		{
+			UE_LOG(RuntimeMeshLog, Error, TEXT("Attempted to serialize a vertex of unknown type %s"), *MeshSections[SectionIndex]->GetVertexType()->TypeGuid.ToString());
+		}
+		return;
+	}
+
+	// Serialize section type info
+	FGuid TypeGuid;
+	bool bHasSeparatePositionBuffer;
+
+	if (Ar.IsSaving())
+	{
+		TypeGuid = MeshSections[SectionIndex]->GetVertexType()->TypeGuid;
+		bHasSeparatePositionBuffer = MeshSections[SectionIndex]->IsDualBufferSection();
+	}
+
+	Ar << TypeGuid;
+	Ar << bHasSeparatePositionBuffer;
+
+	if (Ar.IsLoading())
+	{
+		auto VertexTypeRegistration = FRuntimeMeshVertexTypeRegistrationContainer::GetInstance().GetVertexType(TypeGuid);
+
+		if (VertexTypeRegistration == nullptr)
+		{
+			UE_LOG(RuntimeMeshLog, Error, TEXT("Attempted to serialize a vertex of unknown type %s"), *MeshSections[SectionIndex]->GetVertexType()->TypeGuid.ToString());
+			bSectionIsValid = false;
+		}
+		else
+		{
+			auto NewSection = VertexTypeRegistration->CreateSection(bHasSeparatePositionBuffer);
+			MeshSections[SectionIndex] = MakeShareable(NewSection);
+		}
+	}
+
+	// Now we save the section data to a separate archive and then write in into the main. 
+	// This way we can recover from unknown types or mismatch sizes
+
+
+	TArray<uint8> SectionData;
+
+	if (Ar.IsSaving())
+	{
+		FMemoryWriter SectionAr(SectionData, true);
+		SectionAr.UsingCustomVersion(FRuntimeMeshVersion::GUID);
+
+		MeshSections[SectionIndex]->Serialize(SectionAr);
+	}
+
+	Ar << SectionData;
+
+	if (Ar.IsLoading() && bSectionIsValid)
+	{
+		FMemoryReader SectionAr(SectionData, true);
+		SectionAr.Seek(0);
+		SectionAr.UsingCustomVersion(FRuntimeMeshVersion::GUID);
+
+		MeshSections[SectionIndex]->Serialize(SectionAr);
+
+		// Was this section loaded correctly?
+		if (SectionAr.IsError())
+		{
+			MeshSections[SectionIndex].Reset();
+			UE_LOG(RuntimeMeshLog, Log, TEXT("Unable to load section %d of type %s. This is most likely caused by a reconfigured vertex type."),
+				SectionIndex, *MeshSections[SectionIndex]->GetVertexType()->TypeName);
+		}
+	}
+}
+
+
+
+
+
+
+
 
 void URuntimeMeshComponent::PostLoad()
 {
@@ -1949,8 +2035,8 @@ void URuntimeMeshComponent::PostLoad()
 	MarkCollisionDirty();
 	UpdateLocalBounds();
 
-// 	if (ProcMeshBodySetup && IsTemplate())
-// 	{
-// 		ProcMeshBodySetup->SetFlags(RF_Public);
-// 	}
+	if (BodySetup && IsTemplate())
+	{
+		BodySetup->SetFlags(RF_Public);
+	}
 }

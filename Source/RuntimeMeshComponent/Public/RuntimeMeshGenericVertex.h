@@ -530,36 +530,26 @@ template<bool WantsPosition, bool WantsNormal, bool WantsTangent, bool WantsColo
 	ERuntimeMeshVertexTangentBasisType NormalTangentType, ERuntimeMeshVertexUVType UVType>
 struct FRuntimeMeshVertexTypeInfo_GenericVertex : public FRuntimeMeshVertexTypeInfo
 {
-	FRuntimeMeshVertexTypeInfo_GenericVertex() :
+	FRuntimeMeshVertexTypeInfo_GenericVertex(FString VertexName) :
 		FRuntimeMeshVertexTypeInfo(
 			FString::Printf(TEXT("RuntimeMeshVertex<%d, %d, %d, %d, %d, %d, %d>"), WantsPosition, WantsNormal, WantsTangent, WantsColor, NumWantedUVChannels, (int32)NormalTangentType, (int32)UVType),
-			FGuid(0x00FFEB44, 0x31094597, 0x93918032, 0x015678C3)) { }
+			GetVertexGuid(VertexName)) { }
 
-	static uint32 ComputeRuntimeMeshVertexTemplateTypeID(bool bWantsPosition, bool bWantsNormal, bool bWantsTangent, bool bWantsColor, int32 NumUVChannels, ERuntimeMeshVertexTangentBasisType NormalTangentBasisType, ERuntimeMeshVertexUVType UVChannelsType)
+	static FGuid GetVertexGuid(FString VertexName)
 	{
 		uint32 TypeID = 0;
-		TypeID = (TypeID << 1) | (bWantsPosition ? 1 : 0);
-		TypeID = (TypeID << 1) | (bWantsNormal ? 1 : 0);
-		TypeID = (TypeID << 1) | (bWantsTangent ? 1 : 0);
-		TypeID = (TypeID << 2) | (NormalTangentBasisType == ERuntimeMeshVertexTangentBasisType::HighPrecision ? 1 : 0);
-		TypeID = (TypeID << 1) | (bWantsColor ? 1 : 0);
-		TypeID = (TypeID << 8) | (NumUVChannels & 0xFF);
-		TypeID = (TypeID << 2) | (UVChannelsType == ERuntimeMeshVertexUVType::HighPrecision ? 1 : 0);
-		return TypeID;
-	}
+		TypeID = (TypeID << 1) | (WantsPosition ? 1 : 0);
+		TypeID = (TypeID << 1) | (WantsNormal ? 1 : 0);
+		TypeID = (TypeID << 1) | (WantsTangent ? 1 : 0);
+		TypeID = (TypeID << 3) | (uint32)NormalTangentType;
+		TypeID = (TypeID << 1) | (WantsColor ? 1 : 0);
+		TypeID = (TypeID << 6) | (NumWantedUVChannels & 0xFF);
+		TypeID = (TypeID << 3) | (uint32)UVType;
 
-	const uint32 TemplateTypeID = ComputeRuntimeMeshVertexTemplateTypeID(WantsPosition, WantsNormal, WantsTangent, WantsColor, NumWantedUVChannels, NormalTangentType, UVType);
-
-	virtual bool EqualsAdvanced(const FRuntimeMeshVertexTypeInfo* Other) const
-	{
-		const FRuntimeMeshVertexTypeInfo_GenericVertex* OtherGenericVertex = static_cast<const FRuntimeMeshVertexTypeInfo_GenericVertex*>(Other);
-
-		return TemplateTypeID == OtherGenericVertex->TemplateTypeID;
+		FGuid Guid = FGuid(0x00FFEB44, 0x31094597, /*0x93918032*/  GetTypeHash(VertexName), (0x78C3 << 16) | TypeID);
+		return Guid;
 	}
 };
-
-
-
 
 //////////////////////////////////////////////////////////////////////////
 // Macros to create a custom vertex type based on the generic vertex and implement some common constructors
@@ -836,39 +826,117 @@ struct FRuntimeMeshVertexTypeInfo_GenericVertex : public FRuntimeMeshVertexTypeI
 	)
 
 
+#define RUNTIMEMESH_VERTEX_SERIALIZATION_POSITION_true Ar << V.Position;
+#define RUNTIMEMESH_VERTEX_SERIALIZATION_POSITION_false
+#define RUNTIMEMESH_VERTEX_SERIALIZATION_POSITION(NeedsPosition) RUNTIMEMESH_VERTEX_SERIALIZATION_POSITION_##NeedsPosition
+
+#define RUNTIMEMESH_VERTEX_SERIALIZATION_NORMAL_true Ar << V.Normal;
+#define RUNTIMEMESH_VERTEX_SERIALIZATION_NORMAL_false
+#define RUNTIMEMESH_VERTEX_SERIALIZATION_NORMAL(NeedsNormal) RUNTIMEMESH_VERTEX_SERIALIZATION_NORMAL_##NeedsNormal
+
+#define RUNTIMEMESH_VERTEX_SERIALIZATION_TANGENT_true Ar << V.Tangent;
+#define RUNTIMEMESH_VERTEX_SERIALIZATION_TANGENT_false
+#define RUNTIMEMESH_VERTEX_SERIALIZATION_TANGENT(NeedsTangent) RUNTIMEMESH_VERTEX_SERIALIZATION_TANGENT_##NeedsTangent
+
+#define RUNTIMEMESH_VERTEX_SERIALIZATION_COLOR_true Ar << V.Color;
+#define RUNTIMEMESH_VERTEX_SERIALIZATION_COLOR_false
+#define RUNTIMEMESH_VERTEX_SERIALIZATION_COLOR(NeedsColor) RUNTIMEMESH_VERTEX_SERIALIZATION_COLOR_##NeedsColor
+
+#define RUNTIMEMESH_VERTEX_SERIALIZATION_UVCHANNEL_0
+
+#define RUNTIMEMESH_VERTEX_SERIALIZATION_UVCHANNEL_1 \
+	Ar << V.UV0;
+
+#define RUNTIMEMESH_VERTEX_SERIALIZATION_UVCHANNEL_2 \
+	RUNTIMEMESH_VERTEX_SERIALIZATION_UVCHANNEL_1 \
+	Ar << V.UV1;
+
+#define RUNTIMEMESH_VERTEX_SERIALIZATION_UVCHANNEL_3 \
+	RUNTIMEMESH_VERTEX_SERIALIZATION_UVCHANNEL_2 \
+	Ar << V.UV2;
+
+#define RUNTIMEMESH_VERTEX_SERIALIZATION_UVCHANNEL_4 \
+	RUNTIMEMESH_VERTEX_SERIALIZATION_UVCHANNEL_3 \
+	Ar << V.UV3;
+
+#define RUNTIMEMESH_VERTEX_SERIALIZATION_UVCHANNEL_5 \
+	RUNTIMEMESH_VERTEX_SERIALIZATION_UVCHANNEL_4 \
+	Ar << V.UV4;
+
+#define RUNTIMEMESH_VERTEX_SERIALIZATION_UVCHANNEL_6 \
+	RUNTIMEMESH_VERTEX_SERIALIZATION_UVCHANNEL_5 \
+	Ar << V.UV5;
+
+#define RUNTIMEMESH_VERTEX_SERIALIZATION_UVCHANNEL_7 \
+	RUNTIMEMESH_VERTEX_SERIALIZATION_UVCHANNEL_6 \
+	Ar << V.UV6;
+
+#define RUNTIMEMESH_VERTEX_SERIALIZATION_UVCHANNEL_8 \
+	RUNTIMEMESH_VERTEX_SERIALIZATION_UVCHANNEL_7 \
+	Ar << V.UV7;
+
+#define RUNTIMEMESH_VERTEX_SERIALIZATION_UVCHANNELS(NumChannels) RUNTIMEMESH_VERTEX_SERIALIZATION_UVCHANNEL_##NumChannels
+
+#define RUNTIMEMESH_VERTEX_SERIALIZER(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount)	\
+	friend FArchive& operator<<(FArchive& Ar, ##VertexName& V)		\
+	{																\
+		RUNTIMEMESH_VERTEX_SERIALIZATION_POSITION(NeedsPosition)	\
+		RUNTIMEMESH_VERTEX_SERIALIZATION_NORMAL(NeedsNormal)		\
+		RUNTIMEMESH_VERTEX_SERIALIZATION_TANGENT(NeedsTangent)		\
+		RUNTIMEMESH_VERTEX_SERIALIZATION_COLOR(NeedsColor)			\
+		RUNTIMEMESH_VERTEX_SERIALIZATION_UVCHANNELS(UVChannelCount)	\
+		return Ar;													\
+	}
 
 
 
-
-
-
-
-
-#define DECLARE_RUNTIME_MESH_VERTEX(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType)												\
-	struct VertexName : public FRuntimeMeshVertex<NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType>											\
-	{																																															\
-		typedef FRuntimeMeshVertex<NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType> Super;													\
-																																																\
-		VertexName() { }																																										\
-																																																\
-		VertexName(EForceInit) : Super(EForceInit::ForceInit) { }																																\
-																																																\
-		RUNTIMEMESH_VERTEX_CONSTRUCTOR_POSITION(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType)									\
-																																																\
-		RUNTIMEMESH_VERTEX_CONSTRUCTOR_POSITION_NORMAL(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType)							\
-																																																\
-		RUNTIMEMESH_VERTEX_CONSTRUCTOR_POSITION_COLOR(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType)							\
-																																																\
-		RUNTIMEMESH_VERTEX_CONSTRUCTOR_POSITION_NORMAL_TANGENT(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType)					\
-																																																\
-		RUNTIMEMESH_VERTEX_CONSTRUCTOR_POSITION_TANGENTX_TANGENTY_TANGENTZ(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType)		\
-																																																\
-		RUNTIMEMESH_VERTEX_CONSTRUCTOR_POSITION_NORMAL_TANGENT_COLOR(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType)				\
-																																																\
-		RUNTIMEMESH_VERTEX_CONSTRUCTOR_POSITION_TANGENTX_TANGENTY_TANGENTZ_COLOR(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType)	\
-																																																\
+#define DECLARE_RUNTIME_MESH_VERTEXINTERNAL(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType, APIQUALIFIER)							\
+	struct APIQUALIFIER FRuntimeMeshVertexTypeInfo_##VertexName																															\
+		: public FRuntimeMeshVertexTypeInfo_GenericVertex<NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType>										\
+	{																																																\
+		FRuntimeMeshVertexTypeInfo_##VertexName()																																					\
+			: FRuntimeMeshVertexTypeInfo_GenericVertex<NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType>(TEXT("")) { }								\
+																																																	\
+		virtual class FRuntimeMeshSectionInterface* CreateSection(bool bInNeedsPositionOnlyBuffer) const override;																					\
+	};																																																\
+	struct APIQUALIFIER VertexName : public FRuntimeMeshVertex<NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType>						\
+	{																																																\
+		static const FRuntimeMeshVertexTypeInfo_##VertexName TypeInfo;																																\
+																																																	\
+		typedef FRuntimeMeshVertex<NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType> Super;														\
+																																																	\
+		VertexName() { }																																											\
+																																																	\
+		VertexName(EForceInit) : Super(EForceInit::ForceInit) { }																																	\
+																																																	\
+		RUNTIMEMESH_VERTEX_CONSTRUCTOR_POSITION(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType)										\
+																																																	\
+		RUNTIMEMESH_VERTEX_CONSTRUCTOR_POSITION_NORMAL(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType)								\
+																																																	\
+		RUNTIMEMESH_VERTEX_CONSTRUCTOR_POSITION_COLOR(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType)								\
+																																																	\
+		RUNTIMEMESH_VERTEX_CONSTRUCTOR_POSITION_NORMAL_TANGENT(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType)						\
+																																																	\
+		RUNTIMEMESH_VERTEX_CONSTRUCTOR_POSITION_TANGENTX_TANGENTY_TANGENTZ(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType)			\
+																																																	\
+		RUNTIMEMESH_VERTEX_CONSTRUCTOR_POSITION_NORMAL_TANGENT_COLOR(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType)					\
+																																																	\
+		RUNTIMEMESH_VERTEX_CONSTRUCTOR_POSITION_TANGENTX_TANGENTY_TANGENTZ_COLOR(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType)		\
+																																																	\
+		RUNTIMEMESH_VERTEX_SERIALIZER(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount)																				\
 	};		
 
+#define DECLARE_RUNTIME_MESH_VERTEX(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType)		\
+	DECLARE_RUNTIME_MESH_VERTEXINTERNAL(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType)
+
+/* Used only for the generic vertex to create the type registration */
+#define DEFINE_RUNTIME_MESH_VERTEX(VertexName)																																						\
+	const FRuntimeMeshVertexTypeInfo_##VertexName VertexName::TypeInfo;																																\
+	FRuntimeMeshVertexTypeRegistration<##VertexName> FRuntimeMeshVertexTypeInfoRegistration_##VertexName;																											\
+	FRuntimeMeshSectionInterface* FRuntimeMeshVertexTypeInfo_##VertexName::CreateSection(bool bInNeedsPositionOnlyBuffer) const																		\
+	{																																																\
+		return new FRuntimeMeshSection<##VertexName>(bInNeedsPositionOnlyBuffer);																													\
+	}
 
 //////////////////////////////////////////////////////////////////////////
 // Template Vertex
@@ -878,17 +946,17 @@ struct FRuntimeMeshVertexTypeInfo_GenericVertex : public FRuntimeMeshVertexTypeI
 template<bool WantsPosition, bool WantsNormal, bool WantsTangent, bool WantsColor, int32 NumWantedUVChannels,
 ERuntimeMeshVertexTangentBasisType NormalTangentType = ERuntimeMeshVertexTangentBasisType::Default, ERuntimeMeshVertexUVType UVType = ERuntimeMeshVertexUVType::Default>
 struct FRuntimeMeshVertex :
-public FRuntimeMeshPositionNormalTangentComponentCombiner<WantsPosition, WantsNormal, WantsTangent, typename FRuntimeMeshVertexTangentTypeSelector<NormalTangentType>::TangentType>,
-public FRuntimeMeshColorUVComponentCombiner<WantsColor, NumWantedUVChannels, typename FRuntimeMeshVertexUVsTypeSelector<UVType>::UVsType>
+	public FRuntimeMeshPositionNormalTangentComponentCombiner<WantsPosition, WantsNormal, WantsTangent, typename FRuntimeMeshVertexTangentTypeSelector<NormalTangentType>::TangentType>,
+	public FRuntimeMeshColorUVComponentCombiner<WantsColor, NumWantedUVChannels, typename FRuntimeMeshVertexUVsTypeSelector<UVType>::UVsType>
 {
     // Make sure something is enabled
     static_assert((WantsPosition || WantsNormal || WantsTangent || WantsColor || NumWantedUVChannels > 0), "Invalid configuration... You must have at least 1 component enabled.");
     
-    // Type Info
-    static const FRuntimeMeshVertexTypeInfo_GenericVertex<WantsPosition, WantsNormal, WantsTangent, WantsColor, NumWantedUVChannels, NormalTangentType, UVType> TypeInfo;
-    
-    // Typedef self
-    using SelfType = FRuntimeMeshVertex<WantsPosition, WantsNormal, WantsTangent, WantsColor, NumWantedUVChannels, NormalTangentType, UVType>;
+//     // Type Info
+//     static const FRuntimeMeshVertexTypeInfo_GenericVertex<WantsPosition, WantsNormal, WantsTangent, WantsColor, NumWantedUVChannels, NormalTangentType, UVType> TypeInfo;
+//     
+//     // Typedef self
+//     using SelfType = FRuntimeMeshVertex<WantsPosition, WantsNormal, WantsTangent, WantsColor, NumWantedUVChannels, NormalTangentType, UVType>;
     
     // Get vertex structure
     static RuntimeMeshVertexStructure GetVertexStructure(const FVertexBuffer& VertexBuffer);
@@ -904,13 +972,13 @@ public FRuntimeMeshColorUVComponentCombiner<WantsColor, NumWantedUVChannels, typ
 // This version only uses the position/normal/tangent combiner as we don't need anything from the other
 template<bool WantsPosition, bool WantsNormal, bool WantsTangent, ERuntimeMeshVertexTangentBasisType NormalTangentType, ERuntimeMeshVertexUVType UVType>
 struct FRuntimeMeshVertex<WantsPosition, WantsNormal, WantsTangent, false, 0, NormalTangentType, UVType> :
-public FRuntimeMeshPositionNormalTangentComponentCombiner<WantsPosition, WantsNormal, WantsTangent, typename FRuntimeMeshVertexTangentTypeSelector<NormalTangentType>::TangentType>
+	public FRuntimeMeshPositionNormalTangentComponentCombiner<WantsPosition, WantsNormal, WantsTangent, typename FRuntimeMeshVertexTangentTypeSelector<NormalTangentType>::TangentType>
 {
-    // Type Info
-    static const FRuntimeMeshVertexTypeInfo_GenericVertex<WantsPosition, WantsNormal, WantsTangent, false, 0, NormalTangentType, UVType> TypeInfo;
-    
-    // Typedef self
-    using SelfType = FRuntimeMeshVertex<WantsPosition, WantsNormal, WantsTangent, false, 0, NormalTangentType, UVType>;
+//     // Type Info
+//     static const FRuntimeMeshVertexTypeInfo_GenericVertex<WantsPosition, WantsNormal, WantsTangent, false, 0, NormalTangentType, UVType> TypeInfo;
+//     
+//     // Typedef self
+//     using SelfType = FRuntimeMeshVertex<WantsPosition, WantsNormal, WantsTangent, false, 0, NormalTangentType, UVType>;
     
     // Get vertex structure
     static RuntimeMeshVertexStructure GetVertexStructure(const FVertexBuffer& VertexBuffer);
@@ -924,13 +992,13 @@ public FRuntimeMeshPositionNormalTangentComponentCombiner<WantsPosition, WantsNo
 // This version only uses the color/uv combiner as we don't need anything from the other
 template<bool WantsColor, int32 NumWantedUVChannels, ERuntimeMeshVertexTangentBasisType NormalTangentType, ERuntimeMeshVertexUVType UVType>
 struct FRuntimeMeshVertex<false, false, false, WantsColor, NumWantedUVChannels, NormalTangentType, UVType> :
-public FRuntimeMeshColorUVComponentCombiner<WantsColor, NumWantedUVChannels, typename FRuntimeMeshVertexUVsTypeSelector<UVType>::UVsType>
+	public FRuntimeMeshColorUVComponentCombiner<WantsColor, NumWantedUVChannels, typename FRuntimeMeshVertexUVsTypeSelector<UVType>::UVsType>
 {
-    // Type Info
-    static const FRuntimeMeshVertexTypeInfo_GenericVertex<false, false, false, WantsColor, NumWantedUVChannels, NormalTangentType, UVType> TypeInfo;
-    
-    // Typedef self
-    using SelfType = FRuntimeMeshVertex<false, false, false, WantsColor, NumWantedUVChannels, NormalTangentType, UVType>;
+//     // Type Info
+//     static const FRuntimeMeshVertexTypeInfo_GenericVertex<false, false, false, WantsColor, NumWantedUVChannels, NormalTangentType, UVType> TypeInfo;
+//     
+//     // Typedef self
+//     using SelfType = FRuntimeMeshVertex<false, false, false, WantsColor, NumWantedUVChannels, NormalTangentType, UVType>;
     
     // Get vertex structure
     static RuntimeMeshVertexStructure GetVertexStructure(const FVertexBuffer& VertexBuffer);
@@ -947,22 +1015,23 @@ public FRuntimeMeshColorUVComponentCombiner<WantsColor, NumWantedUVChannels, typ
 // Vertex Structure Generator
 //////////////////////////////////////////////////////////////////////////
 
-struct FRuntimemeshVertexStructureHelper
+struct FRuntimeMeshVertexUtilities
 {
     //////////////////////////////////////////////////////////////////////////
     // Position Component
     //////////////////////////////////////////////////////////////////////////
     template<typename RuntimeVertexType, bool WantsPosition>
-    struct FRuntimeMeshPositionComponentVertexStructure
+    struct FRuntimeMeshPositionComponentUtilities
     {
         static void AddComponent(const FVertexBuffer& VertexBuffer, RuntimeMeshVertexStructure& VertexStructure)
         {
             VertexStructure.PositionComponent = RUNTIMEMESH_VERTEXCOMPONENT(VertexBuffer, RuntimeVertexType, Position, VET_Float3);
         }
+
     };
     
     template<typename RuntimeVertexType>
-    struct FRuntimeMeshPositionComponentVertexStructure<RuntimeVertexType, false>
+    struct FRuntimeMeshPositionComponentUtilities<RuntimeVertexType, false>
     {
         static void AddComponent(const FVertexBuffer& VertexBuffer, RuntimeMeshVertexStructure& VertexStructure)
         {
@@ -1143,7 +1212,7 @@ struct FRuntimemeshVertexStructureHelper
         RuntimeMeshVertexStructure VertexStructure;
         
         // Add Position component if necessary
-        FRuntimeMeshPositionComponentVertexStructure<RuntimeVertexType, WantsPosition>::AddComponent(VertexBuffer, VertexStructure);
+        FRuntimeMeshPositionComponentUtilities<RuntimeVertexType, WantsPosition>::AddComponent(VertexBuffer, VertexStructure);
         
         // Add normal and tangent components if necessary
         FRuntimeMeshNormalTangentComponentVertexStructure<RuntimeVertexType, WantsNormal, WantsTangent, NormalTangentType>::AddComponent(VertexBuffer, VertexStructure);
@@ -1158,79 +1227,90 @@ struct FRuntimemeshVertexStructureHelper
     }
 };
 
+
+
+
+
+
+
+
+
+
+
+
 // These need to be declared after FRuntimemeshVertexStructureHelper and RuntimeMeshVertexStructure to fix circular dependencies between the two
 template<bool WantsPosition, bool WantsNormal, bool WantsTangent, bool WantsColor, int32 NumWantedUVChannels,
-ERuntimeMeshVertexTangentBasisType NormalTangentType, ERuntimeMeshVertexUVType UVType>
+	ERuntimeMeshVertexTangentBasisType NormalTangentType, ERuntimeMeshVertexUVType UVType>
 RuntimeMeshVertexStructure
 FRuntimeMeshVertex<WantsPosition, WantsNormal, WantsTangent, WantsColor, NumWantedUVChannels,
 NormalTangentType, UVType>::GetVertexStructure(const FVertexBuffer& VertexBuffer)
 {
-    return FRuntimemeshVertexStructureHelper::CreateVertexStructure<WantsPosition, WantsNormal, WantsTangent, WantsColor, NumWantedUVChannels, NormalTangentType, UVType>(VertexBuffer);
+    return FRuntimeMeshVertexUtilities::CreateVertexStructure<WantsPosition, WantsNormal, WantsTangent, WantsColor, NumWantedUVChannels, NormalTangentType, UVType>(VertexBuffer);
 }
 
 template<bool WantsPosition, bool WantsNormal, bool WantsTangent, ERuntimeMeshVertexTangentBasisType NormalTangentType, ERuntimeMeshVertexUVType UVType>
 RuntimeMeshVertexStructure
 FRuntimeMeshVertex<WantsPosition, WantsNormal, WantsTangent, false, 0, NormalTangentType, UVType>::GetVertexStructure(const FVertexBuffer& VertexBuffer)
 {
-    return FRuntimemeshVertexStructureHelper::CreateVertexStructure<WantsPosition, WantsNormal, WantsTangent, false, 0, NormalTangentType, UVType>(VertexBuffer);
+    return FRuntimeMeshVertexUtilities::CreateVertexStructure<WantsPosition, WantsNormal, WantsTangent, false, 0, NormalTangentType, UVType>(VertexBuffer);
 }
 
 template<bool WantsColor, int32 NumWantedUVChannels, ERuntimeMeshVertexTangentBasisType NormalTangentType, ERuntimeMeshVertexUVType UVType>
 RuntimeMeshVertexStructure
 FRuntimeMeshVertex<false, false, false, WantsColor, NumWantedUVChannels, NormalTangentType, UVType>::GetVertexStructure(const FVertexBuffer& VertexBuffer)
 {
-    return FRuntimemeshVertexStructureHelper::CreateVertexStructure<false, false, false, WantsColor, NumWantedUVChannels, NormalTangentType, UVType>(VertexBuffer);
+    return FRuntimeMeshVertexUtilities::CreateVertexStructure<false, false, false, WantsColor, NumWantedUVChannels, NormalTangentType, UVType>(VertexBuffer);
 }
 
 
 
 
 // Type Info Definition
-template<bool WantsPosition, bool WantsNormal, bool WantsTangent, bool WantsColor, int32 NumWantedUVChannels, ERuntimeMeshVertexTangentBasisType NormalTangentType, ERuntimeMeshVertexUVType UVType>
-const FRuntimeMeshVertexTypeInfo_GenericVertex<WantsPosition, WantsNormal, WantsTangent, WantsColor, NumWantedUVChannels, NormalTangentType, UVType>
-FRuntimeMeshVertex<WantsPosition, WantsNormal, WantsTangent, WantsColor, NumWantedUVChannels, NormalTangentType, UVType>::TypeInfo;
-
+// template<bool WantsPosition, bool WantsNormal, bool WantsTangent, bool WantsColor, int32 NumWantedUVChannels, ERuntimeMeshVertexTangentBasisType NormalTangentType, ERuntimeMeshVertexUVType UVType>
+// const FRuntimeMeshVertexTypeInfo_GenericVertex<WantsPosition, WantsNormal, WantsTangent, WantsColor, NumWantedUVChannels, NormalTangentType, UVType>
+// FRuntimeMeshVertex<WantsPosition, WantsNormal, WantsTangent, WantsColor, NumWantedUVChannels, NormalTangentType, UVType>::TypeInfo;
+// 
 // Type Info Definition
-template<bool WantsPosition, bool WantsNormal, bool WantsTangent, ERuntimeMeshVertexTangentBasisType NormalTangentType, ERuntimeMeshVertexUVType UVType>
-const FRuntimeMeshVertexTypeInfo_GenericVertex<WantsPosition, WantsNormal, WantsTangent, false, 0, NormalTangentType, UVType>
-FRuntimeMeshVertex<WantsPosition, WantsNormal, WantsTangent, false, 0, NormalTangentType, UVType>::TypeInfo;
-
+// template<bool WantsPosition, bool WantsNormal, bool WantsTangent, ERuntimeMeshVertexTangentBasisType NormalTangentType, ERuntimeMeshVertexUVType UVType>
+// const FRuntimeMeshVertexTypeInfo_GenericVertex<WantsPosition, WantsNormal, WantsTangent, false, 0, NormalTangentType, UVType>
+// FRuntimeMeshVertex<WantsPosition, WantsNormal, WantsTangent, false, 0, NormalTangentType, UVType>::TypeInfo;
+// 
 // Type Info Definition
-template<bool WantsColor, int32 NumWantedUVChannels, ERuntimeMeshVertexTangentBasisType NormalTangentType, ERuntimeMeshVertexUVType UVType>
-const FRuntimeMeshVertexTypeInfo_GenericVertex<false, false, false, WantsColor, NumWantedUVChannels, NormalTangentType, UVType>
-FRuntimeMeshVertex<false, false, false, WantsColor, NumWantedUVChannels, NormalTangentType, UVType>::TypeInfo;
+// template<bool WantsColor, int32 NumWantedUVChannels, ERuntimeMeshVertexTangentBasisType NormalTangentType, ERuntimeMeshVertexUVType UVType>
+// const FRuntimeMeshVertexTypeInfo_GenericVertex<false, false, false, WantsColor, NumWantedUVChannels, NormalTangentType, UVType>
+// FRuntimeMeshVertex<false, false, false, WantsColor, NumWantedUVChannels, NormalTangentType, UVType>::TypeInfo;
 
 
 
-// Define FRuntimeMeshVertexSimple
+
 
 //////////////////////////////////////////////////////////////////////////
 // Name Vertex Configurations
 //////////////////////////////////////////////////////////////////////////
 
 /** Simple vertex with 1 UV channel */
-DECLARE_RUNTIME_MESH_VERTEX(FRuntimeMeshVertexSimple, true, true, true, true, 1, ERuntimeMeshVertexTangentBasisType::Default, ERuntimeMeshVertexUVType::HighPrecision)
+DECLARE_RUNTIME_MESH_VERTEXINTERNAL(FRuntimeMeshVertexSimple, true, true, true, true, 1, ERuntimeMeshVertexTangentBasisType::Default, ERuntimeMeshVertexUVType::HighPrecision, RUNTIMEMESHCOMPONENT_API)
 
 /** Simple vertex with 2 UV channels */
-DECLARE_RUNTIME_MESH_VERTEX(FRuntimeMeshVertexDualUV, true, true, true, true, 2, ERuntimeMeshVertexTangentBasisType::Default, ERuntimeMeshVertexUVType::HighPrecision)
+DECLARE_RUNTIME_MESH_VERTEXINTERNAL(FRuntimeMeshVertexDualUV, true, true, true, true, 2, ERuntimeMeshVertexTangentBasisType::Default, ERuntimeMeshVertexUVType::HighPrecision, RUNTIMEMESHCOMPONENT_API)
 
 /** Simple vertex with 1 UV channel and NO position component (Meant to be used with separate position buffer) */
-DECLARE_RUNTIME_MESH_VERTEX(FRuntimeMeshVertexNoPosition, false, true, true, true, 1, ERuntimeMeshVertexTangentBasisType::Default, ERuntimeMeshVertexUVType::HighPrecision)
+DECLARE_RUNTIME_MESH_VERTEXINTERNAL(FRuntimeMeshVertexNoPosition, false, true, true, true, 1, ERuntimeMeshVertexTangentBasisType::Default, ERuntimeMeshVertexUVType::HighPrecision, RUNTIMEMESHCOMPONENT_API)
 
 /** Simple vertex with 2 UV channels and NO position component (Meant to be used with separate position buffer) */
-DECLARE_RUNTIME_MESH_VERTEX(FRuntimeMeshVertexNoPositionDualUV, false, true, true, true, 2, ERuntimeMeshVertexTangentBasisType::Default, ERuntimeMeshVertexUVType::HighPrecision)
+DECLARE_RUNTIME_MESH_VERTEXINTERNAL(FRuntimeMeshVertexNoPositionDualUV, false, true, true, true, 2, ERuntimeMeshVertexTangentBasisType::Default, ERuntimeMeshVertexUVType::HighPrecision, RUNTIMEMESHCOMPONENT_API)
 
 /** Simple vertex with 1 UV channel */
-DECLARE_RUNTIME_MESH_VERTEX(FRuntimeMeshVertexHiPrecisionNormals, true, true, true, true, 1, ERuntimeMeshVertexTangentBasisType::HighPrecision, ERuntimeMeshVertexUVType::HighPrecision)
+DECLARE_RUNTIME_MESH_VERTEXINTERNAL(FRuntimeMeshVertexHiPrecisionNormals, true, true, true, true, 1, ERuntimeMeshVertexTangentBasisType::HighPrecision, ERuntimeMeshVertexUVType::HighPrecision, RUNTIMEMESHCOMPONENT_API)
 
 /** Simple vertex with 2 UV channels */
-DECLARE_RUNTIME_MESH_VERTEX(FRuntimeMeshVertexDualUVHiPrecisionNormals, true, true, true, true, 2, ERuntimeMeshVertexTangentBasisType::HighPrecision, ERuntimeMeshVertexUVType::HighPrecision)
+DECLARE_RUNTIME_MESH_VERTEXINTERNAL(FRuntimeMeshVertexDualUVHiPrecisionNormals, true, true, true, true, 2, ERuntimeMeshVertexTangentBasisType::HighPrecision, ERuntimeMeshVertexUVType::HighPrecision, RUNTIMEMESHCOMPONENT_API)
 
 /** Simple vertex with 1 UV channel and NO position component (Meant to be used with separate position buffer) */
-DECLARE_RUNTIME_MESH_VERTEX(FRuntimeMeshVertexNoPositionHiPrecisionNormals, false, true, true, true, 1, ERuntimeMeshVertexTangentBasisType::HighPrecision, ERuntimeMeshVertexUVType::HighPrecision)
+DECLARE_RUNTIME_MESH_VERTEXINTERNAL(FRuntimeMeshVertexNoPositionHiPrecisionNormals, false, true, true, true, 1, ERuntimeMeshVertexTangentBasisType::HighPrecision, ERuntimeMeshVertexUVType::HighPrecision, RUNTIMEMESHCOMPONENT_API)
 
 /** Simple vertex with 2 UV channels and NO position component (Meant to be used with separate position buffer) */
-DECLARE_RUNTIME_MESH_VERTEX(FRuntimeMeshVertexNoPositionDualUVHiPrecisionNormals, false, true, true, true, 2, ERuntimeMeshVertexTangentBasisType::HighPrecision, ERuntimeMeshVertexUVType::HighPrecision)
+DECLARE_RUNTIME_MESH_VERTEXINTERNAL(FRuntimeMeshVertexNoPositionDualUVHiPrecisionNormals, false, true, true, true, 2, ERuntimeMeshVertexTangentBasisType::HighPrecision, ERuntimeMeshVertexUVType::HighPrecision, RUNTIMEMESHCOMPONENT_API)
 
 
 
@@ -1242,411 +1322,180 @@ DECLARE_RUNTIME_MESH_VERTEX(FRuntimeMeshVertexNoPositionDualUVHiPrecisionNormals
 // This is meant to support serialization where it can create any variation of the vertex.
 // This has the unfortunate side-effect of instantiating every variation of the template.
 
-struct FRuntimeMeshVertexSectionInstantiator
-{
-	//////////////////////////////////////////////////////////////////////////
-	// Type Creator (Only creates type if it's not an empty vertex)
-	//////////////////////////////////////////////////////////////////////////
-private:
-	template<bool WantsPosition, bool WantsNormal, bool WantsTangent, bool WantsColor, int32 NumWantedUVChannels, ERuntimeMeshVertexTangentBasisType NormalTangentType, ERuntimeMeshVertexUVType UVType>
-	static typename TEnableIf<(WantsPosition || WantsNormal || WantsTangent || WantsColor || (NumWantedUVChannels > 0)), FRuntimeMeshSectionInterface*>::Type CreateSection_Internal(bool bInNeedsPositionOnlyBuffer)
-	{
-		return new FRuntimeMeshSection<FRuntimeMeshVertex<WantsPosition, WantsNormal, WantsTangent, WantsColor, NumWantedUVChannels,
-			NormalTangentType, UVType>>(bInNeedsPositionOnlyBuffer);
-	}
-
-	template<bool WantsPosition, bool WantsNormal, bool WantsTangent, bool WantsColor, int32 NumWantedUVChannels, ERuntimeMeshVertexTangentBasisType NormalTangentType, ERuntimeMeshVertexUVType UVType>
-	static typename TEnableIf<!(WantsPosition || WantsNormal || WantsTangent || WantsColor || (NumWantedUVChannels > 0)), FRuntimeMeshSectionInterface*>::Type CreateSection_Internal(bool bInNeedsPositionOnlyBuffer)
-	{
-		checkNoEntry();
-		return nullptr; 
-	}
-
-
-public:
-
-
-
-
-
-	//////////////////////////////////////////////////////////////////////////
-	// UV Type Selection
-	//////////////////////////////////////////////////////////////////////////
-	template<bool WantsPosition, bool WantsNormal, bool WantsTangent, bool WantsColor, int32 NumWantedUVChannels, ERuntimeMeshVertexTangentBasisType NormalTangentType>
-	struct FRuntimeMeshVertexInstantiator_UVType
-	{
-		static FRuntimeMeshSectionInterface* CreateSection(ERuntimeMeshVertexUVType UVType, bool bInNeedsPositionOnlyBuffer)
-		{
-			switch (UVType)
-			{
-			case ERuntimeMeshVertexUVType::Default:
-				return CreateSection_Internal<WantsPosition, WantsNormal, WantsTangent, WantsColor, NumWantedUVChannels,
-					NormalTangentType, ERuntimeMeshVertexUVType::Default>(bInNeedsPositionOnlyBuffer);
-			case ERuntimeMeshVertexUVType::HighPrecision:
-				return CreateSection_Internal<WantsPosition, WantsNormal, WantsTangent, WantsColor, NumWantedUVChannels,
-					NormalTangentType, ERuntimeMeshVertexUVType::HighPrecision>(bInNeedsPositionOnlyBuffer);
-			}
-			checkNoEntry();
-		}
-	};
-
-	//////////////////////////////////////////////////////////////////////////
-	// Tangent Type Selection
-	//////////////////////////////////////////////////////////////////////////
-	template<bool WantsPosition, bool WantsNormal, bool WantsTangent, bool WantsColor, int32 NumWantedUVChannels>
-	struct FRuntimeMeshVertexInstantiator_NormalTangentType
-	{
-		static FRuntimeMeshSectionInterface* CreateSection(ERuntimeMeshVertexTangentBasisType NormalTangentType, ERuntimeMeshVertexUVType UVType, bool bInNeedsPositionOnlyBuffer)
-		{
-			switch (NormalTangentType)
-			{
-			case ERuntimeMeshVertexTangentBasisType::Default:
-				return FRuntimeMeshVertexInstantiator_UVType<WantsPosition, WantsNormal, WantsTangent, WantsColor, NumWantedUVChannels, 
-					ERuntimeMeshVertexTangentBasisType::Default>::CreateSection(UVType, bInNeedsPositionOnlyBuffer);
-			case ERuntimeMeshVertexTangentBasisType::HighPrecision:
-				return FRuntimeMeshVertexInstantiator_UVType<WantsPosition, WantsNormal, WantsTangent, WantsColor, NumWantedUVChannels, 
-					ERuntimeMeshVertexTangentBasisType::HighPrecision>::CreateSection(UVType, bInNeedsPositionOnlyBuffer);
-			}
-			checkNoEntry();
-		}
-	};
-
-	//////////////////////////////////////////////////////////////////////////
-	// Num UV Channels Selection
-	//////////////////////////////////////////////////////////////////////////
-	template<bool WantsPosition, bool WantsNormal, bool WantsTangent, bool WantsColor>
-	struct FRuntimeMeshVertexInstantiator_NumWantedUVChannels
-	{
-		static FRuntimeMeshSectionInterface* CreateSection(int32 NumWantedUVChannels, ERuntimeMeshVertexTangentBasisType NormalTangentType, ERuntimeMeshVertexUVType UVType, bool bInNeedsPositionOnlyBuffer)
-		{
-			switch (NumWantedUVChannels)
-			{
-			case 0:
-				return FRuntimeMeshVertexInstantiator_NormalTangentType<WantsPosition, WantsNormal, WantsTangent, WantsColor, 0>::CreateSection(NormalTangentType, UVType, bInNeedsPositionOnlyBuffer);
-			case 1:
-				return FRuntimeMeshVertexInstantiator_NormalTangentType<WantsPosition, WantsNormal, WantsTangent, WantsColor, 1>::CreateSection(NormalTangentType, UVType, bInNeedsPositionOnlyBuffer);
-			case 2:
-				return FRuntimeMeshVertexInstantiator_NormalTangentType<WantsPosition, WantsNormal, WantsTangent, WantsColor, 2>::CreateSection(NormalTangentType, UVType, bInNeedsPositionOnlyBuffer);
-			case 3:
-				return FRuntimeMeshVertexInstantiator_NormalTangentType<WantsPosition, WantsNormal, WantsTangent, WantsColor, 3>::CreateSection(NormalTangentType, UVType, bInNeedsPositionOnlyBuffer);
-			case 4:
-				return FRuntimeMeshVertexInstantiator_NormalTangentType<WantsPosition, WantsNormal, WantsTangent, WantsColor, 4>::CreateSection(NormalTangentType, UVType, bInNeedsPositionOnlyBuffer);
-			case 5:
-				return FRuntimeMeshVertexInstantiator_NormalTangentType<WantsPosition, WantsNormal, WantsTangent, WantsColor, 5>::CreateSection(NormalTangentType, UVType, bInNeedsPositionOnlyBuffer);
-			case 6:
-				return FRuntimeMeshVertexInstantiator_NormalTangentType<WantsPosition, WantsNormal, WantsTangent, WantsColor, 6>::CreateSection(NormalTangentType, UVType, bInNeedsPositionOnlyBuffer);
-			case 7:
-				return FRuntimeMeshVertexInstantiator_NormalTangentType<WantsPosition, WantsNormal, WantsTangent, WantsColor, 7>::CreateSection(NormalTangentType, UVType, bInNeedsPositionOnlyBuffer);
-			}
-			checkNoEntry();
-            
-            return nullptr;
-		}
-	};
-
-	//////////////////////////////////////////////////////////////////////////
-	// Wants Color Selection
-	//////////////////////////////////////////////////////////////////////////
-	template<bool WantsPosition, bool WantsNormal, bool WantsTangent>
-	struct FRuntimeMeshVertexInstantiator_WantsColor
-	{
-		static FRuntimeMeshSectionInterface* CreateSection(bool WantsColor, int32 NumWantedUVChannels, ERuntimeMeshVertexTangentBasisType NormalTangentType, ERuntimeMeshVertexUVType UVType, bool bInNeedsPositionOnlyBuffer)
-		{
-			if (WantsColor)
-			{
-				return FRuntimeMeshVertexInstantiator_NumWantedUVChannels<WantsPosition, WantsNormal, WantsTangent, true>::CreateSection(NumWantedUVChannels, NormalTangentType, UVType, bInNeedsPositionOnlyBuffer);
-			}
-			else
-			{
-				return FRuntimeMeshVertexInstantiator_NumWantedUVChannels<WantsPosition, WantsNormal, WantsTangent, false>::CreateSection(NumWantedUVChannels, NormalTangentType, UVType, bInNeedsPositionOnlyBuffer);
-			}
-		}
-	};
-
-	//////////////////////////////////////////////////////////////////////////
-	// Wants Tangent Selection
-	//////////////////////////////////////////////////////////////////////////
-	template<bool WantsPosition, bool WantsNormal>
-	struct FRuntimeMeshVertexInstantiator_WantsTangent
-	{
-		static FRuntimeMeshSectionInterface* CreateSection(bool WantsTangent, bool WantsColor, int32 NumWantedUVChannels, ERuntimeMeshVertexTangentBasisType NormalTangentType, ERuntimeMeshVertexUVType UVType, bool bInNeedsPositionOnlyBuffer)
-		{
-			if (WantsTangent)
-			{
-				return FRuntimeMeshVertexInstantiator_WantsColor<WantsPosition, WantsNormal, true>::CreateSection(WantsColor, NumWantedUVChannels, NormalTangentType, UVType, bInNeedsPositionOnlyBuffer);
-			}
-			else
-			{
-				return FRuntimeMeshVertexInstantiator_WantsColor<WantsPosition, WantsNormal, false>::CreateSection(WantsColor, NumWantedUVChannels, NormalTangentType, UVType, bInNeedsPositionOnlyBuffer);
-			}
-		}
-	};
-
-	//////////////////////////////////////////////////////////////////////////
-	// Wants Normal Selection
-	//////////////////////////////////////////////////////////////////////////
-	template<bool WantsPosition>
-	struct FRuntimeMeshVertexInstantiator_WantsNormal
-	{
-		static FRuntimeMeshSectionInterface* CreateSection(bool WantsNormal, bool WantsTangent, bool WantsColor, int32 NumWantedUVChannels, ERuntimeMeshVertexTangentBasisType NormalTangentType, ERuntimeMeshVertexUVType UVType, bool bInNeedsPositionOnlyBuffer)
-		{
-			if (WantsNormal)
-			{
-				return FRuntimeMeshVertexInstantiator_WantsTangent<WantsPosition, true>::CreateSection(WantsTangent, WantsColor, NumWantedUVChannels, NormalTangentType, UVType, bInNeedsPositionOnlyBuffer);
-			}
-			else
-			{
-				return FRuntimeMeshVertexInstantiator_WantsTangent<WantsPosition, false>::CreateSection(WantsTangent, WantsColor, NumWantedUVChannels, NormalTangentType, UVType, bInNeedsPositionOnlyBuffer);
-			}
-		}
-	};
-
-
-	//////////////////////////////////////////////////////////////////////////
-	// Vertex Section Instantiator
-	//////////////////////////////////////////////////////////////////////////
-	static FRuntimeMeshSectionInterface* CreateVertexStructure(bool WantsPosition, bool WantsNormal, bool WantsTangent, bool WantsColor, int32 NumWantedUVChannels, ERuntimeMeshVertexTangentBasisType NormalTangentType, ERuntimeMeshVertexUVType UVType, bool bInNeedsPositionOnlyBuffer)
-	{
-		// We do position selection right here
-		if (WantsPosition)
-		{
-			return FRuntimeMeshVertexInstantiator_WantsNormal<true>::CreateSection(WantsNormal, WantsTangent, WantsColor, NumWantedUVChannels, NormalTangentType, UVType, bInNeedsPositionOnlyBuffer);
-		}
-		else
-		{
-			return FRuntimeMeshVertexInstantiator_WantsNormal<false>::CreateSection(WantsNormal, WantsTangent, WantsColor, NumWantedUVChannels, NormalTangentType, UVType, bInNeedsPositionOnlyBuffer);
-		}
-	}
-};
-
-
-
-
-
-
-
-
-
-
-
-/** Section meant to support the old style interface for creating/updating sections */
-template <int32 TextureChannels, bool HalfPrecisionUVs>
-struct FRuntimeMeshSectionInternal :
-	public FRuntimeMeshSection<FRuntimeMeshVertex<true, true, true, true, TextureChannels, 
-		ERuntimeMeshVertexTangentBasisType::Default, HalfPrecisionUVs? ERuntimeMeshVertexUVType::Default : ERuntimeMeshVertexUVType::HighPrecision>>
-{
-public:
-
-	typedef FRuntimeMeshVertex<true, true, true, true, TextureChannels,
-		ERuntimeMeshVertexTangentBasisType::Default, HalfPrecisionUVs ? ERuntimeMeshVertexUVType::Default : ERuntimeMeshVertexUVType::HighPrecision> VertexType;
-
-
-	template<typename Type, bool HasSecondUV>
-	struct FUVSetter
-	{
-		FORCEINLINE static void Set(Type& Vertex, const TArray<FVector2D>& UV0, const TArray<FVector2D>& UV1, int32 VertexIndex, bool bShouldDefault)
-		{
-			if (UV0.Num() > VertexIndex)
-			{
-				Vertex.UV0 = UV0[VertexIndex];
-			}
-			else if (bShouldDefault)
-			{
-				Vertex.UV0 = FVector2D(0, 0);
-			}
-		}
-
-		FORCEINLINE static void Serialize(FArchive& Ar, Type& Vertex)
-		{
-			Ar << Vertex.UV0;
-		}
-	};
-
-	template<typename Type>
-	struct FUVSetter<Type, true>
-	{
-		FORCEINLINE static void Set(Type& Vertex, const TArray<FVector2D>& UV0, const TArray<FVector2D>& UV1, int32 VertexIndex, bool bShouldDefault)
-		{
-			if (UV0.Num() > VertexIndex)
-			{
-				Vertex.UV0 = UV0[VertexIndex];
-			}
-			else if (bShouldDefault)
-			{
-				Vertex.UV0 = FVector2D(0, 0);
-			}
-
-			if (UV1.Num() > VertexIndex)
-			{
-				Vertex.UV1 = UV1[VertexIndex];
-			}
-			else if (bShouldDefault)
-			{
-				Vertex.UV1 = FVector2D(0, 0);
-			}
-		}
-
-		FORCEINLINE static void Serialize(FArchive& Ar, Type& Vertex)
-		{
-			Ar << Vertex.UV0;
-			Ar << Vertex.UV1;
-		}
-	};
-
-
-	typedef FRuntimeMeshSection<VertexType> Super;
-
-
-	FRuntimeMeshSectionInternal(bool bWantsSeparatePositionBuffer /*Ignored for this section type*/) : Super(false) { }
-	virtual ~FRuntimeMeshSectionInternal() override { }
-
-	virtual bool UpdateVertexBufferInternal(const TArray<FVector>& Positions, const TArray<FVector>& Normals, const TArray<FRuntimeMeshTangent>& Tangents, const TArray<FVector2D>& UV0, const TArray<FVector2D>& UV1, const TArray<FColor>& Colors) override
-	{
-		int32 NewVertexCount = (Positions.Num() > 0) ? Positions.Num() : Super::VertexBuffer.Num();
-		int32 OldVertexCount = FMath::Min(Super::VertexBuffer.Num(), NewVertexCount);
-
-		// Check existence of data components
-		const bool HasPositions = Positions.Num() == NewVertexCount;
-		
-		// Size the vertex buffer correctly
-		if (NewVertexCount != Super::VertexBuffer.Num())
-		{
-			Super::VertexBuffer.SetNumZeroed(NewVertexCount);
-		}
-
-		// Clear the bounding box if we have new positions
-		if (HasPositions)
-		{
-			Super::LocalBoundingBox.Init();
-		}
-		
-		// Loop through existing range to update data
-		for (int32 VertexIdx = 0; VertexIdx < OldVertexCount; VertexIdx++)
-		{
-			auto& Vertex = Super::VertexBuffer[VertexIdx];
-
-			// Update position and bounding box
-			if (Positions.Num() == NewVertexCount)
-			{
-				Vertex.Position = Positions[VertexIdx];
-				Super::LocalBoundingBox += Vertex.Position;
-			}
-
-			// see if we have a new normal and/or tangent
-			bool HasNormal = Normals.Num() > VertexIdx;
-			bool HasTangent = Tangents.Num() > VertexIdx;
-
-			// Update normal and tangent together
-			if (HasNormal && HasTangent)
-			{
-				Vertex.Normal = Normals[VertexIdx];
-				Vertex.Normal.Vector.W = Tangents[VertexIdx].bFlipTangentY ? 0 : 255;
-				Vertex.Tangent = Tangents[VertexIdx].TangentX;
-			}
-			// Else update only normal keeping the W component 
-			else if (HasNormal)
-			{
-				float W = Vertex.Normal.Vector.W;
-				Vertex.Normal = Normals[VertexIdx];
-				Vertex.Normal.Vector.W = W;
-			}
-			// Else update tangent updating the normals W component
-			else if (HasTangent)
-			{
-				Vertex.Tangent = Tangents[VertexIdx].TangentX;
-				Vertex.Normal.Vector.W = Tangents[VertexIdx].bFlipTangentY ? 0 : 255;
-			}
-
-			// Update color
-			if (Colors.Num() > VertexIdx)
-			{
-				Vertex.Color = Colors[VertexIdx];
-			}
-
-			// Set the UVs
-			FUVSetter<VertexType, (TextureChannels > 1)>::Set(Vertex, UV0, UV1, VertexIdx, false);
-		}
-
-		// Loop through additional range to add new data
-		for (int32 VertexIdx = OldVertexCount; VertexIdx < NewVertexCount; VertexIdx++)
-		{
-			auto& Vertex = Super::VertexBuffer[VertexIdx];
-
-			// Set position
-			Vertex.Position = Positions[VertexIdx];
-			// Update bounding box
-			Super::LocalBoundingBox += Vertex.Position;
-
-			// see if we have a new normal and/or tangent
-			bool HasNormal = Normals.Num() > VertexIdx;
-			bool HasTangent = Tangents.Num() > VertexIdx;
-
-			// Set normal and tangent both
-			if (HasNormal && HasTangent)
-			{
-				Vertex.Normal = Normals[VertexIdx];
-				Vertex.Normal.Vector.W = Tangents[VertexIdx].bFlipTangentY ? 0 : 255;
-				Vertex.Tangent = Tangents[VertexIdx].TangentX;
-			}
-			// Set normal and default tangent
-			else if (HasNormal)
-			{
-				Vertex.Normal = Normals[VertexIdx];
-				Vertex.Normal.Vector.W = 255;
-				Vertex.Tangent = FVector(1.0f, 0.0f, 0.0f);
-			}
-			// Default normal and set tangent
-			else if (HasTangent)
-			{
-				Vertex.Normal = FVector(0.0f, 0.0f, 1.0f);
-				Vertex.Normal.Vector.W = Tangents[VertexIdx].bFlipTangentY ? 0 : 255;
-				Vertex.Tangent = Tangents[VertexIdx].TangentX;
-			}
-			// Default normal and tangent
-			else
-			{
-				Vertex.Normal = FVector(0.0f, 0.0f, 1.0f);
-				Vertex.Normal.Vector.W = 255;
-				Vertex.Tangent = FVector(1.0f, 0.0f, 0.0f);
-			}
-
-			// Set color or default 
-			Vertex.Color = Colors.Num() > VertexIdx ? Colors[VertexIdx] : FColor::White;
-
-			// Set UVs or default
-			FUVSetter<VertexType, (TextureChannels > 1)>::Set(Vertex, UV0, UV1, VertexIdx, true);
-		}
-
-		return true;
-	}
-
-	virtual void GetInternalVertexComponents(int32& NumUVChannels, bool& WantsHalfPrecisionUVs) override
-	{
-		NumUVChannels = TextureChannels;
-		WantsHalfPrecisionUVs = HalfPrecisionUVs;
-	}
-
-	virtual void Serialize(FArchive& Ar) override
-	{
-		Super::Serialize(Ar);
-	
-		int32 VertexBufferLength = Super::VertexBuffer.Num();
-		Ar << VertexBufferLength;
-		if (Ar.IsLoading())
-		{
-			Super::VertexBuffer.SetNum(VertexBufferLength);
-		}
-
-		for (int32 Index = 0; Index < VertexBufferLength; Index++)
-		{
-			auto& Vertex = Super::VertexBuffer[Index];
-
-			Ar << Vertex.Position;
-			Ar << Vertex.Normal;
-			Ar << Vertex.Tangent;
-			Ar << Vertex.Color;
-			FUVSetter<VertexType, (TextureChannels > 1)>::Serialize(Ar, Vertex);
-		}
-	}
-
-};
+// struct FRuntimeMeshVertexSectionInstantiator
+// {
+// 	//////////////////////////////////////////////////////////////////////////
+// 	// Type Creator (Only creates type if it's not an empty vertex)
+// 	//////////////////////////////////////////////////////////////////////////
+// private:
+// 	template<bool WantsPosition, bool WantsNormal, bool WantsTangent, bool WantsColor, int32 NumWantedUVChannels, ERuntimeMeshVertexTangentBasisType NormalTangentType, ERuntimeMeshVertexUVType UVType>
+// 	static typename TEnableIf<(WantsPosition || WantsNormal || WantsTangent || WantsColor || (NumWantedUVChannels > 0)), FRuntimeMeshSectionInterface*>::Type CreateSection_Internal(bool bWantsSeparatePositionBuffer)
+// 	{
+// 		return new FRuntimeMeshSection<FRuntimeMeshVertex<WantsPosition, WantsNormal, WantsTangent, WantsColor, NumWantedUVChannels,
+// 			NormalTangentType, UVType>>(bWantsSeparatePositionBuffer);
+// 	}
+// 
+// 	template<bool WantsPosition, bool WantsNormal, bool WantsTangent, bool WantsColor, int32 NumWantedUVChannels, ERuntimeMeshVertexTangentBasisType NormalTangentType, ERuntimeMeshVertexUVType UVType>
+// 	static typename TEnableIf<!(WantsPosition || WantsNormal || WantsTangent || WantsColor || (NumWantedUVChannels > 0)), FRuntimeMeshSectionInterface*>::Type CreateSection_Internal(bool bWantsSeparatePositionBuffer)
+// 	{
+// 		checkNoEntry();
+// 		return nullptr; 
+// 	}
+// 
+// 
+// public:
+// 
+// 
+// 
+// 
+// 
+// 	//////////////////////////////////////////////////////////////////////////
+// 	// UV Type Selection
+// 	//////////////////////////////////////////////////////////////////////////
+// 	template<bool WantsPosition, bool WantsNormal, bool WantsTangent, bool WantsColor, int32 NumWantedUVChannels, ERuntimeMeshVertexTangentBasisType NormalTangentType>
+// 	struct FRuntimeMeshVertexInstantiator_UVType
+// 	{
+// 		static FRuntimeMeshSectionInterface* CreateSection(ERuntimeMeshVertexUVType UVType, bool bWantsSeparatePositionBuffer)
+// 		{
+// 			switch (UVType)
+// 			{
+// 			case ERuntimeMeshVertexUVType::Default:
+// 				return CreateSection_Internal<WantsPosition, WantsNormal, WantsTangent, WantsColor, NumWantedUVChannels,
+// 					NormalTangentType, ERuntimeMeshVertexUVType::Default>(bWantsSeparatePositionBuffer);
+// 			case ERuntimeMeshVertexUVType::HighPrecision:
+// 				return CreateSection_Internal<WantsPosition, WantsNormal, WantsTangent, WantsColor, NumWantedUVChannels,
+// 					NormalTangentType, ERuntimeMeshVertexUVType::HighPrecision>(bWantsSeparatePositionBuffer);
+// 			}
+// 			checkNoEntry();
+// 			return nullptr;
+// 		}
+// 	};
+// 
+// 	//////////////////////////////////////////////////////////////////////////
+// 	// Tangent Type Selection
+// 	//////////////////////////////////////////////////////////////////////////
+// 	template<bool WantsPosition, bool WantsNormal, bool WantsTangent, bool WantsColor, int32 NumWantedUVChannels>
+// 	struct FRuntimeMeshVertexInstantiator_NormalTangentType
+// 	{
+// 		static FRuntimeMeshSectionInterface* CreateSection(ERuntimeMeshVertexTangentBasisType NormalTangentType, ERuntimeMeshVertexUVType UVType, bool bWantsSeparatePositionBuffer)
+// 		{
+// 			switch (NormalTangentType)
+// 			{
+// 			case ERuntimeMeshVertexTangentBasisType::Default:
+// 				return FRuntimeMeshVertexInstantiator_UVType<WantsPosition, WantsNormal, WantsTangent, WantsColor, NumWantedUVChannels, 
+// 					ERuntimeMeshVertexTangentBasisType::Default>::CreateSection(UVType, bWantsSeparatePositionBuffer);
+// 			case ERuntimeMeshVertexTangentBasisType::HighPrecision:
+// 				return FRuntimeMeshVertexInstantiator_UVType<WantsPosition, WantsNormal, WantsTangent, WantsColor, NumWantedUVChannels, 
+// 					ERuntimeMeshVertexTangentBasisType::HighPrecision>::CreateSection(UVType, bWantsSeparatePositionBuffer);
+// 			}
+// 			checkNoEntry();
+// 			return nullptr;
+// 		}
+// 	};
+// 
+// 	//////////////////////////////////////////////////////////////////////////
+// 	// Num UV Channels Selection
+// 	//////////////////////////////////////////////////////////////////////////
+// 	template<bool WantsPosition, bool WantsNormal, bool WantsTangent, bool WantsColor>
+// 	struct FRuntimeMeshVertexInstantiator_NumWantedUVChannels
+// 	{
+// 		static FRuntimeMeshSectionInterface* CreateSection(int32 NumWantedUVChannels, ERuntimeMeshVertexTangentBasisType NormalTangentType, ERuntimeMeshVertexUVType UVType, bool bWantsSeparatePositionBuffer)
+// 		{
+// 			switch (NumWantedUVChannels)
+// 			{
+// 			case 0:
+// 				return FRuntimeMeshVertexInstantiator_NormalTangentType<WantsPosition, WantsNormal, WantsTangent, WantsColor, 0>::CreateSection(NormalTangentType, UVType, bWantsSeparatePositionBuffer);
+// 			case 1:
+// 				return FRuntimeMeshVertexInstantiator_NormalTangentType<WantsPosition, WantsNormal, WantsTangent, WantsColor, 1>::CreateSection(NormalTangentType, UVType, bWantsSeparatePositionBuffer);
+// 			case 2:
+// 				return FRuntimeMeshVertexInstantiator_NormalTangentType<WantsPosition, WantsNormal, WantsTangent, WantsColor, 2>::CreateSection(NormalTangentType, UVType, bWantsSeparatePositionBuffer);
+// 			case 3:
+// 				return FRuntimeMeshVertexInstantiator_NormalTangentType<WantsPosition, WantsNormal, WantsTangent, WantsColor, 3>::CreateSection(NormalTangentType, UVType, bWantsSeparatePositionBuffer);
+// 			case 4:
+// 				return FRuntimeMeshVertexInstantiator_NormalTangentType<WantsPosition, WantsNormal, WantsTangent, WantsColor, 4>::CreateSection(NormalTangentType, UVType, bWantsSeparatePositionBuffer);
+// 			case 5:
+// 				return FRuntimeMeshVertexInstantiator_NormalTangentType<WantsPosition, WantsNormal, WantsTangent, WantsColor, 5>::CreateSection(NormalTangentType, UVType, bWantsSeparatePositionBuffer);
+// 			case 6:
+// 				return FRuntimeMeshVertexInstantiator_NormalTangentType<WantsPosition, WantsNormal, WantsTangent, WantsColor, 6>::CreateSection(NormalTangentType, UVType, bWantsSeparatePositionBuffer);
+// 			case 7:
+// 				return FRuntimeMeshVertexInstantiator_NormalTangentType<WantsPosition, WantsNormal, WantsTangent, WantsColor, 7>::CreateSection(NormalTangentType, UVType, bWantsSeparatePositionBuffer);
+// 			}
+// 			checkNoEntry();            
+//             return nullptr;
+// 		}
+// 	};
+// 
+// 	//////////////////////////////////////////////////////////////////////////
+// 	// Wants Color Selection
+// 	//////////////////////////////////////////////////////////////////////////
+// 	template<bool WantsPosition, bool WantsNormal, bool WantsTangent>
+// 	struct FRuntimeMeshVertexInstantiator_WantsColor
+// 	{
+// 		static FRuntimeMeshSectionInterface* CreateSection(bool WantsColor, int32 NumWantedUVChannels, ERuntimeMeshVertexTangentBasisType NormalTangentType, ERuntimeMeshVertexUVType UVType, bool bWantsSeparatePositionBuffer)
+// 		{
+// 			if (WantsColor)
+// 			{
+// 				return FRuntimeMeshVertexInstantiator_NumWantedUVChannels<WantsPosition, WantsNormal, WantsTangent, true>::CreateSection(NumWantedUVChannels, NormalTangentType, UVType, bWantsSeparatePositionBuffer);
+// 			}
+// 			else
+// 			{
+// 				return FRuntimeMeshVertexInstantiator_NumWantedUVChannels<WantsPosition, WantsNormal, WantsTangent, false>::CreateSection(NumWantedUVChannels, NormalTangentType, UVType, bWantsSeparatePositionBuffer);
+// 			}
+// 		}
+// 	};
+// 
+// 	//////////////////////////////////////////////////////////////////////////
+// 	// Wants Tangent Selection
+// 	//////////////////////////////////////////////////////////////////////////
+// 	template<bool WantsPosition, bool WantsNormal>
+// 	struct FRuntimeMeshVertexInstantiator_WantsTangent
+// 	{
+// 		static FRuntimeMeshSectionInterface* CreateSection(bool WantsTangent, bool WantsColor, int32 NumWantedUVChannels, ERuntimeMeshVertexTangentBasisType NormalTangentType, ERuntimeMeshVertexUVType UVType, bool bWantsSeparatePositionBuffer)
+// 		{
+// 			if (WantsTangent)
+// 			{
+// 				return FRuntimeMeshVertexInstantiator_WantsColor<WantsPosition, WantsNormal, true>::CreateSection(WantsColor, NumWantedUVChannels, NormalTangentType, UVType, bWantsSeparatePositionBuffer);
+// 			}
+// 			else
+// 			{
+// 				return FRuntimeMeshVertexInstantiator_WantsColor<WantsPosition, WantsNormal, false>::CreateSection(WantsColor, NumWantedUVChannels, NormalTangentType, UVType, bWantsSeparatePositionBuffer);
+// 			}
+// 		}
+// 	};
+// 
+// 	//////////////////////////////////////////////////////////////////////////
+// 	// Wants Normal Selection
+// 	//////////////////////////////////////////////////////////////////////////
+// 	template<bool WantsPosition>
+// 	struct FRuntimeMeshVertexInstantiator_WantsNormal
+// 	{
+// 		static FRuntimeMeshSectionInterface* CreateSection(bool WantsNormal, bool WantsTangent, bool WantsColor, int32 NumWantedUVChannels, ERuntimeMeshVertexTangentBasisType NormalTangentType, ERuntimeMeshVertexUVType UVType, bool bWantsSeparatePositionBuffer)
+// 		{
+// 			if (WantsNormal)
+// 			{
+// 				return FRuntimeMeshVertexInstantiator_WantsTangent<WantsPosition, true>::CreateSection(WantsTangent, WantsColor, NumWantedUVChannels, NormalTangentType, UVType, bWantsSeparatePositionBuffer);
+// 			}
+// 			else
+// 			{
+// 				return FRuntimeMeshVertexInstantiator_WantsTangent<WantsPosition, false>::CreateSection(WantsTangent, WantsColor, NumWantedUVChannels, NormalTangentType, UVType, bWantsSeparatePositionBuffer);
+// 			}
+// 		}
+// 	};
+// 
+// 
+// 	//////////////////////////////////////////////////////////////////////////
+// 	// Vertex Section Instantiator
+// 	//////////////////////////////////////////////////////////////////////////
+// 	static FRuntimeMeshSectionInterface* CreateVertexStructure(bool WantsPosition, bool WantsNormal, bool WantsTangent, bool WantsColor, int32 NumWantedUVChannels, ERuntimeMeshVertexTangentBasisType NormalTangentType, ERuntimeMeshVertexUVType UVType, bool bWantsSeparatePositionBuffer)
+// 	{
+// 		// We do position selection right here
+// 		if (WantsPosition)
+// 		{
+// 			return FRuntimeMeshVertexInstantiator_WantsNormal<true>::CreateSection(WantsNormal, WantsTangent, WantsColor, NumWantedUVChannels, NormalTangentType, UVType, bWantsSeparatePositionBuffer);
+// 		}
+// 		else
+// 		{
+// 			return FRuntimeMeshVertexInstantiator_WantsNormal<false>::CreateSection(WantsNormal, WantsTangent, WantsColor, NumWantedUVChannels, NormalTangentType, UVType, bWantsSeparatePositionBuffer);
+// 		}
+// 	}
+// };

@@ -121,6 +121,18 @@ private:
 	};
 	
 
+    CONSTEXPR static int32 CalculateNumUVChannels()
+	{
+		return
+			(HasUV0 ? 1 : 0) +
+			(HasUV1 ? 1 : 0) +
+			(HasUV2 ? 1 : 0) +
+			(HasUV3 ? 1 : 0) +
+			(HasUV4 ? 1 : 0) +
+			(HasUV5 ? 1 : 0) +
+			(HasUV6 ? 1 : 0) +
+			(HasUV7 ? 1 : 0);
+	}
 
 public:
 	static const bool HasPosition = sizeof(PositionCheck<DerivedPosition>(0)) == 2;
@@ -135,6 +147,7 @@ public:
 	static const bool HasUV5 = sizeof(UV5Check<DerivedUV5>(0)) == 2;
 	static const bool HasUV6 = sizeof(UV6Check<DerivedUV6>(0)) == 2;
 	static const bool HasUV7 = sizeof(UV7Check<DerivedUV7>(0)) == 2;
+	static const int32 NumUVChannels = CalculateNumUVChannels();
 
 
 	
@@ -238,6 +251,25 @@ struct FRuntimeMeshTangent
 	}
 };
 
+/*
+*	Configuration flag for the collision cooking to prioritize cooking speed or collision performance.
+*/
+UENUM(BlueprintType)
+enum class ERuntimeMeshCollisionCookingMode : uint8
+{
+	/*
+	*	Favors runtime collision performance of cooking speed. 
+	*	This means that cooking a new mesh will be slower, but collision will be faster.
+	*/
+	CollisionPerformance UMETA(DisplayName = "Collision Performance"),
+
+	/*
+	*	Favors cooking speed over collision performance.
+	*	This means that cooking a new mesh will be faster, but collision will be slower.
+	*/
+	CookingPerformance UMETA(DisplayName = "Cooking Performance"),
+};
+
 /* The different buffers within the Runtime Mesh Component */
 enum class ERuntimeMeshBuffer
 {
@@ -306,19 +338,14 @@ struct FRuntimeConvexCollisionSection
 
 struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshVertexTypeInfo
 {
-	FString TypeName;
-	FGuid TypeGuid;
+	const FString TypeName;
+	const FGuid TypeGuid;
 
 	FRuntimeMeshVertexTypeInfo(FString Name, FGuid Guid) : TypeName(Name), TypeGuid(Guid) { }
 
-	bool Equals(const FRuntimeMeshVertexTypeInfo* Other) const
+	virtual bool Equals(const FRuntimeMeshVertexTypeInfo* Other) const
 	{
-		if (TypeGuid != Other->TypeGuid)
-		{
-			return false;
-		}
-
-		return EqualsAdvanced(Other);
+		return TypeGuid == Other->TypeGuid;
 	}
 
 	template<typename Type>
@@ -330,30 +357,71 @@ struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshVertexTypeInfo
 		}
 	}
 
+	virtual class FRuntimeMeshSectionInterface* CreateSection(bool bInNeedsPositionOnlyBuffer) const = 0;
 protected:
 
 	void ThrowMismatchException(const FString& OtherName) const
 	{
 		UE_LOG(RuntimeMeshLog, Fatal, TEXT("Vertex Type Mismatch: %s  and  %s"), *TypeName, *OtherName);
 	}
+};
 
-	/*
-	*	This is called only if the Guids match. This is meant to due further
-	*	checking like in the case of the generic vertex, how it's configured.
-	*/
-	virtual bool EqualsAdvanced(const FRuntimeMeshVertexTypeInfo* Other) const { return true; }
+
+/*
+*  Internal container used to track known vertex types, for serialization and other purposes.
+*/
+class FRuntimeMeshVertexTypeRegistrationContainer
+{
+	struct VertexRegistration
+	{
+		const FRuntimeMeshVertexTypeInfo* const TypeInfo;
+		uint32 ReferenceCount;
+		
+		VertexRegistration(const FRuntimeMeshVertexTypeInfo* const InTypeInfo)
+			: TypeInfo(InTypeInfo), ReferenceCount(1) { }
+	};
+	TMap<FGuid, VertexRegistration> Registrations;
+
+public:
+
+	static FRuntimeMeshVertexTypeRegistrationContainer& GetInstance();
+
+	void Register(const FRuntimeMeshVertexTypeInfo* InType);
+
+	void UnRegister(const FRuntimeMeshVertexTypeInfo* InType);
+
+	const FRuntimeMeshVertexTypeInfo* GetVertexType(FGuid Key) const;
+
+};
+
+
+template<typename VertexType>
+class FRuntimeMeshVertexTypeRegistration : FNoncopyable
+{
+public:
+	FRuntimeMeshVertexTypeRegistration()
+	{ 
+		FRuntimeMeshVertexTypeRegistrationContainer::GetInstance().Register(&VertexType::TypeInfo);
+	}
+
+	~FRuntimeMeshVertexTypeRegistration()
+	{
+		FRuntimeMeshVertexTypeRegistrationContainer::GetInstance().UnRegister(&VertexType::TypeInfo);
+	}
 };
 
 
 
-#define DECLARE_RUNTIMEMESH_VERTEXTYPEINFO_SIMPLE(TypeName, Guid) \
+
+#define DECLARE_RUNTIMEMESH_CUSTOMVERTEX_TYPEINFO(TypeName, Guid) \
 	struct FRuntimeMeshVertexTypeInfo_##TypeName : public FRuntimeMeshVertexTypeInfo \
 	{ \
 		FRuntimeMeshVertexTypeInfo_##TypeName() : FRuntimeMeshVertexTypeInfo(TEXT(#TypeName), Guid) { } \
 	}; \
 	static const FRuntimeMeshVertexTypeInfo_##TypeName TypeInfo;
 
-#define DEFINE_RUNTIMEMESH_VERTEXTYPEINFO(TypeName) \
-	const  TypeName::FRuntimeMeshVertexTypeInfo_##TypeName TypeName::TypeInfo = TypeName::FRuntimeMeshVertexTypeInfo_##TypeName();
+#define DEFINE_RUNTIMEMESH_CUSTOMVERTEX_TYPEINFO(TypeName) \
+	const  TypeName::FRuntimeMeshVertexTypeInfo_##TypeName TypeName::TypeInfo = TypeName::FRuntimeMeshVertexTypeInfo_##TypeName(); \
+    FRuntimeMeshVertexTypeRegistration<##TypeName> FRuntimeMeshVertexTypeInfoRegistration_##TypeName(&##TypeName::TypeInfo);
 
 
