@@ -1155,6 +1155,15 @@ public:
 	*/
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh")
 	ERuntimeMeshCollisionCookingMode CollisionMode;
+
+
+	/*
+	*	The current mode of the collision cooker, whether it runs synchronously, or asynchronously
+	*	*** WARNING: *** This feature will only work with a custom engine version. More info at... 
+	*	https://github.com/Koderz/UE4RuntimeMeshComponent
+	*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh")
+	ERuntimeMeshCollisionCookingAsyncMode CollisionAsyncMode;
 	
 	/** Collision data */
 	UPROPERTY(Instanced)
@@ -1173,6 +1182,22 @@ private:
 	virtual bool GetPhysicsTriMeshData(struct FTriMeshCollisionData* CollisionData, bool InUseAllTriData) override;
 	virtual bool ContainsPhysicsTriMeshData(bool InUseAllTriData) const override;
 	virtual bool WantsNegXTriMesh() override { return false; }
+
+#if RUNTIMEMESH_SHOULDUSEIMPROVEDCOLLISION
+	friend class FParallelRuntimeMeshCollisionCookTask;
+	friend class FParallelRuntimeMeshCollisionCookCompletionTask;
+
+	virtual bool HasCookedData() const;
+	virtual TArray<uint8>* GetCookedData();
+
+	struct FPhysXCookData* BeginCook();
+
+	static TUniquePtr<FQueuedThreadPool> CookingThreadPool;
+
+	/* Temporarily stores the cooked collision result */
+	TArray<uint8> CookedCollisionData;
+	FGraphEventRef ParallelCookingTask;	
+#endif
 	//~ End Interface_CollisionDataProvider Interface
 
 
@@ -1206,7 +1231,7 @@ private:
 	void MarkCollisionDirty();
 
 	/* Cooks the new collision mesh updating the body */
-	void BakeCollision();
+	void BakeCollision(const FGraphEventRef* MyCompletionGraphEvent);
 
 	void UpdateNavigation();
 

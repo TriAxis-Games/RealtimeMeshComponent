@@ -6,13 +6,14 @@
 #include "RuntimeMeshGenericVertex.h"
 #include "RuntimeMeshVersion.h"
 #include "PhysicsEngine/PhysicsSettings.h"
-
+#include "PhysicsEngine/BodySetup.h"
+#include "PhysicsEngine/PhysXCookData.h"
 
 /** Runtime mesh scene proxy */
 class FRuntimeMeshSceneProxy : public FPrimitiveSceneProxy
 {
 private:
-	// Temporarily holds all section creation data until this proxy is passsed to the RT.
+	// Temporarily holds all section creation data until this proxy is passed to the RT.
 	// After this data is applied this array is cleared.
 	TArray<FRuntimeMeshSectionCreateDataInterface*> SectionCreationData;
 
@@ -396,7 +397,7 @@ void FRuntimeMeshComponentPrePhysicsTickFunction::ExecuteTick( float DeltaTime, 
 	if (bIsValid)
 	{
 		FScopeCycleCounterUObject ActorScope(Target);
-		Target->BakeCollision();
+		Target->BakeCollision(&MyCompletionGraphEvent);
 	}
 }
 
@@ -426,6 +427,7 @@ URuntimeMeshComponent::URuntimeMeshComponent(const FObjectInitializer& ObjectIni
 	, bShouldSerializeMeshData(true)
 	, bCollisionDirty(true)
 	, CollisionMode(ERuntimeMeshCollisionCookingMode::CookingPerformance)
+	, CollisionAsyncMode(ERuntimeMeshCollisionCookingAsyncMode::ThreadPool)
 {
 	// Setup the collision update ticker
 	PrePhysicsTick.TickGroup = TG_PrePhysics;
@@ -1633,15 +1635,15 @@ bool URuntimeMeshComponent::GetPhysicsTriMeshData(struct FTriMeshCollisionData* 
  	return HadCollision;
  }
 
- bool URuntimeMeshComponent::ContainsPhysicsTriMeshData(bool InUseAllTriData) const
- {
- 	for (const RuntimeMeshSectionPtr& Section : MeshSections)
- 	{
+bool URuntimeMeshComponent::ContainsPhysicsTriMeshData(bool InUseAllTriData) const
+{
+	for (const RuntimeMeshSectionPtr& Section : MeshSections)
+	{
  		if (Section.IsValid() && Section->IndexBuffer.Num() >= 3 && Section->CollisionEnabled)
  		{
  			return true;
  		}
- 	}
+	}
 
 	for (const auto& Section : MeshCollisionSections)
 	{
@@ -1651,9 +1653,27 @@ bool URuntimeMeshComponent::GetPhysicsTriMeshData(struct FTriMeshCollisionData* 
 		}
 	}
  
- 	return false;
- }
+	return false;
+}
 
+#if RUNTIMEMESH_SHOULDUSEIMPROVEDCOLLISION
+bool URuntimeMeshComponent::HasCookedData() const
+{
+	return true;
+}
+
+TArray<uint8>* URuntimeMeshComponent::GetCookedData()
+{
+	if (CookedCollisionData.Num())
+	{
+		TArray<uint8>* CookedData = new TArray<uint8>();
+		*CookedData = CookedCollisionData;
+
+		return CookedData;
+	}
+	return nullptr;
+}
+#endif
 
 void URuntimeMeshComponent::EnsureBodySetupCreated()
 {
@@ -1666,6 +1686,36 @@ void URuntimeMeshComponent::EnsureBodySetupCreated()
 		BodySetup->bDoubleSidedGeometry = true;
 	}
 }
+
+#if RUNTIMEMESH_SHOULDUSEIMPROVEDCOLLISION
+
+FPhysXCookData* URuntimeMeshComponent::BeginCook()
+{
+	FPhysXCookData* DataToCook = new FPhysXCookData();
+	DataToCook->BodyGuid = FGuid::NewGuid();
+	GetMeshId(DataToCook->MeshId);
+	DataToCook->OuterPath = GetPathName();
+	DataToCook->RuntimeCookFlags = UBodySetup::GetRuntimeOnlyCookOptimizationFlags();
+	DataToCook->CollisionTraceFlag = TEnumAsByte<ECollisionTraceFlag>(bUseComplexAsSimpleCollision ? CTF_UseComplexAsSimple : CTF_Default);
+	DataToCook->bMeshCollideAll = false;
+	DataToCook->bGenerateNonMirroredCollision = true;
+	DataToCook->bGenerateMirroredCollision = false;
+	DataToCook->bGenerateUVInfo = UPhysicsSettings::Get()->bSupportUVFromHitResults;
+
+	// TODO: Don't copy this directly from this thread....
+	DataToCook->bHasValidTriMeshData = GetPhysicsTriMeshData(&DataToCook->TriMeshData, DataToCook->bMeshCollideAll);
+	DataToCook->AggGeom.ConvexElems.SetNum(ConvexCollisionSections.Num());
+	for (int32 Index = 0; Index < ConvexCollisionSections.Num(); Index++)
+	{
+		FKConvexElem& NewConvexElem = BodySetup->AggGeom.ConvexElems[Index];
+
+		NewConvexElem.VertexData = ConvexCollisionSections[Index].VertexBuffer;
+		NewConvexElem.ElemBox = FBox(NewConvexElem.VertexData);
+	}
+
+	return DataToCook;
+}
+#endif
 
 void URuntimeMeshComponent::UpdateCollision()
 {
@@ -1731,11 +1781,172 @@ void URuntimeMeshComponent::MarkCollisionDirty()
 	}
 }
 
+#if RUNTIMEMESH_SHOULDUSEIMPROVEDCOLLISION
 
-void URuntimeMeshComponent::BakeCollision()
+struct FParallelRuntimeMeshTaskDataContainer
 {
+public:
+	FParallelRuntimeMeshTaskDataContainer() { }
+	~FParallelRuntimeMeshTaskDataContainer() { }
+
+	TArray<uint8> CookedCollisionData;
+};
+
+typedef TSharedPtr<FParallelRuntimeMeshTaskDataContainer, ESPMode::ThreadSafe> FParallelRuntimeMEshTaskDataContainerPtr;
+
+class FParallelRuntimeMeshCollisionCookTask
+{
+	TWeakObjectPtr<URuntimeMeshComponent> RuntimeMeshComponent;
+	FPhysXCookData* DataToCook;
+	FParallelRuntimeMEshTaskDataContainerPtr CookedDataContainer;
+public:
+	FParallelRuntimeMeshCollisionCookTask(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent, FPhysXCookData* InDataToCook, FParallelRuntimeMEshTaskDataContainerPtr InCookedDataContainer)
+		: RuntimeMeshComponent(InRuntimeMeshComponent), DataToCook(InDataToCook), CookedDataContainer(InCookedDataContainer)
+	{
+	}
+
+	FORCEINLINE TStatId GetStatId() const
+	{
+		RETURN_QUICK_DECLARE_CYCLE_STAT(FParallelRuntimeMeshCollisionCookTask, STATGROUP_TaskGraphTasks);
+	}
+
+	static FORCEINLINE ENamedThreads::Type GetDesiredThread()
+	{
+		return ENamedThreads::AnyThread;
+	}
+
+	static FORCEINLINE ESubsequentsMode::Type GetSubsequentsMode()
+	{
+		return ESubsequentsMode::TrackSubsequents;
+	}
+
+	void DoTask(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
+	{
+		CookedDataContainer->CookedCollisionData = MoveTemp(*UBodySetup::CookCollision(*DataToCook));
+		delete DataToCook;
+	}
+};
+
+class FParallelRuntimeMeshCollisionCookCompletionTask
+{
+	TWeakObjectPtr<URuntimeMeshComponent> RuntimeMeshComponent;
+	FParallelRuntimeMEshTaskDataContainerPtr CookedDataContainer;
+public:
+
+	FParallelRuntimeMeshCollisionCookCompletionTask(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent, FParallelRuntimeMEshTaskDataContainerPtr InCookedDataContainer)
+		: RuntimeMeshComponent(InRuntimeMeshComponent), CookedDataContainer(InCookedDataContainer)
+	{
+	}
+
+	FORCEINLINE TStatId GetStatId() const
+	{
+		RETURN_QUICK_DECLARE_CYCLE_STAT(FParallelRuntimeMeshCollisionCookCompletionTask, STATGROUP_TaskGraphTasks);
+	}
+
+	static ENamedThreads::Type GetDesiredThread()
+	{
+		return ENamedThreads::GameThread;
+	}
+
+	static ESubsequentsMode::Type GetSubsequentsMode()
+	{
+		return ESubsequentsMode::TrackSubsequents;
+	}
+
+	void DoTask(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
+	{
+		if (URuntimeMeshComponent* Comp = RuntimeMeshComponent.Get())
+		{
+			Comp->CookedCollisionData = MoveTemp(CookedDataContainer->CookedCollisionData);
+			Comp->UpdateCollision();
+		}
+	}
+};
+
+
+TUniquePtr<FQueuedThreadPool> CreateWorkerThreadPool()
+{
+	const int32 NumThreads = FMath::Min(2, FPlatformMisc::NumberOfCoresIncludingHyperthreads());
+
+	FQueuedThreadPool* WorkerThreadPool = FQueuedThreadPool::Allocate();
+	WorkerThreadPool->Create(NumThreads, 32 * 1024, TPri_Normal);
+	return TUniquePtr<FQueuedThreadPool>(WorkerThreadPool);
+}
+
+
+TUniquePtr<FQueuedThreadPool> URuntimeMeshComponent::CookingThreadPool;
+
+
+struct FRuntimeMeshThreadedCookCommand : public IQueuedWork
+{
+	TWeakObjectPtr<URuntimeMeshComponent> RuntimeMeshComponent;
+	FPhysXCookData* DataToCook;
+public:
+	FRuntimeMeshThreadedCookCommand(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent, FPhysXCookData* InDataToCook)
+		: RuntimeMeshComponent(InRuntimeMeshComponent), DataToCook(InDataToCook)
+	{
+	}
+
+	/** Begin FQueuedWork interface */
+	virtual void Abandon() override
+	{
+	}
+
+	virtual void DoThreadedWork() override
+	{
+		FParallelRuntimeMEshTaskDataContainerPtr CookedDataContainer = MakeShareable(new FParallelRuntimeMeshTaskDataContainer);		
+		CookedDataContainer->CookedCollisionData = MoveTemp(*UBodySetup::CookCollision(*DataToCook));
+		delete DataToCook;
+
+		TGraphTask<FParallelRuntimeMeshCollisionCookCompletionTask>::CreateTask().ConstructAndDispatchWhenReady(RuntimeMeshComponent, CookedDataContainer);
+	}
+};
+
+#endif
+
+void URuntimeMeshComponent::BakeCollision(const FGraphEventRef* MyCompletionGraphEvent)
+{
+#if RUNTIMEMESH_SHOULDUSEIMPROVEDCOLLISION
+
+	if (CollisionAsyncMode == ERuntimeMeshCollisionCookingAsyncMode::ThreadPool)
+	{
+		if (CookingThreadPool == nullptr)
+		{
+			CookingThreadPool = CreateWorkerThreadPool();
+		}
+
+
+		// Queue cook on the threadpool
+		CookingThreadPool->AddQueuedWork(new FRuntimeMeshThreadedCookCommand(this, BeginCook()));
+	}
+	else
+	{
+		if (IsValidRef(ParallelCookingTask))
+		{
+			return;
+		}
+
+		FPhysXCookData* DataToCook = BeginCook();
+		FParallelRuntimeMEshTaskDataContainerPtr CookedDataContainer = MakeShareable(new FParallelRuntimeMeshTaskDataContainer);
+
+		// Setup any thread cook task
+		ParallelCookingTask = TGraphTask<FParallelRuntimeMeshCollisionCookTask>::CreateTask().ConstructAndDispatchWhenReady(this, DataToCook, CookedDataContainer);
+
+		// Setup task on game thread to apply results
+		FGraphEventArray Prerequisites;
+		Prerequisites.Add(ParallelCookingTask);
+		FGraphEventRef CookCompletionEvent = TGraphTask<FParallelRuntimeMeshCollisionCookCompletionTask>::CreateTask(&Prerequisites).ConstructAndDispatchWhenReady(this, CookedDataContainer);
+
+		if (MyCompletionGraphEvent)
+		{
+			MyCompletionGraphEvent->GetReference()->DontCompleteUntil(CookCompletionEvent);
+		}
+	}
+#else
+
 	// Bake the collision
 	UpdateCollision();
+#endif
 
 	bCollisionDirty = false;
 	PrePhysicsTick.SetTickFunctionEnable(false);

@@ -9,6 +9,10 @@
 #include "Runtime/Launch/Resources/Version.h"
 #include "RuntimeMeshCore.generated.h"
 
+
+#define RUNTIMEMESH_SHOULDUSEIMPROVEDCOLLISION 1
+
+
 class FRuntimeMeshVertexFactory;
 
 
@@ -269,6 +273,28 @@ enum class ERuntimeMeshCollisionCookingMode : uint8
 	*/
 	CookingPerformance UMETA(DisplayName = "Cooking Performance"),
 };
+
+/*
+*	Configuration for the threading configuration of the cooker.
+*	*** WARNING: *** This feature will only work with a custom branch of the engine.
+*	More information can be found at   https://github.com/Koderz/UE4RuntimeMeshComponent 
+*/
+UENUM(BlueprintType)
+enum class ERuntimeMeshCollisionCookingAsyncMode : uint8
+{
+	/*
+	*	Runs the cooker synchronously, which means that the update will apply by the next 
+	*	frame, but it will block the game thread with large meshes.
+	*/
+	Synchronous UMETA(DisplayName = "Synchronous"),
+
+	/*
+	*	Uses an internal common thread pool for all cooking. This will offload the work 
+	*	away from the game thread, but it means that it could be 2+ frames later before the result is applied
+	*/
+	ThreadPool UMETA(DisplayName = "Thread Pool"),
+};
+
 
 /* The different buffers within the Runtime Mesh Component */
 enum class ERuntimeMeshBuffer
