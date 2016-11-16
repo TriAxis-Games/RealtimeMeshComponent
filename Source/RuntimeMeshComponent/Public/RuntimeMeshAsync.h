@@ -117,7 +117,7 @@ public:
 	*	@param	UpdateFlags			Flags pertaining to this particular update.
 	*/
 	template<typename VertexType>
-	void CreateMeshSection(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent, int32 SectionIndex, TArray<VertexType>& Vertices, TArray<int32>& Triangles, 
+	static void CreateMeshSection(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent, int32 SectionIndex, TArray<VertexType>& Vertices, TArray<int32>& Triangles,
 		const FBox& BoundingBox, bool bCreateCollision = false, EUpdateFrequency UpdateFrequency = EUpdateFrequency::Average, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
 	{
 		struct FRMCAsyncData
@@ -166,7 +166,7 @@ public:
 	*	@param	UpdateFlags			Flags pertaining to this particular update.
 	*/
 	template<typename VertexType>
-	void CreateMeshSectionDualBuffer(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent, int32 SectionIndex, TArray<FVector>& VertexPositions, 
+	static void CreateMeshSectionDualBuffer(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent, int32 SectionIndex, TArray<FVector>& VertexPositions,
 		TArray<VertexType>& VertexData, TArray<int32>& Triangles, bool bCreateCollision = false,
 		EUpdateFrequency UpdateFrequency = EUpdateFrequency::Average, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
 	{
@@ -218,7 +218,7 @@ public:
 	*	@param	UpdateFlags			Flags pertaining to this particular update.
 	*/
 	template<typename VertexType>
-	void CreateMeshSectionDualBuffer(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent, int32 SectionIndex, TArray<FVector>& VertexPositions, 
+	static void CreateMeshSectionDualBuffer(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent, int32 SectionIndex, TArray<FVector>& VertexPositions,
 		TArray<VertexType>& VertexData, TArray<int32>& Triangles, const FBox& BoundingBox,
 		bool bCreateCollision = false, EUpdateFrequency UpdateFrequency = EUpdateFrequency::Average, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
 	{
@@ -268,7 +268,7 @@ public:
 	*	@param	UpdateFlags			Flags pertaining to this particular update.
 	*/
 	template<typename VertexType>
-	void UpdateMeshSection(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent, int32 SectionIndex, TArray<VertexType>& Vertices, 
+	static void UpdateMeshSection(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent, int32 SectionIndex, TArray<VertexType>& Vertices,
 		ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
 	{
 		struct FRMCAsyncData
@@ -306,7 +306,7 @@ public:
 	*	@param	UpdateFlags			Flags pertaining to this particular update.
 	*/
 	template<typename VertexType>
-	void UpdateMeshSection(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent, int32 SectionIndex, TArray<VertexType>& Vertices, 
+	static void UpdateMeshSection(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent, int32 SectionIndex, TArray<VertexType>& Vertices,
 		const FBox& BoundingBox, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
 	{
 		struct FRMCAsyncData
@@ -346,7 +346,7 @@ public:
 	*	@param	UpdateFlags			Flags pertaining to this particular update.
 	*/
 	template<typename VertexType>
-	void UpdateMeshSection(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent, int32 SectionIndex, TArray<VertexType>& Vertices, 
+	static void UpdateMeshSection(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent, int32 SectionIndex, TArray<VertexType>& Vertices,
 		TArray<int32>& Triangles, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
 	{
 		struct FRMCAsyncData
@@ -388,7 +388,7 @@ public:
 	*	@param	UpdateFlags			Flags pertaining to this particular update.
 	*/
 	template<typename VertexType>
-	void UpdateMeshSection(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent, int32 SectionIndex, TArray<VertexType>& Vertices, 
+	static void UpdateMeshSection(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent, int32 SectionIndex, TArray<VertexType>& Vertices,
 		TArray<int32>& Triangles, const FBox& BoundingBox, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
 	{
 		struct FRMCAsyncData
@@ -432,7 +432,7 @@ public:
 	*	@param	UpdateFlags			Flags pertaining to this particular update.
 	*/
 	template<typename VertexType>
-	void UpdateMeshSection(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent, int32 SectionIndex, TArray<FVector>& VertexPositions, 
+	static void UpdateMeshSection(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent, int32 SectionIndex, TArray<FVector>& VertexPositions,
 		TArray<VertexType>& Vertices, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
 	{
 		struct FRMCAsyncData
@@ -474,7 +474,7 @@ public:
 	*	@param	UpdateFlags			Flags pertaining to this particular update.
 	*/
 	template<typename VertexType>
-	void UpdateMeshSection(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent, int32 SectionIndex, TArray<FVector>& VertexPositions, 
+	static void UpdateMeshSection(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent, int32 SectionIndex, TArray<FVector>& VertexPositions,
 		TArray<VertexType>& Vertices, const FBox& BoundingBox, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
 	{
 		struct FRMCAsyncData
@@ -518,7 +518,7 @@ public:
 	*	@param	UpdateFlags			Flags pertaining to this particular update.
 	*/
 	template<typename VertexType>
-	void UpdateMeshSection(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent, int32 SectionIndex, TArray<FVector>& VertexPositions, 
+	static void UpdateMeshSection(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent, int32 SectionIndex, TArray<FVector>& VertexPositions,
 		TArray<VertexType>& Vertices, TArray<int32>& Triangles, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
 	{
 		struct FRMCAsyncData
@@ -564,7 +564,7 @@ public:
 	*	@param	UpdateFlags			Flags pertaining to this particular update.
 	*/
 	template<typename VertexType>
-	void UpdateMeshSection(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent, int32 SectionIndex, TArray<FVector>& VertexPositions, 
+	static void UpdateMeshSection(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent, int32 SectionIndex, TArray<FVector>& VertexPositions,
 		TArray<VertexType>& Vertices, TArray<int32>& Triangles, const FBox& BoundingBox, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
 	{
 		struct FRMCAsyncData
@@ -609,7 +609,7 @@ public:
 	*	@param	VertexPositions		Vertex buffer containing only the position information for each vertex.
 	*	@param	UpdateFlags			Flags pertaining to this particular update.
 	*/
-	void UpdateMeshSectionPositionsImmediate(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent, int32 SectionIndex,
+	static void UpdateMeshSectionPositionsImmediate(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent, int32 SectionIndex,
 		TArray<FVector>& VertexPositions, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
 	{
 		struct FRMCAsyncData
@@ -646,7 +646,7 @@ public:
 	*	@param	BoundingBox			The bounds of this section. Faster than the RMC automatically calculating it.
 	*	@param	UpdateFlags			Flags pertaining to this particular update.
 	*/
-	void UpdateMeshSectionPositionsImmediate(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent, int32 SectionIndex,
+	static void UpdateMeshSectionPositionsImmediate(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent, int32 SectionIndex,
 		TArray<FVector>& VertexPositions, const FBox& BoundingBox, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
 	{
 		struct FRMCAsyncData
@@ -694,7 +694,7 @@ public:
 	*	@param	bCreateCollision	Indicates whether collision should be created for this section. This adds significant cost.
 	*	@param	UpdateFrequency		Indicates how frequently the section will be updated. Allows the RMC to optimize itself to a particular use.
 	*/
-	void CreateMeshSection(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent, int32 SectionIndex, const TArray<FVector>& Vertices,
+	static void CreateMeshSection(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent, int32 SectionIndex, const TArray<FVector>& Vertices,
 		const TArray<int32>& Triangles, const TArray<FVector>& Normals, const TArray<FVector2D>& UV0, const TArray<FColor>& Colors,
 		const TArray<FRuntimeMeshTangent>& Tangents, bool bCreateCollision = false,
 		EUpdateFrequency UpdateFrequency = EUpdateFrequency::Average, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
@@ -759,7 +759,7 @@ public:
 	*	@param	bCreateCollision	Indicates whether collision should be created for this section. This adds significant cost.
 	*	@param	UpdateFrequency		Indicates how frequently the section will be updated. Allows the RMC to optimize itself to a particular use.
 	*/
-	void CreateMeshSection(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent, int32 SectionIndex, const TArray<FVector>& Vertices, 
+	static void CreateMeshSection(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent, int32 SectionIndex, const TArray<FVector>& Vertices,
 		const TArray<int32>& Triangles, const TArray<FVector>& Normals,	const TArray<FVector2D>& UV0, const TArray<FVector2D>& UV1, 
 		const TArray<FColor>& Colors, const TArray<FRuntimeMeshTangent>& Tangents,
 		bool bCreateCollision = false, EUpdateFrequency UpdateFrequency = EUpdateFrequency::Average, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
@@ -824,7 +824,7 @@ public:
 	*	@param	Colors				Optional array of colors for each vertex. If supplied, must be same length as Vertices array.
 	*	@param	Tangents			Optional array of tangent vector for each vertex. If supplied, must be same length as Vertices array.
 	*/
-	void UpdateMeshSection(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent, int32 SectionIndex, const TArray<FVector>& Vertices, 
+	static void UpdateMeshSection(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent, int32 SectionIndex, const TArray<FVector>& Vertices,
 		const TArray<FVector>& Normals, const TArray<FVector2D>& UV0, const TArray<FColor>& Colors, const TArray<FRuntimeMeshTangent>& Tangents, 
 		ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
 	{
@@ -880,7 +880,7 @@ public:
 	*	@param	Colors				Optional array of colors for each vertex. If supplied, must be same length as Vertices array.
 	*	@param	Tangents			Optional array of tangent vector for each vertex. If supplied, must be same length as Vertices array.
 	*/
-	void UpdateMeshSection(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent, int32 SectionIndex, const TArray<FVector>& Vertices, 
+	static void UpdateMeshSection(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent, int32 SectionIndex, const TArray<FVector>& Vertices,
 		const TArray<FVector>& Normals, const TArray<FVector2D>& UV0, const TArray<FVector2D>& UV1, const TArray<FColor>& Colors, 
 		const TArray<FRuntimeMeshTangent>& Tangents, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
 	{
@@ -938,7 +938,7 @@ public:
 	*	@param	Colors				Optional array of colors for each vertex. If supplied, must be same length as Vertices array.
 	*	@param	Tangents			Optional array of tangent vector for each vertex. If supplied, must be same length as Vertices array.
 	*/
-	void UpdateMeshSection(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent, int32 SectionIndex, const TArray<FVector>& Vertices, 
+	static void UpdateMeshSection(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent, int32 SectionIndex, const TArray<FVector>& Vertices,
 		const TArray<int32>& Triangles, const TArray<FVector>& Normals,	const TArray<FVector2D>& UV0, const TArray<FColor>& Colors, 
 		const TArray<FRuntimeMeshTangent>& Tangents, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
 	{
@@ -997,7 +997,7 @@ public:
 	*	@param	Colors				Optional array of colors for each vertex. If supplied, must be same length as Vertices array.
 	*	@param	Tangents			Optional array of tangent vector for each vertex. If supplied, must be same length as Vertices array.
 	*/
-	void UpdateMeshSection(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent, int32 SectionIndex, const TArray<FVector>& Vertices, 
+	static void UpdateMeshSection(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent, int32 SectionIndex, const TArray<FVector>& Vertices,
 		const TArray<int32>& Triangles, const TArray<FVector>& Normals,	const TArray<FVector2D>& UV0, const TArray<FVector2D>& UV1, 
 		const TArray<FColor>& Colors, const TArray<FRuntimeMeshTangent>& Tangents, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
 	{
@@ -1051,7 +1051,7 @@ public:
 
 
 	/** Clear a section of the procedural mesh. */
-	void ClearMeshSection(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent, int32 SectionIndex)
+	static void ClearMeshSection(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent, int32 SectionIndex)
 	{
 		struct FRMCAsyncData
 		{
@@ -1068,7 +1068,7 @@ public:
 	}
 
 	/** Clear all mesh sections and reset to empty state */
-	void ClearAllMeshSections(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent)
+	static void ClearAllMeshSections(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent)
 	{
 		struct FRMCAsyncData
 		{
@@ -1084,7 +1084,7 @@ public:
 
 
 	/** Sets the tessellation triangles needed to correctly support tessellation on a section. */
-	void SetSectionTessellationTriangles(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent, int32 SectionIndex, 
+	static void SetSectionTessellationTriangles(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent, int32 SectionIndex,
 		const TArray<int32>& TessellationTriangles, bool bShouldMoveArray = false)
 	{
 		struct FRMCAsyncData
@@ -1113,7 +1113,7 @@ public:
 
 
 	/** Sets the geometry for a collision only section */
-	void SetMeshCollisionSection(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent, int32 CollisionSectionIndex, 
+	static void SetMeshCollisionSection(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent, int32 CollisionSectionIndex,
 		const TArray<FVector>& Vertices, const TArray<int32>& Triangles)
 	{
 		struct FRMCAsyncData
@@ -1134,7 +1134,7 @@ public:
 	}
 
 	/** Clears the geometry for a collision only section */
-	void ClearMeshCollisionSection(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent, int32 CollisionSectionIndex)
+	static void ClearMeshCollisionSection(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent, int32 CollisionSectionIndex)
 	{
 		struct FRMCAsyncData
 		{
@@ -1150,7 +1150,7 @@ public:
 	}
 
 	/** Clears the geometry for ALL collision only sections */
-	void ClearAllMeshCollisionSections(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent)
+	static void ClearAllMeshCollisionSections(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent)
 	{
 		struct FRMCAsyncData
 		{
@@ -1166,7 +1166,7 @@ public:
 
 
 	/** Add simple collision convex to this component */
-	void AddCollisionConvexMesh(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent, TArray<FVector> ConvexVerts)
+	static void AddCollisionConvexMesh(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent, TArray<FVector> ConvexVerts)
 	{
 		struct FRMCAsyncData
 		{
@@ -1182,7 +1182,7 @@ public:
 	}
 
 	/** Add simple collision convex to this component */
-	void ClearCollisionConvexMeshes(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent)
+	static void ClearCollisionConvexMeshes(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent)
 	{
 		struct FRMCAsyncData
 		{
@@ -1197,7 +1197,7 @@ public:
 	}
 
 	/** Function to replace _all_ simple collision in one go */
-	void SetCollisionConvexMeshes(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent, const TArray< TArray<FVector> >& ConvexMeshes)
+	static void SetCollisionConvexMeshes(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent, const TArray< TArray<FVector> >& ConvexMeshes)
 	{
 		struct FRMCAsyncData
 		{

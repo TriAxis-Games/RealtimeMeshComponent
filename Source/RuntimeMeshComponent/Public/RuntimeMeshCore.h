@@ -225,12 +225,12 @@ struct FRuntimeMeshTangent
 		, bFlipTangentY(false)
 	{}
 
-	FRuntimeMeshTangent(float X, float Y, float Z)
+	FRuntimeMeshTangent(float X, float Y, float Z, bool bInFlipTangentY = false)
 		: TangentX(X, Y, Z)
-		, bFlipTangentY(false)
+		, bFlipTangentY(bInFlipTangentY)
 	{}
 
-	FRuntimeMeshTangent(FVector InTangentX, bool bInFlipTangentY)
+	FRuntimeMeshTangent(FVector InTangentX, bool bInFlipTangentY = false)
 		: TangentX(InTangentX)
 		, bFlipTangentY(bInFlipTangentY)
 	{}
@@ -365,7 +365,7 @@ protected:
 /*
 *  Internal container used to track known vertex types, for serialization and other purposes.
 */
-class FRuntimeMeshVertexTypeRegistrationContainer
+class RUNTIMEMESHCOMPONENT_API FRuntimeMeshVertexTypeRegistrationContainer
 {
 	struct VertexRegistration
 	{
