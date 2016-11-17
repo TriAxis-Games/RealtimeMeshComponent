@@ -125,19 +125,6 @@ private:
 	};
 	
 
-    CONSTEXPR static int32 CalculateNumUVChannels()
-	{
-		return
-			(HasUV0 ? 1 : 0) +
-			(HasUV1 ? 1 : 0) +
-			(HasUV2 ? 1 : 0) +
-			(HasUV3 ? 1 : 0) +
-			(HasUV4 ? 1 : 0) +
-			(HasUV5 ? 1 : 0) +
-			(HasUV6 ? 1 : 0) +
-			(HasUV7 ? 1 : 0);
-	}
-
 public:
 	static const bool HasPosition = sizeof(PositionCheck<DerivedPosition>(0)) == 2;
 	static const bool HasNormal = sizeof(NormalCheck<DerivedNormal>(0)) == 2;
@@ -151,7 +138,15 @@ public:
 	static const bool HasUV5 = sizeof(UV5Check<DerivedUV5>(0)) == 2;
 	static const bool HasUV6 = sizeof(UV6Check<DerivedUV6>(0)) == 2;
 	static const bool HasUV7 = sizeof(UV7Check<DerivedUV7>(0)) == 2;
-	static const int32 NumUVChannels = CalculateNumUVChannels();
+	static const int32 NumUVChannels = 
+		(HasUV0 ? 1 : 0) +
+		(HasUV1 ? 1 : 0) +
+		(HasUV2 ? 1 : 0) +
+		(HasUV3 ? 1 : 0) +
+		(HasUV4 ? 1 : 0) +
+		(HasUV5 ? 1 : 0) +
+		(HasUV6 ? 1 : 0) +
+		(HasUV7 ? 1 : 0);
 
 
 	
@@ -234,12 +229,12 @@ struct FRuntimeMeshTangent
 		, bFlipTangentY(false)
 	{}
 
-	FRuntimeMeshTangent(float X, float Y, float Z)
+	FRuntimeMeshTangent(float X, float Y, float Z, bool bInFlipTangentY = false)
 		: TangentX(X, Y, Z)
-		, bFlipTangentY(false)
+		, bFlipTangentY(bInFlipTangentY)
 	{}
 
-	FRuntimeMeshTangent(FVector InTangentX, bool bInFlipTangentY)
+	FRuntimeMeshTangent(FVector InTangentX, bool bInFlipTangentY = false)
 		: TangentX(InTangentX)
 		, bFlipTangentY(bInFlipTangentY)
 	{}
@@ -396,7 +391,7 @@ protected:
 /*
 *  Internal container used to track known vertex types, for serialization and other purposes.
 */
-class FRuntimeMeshVertexTypeRegistrationContainer
+class RUNTIMEMESHCOMPONENT_API FRuntimeMeshVertexTypeRegistrationContainer
 {
 	struct VertexRegistration
 	{

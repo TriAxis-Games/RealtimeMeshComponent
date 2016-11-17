@@ -152,7 +152,11 @@ protected:
 
 	virtual void RecalculateBoundingBox() = 0;
 
+#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION >= 13
 	virtual int32 GetCollisionInformation(TArray<FVector>& Positions, TArray<TArray<FVector2D>>& UVs, bool bIncludeUVs) = 0;
+#else
+	virtual int32 GetCollisionInformation(TArray<FVector>& Positions) = 0;
+#endif
 
 	virtual void GetInternalVertexComponents(int32& NumUVChannels, bool& WantsHalfPrecisionUVs) { }
 
@@ -428,25 +432,34 @@ protected:
 		return UpdateData;
 	}
 
+#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION >= 13
 	virtual int32 GetCollisionInformation(TArray<FVector>& Positions, TArray<TArray<FVector2D>>& UVs, bool bIncludeUVs) override
+#else
+	virtual int32 GetCollisionInformation(TArray<FVector>& Positions) override
+#endif
 	{
 		FRuntimeMeshPackedVerticesBuilder<VertexType> VerticesBuilder(&VertexBuffer, bNeedsPositionOnlyBuffer ? &PositionVertexBuffer : nullptr);
 
 		int32 PositionStart = Positions.Num();
 		Positions.SetNum(PositionStart + VerticesBuilder.Length());
 
+#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION >= 13
 		if (bIncludeUVs)
 		{
 			UVs[0].SetNumZeroed(PositionStart + VerticesBuilder.Length());
 		}
+#endif
 
 		for (int VertexIdx = 0; VertexIdx < VerticesBuilder.Length(); VertexIdx++)
 		{
 			Positions[PositionStart + VertexIdx] = VerticesBuilder.GetPosition(VertexIdx);
+
+#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION >= 13
 			if (bIncludeUVs && VerticesBuilder.HasUVComponent(0))
 			{
 				UVs[0][PositionStart + VertexIdx] = VerticesBuilder.GetUV(0);
 			}
+#endif
 		}
 
 		return VerticesBuilder.Length();
@@ -703,47 +716,7 @@ private:
 		}
 		else
 		{
-			FRuntimeMeshPackedVerticesBuilder<VertexType> VerticesBuilder(&VertexBuffer);
-			for (int32 Index = 0; Index < VertexBufferLength; Index++)
-			{
-				VerticesBuilder.Seek(Index);
-
-				FVector TempPosition = VerticesBuilder.GetPosition();
-				Ar << TempPosition;
-
-				FPackedNormal TempNormal = VerticesBuilder.GetNormal();
-				Ar << TempNormal;
-
-				TempNormal = VerticesBuilder.GetTangent();
-				Ar << TempNormal;
-
-				FColor TempColor = VerticesBuilder.GetColor();
-				Ar << TempColor;
-
-
-				if (FRuntimeMeshVertexTraits<VertexType>::HasHighPrecisionUVs)
-				{
-					FVector2D TempUV = VerticesBuilder.GetUV(0);
-					Ar << TempUV;
-
-					if (FRuntimeMeshVertexTraits<VertexType>::NumUVChannels > 1)
-					{
-						TempUV = VerticesBuilder.GetUV(1);
-						Ar << TempUV;
-					}
-				}
-				else
-				{
-					FVector2DHalf TempUV = VerticesBuilder.GetUV(0);
-					Ar << TempUV;
-
-					if (FRuntimeMeshVertexTraits<VertexType>::NumUVChannels > 1)
-					{
-						TempUV = VerticesBuilder.GetUV(1);
-						Ar << TempUV;
-					}
-				}
-			}
+			check(false && "Cannot use legacy save.");
 		}
 	}
 

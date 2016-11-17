@@ -331,12 +331,14 @@ public:
 		{
 			if (VisibilityMap & (1 << ViewIndex))
 			{				
+#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION >= 13
 				// Draw simple collision as wireframe if 'show collision', and collision is enabled, and we are not using the complex as the simple
 				if (ViewFamily.EngineShowFlags.Collision && IsCollisionEnabled() && BodySetup->GetCollisionTraceFlag() != ECollisionTraceFlag::CTF_UseComplexAsSimple)
 				{
 					FTransform GeomTransform(GetLocalToWorld());
 					BodySetup->AggGeom.GetAggGeom(GeomTransform, GetSelectionColor(FColor(157, 149, 223, 255), IsSelected(), IsHovered()).ToFColor(true), NULL, false, false, UseEditorDepthTest(), ViewIndex, Collector);
 				}
+#endif
 
 				// Render bounds
 				RenderBounds(Collector.GetPDI(ViewIndex), ViewFamily.EngineShowFlags, GetBounds(), IsSelected());
@@ -1560,12 +1562,14 @@ bool URuntimeMeshComponent::GetPhysicsTriMeshData(struct FTriMeshCollisionData* 
  
 	bool HadCollision = false;
 
+#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION >= 13
 	// See if we should copy UVs
 	bool bCopyUVs = UPhysicsSettings::Get()->bSupportUVFromHitResults;
 	if (bCopyUVs)
 	{
 		CollisionData->UVs.AddZeroed(1); // only one UV channel
 	}
+#endif
 
 	// For each section..
 	for (int32 SectionIdx = 0; SectionIdx < MeshSections.Num(); SectionIdx++)
@@ -1575,7 +1579,11 @@ bool URuntimeMeshComponent::GetPhysicsTriMeshData(struct FTriMeshCollisionData* 
 		if (Section.IsValid() && Section->CollisionEnabled)
 		{
 			// Copy vertex data
+#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION >= 13
 			Section->GetCollisionInformation(CollisionData->Vertices, CollisionData->UVs, bCopyUVs);
+#else
+			Section->GetCollisionInformation(CollisionData->Vertices);
+#endif
 
 			// Copy indices
 			const int32 NumTriangles = Section->IndexBuffer.Num() / 3;
@@ -1958,8 +1966,14 @@ void URuntimeMeshComponent::UpdateNavigation()
 	if (UNavigationSystem::ShouldUpdateNavOctreeOnComponentChange() && IsRegistered())
 	{
 		UWorld* MyWorld = GetWorld();
+
+#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION >= 13
 		if (MyWorld != nullptr && MyWorld->GetNavigationSystem() != nullptr &&
 			(MyWorld->GetNavigationSystem()->ShouldAllowClientSideNavigation() || !MyWorld->IsNetMode(ENetMode::NM_Client)))
+#else
+
+		if (MyWorld != nullptr && MyWorld->IsGameWorld() && MyWorld->GetNetMode() < ENetMode::NM_Client)
+#endif
 		{
 			UNavigationSystem::UpdateComponentInNavOctree(*this);
 		}

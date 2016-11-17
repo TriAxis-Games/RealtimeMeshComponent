@@ -467,10 +467,14 @@ void URuntimeMeshLibrary::GetSectionFromStaticMesh(UStaticMesh* InMesh, int32 LO
 void URuntimeMeshLibrary::CopyRuntimeMeshFromStaticMeshComponent(UStaticMeshComponent* StaticMeshComp, int32 LODIndex,
 	URuntimeMeshComponent* RuntimeMeshComp, bool bShouldCreateCollision)
 {
-	if (StaticMeshComp != nullptr && StaticMeshComp->StaticMesh != nullptr && RuntimeMeshComp != nullptr)
-	{
-		UStaticMesh* StaticMesh = StaticMeshComp->StaticMesh;
+#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION >= 14
+	UStaticMesh* StaticMesh = StaticMeshComp->GetStaticMesh();
+#else
+	UStaticMesh* StaticMesh = StaticMeshComp->StaticMesh;
+#endif
 
+	if (StaticMeshComp != nullptr && StaticMesh != nullptr && RuntimeMeshComp != nullptr)
+	{
 		//// MESH DATA
 
 		// Make sure LOD index is valid
@@ -478,12 +482,18 @@ void URuntimeMeshLibrary::CopyRuntimeMeshFromStaticMeshComponent(UStaticMeshComp
 		{
 			return;
 		}
-		
+
+		// Get specified LOD
+		const FStaticMeshLODResources& LOD = StaticMesh->RenderData->LODResources[LODIndex];
+
+#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION >= 13
 		int32 NumSections = StaticMesh->GetNumSections(LODIndex);
+#else
+		int32 NumSections = LOD.Sections.Num();
+#endif
 		for (int32 SectionIndex = 0; SectionIndex < NumSections; SectionIndex++)
 		{
 			// Buffers for copying geom data
-			const FStaticMeshLODResources& LOD = StaticMesh->RenderData->LODResources[LODIndex];
 			if (LOD.Sections.IsValidIndex(SectionIndex))
 			{
 				int32 NumUVChannels = LOD.GetNumTexCoords();
