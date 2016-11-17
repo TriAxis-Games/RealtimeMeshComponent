@@ -21,7 +21,7 @@ void FRuntimeMeshVertexTypeRegistrationContainer::Register(const FRuntimeMeshVer
 		// * Accidentally copy-and-pasted an FRuntimeMeshVertexTypeRegistration object.
 		ensureMsgf(ExistingRegistration->TypeInfo->TypeName == InType->TypeName,
 			TEXT("Runtime mesh vertex registrations cannot change between hotreloads - \"%s\" is being reregistered as \"%s\""),
-			ExistingRegistration->TypeInfo->TypeName, InType->TypeName);
+			*ExistingRegistration->TypeInfo->TypeName, *InType->TypeName);
 
 		ExistingRegistration->ReferenceCount++;
 	}

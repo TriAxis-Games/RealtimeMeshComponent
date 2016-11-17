@@ -5,22 +5,22 @@
 #include "RuntimeMeshCore.h"
 #include "RuntimeMeshComponent.h"
 
-#define RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(TaskType, DataType, Data, RuntimeMesh, Code)														\
+#define RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(TaskType, DataType, DataPtr, RuntimeMesh, Code)														\
 	class FParallelRuntimeMeshComponentTask_##TaskType																							\
 	{																																			\
 		TWeakObjectPtr<URuntimeMeshComponent> RuntimeMeshComponent;																				\
-		DataType* Data;																															\
+		DataType* RMCCallData;																															\
 	public:																																		\
-		FParallelRuntimeMeshComponentTask_##TaskType(TWeakObjectPtr<URuntimeMeshComponent> InRuntimeMeshComponent, DataType* InData)			\
-			: RuntimeMeshComponent(InRuntimeMeshComponent), Data(InData)																		\
+		FParallelRuntimeMeshComponentTask_##TaskType(TWeakObjectPtr<URuntimeMeshComponent> InRMC, DataType* InData)			\
+			: RuntimeMeshComponent(InRMC), RMCCallData(InData)																		\
 		{																																		\
 		}																																		\
 																																				\
 		~FParallelRuntimeMeshComponentTask_##TaskType()																							\
 		{																																		\
-			if (Data != nullptr)																												\
+			if (RMCCallData != nullptr)																											\
 			{																																	\
-				delete Data;																													\
+				delete RMCCallData;																												\
 			}																																	\
 		}																																		\
 																																				\
@@ -41,13 +41,14 @@
 																																				\
 		void DoTask(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)											\
 		{																																		\
+			DataType* Data = RMCCallData;																										\
 			if (URuntimeMeshComponent* Mesh = RuntimeMeshComponent.Get())																		\
 			{																																	\
 				Code																															\
 			}																																	\
 		}																																		\
 	};																																			\
-	TGraphTask<FParallelRuntimeMeshComponentTask_##TaskType>::CreateTask(nullptr).ConstructAndDispatchWhenReady(RuntimeMesh, Data);
+	TGraphTask<FParallelRuntimeMeshComponentTask_##TaskType>::CreateTask().ConstructAndDispatchWhenReady(RuntimeMesh, DataPtr);
 
 
 
@@ -82,24 +83,24 @@ public:
 			ESectionUpdateFlags UpdateFlags;
 		};
 
-		FRMCAsyncData* Data = new FRMCAsyncData;
-		Data->SectionIndex = SectionIndex;
+		FRMCAsyncData* CallData = new FRMCAsyncData;
+		CallData->SectionIndex = SectionIndex;
 
 		if (!!(UpdateFlags & ESectionUpdateFlags::MoveArrays))
 		{
-			Data->Vertices = MoveTemp(Vertices);
-			Data->Triangles = MoveTemp(Triangles);
+			CallData->Vertices = MoveTemp(Vertices);
+			CallData->Triangles = MoveTemp(Triangles);
 		}
 		else
 		{
-			Data->Vertices = Vertices;
-			Data->Triangles = Triangles;
+			CallData->Vertices = Vertices;
+			CallData->Triangles = Triangles;
 		}
-		Data->bCreateCollision = bCreateCollision;
-		Data->UpdateFrequency = UpdateFrequency;
-		Data->UpdateFlags = UpdateFlags | ESectionUpdateFlags::MoveArrays; // We can always use move arrays here since we either just copied it, or moved it from the original
+		CallData->bCreateCollision = bCreateCollision;
+		CallData->UpdateFrequency = UpdateFrequency;
+		CallData->UpdateFlags = UpdateFlags | ESectionUpdateFlags::MoveArrays; // We can always use move arrays here since we either just copied it, or moved it from the original
 
-		RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(CreateMeshSection, FRMCAsyncData, Data, InRuntimeMeshComponent,
+		RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(CreateMeshSection, FRMCAsyncData, CallData, InRuntimeMeshComponent,
 		{
 			Mesh->CreateMeshSection(Data->SectionIndex, Data->Vertices, Data->Triangles, Data->bCreateCollision, Data->UpdateFrequency, Data->UpdateFlags);
 		});
@@ -131,25 +132,25 @@ public:
 			ESectionUpdateFlags UpdateFlags;
 		};
 
-		FRMCAsyncData* Data = new FRMCAsyncData;
-		Data->SectionIndex = SectionIndex;
+		FRMCAsyncData* CallData = new FRMCAsyncData;
+		CallData->SectionIndex = SectionIndex;
 
 		if (!!(UpdateFlags & ESectionUpdateFlags::MoveArrays))
 		{
-			Data->Vertices = MoveTemp(Vertices);
-			Data->Triangles = MoveTemp(Triangles);
+			CallData->Vertices = MoveTemp(Vertices);
+			CallData->Triangles = MoveTemp(Triangles);
 		}
 		else
 		{
-			Data->Vertices = Vertices;
-			Data->Triangles = Triangles;
+			CallData->Vertices = Vertices;
+			CallData->Triangles = Triangles;
 		}
-		Data->BoundingBox = BoundingBox;
-		Data->bCreateCollision = bCreateCollision;
-		Data->UpdateFrequency = UpdateFrequency;
-		Data->UpdateFlags = UpdateFlags | ESectionUpdateFlags::MoveArrays; // We can always use move arrays here since we either just copied it, or moved it from the original
+		CallData->BoundingBox = BoundingBox;
+		CallData->bCreateCollision = bCreateCollision;
+		CallData->UpdateFrequency = UpdateFrequency;
+		CallData->UpdateFlags = UpdateFlags | ESectionUpdateFlags::MoveArrays; // We can always use move arrays here since we either just copied it, or moved it from the original
 
-		RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(CreateMeshSection, FRMCAsyncData, Data, InRuntimeMeshComponent,
+		RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(CreateMeshSection, FRMCAsyncData, CallData, InRuntimeMeshComponent,
 		{
 			Mesh->CreateMeshSection(Data->SectionIndex, Data->Vertices, Data->Triangles, Data->BoundingBox, Data->bCreateCollision, Data->UpdateFrequency, Data->UpdateFlags);
 		});
@@ -181,26 +182,26 @@ public:
 			ESectionUpdateFlags UpdateFlags;
 		};
 
-		FRMCAsyncData* Data = new FRMCAsyncData;
-		Data->SectionIndex = SectionIndex;
+		FRMCAsyncData* CallData = new FRMCAsyncData;
+		CallData->SectionIndex = SectionIndex;
 
 		if (!!(UpdateFlags & ESectionUpdateFlags::MoveArrays))
 		{
-			Data->VertexPositions = MoveTemp(VertexPositions);
-			Data->Vertices = MoveTemp(Vertices);
-			Data->Triangles = MoveTemp(Triangles);
+			CallData->VertexPositions = MoveTemp(VertexPositions);
+			CallData->Vertices = MoveTemp(VertexData);
+			CallData->Triangles = MoveTemp(Triangles);
 		}
 		else
 		{
-			Data->VertexPositions = VertexPositions;
-			Data->Vertices = Vertices;
-			Data->Triangles = Triangles;
+			CallData->VertexPositions = VertexPositions;
+			CallData->Vertices = VertexData;
+			CallData->Triangles = Triangles;
 		}
-		Data->bCreateCollision = bCreateCollision;
-		Data->UpdateFrequency = UpdateFrequency;
-		Data->UpdateFlags = UpdateFlags | ESectionUpdateFlags::MoveArrays; // We can always use move arrays here since we either just copied it, or moved it from the original
+		CallData->bCreateCollision = bCreateCollision;
+		CallData->UpdateFrequency = UpdateFrequency;
+		CallData->UpdateFlags = UpdateFlags | ESectionUpdateFlags::MoveArrays; // We can always use move arrays here since we either just copied it, or moved it from the original
 
-		RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(CreateMeshSection, FRMCAsyncData, Data, InRuntimeMeshComponent,
+		RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(CreateMeshSection, FRMCAsyncData, CallData, InRuntimeMeshComponent,
 		{
 			Mesh->CreateMeshSection(Data->SectionIndex, Data->VertexPositions, Data->Vertices, Data->Triangles, Data->bCreateCollision, Data->UpdateFrequency, Data->UpdateFlags);
 		});
@@ -234,27 +235,27 @@ public:
 			ESectionUpdateFlags UpdateFlags;
 		};
 
-		FRMCAsyncData* Data = new FRMCAsyncData;
-		Data->SectionIndex = SectionIndex;
+		FRMCAsyncData* CallData = new FRMCAsyncData;
+		CallData->SectionIndex = SectionIndex;
 
 		if (!!(UpdateFlags & ESectionUpdateFlags::MoveArrays))
 		{
-			Data->VertexPositions = MoveTemp(VertexPositions);
-			Data->Vertices = MoveTemp(Vertices);
-			Data->Triangles = MoveTemp(Triangles);
+			CallData->VertexPositions = MoveTemp(VertexPositions);
+			CallData->Vertices = MoveTemp(VertexData);
+			CallData->Triangles = MoveTemp(Triangles);
 		}
 		else
 		{
-			Data->VertexPositions = VertexPositions;
-			Data->Vertices = Vertices;
-			Data->Triangles = Triangles;
+			CallData->VertexPositions = VertexPositions;
+			CallData->Vertices = VertexData;
+			CallData->Triangles = Triangles;
 		}
-		Data->BoundingBox = BoundingBox;
-		Data->bCreateCollision = bCreateCollision;
-		Data->UpdateFrequency = UpdateFrequency;
-		Data->UpdateFlags = UpdateFlags | ESectionUpdateFlags::MoveArrays; // We can always use move arrays here since we either just copied it, or moved it from the original
+		CallData->BoundingBox = BoundingBox;
+		CallData->bCreateCollision = bCreateCollision;
+		CallData->UpdateFrequency = UpdateFrequency;
+		CallData->UpdateFlags = UpdateFlags | ESectionUpdateFlags::MoveArrays; // We can always use move arrays here since we either just copied it, or moved it from the original
 
-		RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(CreateMeshSection, FRMCAsyncData, Data, InRuntimeMeshComponent,
+		RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(CreateMeshSection, FRMCAsyncData, CallData, InRuntimeMeshComponent,
 		{
 			Mesh->CreateMeshSection(Data->SectionIndex, Data->VertexPositions, Data->Vertices, Data->Triangles, Data->BoundingBox, Data->bCreateCollision, Data->UpdateFrequency, Data->UpdateFlags);
 		});
@@ -278,21 +279,21 @@ public:
 			ESectionUpdateFlags UpdateFlags;
 		};
 
-		FRMCAsyncData* Data = new FRMCAsyncData;
-		Data->SectionIndex = SectionIndex;
+		FRMCAsyncData* CallData = new FRMCAsyncData;
+		CallData->SectionIndex = SectionIndex;
 
 		if (!!(UpdateFlags & ESectionUpdateFlags::MoveArrays))
 		{
-			Data->Vertices = MoveTemp(Vertices);
+			CallData->Vertices = MoveTemp(Vertices);
 		}
 		else
 		{
-			Data->Vertices = Vertices;
+			CallData->Vertices = Vertices;
 		}
 
-		Data->UpdateFlags = UpdateFlags | ESectionUpdateFlags::MoveArrays; // We can always use move arrays here since we either just copied it, or moved it from the original
+		CallData->UpdateFlags = UpdateFlags | ESectionUpdateFlags::MoveArrays; // We can always use move arrays here since we either just copied it, or moved it from the original
 
-		RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(UpdateMeshSection, FRMCAsyncData, Data, InRuntimeMeshComponent,
+		RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(UpdateMeshSection, FRMCAsyncData, CallData, InRuntimeMeshComponent,
 		{
 			Mesh->UpdateMeshSection(Data->SectionIndex, Data->Vertices, Data->UpdateFlags);
 		});
@@ -317,22 +318,22 @@ public:
 			ESectionUpdateFlags UpdateFlags;
 		};
 
-		FRMCAsyncData* Data = new FRMCAsyncData;
-		Data->SectionIndex = SectionIndex;
+		FRMCAsyncData* CallData = new FRMCAsyncData;
+		CallData->SectionIndex = SectionIndex;
 
 		if (!!(UpdateFlags & ESectionUpdateFlags::MoveArrays))
 		{
-			Data->Vertices = MoveTemp(Vertices);
+			CallData->Vertices = MoveTemp(Vertices);
 		}
 		else
 		{
-			Data->Vertices = Vertices;
+			CallData->Vertices = Vertices;
 		}
 		
-		Data->BoundingBox = BoundingBox;
-		Data->UpdateFlags = UpdateFlags | ESectionUpdateFlags::MoveArrays; // We can always use move arrays here since we either just copied it, or moved it from the original
+		CallData->BoundingBox = BoundingBox;
+		CallData->UpdateFlags = UpdateFlags | ESectionUpdateFlags::MoveArrays; // We can always use move arrays here since we either just copied it, or moved it from the original
 
-		RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(UpdateMeshSection, FRMCAsyncData, Data, InRuntimeMeshComponent,
+		RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(UpdateMeshSection, FRMCAsyncData, CallData, InRuntimeMeshComponent,
 		{
 			Mesh->UpdateMeshSection(Data->SectionIndex, Data->Vertices, Data->BoundingBox, Data->UpdateFlags);
 		});
@@ -357,23 +358,23 @@ public:
 			ESectionUpdateFlags UpdateFlags;
 		};
 
-		FRMCAsyncData* Data = new FRMCAsyncData;
-		Data->SectionIndex = SectionIndex;
+		FRMCAsyncData* CallData = new FRMCAsyncData;
+		CallData->SectionIndex = SectionIndex;
 
 		if (!!(UpdateFlags & ESectionUpdateFlags::MoveArrays))
 		{
-			Data->Vertices = MoveTemp(Vertices);
-			Data->Triangles = MoveTemp(Triangles);
+			CallData->Vertices = MoveTemp(Vertices);
+			CallData->Triangles = MoveTemp(Triangles);
 		}
 		else
 		{
-			Data->Vertices = Vertices;
-			Data->Triangles = Triangles;
+			CallData->Vertices = Vertices;
+			CallData->Triangles = Triangles;
 		}
 
-		Data->UpdateFlags = UpdateFlags | ESectionUpdateFlags::MoveArrays; // We can always use move arrays here since we either just copied it, or moved it from the original
+		CallData->UpdateFlags = UpdateFlags | ESectionUpdateFlags::MoveArrays; // We can always use move arrays here since we either just copied it, or moved it from the original
 
-		RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(UpdateMeshSection, FRMCAsyncData, Data, InRuntimeMeshComponent,
+		RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(UpdateMeshSection, FRMCAsyncData, CallData, InRuntimeMeshComponent,
 		{
 			Mesh->UpdateMeshSection(Data->SectionIndex, Data->Vertices, Data->Triangles, Data->UpdateFlags);
 		});
@@ -400,24 +401,24 @@ public:
 			ESectionUpdateFlags UpdateFlags;
 		};
 
-		FRMCAsyncData* Data = new FRMCAsyncData;
-		Data->SectionIndex = SectionIndex;
+		FRMCAsyncData* CallData = new FRMCAsyncData;
+		CallData->SectionIndex = SectionIndex;
 
 		if (!!(UpdateFlags & ESectionUpdateFlags::MoveArrays))
 		{
-			Data->Vertices = MoveTemp(Vertices);
-			Data->Triangles = MoveTemp(Triangles);
+			CallData->Vertices = MoveTemp(Vertices);
+			CallData->Triangles = MoveTemp(Triangles);
 		}
 		else
 		{
-			Data->Vertices = Vertices;
-			Data->Triangles = Triangles;
+			CallData->Vertices = Vertices;
+			CallData->Triangles = Triangles;
 		}
 
-		Data->BoundingBox = BoundingBox;
-		Data->UpdateFlags = UpdateFlags | ESectionUpdateFlags::MoveArrays; // We can always use move arrays here since we either just copied it, or moved it from the original
+		CallData->BoundingBox = BoundingBox;
+		CallData->UpdateFlags = UpdateFlags | ESectionUpdateFlags::MoveArrays; // We can always use move arrays here since we either just copied it, or moved it from the original
 
-		RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(UpdateMeshSection, FRMCAsyncData, Data, InRuntimeMeshComponent,
+		RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(UpdateMeshSection, FRMCAsyncData, CallData, InRuntimeMeshComponent,
 		{
 			Mesh->UpdateMeshSection(Data->SectionIndex, Data->Vertices, Data->Triangles, Data->BoundingBox, Data->UpdateFlags);
 		});
@@ -443,23 +444,23 @@ public:
 			ESectionUpdateFlags UpdateFlags;
 		};
 
-		FRMCAsyncData* Data = new FRMCAsyncData;
-		Data->SectionIndex = SectionIndex;
+		FRMCAsyncData* CallData = new FRMCAsyncData;
+		CallData->SectionIndex = SectionIndex;
 
 		if (!!(UpdateFlags & ESectionUpdateFlags::MoveArrays))
 		{
-			Data->VertexPositions = MoveTemp(VertexPositions);
-			Data->Vertices = MoveTemp(Vertices);
+			CallData->VertexPositions = MoveTemp(VertexPositions);
+			CallData->Vertices = MoveTemp(Vertices);
 		}
 		else
 		{
-			Data->VertexPositions = VertexPositions;
-			Data->Vertices = Vertices;
+			CallData->VertexPositions = VertexPositions;
+			CallData->Vertices = Vertices;
 		}
 
-		Data->UpdateFlags = UpdateFlags | ESectionUpdateFlags::MoveArrays; // We can always use move arrays here since we either just copied it, or moved it from the original
+		CallData->UpdateFlags = UpdateFlags | ESectionUpdateFlags::MoveArrays; // We can always use move arrays here since we either just copied it, or moved it from the original
 
-		RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(UpdateMeshSection, FRMCAsyncData, Data, InRuntimeMeshComponent,
+		RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(UpdateMeshSection, FRMCAsyncData, CallData, InRuntimeMeshComponent,
 		{
 			Mesh->UpdateMeshSection(Data->SectionIndex, Data->VertexPositions, Data->Vertices, Data->UpdateFlags);
 		});
@@ -486,24 +487,24 @@ public:
 			ESectionUpdateFlags UpdateFlags;
 		};
 
-		FRMCAsyncData* Data = new FRMCAsyncData;
-		Data->SectionIndex = SectionIndex;
+		FRMCAsyncData* CallData = new FRMCAsyncData;
+		CallData->SectionIndex = SectionIndex;
 
 		if (!!(UpdateFlags & ESectionUpdateFlags::MoveArrays))
 		{
-			Data->VertexPositions = MoveTemp(VertexPositions);
-			Data->Vertices = MoveTemp(Vertices);
+			CallData->VertexPositions = MoveTemp(VertexPositions);
+			CallData->Vertices = MoveTemp(Vertices);
 		}
 		else
 		{
-			Data->VertexPositions = VertexPositions;
-			Data->Vertices = Vertices;
+			CallData->VertexPositions = VertexPositions;
+			CallData->Vertices = Vertices;
 		}
 
-		Data->BoundingBox = BoundingBox;
-		Data->UpdateFlags = UpdateFlags | ESectionUpdateFlags::MoveArrays; // We can always use move arrays here since we either just copied it, or moved it from the original
+		CallData->BoundingBox = BoundingBox;
+		CallData->UpdateFlags = UpdateFlags | ESectionUpdateFlags::MoveArrays; // We can always use move arrays here since we either just copied it, or moved it from the original
 
-		RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(UpdateMeshSection, FRMCAsyncData, Data, InRuntimeMeshComponent,
+		RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(UpdateMeshSection, FRMCAsyncData, CallData, InRuntimeMeshComponent,
 		{
 			Mesh->UpdateMeshSection(Data->SectionIndex, Data->VertexPositions, Data->Vertices, Data->BoundingBox, Data->UpdateFlags);
 		});
@@ -530,25 +531,25 @@ public:
 			ESectionUpdateFlags UpdateFlags;
 		};
 
-		FRMCAsyncData* Data = new FRMCAsyncData;
-		Data->SectionIndex = SectionIndex;
+		FRMCAsyncData* CallData = new FRMCAsyncData;
+		CallData->SectionIndex = SectionIndex;
 
 		if (!!(UpdateFlags & ESectionUpdateFlags::MoveArrays))
 		{
-			Data->VertexPositions = MoveTemp(VertexPositions);
-			Data->Vertices = MoveTemp(Vertices);
-			Data->Triangles = MoveTemp(Triangles);
+			CallData->VertexPositions = MoveTemp(VertexPositions);
+			CallData->Vertices = MoveTemp(Vertices);
+			CallData->Triangles = MoveTemp(Triangles);
 		}
 		else
 		{
-			Data->VertexPositions = VertexPositions;
-			Data->Vertices = Vertices;
-			Data->Triangles = Triangles;
+			CallData->VertexPositions = VertexPositions;
+			CallData->Vertices = Vertices;
+			CallData->Triangles = Triangles;
 		}
 
-		Data->UpdateFlags = UpdateFlags | ESectionUpdateFlags::MoveArrays; // We can always use move arrays here since we either just copied it, or moved it from the original
+		CallData->UpdateFlags = UpdateFlags | ESectionUpdateFlags::MoveArrays; // We can always use move arrays here since we either just copied it, or moved it from the original
 
-		RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(UpdateMeshSection, FRMCAsyncData, Data, InRuntimeMeshComponent,
+		RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(UpdateMeshSection, FRMCAsyncData, CallData, InRuntimeMeshComponent,
 		{
 			Mesh->UpdateMeshSection(Data->SectionIndex, Data->VertexPositions, Data->Vertices, Data->Triangles, Data->UpdateFlags);
 		});
@@ -577,26 +578,26 @@ public:
 			ESectionUpdateFlags UpdateFlags;
 		};
 
-		FRMCAsyncData* Data = new FRMCAsyncData;
-		Data->SectionIndex = SectionIndex;
+		FRMCAsyncData* CallData = new FRMCAsyncData;
+		CallData->SectionIndex = SectionIndex;
 
 		if (!!(UpdateFlags & ESectionUpdateFlags::MoveArrays))
 		{
-			Data->VertexPositions = MoveTemp(VertexPositions);
-			Data->Vertices = MoveTemp(Vertices);
-			Data->Triangles = MoveTemp(Triangles);
+			CallData->VertexPositions = MoveTemp(VertexPositions);
+			CallData->Vertices = MoveTemp(Vertices);
+			CallData->Triangles = MoveTemp(Triangles);
 		}
 		else
 		{
-			Data->VertexPositions = VertexPositions;
-			Data->Vertices = Vertices;
-			Data->Triangles = Triangles;
+			CallData->VertexPositions = VertexPositions;
+			CallData->Vertices = Vertices;
+			CallData->Triangles = Triangles;
 		}
 
-		Data->BoundingBox = BoundingBox;
-		Data->UpdateFlags = UpdateFlags | ESectionUpdateFlags::MoveArrays; // We can always use move arrays here since we either just copied it, or moved it from the original
+		CallData->BoundingBox = BoundingBox;
+		CallData->UpdateFlags = UpdateFlags | ESectionUpdateFlags::MoveArrays; // We can always use move arrays here since we either just copied it, or moved it from the original
 
-		RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(UpdateMeshSection, FRMCAsyncData, Data, InRuntimeMeshComponent,
+		RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(UpdateMeshSection, FRMCAsyncData, CallData, InRuntimeMeshComponent,
 		{
 			Mesh->UpdateMeshSection(Data->SectionIndex, Data->VertexPositions, Data->Vertices, Data->Triangles, Data->BoundingBox, Data->UpdateFlags);
 		});
@@ -619,21 +620,21 @@ public:
 			ESectionUpdateFlags UpdateFlags;
 		};
 
-		FRMCAsyncData* Data = new FRMCAsyncData;
-		Data->SectionIndex = SectionIndex;
+		FRMCAsyncData* CallData = new FRMCAsyncData;
+		CallData->SectionIndex = SectionIndex;
 
 		if (!!(UpdateFlags & ESectionUpdateFlags::MoveArrays))
 		{
-			Data->VertexPositions = MoveTemp(VertexPositions);
+			CallData->VertexPositions = MoveTemp(VertexPositions);
 		}
 		else
 		{
-			Data->VertexPositions = VertexPositions;
+			CallData->VertexPositions = VertexPositions;
 		}
 
-		Data->UpdateFlags = UpdateFlags | ESectionUpdateFlags::MoveArrays; // We can always use move arrays here since we either just copied it, or moved it from the original
+		CallData->UpdateFlags = UpdateFlags | ESectionUpdateFlags::MoveArrays; // We can always use move arrays here since we either just copied it, or moved it from the original
 
-		RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(UpdateMeshSectionPositionsImmediate, FRMCAsyncData, Data, InRuntimeMeshComponent,
+		RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(UpdateMeshSectionPositionsImmediate, FRMCAsyncData, CallData, InRuntimeMeshComponent,
 		{
 			Mesh->UpdateMeshSectionPositionsImmediate(Data->SectionIndex, Data->VertexPositions, Data->UpdateFlags);
 		});
@@ -657,22 +658,22 @@ public:
 			ESectionUpdateFlags UpdateFlags;
 		};
 
-		FRMCAsyncData* Data = new FRMCAsyncData;
-		Data->SectionIndex = SectionIndex;
+		FRMCAsyncData* CallData = new FRMCAsyncData;
+		CallData->SectionIndex = SectionIndex;
 
 		if (!!(UpdateFlags & ESectionUpdateFlags::MoveArrays))
 		{
-			Data->VertexPositions = MoveTemp(VertexPositions);
+			CallData->VertexPositions = MoveTemp(VertexPositions);
 		}
 		else
 		{
-			Data->VertexPositions = VertexPositions;
+			CallData->VertexPositions = VertexPositions;
 		}
 		
-		Data->BoundingBox = BoundingBox;
-		Data->UpdateFlags = UpdateFlags | ESectionUpdateFlags::MoveArrays; // We can always use move arrays here since we either just copied it, or moved it from the original
+		CallData->BoundingBox = BoundingBox;
+		CallData->UpdateFlags = UpdateFlags | ESectionUpdateFlags::MoveArrays; // We can always use move arrays here since we either just copied it, or moved it from the original
 
-		RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(UpdateMeshSectionPositionsImmediate, FRMCAsyncData, Data, InRuntimeMeshComponent,
+		RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(UpdateMeshSectionPositionsImmediate, FRMCAsyncData, CallData, InRuntimeMeshComponent,
 		{
 			Mesh->UpdateMeshSectionPositionsImmediate(Data->SectionIndex, Data->VertexPositions, Data->BoundingBox, Data->UpdateFlags);
 		});
@@ -713,33 +714,33 @@ public:
 			ESectionUpdateFlags UpdateFlags;
 		};
 
-		FRMCAsyncData* Data = new FRMCAsyncData;
-		Data->SectionIndex = SectionIndex;
+		FRMCAsyncData* CallData = new FRMCAsyncData;
+		CallData->SectionIndex = SectionIndex;
 
 		if (!!(UpdateFlags & ESectionUpdateFlags::MoveArrays))
 		{
-			Data->Vertices = MoveTemp(Vertices);
-			Data->Triangles = MoveTemp(Triangles);
-			Data->Normals = MoveTemp(Normals);
-			Data->UV0 = MoveTemp(UV0);
-			Data->Colors = MoveTemp(Colors);
-			Data->Tangents = MoveTemp(Tangents);
+			CallData->Vertices = MoveTemp(Vertices);
+			CallData->Triangles = MoveTemp(Triangles);
+			CallData->Normals = MoveTemp(Normals);
+			CallData->UV0 = MoveTemp(UV0);
+			CallData->Colors = MoveTemp(Colors);
+			CallData->Tangents = MoveTemp(Tangents);
 		}
 		else
 		{
-			Data->Vertices = Vertices;
-			Data->Triangles = Triangles;
-			Data->Normals = Normals;
-			Data->UV0 = UV0;
-			Data->Colors = Colors;
-			Data->Tangents = Tangents;
+			CallData->Vertices = Vertices;
+			CallData->Triangles = Triangles;
+			CallData->Normals = Normals;
+			CallData->UV0 = UV0;
+			CallData->Colors = Colors;
+			CallData->Tangents = Tangents;
 		}
 
-		Data->bCreateCollision = bCreateCollision;
-		Data->UpdateFrequency = UpdateFrequency;
-		Data->UpdateFlags = UpdateFlags | ESectionUpdateFlags::MoveArrays; // We can always use move arrays here since we either just copied it, or moved it from the original
+		CallData->bCreateCollision = bCreateCollision;
+		CallData->UpdateFrequency = UpdateFrequency;
+		CallData->UpdateFlags = UpdateFlags | ESectionUpdateFlags::MoveArrays; // We can always use move arrays here since we either just copied it, or moved it from the original
 
-		RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(CreateMeshSection, FRMCAsyncData, Data, InRuntimeMeshComponent,
+		RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(CreateMeshSection, FRMCAsyncData, CallData, InRuntimeMeshComponent,
 		{
 			Mesh->CreateMeshSection(Data->SectionIndex, Data->Vertices, Data->Triangles, Data->Normals, Data->UV0, Data->Colors, 
 			Data->Tangents, Data->bCreateCollision, Data->UpdateFrequency, Data->UpdateFlags);
@@ -779,35 +780,35 @@ public:
 			ESectionUpdateFlags UpdateFlags;
 		};
 
-		FRMCAsyncData* Data = new FRMCAsyncData;
-		Data->SectionIndex = SectionIndex;
+		FRMCAsyncData* CallData = new FRMCAsyncData;
+		CallData->SectionIndex = SectionIndex;
 
 		if (!!(UpdateFlags & ESectionUpdateFlags::MoveArrays))
 		{
-			Data->Vertices = MoveTemp(Vertices);
-			Data->Triangles = MoveTemp(Triangles);
-			Data->Normals = MoveTemp(Normals);
-			Data->UV0 = MoveTemp(UV0);
-			Data->UV1 = MoveTemp(UV1);
-			Data->Colors = MoveTemp(Colors);
-			Data->Tangents = MoveTemp(Tangents);
+			CallData->Vertices = MoveTemp(Vertices);
+			CallData->Triangles = MoveTemp(Triangles);
+			CallData->Normals = MoveTemp(Normals);
+			CallData->UV0 = MoveTemp(UV0);
+			CallData->UV1 = MoveTemp(UV1);
+			CallData->Colors = MoveTemp(Colors);
+			CallData->Tangents = MoveTemp(Tangents);
 		}
 		else
 		{
-			Data->Vertices = Vertices;
-			Data->Triangles = Triangles;
-			Data->Normals = Normals;
-			Data->UV0 = UV0;
-			Data->UV1 = UV1;
-			Data->Colors = Colors;
-			Data->Tangents = Tangents;
+			CallData->Vertices = Vertices;
+			CallData->Triangles = Triangles;
+			CallData->Normals = Normals;
+			CallData->UV0 = UV0;
+			CallData->UV1 = UV1;
+			CallData->Colors = Colors;
+			CallData->Tangents = Tangents;
 		}
 
-		Data->bCreateCollision = bCreateCollision;
-		Data->UpdateFrequency = UpdateFrequency;
-		Data->UpdateFlags = UpdateFlags | ESectionUpdateFlags::MoveArrays; // We can always use move arrays here since we either just copied it, or moved it from the original
+		CallData->bCreateCollision = bCreateCollision;
+		CallData->UpdateFrequency = UpdateFrequency;
+		CallData->UpdateFlags = UpdateFlags | ESectionUpdateFlags::MoveArrays; // We can always use move arrays here since we either just copied it, or moved it from the original
 
-		RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(CreateMeshSection, FRMCAsyncData, Data, InRuntimeMeshComponent,
+		RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(CreateMeshSection, FRMCAsyncData, CallData, InRuntimeMeshComponent,
 		{
 			Mesh->CreateMeshSection(Data->SectionIndex, Data->Vertices, Data->Triangles, Data->Normals, Data->UV0, Data->UV1, Data->Colors,
 			Data->Tangents, Data->bCreateCollision, Data->UpdateFrequency, Data->UpdateFlags);
@@ -842,29 +843,29 @@ public:
 			ESectionUpdateFlags UpdateFlags;
 		};
 
-		FRMCAsyncData* Data = new FRMCAsyncData;
-		Data->SectionIndex = SectionIndex;
+		FRMCAsyncData* CallData = new FRMCAsyncData;
+		CallData->SectionIndex = SectionIndex;
 
 		if (!!(UpdateFlags & ESectionUpdateFlags::MoveArrays))
 		{
-			Data->Vertices = MoveTemp(Vertices);
-			Data->Normals = MoveTemp(Normals);
-			Data->UV0 = MoveTemp(UV0);
-			Data->Colors = MoveTemp(Colors);
-			Data->Tangents = MoveTemp(Tangents);
+			CallData->Vertices = MoveTemp(Vertices);
+			CallData->Normals = MoveTemp(Normals);
+			CallData->UV0 = MoveTemp(UV0);
+			CallData->Colors = MoveTemp(Colors);
+			CallData->Tangents = MoveTemp(Tangents);
 		}
 		else
 		{
-			Data->Vertices = Vertices;
-			Data->Normals = Normals;
-			Data->UV0 = UV0;
-			Data->Colors = Colors;
-			Data->Tangents = Tangents;
+			CallData->Vertices = Vertices;
+			CallData->Normals = Normals;
+			CallData->UV0 = UV0;
+			CallData->Colors = Colors;
+			CallData->Tangents = Tangents;
 		}
 
-		Data->UpdateFlags = UpdateFlags | ESectionUpdateFlags::MoveArrays; // We can always use move arrays here since we either just copied it, or moved it from the original
+		CallData->UpdateFlags = UpdateFlags | ESectionUpdateFlags::MoveArrays; // We can always use move arrays here since we either just copied it, or moved it from the original
 
-		RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(UpdateMeshSection, FRMCAsyncData, Data, InRuntimeMeshComponent,
+		RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(UpdateMeshSection, FRMCAsyncData, CallData, InRuntimeMeshComponent,
 		{
 			Mesh->UpdateMeshSection(Data->SectionIndex, Data->Vertices, Data->Normals, Data->UV0, Data->Colors,	Data->Tangents, Data->UpdateFlags);
 		});
@@ -898,31 +899,31 @@ public:
 			ESectionUpdateFlags UpdateFlags;
 		};
 
-		FRMCAsyncData* Data = new FRMCAsyncData;
-		Data->SectionIndex = SectionIndex;
+		FRMCAsyncData* CallData = new FRMCAsyncData;
+		CallData->SectionIndex = SectionIndex;
 
 		if (!!(UpdateFlags & ESectionUpdateFlags::MoveArrays))
 		{
-			Data->Vertices = MoveTemp(Vertices);
-			Data->Normals = MoveTemp(Normals);
-			Data->UV0 = MoveTemp(UV0);
-			Data->UV1 = MoveTemp(UV1);
-			Data->Colors = MoveTemp(Colors);
-			Data->Tangents = MoveTemp(Tangents);
+			CallData->Vertices = MoveTemp(Vertices);
+			CallData->Normals = MoveTemp(Normals);
+			CallData->UV0 = MoveTemp(UV0);
+			CallData->UV1 = MoveTemp(UV1);
+			CallData->Colors = MoveTemp(Colors);
+			CallData->Tangents = MoveTemp(Tangents);
 		}
 		else
 		{
-			Data->Vertices = Vertices;
-			Data->Normals = Normals;
-			Data->UV0 = UV0;
-			Data->UV1 = UV1;
-			Data->Colors = Colors;
-			Data->Tangents = Tangents;
+			CallData->Vertices = Vertices;
+			CallData->Normals = Normals;
+			CallData->UV0 = UV0;
+			CallData->UV1 = UV1;
+			CallData->Colors = Colors;
+			CallData->Tangents = Tangents;
 		}
 
-		Data->UpdateFlags = UpdateFlags | ESectionUpdateFlags::MoveArrays; // We can always use move arrays here since we either just copied it, or moved it from the original
+		CallData->UpdateFlags = UpdateFlags | ESectionUpdateFlags::MoveArrays; // We can always use move arrays here since we either just copied it, or moved it from the original
 
-		RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(UpdateMeshSection, FRMCAsyncData, Data, InRuntimeMeshComponent,
+		RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(UpdateMeshSection, FRMCAsyncData, CallData, InRuntimeMeshComponent,
 		{
 			Mesh->UpdateMeshSection(Data->SectionIndex, Data->Vertices, Data->Normals, Data->UV0, Data->UV1, Data->Colors, Data->Tangents, Data->UpdateFlags);
 		});
@@ -956,31 +957,31 @@ public:
 			ESectionUpdateFlags UpdateFlags;
 		};
 
-		FRMCAsyncData* Data = new FRMCAsyncData;
-		Data->SectionIndex = SectionIndex;
+		FRMCAsyncData* CallData = new FRMCAsyncData;
+		CallData->SectionIndex = SectionIndex;
 
 		if (!!(UpdateFlags & ESectionUpdateFlags::MoveArrays))
 		{
-			Data->Vertices = MoveTemp(Vertices);
-			Data->Triangles = MoveTemp(Triangles);
-			Data->Normals = MoveTemp(Normals);
-			Data->UV0 = MoveTemp(UV0);
-			Data->Colors = MoveTemp(Colors);
-			Data->Tangents = MoveTemp(Tangents);
+			CallData->Vertices = MoveTemp(Vertices);
+			CallData->Triangles = MoveTemp(Triangles);
+			CallData->Normals = MoveTemp(Normals);
+			CallData->UV0 = MoveTemp(UV0);
+			CallData->Colors = MoveTemp(Colors);
+			CallData->Tangents = MoveTemp(Tangents);
 		}
 		else
 		{
-			Data->Vertices = Vertices;
-			Data->Triangles = Triangles;
-			Data->Normals = Normals;
-			Data->UV0 = UV0;
-			Data->Colors = Colors;
-			Data->Tangents = Tangents;
+			CallData->Vertices = Vertices;
+			CallData->Triangles = Triangles;
+			CallData->Normals = Normals;
+			CallData->UV0 = UV0;
+			CallData->Colors = Colors;
+			CallData->Tangents = Tangents;
 		}
 
-		Data->UpdateFlags = UpdateFlags | ESectionUpdateFlags::MoveArrays; // We can always use move arrays here since we either just copied it, or moved it from the original
+		CallData->UpdateFlags = UpdateFlags | ESectionUpdateFlags::MoveArrays; // We can always use move arrays here since we either just copied it, or moved it from the original
 
-		RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(UpdateMeshSection, FRMCAsyncData, Data, InRuntimeMeshComponent,
+		RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(UpdateMeshSection, FRMCAsyncData, CallData, InRuntimeMeshComponent,
 		{
 			Mesh->UpdateMeshSection(Data->SectionIndex, Data->Vertices, Data->Triangles, Data->Normals, Data->UV0, Data->Colors, Data->Tangents, Data->UpdateFlags);
 		});
@@ -1016,33 +1017,33 @@ public:
 			ESectionUpdateFlags UpdateFlags;
 		};
 
-		FRMCAsyncData* Data = new FRMCAsyncData;
-		Data->SectionIndex = SectionIndex;
+		FRMCAsyncData* CallData = new FRMCAsyncData;
+		CallData->SectionIndex = SectionIndex;
 
 		if (!!(UpdateFlags & ESectionUpdateFlags::MoveArrays))
 		{
-			Data->Vertices = MoveTemp(Vertices);
-			Data->Triangles = MoveTemp(Triangles);
-			Data->Normals = MoveTemp(Normals);
-			Data->UV0 = MoveTemp(UV0);
-			Data->UV1 = MoveTemp(UV1);
-			Data->Colors = MoveTemp(Colors);
-			Data->Tangents = MoveTemp(Tangents);
+			CallData->Vertices = MoveTemp(Vertices);
+			CallData->Triangles = MoveTemp(Triangles);
+			CallData->Normals = MoveTemp(Normals);
+			CallData->UV0 = MoveTemp(UV0);
+			CallData->UV1 = MoveTemp(UV1);
+			CallData->Colors = MoveTemp(Colors);
+			CallData->Tangents = MoveTemp(Tangents);
 		}
 		else
 		{
-			Data->Vertices = Vertices;
-			Data->Triangles = Triangles;
-			Data->Normals = Normals;
-			Data->UV0 = UV0;
-			Data->UV1 = UV1;
-			Data->Colors = Colors;
-			Data->Tangents = Tangents;
+			CallData->Vertices = Vertices;
+			CallData->Triangles = Triangles;
+			CallData->Normals = Normals;
+			CallData->UV0 = UV0;
+			CallData->UV1 = UV1;
+			CallData->Colors = Colors;
+			CallData->Tangents = Tangents;
 		}
 
-		Data->UpdateFlags = UpdateFlags | ESectionUpdateFlags::MoveArrays; // We can always use move arrays here since we either just copied it, or moved it from the original
+		CallData->UpdateFlags = UpdateFlags | ESectionUpdateFlags::MoveArrays; // We can always use move arrays here since we either just copied it, or moved it from the original
 
-		RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(UpdateMeshSection, FRMCAsyncData, Data, InRuntimeMeshComponent,
+		RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(UpdateMeshSection, FRMCAsyncData, CallData, InRuntimeMeshComponent,
 		{
 			Mesh->UpdateMeshSection(Data->SectionIndex, Data->Vertices, Data->Triangles, Data->Normals, Data->UV0, Data->UV1, Data->Colors,	Data->Tangents, Data->UpdateFlags);
 		});
@@ -1058,10 +1059,10 @@ public:
 			int32 SectionIndex;
 		};
 
-		FRMCAsyncData* Data = new FRMCAsyncData;
-		Data->SectionIndex = SectionIndex;
+		FRMCAsyncData* CallData = new FRMCAsyncData;
+		CallData->SectionIndex = SectionIndex;
 
-		RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(ClearMeshSection, FRMCAsyncData, Data, InRuntimeMeshComponent,
+		RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(ClearMeshSection, FRMCAsyncData, CallData, InRuntimeMeshComponent,
 		{
 			Mesh->ClearMeshSection(Data->SectionIndex);
 		});
@@ -1074,9 +1075,9 @@ public:
 		{
 			int32 SectionIndex;
 		};
-		FRMCAsyncData* Data = new FRMCAsyncData;
+		FRMCAsyncData* CallData = new FRMCAsyncData;
 
-		RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(ClearAllMeshSections, FRMCAsyncData, Data, InRuntimeMeshComponent,
+		RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(ClearAllMeshSections, FRMCAsyncData, CallData, InRuntimeMeshComponent,
 		{
 			Mesh->ClearAllMeshSections();
 		});
@@ -1092,20 +1093,20 @@ public:
 			int32 SectionIndex;
 			TArray<int32> TessellationTriangles;
 		};
-		FRMCAsyncData* Data = new FRMCAsyncData;
-		Data->SectionIndex = SectionIndex;
+		FRMCAsyncData* CallData = new FRMCAsyncData;
+		CallData->SectionIndex = SectionIndex;
 
 		if (bShouldMoveArray)
 		{
-			Data->TessellationTriangles = MoveTemp(TessellationTriangles);
+			CallData->TessellationTriangles = MoveTemp(TessellationTriangles);
 		}
 		else
 		{
-			Data->TessellationTriangles = TessellationTriangles;
+			CallData->TessellationTriangles = TessellationTriangles;
 		}
 
 
-		RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(SetSectionTessellationTriangles, FRMCAsyncData, Data, InRuntimeMeshComponent,
+		RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(SetSectionTessellationTriangles, FRMCAsyncData, CallData, InRuntimeMeshComponent,
 		{
 			Mesh->SetSectionTessellationTriangles(Data->SectionIndex, Data->TessellationTriangles, true);
 		});
@@ -1122,12 +1123,12 @@ public:
 			TArray<FVector> Vertices;
 			TArray<int32> Triangles;
 		};
-		FRMCAsyncData* Data = new FRMCAsyncData;
-		Data->CollisionSectionIndex = CollisionSectionIndex;
-		Data->Vertices = Vertices;
-		Data->Triangles = Triangles;
+		FRMCAsyncData* CallData = new FRMCAsyncData;
+		CallData->CollisionSectionIndex = CollisionSectionIndex;
+		CallData->Vertices = Vertices;
+		CallData->Triangles = Triangles;
 
-		RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(SetMeshCollisionSection, FRMCAsyncData, Data, InRuntimeMeshComponent,
+		RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(SetMeshCollisionSection, FRMCAsyncData, CallData, InRuntimeMeshComponent,
 		{
 			Mesh->SetMeshCollisionSection(Data->CollisionSectionIndex, Data->Vertices, Data->Triangles);
 		});
@@ -1140,10 +1141,10 @@ public:
 		{
 			int32 CollisionSectionIndex;
 		};
-		FRMCAsyncData* Data = new FRMCAsyncData;
-		Data->CollisionSectionIndex = CollisionSectionIndex;
+		FRMCAsyncData* CallData = new FRMCAsyncData;
+		CallData->CollisionSectionIndex = CollisionSectionIndex;
 
-		RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(ClearMeshCollisionSection, FRMCAsyncData, Data, InRuntimeMeshComponent,
+		RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(ClearMeshCollisionSection, FRMCAsyncData, CallData, InRuntimeMeshComponent,
 		{
 			Mesh->ClearMeshCollisionSection(Data->CollisionSectionIndex);
 		});
@@ -1156,9 +1157,9 @@ public:
 		{
 			int32 CollisionSectionIndex;
 		};
-		FRMCAsyncData* Data = new FRMCAsyncData;
+		FRMCAsyncData* CallData = new FRMCAsyncData;
 
-		RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(ClearAllMeshCollisionSections, FRMCAsyncData, Data, InRuntimeMeshComponent,
+		RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(ClearAllMeshCollisionSections, FRMCAsyncData, CallData, InRuntimeMeshComponent,
 		{
 			Mesh->ClearAllMeshCollisionSections();
 		});
@@ -1172,10 +1173,10 @@ public:
 		{
 			TArray<FVector> ConvexVerts;
 		};
-		FRMCAsyncData* Data = new FRMCAsyncData;
-		Data->ConvexVerts = ConvexVerts;
+		FRMCAsyncData* CallData = new FRMCAsyncData;
+		CallData->ConvexVerts = ConvexVerts;
 
-		RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(AddCollisionConvexMesh, FRMCAsyncData, Data, InRuntimeMeshComponent,
+		RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(AddCollisionConvexMesh, FRMCAsyncData, CallData, InRuntimeMeshComponent,
 		{
 			Mesh->AddCollisionConvexMesh(Data->ConvexVerts);
 		});
@@ -1188,9 +1189,9 @@ public:
 		{
 			int32 CollisionSectionIndex;
 		};
-		FRMCAsyncData* Data = new FRMCAsyncData;
+		FRMCAsyncData* CallData = new FRMCAsyncData;
 
-		RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(ClearCollisionConvexMeshes, FRMCAsyncData, Data, InRuntimeMeshComponent,
+		RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(ClearCollisionConvexMeshes, FRMCAsyncData, CallData, InRuntimeMeshComponent,
 		{
 			Mesh->ClearCollisionConvexMeshes();
 		});
@@ -1203,10 +1204,10 @@ public:
 		{
 			TArray<TArray<FVector>> ConvexMeshes;
 		};
-		FRMCAsyncData* Data = new FRMCAsyncData;
-		Data->ConvexMeshes = ConvexMeshes;
+		FRMCAsyncData* CallData = new FRMCAsyncData;
+		CallData->ConvexMeshes = ConvexMeshes;
 
-		RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(SetCollisionConvexMeshes, FRMCAsyncData, Data, InRuntimeMeshComponent,
+		RUNTIMEMESHCOMPONENTASYNC_ENQUEUETASK(SetCollisionConvexMeshes, FRMCAsyncData, CallData, InRuntimeMeshComponent,
 		{
 			Mesh->SetCollisionConvexMeshes(Data->ConvexMeshes);
 		});

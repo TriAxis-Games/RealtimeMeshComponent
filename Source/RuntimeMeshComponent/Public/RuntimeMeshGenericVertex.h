@@ -878,7 +878,7 @@ struct FRuntimeMeshVertexTypeInfo_GenericVertex : public FRuntimeMeshVertexTypeI
 #define RUNTIMEMESH_VERTEX_SERIALIZATION_UVCHANNELS(NumChannels) RUNTIMEMESH_VERTEX_SERIALIZATION_UVCHANNEL_##NumChannels
 
 #define RUNTIMEMESH_VERTEX_SERIALIZER(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount)	\
-	friend FArchive& operator<<(FArchive& Ar, ##VertexName& V)		\
+	friend FArchive& operator<<(FArchive& Ar, VertexName & V)		\
 	{																\
 		RUNTIMEMESH_VERTEX_SERIALIZATION_POSITION(NeedsPosition)	\
 		RUNTIMEMESH_VERTEX_SERIALIZATION_NORMAL(NeedsNormal)		\
@@ -932,10 +932,10 @@ struct FRuntimeMeshVertexTypeInfo_GenericVertex : public FRuntimeMeshVertexTypeI
 /* Used only for the generic vertex to create the type registration */
 #define DEFINE_RUNTIME_MESH_VERTEX(VertexName)																																						\
 	const FRuntimeMeshVertexTypeInfo_##VertexName VertexName::TypeInfo;																																\
-	FRuntimeMeshVertexTypeRegistration<##VertexName> FRuntimeMeshVertexTypeInfoRegistration_##VertexName;																											\
+	FRuntimeMeshVertexTypeRegistration< VertexName > FRuntimeMeshVertexTypeInfoRegistration_##VertexName;																											\
 	FRuntimeMeshSectionInterface* FRuntimeMeshVertexTypeInfo_##VertexName::CreateSection(bool bInNeedsPositionOnlyBuffer) const																		\
 	{																																																\
-		return new FRuntimeMeshSection<##VertexName>(bInNeedsPositionOnlyBuffer);																													\
+		return new FRuntimeMeshSection< VertexName >(bInNeedsPositionOnlyBuffer);																													\
 	}
 
 //////////////////////////////////////////////////////////////////////////

@@ -716,47 +716,7 @@ private:
 		}
 		else
 		{
-			FRuntimeMeshPackedVerticesBuilder<VertexType> VerticesBuilder(&VertexBuffer);
-			for (int32 Index = 0; Index < VertexBufferLength; Index++)
-			{
-				VerticesBuilder.Seek(Index);
-
-				FVector TempPosition = VerticesBuilder.GetPosition();
-				Ar << TempPosition;
-
-				FPackedNormal TempNormal = VerticesBuilder.GetNormal();
-				Ar << TempNormal;
-
-				TempNormal = VerticesBuilder.GetTangent();
-				Ar << TempNormal;
-
-				FColor TempColor = VerticesBuilder.GetColor();
-				Ar << TempColor;
-
-
-				if (FRuntimeMeshVertexTraits<VertexType>::HasHighPrecisionUVs)
-				{
-					FVector2D TempUV = VerticesBuilder.GetUV(0);
-					Ar << TempUV;
-
-					if (FRuntimeMeshVertexTraits<VertexType>::NumUVChannels > 1)
-					{
-						TempUV = VerticesBuilder.GetUV(1);
-						Ar << TempUV;
-					}
-				}
-				else
-				{
-					FVector2DHalf TempUV = VerticesBuilder.GetUV(0);
-					Ar << TempUV;
-
-					if (FRuntimeMeshVertexTraits<VertexType>::NumUVChannels > 1)
-					{
-						TempUV = VerticesBuilder.GetUV(1);
-						Ar << TempUV;
-					}
-				}
-			}
+			check(false && "Cannot use legacy save.");
 		}
 	}
 
