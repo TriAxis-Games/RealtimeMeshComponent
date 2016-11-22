@@ -3,10 +3,18 @@
 #pragma once
 
 #include "RuntimeMeshCore.h"
+#include "RuntimeMeshGenericVertex.h"
 
 //////////////////////////////////////////////////////////////////////////
 //	This is a work in progress, it's functional, but could use some improvement
 //////////////////////////////////////////////////////////////////////////
+
+enum class ERuntimeMeshVerticesBuilderType : uint8
+{
+	Component,
+	Packed
+};
+
 
 class IRuntimeMeshVerticesBuilder
 {
@@ -16,6 +24,8 @@ public:
 	IRuntimeMeshVerticesBuilder& operator=(const IRuntimeMeshVerticesBuilder& Other) = delete;
 	virtual ~IRuntimeMeshVerticesBuilder() { }
 
+	virtual ERuntimeMeshVerticesBuilderType GetBuilderType() const = 0;
+	virtual const FRuntimeMeshVertexTypeInfo* GetVertexType() const = 0;
 
 	virtual bool HasPositionComponent() const = 0;
 	virtual bool HasNormalComponent() const = 0;
@@ -63,10 +73,21 @@ public:
 
 	virtual int32 Length() const = 0;
 	virtual void Seek(int32 Position) const = 0;
+	void SeekEnd() const
+	{
+		Seek(Length() - 1);
+	}
 	virtual int32 MoveNext() const = 0;
 	virtual int32 MoveNextOrAdd() = 0;
 
 	virtual void Reset() = 0;
+
+	virtual IRuntimeMeshVerticesBuilder* Clone(bool bIncludeData = true) const = 0;
+
+	virtual bool WantsSeparatePositionBuffer() const
+	{
+		return false;
+	}
 };
 
 
@@ -105,6 +126,16 @@ public:
 				delete Positions;
 			}
 		}
+	}
+
+
+	virtual ERuntimeMeshVerticesBuilderType GetBuilderType() const
+	{
+		return ERuntimeMeshVerticesBuilderType::Packed;
+	}
+	virtual const FRuntimeMeshVertexTypeInfo* GetVertexType() const
+	{
+		return &VertexType::TypeInfo;
 	}
 
 
@@ -344,6 +375,20 @@ public:
 		CurrentPosition = -1;
 	}
 
+	virtual IRuntimeMeshVerticesBuilder* Clone(bool bIncludeData = true) const override
+	{
+		FRuntimeMeshPackedVerticesBuilder<VertexType>* NewBuilder = new FRuntimeMeshPackedVerticesBuilder(Positions != nullptr);
+
+		if (bIncludeData)
+		{
+			*NewBuilder->Vertices = *Vertices;
+			*NewBuilder->Positions = *Positions;
+			NewBuilder->Seek(0);
+		}
+
+		return NewBuilder;
+	}
+
 	TArray<VertexType>* GetVertices()
 	{
 		return Vertices;
@@ -355,90 +400,95 @@ public:
 	}
 
 
+	virtual bool WantsSeparatePositionBuffer() const
+	{
+		return Positions != nullptr;
+	}
+
 private:
 	template<typename Type>
-	static typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasPosition>::Type SetPositionInternal(Type& Vertex, const FVector& Position)
+	FORCEINLINE static typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasPosition>::Type SetPositionInternal(Type& Vertex, const FVector& Position)
 	{
 		Vertex.Position = Position;
 	}
 	template<typename Type>
-	static typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasPosition>::Type SetPositionInternal(Type& Vertex, const FVector& Position)
+	FORCEINLINE static typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasPosition>::Type SetPositionInternal(Type& Vertex, const FVector& Position)
 	{
 
 	}	
 	template<typename Type>
-	static typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasPosition, FVector>::Type GetPositionInternal(const Type& Vertex)
+	FORCEINLINE static typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasPosition, FVector>::Type GetPositionInternal(const Type& Vertex)
 	{
 		return Vertex.Position;
 	}
 	template<typename Type>
-	static typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasPosition, FVector>::Type GetPositionInternal(const Type& Vertex)
+	FORCEINLINE static typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasPosition, FVector>::Type GetPositionInternal(const Type& Vertex)
 	{
 		return FVector::ZeroVector;
 	}
 
 
 	template<typename Type>
-	static typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasNormal>::Type SetNormalInternal(Type& Vertex, const FVector4& Normal)
+	FORCEINLINE static typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasNormal>::Type SetNormalInternal(Type& Vertex, const FVector4& Normal)
 	{
 		Vertex.Normal = Normal;
 	}
 	template<typename Type>
-	static typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasNormal>::Type SetNormalInternal(Type& Vertex, const FVector4& Normal)
+	FORCEINLINE static typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasNormal>::Type SetNormalInternal(Type& Vertex, const FVector4& Normal)
 	{
 
 	}
 	template<typename Type>
-	static typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasNormal, FVector4>::Type GetNormalInternal(const Type& Vertex)
+	FORCEINLINE static typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasNormal, FVector4>::Type GetNormalInternal(const Type& Vertex)
 	{
 		return Vertex.Normal;
 	}
 	template<typename Type>
-	static typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasNormal, FVector4>::Type GetNormalInternal(const Type& Vertex)
+	FORCEINLINE static typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasNormal, FVector4>::Type GetNormalInternal(const Type& Vertex)
 	{
 		return FVector::ZeroVector;
 	}
 
 
 	template<typename Type>
-	static typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasTangent>::Type SetTangentInternal(Type& Vertex, const FVector4& Tangent)
+	FORCEINLINE static typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasTangent>::Type SetTangentInternal(Type& Vertex, const FVector4& Tangent)
 	{
 		Vertex.Tangent = Tangent;
 	}
 	template<typename Type>
-	static typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasTangent>::Type SetTangentInternal(Type& Vertex, const FVector4& Tangent)
+	FORCEINLINE static typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasTangent>::Type SetTangentInternal(Type& Vertex, const FVector4& Tangent)
 	{
 
 	}
 	template<typename Type>
-	static typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasTangent, FVector4>::Type GetTangentInternal(const Type& Vertex)
+	FORCEINLINE static typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasTangent, FVector4>::Type GetTangentInternal(const Type& Vertex)
 	{
 		return Vertex.Tangent;
 	}
 	template<typename Type>
-	static typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasTangent, FVector4>::Type GetTangentInternal(const Type& Vertex)
+	FORCEINLINE static typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasTangent, FVector4>::Type GetTangentInternal(const Type& Vertex)
 	{
 		return FVector::ZeroVector;
 	}
 
 
 	template<typename Type>
-	static typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasColor>::Type SetColorInternal(Type& Vertex, const FColor& Color)
+	FORCEINLINE static typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasColor>::Type SetColorInternal(Type& Vertex, const FColor& Color)
 	{
 		Vertex.Color = Color;
 	}
 	template<typename Type>
-	static typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasColor>::Type SetColorInternal(Type& Vertex, const FColor& Color)
+	FORCEINLINE static typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasColor>::Type SetColorInternal(Type& Vertex, const FColor& Color)
 	{
 
 	}
 	template<typename Type>
-	static typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasColor, FColor>::Type GetColorInternal(const Type& Vertex)
+	FORCEINLINE static typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasColor, FColor>::Type GetColorInternal(const Type& Vertex)
 	{
 		return Vertex.Color;
 	}
 	template<typename Type>
-	static typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasColor, FColor>::Type GetColorInternal(const Type& Vertex)
+	FORCEINLINE static typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasColor, FColor>::Type GetColorInternal(const Type& Vertex)
 	{
 		return FColor::Transparent;
 	}
@@ -447,21 +497,21 @@ private:
 
 #define CreateUVChannelGetSetPair(Index)																											\
 	template<typename Type>																															\
-	static typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasUV##Index>::Type SetUV##Index##Internal(Type& Vertex, const FVector2D& UV##Index)			\
+	FORCEINLINE static typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasUV##Index>::Type SetUV##Index##Internal(Type& Vertex, const FVector2D& UV##Index)			\
 	{																																				\
 		Vertex.UV##Index = UV##Index;																												\
 	}																																				\
 	template<typename Type>																															\
-	static typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasUV##Index>::Type SetUV##Index##Internal(Type& Vertex, const FVector2D& UV##Index)			\
+	FORCEINLINE static typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasUV##Index>::Type SetUV##Index##Internal(Type& Vertex, const FVector2D& UV##Index)			\
 	{																																				\
 	}																																				\
 	template<typename Type>																															\
-	static typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasUV##Index, FVector2D>::Type GetUV##Index##Internal(const Type& Vertex)						\
+	FORCEINLINE static typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasUV##Index, FVector2D>::Type GetUV##Index##Internal(const Type& Vertex)						\
 	{																																				\
 		return Vertex.UV##Index;																													\
 	}																																				\
 	template<typename Type>																															\
-	static typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasUV##Index, FVector2D>::Type GetUV##Index##Internal(const Type& Vertex)					\
+	FORCEINLINE static typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasUV##Index, FVector2D>::Type GetUV##Index##Internal(const Type& Vertex)					\
 	{																																				\
 		return FVector2D::ZeroVector;																												\
 	}																																				
@@ -480,7 +530,7 @@ CreateUVChannelGetSetPair(7);
 #undef CreateUVChannelGetSetPair
 };
 
-class FRuntimeMeshComponentVerticesBuilder : public IRuntimeMeshVerticesBuilder
+class RUNTIMEMESHCOMPONENT_API FRuntimeMeshComponentVerticesBuilder : public IRuntimeMeshVerticesBuilder
 {
 private:
 	TArray<FVector>* Positions;
@@ -528,6 +578,10 @@ public:
 			if (UV1s) delete UV1s;
 		}
 	}
+
+
+	virtual ERuntimeMeshVerticesBuilderType GetBuilderType() const { return ERuntimeMeshVerticesBuilderType::Packed; }
+	virtual const FRuntimeMeshVertexTypeInfo* GetVertexType() const;
 
 
 	virtual bool HasPositionComponent() const override { return Positions != nullptr; }
@@ -790,6 +844,13 @@ public:
 		return ++CurrentPosition;
 	}
 
+	
+	TArray<FVector>* GetPositions() const { return Positions; }
+	TArray<FVector>* GetNormals() const { return Normals; }
+	TArray<FRuntimeMeshTangent>* GetTangents() const { return Tangents; }
+	TArray<FColor>* GetColors() const { return Colors; }
+	TArray<FVector2D>* GetUV0s() const { return UV0s; }
+	TArray<FVector2D>* GetUV1s() const { return UV1s; }
 
 	virtual void Reset() override
 	{
@@ -800,6 +861,24 @@ public:
 		UV0s->Reset();
 		UV1s->Reset();
 		CurrentPosition = -1;
+	}
+
+	virtual IRuntimeMeshVerticesBuilder* Clone(bool bIncludeData = true) const override
+	{
+		FRuntimeMeshComponentVerticesBuilder* NewBuilder = new FRuntimeMeshComponentVerticesBuilder(Normals != nullptr, Tangents != nullptr, Colors != nullptr, UV0s != nullptr, UV1s != nullptr);
+
+		if (bIncludeData)
+		{
+			*NewBuilder->Positions = *Positions;
+			*NewBuilder->Normals = *Normals;
+			*NewBuilder->Tangents = *Tangents;
+			*NewBuilder->Colors = *Colors;
+			*NewBuilder->UV0s = *UV0s;
+			*NewBuilder->UV1s = *UV1s;
+			NewBuilder->Seek(0);
+		}
+
+		return NewBuilder;
 	}
 };
 
@@ -828,6 +907,7 @@ public:
 		}
 	}
 
+	virtual ERuntimeMeshVerticesBuilderType GetBuilderType() const { return ERuntimeMeshVerticesBuilderType::Component; }
 
 
 	void AddTriangle(int32 Index0, int32 Index1, int32 Index2)
@@ -870,10 +950,30 @@ public:
 	{
 		const_cast<FRuntimeMeshIndicesBuilder*>(this)->CurrentPosition = Position;
 	}
+	void SeekEnd() const
+	{
+		Seek(Length());
+	}
 	void Reset(int32 NewSize = 0)
 	{
 		Indices->Reset(NewSize);
 		CurrentPosition = 0;
+	}
+	void SetNum(int32 NewSize)
+	{
+		Indices->SetNum(NewSize);
+	}
+	
+	FRuntimeMeshIndicesBuilder* Clone(bool bIncludeData = true) const
+	{
+		FRuntimeMeshIndicesBuilder* NewBuilder = new FRuntimeMeshIndicesBuilder();
+
+		if (bIncludeData)
+		{
+			*NewBuilder->Indices = *Indices;
+		}
+		
+		return NewBuilder;
 	}
 
 	TArray<int32>* GetIndices()

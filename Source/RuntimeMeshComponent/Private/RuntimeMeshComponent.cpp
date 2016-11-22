@@ -1026,6 +1026,54 @@ void URuntimeMeshComponent::UpdateMeshSection_Blueprint(int32 SectionIndex, cons
 
 
 
+void URuntimeMeshComponent::CreateMeshSection(int32 SectionIndex, IRuntimeMeshVerticesBuilder& Vertices, FRuntimeMeshIndicesBuilder& Triangles, bool bCreateCollision,
+	EUpdateFrequency UpdateFrequency, ESectionUpdateFlags UpdateFlags)
+{
+	RMC_CHECKINGAME_LOGINEDITOR((SectionIndex >= 0), "SectionIndex cannot be negative.", /**/);
+	RMC_CHECKINGAME_LOGINEDITOR((Vertices.Length() > 0), "Vertices length must not be 0.", /**/);
+	RMC_CHECKINGAME_LOGINEDITOR((Triangles.Length() > 0), "Triangles length must not be 0", /**/);
+
+	// First we need to create the new section
+	TSharedPtr<FRuntimeMeshSectionInterface> Section = MakeShareable(Vertices.GetVertexType()->CreateSection(Vertices.WantsSeparatePositionBuffer()));
+
+	// Ensure sections array is long enough
+	if (SectionIndex >= MeshSections.Num())
+	{
+		MeshSections.SetNum(SectionIndex + 1, false);
+	}
+
+	// Set the new section
+	MeshSections[SectionIndex] = Section;
+
+	// Set vertex/index buffers
+	Section->UpdateVertexBuffer(Vertices, nullptr, !!(UpdateFlags & ESectionUpdateFlags::MoveArrays));
+	Section->UpdateIndexBuffer(Triangles, !!(UpdateFlags & ESectionUpdateFlags::MoveArrays));
+	
+
+	// Track collision status and update collision information if necessary
+	Section->CollisionEnabled = bCreateCollision;
+	Section->UpdateFrequency = UpdateFrequency;
+
+	// Finalize section.
+	CreateSectionInternal(SectionIndex, UpdateFlags);
+}
+
+void URuntimeMeshComponent::UpdateMeshSection(int32 SectionIndex, IRuntimeMeshVerticesBuilder& Vertices, FRuntimeMeshIndicesBuilder& Triangles, ESectionUpdateFlags UpdateFlags)
+{	
+	// Validate all update parameters
+	RMC_VALIDATE_UPDATEPARAMETERS_INTERNALSECTION(SectionIndex, /*VoidReturn*/);
+
+	// Get section
+	RuntimeMeshSectionPtr& Section = MeshSections[SectionIndex];
+
+	// Set vertex/index buffers
+	Section->UpdateVertexBuffer(Vertices, nullptr, !!(UpdateFlags & ESectionUpdateFlags::MoveArrays));
+	Section->UpdateIndexBuffer(Triangles, !!(UpdateFlags & ESectionUpdateFlags::MoveArrays));
+
+	UpdateSectionInternal(SectionIndex, Vertices.WantsSeparatePositionBuffer(), true, true, true, UpdateFlags);
+}
+
+
 
 void URuntimeMeshComponent::ClearMeshSection(int32 SectionIndex)
 {
@@ -1223,7 +1271,7 @@ bool URuntimeMeshComponent::DoesSectionExist(int32 SectionIndex) const
 	return SectionIndex < MeshSections.Num() && MeshSections[SectionIndex].IsValid();
 }
 
-int32 URuntimeMeshComponent::FirstAvailableMeshSectionIndex(int32 SectionIndex) const
+int32 URuntimeMeshComponent::FirstAvailableMeshSectionIndex() const
 {
 	for (int32 Index = 0; Index < MeshSections.Num(); Index++)
 	{
@@ -1233,6 +1281,19 @@ int32 URuntimeMeshComponent::FirstAvailableMeshSectionIndex(int32 SectionIndex) 
 		}
 	}
 	return MeshSections.Num();
+}
+
+int32 URuntimeMeshComponent::GetLastSectionIndex() const
+{
+	for (int32 Index = MeshSections.Num() - 1; Index >= 0; Index--)
+	{
+		if (MeshSections[Index].IsValid())
+		{
+			return Index;
+		}
+	}
+
+	return -1;
 }
 
 
@@ -1545,13 +1606,22 @@ void URuntimeMeshComponent::GetSectionMesh(int32 SectionIndex, const IRuntimeMes
 {
 	RMC_VALIDATE_UPDATEPARAMETERS(SectionIndex, /*VoidReturn*/);
 
-	MeshSections[SectionIndex]->GetSectionMesh(Vertices, Indices); 
+	IRuntimeMeshVerticesBuilder* TempVertices;
+	FRuntimeMeshIndicesBuilder* TempIndices;
+
+	MeshSections[SectionIndex]->GetSectionMesh(TempVertices, TempIndices);
+
+	Vertices = TempVertices;
+	Indices = TempIndices;
 }
 
+void URuntimeMeshComponent::BeginMeshSectionUpdate(int32 SectionIndex, IRuntimeMeshVerticesBuilder*& Vertices, FRuntimeMeshIndicesBuilder*& Indices)
+{
+	RMC_VALIDATE_UPDATEPARAMETERS(SectionIndex, /*VoidReturn*/);
 
-
-
-
+	// Get mesh
+	MeshSections[SectionIndex]->GetSectionMesh(Vertices, Indices);
+}
 
 bool URuntimeMeshComponent::GetPhysicsTriMeshData(struct FTriMeshCollisionData* CollisionData, bool InUseAllTriData)
 {
@@ -1736,6 +1806,14 @@ void URuntimeMeshComponent::MarkCollisionDirty()
 	{
 		bCollisionDirty = true;
 		PrePhysicsTick.SetTickFunctionEnable(true);
+	}
+}
+
+void URuntimeMeshComponent::CookCollisionNow()
+{
+	if (bCollisionDirty)
+	{
+		BakeCollision();
 	}
 }
 

@@ -898,11 +898,18 @@ public:
 		Triangles = &Section->IndexBuffer;
 	}
 
+
+	void BeginMeshSectionUpdate(int32 SectionIndex, IRuntimeMeshVerticesBuilder*& Vertices, FRuntimeMeshIndicesBuilder*& Indices);
+
 	void EndMeshSectionUpdate(int32 SectionIndex, ERuntimeMeshBuffer UpdatedBuffers, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None);
 
 	void EndMeshSectionUpdate(int32 SectionIndex, ERuntimeMeshBuffer UpdatedBuffers, const FBox& BoundingBox, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None);
 	
 
+	/*
+	*	Gets a readonly pointer to the sections mesh data.
+	*	To be able to edit the section data use BegineMeshSectionUpdate()
+	*/
 	void GetSectionMesh(int32 SectionIndex, const IRuntimeMeshVerticesBuilder*& Vertices, const FRuntimeMeshIndicesBuilder*& Indices);
 
 
@@ -1035,6 +1042,32 @@ public:
 		const TArray<FRuntimeMeshTangent>& Tangents, const TArray<FVector2D>& UV0, const TArray<FVector2D>& UV1, const TArray<FLinearColor>& Colors, bool bCalculateNormalTangent, bool bGenerateTessellationTriangles);
 	
 
+
+	/**
+	*	Create/replace a section.
+	*	@param	SectionIndex		Index of the section to create or replace.
+	*	@param	Vertices			Vertex buffer all vertex data for this section.
+	*	@param	Triangles			Index buffer indicating which vertices make up each triangle. Length must be a multiple of 3.
+	*	@param	bCreateCollision	Indicates whether collision should be created for this section. This adds significant cost.
+	*	@param	UpdateFrequency		Indicates how frequently the section will be updated. Allows the RMC to optimize itself to a particular use.
+	*	@param	UpdateFlags			Flags pertaining to this particular update.
+	*/
+	void CreateMeshSection(int32 SectionIndex, IRuntimeMeshVerticesBuilder& Vertices, FRuntimeMeshIndicesBuilder& Indices, bool bCreateCollision = false,
+		EUpdateFrequency UpdateFrequency = EUpdateFrequency::Average, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None);
+
+
+	/**
+	*	Updates a section. This is faster than CreateMeshSection. If this is a dual buffer section, you cannot change the length of the vertices.
+	*	@param	SectionIndex		Index of the section to update.
+	*	@param	Vertices			Vertex buffer all vertex data for this section, or in the case of dual buffer section it contains everything but position.
+	*	@param	Triangles			Index buffer indicating which vertices make up each triangle. Length must be a multiple of 3.
+	*	@param	UpdateFlags			Flags pertaining to this particular update.
+	*/
+	void UpdateMeshSection(int32 SectionIndex, IRuntimeMeshVerticesBuilder& Vertices, FRuntimeMeshIndicesBuilder& Indices, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None);
+
+
+
+
 	/** Clear a section of the procedural mesh. */
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
 	void ClearMeshSection(int32 SectionIndex);
@@ -1094,7 +1127,11 @@ public:
 
 	/** Returns first available section index */
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
-	int32 FirstAvailableMeshSectionIndex(int32 SectionIndex) const;
+	int32 FirstAvailableMeshSectionIndex() const;
+	
+	/** Returns the last in use section index */
+	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
+	int32 GetLastSectionIndex() const;
 
 
 	/** Sets the geometry for a collision only section */
@@ -1133,6 +1170,10 @@ public:
 	/** Ends a batch of updates started with BeginBatchUpdates() */
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
 	void EndBatchUpdates();
+
+	/** Runs any pending collision cook (Not required to call this. This is only if you need to make sure all changes are cooked before doing something)*/
+	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
+	void CookCollisionNow();
 
 
 

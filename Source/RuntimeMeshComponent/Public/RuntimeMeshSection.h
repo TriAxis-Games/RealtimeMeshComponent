@@ -120,6 +120,8 @@ protected:
 		return false;
 	}
 
+	virtual void UpdateVertexBuffer(IRuntimeMeshVerticesBuilder& Vertices, const FBox* BoundingBox, bool bShouldMoveArray) = 0;
+
 	void UpdateIndexBuffer(TArray<int32>& Triangles, bool bShouldMoveArray)
 	{
 		if (bShouldMoveArray)
@@ -129,6 +131,19 @@ protected:
 		else
 		{
 			IndexBuffer = Triangles;
+		}
+	}
+
+	void UpdateIndexBuffer(FRuntimeMeshIndicesBuilder& Triangles, bool bShouldMoveArray)
+	{
+		if (bShouldMoveArray)
+		{
+			IndexBuffer = MoveTemp(*Triangles.GetIndices());
+			Triangles.Reset();
+		}
+		else
+		{
+			IndexBuffer = *Triangles.GetIndices();
 		}
 	}
 
@@ -163,7 +178,7 @@ protected:
 	// This is only meant for internal use for supporting the old style create/update sections
 	virtual bool UpdateVertexBufferInternal(const TArray<FVector>& Positions, const TArray<FVector>& Normals, const TArray<FRuntimeMeshTangent>& Tangents, const TArray<FVector2D>& UV0, const TArray<FVector2D>& UV1, const TArray<FColor>& Colors) { return false; }
 	
-	virtual void GetSectionMesh(const IRuntimeMeshVerticesBuilder*& Vertices, const FRuntimeMeshIndicesBuilder*& Indices) = 0;
+	virtual void GetSectionMesh(IRuntimeMeshVerticesBuilder*& Vertices, FRuntimeMeshIndicesBuilder*& Indices) = 0;
 
 	virtual const FRuntimeMeshVertexTypeInfo* GetVertexType() const = 0;
 
@@ -351,6 +366,59 @@ protected:
 		return RuntimeMeshSectionInternal::UpdateVertexBufferInternal<VertexType>(VertexBuffer, LocalBoundingBox, Vertices, BoundingBox, bShouldMoveArray);
 	}
 
+	virtual void UpdateVertexBuffer(IRuntimeMeshVerticesBuilder& Vertices, const FBox* BoundingBox, bool bShouldMoveArray) override
+	{
+		if (Vertices.GetBuilderType() == ERuntimeMeshVerticesBuilderType::Component)
+		{
+			FRuntimeMeshComponentVerticesBuilder* VerticesBuilder = static_cast<FRuntimeMeshComponentVerticesBuilder*>(&Vertices);
+
+			TArray<FVector>* Positions = VerticesBuilder->GetPositions();
+			TArray<FVector>* Normals = VerticesBuilder->GetNormals();
+			TArray<FRuntimeMeshTangent>* Tangents = VerticesBuilder->GetTangents();
+			TArray<FColor>* Colors = VerticesBuilder->GetColors();
+			TArray<FVector2D>* UV0s = VerticesBuilder->GetUV0s();
+			TArray<FVector2D>* UV1s = VerticesBuilder->GetUV1s();
+					
+
+			UpdateVertexBufferInternal(
+				Positions ? *Positions : TArray<FVector>(),
+				Normals ? *Normals : TArray<FVector>(),
+				Tangents ? *Tangents : TArray<FRuntimeMeshTangent>(),
+				UV0s ? *UV0s : TArray<FVector2D>(),
+				UV1s ? *UV1s : TArray<FVector2D>(),
+				Colors ? *Colors : TArray<FColor>());
+
+			if (BoundingBox)
+			{
+				LocalBoundingBox = *BoundingBox;
+			}
+			else
+			{
+				LocalBoundingBox = FBox(*Positions);
+			}
+
+			if (bShouldMoveArray)
+			{
+				// This is just to keep similar behavior to the packed vertices builder.
+				Vertices.Reset();
+			}
+		}
+		else
+		{
+			// Make sure section type is the same
+			Vertices.GetVertexType()->EnsureEquals<VertexType>();
+
+			FRuntimeMeshPackedVerticesBuilder<VertexType>* VerticesBuilder = static_cast<FRuntimeMeshPackedVerticesBuilder<VertexType>*>(&Vertices);
+
+			RuntimeMeshSectionInternal::UpdateVertexBufferInternal<VertexType>(VertexBuffer, LocalBoundingBox, *VerticesBuilder->GetVertices(), BoundingBox, bShouldMoveArray);
+
+			if (BoundingBox == nullptr && VerticesBuilder->WantsSeparatePositionBuffer())
+			{
+				LocalBoundingBox = FBox(*VerticesBuilder->GetPositions());
+			}
+		}	
+	}
+
 	virtual FRuntimeMeshSectionCreateDataInterface* GetSectionCreationData(FSceneInterface* InScene, UMaterialInterface* InMaterial) const override
 	{
 		auto UpdateData = new FRuntimeMeshSectionCreateData<VertexType>();
@@ -465,7 +533,7 @@ protected:
 		return VerticesBuilder.Length();
 	}
 
-	virtual void GetSectionMesh(const IRuntimeMeshVerticesBuilder*& Vertices, const FRuntimeMeshIndicesBuilder*& Indices) override
+	virtual void GetSectionMesh(IRuntimeMeshVerticesBuilder*& Vertices, FRuntimeMeshIndicesBuilder*& Indices) override
 	{
 		Vertices = new FRuntimeMeshPackedVerticesBuilder<VertexType>(&VertexBuffer);
 		Indices = new FRuntimeMeshIndicesBuilder(&IndexBuffer);
