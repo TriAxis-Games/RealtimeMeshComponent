@@ -1,7 +1,5 @@
 # UE4 Runtime Mesh Component
 
-# This repo also contains the RMC port of the Procedural Mesh Slicer. This is hosted separately from the mainline repo for license reasons.
-
 **Branch with Slicer Support can be found here https://github.com/Koderz/UnrealEngine/tree/RMC_With_Slicer**
 **Examples project can be found here https://github.com/Koderz/UE4RuntimeMeshComponentExamples**
 
