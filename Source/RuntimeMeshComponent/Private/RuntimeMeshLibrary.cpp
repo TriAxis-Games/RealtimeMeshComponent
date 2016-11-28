@@ -5,7 +5,6 @@
 #include "MessageLog.h"
 #include "UObjectToken.h"
 #include "StaticMeshResources.h"
-#include "GeomTools.h"
 #include "TessellationUtilities.h"
 #include "RuntimeMeshBuilder.h"
 #include "RuntimeMeshComponent.h"
