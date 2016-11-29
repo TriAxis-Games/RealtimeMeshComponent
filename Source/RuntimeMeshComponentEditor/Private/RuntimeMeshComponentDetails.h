@@ -1,6 +1,7 @@
 // Copyright 2016 Chris Conway (Koderz). All Rights Reserved.
 
 #pragma once
+#include "IDetailCustomization.h"
 #include "DetailLayoutBuilder.h"
 
 class FRuntimeMeshComponentDetails : public IDetailCustomization
@@ -19,7 +20,7 @@ public:
 	bool ConvertToStaticMeshEnabled() const;
 
 	/** Util to get the RuntimeMeshComponent we want to convert */
-	URuntimeMeshComponent* GetFirstSelectedRuntimeMeshComp() const;
+	class URuntimeMeshComponent* GetFirstSelectedRuntimeMeshComp() const;
 
 	/** Cached array of selected objects */
 	TArray< TWeakObjectPtr<UObject> > SelectedObjectsList;

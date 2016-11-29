@@ -2,8 +2,10 @@
 
 #include "RuntimeMeshComponentEditorPrivatePCH.h"
 #include "RuntimeMeshComponentDetails.h"
+#include "RuntimeMeshComponent.h"
 
 #include "DlgPickAssetPath.h"
+#include "IAssetTools.h"
 #include "AssetToolsModule.h"
 #include "AssetRegistryModule.h"
 #include "PhysicsEngine/PhysicsSettings.h"
