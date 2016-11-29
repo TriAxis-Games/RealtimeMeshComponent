@@ -196,7 +196,7 @@ FReply FRuntimeMeshComponentDetails::ClickedOnConvertToStaticMesh()
  			}
  
  			// If we got some valid data.
- 			if (RawMesh.VertexPositions.Num() > 3 && RawMesh.WedgeIndices.Num() > 3)
+ 			if (RawMesh.VertexPositions.Num() >= 3 && RawMesh.WedgeIndices.Num() >= 3)
  			{
  				// Then find/create it.
  				UPackage* Package = CreatePackage(NULL, *UserPackageName);
