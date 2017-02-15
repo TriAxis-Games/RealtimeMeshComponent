@@ -68,6 +68,15 @@ struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshComponentPrePhysicsTickFunction : pu
 	virtual FString DiagnosticMessage() override;
 };
 
+template<>
+struct TStructOpsTypeTraits<FRuntimeMeshComponentPrePhysicsTickFunction> : public TStructOpsTypeTraitsBase
+{
+	enum
+	{
+		WithCopy = false
+	};
+};
+
 /**
 *	Component that allows you to specify custom triangle mesh geometry for rendering and collision.
 */
