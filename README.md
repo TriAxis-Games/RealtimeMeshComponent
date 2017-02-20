@@ -32,6 +32,7 @@
 
 **As a part of V2, there has also been some preliminary work done on threaded cooking. This can help to unblock the game thread from collision with large meshes. This is still a very new part, and not heavily tested or complete. To use this you'll have to use a source build of the engine. More information to come.**
 
+For information on installation, usage and everything else, [please read the Wiki](https://github.com/Koderz/UE4RuntimeMeshComponent/wiki/)
 
 **Some requested features that I'm looking into: (These aren't guaranteed to be added)**
 * LOD (Potentially with dithering support)
