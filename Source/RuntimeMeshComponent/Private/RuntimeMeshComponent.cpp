@@ -1440,7 +1440,7 @@ void URuntimeMeshComponent::UpdateLocalBounds(bool bMarkRenderTransform)
 {
 	SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_UpdateLocalBounds);
 	
-	FBox LocalBox(0);
+	FBox LocalBox(EForceInit::ForceInitToZero);
 
 	for (const RuntimeMeshSectionPtr& Section : MeshSections)
 	{

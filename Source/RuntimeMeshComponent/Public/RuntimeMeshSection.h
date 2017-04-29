@@ -46,7 +46,7 @@ public:
 
 	FRuntimeMeshSectionInterface(bool bInNeedsPositionOnlyBuffer) : 
 		bNeedsPositionOnlyBuffer(bInNeedsPositionOnlyBuffer),
-		LocalBoundingBox(0),
+		LocalBoundingBox(EForceInit::ForceInitToZero),
 		CollisionEnabled(false),
 		bIsVisible(true),
 		bCastsShadow(true),
@@ -66,7 +66,7 @@ protected:
 	bool UpdateVertexPositionBuffer(TArray<FVector>& Positions, const FBox* BoundingBox, bool bShouldMoveArray)
 	{
 		// Holds the new bounding box after this update.
-		FBox NewBoundingBox(0);
+		FBox NewBoundingBox(EForceInit::ForceInitToZero);
 
 		if (bShouldMoveArray)
 		{
@@ -261,7 +261,7 @@ namespace RuntimeMeshSectionInternal
 		UpdateVertexBufferInternal(TArray<Type>& VertexBuffer, FBox& LocalBoundingBox, TArray<Type>& Vertices, const FBox* BoundingBox, bool bShouldMoveArray)
 	{
 		// Holds the new bounding box after this update.
-		FBox NewBoundingBox(0);
+		FBox NewBoundingBox(EForceInit::ForceInitToZero);
 
 		if (bShouldMoveArray)
 		{

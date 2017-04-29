@@ -69,7 +69,7 @@ struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshComponentPrePhysicsTickFunction : pu
 };
 
 template<>
-struct TStructOpsTypeTraits<FRuntimeMeshComponentPrePhysicsTickFunction> : public TStructOpsTypeTraitsBase
+struct TStructOpsTypeTraits<FRuntimeMeshComponentPrePhysicsTickFunction> : public TStructOpsTypeTraitsBase2<FRuntimeMeshComponentPrePhysicsTickFunction>
 {
 	enum
 	{
