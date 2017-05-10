@@ -69,7 +69,11 @@ struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshComponentPrePhysicsTickFunction : pu
 };
 
 template<>
+#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION <= 15
+struct TStructOpsTypeTraits<FRuntimeMeshComponentPrePhysicsTickFunction> : public TStructOpsTypeTraitsBase
+#else
 struct TStructOpsTypeTraits<FRuntimeMeshComponentPrePhysicsTickFunction> : public TStructOpsTypeTraitsBase2<FRuntimeMeshComponentPrePhysicsTickFunction>
+#endif
 {
 	enum
 	{
