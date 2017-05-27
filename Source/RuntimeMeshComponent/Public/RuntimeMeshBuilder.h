@@ -620,6 +620,11 @@ public:
 				Normals->SetNumZeroed(CurrentPosition + 1, false);
 			}
 			(*Normals)[CurrentPosition] = InNormal;
+			
+			if (CurrentPosition >= Tangents->Num())
+			{
+				Tangents->SetNumZeroed(CurrentPosition + 1, false);
+			}
 			(*Tangents)[CurrentPosition].bFlipTangentY = InNormal.W < 0.0f;
 		}
 	}
