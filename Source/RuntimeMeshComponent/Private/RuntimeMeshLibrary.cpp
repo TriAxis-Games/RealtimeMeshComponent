@@ -236,9 +236,9 @@ void URuntimeMeshLibrary::CalculateTangentsForMesh(IRuntimeMeshVerticesBuilder* 
 		// If we have UVs, use those to calc 
 		if (Vertices->HasUVComponent(0))
 		{
-			const FVector2D T1 = Vertices->GetUV(CornerIndex[0]， 0);
-			const FVector2D T2 = Vertices->GetUV(CornerIndex[1]， 0);
-			const FVector2D T3 = Vertices->GetUV(CornerIndex[2]， 0);
+			const FVector2D T1 = Vertices->GetUV(CornerIndex[0], 0);
+			const FVector2D T2 = Vertices->GetUV(CornerIndex[1], 0);
+			const FVector2D T3 = Vertices->GetUV(CornerIndex[2], 0);
 
 			FMatrix	ParameterToLocal(
 				FPlane(P[1].X - P[0].X, P[1].Y - P[0].Y, P[1].Z - P[0].Z, 0),
