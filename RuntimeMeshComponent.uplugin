@@ -1,7 +1,7 @@
 {
   "FileVersion": 3,
   "Version": 2,
-  "VersionName": "2.0",
+  "VersionName": "2.1",
   "FriendlyName": "Runtime Mesh Component",
   "Description": "A renderable component with utilities for creating and modifying mesh geometry procedurally at runtime.",
   "Category": "Rendering",
