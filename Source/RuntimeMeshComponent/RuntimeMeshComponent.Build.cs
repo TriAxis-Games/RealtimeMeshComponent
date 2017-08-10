@@ -4,7 +4,7 @@ using UnrealBuildTool;
 
 public class RuntimeMeshComponent : ModuleRules
 {
-	public RuntimeMeshComponent(TargetInfo Target)
+	public RuntimeMeshComponent(ReadOnlyTargetRules rules): base(rules)
 	{
         PrivateIncludePaths.Add("RuntimeMeshComponent/Private");
         PublicIncludePaths.Add("RuntimeMeshComponent/Public");
