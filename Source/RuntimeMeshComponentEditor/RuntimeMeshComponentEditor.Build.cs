@@ -4,7 +4,7 @@ namespace UnrealBuildTool.Rules
 {
 	public class RuntimeMeshComponentEditor : ModuleRules
 	{
-        public RuntimeMeshComponentEditor(TargetInfo Target)
+        public RuntimeMeshComponentEditor(ReadOnlyTargetRules rules): base(rules)
 		{
 			PrivateIncludePaths.Add("RuntimeMeshComponentEditor/Private");
             PublicIncludePaths.Add("RuntimeMeshComponentEditor/Public");

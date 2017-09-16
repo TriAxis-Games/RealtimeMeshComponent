@@ -534,6 +534,8 @@ struct FRuntimeMeshVertexTypeInfo_GenericVertex : public FRuntimeMeshVertexTypeI
 			FString::Printf(TEXT("RuntimeMeshVertex<%d, %d, %d, %d, %d, %d, %d>"), WantsPosition, WantsNormal, WantsTangent, WantsColor, NumWantedUVChannels, (int32)NormalTangentType, (int32)UVType),
 			GetVertexGuid(VertexName)) { }
 
+	virtual ~FRuntimeMeshVertexTypeInfo_GenericVertex() { }
+
 	static FGuid GetVertexGuid(FString VertexName)
 	{
 		uint32 TypeID = 0;

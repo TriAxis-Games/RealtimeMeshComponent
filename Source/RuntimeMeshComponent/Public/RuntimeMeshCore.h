@@ -338,6 +338,8 @@ struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshVertexTypeInfo
 
 	FRuntimeMeshVertexTypeInfo(FString Name, FGuid Guid) : TypeName(Name), TypeGuid(Guid) { }
 
+	virtual ~FRuntimeMeshVertexTypeInfo() {}
+
 	virtual bool Equals(const FRuntimeMeshVertexTypeInfo* Other) const
 	{
 		return TypeGuid == Other->TypeGuid;
