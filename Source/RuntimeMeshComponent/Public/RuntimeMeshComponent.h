@@ -81,6 +81,9 @@ struct TStructOpsTypeTraits<FRuntimeMeshComponentPrePhysicsTickFunction> : publi
 	};
 };
 
+
+
+
 /**
 *	Component that allows you to specify custom triangle mesh geometry for rendering and collision.
 */
@@ -148,6 +151,7 @@ private:
 	}
 
 public:
+
 	URuntimeMeshComponent(const FObjectInitializer& ObjectInitializer);
 
 	/**
@@ -1189,6 +1193,15 @@ public:
 	void CookCollisionNow();
 
 
+	/**
+	*	Delegate for when the collision was updated.
+	*/
+	DECLARE_DYNAMIC_MULTICAST_DELEGATE(FRuntimeMeshCollisionUpdatedDelegate);
+
+
+	/** Event called when the colliison has finished updated, this works both with standard following frame synchronous updates, as well as async updates */
+	UPROPERTY(BlueprintAssignable, Category = "Components|RuntimeMesh")
+	FRuntimeMeshCollisionUpdatedDelegate CollisionUpdated;
 
 	/**
 	*	Controls whether the complex (Per poly) geometry should be treated as 'simple' collision.
@@ -1196,6 +1209,14 @@ public:
 	*/
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "RuntimeMesh")
 	bool bUseComplexAsSimpleCollision;
+
+	/**
+	*	Controls whether the physics cooking is done in parallel. This will increase throughput in 
+	*	multiple RMC scenarios, and keep from blocking the game thread, but when the collision becomes queryable
+	*	is non-deterministic. See callback event for notification on collision updated.
+	*/
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "RuntimeMesh")
+	bool bUseAsyncCooking;
 
 	/**
 	*	Controls whether the mesh data should be serialized with the component.
@@ -1251,10 +1272,15 @@ private:
 
 	/** Update LocalBounds member from the local box of each section */
 	void UpdateLocalBounds(bool bMarkRenderTransform = true);
+	/** Helper to create new body setup objects */
+	UBodySetup* CreateBodySetupHelper();
 	/** Ensure ProcMeshBodySetup is allocated and configured */
 	void EnsureBodySetupCreated();
 	/** Mark collision data as dirty, and re-create on instance if necessary */
 	void UpdateCollision();
+	/** Once async physics cook is done, create needed state, and then call the user event */
+	void FinishPhysicsAsyncCook(UBodySetup* FinishedBodySetup);
+
 
 	/* Marks the collision for an end of frame update */
 	void MarkCollisionDirty();
@@ -1301,6 +1327,10 @@ private:
 	/* Tick function used to cook collision when needed*/
 	UPROPERTY(Transient)
 	FRuntimeMeshComponentPrePhysicsTickFunction PrePhysicsTick;
+
+	/** Queue for async body setups that are being cooked */
+	UPROPERTY(Transient)
+	TArray<UBodySetup*> AsyncBodySetupQueue;
 
 
 	friend class FRuntimeMeshSceneProxy;
