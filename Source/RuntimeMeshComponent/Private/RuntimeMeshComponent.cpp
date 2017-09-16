@@ -1852,6 +1852,36 @@ UBodySetup* URuntimeMeshComponent::GetBodySetup()
 	return BodySetup;
 }
 
+UMaterialInterface* URuntimeMeshComponent::GetMaterialFromCollisionFaceIndex(int32 FaceIndex, int32& SectionIndex) const
+{
+	UMaterialInterface* Result = nullptr;
+	SectionIndex = 0;
+
+	// Look for element that corresponds to the supplied face
+	int32 TotalFaceCount = 0;
+
+	for (int32 SectionIdx = 0; SectionIdx < MeshSections.Num(); SectionIdx++)
+	{
+		const RuntimeMeshSectionPtr& Section = MeshSections[SectionIdx];
+
+		if (Section.IsValid() && Section->CollisionEnabled)
+		{
+			int32 NumFaces = Section->IndexBuffer.Num() / 3;
+			TotalFaceCount += NumFaces;
+
+			if (FaceIndex < TotalFaceCount)
+			{
+				// Grab the material
+				Result = GetMaterial(SectionIdx);
+				SectionIndex = SectionIdx;
+				break;
+			}
+		}
+	}
+
+	return Result;
+}
+
 void URuntimeMeshComponent::MarkCollisionDirty()
 {
 	if (!bCollisionDirty)
