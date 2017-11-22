@@ -25,7 +25,7 @@ void FRuntimeMeshComponentDetails::CustomizeDetails( IDetailLayoutBuilder& Detai
 	const FText ConvertToStaticMeshText = LOCTEXT("ConvertToStaticMesh", "Create StaticMesh");
 
 	// Cache set of selected things
-	SelectedObjectsList = DetailBuilder.GetDetailsView().GetSelectedObjects();
+	SelectedObjectsList = DetailBuilder.GetDetailsView()->GetSelectedObjects();
 
 	RuntimeMeshCategory.AddCustomRow(ConvertToStaticMeshText, false)
 	.NameContent()
