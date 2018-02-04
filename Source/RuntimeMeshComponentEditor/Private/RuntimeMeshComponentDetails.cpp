@@ -25,7 +25,12 @@ void FRuntimeMeshComponentDetails::CustomizeDetails( IDetailLayoutBuilder& Detai
 	const FText ConvertToStaticMeshText = LOCTEXT("ConvertToStaticMesh", "Create StaticMesh");
 
 	// Cache set of selected things
-	SelectedObjectsList = DetailBuilder.GetDetailsView().GetSelectedObjects();
+	// Update for 4.18 https://github.com/EsotericSoftware/spine-runtimes/issues/1025
+	#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION < 18
+		SelectedObjectsList = DetailBuilder.GetDetailsView().GetSelectedObjects();
+	#else
+		SelectedObjectsList = DetailBuilder.GetDetailsView()->GetSelectedObjects();
+	#endif
 
 	RuntimeMeshCategory.AddCustomRow(ConvertToStaticMeshText, false)
 	.NameContent()
