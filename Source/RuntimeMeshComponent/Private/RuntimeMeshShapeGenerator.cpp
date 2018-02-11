@@ -84,21 +84,21 @@ void URuntimeMeshShapeGenerator::CreateBoxMesh(FVector BoxRadius, TArray<FRuntim
 	CreateBoxMesh(BoxRadius, VerticesBuilder, TrianglesBuilder);
 }
 
-void URuntimeMeshShapeGenerator::CreateBoxMesh(FVector BoxRadius, FRuntimeMeshBuilder& MeshBuilder)
+void URuntimeMeshShapeGenerator::CreateBoxMesh(FVector BoxRadius, const TSharedPtr<FRuntimeMeshAccessor>& MeshBuilder)
 {
-	MeshBuilder.EmptyVertices(CREATEBOX_NUMVERTS);
-	MeshBuilder.EmptyIndices(CREATEBOX_NUMTRIS);
+	MeshBuilder->EmptyVertices(CREATEBOX_NUMVERTS);
+	MeshBuilder->EmptyIndices(CREATEBOX_NUMTRIS);
 	FVerticesBuilderFunction VerticesBuilder = [&](const FVector& Position, const FVector& Normal, const FRuntimeMeshTangent& Tangent, const FVector2D& UV0)
 	{
-		int32 NewVertex = MeshBuilder.AddVertex(Position);
-		MeshBuilder.SetNormal(NewVertex, Normal);
-		MeshBuilder.SetTangent(NewVertex, Tangent.GetPackedTangent());
-		MeshBuilder.SetUV(NewVertex, UV0);
+		int32 NewVertex = MeshBuilder->AddVertex(Position);
+		MeshBuilder->SetNormal(NewVertex, Normal);
+		MeshBuilder->SetTangent(NewVertex, Tangent.GetPackedTangent());
+		MeshBuilder->SetUV(NewVertex, UV0);
 	};
 
 	FTrianglesBuilderFunction TrianglesBuilder = [&](int32 Index)
 	{
-		MeshBuilder.AddIndex(Index);
+		MeshBuilder->AddIndex(Index);
 	};
 
 	CreateBoxMesh(BoxRadius, VerticesBuilder, TrianglesBuilder);
@@ -180,21 +180,21 @@ void URuntimeMeshShapeGenerator::CreateGridMesh(float Width, float Height, int32
 	CreateGridMesh(Width, Height, NumSubdivisionsX, NumSubdivisionsY, VerticesBuilder, TrianglesBuilder);
 }
 
-void URuntimeMeshShapeGenerator::CreateGridMesh(float Width, float Height, int32 NumSubdivisionsX, int32 NumSubdivisionsY, FRuntimeMeshBuilder& MeshBuilder)
+void URuntimeMeshShapeGenerator::CreateGridMesh(float Width, float Height, int32 NumSubdivisionsX, int32 NumSubdivisionsY, const TSharedPtr<FRuntimeMeshAccessor>& MeshBuilder)
 {
-	MeshBuilder.EmptyVertices(CREATEGRIDMESHTRIANGLES_NUMVERTS(NumSubdivisionsX, NumSubdivisionsY));
-	MeshBuilder.EmptyIndices(CREATEGRIDMESHTRIANGLES_NUMTRIS(NumSubdivisionsX, NumSubdivisionsY));
+	MeshBuilder->EmptyVertices(CREATEGRIDMESHTRIANGLES_NUMVERTS(NumSubdivisionsX, NumSubdivisionsY));
+	MeshBuilder->EmptyIndices(CREATEGRIDMESHTRIANGLES_NUMTRIS(NumSubdivisionsX, NumSubdivisionsY));
 	FVerticesBuilderFunction VerticesBuilder = [&](const FVector& Position, const FVector& Normal, const FRuntimeMeshTangent& Tangent, const FVector2D& UV0)
 	{
-		int32 NewVertex = MeshBuilder.AddVertex(Position);
-		MeshBuilder.SetNormal(NewVertex, Normal);
-		MeshBuilder.SetTangent(NewVertex, Tangent.GetPackedTangent());
-		MeshBuilder.SetUV(NewVertex, UV0);
+		int32 NewVertex = MeshBuilder->AddVertex(Position);
+		MeshBuilder->SetNormal(NewVertex, Normal);
+		MeshBuilder->SetTangent(NewVertex, Tangent.GetPackedTangent());
+		MeshBuilder->SetUV(NewVertex, UV0);
 	};
 
 	FTrianglesBuilderFunction TrianglesBuilder = [&](int32 Index)
 	{
-		MeshBuilder.AddIndex(Index);
+		MeshBuilder->AddIndex(Index);
 	};
 
 	CreateGridMesh(Width, Height, NumSubdivisionsX, NumSubdivisionsY, VerticesBuilder, TrianglesBuilder);

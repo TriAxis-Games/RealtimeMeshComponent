@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "RuntimeMeshGenericVertex.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "RuntimeMeshLibrary.generated.h"
 
@@ -21,14 +22,14 @@ public:
 	*/
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh", meta = (AutoCreateRefTerm = "UVs"))
 	static void CalculateTangentsForMesh(const TArray<FVector>& Vertices, const TArray<int32>& Triangles,
-		TArray<FVector>& Normals, const TArray<FVector2D>& UVs, TArray<FRuntimeMeshTangent>& Tangents);
+		TArray<FVector>& Normals, const TArray<FVector2D>& UVs, TArray<FRuntimeMeshTangent>& Tangents, bool bCreateSmoothNormals = true);
 
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
-	static void CalculateTangentsForMeshPacked(TArray<FRuntimeMeshBlueprintVertexSimple>& Vertices, const TArray<int32>& Triangles);
+	static void CalculateTangentsForMeshPacked(TArray<FRuntimeMeshBlueprintVertexSimple>& Vertices, const TArray<int32>& Triangles, bool bCreateSmoothNormals = true);
 
-	static void CalculateTangentsForMesh(TArray<FRuntimeMeshVertexSimple>& Vertices, const TArray<int32>& Triangles);
+	static void CalculateTangentsForMesh(TArray<FRuntimeMeshVertexSimple>& Vertices, const TArray<int32>& Triangles, bool bCreateSmoothNormals = true);
 
-	static void CalculateTangentsForMesh(FRuntimeMeshAccessor& MeshAccessor);
+	static void CalculateTangentsForMesh(const TSharedPtr<FRuntimeMeshAccessor>& MeshAccessor, bool bCreateSmoothNormals = true);
 
 
 
@@ -41,9 +42,9 @@ public:
 
 	static TArray<int32> GenerateTessellationIndexBuffer(const TArray<FRuntimeMeshVertexSimple>& Vertices, const TArray<int32>& Triangles);
 
-	static TArray<int32> GenerateTessellationIndexBuffer(const FRuntimeMeshAccessor& MeshAccessor);
+	static TArray<int32> GenerateTessellationIndexBuffer(const TSharedPtr<FRuntimeMeshAccessor>& MeshAccessor);
 
-	static void GenerateTessellationIndexBuffer(const FRuntimeMeshAccessor& MeshAccessor, FRuntimeMeshIndicesAccessor& OutTessellationIndices);
+	static void GenerateTessellationIndexBuffer(const TSharedPtr<FRuntimeMeshAccessor>& MeshAccessor, const TSharedPtr<FRuntimeMeshIndicesAccessor>& OutTessellationIndices);
 
 
 	/** Grab geometry data from a StaticMesh asset. */
@@ -58,9 +59,9 @@ public:
 
 	static void GetStaticMeshSection(UStaticMesh* InMesh, int32 LODIndex, int32 SectionIndex, TArray<FRuntimeMeshVertexSimple>& Vertices, TArray<int32>& Triangles, TArray<int32>& AdjacencyTriangles);
 
-	static void GetStaticMeshSection(UStaticMesh* InMesh, int32 LODIndex, int32 SectionIndex, FRuntimeMeshAccessor& MeshAccessor);
+	static void GetStaticMeshSection(UStaticMesh* InMesh, int32 LODIndex, int32 SectionIndex, const TSharedPtr<FRuntimeMeshAccessor>& MeshAccessor);
 
-	static void GetStaticMeshSection(UStaticMesh* InMesh, int32 LODIndex, int32 SectionIndex, FRuntimeMeshAccessor& MeshAccessor, FRuntimeMeshIndicesAccessor& TessellationIndicesAccessor);
+	static void GetStaticMeshSection(UStaticMesh* InMesh, int32 LODIndex, int32 SectionIndex, const TSharedPtr<FRuntimeMeshAccessor>& MeshAccessor, const TSharedPtr<FRuntimeMeshIndicesAccessor>& TessellationIndicesAccessor);
 
 
 
@@ -75,7 +76,7 @@ public:
 
 private:
 	static void CalculateTangentsForMesh(TFunction<int32(int32 Index)> IndexAccessor, TFunction<FVector(int32 Index)> VertexAccessor, TFunction<FVector2D(int32 Index)> UVAccessor,
-		TFunction<void(int32 Index, FVector TangentX, FVector TangentY, FVector TangentZ)> TangentSetter, int32 NumVertices, int32 NumUVs, int32 NumIndices);
+		TFunction<void(int32 Index, FVector TangentX, FVector TangentY, FVector TangentZ)> TangentSetter, int32 NumVertices, int32 NumUVs, int32 NumIndices, bool bCreateSmoothNormals);
 
 
 	static int32 GetNewIndexForOldVertIndex(const FPositionVertexBuffer* PosBuffer, const FStaticMeshVertexBuffer* VertBuffer, const FColorVertexBuffer* ColorBuffer,

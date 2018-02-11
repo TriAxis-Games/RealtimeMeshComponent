@@ -4,8 +4,9 @@
 #include "RuntimeMeshComponent.h"
 #include "RuntimeMeshComponentProxy.h"
 
-FRuntimeMeshSceneProxy::FRuntimeMeshSceneProxy(URuntimeMeshComponent* Component) : FPrimitiveSceneProxy(Component)
-, BodySetup(Component->GetBodySetup())
+FRuntimeMeshSceneProxy::FRuntimeMeshSceneProxy(URuntimeMeshComponent* Component) 
+	: FPrimitiveSceneProxy(Component)
+	, BodySetup(Component->GetBodySetup())
 {
 	bStaticElementsAlwaysUseProxyPrimitiveUniformBuffer = true;
 
@@ -136,7 +137,7 @@ void FRuntimeMeshSceneProxy::GetDynamicMeshElements(const TArray<const FSceneVie
 					if (bForceDynamicPath || !Section->WantsToRenderInStaticPath())
 					{
 						const FRuntimeMeshSectionRenderData& RenderData = SectionRenderData[SectionEntry.Key];
-						FMaterialRenderProxy* Material = RenderData.Material->GetRenderProxy(IsSelected(), IsHovered());
+						FMaterialRenderProxy* Material = RenderData.Material->GetRenderProxy(IsSelected());
 
 						FMeshBatch& MeshBatch = Collector.AllocateMesh();
 						CreateMeshBatch(MeshBatch, Section, RenderData, Material, WireframeMaterialInstance);
@@ -154,14 +155,12 @@ void FRuntimeMeshSceneProxy::GetDynamicMeshElements(const TArray<const FSceneVie
 	{
 		if (VisibilityMap & (1 << ViewIndex))
 		{
-#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION >= 13
 			// Draw simple collision as wireframe if 'show collision', and collision is enabled, and we are not using the complex as the simple
-			if (ViewFamily.EngineShowFlags.Collision && IsCollisionEnabled() && BodySetup->GetCollisionTraceFlag() != ECollisionTraceFlag::CTF_UseComplexAsSimple)
+			if (ViewFamily.EngineShowFlags.Collision && IsCollisionEnabled() && BodySetup && BodySetup->GetCollisionTraceFlag() != ECollisionTraceFlag::CTF_UseComplexAsSimple)
 			{
 				FTransform GeomTransform(GetLocalToWorld());
 				BodySetup->AggGeom.GetAggGeom(GeomTransform, GetSelectionColor(FColor(157, 149, 223, 255), IsSelected(), IsHovered()).ToFColor(true), NULL, false, false, UseEditorDepthTest(), ViewIndex, Collector);
 			}
-#endif
 
 			// Render bounds
 			RenderBounds(Collector.GetPDI(ViewIndex), ViewFamily.EngineShowFlags, GetBounds(), IsSelected());

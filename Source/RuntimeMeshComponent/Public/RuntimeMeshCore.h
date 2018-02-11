@@ -84,6 +84,15 @@ enum class ERuntimeMeshBuffersToUpdate : uint8
 };
 ENUM_CLASS_FLAGS(ERuntimeMeshBuffersToUpdate);
 
+/* Mobility status for a RuntimeMeshComponent */
+UENUM(BlueprintType)
+enum class ERuntimeMeshMobility : uint8
+{
+	Movable,
+	Stationary,
+	Static
+};
+
 /* Update frequency for a section. Used to optimize for update or render speed*/
 UENUM(BlueprintType)
 enum class EUpdateFrequency : uint8
@@ -112,14 +121,22 @@ enum class ESectionUpdateFlags
 	/**
 	*	Should the normals and tangents be calculated automatically?
 	*	To do this manually see RuntimeMeshLibrary::CalculateTangentsForMesh()
+	*	This version calculates smooth tangents, so it will smooth across vertices sharing position
 	*/
 	CalculateNormalTangent = 0x2,
+
+	/**
+	*	Should the normals and tangents be calculated automatically?
+	*	To do this manually see RuntimeMeshLibrary::CalculateTangentsForMesh()
+	*	This version calculates hard tangents, so it will not smooth across vertices sharing position
+	*/
+	CalculateNormalTangentHard = 0x4,
 
 	/**
 	*	Should the tessellation indices be calculated to support tessellation?
 	*	To do this manually see RuntimeMeshLibrary::GenerateTessellationIndexBuffer()
 	*/
-	CalculateTessellationIndices = 0x4,
+	CalculateTessellationIndices = 0x8,
 
 };
 ENUM_CLASS_FLAGS(ESectionUpdateFlags)

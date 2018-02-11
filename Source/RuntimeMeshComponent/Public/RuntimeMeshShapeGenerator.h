@@ -36,7 +36,7 @@ public:
 
 	static void CreateBoxMesh(FVector BoxRadius, TArray<FRuntimeMeshVertexSimple>& Vertices, TArray<int32>& Triangles);
 
-	static void CreateBoxMesh(FVector BoxRadius, FRuntimeMeshBuilder& MeshBuilder);
+	static void CreateBoxMesh(FVector BoxRadius, const TSharedPtr<FRuntimeMeshAccessor>& MeshBuilder);
 
 	/**
 	*	Generate an index buffer for a grid of quads.
@@ -59,7 +59,7 @@ public:
 
 	static void CreateGridMesh(float Width, float Height, int32 NumSubdivisionsX, int32 NumSubdivisionsY, TArray<FRuntimeMeshVertexSimple>& Vertices, TArray<int32>& Triangles);
 
-	static void CreateGridMesh(float Width, float Height, int32 NumSubdivisionsX, int32 NumSubdivisionsY, FRuntimeMeshBuilder& MeshBuilder);
+	static void CreateGridMesh(float Width, float Height, int32 NumSubdivisionsX, int32 NumSubdivisionsY, const TSharedPtr<FRuntimeMeshAccessor>& MeshBuilder);
 
 
 

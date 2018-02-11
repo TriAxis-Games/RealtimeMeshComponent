@@ -25,7 +25,13 @@ private:
 
 	void EnsureHasRuntimeMesh();
 
+
+
+
 public:
+
+	URuntimeMeshComponent(const FObjectInitializer& ObjectInitializer);
+
 	/** Clears the geometry for ALL collision only sections */
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
 	FORCEINLINE URuntimeMesh* GetRuntimeMesh() const
@@ -42,15 +48,23 @@ public:
 		return RuntimeMeshReference;
 	}
 
+	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh", Meta = (AllowPrivateAccess = "true", DisplayName = "Get Mobility"))
+		ERuntimeMeshMobility GetRuntimeMeshMobility()
+	{
+		return Mobility == EComponentMobility::Movable ? ERuntimeMeshMobility::Movable :
+			Mobility == EComponentMobility::Stationary ? ERuntimeMeshMobility::Stationary : ERuntimeMeshMobility::Static;
+	}
+
+	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh", Meta = (AllowPrivateAccess = "true", DisplayName = "Set Mobility"))
+		void SetRuntimeMeshMobility(ERuntimeMeshMobility NewMobility)
+	{
+		Super::SetMobility(
+			NewMobility == ERuntimeMeshMobility::Movable ? EComponentMobility::Movable :
+			NewMobility == ERuntimeMeshMobility::Stationary ? EComponentMobility::Stationary : EComponentMobility::Static);
+	}
+
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
 	void SetRuntimeMesh(URuntimeMesh* NewMesh);
-
-private:
-
-
-public:
-
-	URuntimeMeshComponent(const FObjectInitializer& ObjectInitializer);
 
 	template<typename VertexType0, typename IndexType>
 	FORCEINLINE void CreateMeshSection(int32 SectionIndex, bool bCreateCollision = false, EUpdateFrequency UpdateFrequency = EUpdateFrequency::Average)
@@ -275,28 +289,28 @@ public:
 
 
 
-	FORCEINLINE void CreateMeshSection(int32 SectionId, FRuntimeMeshBuilder& MeshData, bool bCreateCollision = false,
+	FORCEINLINE void CreateMeshSection(int32 SectionId, const TSharedPtr<FRuntimeMeshBuilder>& MeshData, bool bCreateCollision = false,
 	EUpdateFrequency UpdateFrequency = EUpdateFrequency::Average, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
 	{
 		GetOrCreateRuntimeMesh()->CreateMeshSection(SectionId, MeshData, bCreateCollision, UpdateFrequency, UpdateFlags);
 	}
 
-	FORCEINLINE void CreateMeshSection(int32 SectionId, FRuntimeMeshBuilder&& MeshData, bool bCreateCollision = false,
+	FORCEINLINE void CreateMeshSectionByMove(int32 SectionId, const TSharedPtr<FRuntimeMeshBuilder>& MeshData, bool bCreateCollision = false,
 	EUpdateFrequency UpdateFrequency = EUpdateFrequency::Average, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
 	{
-		GetOrCreateRuntimeMesh()->CreateMeshSection(SectionId, MoveTemp(MeshData), bCreateCollision, UpdateFrequency, UpdateFlags);
+		GetOrCreateRuntimeMesh()->CreateMeshSectionByMove(SectionId, MeshData, bCreateCollision, UpdateFrequency, UpdateFlags);
 	}
 
 
 
-	FORCEINLINE void UpdateMeshSection(int32 SectionId, FRuntimeMeshBuilder& MeshData, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
+	FORCEINLINE void UpdateMeshSection(int32 SectionId, const TSharedPtr<FRuntimeMeshBuilder>& MeshData, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
 	{
 		GetOrCreateRuntimeMesh()->UpdateMeshSection(SectionId, MeshData, UpdateFlags);
 	}
 
-	FORCEINLINE void UpdateMeshSection(int32 SectionId, FRuntimeMeshBuilder&& MeshData, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
+	FORCEINLINE void UpdateMeshSectionByMove(int32 SectionId, const TSharedPtr<FRuntimeMeshBuilder>& MeshData, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
 	{
-		GetOrCreateRuntimeMesh()->UpdateMeshSection(SectionId, MoveTemp(MeshData), UpdateFlags);
+		GetOrCreateRuntimeMesh()->UpdateMeshSectionByMove(SectionId, MeshData, UpdateFlags);
 	}
 
 
@@ -366,35 +380,35 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh", meta = (DisplayName = "Create Mesh Section", AutoCreateRefTerm = "Normals,Tangents,UV0,UV1,Colors"))
 	void CreateMeshSection_Blueprint(int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals,
 		const TArray<FRuntimeMeshTangent>& Tangents, const TArray<FVector2D>& UV0, const TArray<FVector2D>& UV1, const TArray<FLinearColor>& Colors,
-		bool bCreateCollision, bool bCalculateNormalTangent, bool bGenerateTessellationTriangles, EUpdateFrequency UpdateFrequency = EUpdateFrequency::Average,
-		bool bUseHighPrecisionTangents = false, bool bUseHighPrecisionUVs = true)
+		bool bCreateCollision = false, bool bCalculateNormalTangent = false, bool bShouldCreateHardTangents = false, bool bGenerateTessellationTriangles = false,
+		EUpdateFrequency UpdateFrequency = EUpdateFrequency::Average, bool bUseHighPrecisionTangents = false, bool bUseHighPrecisionUVs = true)
 	{
 		GetOrCreateRuntimeMesh()->CreateMeshSection_Blueprint(SectionIndex, Vertices, Triangles, Normals, Tangents, UV0, UV1, Colors, bCreateCollision,
-			bCalculateNormalTangent, bGenerateTessellationTriangles, UpdateFrequency, bUseHighPrecisionTangents, bUseHighPrecisionUVs);
+			bCalculateNormalTangent, bShouldCreateHardTangents, bGenerateTessellationTriangles, UpdateFrequency, bUseHighPrecisionTangents, bUseHighPrecisionUVs);
 	}
 
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh", meta = (DisplayName = "Update Mesh Section", AutoCreateRefTerm = "Triangles,Normals,Tangents,UV0,UV1,Colors"))
 	void UpdateMeshSection_Blueprint(int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals,
 		const TArray<FRuntimeMeshTangent>& Tangents, const TArray<FVector2D>& UV0, const TArray<FVector2D>& UV1, const TArray<FLinearColor>& Colors,
-		bool bCalculateNormalTangent, bool bGenerateTessellationTriangles)
+		bool bCalculateNormalTangent = false, bool bShouldCreateHardTangents = false, bool bGenerateTessellationTriangles = false)
 	{
-		GetOrCreateRuntimeMesh()->UpdateMeshSection_Blueprint(SectionIndex, Vertices, Triangles, Normals, Tangents, UV0, UV1, Colors, bCalculateNormalTangent, bGenerateTessellationTriangles);
+		GetOrCreateRuntimeMesh()->UpdateMeshSection_Blueprint(SectionIndex, Vertices, Triangles, Normals, Tangents, UV0, UV1, Colors, bCalculateNormalTangent, bShouldCreateHardTangents, bGenerateTessellationTriangles);
 	}
 
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh", meta = (DisplayName = "Create Mesh Section Packed", AutoCreateRefTerm = "Normals,Tangents,UV0,UV1,Colors"))
 	void CreateMeshSectionPacked_Blueprint(int32 SectionIndex, const TArray<FRuntimeMeshBlueprintVertexSimple>& Vertices, const TArray<int32>& Triangles,
-		bool bCreateCollision, bool bCalculateNormalTangent, bool bGenerateTessellationTriangles, EUpdateFrequency UpdateFrequency = EUpdateFrequency::Average,
+		bool bCreateCollision = false, bool bCalculateNormalTangent = false, bool bShouldCreateHardTangents = false, bool bGenerateTessellationTriangles = false, EUpdateFrequency UpdateFrequency = EUpdateFrequency::Average,
 		bool bUseHighPrecisionTangents = false, bool bUseHighPrecisionUVs = true)
 	{
-		GetOrCreateRuntimeMesh()->CreateMeshSectionPacked_Blueprint(SectionIndex, Vertices, Triangles, bCreateCollision, bCalculateNormalTangent,
+		GetOrCreateRuntimeMesh()->CreateMeshSectionPacked_Blueprint(SectionIndex, Vertices, Triangles, bCreateCollision, bCalculateNormalTangent, bShouldCreateHardTangents,
 			bGenerateTessellationTriangles, UpdateFrequency, bUseHighPrecisionTangents, bUseHighPrecisionUVs);
 	}
 
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh", meta = (DisplayName = "Update Mesh Section Packed", AutoCreateRefTerm = "Triangles,Normals,Tangents,UV0,UV1,Colors"))
 	void UpdateMeshSectionPacked_Blueprint(int32 SectionIndex, const TArray<FRuntimeMeshBlueprintVertexSimple>& Vertices, const TArray<int32>& Triangles,
-		bool bCalculateNormalTangent, bool bGenerateTessellationTriangles)
+		bool bCalculateNormalTangent = false, bool bShouldCreateHardTangents = false, bool bGenerateTessellationTriangles = false)
 	{
-		GetOrCreateRuntimeMesh()->UpdateMeshSectionPacked_Blueprint(SectionIndex, Vertices, Triangles, bCalculateNormalTangent, bGenerateTessellationTriangles);
+		GetOrCreateRuntimeMesh()->UpdateMeshSectionPacked_Blueprint(SectionIndex, Vertices, Triangles, bCalculateNormalTangent, bShouldCreateHardTangents, bGenerateTessellationTriangles);
 	}
 
 
@@ -620,9 +634,9 @@ public:
 
 	
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
-	void AddCollisionBox(const FRuntimeMeshCollisionBox& NewBox)
+	int32 AddCollisionBox(const FRuntimeMeshCollisionBox& NewBox)
 	{
-		GetOrCreateRuntimeMesh()->AddCollisionBox(NewBox);
+		return GetOrCreateRuntimeMesh()->AddCollisionBox(NewBox);
 	}
 
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
@@ -645,9 +659,9 @@ public:
 
 	
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
-	void AddCollisionSphere(const FRuntimeMeshCollisionSphere& NewSphere)
+	int32 AddCollisionSphere(const FRuntimeMeshCollisionSphere& NewSphere)
 	{
-		GetOrCreateRuntimeMesh()->AddCollisionSphere(NewSphere);
+		return GetOrCreateRuntimeMesh()->AddCollisionSphere(NewSphere);
 	}
 
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
@@ -670,9 +684,9 @@ public:
 
 	
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
-	void AddCollisionCapsule(const FRuntimeMeshCollisionCapsule& NewCapsule)
+	int32 AddCollisionCapsule(const FRuntimeMeshCollisionCapsule& NewCapsule)
 	{
-		GetOrCreateRuntimeMesh()->AddCollisionCapsule(NewCapsule);
+		return GetOrCreateRuntimeMesh()->AddCollisionCapsule(NewCapsule);
 	}
 
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")

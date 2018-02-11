@@ -92,10 +92,6 @@ public:
 	FRuntimeMeshData();
 	~FRuntimeMeshData();
 
-	void Setup(TWeakObjectPtr<URuntimeMesh> InParentMeshObject);
-
-	FRuntimeMeshProxyPtr GetRenderProxy() const { return RenderProxy; }
-
 private:
 	void CheckCreate(const FRuntimeMeshVertexStreamStructure Stream0Structure,
 		const FRuntimeMeshVertexStreamStructure& Stream1Structure, const FRuntimeMeshVertexStreamStructure& Stream2Structure, bool bIndexIsValid) const;
@@ -942,17 +938,17 @@ public:
 
 
 
-	void CreateMeshSection(int32 SectionId, FRuntimeMeshBuilder& MeshData, bool bCreateCollision = false,
+	void CreateMeshSection(int32 SectionId, const TSharedPtr<FRuntimeMeshBuilder>& MeshData, bool bCreateCollision = false,
 		EUpdateFrequency UpdateFrequency = EUpdateFrequency::Average, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None);
 
-	void CreateMeshSection(int32 SectionId, FRuntimeMeshBuilder&& MeshData, bool bCreateCollision = false,
+	void CreateMeshSectionByMove(int32 SectionId, const TSharedPtr<FRuntimeMeshBuilder>& MeshData, bool bCreateCollision = false,
 		EUpdateFrequency UpdateFrequency = EUpdateFrequency::Average, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None);
 
 
 
-	void UpdateMeshSection(int32 SectionId, FRuntimeMeshBuilder& MeshData, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None);
+	void UpdateMeshSection(int32 SectionId, const TSharedPtr<FRuntimeMeshBuilder>& MeshData, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None);
 
-	void UpdateMeshSection(int32 SectionId, FRuntimeMeshBuilder&& MeshData, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None);
+	void UpdateMeshSectionByMove(int32 SectionId, const TSharedPtr<FRuntimeMeshBuilder>& MeshData, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None);
 
 
 private:
@@ -992,25 +988,23 @@ public:
 
 	void CreateMeshSection_Blueprint(int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals,
 		const TArray<FRuntimeMeshTangent>& Tangents, const TArray<FVector2D>& UV0, const TArray<FVector2D>& UV1, const TArray<FLinearColor>& Colors,
-		bool bCreateCollision, bool bCalculateNormalTangent, bool bGenerateTessellationTriangles, EUpdateFrequency UpdateFrequency = EUpdateFrequency::Average,
-		bool bUseHighPrecisionTangents = false, bool bUseHighPrecisionUVs = true);
+		bool bCreateCollision = false, bool bCalculateNormalTangent = false, bool bShouldCreateHardTangents = false, bool bGenerateTessellationTriangles = false, 
+		EUpdateFrequency UpdateFrequency = EUpdateFrequency::Average, bool bUseHighPrecisionTangents = false, bool bUseHighPrecisionUVs = true);
 	
 	void UpdateMeshSection_Blueprint(int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals,
 		const TArray<FRuntimeMeshTangent>& Tangents, const TArray<FVector2D>& UV0, const TArray<FVector2D>& UV1, const TArray<FLinearColor>& Colors,
-		bool bCalculateNormalTangent, bool bGenerateTessellationTriangles);
+		bool bCalculateNormalTangent = false, bool bShouldCreateHardTangents = false, bool bGenerateTessellationTriangles = false);
 	
 	void CreateMeshSectionPacked_Blueprint(int32 SectionIndex, const TArray<FRuntimeMeshBlueprintVertexSimple>& Vertices, const TArray<int32>& Triangles,
-		bool bCreateCollision, bool bCalculateNormalTangent, bool bGenerateTessellationTriangles, EUpdateFrequency UpdateFrequency = EUpdateFrequency::Average,
+		bool bCreateCollision = false, bool bCalculateNormalTangent = false, bool bShouldCreateHardTangents = false, bool bGenerateTessellationTriangles = false, EUpdateFrequency UpdateFrequency = EUpdateFrequency::Average,
 		bool bUseHighPrecisionTangents = false, bool bUseHighPrecisionUVs = true);
 		
 	void UpdateMeshSectionPacked_Blueprint(int32 SectionIndex, const TArray<FRuntimeMeshBlueprintVertexSimple>& Vertices, const TArray<int32>& Triangles,
-		bool bCalculateNormalTangent, bool bGenerateTessellationTriangles);
+		bool bCalculateNormalTangent = false, bool bShouldCreateHardTangents = false, bool bGenerateTessellationTriangles = false);
 
 	
 
 	TSharedPtr<const FRuntimeMeshAccessor> GetReadonlyMeshAccessor(int32 SectionId);
-
-	FRuntimeMeshSectionPtr GetSection(int32 SectionIndex) { return MeshSections[SectionIndex]; }
 	
 
 	template<typename IndexType>
@@ -1135,6 +1129,14 @@ public:
 	FBoxSphereBounds GetLocalBounds() const;
 
 private:
+	
+	FRuntimeMeshSectionPtr GetSection(int32 SectionIndex) { return MeshSections[SectionIndex]; }
+
+	void Setup(TWeakObjectPtr<URuntimeMesh> InParentMeshObject);
+
+	FRuntimeMeshProxyPtr GetRenderProxy() const { return RenderProxy; }
+
+
 	/* Creates an mesh section of a specified type at the specified index. */
 	template<typename VertexType0, typename VertexType1, typename VertexType2, typename IndexType>
 	FRuntimeMeshSectionPtr CreateOrResetSection(int32 SectionId, EUpdateFrequency UpdateFrequency)

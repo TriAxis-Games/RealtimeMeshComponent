@@ -309,19 +309,19 @@ public:
 
 
 template<typename VertexType0, typename IndexType>
-FORCEINLINE FRuntimeMeshBuilder MakeRuntimeMeshBuilder()
+FORCEINLINE TSharedPtr<FRuntimeMeshBuilder> MakeRuntimeMeshBuilder()
 {
-	return FRuntimeMeshBuilder(GetStreamStructure<VertexType0>(), GetStreamStructure<FRuntimeMeshNullVertex>(), GetStreamStructure<FRuntimeMeshNullVertex>(), FRuntimeMeshIndexTraits<IndexType>::Is32Bit);
+	return MakeShared<FRuntimeMeshBuilder>(GetStreamStructure<VertexType0>(), GetStreamStructure<FRuntimeMeshNullVertex>(), GetStreamStructure<FRuntimeMeshNullVertex>(), FRuntimeMeshIndexTraits<IndexType>::Is32Bit);
 }
 
 template<typename VertexType0, typename VertexType1, typename IndexType>
-FORCEINLINE FRuntimeMeshBuilder MakeRuntimeMeshBuilder()
+FORCEINLINE TSharedPtr<FRuntimeMeshBuilder> MakeRuntimeMeshBuilder()
 {
-	return FRuntimeMeshBuilder(GetStreamStructure<VertexType0>(), GetStreamStructure<VertexType1>(), GetStreamStructure<FRuntimeMeshNullVertex>(), FRuntimeMeshIndexTraits<IndexType>::Is32Bit);
+	return MakeShared<FRuntimeMeshBuilder>(GetStreamStructure<VertexType0>(), GetStreamStructure<VertexType1>(), GetStreamStructure<FRuntimeMeshNullVertex>(), FRuntimeMeshIndexTraits<IndexType>::Is32Bit);
 }
 
 template<typename VertexType0, typename VertexType1, typename VertexType2, typename IndexType>
-FORCEINLINE FRuntimeMeshBuilder MakeRuntimeMeshBuilder()
+FORCEINLINE TSharedPtr<FRuntimeMeshBuilder> MakeRuntimeMeshBuilder()
 {
-	return FRuntimeMeshBuilder(GetStreamStructure<VertexType0>(), GetStreamStructure<VertexType1>(), GetStreamStructure<VertexType2>(), FRuntimeMeshIndexTraits<IndexType>::Is32Bit);
+	return MakeShared<FRuntimeMeshBuilder>(GetStreamStructure<VertexType0>(), GetStreamStructure<VertexType1>(), GetStreamStructure<VertexType2>(), FRuntimeMeshIndexTraits<IndexType>::Is32Bit);
 }
