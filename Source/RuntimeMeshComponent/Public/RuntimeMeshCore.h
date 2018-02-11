@@ -1,167 +1,88 @@
-// Copyright 2016 Chris Conway (Koderz). All Rights Reserved.
+// Copyright 2016-2018 Chris Conway (Koderz). All Rights Reserved.
 
 #pragma once
 
 #include "Engine.h"
 #include "Components/MeshComponent.h"
-#include "RuntimeMeshProfiling.h"
-#include "RuntimeMeshVersion.h"
 #include "Runtime/Launch/Resources/Version.h"
+#include "Stats/Stats.h"
 #include "RuntimeMeshCore.generated.h"
 
-class FRuntimeMeshVertexFactory;
+DECLARE_STATS_GROUP(TEXT("RuntimeMesh"), STATGROUP_RuntimeMesh, STATCAT_Advanced);
 
 
-template<typename T>
-struct FRuntimeMeshVertexTraits
+#define RUNTIMEMESH_MAXTEXCOORDS MAX_TEXCOORDS
+
+
+
+// Custom version for runtime mesh serialization
+namespace FRuntimeMeshVersion
 {
-private:
-	template<typename C, C> struct ChT;
-
-	struct FallbackPosition { FVector Position; };
-	struct DerivedPosition : T, FallbackPosition { };
-	template<typename C> static char(&PositionCheck(ChT<FVector FallbackPosition::*, &C::Position>*))[1];
-	template<typename C> static char(&PositionCheck(...))[2];
-
-	struct FallbackNormal { FPackedRGBA16N Normal; };
-	struct DerivedNormal : T, FallbackNormal { };
-	template<typename C> static char(&NormalCheck(ChT<FPackedRGBA16N FallbackNormal::*, &C::Normal>*))[1];
-	template<typename C> static char(&NormalCheck(...))[2];
-
-	struct FallbackTangent { FPackedRGBA16N Tangent; };
-	struct DerivedTangent : T, FallbackTangent { };
-	template<typename C> static char(&TangentCheck(ChT<FPackedRGBA16N FallbackTangent::*, &C::Tangent>*))[1];
-	template<typename C> static char(&TangentCheck(...))[2];
-
-	struct FallbackColor { FColor Color; };
-	struct DerivedColor : T, FallbackColor { };
-	template<typename C> static char(&ColorCheck(ChT<FColor FallbackColor::*, &C::Color>*))[1];
-	template<typename C> static char(&ColorCheck(...))[2];
-
-	struct FallbackUV0 { FVector2D UV0; };
-	struct DerivedUV0 : T, FallbackUV0 { };
-	template<typename C> static char(&UV0Check(ChT<FVector2D FallbackUV0::*, &C::UV0>*))[1];
-	template<typename C> static char(&UV0Check(...))[2];
-
-	struct FallbackUV1 { FVector2D UV1; };
-	struct DerivedUV1 : T, FallbackUV1 { };
-	template<typename C> static char(&UV1Check(ChT<FVector2D FallbackUV1::*, &C::UV1>*))[1];
-	template<typename C> static char(&UV1Check(...))[2];
-
-	struct FallbackUV2 { FVector2D UV2; };
-	struct DerivedUV2 : T, FallbackUV2 { };
-	template<typename C> static char(&UV2Check(ChT<FVector2D FallbackUV2::*, &C::UV2>*))[1];
-	template<typename C> static char(&UV2Check(...))[2];
-
-	struct FallbackUV3 { FVector2D UV3; };
-	struct DerivedUV3 : T, FallbackUV3 { };
-	template<typename C> static char(&UV3Check(ChT<FVector2D FallbackUV3::*, &C::UV3>*))[1];
-	template<typename C> static char(&UV3Check(...))[2];
-
-	struct FallbackUV4 { FVector2D UV4; };
-	struct DerivedUV4 : T, FallbackUV4 { };
-	template<typename C> static char(&UV4Check(ChT<FVector2D FallbackUV4::*, &C::UV4>*))[1];
-	template<typename C> static char(&UV4Check(...))[2];
-
-	struct FallbackUV5 { FVector2D UV5; };
-	struct DerivedUV5 : T, FallbackUV5 { };
-	template<typename C> static char(&UV5Check(ChT<FVector2D FallbackUV5::*, &C::UV5>*))[1];
-	template<typename C> static char(&UV5Check(...))[2];
-
-	struct FallbackUV6 { FVector2D UV6; };
-	struct DerivedUV6 : T, FallbackUV6 { };
-	template<typename C> static char(&UV6Check(ChT<FVector2D FallbackUV6::*, &C::UV6>*))[1];
-	template<typename C> static char(&UV6Check(...))[2];
-
-	struct FallbackUV7 { FVector2D UV7; };
-	struct DerivedUV7 : T, FallbackUV7 { };
-	template<typename C> static char(&UV7Check(ChT<FVector2D FallbackUV7::*, &C::UV7>*))[1];
-	template<typename C> static char(&UV7Check(...))[2];
-
-	template<typename A, typename B>
-	struct IsSameType
+	enum Type
 	{
-		static const bool Value = false;
+		Initial = 0,
+		TemplatedVertexFix = 1,
+		SerializationOptional = 2,
+		DualVertexBuffer = 3,
+		SerializationV2 = 4,
+
+		// This was a total overhaul of the component, and with it the serialization
+		RuntimeMeshComponentV3 = 5,
+
+		// -----<new versions can be added above this line>-------------------------------------------------
+		VersionPlusOne,
+		LatestVersion = VersionPlusOne - 1
 	};
 
-	template<typename A>
-	struct IsSameType<A, A>
-	{
-		static const bool Value = true;
-	};
-
-	template<bool HasNormal, bool HasTangent, typename Type>
-	struct TangentBasisHighPrecisionDetector
-	{
-		static const bool Value = false;
-	};
-
-	template<typename Type>
-	struct TangentBasisHighPrecisionDetector<true, false, Type>
-	{
-		static const bool Value = IsSameType<decltype(DeclVal<T>().Normal), FPackedRGBA16N>::Value;
-	};
-
-	template<bool HasNormal, typename Type>
-	struct TangentBasisHighPrecisionDetector<HasNormal, true, Type>
-	{
-		static const bool Value = IsSameType<decltype(DeclVal<T>().Tangent), FPackedRGBA16N>::Value;
-	};
-
-	template<bool HasUV0, typename Type>
-	struct UVChannelHighPrecisionDetector
-	{
-		static const bool Value = false;
-	};
-
-	template<typename Type>
-	struct UVChannelHighPrecisionDetector<true, Type>
-	{
-		static const bool Value = IsSameType<decltype(DeclVal<T>().UV0), FVector2D>::Value;
-	};
-	
-
-public:
-	static const bool HasPosition = sizeof(PositionCheck<DerivedPosition>(0)) == 2;
-	static const bool HasNormal = sizeof(NormalCheck<DerivedNormal>(0)) == 2;
-	static const bool HasTangent = sizeof(TangentCheck<DerivedTangent>(0)) == 2;
-	static const bool HasColor = sizeof(ColorCheck<DerivedColor>(0)) == 2;
-	static const bool HasUV0 = sizeof(UV0Check<DerivedUV0>(0)) == 2;
-	static const bool HasUV1 = sizeof(UV1Check<DerivedUV1>(0)) == 2;
-	static const bool HasUV2 = sizeof(UV2Check<DerivedUV2>(0)) == 2;
-	static const bool HasUV3 = sizeof(UV3Check<DerivedUV3>(0)) == 2;
-	static const bool HasUV4 = sizeof(UV4Check<DerivedUV4>(0)) == 2;
-	static const bool HasUV5 = sizeof(UV5Check<DerivedUV5>(0)) == 2;
-	static const bool HasUV6 = sizeof(UV6Check<DerivedUV6>(0)) == 2;
-	static const bool HasUV7 = sizeof(UV7Check<DerivedUV7>(0)) == 2;
-	static const int32 NumUVChannels = 
-		(HasUV0 ? 1 : 0) +
-		(HasUV1 ? 1 : 0) +
-		(HasUV2 ? 1 : 0) +
-		(HasUV3 ? 1 : 0) +
-		(HasUV4 ? 1 : 0) +
-		(HasUV5 ? 1 : 0) +
-		(HasUV6 ? 1 : 0) +
-		(HasUV7 ? 1 : 0);
-
-
-	
-	static const bool HasHighPrecisionNormals = TangentBasisHighPrecisionDetector<HasNormal, HasTangent, T>::Value;
-	static const bool HasHighPrecisionUVs = UVChannelHighPrecisionDetector<HasUV0, T>::Value;
+	// The GUID for this custom version
+	const static FGuid GUID = FGuid(0xEE48714B, 0x8A2C4652, 0x98BE40E6, 0xCB7EF0E6);
 };
 
 
+class FRuntimeMeshVertexFactory;
+struct FRuntimeMeshVertexStreamStructure;
 
-#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION >= 12
-/** Structure definition of a vertex */
-using RuntimeMeshVertexStructure = FLocalVertexFactory::FDataType;
-#else
-/** Structure definition of a vertex */
-using RuntimeMeshVertexStructure = FLocalVertexFactory::DataType;
-#endif
+template<typename T>
+struct FRuntimeMeshIndexTraits
+{
+	static const bool IsValidIndexType = false;
+	static const bool Is32Bit = false;
+};
 
-#define RUNTIMEMESH_VERTEXCOMPONENT(VertexBuffer, VertexType, Member, MemberType) \
-	STRUCTMEMBER_VERTEXSTREAMCOMPONENT(&VertexBuffer, VertexType, Member, MemberType)
+template<>
+struct FRuntimeMeshIndexTraits<uint16>
+{
+	static const bool IsValidIndexType = true;
+	static const bool Is32Bit = false;
+};
+
+template<>
+struct FRuntimeMeshIndexTraits<uint32>
+{
+	static const bool IsValidIndexType = true;
+	static const bool Is32Bit = true;
+};
+
+template<>
+struct FRuntimeMeshIndexTraits<int32>
+{
+	static const bool IsValidIndexType = true;
+	static const bool Is32Bit = true;
+};
+
+enum class ERuntimeMeshBuffersToUpdate : uint8
+{
+	None = 0x0,
+	VertexBuffer0 = 0x1,
+	VertexBuffer1 = 0x2,
+	VertexBuffer2 = 0x4,
+
+	AllVertexBuffers = VertexBuffer0 | VertexBuffer1 | VertexBuffer2,
+
+	IndexBuffer = 0x8,
+	AdjacencyIndexBuffer = 0x10
+};
+ENUM_CLASS_FLAGS(ERuntimeMeshBuffersToUpdate);
 
 /* Update frequency for a section. Used to optimize for update or render speed*/
 UENUM(BlueprintType)
@@ -180,13 +101,13 @@ enum class ESectionUpdateFlags
 {
 	None = 0x0,
 
-	/** 
-	*	This will use move-assignment when copying the supplied vertices/triangles into the section.
-	*	This is faster as it doesn't require copying the data.
-	*
-	*	CAUTION: This means that your copy of the arrays will be cleared!
-	*/
-	MoveArrays = 0x1,
+	// 	/** 
+	// 	*	This will use move-assignment when copying the supplied vertices/triangles into the section.
+	// 	*	This is faster as it doesn't require copying the data.
+	// 	*
+	// 	*	CAUTION: This means that your copy of the arrays will be cleared!
+	// 	*/
+	// 	MoveArrays = 0x1,
 
 	/**
 	*	Should the normals and tangents be calculated automatically?
@@ -199,9 +120,30 @@ enum class ESectionUpdateFlags
 	*	To do this manually see RuntimeMeshLibrary::GenerateTessellationIndexBuffer()
 	*/
 	CalculateTessellationIndices = 0x4,
-	
+
 };
 ENUM_CLASS_FLAGS(ESectionUpdateFlags)
+
+/*
+*	Configuration flag for the collision cooking to prioritize cooking speed or collision performance.
+*/
+UENUM(BlueprintType)
+enum class ERuntimeMeshCollisionCookingMode : uint8
+{
+	/*
+	*	Favors runtime collision performance of cooking speed.
+	*	This means that cooking a new mesh will be slower, but collision will be faster.
+	*/
+	CollisionPerformance UMETA(DisplayName = "Collision Performance"),
+
+	/*
+	*	Favors cooking speed over collision performance.
+	*	This means that cooking a new mesh will be faster, but collision will be slower.
+	*/
+	CookingPerformance UMETA(DisplayName = "Cooking Performance"),
+};
+
+
 
 /**
 *	Struct used to specify a tangent vector for a vertex
@@ -235,190 +177,179 @@ struct FRuntimeMeshTangent
 		, bFlipTangentY(bInFlipTangentY)
 	{}
 
-	void AdjustNormal(FPackedNormal& Normal) const
-	{
-		Normal.Vector.W = bFlipTangentY ? 0 : 255;
-	}
-
-	void AdjustNormal(FPackedRGBA16N& Normal) const
-	{
-		Normal.W = bFlipTangentY ? 0 : 65535;
-	}
+	FVector4 GetPackedTangent() const { return FVector4(TangentX, bFlipTangentY ? -1 : 1); }
 };
 
-/*
-*	Configuration flag for the collision cooking to prioritize cooking speed or collision performance.
-*/
-UENUM(BlueprintType)
-enum class ERuntimeMeshCollisionCookingMode : uint8
+
+
+struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshVertexStreamStructureElement
 {
-	/*
-	*	Favors runtime collision performance of cooking speed. 
-	*	This means that cooking a new mesh will be slower, but collision will be faster.
-	*/
-	CollisionPerformance UMETA(DisplayName = "Collision Performance"),
+	uint8 Offset;
+	uint8 Stride;
+	EVertexElementType Type;
 
-	/*
-	*	Favors cooking speed over collision performance.
-	*	This means that cooking a new mesh will be faster, but collision will be slower.
-	*/
-	CookingPerformance UMETA(DisplayName = "Cooking Performance"),
-};
+	FRuntimeMeshVertexStreamStructureElement() : Offset(-1), Stride(-1), Type(EVertexElementType::VET_None) { }
+	FRuntimeMeshVertexStreamStructureElement(uint8 InOffset, uint8 InStride, EVertexElementType InType)
+		: Offset(InOffset), Stride(InStride), Type(InType) { }
 
-/* The different buffers within the Runtime Mesh Component */
-enum class ERuntimeMeshBuffer
-{
-	None = 0x0,
-	Vertices = 0x1,
-	Triangles = 0x2,
-	Positions = 0x4
-};
-ENUM_CLASS_FLAGS(ERuntimeMeshBuffer)
+	bool IsValid() const { return Offset >= 0 && Stride >= 0 && Type != EVertexElementType::VET_None; }
 
+	bool operator==(const FRuntimeMeshVertexStreamStructureElement& Other) const;
 
-USTRUCT()
-struct FRuntimeMeshCollisionSection
-{
-	GENERATED_BODY()
+	bool operator!=(const FRuntimeMeshVertexStreamStructureElement& Other) const;
 
-	UPROPERTY()
-	TArray<FVector> VertexBuffer;
-
-	UPROPERTY()
-	TArray<int32> IndexBuffer;
-
-	void Reset()
+	friend FArchive& operator <<(FArchive& Ar, FRuntimeMeshVertexStreamStructureElement& Element)
 	{
-		VertexBuffer.Empty();
-		IndexBuffer.Empty();
-	}
+		Ar << Element.Offset;
+		Ar << Element.Stride;
 
-	friend FArchive& operator <<(FArchive& Ar, FRuntimeMeshCollisionSection& Section)
-	{
-		Ar << Section.VertexBuffer;
-		Ar << Section.IndexBuffer;
+		int32 TypeValue = static_cast<int32>(Element.Type);
+		Ar << TypeValue;
+		Element.Type = static_cast<EVertexElementType>(TypeValue);
+
 		return Ar;
 	}
-}; 
+};
 
-USTRUCT()
-struct FRuntimeConvexCollisionSection
+#define RUNTIMEMESH_VERTEXSTREAMCOMPONENT(VertexType, Member, MemberType) \
+	FRuntimeMeshVertexStreamStructureElement(STRUCT_OFFSET(VertexType,Member),sizeof(VertexType),MemberType)
+
+struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshVertexStreamStructure
 {
-	GENERATED_BODY()
+	FRuntimeMeshVertexStreamStructureElement Position;
+	FRuntimeMeshVertexStreamStructureElement Normal;
+	FRuntimeMeshVertexStreamStructureElement Tangent;
+	FRuntimeMeshVertexStreamStructureElement Color;
+	TArray<FRuntimeMeshVertexStreamStructureElement, TInlineAllocator<RUNTIMEMESH_MAXTEXCOORDS>> UVs;
 
-	UPROPERTY()
-	TArray<FVector> VertexBuffer;
+	bool operator==(const FRuntimeMeshVertexStreamStructure& Other) const;
 
-	UPROPERTY()
-	FBox BoundingBox;
+	bool operator!=(const FRuntimeMeshVertexStreamStructure& Other) const;
 
-	void Reset()
+	bool HasAnyElements() const;
+
+	bool HasUVs() const;
+
+	uint8 CalculateStride() const;
+
+	bool IsValid() const;
+
+	bool HasNoOverlap(const FRuntimeMeshVertexStreamStructure& Other) const;
+
+	static bool ValidTripleStream(const FRuntimeMeshVertexStreamStructure& Stream1, const FRuntimeMeshVertexStreamStructure& Stream2, const FRuntimeMeshVertexStreamStructure& Stream3);
+
+	friend FArchive& operator <<(FArchive& Ar, FRuntimeMeshVertexStreamStructure& Structure)
 	{
-		VertexBuffer.Empty();
-		BoundingBox.Init();
-	}
+		Ar << Structure.Position;
+		Ar << Structure.Normal;
+		Ar << Structure.Tangent;
+		Ar << Structure.Color;
+		Ar << Structure.UVs;
 
-	friend FArchive& operator <<(FArchive& Ar, FRuntimeConvexCollisionSection& Section)
-	{
-		Ar << Section.VertexBuffer;
-		Ar << Section.BoundingBox;
 		return Ar;
 	}
 };
 
 
-
-
-
-
-struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshVertexTypeInfo
+struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshNullVertex
 {
-	const FString TypeName;
-	const FGuid TypeGuid;
-
-	FRuntimeMeshVertexTypeInfo(FString Name, FGuid Guid) : TypeName(Name), TypeGuid(Guid) { }
-
-	virtual ~FRuntimeMeshVertexTypeInfo() {}
-
-	virtual bool Equals(const FRuntimeMeshVertexTypeInfo* Other) const
+	static const FRuntimeMeshVertexStreamStructure GetVertexStructure()
 	{
-		return TypeGuid == Other->TypeGuid;
-	}
-
-	template<typename Type>
-	void EnsureEquals() const
-	{
-		if (!Equals(&Type::TypeInfo))
-		{
-			ThrowMismatchException(Type::TypeInfo.TypeName);
-		}
-	}
-
-	virtual class FRuntimeMeshSectionInterface* CreateSection(bool bInNeedsPositionOnlyBuffer) const = 0;
-protected:
-
-	void ThrowMismatchException(const FString& OtherName) const
-	{
-		UE_LOG(RuntimeMeshLog, Fatal, TEXT("Vertex Type Mismatch: %s  and  %s"), *TypeName, *OtherName);
+		return FRuntimeMeshVertexStreamStructure();
 	}
 };
-
-
-/*
-*  Internal container used to track known vertex types, for serialization and other purposes.
-*/
-class RUNTIMEMESHCOMPONENT_API FRuntimeMeshVertexTypeRegistrationContainer
-{
-	struct VertexRegistration
-	{
-		const FRuntimeMeshVertexTypeInfo* const TypeInfo;
-		uint32 ReferenceCount;
-		
-		VertexRegistration(const FRuntimeMeshVertexTypeInfo* const InTypeInfo)
-			: TypeInfo(InTypeInfo), ReferenceCount(1) { }
-	};
-	TMap<FGuid, VertexRegistration> Registrations;
-
-public:
-
-	static FRuntimeMeshVertexTypeRegistrationContainer& GetInstance();
-
-	void Register(const FRuntimeMeshVertexTypeInfo* InType);
-
-	void UnRegister(const FRuntimeMeshVertexTypeInfo* InType);
-
-	const FRuntimeMeshVertexTypeInfo* GetVertexType(FGuid Key) const;
-
-};
-
 
 template<typename VertexType>
-class FRuntimeMeshVertexTypeRegistration : FNoncopyable
+inline FRuntimeMeshVertexStreamStructure GetStreamStructure()
 {
-public:
-	FRuntimeMeshVertexTypeRegistration()
-	{ 
-		FRuntimeMeshVertexTypeRegistrationContainer::GetInstance().Register(&VertexType::TypeInfo);
-	}
+	return VertexType::GetVertexStructure();
+}
 
-	~FRuntimeMeshVertexTypeRegistration()
-	{
-		FRuntimeMeshVertexTypeRegistrationContainer::GetInstance().UnRegister(&VertexType::TypeInfo);
-	}
+template<>
+inline FRuntimeMeshVertexStreamStructure GetStreamStructure<FVector>()
+{
+	FRuntimeMeshVertexStreamStructure Structure;
+	Structure.Position = FRuntimeMeshVertexStreamStructureElement(0, sizeof(FVector), VET_Float3);
+	return Structure;
+}
+
+template<>
+inline FRuntimeMeshVertexStreamStructure GetStreamStructure<FColor>()
+{
+	FRuntimeMeshVertexStreamStructure Structure;
+	Structure.Color = FRuntimeMeshVertexStreamStructureElement(0, sizeof(FColor), VET_Color);
+	return Structure;
+}
+
+
+
+
+
+struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshLockProvider
+{
+	virtual ~FRuntimeMeshLockProvider() { }
+	virtual void Lock() = 0;
+	virtual void Unlock() = 0;
 };
 
 
 
+struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshNullLockProvider : public FRuntimeMeshLockProvider
+{
+	FRuntimeMeshNullLockProvider() { check(IsInGameThread()); }
+	virtual ~FRuntimeMeshNullLockProvider() { }
+	virtual void Lock() override { check(IsInGameThread()); }
+	virtual void Unlock() override { check(IsInGameThread()); }
 
-#define DECLARE_RUNTIMEMESH_CUSTOMVERTEX_TYPEINFO(TypeName, Guid) \
-	struct FRuntimeMeshVertexTypeInfo_##TypeName : public FRuntimeMeshVertexTypeInfo \
-	{ \
-		FRuntimeMeshVertexTypeInfo_##TypeName() : FRuntimeMeshVertexTypeInfo(TEXT(#TypeName), Guid) { } \
-	}; \
-	static const FRuntimeMeshVertexTypeInfo_##TypeName TypeInfo;
-
-#define DEFINE_RUNTIMEMESH_CUSTOMVERTEX_TYPEINFO(TypeName) \
-	const  TypeName::FRuntimeMeshVertexTypeInfo_##TypeName TypeName::TypeInfo = TypeName::FRuntimeMeshVertexTypeInfo_##TypeName(); \
-    FRuntimeMeshVertexTypeRegistration<##TypeName> FRuntimeMeshVertexTypeInfoRegistration_##TypeName(&##TypeName::TypeInfo);
+	static FRuntimeMeshLockProvider* CreateLock() { return new FRuntimeMeshNullLockProvider(); }
+};
 
 
+class RUNTIMEMESHCOMPONENT_API FRuntimeMeshScopeLock
+{
+
+private:
+	// Holds the synchronization object to aggregate and scope manage.
+	FRuntimeMeshLockProvider* SynchObject;
+
+public:
+
+	/**
+	* Constructor that performs a lock on the synchronization object
+	*
+	* @param InSynchObject The synchronization object to manage
+	*/
+	FRuntimeMeshScopeLock(const FRuntimeMeshLockProvider* InSyncObject)
+		: SynchObject(const_cast<FRuntimeMeshLockProvider*>(InSyncObject))
+	{
+		check(SynchObject);
+		SynchObject->Lock();
+	}
+
+	FRuntimeMeshScopeLock(const TUniquePtr<FRuntimeMeshLockProvider>& InSyncObject)
+		: SynchObject(InSyncObject.Get())
+	{
+		check(SynchObject);
+		SynchObject->Lock();
+	}
+
+	/** Destructor that performs a release on the synchronization object. */
+	~FRuntimeMeshScopeLock()
+	{
+		check(SynchObject);
+		SynchObject->Unlock();
+	}
+private:
+
+	/** Default constructor (hidden on purpose). */
+	FRuntimeMeshScopeLock();
+
+	/** Copy constructor( hidden on purpose). */
+	FRuntimeMeshScopeLock(const FRuntimeMeshScopeLock& InScopeLock);
+
+	/** Assignment operator (hidden on purpose). */
+	FRuntimeMeshScopeLock& operator=(FRuntimeMeshScopeLock& InScopeLock)
+	{
+		return *this;
+	}
+};

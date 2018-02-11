@@ -1,4 +1,4 @@
-// Copyright 2016 Chris Conway (Koderz). All Rights Reserved.
+// Copyright 2016-2018 Chris Conway (Koderz). All Rights Reserved.
 
 #pragma once
 #include "IDetailCustomization.h"
@@ -11,7 +11,7 @@ public:
 	static TSharedRef<IDetailCustomization> MakeInstance();
 
 	/** IDetailCustomization interface */
-	virtual void CustomizeDetails( IDetailLayoutBuilder& DetailBuilder ) override;
+	virtual void CustomizeDetails(IDetailLayoutBuilder& DetailBuilder) override;
 
 	/** Handle clicking the convert button */
 	FReply ClickedOnConvertToStaticMesh();

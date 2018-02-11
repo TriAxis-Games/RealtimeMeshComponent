@@ -1,4 +1,4 @@
-// Copyright 2016 Chris Conway (Koderz). All Rights Reserved.
+// Copyright 2016-2018 Chris Conway (Koderz). All Rights Reserved.
 
 #include "UnrealEd.h"
 #include "PropertyEditorModule.h"

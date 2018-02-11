@@ -1,4 +1,4 @@
-// Copyright 2016 Chris Conway (Koderz). All Rights Reserved.
+// Copyright 2016-2018 Chris Conway (Koderz). All Rights Reserved.
 
 #include "RuntimeMeshComponentEditorPrivatePCH.h"
 
@@ -12,7 +12,7 @@ class FRuntimeMeshComponentEditorPlugin : public IRuntimeMeshComponentEditorPlug
 	virtual void ShutdownModule() override;
 };
 
-IMPLEMENT_MODULE( FRuntimeMeshComponentEditorPlugin, RuntimeMeshComponentEditor )
+IMPLEMENT_MODULE(FRuntimeMeshComponentEditorPlugin, RuntimeMeshComponentEditor)
 
 
 
@@ -27,5 +27,5 @@ void FRuntimeMeshComponentEditorPlugin::StartupModule()
 
 void FRuntimeMeshComponentEditorPlugin::ShutdownModule()
 {
-	
+
 }
