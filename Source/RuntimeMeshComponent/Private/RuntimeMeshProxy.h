@@ -21,9 +21,9 @@ struct FRuntimeMeshRenderThreadDeleter
 		{
 			ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
 				FRuntimeMeshProxyDeleterCommand,
-				Type*, Object, Object,
+				void*, Object, Object,
 				{
-					delete Object;
+					delete static_cast<Type*>(Object);
 				}
 			);
 		}

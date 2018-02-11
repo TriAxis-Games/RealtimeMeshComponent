@@ -27,6 +27,11 @@ public:
 
 	FRuntimeMeshVertexBuffer();
 
+	~FRuntimeMeshVertexBuffer()
+	{
+		check(true);
+	}
+
 	void Reset(int32 InVertexSize, int32 InNumVertices, EUpdateFrequency InUpdateFrequency);
 
 	virtual void InitRHI() override;
@@ -65,6 +70,11 @@ private:
 public:
 
 	FRuntimeMeshIndexBuffer();
+
+	~FRuntimeMeshIndexBuffer()
+	{
+		check(true);
+	}
 
 	void Reset(int32 InIndexSize, int32 InNumIndices, EUpdateFrequency InUpdateFrequency);
 

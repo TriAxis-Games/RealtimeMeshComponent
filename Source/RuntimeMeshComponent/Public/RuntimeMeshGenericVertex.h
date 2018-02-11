@@ -293,12 +293,12 @@ struct FRuntimeMeshVertexUtilities
 #define RUNTIMEMESH_VERTEX_DECLARE_POSITION(HasPosition) RUNTIMEMESH_VERTEX_DECLARE_POSITION_##HasPosition
 
 // Normal declaration
-#define RUNTIMEMESH_VERTEX_DECLARE_NORMAL_true(TangentType) FRuntimeMeshVertexTangentTypeSelector<##TangentType>::TangentsType Normal;
+#define RUNTIMEMESH_VERTEX_DECLARE_NORMAL_true(TangentType) FRuntimeMeshVertexTangentTypeSelector<TangentType>::TangentsType Normal;
 #define RUNTIMEMESH_VERTEX_DECLARE_NORMAL_false(TangentType)
 #define RUNTIMEMESH_VERTEX_DECLARE_NORMAL(HasNormal, TangentType) RUNTIMEMESH_VERTEX_DECLARE_NORMAL_##HasNormal(TangentType)
 
 // Tangent declaration
-#define RUNTIMEMESH_VERTEX_DECLARE_TANGENT_true(TangentType) FRuntimeMeshVertexTangentTypeSelector<##TangentType>::TangentsType Tangent;
+#define RUNTIMEMESH_VERTEX_DECLARE_TANGENT_true(TangentType) FRuntimeMeshVertexTangentTypeSelector<TangentType>::TangentsType Tangent;
 #define RUNTIMEMESH_VERTEX_DECLARE_TANGENT_false(TangentType)
 #define RUNTIMEMESH_VERTEX_DECLARE_TANGENT(HasTangent, TangentType) RUNTIMEMESH_VERTEX_DECLARE_TANGENT_##HasTangent(TangentType)
 

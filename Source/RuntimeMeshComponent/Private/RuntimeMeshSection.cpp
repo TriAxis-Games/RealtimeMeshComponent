@@ -55,12 +55,12 @@ public:
 		check(Element.IsValid());
 	}
 
-	virtual FVector2D GetUV(int32 Index)
+	virtual FVector2D GetUV(int32 Index) override
 	{
 		return Get(Index);
 	}
 
-	virtual int32 FRuntimeMeshVertexStreamUVAccessor::Num()
+	virtual int32 Num() override
 	{
 		return FRuntimeMeshStreamAccessor<FVector2D>::Num();
 	}
@@ -74,12 +74,12 @@ public:
 		check(Element.IsValid());
 	}
 
-	virtual FVector2D GetUV(int32 Index)
+	virtual FVector2D GetUV(int32 Index) override
 	{
 		return Get(Index);
 	}
 
-	virtual int32 FRuntimeMeshVertexStreamUVAccessor::Num()
+	virtual int32 Num() override
 	{
 		return FRuntimeMeshStreamAccessor<FVector2DHalf>::Num();
 	}
