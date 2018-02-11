@@ -83,6 +83,7 @@ public:
 	void SetUV(int32 Index, FVector2D Value);
 	void SetUV(int32 Index, int32 Channel, FVector2D Value);
 
+	void SetNormalTangent(int32 Index, FVector Normal, FRuntimeMeshTangent Tangent);
 	void SetTangents(int32 Index, FVector TangentX, FVector TangentY, FVector TangentZ);
 
 

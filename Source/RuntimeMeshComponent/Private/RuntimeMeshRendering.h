@@ -27,10 +27,7 @@ public:
 
 	FRuntimeMeshVertexBuffer();
 
-	~FRuntimeMeshVertexBuffer()
-	{
-		check(true);
-	}
+	~FRuntimeMeshVertexBuffer() {}
 
 	void Reset(int32 InVertexSize, int32 InNumVertices, EUpdateFrequency InUpdateFrequency);
 
@@ -71,10 +68,7 @@ public:
 
 	FRuntimeMeshIndexBuffer();
 
-	~FRuntimeMeshIndexBuffer()
-	{
-		check(true);
-	}
+	~FRuntimeMeshIndexBuffer() {}
 
 	void Reset(int32 InIndexSize, int32 InNumIndices, EUpdateFrequency InUpdateFrequency);
 

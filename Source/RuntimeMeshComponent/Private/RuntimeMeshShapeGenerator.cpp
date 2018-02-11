@@ -90,9 +90,8 @@ void URuntimeMeshShapeGenerator::CreateBoxMesh(FVector BoxRadius, const TSharedP
 	MeshBuilder->EmptyIndices(CREATEBOX_NUMTRIS);
 	FVerticesBuilderFunction VerticesBuilder = [&](const FVector& Position, const FVector& Normal, const FRuntimeMeshTangent& Tangent, const FVector2D& UV0)
 	{
-		int32 NewVertex = MeshBuilder->AddVertex(Position);
-		MeshBuilder->SetNormal(NewVertex, Normal);
-		MeshBuilder->SetTangent(NewVertex, Tangent.GetPackedTangent());
+		int32 NewVertex = MeshBuilder->AddVertex(Position);		
+		MeshBuilder->SetNormalTangent(NewVertex, Normal, Tangent);
 		MeshBuilder->SetUV(NewVertex, UV0);
 	};
 
@@ -187,8 +186,7 @@ void URuntimeMeshShapeGenerator::CreateGridMesh(float Width, float Height, int32
 	FVerticesBuilderFunction VerticesBuilder = [&](const FVector& Position, const FVector& Normal, const FRuntimeMeshTangent& Tangent, const FVector2D& UV0)
 	{
 		int32 NewVertex = MeshBuilder->AddVertex(Position);
-		MeshBuilder->SetNormal(NewVertex, Normal);
-		MeshBuilder->SetTangent(NewVertex, Tangent.GetPackedTangent());
+		MeshBuilder->SetNormalTangent(NewVertex, Normal, Tangent);
 		MeshBuilder->SetUV(NewVertex, UV0);
 	};
 

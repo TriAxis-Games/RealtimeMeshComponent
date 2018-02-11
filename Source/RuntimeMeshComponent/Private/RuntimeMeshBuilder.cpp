@@ -329,6 +329,13 @@ void FRuntimeMeshVerticesAccessor::SetUV(int32 Index, int32 Channel, FVector2D V
 	UVWriters[Channel].Execute(Index, Value);
 }
 
+void FRuntimeMeshVerticesAccessor::SetNormalTangent(int32 Index, FVector Normal, FRuntimeMeshTangent Tangent)
+{
+	check(bIsInitialized);
+	NormalWriter.Execute(Index, FVector4(Normal, Tangent.bFlipTangentY? -1 : 1));
+	TangentWriter.Execute(Index, Tangent.TangentX);
+}
+
 void FRuntimeMeshVerticesAccessor::SetTangents(int32 Index, FVector TangentX, FVector TangentY, FVector TangentZ)
 {
 	check(bIsInitialized);

@@ -22,6 +22,8 @@ DECLARE_CYCLE_STAT(TEXT("RML - Get Static Mesh Section"), STAT_RuntimeMeshLibrar
 void URuntimeMeshLibrary::CalculateTangentsForMesh(const TArray<FVector>& Vertices, const TArray<int32>& Triangles, TArray<FVector>& Normals, 
 	const TArray<FVector2D>& UVs, TArray<FRuntimeMeshTangent>& Tangents, bool bCreateSmoothNormals)
 {
+	Normals.SetNum(Vertices.Num());
+	Tangents.SetNum(Vertices.Num());
 	CalculateTangentsForMesh(
 		[&Triangles](int32 Index) -> int32 { return Triangles[Index]; },
 		[&Vertices](int32 Index) -> FVector { return Vertices[Index]; },
@@ -30,7 +32,7 @@ void URuntimeMeshLibrary::CalculateTangentsForMesh(const TArray<FVector>& Vertic
 	{
 		Normals[Index] = TangentZ;
 		Tangents[Index].TangentX = TangentX;
-		Tangents[Index].bFlipTangentY = !GetBasisDeterminantSign(TangentX, TangentY, TangentZ);
+		Tangents[Index].bFlipTangentY = GetBasisDeterminantSign(TangentX, TangentY, TangentZ) < 0;
 	},
 		Vertices.Num(), UVs.Num(), Triangles.Num(), bCreateSmoothNormals);
 }
@@ -45,7 +47,7 @@ void URuntimeMeshLibrary::CalculateTangentsForMeshPacked(TArray<FRuntimeMeshBlue
 	{
 		Vertices[Index].Normal = TangentZ;
 		Vertices[Index].Tangent.TangentX = TangentX;
-		Vertices[Index].Tangent.bFlipTangentY = !GetBasisDeterminantSign(TangentX, TangentY, TangentZ);
+		Vertices[Index].Tangent.bFlipTangentY = GetBasisDeterminantSign(TangentX, TangentY, TangentZ) < 0;
 	},
 		Vertices.Num(), Vertices.Num(), Triangles.Num(), bCreateSmoothNormals);
 }
@@ -67,13 +69,12 @@ void URuntimeMeshLibrary::CalculateTangentsForMesh(TArray<FRuntimeMeshVertexSimp
 void URuntimeMeshLibrary::CalculateTangentsForMesh(const TSharedPtr<FRuntimeMeshAccessor>& MeshAccessor, bool bCreateSmoothNormals)
 {
 	CalculateTangentsForMesh(
-		[&MeshAccessor](int32 Index) -> int32 { return MeshAccessor->GetIndex(Index); },
-		[&MeshAccessor](int32 Index) -> FVector { return MeshAccessor->GetPosition(Index); },
-		[&MeshAccessor](int32 Index) -> FVector2D { return MeshAccessor->GetUV(Index); },
-		[&MeshAccessor](int32 Index, FVector TangentX, FVector TangentY, FVector TangentZ)
+		[MeshAccessor](int32 Index) -> int32 { return MeshAccessor->GetIndex(Index); },
+		[MeshAccessor](int32 Index) -> FVector { return MeshAccessor->GetPosition(Index); },
+		[MeshAccessor](int32 Index) -> FVector2D { return MeshAccessor->GetUV(Index); },
+		[MeshAccessor](int32 Index, FVector TangentX, FVector TangentY, FVector TangentZ)
 	{
-		MeshAccessor->SetNormal(Index, TangentZ);
-		MeshAccessor->SetTangent(Index, FRuntimeMeshTangent(TangentZ, !GetBasisDeterminantSign(TangentX, TangentY, TangentZ)));
+		MeshAccessor->SetTangents(Index, TangentX, TangentY, TangentZ);
 	},
 		MeshAccessor->NumVertices(), MeshAccessor->NumVertices(), MeshAccessor->NumIndices(), bCreateSmoothNormals);
 }
@@ -168,7 +169,7 @@ void URuntimeMeshLibrary::GetStaticMeshSection(UStaticMesh* InMesh, int32 LODInd
 	{
 		int32 NewIndex = Vertices.Add(Position);
 		Normals.Add(TangentZ);
-		Tangents.Add(FRuntimeMeshTangent(TangentX, !GetBasisDeterminantSign(TangentX, TangentY, TangentZ)));
+		Tangents.Add(FRuntimeMeshTangent(TangentX, GetBasisDeterminantSign(TangentX, TangentY, TangentZ) < 0));
 		return NewIndex;
 	},
 		[&UVs](int32 Index, int32 UVIndex, FVector2D UV)
@@ -197,7 +198,7 @@ void URuntimeMeshLibrary::GetStaticMeshSectionPacked(UStaticMesh* InMesh, int32 
 	GetStaticMeshSection(InMesh, LODIndex, SectionIndex, 1,
 		[&Vertices](FVector Position, FVector TangentX, FVector TangentY, FVector TangentZ) -> int32
 	{
-		return Vertices.Add(FRuntimeMeshBlueprintVertexSimple(Position, TangentZ, FRuntimeMeshTangent(TangentX, !GetBasisDeterminantSign(TangentX, TangentY, TangentZ)), FVector2D::ZeroVector));
+		return Vertices.Add(FRuntimeMeshBlueprintVertexSimple(Position, TangentZ, FRuntimeMeshTangent(TangentX, GetBasisDeterminantSign(TangentX, TangentY, TangentZ) < 0), FVector2D::ZeroVector));
 	},
 		[&Vertices](int32 Index, int32 UVIndex, FVector2D UV)
 	{
@@ -486,6 +487,27 @@ void URuntimeMeshLibrary::CalculateTangentsForMesh(TFunction<int32(int32 Index)>
 			const FVector2D T2 = UVAccessor(CornerIndex[1]);
 			const FVector2D T3 = UVAccessor(CornerIndex[2]);
 
+// 			float X1 = P[1].X - P[0].X;
+// 			float X2 = P[2].X - P[0].X;
+// 			float Y1 = P[1].Y - P[0].Y;
+// 			float Y2 = P[2].Y - P[0].Y;
+// 			float Z1 = P[1].Z - P[0].Z;
+// 			float Z2 = P[2].Z - P[0].Z;
+// 
+// 			float S1 = U1.X - U0.X;
+// 			float S2 = U2.X - U0.X;
+// 			float T1 = U1.Y - U0.Y;
+// 			float T2 = U2.Y - U0.Y;
+// 
+// 			float R = 1.0f / (S1 * T2 - S2 * T1);
+// 			FaceTangentX[TriIdx] = FVector((T2 * X1 - T1 * X2) * R, (T2 * Y1 - T1 * Y2) * R,
+// 				(T2 * Z1 - T1 * Z2) * R);
+// 			FaceTangentY[TriIdx] = FVector((S1 * X2 - S2 * X1) * R, (S1 * Y2 - S2 * Y1) * R,
+// 				(S1 * Z2 - S2 * Z1) * R);
+
+
+
+
 			FMatrix	ParameterToLocal(
 				FPlane(P[1].X - P[0].X, P[1].Y - P[0].Y, P[1].Z - P[0].Z, 0),
 				FPlane(P[2].X - P[0].X, P[2].Y - P[0].Y, P[2].Z - P[0].Z, 0),
@@ -555,12 +577,14 @@ void URuntimeMeshLibrary::CalculateTangentsForMesh(TFunction<int32(int32 Index)>
 		FVector& TangentZ = VertexTangentZSum[VertxIdx];
 
 		TangentX.Normalize();
-		TangentY.Normalize();
+		//TangentY.Normalize();
 		TangentZ.Normalize();
 
 		// Use Gram-Schmidt orthogonalization to make sure X is orthonormal with Z
 		TangentX -= TangentZ * (TangentZ | TangentX);
 		TangentX.Normalize();
+		TangentY.Normalize();
+
 
 		TangentSetter(VertxIdx, TangentX, TangentY, TangentZ);
 	}

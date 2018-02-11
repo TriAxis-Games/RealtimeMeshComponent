@@ -194,7 +194,9 @@ struct FRuntimeMeshTangent
 		, bFlipTangentY(bInFlipTangentY)
 	{}
 
-	FVector4 GetPackedTangent() const { return FVector4(TangentX, bFlipTangentY ? -1 : 1); }
+	void ModifyNormal(FVector4& Normal) const { Normal.W = bFlipTangentY ? -1 : 1; }
+	void ModifyNormal(FPackedNormal& Normal) const { Normal.Vector.W = bFlipTangentY ? 0 : 255; }
+	void ModifyNormal(FPackedRGBA16N& Normal) const { Normal.W = bFlipTangentY ? 0 : 65536; }
 };
 
 

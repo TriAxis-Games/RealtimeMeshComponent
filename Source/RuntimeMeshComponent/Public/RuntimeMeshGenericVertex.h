@@ -533,12 +533,12 @@ struct FRuntimeMeshVertexUtilities
 // Implementation of Position/Normal/Tangent Constructor
 #define RUNTIMEMESH_VERTEX_CONSTRUCTOR_POSITION_NORMAL_TANGENT_IMPLEMENTATION(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType)	\
 	VertexName(RUNTIMEMESH_VERTEX_PARAMETER_POSITION(NeedsPosition) const FVector& InNormal, const FRuntimeMeshTangent& InTangent RUNTIMEMESH_VERTEX_PARAMETER_UVCHANNELS(UVChannelCount))		\
-	{																\
-		RUNTIMEMESH_VERTEX_INIT_POSITION(NeedsPosition)				\
-		Normal = InNormal;											\
-		Tangent = InTangent.GetPackedTangent();						\
-		RUNTIMEMESH_VERTEX_DEFAULTINIT_COLOR(NeedsColor)			\
-		RUNTIMEMESH_VERTEX_INIT_UVCHANNELS(UVChannelCount)			\
+	{																	\
+		RUNTIMEMESH_VERTEX_INIT_POSITION(NeedsPosition)					\
+		Normal = FVector4(InNormal, InTangent.bFlipTangentY? -1 : 1);	\
+		Tangent = InTangent.TangentX;									\
+		RUNTIMEMESH_VERTEX_DEFAULTINIT_COLOR(NeedsColor)				\
+		RUNTIMEMESH_VERTEX_INIT_UVCHANNELS(UVChannelCount)				\
 	}
 
 // Defines the Position/Normal/Tangent Constructor if it's wanted
@@ -555,8 +555,8 @@ struct FRuntimeMeshVertexUtilities
 	VertexName(RUNTIMEMESH_VERTEX_PARAMETER_POSITION(NeedsPosition) const FVector& InTangentX, const FVector& InTangentY, const FVector& InTangentZ RUNTIMEMESH_VERTEX_PARAMETER_UVCHANNELS(UVChannelCount))	\
 	{																											\
 		RUNTIMEMESH_VERTEX_INIT_POSITION(NeedsPosition)															\
-		Normal = InTangentZ;																					\
-		Tangent = FVector4(InTangentX, GetBasisDeterminantSign(InTangentX, InTangentY, InTangentZ) ? 1 : -1);	\
+		Normal = FVector4(InTangentZ, GetBasisDeterminantSign(InTangentX, InTangentY, InTangentZ));				\
+		Tangent = InTangentX;																					\
 		RUNTIMEMESH_VERTEX_DEFAULTINIT_COLOR(NeedsColor)														\
 		RUNTIMEMESH_VERTEX_INIT_UVCHANNELS(UVChannelCount)														\
 	}
@@ -573,12 +573,12 @@ struct FRuntimeMeshVertexUtilities
 // Implementation of Position/Normal/Tangent Constructor
 #define RUNTIMEMESH_VERTEX_CONSTRUCTOR_POSITION_NORMAL_TANGENT_COLOR_IMPLEMENTATION(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType)					\
 	VertexName(RUNTIMEMESH_VERTEX_PARAMETER_POSITION(NeedsPosition) const FVector& InNormal, const FRuntimeMeshTangent& InTangent, const FColor& InColor RUNTIMEMESH_VERTEX_PARAMETER_UVCHANNELS(UVChannelCount))	\
-	{																\
-		RUNTIMEMESH_VERTEX_INIT_POSITION(NeedsPosition)				\
-		Normal = InNormal;											\
-		Tangent = InTangent.GetPackedTangent();						\
-		Color = InColor;											\
-		RUNTIMEMESH_VERTEX_INIT_UVCHANNELS(UVChannelCount)			\
+	{																	\
+		RUNTIMEMESH_VERTEX_INIT_POSITION(NeedsPosition)					\
+		Normal = FVector4(InNormal, InTangent.bFlipTangentY? -1 : 1);	\
+		Tangent = InTangent.TangentX;									\
+		Color = InColor;												\
+		RUNTIMEMESH_VERTEX_INIT_UVCHANNELS(UVChannelCount)				\
 	}
 
 // Defines the Position/Normal/Tangent Constructor if it's wanted
@@ -597,8 +597,8 @@ struct FRuntimeMeshVertexUtilities
 	VertexName(RUNTIMEMESH_VERTEX_PARAMETER_POSITION(NeedsPosition) const FVector& InTangentX, const FVector& InTangentY, const FVector& InTangentZ, const FColor& InColor RUNTIMEMESH_VERTEX_PARAMETER_UVCHANNELS(UVChannelCount))		\
 	{																											\
 		RUNTIMEMESH_VERTEX_INIT_POSITION(NeedsPosition)															\
-		Normal = InTangentZ;																					\
-		Tangent = FVector4(InTangentX, GetBasisDeterminantSign(InTangentX, InTangentY, InTangentZ) ? 1 : -1);	\
+		Normal = FVector4(InTangentZ, GetBasisDeterminantSign(InTangentX, InTangentY, InTangentZ));				\
+		Tangent = InTangentX;																					\
 		Color = InColor;																						\
 		RUNTIMEMESH_VERTEX_INIT_UVCHANNELS(UVChannelCount)														\
 	}
@@ -618,13 +618,14 @@ struct FRuntimeMeshVertexUtilities
 #define RUNTIMEMESH_VERTEX_NORMALTANGENT_SET_MPLEMENTATION(VertexName, NeedsPosition, NeedsNormal, NeedsTangent, NeedsColor, UVChannelCount, TangentsType, UVChannelType)	\
 	void SetTangents(const FVector& TangentX, const FVector& TangentY, const FVector& TangentZ)																				\
 	{																																										\
-		Normal = TangentZ;																																					\
-		Tangent = FVector4(TangentX, GetBasisDeterminantSign(TangentX, TangentY, TangentZ) ? 1 : -1);																		\
+		Normal = FVector4(TangentZ, GetBasisDeterminantSign(TangentX, TangentY, TangentZ));																					\
+		Tangent = TangentX;																																					\
 	}																																										\
 																																											\
 	void SetTangent(const FRuntimeMeshTangent& InTangent)																													\
 	{																																										\
-		Tangent = InTangent.GetPackedTangent();																																\
+		InTangent.ModifyNormal(Normal);																																		\
+		Tangent = InTangent.TangentX;																																		\
 	}
 
 // Defines the Position Constructor if it's wanted
