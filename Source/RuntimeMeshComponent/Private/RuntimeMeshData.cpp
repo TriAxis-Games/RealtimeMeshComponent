@@ -1211,9 +1211,9 @@ bool FRuntimeMeshData::GetPhysicsTriMeshData(struct FTriMeshCollisionData* Colli
 
 	int32 VertexBase = CollisionData->Vertices.Num();
 
-	for (int32 SectionIdx = 0; SectionIdx < MeshCollisionSections.Num(); SectionIdx++)
+	for (const auto& SectionEntry : MeshCollisionSections)
 	{
-		auto& Section = MeshCollisionSections[SectionIdx];
+		const auto& Section = SectionEntry.Value;
 		if (Section.VertexBuffer.Num() > 0 && Section.IndexBuffer.Num() > 0)
 		{
 			CollisionData->Vertices.Append(Section.VertexBuffer);
@@ -1228,7 +1228,7 @@ bool FRuntimeMeshData::GetPhysicsTriMeshData(struct FTriMeshCollisionData* Colli
 				Triangle.v2 = Section.IndexBuffer[(TriIdx * 3) + 2] + VertexBase;
 
 				// Add material info
-				CollisionData->MaterialIndices.Add(SectionIdx);
+				CollisionData->MaterialIndices.Add(SectionEntry.Key);
 			}
 
 
