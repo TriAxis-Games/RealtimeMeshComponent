@@ -1193,7 +1193,7 @@ private:
 	{
 		SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_SerializationOperator);
 
-		FRuntimeMeshScopeLock Lock(MeshData.SyncRoot);
+		//FRuntimeMeshScopeLock Lock(MeshData.SyncRoot);
 
 		Ar << MeshData.MeshSections;
 
