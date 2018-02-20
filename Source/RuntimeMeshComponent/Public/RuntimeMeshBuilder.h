@@ -6,7 +6,7 @@
 #include "RuntimeMeshCore.h"
 
 class FRuntimeMeshData;
-using FRuntimeMeshDataPtr = TSharedRef<FRuntimeMeshData, ESPMode::ThreadSafe>;
+using FRuntimeMeshDataPtr = TSharedPtr<FRuntimeMeshData, ESPMode::ThreadSafe>;
 class FRuntimeMeshSection;
 using FRuntimeMeshSectionPtr = TSharedPtr<FRuntimeMeshSection, ESPMode::ThreadSafe>;
 

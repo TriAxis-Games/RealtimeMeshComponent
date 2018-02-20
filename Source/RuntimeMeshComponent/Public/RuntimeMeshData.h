@@ -1216,4 +1216,4 @@ private:
 };
 
 using FRuntimeMeshDataRef = TSharedRef<FRuntimeMeshData, ESPMode::ThreadSafe>;
-using FRuntimeMeshDataPtr = TSharedRef<FRuntimeMeshData, ESPMode::ThreadSafe>;
+using FRuntimeMeshDataPtr = TSharedPtr<FRuntimeMeshData, ESPMode::ThreadSafe>;
