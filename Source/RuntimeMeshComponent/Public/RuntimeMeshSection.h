@@ -310,6 +310,8 @@ public:
 
 	TSharedPtr<struct FRuntimeMeshSectionUpdateParams, ESPMode::NotThreadSafe> GetSectionUpdateData(ERuntimeMeshBuffersToUpdate BuffersToUpdate);
 
+	TSharedPtr<struct FRuntimeMeshSectionPropertyUpdateParams, ESPMode::NotThreadSafe> GetSectionPropertyUpdateData();
+
 	void UpdateBoundingBox();
 
 	int32 GetCollisionData(TArray<FVector>& OutPositions, TArray<FTriIndices>& OutIndices, TArray<FVector2D>& OutUVs);

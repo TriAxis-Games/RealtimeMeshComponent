@@ -193,6 +193,16 @@ FRuntimeMeshSectionUpdateParamsPtr FRuntimeMeshSection::GetSectionUpdateData(ERu
 	return UpdateParams;
 }
 
+TSharedPtr<struct FRuntimeMeshSectionPropertyUpdateParams, ESPMode::NotThreadSafe> FRuntimeMeshSection::GetSectionPropertyUpdateData()
+{
+	FRuntimeMeshSectionPropertyUpdateParamsPtr UpdateParams = MakeShared<FRuntimeMeshSectionPropertyUpdateParams>();
+
+	UpdateParams->bCastsShadow = bCastsShadow;
+	UpdateParams->bIsVisible = bIsVisible;
+
+	return UpdateParams;
+}
+
 void FRuntimeMeshSection::UpdateBoundingBox()
 {
 	FRuntimeMeshVertexStreamPositionAccessor PositionAccessor(&VertexBuffer0.GetData(), VertexBuffer0.GetStructure());

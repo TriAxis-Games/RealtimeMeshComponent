@@ -25,11 +25,18 @@ class RUNTIMEMESHCOMPONENT_API FRuntimeMeshVerticesAccessor
 {
 	bool bIsInitialized;
 	TArray<uint8>* Stream0;
+	FRuntimeMeshVertexStreamStructure Stream0Structure;
 	int32 Stream0Stride;
 	TArray<uint8>* Stream1;
+	FRuntimeMeshVertexStreamStructure Stream1Structure;
 	int32 Stream1Stride;
 	TArray<uint8>* Stream2;
+	FRuntimeMeshVertexStreamStructure Stream2Structure;
 	int32 Stream2Stride;
+
+
+
+
 
 	DECLARE_DELEGATE_RetVal_OneParam(FVector, FStreamPositionReader, int32);
 	DECLARE_DELEGATE_RetVal_OneParam(FVector4, FStreamNormalTangentReader, int32);
@@ -70,6 +77,9 @@ protected:
 		const FRuntimeMeshVertexStreamStructure& Stream2Structure);
 
 public:
+	const FRuntimeMeshVertexStreamStructure& GetStream0Structure() const { return Stream0Structure; }
+	const FRuntimeMeshVertexStreamStructure& GetStream1Structure() const { return Stream1Structure; }
+	const FRuntimeMeshVertexStreamStructure& GetStream2Structure() const { return Stream2Structure; }
 
 	int32 NumVertices() const;
 	int32 NumUVChannels() const;
@@ -220,6 +230,7 @@ protected:
 	void Initialize(bool bIn32BitIndices);
 
 public:
+	bool IsUsing32BitIndices() const { return b32BitIndices; }
 
 	int32 NumIndices() const;
 	void EmptyIndices(int32 Slack = 0);
@@ -311,13 +322,7 @@ public:
 		const FRuntimeMeshVertexStreamStructure& InStream2Structure, bool bIn32BitIndices);
 
 	virtual ~FRuntimeMeshBuilder() override;
-
-
-	const FRuntimeMeshVertexStreamStructure& GetStream0Structure() const { return Stream0Structure; }
-	const FRuntimeMeshVertexStreamStructure& GetStream1Structure() const { return Stream1Structure; }
-	const FRuntimeMeshVertexStreamStructure& GetStream2Structure() const { return Stream2Structure; }
-	bool IsUsing32BitIndices() const { return b32BitIndices; }
-
+	
 	TArray<uint8>& GetStream0() { return Stream0; }
 	TArray<uint8>& GetStream1() { return Stream1; }
 	TArray<uint8>& GetStream2() { return Stream2; }
@@ -326,19 +331,24 @@ public:
 
 
 template<typename VertexType0, typename IndexType>
-FORCEINLINE TSharedPtr<FRuntimeMeshBuilder> MakeRuntimeMeshBuilder()
+FORCEINLINE TSharedRef<FRuntimeMeshBuilder> MakeRuntimeMeshBuilder()
 {
 	return MakeShared<FRuntimeMeshBuilder>(GetStreamStructure<VertexType0>(), GetStreamStructure<FRuntimeMeshNullVertex>(), GetStreamStructure<FRuntimeMeshNullVertex>(), FRuntimeMeshIndexTraits<IndexType>::Is32Bit);
 }
 
 template<typename VertexType0, typename VertexType1, typename IndexType>
-FORCEINLINE TSharedPtr<FRuntimeMeshBuilder> MakeRuntimeMeshBuilder()
+FORCEINLINE TSharedRef<FRuntimeMeshBuilder> MakeRuntimeMeshBuilder()
 {
 	return MakeShared<FRuntimeMeshBuilder>(GetStreamStructure<VertexType0>(), GetStreamStructure<VertexType1>(), GetStreamStructure<FRuntimeMeshNullVertex>(), FRuntimeMeshIndexTraits<IndexType>::Is32Bit);
 }
 
 template<typename VertexType0, typename VertexType1, typename VertexType2, typename IndexType>
-FORCEINLINE TSharedPtr<FRuntimeMeshBuilder> MakeRuntimeMeshBuilder()
+FORCEINLINE TSharedRef<FRuntimeMeshBuilder> MakeRuntimeMeshBuilder()
 {
 	return MakeShared<FRuntimeMeshBuilder>(GetStreamStructure<VertexType0>(), GetStreamStructure<VertexType1>(), GetStreamStructure<VertexType2>(), FRuntimeMeshIndexTraits<IndexType>::Is32Bit);
+}
+
+FORCEINLINE TSharedRef<FRuntimeMeshBuilder> MakeRuntimeMeshBuilder(const TSharedRef<FRuntimeMeshAccessor>& StructureToCopy)
+{
+	return MakeShared<FRuntimeMeshBuilder>(StructureToCopy->GetStream0Structure(), StructureToCopy->GetStream1Structure(), StructureToCopy->GetStream2Structure(), StructureToCopy->IsUsing32BitIndices());
 }

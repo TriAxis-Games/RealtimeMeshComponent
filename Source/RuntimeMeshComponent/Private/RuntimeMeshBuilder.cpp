@@ -31,13 +31,16 @@ FRuntimeMeshVerticesAccessor::~FRuntimeMeshVerticesAccessor()
 {
 }
 
-void FRuntimeMeshVerticesAccessor::Initialize(const FRuntimeMeshVertexStreamStructure& Stream0Structure,
-	const FRuntimeMeshVertexStreamStructure& Stream1Structure,
-	const FRuntimeMeshVertexStreamStructure& Stream2Structure)
+void FRuntimeMeshVerticesAccessor::Initialize(const FRuntimeMeshVertexStreamStructure& InStream0Structure,
+	const FRuntimeMeshVertexStreamStructure& InStream1Structure,
+	const FRuntimeMeshVertexStreamStructure& InStream2Structure)
 {
 	bIsInitialized = true;
+	Stream0Structure = InStream0Structure;
 	Stream0Stride = Stream0Structure.CalculateStride();
+	Stream1Structure = InStream1Structure;
 	Stream1Stride = Stream1Structure.CalculateStride();
+	Stream2Structure = InStream2Structure;
 	Stream2Stride = Stream2Structure.CalculateStride();
 
 	// Verify all streams have the same number of elements if they're enabled
@@ -512,9 +515,9 @@ FRuntimeMeshAccessor::FRuntimeMeshAccessor(TArray<uint8>* Stream0Data, TArray<ui
 
 }
 
-void FRuntimeMeshAccessor::Initialize(const FRuntimeMeshVertexStreamStructure& Stream0Structure, const FRuntimeMeshVertexStreamStructure& Stream1Structure, const FRuntimeMeshVertexStreamStructure& Stream2Structure, bool bIn32BitIndices)
+void FRuntimeMeshAccessor::Initialize(const FRuntimeMeshVertexStreamStructure& InStream0Structure, const FRuntimeMeshVertexStreamStructure& InStream1Structure, const FRuntimeMeshVertexStreamStructure& InStream2Structure, bool bIn32BitIndices)
 {
-	FRuntimeMeshVerticesAccessor::Initialize(Stream0Structure, Stream1Structure, Stream2Structure);
+	FRuntimeMeshVerticesAccessor::Initialize(InStream0Structure, InStream1Structure, InStream2Structure);
 	FRuntimeMeshIndicesAccessor::Initialize(bIn32BitIndices);
 }
 
@@ -527,7 +530,6 @@ void FRuntimeMeshAccessor::Initialize(const FRuntimeMeshVertexStreamStructure& S
 FRuntimeMeshBuilder::FRuntimeMeshBuilder(const FRuntimeMeshVertexStreamStructure& InStream0Structure,
 	const FRuntimeMeshVertexStreamStructure& InStream1Structure, const FRuntimeMeshVertexStreamStructure& InStream2Structure, bool bIn32BitIndices)
 	: FRuntimeMeshAccessor(&Stream0, &Stream1, &Stream2, &IndexStream)
-	, Stream0Structure(InStream0Structure), Stream1Structure(InStream1Structure), Stream2Structure(InStream2Structure), b32BitIndices(bIn32BitIndices)
 {
 	FRuntimeMeshAccessor::Initialize(InStream0Structure, InStream1Structure, InStream2Structure, bIn32BitIndices);
 }
