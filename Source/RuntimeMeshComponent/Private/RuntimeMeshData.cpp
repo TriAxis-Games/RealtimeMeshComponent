@@ -7,6 +7,7 @@
 #include "RuntimeMeshCollision.h"
 #include "PhysicsEngine/BodySetup.h"
 #include "PhysicsEngine/PhysicsSettings.h"
+#include "RuntimeMeshProxy.h"
 
 
 DECLARE_CYCLE_STAT(TEXT("RM - Validation - Create"), STAT_RuntimeMesh_CheckCreate, STATGROUP_RuntimeMesh);

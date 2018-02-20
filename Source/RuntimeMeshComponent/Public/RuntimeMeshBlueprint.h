@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "RuntimeMeshCore.h"
 #include "RuntimeMeshBlueprint.generated.h"
 
 /**

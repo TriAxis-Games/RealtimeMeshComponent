@@ -5,6 +5,8 @@
 #include "CoreMinimal.h"
 #include "RuntimeMeshGenericVertex.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
+#include "RuntimeMeshBuilder.h"
+#include "RuntimeMeshBlueprint.h"
 #include "RuntimeMeshLibrary.generated.h"
 
 /**

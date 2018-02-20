@@ -1,7 +1,8 @@
 // Copyright 2016-2018 Chris Conway (Koderz). All Rights Reserved.
 
 #include "RuntimeMeshComponentPlugin.h"
-
+#include "CustomVersion.h"
+#include "RuntimeMeshCore.h"
 
 // Register the custom version with core
 FCustomVersionRegistration GRegisterRuntimeMeshCustomVersion(FRuntimeMeshVersion::GUID, FRuntimeMeshVersion::LatestVersion, TEXT("RuntimeMesh"));

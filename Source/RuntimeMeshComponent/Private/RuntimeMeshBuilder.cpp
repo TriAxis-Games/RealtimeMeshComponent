@@ -226,26 +226,7 @@ void FRuntimeMeshVerticesAccessor::SetNumVertices(int32 NewNum)
 int32 FRuntimeMeshVerticesAccessor::AddVertex(FVector InPosition)
 {
 	check(bIsInitialized);
-	int32 NewIndex = NumVertices();
-
-	check(Stream0Stride > 0);
-	Stream0->AddZeroed(Stream0Stride);
-	if (Stream1Stride > 0)
-	{
-		Stream1->AddZeroed(Stream1Stride);
-	}
-	else
-	{
-		check(Stream1->Num() == 0);
-	}
-	if (Stream2Stride > 0)
-	{
-		Stream2->AddZeroed(Stream2Stride);
-	}
-	else
-	{
-		check(Stream2->Num() == 0);
-	}
+	int32 NewIndex = AddSingleVertex();
 
 	SetPosition(NewIndex, InPosition);
 
@@ -341,6 +322,76 @@ void FRuntimeMeshVerticesAccessor::SetTangents(int32 Index, FVector TangentX, FV
 	check(bIsInitialized);
 	NormalWriter.Execute(Index, FVector4(TangentZ, GetBasisDeterminantSign(TangentX, TangentY, TangentZ)));
 	TangentWriter.Execute(Index, TangentX);
+}
+
+
+
+
+
+FRuntimeMeshAccessorVertex FRuntimeMeshVerticesAccessor::GetVertex(int32 Index) const
+{
+	check(bIsInitialized);
+	FRuntimeMeshAccessorVertex Vertex;
+	Vertex.Position = PositionReader.Execute(Index);
+	Vertex.Normal = NormalReader.Execute(Index);
+	Vertex.Tangent = TangentReader.Execute(Index);
+	Vertex.Color = ColorReader.Execute(Index);
+	Vertex.UVs.SetNum(NumUVChannels());
+	for (int32 UVIndex = 0; UVIndex < Vertex.UVs.Num(); UVIndex++)
+	{
+		Vertex.UVs[UVIndex] = UVReaders[UVIndex].Execute(Index);
+	}
+	return Vertex;
+}
+
+void FRuntimeMeshVerticesAccessor::SetVertex(int32 Index, const FRuntimeMeshAccessorVertex& Vertex)
+{
+	check(bIsInitialized);
+	PositionWriter.Execute(Index, Vertex.Position);
+	NormalWriter.Execute(Index, Vertex.Normal);
+	TangentWriter.Execute(Index, Vertex.Tangent);
+	ColorWriter.Execute(Index, Vertex.Color);
+	int32 NumUVs = NumUVChannels();
+	for (int32 UVIndex = 0; UVIndex < NumUVs; UVIndex++)
+	{
+		UVWriters[UVIndex].Execute(Index, Vertex.UVs[UVIndex]);
+	}
+}
+
+int32 FRuntimeMeshVerticesAccessor::AddVertex(const FRuntimeMeshAccessorVertex& Vertex)
+{
+	check(bIsInitialized);
+	int32 NewIndex = AddSingleVertex();
+	SetVertex(NewIndex, Vertex);
+	return NewIndex;
+}
+
+
+
+int32 FRuntimeMeshVerticesAccessor::AddSingleVertex()
+{
+	int32 NewIndex = NumVertices();
+
+	check(Stream0Stride > 0);
+	Stream0->AddZeroed(Stream0Stride);
+	if (Stream1Stride > 0)
+	{
+		Stream1->AddZeroed(Stream1Stride);
+	}
+	else
+	{
+		check(Stream1->Num() == 0);
+	}
+	if (Stream2Stride > 0)
+	{
+		Stream2->AddZeroed(Stream2Stride);
+	}
+	else
+	{
+		check(Stream2->Num() == 0);
+	}
+
+	return NewIndex;
 }
 
 

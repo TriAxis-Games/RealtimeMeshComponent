@@ -3,6 +3,7 @@
 #include "RuntimeMeshComponentPlugin.h"
 #include "RuntimeMeshSection.h"
 #include "PhysicsEngine/PhysicsSettings.h"
+#include "RuntimeMeshUpdateCommands.h"
 
 template<typename Type>
 struct FRuntimeMeshStreamAccessor

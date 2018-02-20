@@ -3,6 +3,7 @@
 #include "RuntimeMeshComponentPlugin.h"
 #include "RuntimeMeshComponent.h"
 #include "RuntimeMeshComponentProxy.h"
+#include "PhysicsEngine/BodySetup.h"
 
 FRuntimeMeshSceneProxy::FRuntimeMeshSceneProxy(URuntimeMeshComponent* Component) 
 	: FPrimitiveSceneProxy(Component)

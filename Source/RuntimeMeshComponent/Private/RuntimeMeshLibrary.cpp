@@ -11,6 +11,7 @@
 #include "Engine/StaticMesh.h"
 #include "RuntimeMeshInternalUtilities.h"
 #include "RuntimeMeshTessellationUtilities.h"
+#include "PhysicsEngine/BodySetup.h"
 
 #define LOCTEXT_NAMESPACE "RuntimeMeshLibrary"
 

@@ -10,6 +10,17 @@ using FRuntimeMeshDataPtr = TSharedRef<FRuntimeMeshData, ESPMode::ThreadSafe>;
 class FRuntimeMeshSection;
 using FRuntimeMeshSectionPtr = TSharedPtr<FRuntimeMeshSection, ESPMode::ThreadSafe>;
 
+
+struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshAccessorVertex
+{
+	FVector Position;
+	FVector4 Normal;
+	FVector Tangent;
+	FColor Color;
+
+	TArray<FVector2D, TInlineAllocator<RUNTIMEMESH_MAXTEXCOORDS>> UVs;
+};
+
 class RUNTIMEMESHCOMPONENT_API FRuntimeMeshVerticesAccessor
 {
 	bool bIsInitialized;
@@ -86,8 +97,13 @@ public:
 	void SetNormalTangent(int32 Index, FVector Normal, FRuntimeMeshTangent Tangent);
 	void SetTangents(int32 Index, FVector TangentX, FVector TangentY, FVector TangentZ);
 
+	FRuntimeMeshAccessorVertex GetVertex(int32 Index) const;
+	void SetVertex(int32 Index, const FRuntimeMeshAccessorVertex& Vertex);
+	int32 AddVertex(const FRuntimeMeshAccessorVertex& Vertex);
 
 protected:
+
+	int32 AddSingleVertex();
 
 	template<typename TYPE>
 	FORCEINLINE static TYPE Read(int32 Index, TArray<uint8>* Data, int32 Stride, int32 Offset)
