@@ -114,7 +114,7 @@ FBoxSphereBounds URuntimeMeshComponent::CalcBounds(const FTransform& LocalToWorl
 
 FPrimitiveSceneProxy* URuntimeMeshComponent::CreateSceneProxy()
 {
-	return RuntimeMeshReference != nullptr ? new FRuntimeMeshSceneProxy(this) : nullptr;
+	return RuntimeMeshReference != nullptr ? new FRuntimeMeshComponentSceneProxy(this) : nullptr;
 }
 
 UBodySetup* URuntimeMeshComponent::GetBodySetup()

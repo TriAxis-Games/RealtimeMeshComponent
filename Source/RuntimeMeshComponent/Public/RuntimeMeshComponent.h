@@ -776,6 +776,6 @@ private:
 
 
 	friend class URuntimeMesh;
-	friend class FRuntimeMeshSceneProxy;
+	friend class FRuntimeMeshComponentSceneProxy;
 	friend class FRuntimeMeshComponentLegacySerialization;
 };

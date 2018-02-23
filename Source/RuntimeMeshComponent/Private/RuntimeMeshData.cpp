@@ -1085,7 +1085,10 @@ void FRuntimeMeshData::UpdateSectionPropertiesInternal(int32 SectionIndex, bool 
 	check(DoesSectionExist(SectionIndex));
 	FRuntimeMeshSectionPtr Section = MeshSections[SectionIndex];
 
-	RenderProxy->UpdateSectionProperties_GameThread(SectionIndex, Section->GetSectionPropertyUpdateData());
+	if (RenderProxy.IsValid())
+	{
+		RenderProxy->UpdateSectionProperties_GameThread(SectionIndex, Section->GetSectionPropertyUpdateData());
+	}
 
 	bool bRequiresRecreate = bUpdateRequiresProxyRecreateIfStatic &&
 		Section->GetUpdateFrequency() == EUpdateFrequency::Infrequent;

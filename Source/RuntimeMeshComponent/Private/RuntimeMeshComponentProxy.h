@@ -8,7 +8,7 @@
 class UBodySetup;
 
 /** Runtime mesh scene proxy */
-class FRuntimeMeshSceneProxy : public FPrimitiveSceneProxy
+class FRuntimeMeshComponentSceneProxy : public FPrimitiveSceneProxy
 {
 private:
 	struct FRuntimeMeshSectionRenderData
@@ -18,7 +18,7 @@ private:
 	};
 
 
-	FRuntimeMeshProxyPtr RuntimeMesh;
+	FRuntimeMeshProxyPtr RuntimeMeshProxy;
 
 	TMap<int32, FRuntimeMeshSectionRenderData> SectionRenderData;
 
@@ -33,9 +33,9 @@ private:
 
 public:
 
-	FRuntimeMeshSceneProxy(URuntimeMeshComponent* Component);
+	FRuntimeMeshComponentSceneProxy(URuntimeMeshComponent* Component);
 
-	virtual ~FRuntimeMeshSceneProxy();
+	virtual ~FRuntimeMeshComponentSceneProxy();
 
 	void CreateRenderThreadResources() override;
 

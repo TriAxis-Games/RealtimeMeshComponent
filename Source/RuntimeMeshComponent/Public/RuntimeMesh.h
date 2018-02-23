@@ -891,7 +891,7 @@ private:
 
 	friend class FRuntimeMeshData;
 	friend class URuntimeMeshComponent;
-	friend class FRuntimeMeshSceneProxy;
+	friend class FRuntimeMeshComponentSceneProxy;
 	friend struct FRuntimeMeshCollisionCookTickObject;
 };
 

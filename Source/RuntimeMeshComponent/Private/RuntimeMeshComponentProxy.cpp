@@ -5,7 +5,7 @@
 #include "RuntimeMeshComponentProxy.h"
 #include "PhysicsEngine/BodySetup.h"
 
-FRuntimeMeshSceneProxy::FRuntimeMeshSceneProxy(URuntimeMeshComponent* Component) 
+FRuntimeMeshComponentSceneProxy::FRuntimeMeshComponentSceneProxy(URuntimeMeshComponent* Component) 
 	: FPrimitiveSceneProxy(Component)
 	, BodySetup(Component->GetBodySetup())
 {
@@ -13,7 +13,7 @@ FRuntimeMeshSceneProxy::FRuntimeMeshSceneProxy(URuntimeMeshComponent* Component)
 
 	check(Component->GetRuntimeMesh() != nullptr);
 
-	RuntimeMesh = Component->GetRuntimeMesh()->EnsureProxyCreated();
+	RuntimeMeshProxy = Component->GetRuntimeMesh()->EnsureProxyCreated();
 
 	// Setup our material map
 
@@ -32,31 +32,31 @@ FRuntimeMeshSceneProxy::FRuntimeMeshSceneProxy(URuntimeMeshComponent* Component)
 	}
 }
 
-FRuntimeMeshSceneProxy::~FRuntimeMeshSceneProxy()
+FRuntimeMeshComponentSceneProxy::~FRuntimeMeshComponentSceneProxy()
 {
 
 }
 
-void FRuntimeMeshSceneProxy::CreateRenderThreadResources()
+void FRuntimeMeshComponentSceneProxy::CreateRenderThreadResources()
 {
-	RuntimeMesh->CalculateViewRelevance(bHasStaticSections, bHasDynamicSections, bHasShadowableSections);
+	RuntimeMeshProxy->CalculateViewRelevance(bHasStaticSections, bHasDynamicSections, bHasShadowableSections);
 
 	for (auto& Entry : SectionRenderData)
 	{
-		if (RuntimeMesh->GetSections().Contains(Entry.Key))
+		if (RuntimeMeshProxy->GetSections().Contains(Entry.Key))
 		{
-			FRuntimeMeshSectionProxyPtr Section = RuntimeMesh->GetSections()[Entry.Key];
+			FRuntimeMeshSectionProxyPtr Section = RuntimeMeshProxy->GetSections()[Entry.Key];
 
 			auto& RenderData = SectionRenderData[Entry.Key];
 
-			RenderData.bWantsAdjacencyInfo = RequiresAdjacencyInformation(RenderData.Material, RuntimeMesh->GetSections()[Entry.Key]->GetVertexFactory()->GetType(), GetScene().GetFeatureLevel());
+			RenderData.bWantsAdjacencyInfo = RequiresAdjacencyInformation(RenderData.Material, RuntimeMeshProxy->GetSections()[Entry.Key]->GetVertexFactory()->GetType(), GetScene().GetFeatureLevel());
 		}
 	}
 
 	FPrimitiveSceneProxy::CreateRenderThreadResources();
 }
 
-FPrimitiveViewRelevance FRuntimeMeshSceneProxy::GetViewRelevance(const FSceneView* View) const
+FPrimitiveViewRelevance FRuntimeMeshComponentSceneProxy::GetViewRelevance(const FSceneView* View) const
 {
 	FPrimitiveViewRelevance Result;
 	Result.bDrawRelevance = IsShown(View);
@@ -73,7 +73,7 @@ FPrimitiveViewRelevance FRuntimeMeshSceneProxy::GetViewRelevance(const FSceneVie
 	return Result;
 }
 
-void FRuntimeMeshSceneProxy::CreateMeshBatch(FMeshBatch& MeshBatch, const FRuntimeMeshSectionProxyPtr& Section, const FRuntimeMeshSectionRenderData& RenderData, FMaterialRenderProxy* Material, FMaterialRenderProxy* WireframeMaterial) const
+void FRuntimeMeshComponentSceneProxy::CreateMeshBatch(FMeshBatch& MeshBatch, const FRuntimeMeshSectionProxyPtr& Section, const FRuntimeMeshSectionRenderData& RenderData, FMaterialRenderProxy* Material, FMaterialRenderProxy* WireframeMaterial) const
 {
 	bool bRenderWireframe = WireframeMaterial != nullptr;
 	bool bWantsAdjacency = !bRenderWireframe && RenderData.bWantsAdjacencyInfo;
@@ -89,12 +89,12 @@ void FRuntimeMeshSceneProxy::CreateMeshBatch(FMeshBatch& MeshBatch, const FRunti
 	BatchElement.PrimitiveUniformBufferResource = &GetUniformBuffer();
 }
 
-void FRuntimeMeshSceneProxy::DrawStaticElements(FStaticPrimitiveDrawInterface* PDI)
+void FRuntimeMeshComponentSceneProxy::DrawStaticElements(FStaticPrimitiveDrawInterface* PDI)
 {
-	for (const auto& SectionEntry : RuntimeMesh->GetSections())
+	for (const auto& SectionEntry : RuntimeMeshProxy->GetSections())
 	{
 		FRuntimeMeshSectionProxyPtr Section = SectionEntry.Value;
-		if (Section.IsValid() && Section->ShouldRender() && Section->WantsToRenderInStaticPath())
+		if (SectionRenderData.Contains(SectionEntry.Key) && Section.IsValid() && Section->ShouldRender() && Section->WantsToRenderInStaticPath())
 		{
 			const FRuntimeMeshSectionRenderData& RenderData = SectionRenderData[SectionEntry.Key];
 			FMaterialRenderProxy* Material = RenderData.Material->GetRenderProxy(false);
@@ -106,7 +106,7 @@ void FRuntimeMeshSceneProxy::DrawStaticElements(FStaticPrimitiveDrawInterface* P
 	}
 }
 
-void FRuntimeMeshSceneProxy::GetDynamicMeshElements(const TArray<const FSceneView*>& Views, const FSceneViewFamily& ViewFamily, uint32 VisibilityMap, FMeshElementCollector& Collector) const
+void FRuntimeMeshComponentSceneProxy::GetDynamicMeshElements(const TArray<const FSceneView*>& Views, const FSceneViewFamily& ViewFamily, uint32 VisibilityMap, FMeshElementCollector& Collector) const
 {
 	// Set up wireframe material (if needed)
 	const bool bWireframe = AllowDebugViewmodes() && ViewFamily.EngineShowFlags.Wireframe;
@@ -123,10 +123,10 @@ void FRuntimeMeshSceneProxy::GetDynamicMeshElements(const TArray<const FSceneVie
 	}
 
 	// Iterate over sections
-	for (const auto& SectionEntry : RuntimeMesh->GetSections())
+	for (const auto& SectionEntry : RuntimeMeshProxy->GetSections())
 	{
 		FRuntimeMeshSectionProxyPtr Section = SectionEntry.Value;
-		if (Section.IsValid() && Section->ShouldRender())
+		if (SectionRenderData.Contains(SectionEntry.Key) && Section.IsValid() && Section->ShouldRender())
 		{
 			// Add the mesh batch to every view it's visible in
 			for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
