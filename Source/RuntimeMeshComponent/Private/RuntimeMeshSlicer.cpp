@@ -6,6 +6,7 @@
 #include "RuntimeMesh.h"
 #include "RuntimeMeshData.h"
 #include "RuntimeMeshComponent.h"
+#include "PhysicsEngine/BodySetup.h"
 
 
 int32 URuntimeMeshSlicer::BoxPlaneCompare(const FBox& InBox, const FPlane& InPlane)
@@ -527,89 +528,71 @@ void URuntimeMeshSlicer::SliceRuntimeMesh(const FRuntimeMeshDataPtr& InRuntimeMe
 		{
 			InRuntimeMesh->CreateMeshSection(CapSectionIndex, MoveTemp(CapSection));
 		} 		
- 	}
+		
+		// If creating the other half, copy cap geom into other half sections
+		if (bShouldCreateOtherHalf)
+		{
+			TSharedPtr<FRuntimeMeshBuilder> OtherCapSection;
+			int32 OtherCapSectionIndex = INDEX_NONE;
 
+			// If using an existing section, copy that info first
+			if (CapOption == ERuntimeMeshSlicerCapOption::UseLastSectionForCap)
+			{
+				OtherCapSectionIndex = OutOtherHalf->GetLastSectionIndex();
+				auto ExistingMesh = OutOtherHalf->GetReadonlyMeshAccessor(CapSectionIndex);
+				OtherCapSection = MakeRuntimeMeshBuilder(ExistingMesh.ToSharedRef());
+				ExistingMesh->CopyTo(OtherCapSection);
+			}
+			// Adding new section for cap
+			else
+			{
+				OtherCapSection = MakeRuntimeMeshBuilder<FVector, FRuntimeMeshVertexNoPosition, uint16>();
+				OtherCapSectionIndex = OutOtherHalf->GetLastSectionIndex() + 1;
+			}
+			
+			// Remember current base index for verts in 'other cap section'
+			int32 OtherCapVertBase = OtherCapSection->NumVertices();
 
-// 
-// 	// Array of sliced collision shapes
-// 	TArray< TArray<FVector> > SlicedCollision;
-// 	TArray< TArray<FVector> > OtherSlicedCollision;
-// 
-// 	UBodySetup* ProcMeshBodySetup = InProcMesh->GetBodySetup();
-// 
-// 	for (int32 ConvexIndex = 0; ConvexIndex < ProcMeshBodySetup->AggGeom.ConvexElems.Num(); ConvexIndex++)
-// 	{
-// 		FKConvexElem& BaseConvex = ProcMeshBodySetup->AggGeom.ConvexElems[ConvexIndex];
-// 
-// 		int32 BoxCompare = BoxPlaneCompare(BaseConvex.ElemBox, SlicePlane);
-// 
-// 		// If box totally clipped, add to other half (if desired)
-// 		if (BoxCompare == -1)
-// 		{
-// 			if (bCreateOtherHalf)
-// 			{
-// 				OtherSlicedCollision.Add(BaseConvex.VertexData);
-// 			}
-// 		}
-// 		// If box totally valid, just keep mesh as is
-// 		else if (BoxCompare == 1)
-// 		{
-// 			SlicedCollision.Add(BaseConvex.VertexData);
-// 		}
-// 		// Need to actually slice the convex shape
-// 		else
-// 		{
-// 			TArray<FVector> SlicedConvexVerts;
-// 			SliceConvexElem(BaseConvex, SlicePlane, SlicedConvexVerts);
-// 			// If we got something valid, add it
-// 			if (SlicedConvexVerts.Num() >= 4)
-// 			{
-// 				SlicedCollision.Add(SlicedConvexVerts);
-// 			}
-// 
-// 			// Slice again to get the other half of the collision, if desired
-// 			if (bCreateOtherHalf)
-// 			{
-// 				TArray<FVector> OtherSlicedConvexVerts;
-// 				SliceConvexElem(BaseConvex, SlicePlane.Flip(), OtherSlicedConvexVerts);
-// 				if (OtherSlicedConvexVerts.Num() >= 4)
-// 				{
-// 					OtherSlicedCollision.Add(OtherSlicedConvexVerts);
-// 				}
-// 			}
-// 		}
-// 	}
-// 
-// 	// Update collision of proc mesh
-// 	InProcMesh->SetCollisionConvexMeshes(SlicedCollision);
-// 
-// 	// If creating other half, create component now
-// 	if (bCreateOtherHalf)
-// 	{
-// 		// Create new component with the same outer as the proc mesh passed in
-// 		OutOtherHalfProcMesh = NewObject<UProceduralMeshComponent>(InProcMesh->GetOuter());
-// 
-// 		// Set transform to match source component
-// 		OutOtherHalfProcMesh->SetWorldTransform(InProcMesh->GetComponentTransform());
-// 
-// 		// Add each section of geometry
-// 		for (int32 SectionIndex = 0; SectionIndex < OtherSections.Num(); SectionIndex++)
-// 		{
-// 			OutOtherHalfProcMesh->SetProcMeshSection(SectionIndex, OtherSections[SectionIndex]);
-// 			OutOtherHalfProcMesh->SetMaterial(SectionIndex, OtherMaterials[SectionIndex]);
-// 		}
-// 
-// 		// Copy collision settings from input mesh
-// 		OutOtherHalfProcMesh->SetCollisionProfileName(InProcMesh->GetCollisionProfileName());
-// 		OutOtherHalfProcMesh->SetCollisionEnabled(InProcMesh->GetCollisionEnabled());
-// 		OutOtherHalfProcMesh->bUseComplexAsSimpleCollision = InProcMesh->bUseComplexAsSimpleCollision;
-// 
-// 		// Assign sliced collision
-// 		OutOtherHalfProcMesh->SetCollisionConvexMeshes(OtherSlicedCollision);
-// 
-// 		// Finally register
-// 		OutOtherHalfProcMesh->RegisterComponent();
-// 	}
+			// Copy verts from cap section into other cap section
+			int32 CapSectionLength = CapSection->NumVertices();
+			for (int32 VertIdx = CapVertBase; VertIdx < CapSectionLength; VertIdx++)
+			{
+				FRuntimeMeshAccessorVertex OtherCapVert = CapSection->GetVertex(VertIdx);
+
+				// Flip normal and tangent TODO: FlipY?
+				float Sign = OtherCapVert.Normal.W;
+				OtherCapVert.Normal *= -1.f;
+				OtherCapVert.Normal.W = Sign;
+				OtherCapVert.Tangent *= -1.f;
+
+				// Add to other cap v buffer
+				OtherCapSection->AddVertex(OtherCapVert);
+			}
+
+			// Find offset between main cap verts and other cap verts
+			int32 VertOffset = OtherCapVertBase - CapVertBase;
+
+			// Copy indices over as well
+			int32 NumCapIndices = CapSection->NumIndices();
+			for (int32 IndexIdx = CapIndexBase; IndexIdx < NumCapIndices; IndexIdx += 3)
+			{
+				// Need to offset and change winding
+				OtherCapSection->AddIndex(CapSection->GetIndex(IndexIdx + 0) + VertOffset);
+				OtherCapSection->AddIndex(CapSection->GetIndex(IndexIdx + 2) + VertOffset);
+				OtherCapSection->AddIndex(CapSection->GetIndex(IndexIdx + 1) + VertOffset);
+			}
+
+			// Set geom for cap section
+			if (CapOption == ERuntimeMeshSlicerCapOption::UseLastSectionForCap)
+			{
+				OutOtherHalf->UpdateMeshSection(OtherCapSectionIndex, MoveTemp(OtherCapSection));
+			}
+			else
+			{
+				OutOtherHalf->CreateMeshSection(OtherCapSectionIndex, MoveTemp(OtherCapSection));
+			}
+		}
+	}
 }
 
 void URuntimeMeshSlicer::SliceRuntimeMesh(URuntimeMesh* InRuntimeMesh, FVector PlanePosition, FVector PlaneNormal, URuntimeMesh* OutOtherHalf, ERuntimeMeshSlicerCapOption CapOption)
@@ -621,6 +604,69 @@ void URuntimeMeshSlicer::SliceRuntimeMesh(URuntimeMesh* InRuntimeMesh, FVector P
 
 		// Copy all needed materials
 
+
+		bool bCreateOtherHalf = OutOtherHalf != nullptr;
+
+		PlaneNormal.Normalize();
+		FPlane SlicePlane(PlanePosition, PlaneNormal);
+
+		// Array of sliced collision shapes
+		TArray<TArray<FVector>> SlicedCollision;
+		TArray<TArray<FVector>> OtherSlicedCollision;
+
+		UBodySetup* BodySetup = InRuntimeMesh->GetBodySetup();
+
+		for (int32 ConvexIndex = 0; ConvexIndex < BodySetup->AggGeom.ConvexElems.Num(); ConvexIndex++)
+		{
+			FKConvexElem& BaseConvex = BodySetup->AggGeom.ConvexElems[ConvexIndex];
+
+			int32 BoxCompare = BoxPlaneCompare(BaseConvex.ElemBox, SlicePlane);
+
+			// If box totally clipped, add to other half (if desired)
+			if (BoxCompare == -1)
+			{
+				if (bCreateOtherHalf)
+				{
+					OtherSlicedCollision.Add(BaseConvex.VertexData);
+				}
+			}
+			// If box totally valid, just keep mesh as is
+			else if (BoxCompare == 1)
+			{
+				SlicedCollision.Add(BaseConvex.VertexData);
+			}
+			// Need to actually slice the convex shape
+			else
+			{
+				TArray<FVector> SlicedConvexVerts;
+				SliceConvexElem(BaseConvex, SlicePlane, SlicedConvexVerts);
+				// If we got something valid, add it
+				if (SlicedConvexVerts.Num() >= 4)
+				{
+					SlicedCollision.Add(SlicedConvexVerts);
+				}
+
+				// Slice again to get the other half of the collision, if desired
+				if (bCreateOtherHalf)
+				{
+					TArray<FVector> OtherSlicedConvexVerts;
+					SliceConvexElem(BaseConvex, SlicePlane.Flip(), OtherSlicedConvexVerts);
+					if (OtherSlicedConvexVerts.Num() >= 4)
+					{
+						OtherSlicedCollision.Add(OtherSlicedConvexVerts);
+					}
+				}
+			}
+		}
+
+		// Update collision of runtime mesh
+		InRuntimeMesh->SetCollisionConvexMeshes(SlicedCollision);
+
+		// Set collision for other mesh
+		if (bCreateOtherHalf)
+		{
+			OutOtherHalf->SetCollisionConvexMeshes(OtherSlicedCollision);
+		}
 	}
 }
 
@@ -648,11 +694,11 @@ void URuntimeMeshSlicer::SliceRuntimeMeshComponent(URuntimeMeshComponent* InRunt
 		{
 			if (OutOtherHalf->GetNumSections() > 0)
 			{
-				//OutOtherHalf->SetCollisionProfileName(InRuntimeMesh->GetCollisionProfileName());
-				//OutOtherHalf->SetCollisionEnabled(InRuntimeMesh->GetCollisionEnabled());
+				OutOtherHalf->SetCollisionProfileName(InRuntimeMesh->GetCollisionProfileName());
+				OutOtherHalf->SetCollisionEnabled(InRuntimeMesh->GetCollisionEnabled());
 				OutOtherHalf->SetCollisionUseComplexAsSimple(InRuntimeMesh->IsCollisionUsingComplexAsSimple());
 
-				//OutOtherHalf->RegisterComponent();
+				OutOtherHalf->RegisterComponent();
 			}
 			else
 			{

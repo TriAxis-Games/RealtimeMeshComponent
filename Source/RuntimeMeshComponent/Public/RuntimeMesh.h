@@ -677,6 +677,12 @@ public:
 		GetRuntimeMeshData()->ClearConvexCollisionSections();
 	}
 
+	void SetCollisionConvexMeshes(const TArray<TArray<FVector>>& ConvexMeshes)
+	{
+		check(IsInGameThread());
+		GetRuntimeMeshData()->SetCollisionConvexMeshes(ConvexMeshes);
+	}
+
 
 
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
@@ -803,6 +809,12 @@ public:
 	{
 		check(IsInGameThread()); 
 		return GetRuntimeMeshData()->GetLocalBounds();
+	}
+
+	UBodySetup* GetBodySetup() 
+	{ 
+		check(IsInGameThread());
+		return BodySetup; 
 	}
 
 private:

@@ -23,7 +23,6 @@ struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshCollisionSection
 struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshCollisionConvexMesh
 {
 	TArray<FVector> VertexBuffer;
-
 	FBox BoundingBox;
 
 	friend FArchive& operator <<(FArchive& Ar, FRuntimeMeshCollisionConvexMesh& Section)

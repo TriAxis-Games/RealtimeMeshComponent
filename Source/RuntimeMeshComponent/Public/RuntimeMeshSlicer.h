@@ -9,6 +9,7 @@
 
 
 struct FUtilPoly2D;
+struct FKConvexElem;
 
 /** Options for creating cap geometry when slicing */
 UENUM()
@@ -51,7 +52,7 @@ class RUNTIMEMESHCOMPONENT_API URuntimeMeshSlicer : public UBlueprintFunctionLib
 	static bool TriangulatePoly(TSharedPtr<FRuntimeMeshAccessor> Mesh, int32 VertBase, const FVector& PolyNormal);
 
 	/** Util to slice a convex hull with a plane */
-	//static void SliceConvexElem(const FKConvexElem& InConvex, const FPlane& SlicePlane, TArray<FVector>& OutConvexVerts);
+	static void SliceConvexElem(const FKConvexElem& InConvex, const FPlane& SlicePlane, TArray<FVector>& OutConvexVerts);
 
 public:
 

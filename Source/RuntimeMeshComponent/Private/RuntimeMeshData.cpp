@@ -547,6 +547,8 @@ void FRuntimeMeshData::ClearMeshSection(int32 SectionId)
 		bool bHadCollision = Section->IsCollisionEnabled();
 		bool bWasStaticSection = Section->GetUpdateFrequency() == EUpdateFrequency::Infrequent;
 
+		MeshSections[SectionId].Reset();
+
 		if (RenderProxy.IsValid())
 		{
 			RenderProxy->DeleteSection_GameThread(SectionId);
@@ -804,7 +806,10 @@ int32 FRuntimeMeshData::AddConvexCollisionSection(TArray<FVector> ConvexVerts)
 		NewIndex++;
 	}
 
-	ConvexCollisionSections.Add(NewIndex).VertexBuffer = ConvexVerts;
+	auto& Section = ConvexCollisionSections.Add(NewIndex);
+
+	Section.VertexBuffer = ConvexVerts;
+	Section.BoundingBox = FBox(ConvexVerts);
 
 	MarkCollisionDirty();
 
@@ -820,6 +825,7 @@ void FRuntimeMeshData::SetConvexCollisionSection(int32 ConvexSectionIndex, TArra
 	auto& Section = ConvexCollisionSections.FindOrAdd(ConvexSectionIndex);
 
 	Section.VertexBuffer = ConvexVerts;
+	Section.BoundingBox = FBox(ConvexVerts);
 
 	MarkCollisionDirty();
 }
@@ -858,7 +864,10 @@ void FRuntimeMeshData::SetCollisionConvexMeshes(const TArray<TArray<FVector>>& C
 	int32 Index = 0;
 	for (const auto& Convex : ConvexMeshes)
 	{
-		ConvexCollisionSections.FindOrAdd(Index++).VertexBuffer = Convex;
+		auto& Section = ConvexCollisionSections.FindOrAdd(Index++);
+
+		Section.VertexBuffer = Convex;
+		Section.BoundingBox = FBox(Convex);
 	}
 
 	MarkCollisionDirty();
@@ -1138,7 +1147,7 @@ void FRuntimeMeshData::UpdateLocalBounds()
 	for (int32 SectionId = 0; SectionId < MeshSections.Num(); SectionId++)
 	{
 		FRuntimeMeshSectionPtr Section = MeshSections[SectionId];
-		if (Section->ShouldRender())
+		if (Section.IsValid() && Section->ShouldRender())
 		{
 			LocalBox += Section->GetBoundingBox();
 		}

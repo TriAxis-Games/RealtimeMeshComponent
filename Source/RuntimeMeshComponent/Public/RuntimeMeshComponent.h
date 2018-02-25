@@ -632,6 +632,11 @@ public:
 		GetOrCreateRuntimeMesh()->ClearAllConvexCollisionSections();
 	}
 
+	void SetCollisionConvexMeshes(const TArray<TArray<FVector>>& ConvexMeshes)
+	{
+		GetOrCreateRuntimeMesh()->SetCollisionConvexMeshes(ConvexMeshes);
+	}
+
 	
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
 	int32 AddCollisionBox(const FRuntimeMeshCollisionBox& NewBox)
