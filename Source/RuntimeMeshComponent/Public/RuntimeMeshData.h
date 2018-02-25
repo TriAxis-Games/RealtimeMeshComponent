@@ -1076,6 +1076,8 @@ public:
 	/** Returns first available section index */
 	int32 GetAvailableSectionIndex() const;
 
+	int32 GetLastSectionIndex() const;
+
 
 	TArray<int32> GetSectionIds() const;
 

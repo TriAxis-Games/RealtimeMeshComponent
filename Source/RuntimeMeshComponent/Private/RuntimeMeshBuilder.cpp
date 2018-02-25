@@ -524,6 +524,37 @@ void FRuntimeMeshAccessor::Initialize(const FRuntimeMeshVertexStreamStructure& I
 
 
 
+void FRuntimeMeshAccessor::CopyTo(const TSharedPtr<FRuntimeMeshAccessor>& Other, bool bClearDestination) const
+{
+	if (bClearDestination)
+	{
+		Other->EmptyVertices(NumVertices());
+		Other->EmptyIndices(NumIndices());
+	}
+
+	int32 StartVertex = Other->NumVertices();
+	int32 NumVerts = NumVertices();
+	int32 NumUVs = FMath::Min(NumUVChannels(), Other->NumUVChannels());
+
+	for (int32 Index = 0; Index < NumVerts; Index++)
+	{
+		int32 NewIndex = Other->AddVertex(GetPosition(Index));
+		Other->SetNormal(NewIndex, GetNormal(Index));
+		Other->SetTangent(NewIndex, GetTangent(Index));
+		Other->SetColor(NewIndex, GetColor(Index));
+		for (int32 UVIndex = 0; UVIndex < NumUVs; UVIndex++)
+		{
+			Other->SetUV(NewIndex, UVIndex, GetUV(Index, UVIndex));
+		}
+	}
+
+	int32 NumInds = NumIndices();
+	for (int32 Index = 0; Index < NumInds; Index++)
+	{
+		Other->AddIndex(GetIndex(Index) + StartVertex);
+	}
+}
+
 //////////////////////////////////////////////////////////////////////////
 //	FRuntimeMeshBuilder
 

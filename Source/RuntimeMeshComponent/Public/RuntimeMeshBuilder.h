@@ -296,7 +296,7 @@ protected:
 		const FRuntimeMeshVertexStreamStructure& Stream2Structure, bool bIn32BitIndices);
 
 public:
-
+	void CopyTo(const TSharedPtr<FRuntimeMeshAccessor>& Other, bool bClearDestination = false) const;
 
 };
 
@@ -348,7 +348,7 @@ FORCEINLINE TSharedRef<FRuntimeMeshBuilder> MakeRuntimeMeshBuilder()
 	return MakeShared<FRuntimeMeshBuilder>(GetStreamStructure<VertexType0>(), GetStreamStructure<VertexType1>(), GetStreamStructure<VertexType2>(), FRuntimeMeshIndexTraits<IndexType>::Is32Bit);
 }
 
-FORCEINLINE TSharedRef<FRuntimeMeshBuilder> MakeRuntimeMeshBuilder(const TSharedRef<FRuntimeMeshAccessor>& StructureToCopy)
+FORCEINLINE TSharedRef<FRuntimeMeshBuilder> MakeRuntimeMeshBuilder(const TSharedRef<const FRuntimeMeshAccessor>& StructureToCopy)
 {
 	return MakeShared<FRuntimeMeshBuilder>(StructureToCopy->GetStream0Structure(), StructureToCopy->GetStream1Structure(), StructureToCopy->GetStream2Structure(), StructureToCopy->IsUsing32BitIndices());
 }

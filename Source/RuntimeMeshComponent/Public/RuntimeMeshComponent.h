@@ -722,6 +722,13 @@ public:
 	}
 
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
+	bool IsCollisionUsingComplexAsSimple()
+	{
+		check(IsInGameThread());
+		return GetRuntimeMesh() != nullptr ? GetRuntimeMesh()->IsCollisionUsingComplexAsSimple() : true;
+	}
+
+	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
 	void SetCollisionUseAsyncCooking(bool bNewValue)
 	{
 		GetOrCreateRuntimeMesh()->SetCollisionUseAsyncCooking(bNewValue);

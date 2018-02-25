@@ -547,9 +547,17 @@ void FRuntimeMeshData::ClearMeshSection(int32 SectionId)
 		bool bHadCollision = Section->IsCollisionEnabled();
 		bool bWasStaticSection = Section->GetUpdateFrequency() == EUpdateFrequency::Infrequent;
 
-		MarkRenderStateDirty();
+		if (RenderProxy.IsValid())
+		{
+			RenderProxy->DeleteSection_GameThread(SectionId);
+		}
+
+		// Strip tailing invalid sections
+		int32 LastValidIndex = GetLastSectionIndex();
+		MeshSections.SetNum(LastValidIndex + 1);
 
 		UpdateLocalBounds();
+		MarkRenderStateDirty();
 
 		if (bHadCollision)
 		{
@@ -566,9 +574,13 @@ void FRuntimeMeshData::ClearAllMeshSections()
 
 	MeshSections.Empty();
 
-	MarkRenderStateDirty();
+	if (RenderProxy.IsValid())
+	{
+		RenderProxy->DeleteSection_GameThread(INDEX_NONE);
+	}
 
 	UpdateLocalBounds();
+	MarkRenderStateDirty();
 	MarkCollisionDirty();
 }
 
@@ -711,6 +723,18 @@ int32 FRuntimeMeshData::GetAvailableSectionIndex() const
 	return INDEX_NONE;
 }
 
+
+int32 FRuntimeMeshData::GetLastSectionIndex() const
+{
+	for (int32 Index = MeshSections.Num() - 1; Index >= 0; Index--)
+	{
+		if (MeshSections[Index].IsValid())
+		{
+			return Index;
+		}
+	}
+	return INDEX_NONE;
+}
 
 TArray<int32> FRuntimeMeshData::GetSectionIds() const
 {

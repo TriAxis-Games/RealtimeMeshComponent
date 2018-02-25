@@ -115,10 +115,22 @@ void FRuntimeMeshProxy::DeleteSection_RenderThread(int32 SectionId)
 {
 	check(IsInRenderingThread());
 
-	// Remove the section if it exists
-	int32 RemovedSection = Sections.Remove(SectionId);
+	bool bChangedState = false;
+	if (SectionId == INDEX_NONE)
+	{
+		Sections.Empty();
+		bChangedState = true;
+	}
+	else
+	{
+		// Remove the section if it exists
+		if (Sections.Remove(SectionId) > 0)
+		{
+			bChangedState = true;
+		}
+	}
 
-	if (RemovedSection)
+	if (bChangedState)
 	{
 		// Update the cached values for rendering.
 		UpdateCachedValues();
