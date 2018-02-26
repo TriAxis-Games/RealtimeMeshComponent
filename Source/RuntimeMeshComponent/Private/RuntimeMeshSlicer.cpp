@@ -9,20 +9,18 @@
 #include "PhysicsEngine/BodySetup.h"
 
 
-int32 URuntimeMeshSlicer::BoxPlaneCompare(const FBox& InBox, const FPlane& InPlane)
+int32 URuntimeMeshSlicer::CompareBoxPlane(const FBox& InBox, const FPlane& InPlane)
 {
 	FVector BoxCenter, BoxExtents;
 	InBox.GetCenterAndExtents(BoxCenter, BoxExtents);
 
-	// Find distance of box center from plane
+	// Find the distance from the plane to the center of the box
 	float BoxCenterDist = InPlane.PlaneDot(BoxCenter);
 
-	// See size of box in plane normal direction
+	// Find the size of the box in direction of plane normal
 	float BoxSize = FVector::BoxPushOut(InPlane, BoxExtents);
 
-	return BoxCenterDist > BoxSize ? 1 :
-		BoxCenterDist < -BoxSize ? -1 :
-		0;
+	return (BoxCenterDist > BoxSize) ? 1 : ((BoxCenterDist < -BoxSize) ? -1 : 0);
 }
 
 FRuntimeMeshAccessorVertex URuntimeMeshSlicer::InterpolateVert(const FRuntimeMeshAccessorVertex& V0, const FRuntimeMeshAccessorVertex& V1, float Alpha)
@@ -55,7 +53,7 @@ FRuntimeMeshAccessorVertex URuntimeMeshSlicer::InterpolateVert(const FRuntimeMes
 	{
 		Result.UVs[Index] = FMath::Lerp(V0.UVs[Index], V1.UVs[Index], Alpha);
 	}
-	
+
 	return Result;
 }
 
@@ -89,30 +87,29 @@ void URuntimeMeshSlicer::Transform2DPolygonTo3D(const FUtilPoly2D& InPoly, const
 
 bool URuntimeMeshSlicer::TriangulatePoly(TSharedPtr<FRuntimeMeshAccessor> Mesh, int32 VertBase, const FVector& PolyNormal)
 {
-	// Can't work if not enough verts for 1 triangle
+	// Bail if we don't have enough vertices
 	int32 NumVerts = Mesh->NumVertices() - VertBase;
-	if (NumVerts < 3)
+	if (NumVerts <= 3)
 	{
-		Mesh->AddIndex(0);
-		Mesh->AddIndex(2);
-		Mesh->AddIndex(1);
+		Mesh->AddIndex(FMath::Clamp(0 + VertBase, 0, NumVerts));
+		Mesh->AddIndex(FMath::Clamp(2 + VertBase, 0, NumVerts));
+		Mesh->AddIndex(FMath::Clamp(1 + VertBase, 0, NumVerts));
 
-		// Return true because poly is already a tri
 		return true;
 	}
 
-	// Remember initial size of OutTris, in case we need to give up and return to this size
-	const int32 TriBase = Mesh->NumIndices();
+	// Store the starting size of the indices. 
+	const int32 OriginalNumIndices = Mesh->NumIndices();
 
-	// Init array of vert indices, in order. We'll modify this
+	// Initialize starting array of indices
 	TArray<int32> VertIndices;
-	VertIndices.AddUninitialized(NumVerts);
+	VertIndices.SetNumUninitialized(NumVerts);
 	for (int VertIndex = 0; VertIndex < NumVerts; VertIndex++)
 	{
 		VertIndices[VertIndex] = VertBase + VertIndex;
 	}
 
-	// Keep iterating while there are still vertices
+	// Find ears until there are no vertices
 	while (VertIndices.Num() >= 3)
 	{
 		// Look for an 'ear' triangle
@@ -120,19 +117,19 @@ bool URuntimeMeshSlicer::TriangulatePoly(TSharedPtr<FRuntimeMeshAccessor> Mesh, 
 		for (int32 EarVertexIndex = 0; EarVertexIndex < VertIndices.Num(); EarVertexIndex++)
 		{
 			// Triangle is 'this' vert plus the one before and after it
-			const int32 AIndex = (EarVertexIndex == 0) ? VertIndices.Num() - 1 : EarVertexIndex - 1;
-			const int32 BIndex = EarVertexIndex;
-			const int32 CIndex = (EarVertexIndex + 1) % VertIndices.Num();
+			const int32 Index1 = (EarVertexIndex == 0) ? VertIndices.Num() - 1 : EarVertexIndex - 1;
+			const int32 Index2 = EarVertexIndex;
+			const int32 Index3 = (EarVertexIndex + 1) % VertIndices.Num();
 
-			const FRuntimeMeshAccessorVertex AVert = Mesh->GetVertex(VertIndices[AIndex]);
-			const FRuntimeMeshAccessorVertex BVert = Mesh->GetVertex(VertIndices[BIndex]);
-			const FRuntimeMeshAccessorVertex CVert = Mesh->GetVertex(VertIndices[CIndex]);
+			const FRuntimeMeshAccessorVertex Vert1 = Mesh->GetVertex(VertIndices[Index1]);
+			const FRuntimeMeshAccessorVertex Vert2 = Mesh->GetVertex(VertIndices[Index2]);
+			const FRuntimeMeshAccessorVertex Vert3 = Mesh->GetVertex(VertIndices[Index3]);
 
 			// Check that this vertex is convex (cross product must be positive)
-			const FVector ABEdge = BVert.Position - AVert.Position;
-			const FVector ACEdge = CVert.Position - AVert.Position;
-			const float TriangleDeterminant = (ABEdge ^ ACEdge) | PolyNormal;
-			if (TriangleDeterminant > 0.f)
+			const FVector Edge12 = Vert2.Position - Vert1.Position;
+			const FVector Edge13 = Vert3.Position - Vert1.Position;
+			const float Determinant = (Edge12 ^ Edge13) | PolyNormal;
+			if (Determinant > 0.f)
 			{
 				continue;
 			}
@@ -143,10 +140,10 @@ bool URuntimeMeshSlicer::TriangulatePoly(TSharedPtr<FRuntimeMeshAccessor> Mesh, 
 			{
 				const FRuntimeMeshAccessorVertex& TestVert = Mesh->GetVertex(VertIndices[VertexIndex]);
 
-				if (VertexIndex != AIndex &&
-					VertexIndex != BIndex &&
-					VertexIndex != CIndex &&
-					FGeomTools::PointInTriangle(AVert.Position, BVert.Position, CVert.Position, TestVert.Position))
+				if (VertexIndex != Index1 &&
+					VertexIndex != Index2 &&
+					VertexIndex != Index3 &&
+					FGeomTools::PointInTriangle(Vert1.Position, Vert2.Position, Vert3.Position, TestVert.Position))
 				{
 					bFoundVertInside = true;
 					break;
@@ -156,9 +153,9 @@ bool URuntimeMeshSlicer::TriangulatePoly(TSharedPtr<FRuntimeMeshAccessor> Mesh, 
 			// Triangle with no verts inside - its an 'ear'! 
 			if (!bFoundVertInside)
 			{
-				Mesh->AddIndex(VertIndices[AIndex]);
-				Mesh->AddIndex(VertIndices[CIndex]);
-				Mesh->AddIndex(VertIndices[BIndex]);
+				Mesh->AddIndex(VertIndices[Index1]);
+				Mesh->AddIndex(VertIndices[Index3]);
+				Mesh->AddIndex(VertIndices[Index2]);
 
 				// And remove vertex from polygon
 				VertIndices.RemoveAt(EarVertexIndex);
@@ -171,7 +168,7 @@ bool URuntimeMeshSlicer::TriangulatePoly(TSharedPtr<FRuntimeMeshAccessor> Mesh, 
 		// If we couldn't find an 'ear' it indicates something is bad with this polygon - discard triangles and return.
 		if (!bFoundEar)
 		{
-			Mesh->SetNumIndices(TriBase);
+			Mesh->SetNumIndices(OriginalNumIndices);
 			return false;
 		}
 	}
@@ -204,17 +201,17 @@ void URuntimeMeshSlicer::SliceConvexElem(const FKConvexElem& InConvex, const FPl
 
 void URuntimeMeshSlicer::SliceRuntimeMesh(const FRuntimeMeshDataPtr& InRuntimeMesh, FVector PlanePosition, FVector PlaneNormal, const FRuntimeMeshDataPtr& OutOtherHalf, ERuntimeMeshSlicerCapOption CapOption)
 {
- 	// Bail if we don't have a valid mesh
- 	if (!InRuntimeMesh.IsValid())
- 	{
- 		return;
- 	}
+	// Bail if we don't have a valid mesh
+	if (!InRuntimeMesh.IsValid())
+	{
+		return;
+	}
 
 	PlaneNormal.Normalize();
 	FPlane SlicePlane(PlanePosition, PlaneNormal);
 
 	bool bShouldCreateOtherHalf = OutOtherHalf.IsValid();
-	
+
 	// Set of new edges created by clipping polys by plane
 	TArray<FUtilEdge3D> ClipEdges;
 
@@ -235,8 +232,7 @@ void URuntimeMeshSlicer::SliceRuntimeMesh(const FRuntimeMeshDataPtr& InRuntimeMe
 		}
 
 		// Compare bounding box of section with slicing plane
-		int32 BoxCompare = BoxPlaneCompare(InRuntimeMesh->GetSectionBoundingBox(SectionIndex), SlicePlane);
-
+		int32 BoxCompare = CompareBoxPlane(InRuntimeMesh->GetSectionBoundingBox(SectionIndex), SlicePlane);
 
 		if (BoxCompare == 1)
 		{
@@ -263,263 +259,343 @@ void URuntimeMeshSlicer::SliceRuntimeMesh(const FRuntimeMeshDataPtr& InRuntimeMe
 
 		check(BoxCompare == 0);
 
-		auto SourceMeshData = InRuntimeMesh->GetReadonlyMeshAccessor(SectionIndex).ToSharedRef();
-		TSharedPtr<FRuntimeMeshBuilder> NewMeshData = MakeRuntimeMeshBuilder(SourceMeshData);
-		TSharedPtr<FRuntimeMeshBuilder> OtherMeshData = bShouldCreateOtherHalf ? MakeRuntimeMeshBuilder(SourceMeshData) : TSharedPtr<FRuntimeMeshBuilder>(nullptr);
-		
-		// Map of base vert index to sliced vert index
-		TMap<int32, int32> BaseToSlicedVertIndex;
-		TMap<int32, int32> BaseToOtherSlicedVertIndex;
+		SliceRuntimeMeshSection(InRuntimeMesh, OutOtherHalf, SectionIndex, SlicePlane, ClipEdges);
+	}
 
-		const int32 NumBaseVerts = SourceMeshData->NumVertices();
+	CapMeshSlice(InRuntimeMesh, OutOtherHalf, ClipEdges, SlicePlane, PlaneNormal, CapOption);
+}
 
-		// Distance of each base vert from slice plane
-		TArray<float> VertDistance;
-		VertDistance.AddUninitialized(NumBaseVerts);
+void URuntimeMeshSlicer::SliceRuntimeMeshConvexCollision(URuntimeMesh* InRuntimeMesh, URuntimeMesh* OutOtherHalf, FVector PlanePosition, FVector PlaneNormal)
+{
+	bool bCreateOtherHalf = OutOtherHalf != nullptr;
 
-		// Build vertex buffer 
-		for (int32 BaseVertIndex = 0; BaseVertIndex < NumBaseVerts; BaseVertIndex++)
+	PlaneNormal.Normalize();
+	FPlane SlicePlane(PlanePosition, PlaneNormal);
+
+	// Array of sliced collision shapes
+	TArray<TArray<FVector>> SlicedCollision;
+	TArray<TArray<FVector>> OtherSlicedCollision;
+
+	UBodySetup* BodySetup = InRuntimeMesh->GetBodySetup();
+
+	for (int32 ConvexIndex = 0; ConvexIndex < BodySetup->AggGeom.ConvexElems.Num(); ConvexIndex++)
+	{
+		FKConvexElem& BaseConvex = BodySetup->AggGeom.ConvexElems[ConvexIndex];
+
+		int32 BoxCompare = CompareBoxPlane(BaseConvex.ElemBox, SlicePlane);
+
+		// If box totally clipped, add to other half (if desired)
+		if (BoxCompare == -1)
 		{
-			FRuntimeMeshAccessorVertex BaseVert = SourceMeshData->GetVertex(BaseVertIndex);
-
-			// Calculate distance from plane
-			VertDistance[BaseVertIndex] = SlicePlane.PlaneDot(BaseVert.Position);
-
-			// See if vert is being kept in this section
-			if (VertDistance[BaseVertIndex] > 0.f)
+			if (bCreateOtherHalf)
 			{
-				// Copy to sliced v buffer
-				int32 SlicedVertIndex = NewMeshData->AddVertex(BaseVert);
-
-				// Add to map
-				BaseToSlicedVertIndex.Add(BaseVertIndex, SlicedVertIndex);
-			}
-			// Or add to other half if desired
-			else if (bShouldCreateOtherHalf)
-			{
-				int32 SlicedVertIndex = OtherMeshData->AddVertex(BaseVert);
-
-				BaseToOtherSlicedVertIndex.Add(BaseVertIndex, SlicedVertIndex);
+				OtherSlicedCollision.Add(BaseConvex.VertexData);
 			}
 		}
-
-
-		// Iterate over base triangles (IE. 3 indices at a time)
-		int32 NumBaseIndices = SourceMeshData->NumIndices();
-		for (int32 BaseIndex = 0; BaseIndex < NumBaseIndices; BaseIndex += 3)
+		// If box totally valid, just keep mesh as is
+		else if (BoxCompare == 1)
 		{
-			int32 BaseV[3]; // Triangle vert indices in original mesh
-			int32* SlicedV[3]; // Pointers to vert indices in new v buffer
-			int32* SlicedOtherV[3]; // Pointers to vert indices in new 'other half' v buffer
-
-			// For each vertex..
-			for (int32 i = 0; i < 3; i++)
-			{
-				// Get triangle vert index
-				BaseV[i] = SourceMeshData->GetIndex(BaseIndex + i);
-				// Look up in sliced v buffer
-				SlicedV[i] = BaseToSlicedVertIndex.Find(BaseV[i]);
-				// Look up in 'other half' v buffer (if desired)
-				if (bShouldCreateOtherHalf)
-				{
-					SlicedOtherV[i] = BaseToOtherSlicedVertIndex.Find(BaseV[i]);
-					// Each base vert _must_ exist in either BaseToSlicedVertIndex or BaseToOtherSlicedVertIndex 
-					check((SlicedV[i] != nullptr) != (SlicedOtherV[i] != nullptr));
-				}
-			}
-
-			// If all verts survived plane cull, keep the triangle
-			if (SlicedV[0] != nullptr && SlicedV[1] != nullptr && SlicedV[2] != nullptr)
-			{
-				NewMeshData->AddIndex(*SlicedV[0]);
-				NewMeshData->AddIndex(*SlicedV[1]);
-				NewMeshData->AddIndex(*SlicedV[2]);
-			}
-			// If all verts were removed by plane cull
-			else if (SlicedV[0] == nullptr && SlicedV[1] == nullptr && SlicedV[2] == nullptr)
-			{
-				// If creating other half, add all verts to that
-				if (bShouldCreateOtherHalf)
-				{
-					OtherMeshData->AddIndex(*SlicedOtherV[0]);
-					OtherMeshData->AddIndex(*SlicedOtherV[1]);
-					OtherMeshData->AddIndex(*SlicedOtherV[2]);
-				}
-			}
-			// If partially culled, clip to create 1 or 2 new triangles
-			else
-			{
-				int32 FinalVerts[4];
-				int32 NumFinalVerts = 0;
-
-				int32 OtherFinalVerts[4];
-				int32 NumOtherFinalVerts = 0;
-
-				FUtilEdge3D NewClipEdge;
-				int32 ClippedEdges = 0;
-
-				float PlaneDist[3];
-				PlaneDist[0] = VertDistance[BaseV[0]];
-				PlaneDist[1] = VertDistance[BaseV[1]];
-				PlaneDist[2] = VertDistance[BaseV[2]];
-
-				for (int32 EdgeIdx = 0; EdgeIdx < 3; EdgeIdx++)
-				{
-					int32 ThisVert = EdgeIdx;
-
-					// If start vert is inside, add it.
-					if (SlicedV[ThisVert] != nullptr)
-					{
-						check(NumFinalVerts < 4);
-						FinalVerts[NumFinalVerts++] = *SlicedV[ThisVert];
-					}
-					// If not, add to other side
-					else if (bShouldCreateOtherHalf)
-					{
-						check(NumOtherFinalVerts < 4);
-						OtherFinalVerts[NumOtherFinalVerts++] = *SlicedOtherV[ThisVert];
-					}
-
-					// If start and next vert are on opposite sides, add intersection
-					int32 NextVert = (EdgeIdx + 1) % 3;
-
-					if ((SlicedV[EdgeIdx] == nullptr) != (SlicedV[NextVert] == nullptr))
-					{
-						// Find distance along edge that plane is
-						float Alpha = -PlaneDist[ThisVert] / (PlaneDist[NextVert] - PlaneDist[ThisVert]);
-						// Interpolate vertex params to that point
-						FRuntimeMeshAccessorVertex InterpVert = InterpolateVert(
-							SourceMeshData->GetVertex(BaseV[ThisVert]),
-							SourceMeshData->GetVertex(BaseV[NextVert]),
-							FMath::Clamp(Alpha, 0.0f, 1.0f));
-
-						// Add to vertex buffer
-						int32 InterpVertIndex = NewMeshData->AddVertex(InterpVert);
-						
-						// Save vert index for this poly
-						check(NumFinalVerts < 4);
-						FinalVerts[NumFinalVerts++] = InterpVertIndex;
-
-						// If desired, add to the poly for the other half as well
-						if (bShouldCreateOtherHalf)
-						{
-							int32 OtherInterpVertIndex = OtherMeshData->AddVertex(InterpVert);
-
-							check(NumOtherFinalVerts < 4);
-							OtherFinalVerts[NumOtherFinalVerts++] = OtherInterpVertIndex;
-						}
-
-						// When we make a new edge on the surface of the clip plane, save it off.
-						check(ClippedEdges < 2);
-						if (ClippedEdges == 0)
-						{
-							NewClipEdge.V0 = InterpVert.Position;
-						}
-						else
-						{
-							NewClipEdge.V1 = InterpVert.Position;
-						}
-
-						ClippedEdges++;
-					}
-				}
-
-				// Triangulate the clipped polygon.
-				for (int32 VertexIndex = 2; VertexIndex < NumFinalVerts; VertexIndex++)
-				{
-					NewMeshData->AddIndex(FinalVerts[0]);
-					NewMeshData->AddIndex(FinalVerts[VertexIndex - 1]);
-					NewMeshData->AddIndex(FinalVerts[VertexIndex]);
-				}
-
-				// If we are making the other half, triangulate that as well
-				if (bShouldCreateOtherHalf)
-				{
-					for (int32 VertexIndex = 2; VertexIndex < NumOtherFinalVerts; VertexIndex++)
-					{
-						OtherMeshData->AddIndex(OtherFinalVerts[0]);
-						OtherMeshData->AddIndex(OtherFinalVerts[VertexIndex - 1]);
-						OtherMeshData->AddIndex(OtherFinalVerts[VertexIndex]);
-					}
-				}
-
-				check(ClippedEdges != 1); // Should never clip just one edge of the triangle
-
-										  // If we created a new edge, save that off here as well
-				if (ClippedEdges == 2)
-				{
-					ClipEdges.Add(NewClipEdge);
-				}
-			}
+			SlicedCollision.Add(BaseConvex.VertexData);
 		}
-
-		// Add the mesh data to the other mesh if we're building the other mesh and have valid geometry.
-		if (bShouldCreateOtherHalf && OtherMeshData->NumVertices() > 0 && OtherMeshData->NumIndices() > 0)
-		{
-			OutOtherHalf->CreateMeshSection(SectionIndex, MoveTemp(OtherMeshData));
-		}
-
-		// Update this runtime mesh, or clear it if we have no geometry
-		if (NewMeshData->NumVertices() > 0 && NewMeshData->NumIndices() > 0)
-		{
-			InRuntimeMesh->UpdateMeshSection(SectionIndex, MoveTemp(NewMeshData));
-		}
+		// Need to actually slice the convex shape
 		else
 		{
-			InRuntimeMesh->ClearMeshSection(SectionIndex);
+			TArray<FVector> SlicedConvexVerts;
+			SliceConvexElem(BaseConvex, SlicePlane, SlicedConvexVerts);
+			// If we got something valid, add it
+			if (SlicedConvexVerts.Num() >= 4)
+			{
+				SlicedCollision.Add(SlicedConvexVerts);
+			}
+
+			// Slice again to get the other half of the collision, if desired
+			if (bCreateOtherHalf)
+			{
+				TArray<FVector> OtherSlicedConvexVerts;
+				SliceConvexElem(BaseConvex, SlicePlane.Flip(), OtherSlicedConvexVerts);
+				if (OtherSlicedConvexVerts.Num() >= 4)
+				{
+					OtherSlicedCollision.Add(OtherSlicedConvexVerts);
+				}
+			}
 		}
 	}
 
- 	// Create cap geometry (if some edges to create it from)
- 	if (CapOption != ERuntimeMeshSlicerCapOption::NoCap && ClipEdges.Num() > 0)
+	// Update collision of runtime mesh
+	InRuntimeMesh->SetCollisionConvexMeshes(SlicedCollision);
+
+	// Set collision for other mesh
+	if (bCreateOtherHalf)
+	{
+		OutOtherHalf->SetCollisionConvexMeshes(OtherSlicedCollision);
+	}
+}
+
+void URuntimeMeshSlicer::SliceRuntimeMeshSection(const FRuntimeMeshDataPtr& InRuntimeMesh, const FRuntimeMeshDataPtr& OutOtherHalf, int32 SectionIndex, const FPlane& SlicePlane, TArray<FUtilEdge3D>& ClipEdges)
+{
+	bool bShouldCreateOtherHalf = OutOtherHalf.IsValid();
+
+	auto SourceMeshData = InRuntimeMesh->GetReadonlyMeshAccessor(SectionIndex).ToSharedRef();
+	TSharedPtr<FRuntimeMeshBuilder> NewMeshData = MakeRuntimeMeshBuilder(SourceMeshData);
+	TSharedPtr<FRuntimeMeshBuilder> OtherMeshData = bShouldCreateOtherHalf ? MakeRuntimeMeshBuilder(SourceMeshData) : TSharedPtr<FRuntimeMeshBuilder>(nullptr);
+
+	// Map of base vert index to sliced vert index
+	TMap<int32, int32> BaseToSlicedVertIndex;
+	TMap<int32, int32> BaseToOtherSlicedVertIndex;
+
+	const int32 NumBaseVerts = SourceMeshData->NumVertices();
+
+	// Distance of each base vert from slice plane
+	TArray<float> VertDistance;
+	VertDistance.SetNumUninitialized(NumBaseVerts);
+
+	// Build vertex buffer 
+	for (int32 BaseVertIndex = 0; BaseVertIndex < NumBaseVerts; BaseVertIndex++)
+	{
+		FRuntimeMeshAccessorVertex BaseVert = SourceMeshData->GetVertex(BaseVertIndex);
+
+		// Calculate distance from plane
+		VertDistance[BaseVertIndex] = SlicePlane.PlaneDot(BaseVert.Position);
+
+		// See if vert is being kept in this section
+		if (VertDistance[BaseVertIndex] > 0.f)
+		{
+			// Copy to sliced v buffer
+			int32 SlicedVertIndex = NewMeshData->AddVertex(BaseVert);
+
+			// Add to map
+			BaseToSlicedVertIndex.Add(BaseVertIndex, SlicedVertIndex);
+		}
+		// Or add to other half if desired
+		else if (bShouldCreateOtherHalf)
+		{
+			int32 SlicedVertIndex = OtherMeshData->AddVertex(BaseVert);
+
+			BaseToOtherSlicedVertIndex.Add(BaseVertIndex, SlicedVertIndex);
+		}
+	}
+
+
+	// Iterate over base triangles (IE. 3 indices at a time)
+	int32 NumBaseIndices = SourceMeshData->NumIndices();
+	for (int32 BaseIndex = 0; BaseIndex < NumBaseIndices; BaseIndex += 3)
+	{
+		int32 BaseV[3]; // Triangle vert indices in original mesh
+		int32* SlicedV[3]; // Pointers to vert indices in new v buffer
+		int32* SlicedOtherV[3]; // Pointers to vert indices in new 'other half' v buffer
+
+								// For each vertex..
+		for (int32 i = 0; i < 3; i++)
+		{
+			// Get triangle vert index
+			BaseV[i] = SourceMeshData->GetIndex(BaseIndex + i);
+			// Look up in sliced v buffer
+			SlicedV[i] = BaseToSlicedVertIndex.Find(BaseV[i]);
+			// Look up in 'other half' v buffer (if desired)
+			if (bShouldCreateOtherHalf)
+			{
+				SlicedOtherV[i] = BaseToOtherSlicedVertIndex.Find(BaseV[i]);
+				// Each base vert _must_ exist in either BaseToSlicedVertIndex or BaseToOtherSlicedVertIndex 
+				check((SlicedV[i] != nullptr) != (SlicedOtherV[i] != nullptr));
+			}
+		}
+
+		// If all verts survived plane cull, keep the triangle
+		if (SlicedV[0] != nullptr && SlicedV[1] != nullptr && SlicedV[2] != nullptr)
+		{
+			NewMeshData->AddIndex(*SlicedV[0]);
+			NewMeshData->AddIndex(*SlicedV[1]);
+			NewMeshData->AddIndex(*SlicedV[2]);
+		}
+		// If all verts were removed by plane cull
+		else if (SlicedV[0] == nullptr && SlicedV[1] == nullptr && SlicedV[2] == nullptr)
+		{
+			// If creating other half, add all verts to that
+			if (bShouldCreateOtherHalf)
+			{
+				OtherMeshData->AddIndex(*SlicedOtherV[0]);
+				OtherMeshData->AddIndex(*SlicedOtherV[1]);
+				OtherMeshData->AddIndex(*SlicedOtherV[2]);
+			}
+		}
+		// If partially culled, clip to create 1 or 2 new triangles
+		else
+		{
+			int32 FinalVerts[4];
+			int32 NumFinalVerts = 0;
+
+			int32 OtherFinalVerts[4];
+			int32 NumOtherFinalVerts = 0;
+
+			FUtilEdge3D NewClipEdge;
+			int32 ClippedEdges = 0;
+
+			float PlaneDist[3];
+			PlaneDist[0] = VertDistance[BaseV[0]];
+			PlaneDist[1] = VertDistance[BaseV[1]];
+			PlaneDist[2] = VertDistance[BaseV[2]];
+
+			for (int32 EdgeIdx = 0; EdgeIdx < 3; EdgeIdx++)
+			{
+				int32 ThisVert = EdgeIdx;
+
+				// If start vert is inside, add it.
+				if (SlicedV[ThisVert] != nullptr)
+				{
+					check(NumFinalVerts < 4);
+					FinalVerts[NumFinalVerts++] = *SlicedV[ThisVert];
+				}
+				// If not, add to other side
+				else if (bShouldCreateOtherHalf)
+				{
+					check(NumOtherFinalVerts < 4);
+					OtherFinalVerts[NumOtherFinalVerts++] = *SlicedOtherV[ThisVert];
+				}
+
+				// If start and next vert are on opposite sides, add intersection
+				int32 NextVert = (EdgeIdx + 1) % 3;
+
+				if ((SlicedV[EdgeIdx] == nullptr) != (SlicedV[NextVert] == nullptr))
+				{
+					// Find distance along edge that plane is
+					float Alpha = -PlaneDist[ThisVert] / (PlaneDist[NextVert] - PlaneDist[ThisVert]);
+					// Interpolate vertex params to that point
+					FRuntimeMeshAccessorVertex InterpVert = InterpolateVert(
+						SourceMeshData->GetVertex(BaseV[ThisVert]),
+						SourceMeshData->GetVertex(BaseV[NextVert]),
+						FMath::Clamp(Alpha, 0.0f, 1.0f));
+
+					// Add to vertex buffer
+					int32 InterpVertIndex = NewMeshData->AddVertex(InterpVert);
+
+					// Save vert index for this poly
+					check(NumFinalVerts < 4);
+					FinalVerts[NumFinalVerts++] = InterpVertIndex;
+
+					// If desired, add to the poly for the other half as well
+					if (bShouldCreateOtherHalf)
+					{
+						int32 OtherInterpVertIndex = OtherMeshData->AddVertex(InterpVert);
+
+						check(NumOtherFinalVerts < 4);
+						OtherFinalVerts[NumOtherFinalVerts++] = OtherInterpVertIndex;
+					}
+
+					// When we make a new edge on the surface of the clip plane, save it off.
+					check(ClippedEdges < 2);
+					if (ClippedEdges == 0)
+					{
+						NewClipEdge.V0 = InterpVert.Position;
+					}
+					else
+					{
+						NewClipEdge.V1 = InterpVert.Position;
+					}
+
+					ClippedEdges++;
+				}
+			}
+
+			// Triangulate the clipped polygon.
+			for (int32 VertexIndex = 2; VertexIndex < NumFinalVerts; VertexIndex++)
+			{
+				NewMeshData->AddIndex(FinalVerts[0]);
+				NewMeshData->AddIndex(FinalVerts[VertexIndex - 1]);
+				NewMeshData->AddIndex(FinalVerts[VertexIndex]);
+			}
+
+			// If we are making the other half, triangulate that as well
+			if (bShouldCreateOtherHalf)
+			{
+				for (int32 VertexIndex = 2; VertexIndex < NumOtherFinalVerts; VertexIndex++)
+				{
+					OtherMeshData->AddIndex(OtherFinalVerts[0]);
+					OtherMeshData->AddIndex(OtherFinalVerts[VertexIndex - 1]);
+					OtherMeshData->AddIndex(OtherFinalVerts[VertexIndex]);
+				}
+			}
+
+			check(ClippedEdges != 1); // Should never clip just one edge of the triangle
+
+									  // If we created a new edge, save that off here as well
+			if (ClippedEdges == 2)
+			{
+				ClipEdges.Add(NewClipEdge);
+			}
+		}
+	}
+
+	// Add the mesh data to the other mesh if we're building the other mesh and have valid geometry.
+	if (bShouldCreateOtherHalf && OtherMeshData->NumVertices() > 0 && OtherMeshData->NumIndices() > 0)
+	{
+		OutOtherHalf->CreateMeshSection(SectionIndex, MoveTemp(OtherMeshData));
+	}
+
+	// Update this runtime mesh, or clear it if we have no geometry
+	if (NewMeshData->NumVertices() > 0 && NewMeshData->NumIndices() > 0)
+	{
+		InRuntimeMesh->UpdateMeshSection(SectionIndex, MoveTemp(NewMeshData));
+	}
+	else
+	{
+		InRuntimeMesh->ClearMeshSection(SectionIndex);
+	}
+}
+
+void URuntimeMeshSlicer::CapMeshSlice(const FRuntimeMeshDataPtr& InRuntimeMesh, const FRuntimeMeshDataPtr& OutOtherHalf, TArray<FUtilEdge3D>& ClipEdges, FPlane SlicePlane, FVector PlaneNormal, ERuntimeMeshSlicerCapOption CapOption)
+{
+	bool bShouldCreateOtherHalf = OutOtherHalf.IsValid();
+
+	// Create cap geometry (if some edges to create it from)
+	if (CapOption != ERuntimeMeshSlicerCapOption::NoCap && ClipEdges.Num() > 0)
 	{
 		TSharedPtr<FRuntimeMeshBuilder> CapSection;
 		int32 CapSectionIndex = INDEX_NONE;
- 
- 		// If using an existing section, copy that info first
- 		if (CapOption == ERuntimeMeshSlicerCapOption::UseLastSectionForCap)
+
+		// If using an existing section, copy that info first
+		if (CapOption == ERuntimeMeshSlicerCapOption::UseLastSectionForCap)
 		{
 			CapSectionIndex = InRuntimeMesh->GetLastSectionIndex();
 			auto ExistingMesh = InRuntimeMesh->GetReadonlyMeshAccessor(CapSectionIndex);
 			CapSection = MakeRuntimeMeshBuilder(ExistingMesh.ToSharedRef());
 			ExistingMesh->CopyTo(CapSection);
- 		}
- 		// Adding new section for cap
- 		else
+		}
+		// Adding new section for cap
+		else
 		{
 			CapSection = MakeRuntimeMeshBuilder<FVector, FRuntimeMeshVertexNoPosition, uint16>();
 			CapSectionIndex = InRuntimeMesh->GetLastSectionIndex() + 1;
- 		}
- 
- 		// Project 3D edges onto slice plane to form 2D edges
- 		TArray<FUtilEdge2D> Edges2D;
- 		FUtilPoly2DSet PolySet;
- 		FGeomTools::ProjectEdges(Edges2D, PolySet.PolyToWorld, ClipEdges, SlicePlane);
- 
- 		// Find 2D closed polygons from this edge soup
- 		FGeomTools::Buid2DPolysFromEdges(PolySet.Polys, Edges2D, FColor(255, 255, 255, 255));
- 
- 		// Remember start point for vert and index buffer before adding and cap geom
- 		int32 CapVertBase = CapSection->NumVertices();
+		}
+
+		// Project 3D edges onto slice plane to form 2D edges
+		TArray<FUtilEdge2D> Edges2D;
+		FUtilPoly2DSet PolySet;
+		FGeomTools::ProjectEdges(Edges2D, PolySet.PolyToWorld, ClipEdges, SlicePlane);
+
+		// Find 2D closed polygons from this edge soup
+		FGeomTools::Buid2DPolysFromEdges(PolySet.Polys, Edges2D, FColor(255, 255, 255, 255));
+
+		// Remember start point for vert and index buffer before adding and cap geom
+		int32 CapVertBase = CapSection->NumVertices();
 		int32 CapIndexBase = CapSection->NumIndices();
- 
- 		// Triangulate each poly
- 		for (int32 PolyIdx = 0; PolyIdx < PolySet.Polys.Num(); PolyIdx++)
- 		{
- 			// Generate UVs for the 2D polygon.
- 			FGeomTools::GeneratePlanarTilingPolyUVs(PolySet.Polys[PolyIdx], 64.f);
- 
- 			// Remember start of vert buffer before adding triangles for this poly
- 			int32 PolyVertBase = CapSection->NumVertices();
- 
- 			// Transform from 2D poly verts to 3D
- 			Transform2DPolygonTo3D(PolySet.Polys[PolyIdx], PolySet.PolyToWorld, CapSection);
- 
- 			// Triangulate this polygon
- 			TriangulatePoly(CapSection, PolyVertBase, PlaneNormal);
- 		}
- 
- 		// Set geom for cap section
+
+		// Triangulate each poly
+		for (int32 PolyIdx = 0; PolyIdx < PolySet.Polys.Num(); PolyIdx++)
+		{
+			// Generate UVs for the 2D polygon.
+			FGeomTools::GeneratePlanarTilingPolyUVs(PolySet.Polys[PolyIdx], 64.f);
+
+			// Remember start of vert buffer before adding triangles for this poly
+			int32 PolyVertBase = CapSection->NumVertices();
+
+			// Transform from 2D poly verts to 3D
+			Transform2DPolygonTo3D(PolySet.Polys[PolyIdx], PolySet.PolyToWorld, CapSection);
+
+			// Triangulate this polygon
+			TriangulatePoly(CapSection, PolyVertBase, PlaneNormal);
+		}
+
+		// Set geom for cap section
 		if (CapOption == ERuntimeMeshSlicerCapOption::UseLastSectionForCap)
 		{
 			InRuntimeMesh->UpdateMeshSection(CapSectionIndex, MoveTemp(CapSection));
@@ -527,8 +603,8 @@ void URuntimeMeshSlicer::SliceRuntimeMesh(const FRuntimeMeshDataPtr& InRuntimeMe
 		else
 		{
 			InRuntimeMesh->CreateMeshSection(CapSectionIndex, MoveTemp(CapSection));
-		} 		
-		
+		}
+
 		// If creating the other half, copy cap geom into other half sections
 		if (bShouldCreateOtherHalf)
 		{
@@ -549,7 +625,7 @@ void URuntimeMeshSlicer::SliceRuntimeMesh(const FRuntimeMeshDataPtr& InRuntimeMe
 				OtherCapSection = MakeRuntimeMeshBuilder<FVector, FRuntimeMeshVertexNoPosition, uint16>();
 				OtherCapSectionIndex = OutOtherHalf->GetLastSectionIndex() + 1;
 			}
-			
+
 			// Remember current base index for verts in 'other cap section'
 			int32 OtherCapVertBase = OtherCapSection->NumVertices();
 
@@ -595,6 +671,7 @@ void URuntimeMeshSlicer::SliceRuntimeMesh(const FRuntimeMeshDataPtr& InRuntimeMe
 	}
 }
 
+
 void URuntimeMeshSlicer::SliceRuntimeMesh(URuntimeMesh* InRuntimeMesh, FVector PlanePosition, FVector PlaneNormal, URuntimeMesh* OutOtherHalf, ERuntimeMeshSlicerCapOption CapOption)
 {
 	if (InRuntimeMesh)
@@ -605,68 +682,9 @@ void URuntimeMeshSlicer::SliceRuntimeMesh(URuntimeMesh* InRuntimeMesh, FVector P
 		// Copy all needed materials
 
 
-		bool bCreateOtherHalf = OutOtherHalf != nullptr;
+		// Slice the collision
+		SliceRuntimeMeshConvexCollision(InRuntimeMesh, OutOtherHalf, PlanePosition, PlaneNormal);
 
-		PlaneNormal.Normalize();
-		FPlane SlicePlane(PlanePosition, PlaneNormal);
-
-		// Array of sliced collision shapes
-		TArray<TArray<FVector>> SlicedCollision;
-		TArray<TArray<FVector>> OtherSlicedCollision;
-
-		UBodySetup* BodySetup = InRuntimeMesh->GetBodySetup();
-
-		for (int32 ConvexIndex = 0; ConvexIndex < BodySetup->AggGeom.ConvexElems.Num(); ConvexIndex++)
-		{
-			FKConvexElem& BaseConvex = BodySetup->AggGeom.ConvexElems[ConvexIndex];
-
-			int32 BoxCompare = BoxPlaneCompare(BaseConvex.ElemBox, SlicePlane);
-
-			// If box totally clipped, add to other half (if desired)
-			if (BoxCompare == -1)
-			{
-				if (bCreateOtherHalf)
-				{
-					OtherSlicedCollision.Add(BaseConvex.VertexData);
-				}
-			}
-			// If box totally valid, just keep mesh as is
-			else if (BoxCompare == 1)
-			{
-				SlicedCollision.Add(BaseConvex.VertexData);
-			}
-			// Need to actually slice the convex shape
-			else
-			{
-				TArray<FVector> SlicedConvexVerts;
-				SliceConvexElem(BaseConvex, SlicePlane, SlicedConvexVerts);
-				// If we got something valid, add it
-				if (SlicedConvexVerts.Num() >= 4)
-				{
-					SlicedCollision.Add(SlicedConvexVerts);
-				}
-
-				// Slice again to get the other half of the collision, if desired
-				if (bCreateOtherHalf)
-				{
-					TArray<FVector> OtherSlicedConvexVerts;
-					SliceConvexElem(BaseConvex, SlicePlane.Flip(), OtherSlicedConvexVerts);
-					if (OtherSlicedConvexVerts.Num() >= 4)
-					{
-						OtherSlicedCollision.Add(OtherSlicedConvexVerts);
-					}
-				}
-			}
-		}
-
-		// Update collision of runtime mesh
-		InRuntimeMesh->SetCollisionConvexMeshes(SlicedCollision);
-
-		// Set collision for other mesh
-		if (bCreateOtherHalf)
-		{
-			OutOtherHalf->SetCollisionConvexMeshes(OtherSlicedCollision);
-		}
 	}
 }
 
