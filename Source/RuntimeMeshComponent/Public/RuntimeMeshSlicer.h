@@ -55,9 +55,6 @@ class RUNTIMEMESHCOMPONENT_API URuntimeMeshSlicer : public UBlueprintFunctionLib
 	/** Util to slice a convex hull with a plane */
 	static void SliceConvexElem(const FKConvexElem& InConvex, const FPlane& SlicePlane, TArray<FVector>& OutConvexVerts);
 
-	/** Slice the mesh data of a URuntimeMesh */
-	static void SliceRuntimeMesh(const FRuntimeMeshDataPtr& InRuntimeMesh, FVector PlanePosition, FVector PlaneNormal, const FRuntimeMeshDataPtr& OutOtherHalf, ERuntimeMeshSlicerCapOption CapOption);
-
 	/** Slice Convex Collision of a URuntimeMesh */
 	static void SliceRuntimeMeshConvexCollision(URuntimeMesh* InRuntimeMesh, URuntimeMesh* OutOtherHalf, FVector PlanePosition, FVector PlaneNormal);
 
@@ -65,13 +62,13 @@ class RUNTIMEMESHCOMPONENT_API URuntimeMeshSlicer : public UBlueprintFunctionLib
 	static void SliceRuntimeMeshSection(const FRuntimeMeshDataPtr& InRuntimeMesh, const FRuntimeMeshDataPtr& OutOtherHalf, int32 SectionIndex, const FPlane& SlicePlane, TArray<FUtilEdge3D>& ClipEdges);
 
 	/** Cap slice opening of URuntimeMesh */
-	static void CapMeshSlice(const FRuntimeMeshDataPtr& InRuntimeMesh, const FRuntimeMeshDataPtr& OutOtherHalf, TArray<FUtilEdge3D>& ClipEdges, FPlane SlicePlane, FVector PlaneNormal, ERuntimeMeshSlicerCapOption CapOption);
+	static int32 CapMeshSlice(const FRuntimeMeshDataPtr& InRuntimeMesh, const FRuntimeMeshDataPtr& OutOtherHalf, TArray<FUtilEdge3D>& ClipEdges, FPlane SlicePlane, FVector PlaneNormal, ERuntimeMeshSlicerCapOption CapOption);
 
 
 public:
 
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
-	static void SliceRuntimeMesh(URuntimeMesh* InRuntimeMesh, FVector PlanePosition, FVector PlaneNormal, URuntimeMesh* OutOtherHalf, ERuntimeMeshSlicerCapOption CapOption);
+	static void SliceRuntimeMesh(URuntimeMesh* InRuntimeMesh, FVector PlanePosition, FVector PlaneNormal, URuntimeMesh* OutOtherHalf, ERuntimeMeshSlicerCapOption CapOption, UMaterialInterface* CapMaterial);
 
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
 	static void SliceRuntimeMeshComponent(URuntimeMeshComponent* InRuntimeMesh, FVector PlanePosition, FVector PlaneNormal, bool bCreateOtherHalf, URuntimeMeshComponent*& OutOtherHalf, ERuntimeMeshSlicerCapOption CapOption, UMaterialInterface* CapMaterial);

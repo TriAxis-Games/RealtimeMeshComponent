@@ -199,71 +199,6 @@ void URuntimeMeshSlicer::SliceConvexElem(const FKConvexElem& InConvex, const FPl
 	}
 }
 
-void URuntimeMeshSlicer::SliceRuntimeMesh(const FRuntimeMeshDataPtr& InRuntimeMesh, FVector PlanePosition, FVector PlaneNormal, const FRuntimeMeshDataPtr& OutOtherHalf, ERuntimeMeshSlicerCapOption CapOption)
-{
-	// Bail if we don't have a valid mesh
-	if (!InRuntimeMesh.IsValid())
-	{
-		return;
-	}
-
-	PlaneNormal.Normalize();
-	FPlane SlicePlane(PlanePosition, PlaneNormal);
-
-	bool bShouldCreateOtherHalf = OutOtherHalf.IsValid();
-
-	// Set of new edges created by clipping polys by plane
-	TArray<FUtilEdge3D> ClipEdges;
-
-	for (int32 SectionIndex = 0; SectionIndex < InRuntimeMesh->GetNumSections(); SectionIndex++)
-	{
-		// Skip if the section doesn't exist
-		if (!InRuntimeMesh->DoesSectionExist(SectionIndex))
-		{
-			continue;
-		}
-
-		auto MeshData = InRuntimeMesh->GetReadonlyMeshAccessor(SectionIndex);
-
-		// Skip if we don't have mesh data
-		if (MeshData->NumVertices() < 3 || MeshData->NumIndices() < 3)
-		{
-			continue;
-		}
-
-		// Compare bounding box of section with slicing plane
-		int32 BoxCompare = CompareBoxPlane(InRuntimeMesh->GetSectionBoundingBox(SectionIndex), SlicePlane);
-
-		if (BoxCompare == 1)
-		{
-			// Box totally on the close side of the plane, do nothing
-			continue;
-		}
-
-		if (BoxCompare == -1)
-		{
-			// Box totally on the far side of the plane, move the entire section to the other RMC if it exists
-			if (bShouldCreateOtherHalf)
-			{
-				auto SourceMeshData = InRuntimeMesh->GetReadonlyMeshAccessor(SectionIndex).ToSharedRef();
-
-				auto NewBuilder = MakeRuntimeMeshBuilder(SourceMeshData);
-				SourceMeshData->CopyTo(NewBuilder);
-
-				OutOtherHalf->CreateMeshSection(SectionIndex, MoveTemp(NewBuilder));
-			}
-
-			InRuntimeMesh->ClearMeshSection(SectionIndex);
-			continue;
-		}
-
-		check(BoxCompare == 0);
-
-		SliceRuntimeMeshSection(InRuntimeMesh, OutOtherHalf, SectionIndex, SlicePlane, ClipEdges);
-	}
-
-	CapMeshSlice(InRuntimeMesh, OutOtherHalf, ClipEdges, SlicePlane, PlaneNormal, CapOption);
-}
 
 void URuntimeMeshSlicer::SliceRuntimeMeshConvexCollision(URuntimeMesh* InRuntimeMesh, URuntimeMesh* OutOtherHalf, FVector PlanePosition, FVector PlaneNormal)
 {
@@ -542,9 +477,15 @@ void URuntimeMeshSlicer::SliceRuntimeMeshSection(const FRuntimeMeshDataPtr& InRu
 	}
 }
 
-void URuntimeMeshSlicer::CapMeshSlice(const FRuntimeMeshDataPtr& InRuntimeMesh, const FRuntimeMeshDataPtr& OutOtherHalf, TArray<FUtilEdge3D>& ClipEdges, FPlane SlicePlane, FVector PlaneNormal, ERuntimeMeshSlicerCapOption CapOption)
+int32 URuntimeMeshSlicer::CapMeshSlice(const FRuntimeMeshDataPtr& InRuntimeMesh, const FRuntimeMeshDataPtr& OutOtherHalf, TArray<FUtilEdge3D>& ClipEdges, FPlane SlicePlane, FVector PlaneNormal, ERuntimeMeshSlicerCapOption CapOption)
 {
 	bool bShouldCreateOtherHalf = OutOtherHalf.IsValid();
+
+	int32 NewCapSectionIndex = InRuntimeMesh->GetLastSectionIndex() + 1;
+	if (bShouldCreateOtherHalf)
+	{
+		NewCapSectionIndex = FMath::Max(NewCapSectionIndex, OutOtherHalf->GetLastSectionIndex() + 1);
+	}
 
 	// Create cap geometry (if some edges to create it from)
 	if (CapOption != ERuntimeMeshSlicerCapOption::NoCap && ClipEdges.Num() > 0)
@@ -564,7 +505,7 @@ void URuntimeMeshSlicer::CapMeshSlice(const FRuntimeMeshDataPtr& InRuntimeMesh, 
 		else
 		{
 			CapSection = MakeRuntimeMeshBuilder<FVector, FRuntimeMeshVertexNoPosition, uint16>();
-			CapSectionIndex = InRuntimeMesh->GetLastSectionIndex() + 1;
+			CapSectionIndex = NewCapSectionIndex;
 		}
 
 		// Project 3D edges onto slice plane to form 2D edges
@@ -623,7 +564,7 @@ void URuntimeMeshSlicer::CapMeshSlice(const FRuntimeMeshDataPtr& InRuntimeMesh, 
 			else
 			{
 				OtherCapSection = MakeRuntimeMeshBuilder<FVector, FRuntimeMeshVertexNoPosition, uint16>();
-				OtherCapSectionIndex = OutOtherHalf->GetLastSectionIndex() + 1;
+				OtherCapSectionIndex = NewCapSectionIndex;
 			}
 
 			// Remember current base index for verts in 'other cap section'
@@ -669,22 +610,93 @@ void URuntimeMeshSlicer::CapMeshSlice(const FRuntimeMeshDataPtr& InRuntimeMesh, 
 			}
 		}
 	}
+	return NewCapSectionIndex;
 }
 
 
-void URuntimeMeshSlicer::SliceRuntimeMesh(URuntimeMesh* InRuntimeMesh, FVector PlanePosition, FVector PlaneNormal, URuntimeMesh* OutOtherHalf, ERuntimeMeshSlicerCapOption CapOption)
+void URuntimeMeshSlicer::SliceRuntimeMesh(URuntimeMesh* InRuntimeMesh, FVector PlanePosition, FVector PlaneNormal, URuntimeMesh* OutOtherHalf, ERuntimeMeshSlicerCapOption CapOption, UMaterialInterface* CapMaterial)
 {
 	if (InRuntimeMesh)
 	{
+		FRuntimeMeshDataPtr InMeshData = InRuntimeMesh->GetRuntimeMeshData();
 		FRuntimeMeshDataPtr OtherHalfData = OutOtherHalf ? OutOtherHalf->GetRuntimeMeshData() : FRuntimeMeshDataPtr(nullptr);
-		SliceRuntimeMesh(InRuntimeMesh->GetRuntimeMeshData(), PlanePosition, PlaneNormal, OtherHalfData, CapOption);
-
-		// Copy all needed materials
 
 
+		PlaneNormal.Normalize();
+		FPlane SlicePlane(PlanePosition, PlaneNormal);
+
+		bool bShouldCreateOtherHalf = OutOtherHalf != nullptr;
+
+		// Set of new edges created by clipping polys by plane
+		TArray<FUtilEdge3D> ClipEdges;
+
+		for (int32 SectionIndex = 0; SectionIndex < InRuntimeMesh->GetNumSections(); SectionIndex++)
+		{
+			// Skip if the section doesn't exist
+			if (!InRuntimeMesh->DoesSectionExist(SectionIndex))
+			{
+				continue;
+			}
+
+			auto MeshData = InRuntimeMesh->GetReadonlyMeshAccessor(SectionIndex);
+
+			// Skip if we don't have mesh data
+			if (MeshData->NumVertices() < 3 || MeshData->NumIndices() < 3)
+			{
+				continue;
+			}
+
+			// Compare bounding box of section with slicing plane
+			int32 BoxCompare = CompareBoxPlane(InRuntimeMesh->GetSectionBoundingBox(SectionIndex), SlicePlane);
+
+			if (BoxCompare == 1)
+			{
+				// Box totally on the close side of the plane, do nothing
+				continue;
+			}
+
+			if (BoxCompare == -1)
+			{
+				// Box totally on the far side of the plane, move the entire section to the other RMC if it exists
+				if (bShouldCreateOtherHalf)
+				{
+					auto SourceMeshData = InRuntimeMesh->GetReadonlyMeshAccessor(SectionIndex).ToSharedRef();
+
+					auto NewBuilder = MakeRuntimeMeshBuilder(SourceMeshData);
+					SourceMeshData->CopyTo(NewBuilder);
+
+					OutOtherHalf->CreateMeshSection(SectionIndex, MoveTemp(NewBuilder));
+				}
+
+				InRuntimeMesh->ClearMeshSection(SectionIndex);
+				continue;
+			}
+
+			check(BoxCompare == 0);
+
+			UMaterialInterface* Material = InRuntimeMesh->GetSectionMaterial(SectionIndex);
+
+			SliceRuntimeMeshSection(InMeshData, OtherHalfData, SectionIndex, SlicePlane, ClipEdges);
+
+			if (bShouldCreateOtherHalf && OtherHalfData->DoesSectionExist(SectionIndex))
+			{
+				OutOtherHalf->SetSectionMaterial(SectionIndex, Material);
+			}
+		}
+
+		int32 CapSectionIndex = CapMeshSlice(InMeshData, OtherHalfData, ClipEdges, SlicePlane, PlaneNormal, CapOption);
+
+		if (CapOption == ERuntimeMeshSlicerCapOption::CreateNewSectionForCap)
+		{
+			InRuntimeMesh->SetSectionMaterial(CapSectionIndex, CapMaterial);
+			if (bShouldCreateOtherHalf)
+			{
+				OutOtherHalf->SetSectionMaterial(CapSectionIndex, CapMaterial);
+			}
+		}
+		
 		// Slice the collision
 		SliceRuntimeMeshConvexCollision(InRuntimeMesh, OutOtherHalf, PlanePosition, PlaneNormal);
-
 	}
 }
 
@@ -705,7 +717,7 @@ void URuntimeMeshSlicer::SliceRuntimeMeshComponent(URuntimeMeshComponent* InRunt
 			OutOtherHalf->SetWorldTransform(InRuntimeMesh->GetComponentTransform());
 		}
 
-		SliceRuntimeMesh(InRuntimeMesh->GetRuntimeMesh(), LocalPlanePos, LocalPlaneNormal, bCreateOtherHalf ? OutOtherHalf->GetOrCreateRuntimeMesh() : nullptr, CapOption);
+		SliceRuntimeMesh(InRuntimeMesh->GetRuntimeMesh(), LocalPlanePos, LocalPlaneNormal, bCreateOtherHalf ? OutOtherHalf->GetOrCreateRuntimeMesh() : nullptr, CapOption, CapMaterial);
 
 
 		if (bCreateOtherHalf)
