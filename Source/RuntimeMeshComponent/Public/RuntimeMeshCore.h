@@ -42,33 +42,34 @@ namespace FRuntimeMeshVersion
 class FRuntimeMeshVertexFactory;
 struct FRuntimeMeshVertexStreamStructure;
 
-template<typename T>
-struct FRuntimeMeshIndexTraits
-{
-	static const bool IsValidIndexType = false;
-	static const bool Is32Bit = false;
-};
+ template<typename T>
+ struct FRuntimeMeshIndexTraits
+ {
+ 	enum { IsValidIndexType = false };
+ 	enum { Is32Bit = false };
+ };
+ 
+ template<>
+ struct FRuntimeMeshIndexTraits<uint16>
+ {
+ 	enum { IsValidIndexType = true };
+ 	enum { Is32Bit = false };
+ };
+ 
+ template<>
+ struct FRuntimeMeshIndexTraits<uint32>
+ {
+ 	enum { IsValidIndexType = true };
+ 	enum { Is32Bit = true };
+ };
+ 
+ template<>
+ struct FRuntimeMeshIndexTraits<int32>
+ {
+ 	enum { IsValidIndexType = true };
+ 	enum { Is32Bit = true };
+ };
 
-template<>
-struct FRuntimeMeshIndexTraits<uint16>
-{
-	static const bool IsValidIndexType = true;
-	static const bool Is32Bit = false;
-};
-
-template<>
-struct FRuntimeMeshIndexTraits<uint32>
-{
-	static const bool IsValidIndexType = true;
-	static const bool Is32Bit = true;
-};
-
-template<>
-struct FRuntimeMeshIndexTraits<int32>
-{
-	static const bool IsValidIndexType = true;
-	static const bool Is32Bit = true;
-};
 
 enum class ERuntimeMeshBuffersToUpdate : uint8
 {
