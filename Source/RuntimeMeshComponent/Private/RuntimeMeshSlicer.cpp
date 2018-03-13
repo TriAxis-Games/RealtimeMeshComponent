@@ -477,7 +477,7 @@ void URuntimeMeshSlicer::SliceRuntimeMeshSection(const FRuntimeMeshDataPtr& InRu
 	}
 }
 
-int32 URuntimeMeshSlicer::CapMeshSlice(const FRuntimeMeshDataPtr& InRuntimeMesh, const FRuntimeMeshDataPtr& OutOtherHalf, TArray<FUtilEdge3D>& ClipEdges, FPlane SlicePlane, FVector PlaneNormal, ERuntimeMeshSlicerCapOption CapOption)
+int32 URuntimeMeshSlicer::CapMeshSlice(const FRuntimeMeshDataPtr& InRuntimeMesh, const FRuntimeMeshDataPtr& OutOtherHalf, TArray<FUtilEdge3D>& ClipEdges, const FPlane& SlicePlane, FVector PlaneNormal, ERuntimeMeshSlicerCapOption CapOption)
 {
 	bool bShouldCreateOtherHalf = OutOtherHalf.IsValid();
 

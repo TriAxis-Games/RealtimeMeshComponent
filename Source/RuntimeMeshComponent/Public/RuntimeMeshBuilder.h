@@ -44,7 +44,7 @@ class RUNTIMEMESHCOMPONENT_API FRuntimeMeshVerticesAccessor
 	DECLARE_DELEGATE_RetVal_OneParam(FVector2D, FStreamUVReader, int32);
 
 	DECLARE_DELEGATE_TwoParams(FStreamPositionWriter, int32, FVector);
-	DECLARE_DELEGATE_TwoParams(FStreamNormalTangentWriter, int32, FVector4);
+	DECLARE_DELEGATE_TwoParams(FStreamNormalTangentWriter, int32, const FVector4&);
 	DECLARE_DELEGATE_TwoParams(FStreamColorWriter, int32, FColor);
 	DECLARE_DELEGATE_TwoParams(FStreamUVWriter, int32, FVector2D);
 
@@ -97,7 +97,7 @@ public:
 
 
 	void SetPosition(int32 Index, FVector Value);
-	void SetNormal(int32 Index, FVector4 Value);
+	void SetNormal(int32 Index, const FVector4& Value);
 	void SetTangent(int32 Index, FVector Value);
 	void SetTangent(int32 Index, FRuntimeMeshTangent Value);
 	void SetColor(int32 Index, FColor Value);
@@ -148,19 +148,19 @@ protected:
 		return FVector4(EForceInit::ForceInitToZero);
 	}
 
-	FORCEINLINE static void WriteNormalTangentPackedNormal(int32 Index, FVector4 Value, TArray<uint8>* Data, int32 Stride, int32 Offset)
+	FORCEINLINE static void WriteNormalTangentPackedNormal(int32 Index, const FVector4& Value, TArray<uint8>* Data, int32 Stride, int32 Offset)
 	{
 		return Write<FPackedNormal>(Index, FPackedNormal(Value), Data, Stride, Offset);
 	}
-	FORCEINLINE static void WriteNormalTangentPackedRGBA16N(int32 Index, FVector4 Value, TArray<uint8>* Data, int32 Stride, int32 Offset)
+	FORCEINLINE static void WriteNormalTangentPackedRGBA16N(int32 Index, const FVector4& Value, TArray<uint8>* Data, int32 Stride, int32 Offset)
 	{
 		return Write<FPackedRGBA16N>(Index, Value, Data, Stride, Offset);
 	}
-	FORCEINLINE static void WriteNormalNull(int32 Index, FVector4 Value, TArray<uint8>* Data, int32 Stride, int32 Offset)
+	FORCEINLINE static void WriteNormalNull(int32 Index, const FVector4& Value, TArray<uint8>* Data, int32 Stride, int32 Offset)
 	{
 		check(false && "This stream has no normal channel.");
 	}
-	FORCEINLINE static void WriteTangentNull(int32 Index, FVector4 Value, TArray<uint8>* Data, int32 Stride, int32 Offset)
+	FORCEINLINE static void WriteTangentNull(int32 Index, const FVector4& Value, TArray<uint8>* Data, int32 Stride, int32 Offset)
 	{
 		check(false && "This stream has no tangent channel.");
 	}

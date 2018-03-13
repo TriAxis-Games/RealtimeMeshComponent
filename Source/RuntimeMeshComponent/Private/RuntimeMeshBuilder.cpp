@@ -273,7 +273,7 @@ void FRuntimeMeshVerticesAccessor::SetPosition(int32 Index, FVector Value)
 	PositionWriter.Execute(Index, Value);
 }
 
-void FRuntimeMeshVerticesAccessor::SetNormal(int32 Index, FVector4 Value)
+void FRuntimeMeshVerticesAccessor::SetNormal(int32 Index, const FVector4& Value)
 {
 	check(bIsInitialized);
 	NormalWriter.Execute(Index, Value);

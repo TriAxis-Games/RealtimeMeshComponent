@@ -62,7 +62,7 @@ class RUNTIMEMESHCOMPONENT_API URuntimeMeshSlicer : public UBlueprintFunctionLib
 	static void SliceRuntimeMeshSection(const FRuntimeMeshDataPtr& InRuntimeMesh, const FRuntimeMeshDataPtr& OutOtherHalf, int32 SectionIndex, const FPlane& SlicePlane, TArray<FUtilEdge3D>& ClipEdges);
 
 	/** Cap slice opening of URuntimeMesh */
-	static int32 CapMeshSlice(const FRuntimeMeshDataPtr& InRuntimeMesh, const FRuntimeMeshDataPtr& OutOtherHalf, TArray<FUtilEdge3D>& ClipEdges, FPlane SlicePlane, FVector PlaneNormal, ERuntimeMeshSlicerCapOption CapOption);
+	static int32 CapMeshSlice(const FRuntimeMeshDataPtr& InRuntimeMesh, const FRuntimeMeshDataPtr& OutOtherHalf, TArray<FUtilEdge3D>& ClipEdges, const FPlane& SlicePlane, FVector PlaneNormal, ERuntimeMeshSlicerCapOption CapOption);
 
 
 public:
