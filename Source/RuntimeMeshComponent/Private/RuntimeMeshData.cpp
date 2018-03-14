@@ -1163,13 +1163,16 @@ void FRuntimeMeshData::UpdateLocalBounds()
 	}));
 }
 
-FRuntimeMeshProxyPtr FRuntimeMeshData::EnsureProxyCreated()
+FRuntimeMeshProxyPtr FRuntimeMeshData::EnsureProxyCreated(ERHIFeatureLevel::Type InFeatureLevel)
 {
 	if (!RenderProxy.IsValid())
 	{
-		RenderProxy = MakeShareable(new FRuntimeMeshProxy(), FRuntimeMeshRenderThreadDeleter<FRuntimeMeshProxy>());
+		RenderProxy = MakeShareable(new FRuntimeMeshProxy(InFeatureLevel), FRuntimeMeshRenderThreadDeleter<FRuntimeMeshProxy>());
 		Initialize();
 	}
+
+	// Sanity check that all RMC's are on the same feature level. Not sure any reason they wouldn't be.
+	check(RenderProxy->GetFeatureLevel() == InFeatureLevel);
 
 	return  RenderProxy;
 }

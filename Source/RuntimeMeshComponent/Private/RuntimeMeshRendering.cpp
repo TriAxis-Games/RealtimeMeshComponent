@@ -125,8 +125,9 @@ void FRuntimeMeshIndexBuffer::SetData(const TArray<uint8>& Data)
 
 
 
-FRuntimeMeshVertexFactory::FRuntimeMeshVertexFactory(FRuntimeMeshSectionProxy* InSectionParent)
-	: SectionParent(InSectionParent)
+FRuntimeMeshVertexFactory::FRuntimeMeshVertexFactory(ERHIFeatureLevel::Type InFeatureLevel, FRuntimeMeshSectionProxy* InSectionParent)
+	: FLocalVertexFactory(InFeatureLevel, "FRuntimeMeshVertexFactory")
+	, SectionParent(InSectionParent)
 {
 }
 
@@ -151,7 +152,13 @@ void FRuntimeMeshVertexFactory::Init(FLocalVertexFactory::FDataType VertexStruct
 }
 
 /* Gets the section visibility for static sections */
+
+
+#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 19
+uint64 FRuntimeMeshVertexFactory::GetStaticBatchElementVisibility(const class FSceneView& View, const struct FMeshBatch* Batch, const void* InViewCustomData) const
+#else
 uint64 FRuntimeMeshVertexFactory::GetStaticBatchElementVisibility(const class FSceneView& View, const struct FMeshBatch* Batch) const
+#endif
 {
 	return SectionParent->ShouldRender();
 }

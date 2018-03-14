@@ -6,9 +6,9 @@
 
 
 
-FRuntimeMeshSectionProxy::FRuntimeMeshSectionProxy(FRuntimeMeshSectionCreationParamsPtr CreationData)
+FRuntimeMeshSectionProxy::FRuntimeMeshSectionProxy(ERHIFeatureLevel::Type InFeatureLevel, FRuntimeMeshSectionCreationParamsPtr CreationData)
 	: UpdateFrequency(CreationData->UpdateFrequency)
-	, VertexFactory(this)
+	, VertexFactory(InFeatureLevel, this)
 	, bIsVisible(CreationData->bIsVisible)
 	, bCastsShadow(CreationData->bCastsShadow)
 {

@@ -893,9 +893,9 @@ private:
 	void FinalizeNewCookedData();
 
 
-	FRuntimeMeshProxyPtr EnsureProxyCreated()
+	FRuntimeMeshProxyPtr EnsureProxyCreated(ERHIFeatureLevel::Type InFeatureLevel)
 	{
-		return GetRuntimeMeshData()->EnsureProxyCreated();
+		return GetRuntimeMeshData()->EnsureProxyCreated(InFeatureLevel);
 	}
 
 

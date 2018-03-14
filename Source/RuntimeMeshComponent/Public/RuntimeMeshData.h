@@ -84,10 +84,7 @@ class RUNTIMEMESHCOMPONENT_API FRuntimeMeshData
 
 	TUniquePtr<FRuntimeMeshLockProvider> SyncRoot;
 	TFunction<FRuntimeMeshLockProvider*()> LockFactory;
-
-
-
-
+	
 public:
 	FRuntimeMeshData();
 	~FRuntimeMeshData();
@@ -1171,7 +1168,7 @@ private:
 	/** Update LocalBounds member from the local box of each section */
 	void UpdateLocalBounds();
 
-	FRuntimeMeshProxyPtr EnsureProxyCreated();
+	FRuntimeMeshProxyPtr EnsureProxyCreated(ERHIFeatureLevel::Type InFeatureLevel);
 
 	void Initialize();
 

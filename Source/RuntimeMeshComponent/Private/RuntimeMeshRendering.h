@@ -92,13 +92,18 @@ class FRuntimeMeshVertexFactory : public FLocalVertexFactory
 {
 public:
 
-	FRuntimeMeshVertexFactory(FRuntimeMeshSectionProxy* InSectionParent);
+	FRuntimeMeshVertexFactory(ERHIFeatureLevel::Type InFeatureLevel, FRuntimeMeshSectionProxy* InSectionParent);
 
 	/** Init function that can be called on any thread, and will do the right thing (enqueue command if called on main thread) */
 	void Init(FLocalVertexFactory::FDataType VertexStructure);
 
-	/* Gets the section visibility for static sections */
+	/* Gets the section visibility for static sections */	
+
+#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 19
+	virtual uint64 GetStaticBatchElementVisibility(const class FSceneView& View, const struct FMeshBatch* Batch, const void* InViewCustomData = nullptr) const override;
+#else
 	virtual uint64 GetStaticBatchElementVisibility(const class FSceneView& View, const struct FMeshBatch* Batch) const override;
+#endif
 
 private:
 	/* Interface to the parent section for checking visibility.*/

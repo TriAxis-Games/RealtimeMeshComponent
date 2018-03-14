@@ -61,4 +61,10 @@ public:
 	{
 		return(FPrimitiveSceneProxy::GetAllocatedSize());
 	}
+
+	SIZE_T GetTypeHash() const override
+	{
+		static size_t UniquePointer;
+		return reinterpret_cast<size_t>(&UniquePointer);
+	}
 };

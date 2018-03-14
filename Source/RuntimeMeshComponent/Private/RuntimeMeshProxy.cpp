@@ -4,7 +4,8 @@
 #include "RuntimeMeshProxy.h"
 #include "RuntimeMesh.h"
 
-FRuntimeMeshProxy::FRuntimeMeshProxy()
+FRuntimeMeshProxy::FRuntimeMeshProxy(ERHIFeatureLevel::Type InFeatureLevel)
+	: FeatureLevel(InFeatureLevel)
 {
 }
 
@@ -33,7 +34,7 @@ void FRuntimeMeshProxy::CreateSection_RenderThread(int32 SectionId, const FRunti
 	check(IsInRenderingThread());
 	check(SectionData.IsValid());
 
-	FRuntimeMeshSectionProxyPtr NewSection = MakeShareable(new FRuntimeMeshSectionProxy(SectionData),
+	FRuntimeMeshSectionProxyPtr NewSection = MakeShareable(new FRuntimeMeshSectionProxy(FeatureLevel, SectionData),
 		FRuntimeMeshRenderThreadDeleter<FRuntimeMeshSectionProxy>());
 
 	// Add the section to the map, destroying any one that existed

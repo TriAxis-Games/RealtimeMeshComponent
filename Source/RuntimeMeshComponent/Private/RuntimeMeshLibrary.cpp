@@ -659,7 +659,12 @@ void URuntimeMeshLibrary::GetStaticMeshSection(UStaticMesh* InMesh, int32 LODInd
 					uint32 MeshVertIndex = Indices[i];
 
 					// See if we have this vert already in our section vert buffer, and copy vert in if not 
+
+#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 19
+					int32 SectionVertIndex = GetNewIndexForOldVertIndex(&LOD.VertexBuffers.PositionVertexBuffer, &LOD.VertexBuffers.StaticMeshVertexBuffer, &LOD.VertexBuffers.ColorVertexBuffer, MeshToSectionVertMap, MeshVertIndex, NumSupportedUVs, VertexCreator, UVSetter, ColorSetter);
+#else
 					int32 SectionVertIndex = GetNewIndexForOldVertIndex(&LOD.PositionVertexBuffer, &LOD.VertexBuffer, &LOD.ColorVertexBuffer, MeshToSectionVertMap, MeshVertIndex, NumSupportedUVs, VertexCreator, UVSetter, ColorSetter);
+#endif
 
 					// Add to index buffer
 					IndexCreator(SectionVertIndex);

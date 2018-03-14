@@ -35,11 +35,15 @@ struct FRuntimeMeshRenderThreadDeleter
  */
 class FRuntimeMeshProxy
 {
+	ERHIFeatureLevel::Type FeatureLevel;
+
 	TMap<int32, FRuntimeMeshSectionProxyPtr> Sections;
 
 public:
-	FRuntimeMeshProxy();
+	FRuntimeMeshProxy(ERHIFeatureLevel::Type InFeatureLevel);
 	~FRuntimeMeshProxy();
+
+	ERHIFeatureLevel::Type GetFeatureLevel() const { return FeatureLevel; }
 
 
 	void CreateSection_GameThread(int32 SectionId, const FRuntimeMeshSectionCreationParamsPtr& SectionData);

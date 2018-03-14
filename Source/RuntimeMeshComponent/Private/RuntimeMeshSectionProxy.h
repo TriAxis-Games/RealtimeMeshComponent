@@ -57,7 +57,7 @@ class FRuntimeMeshSectionProxy : public TSharedFromThis<FRuntimeMeshSectionProxy
 	bool bCastsShadow;
 
 public:
-	FRuntimeMeshSectionProxy(FRuntimeMeshSectionCreationParamsPtr CreationData);
+	FRuntimeMeshSectionProxy(ERHIFeatureLevel::Type InFeatureLevel, FRuntimeMeshSectionCreationParamsPtr CreationData);
 
 	~FRuntimeMeshSectionProxy();
 

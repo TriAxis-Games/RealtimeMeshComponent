@@ -13,7 +13,7 @@ FRuntimeMeshComponentSceneProxy::FRuntimeMeshComponentSceneProxy(URuntimeMeshCom
 
 	check(Component->GetRuntimeMesh() != nullptr);
 
-	RuntimeMeshProxy = Component->GetRuntimeMesh()->EnsureProxyCreated();
+	RuntimeMeshProxy = Component->GetRuntimeMesh()->EnsureProxyCreated(GetScene().GetFeatureLevel());
 
 	// Setup our material map
 
