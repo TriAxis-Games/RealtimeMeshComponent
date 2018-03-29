@@ -142,7 +142,7 @@ int32 FRuntimeMeshSection::NumVertexStreams() const
 
 FRuntimeMeshSectionCreationParamsPtr FRuntimeMeshSection::GetSectionCreationParams()
 {
-	FRuntimeMeshSectionCreationParamsPtr CreationParams = MakeShared<FRuntimeMeshSectionCreationParams>();
+	FRuntimeMeshSectionCreationParamsPtr CreationParams = MakeShared<FRuntimeMeshSectionCreationParams, ESPMode::NotThreadSafe>();
 
 	CreationParams->UpdateFrequency = UpdateFrequency;
 
@@ -161,7 +161,7 @@ FRuntimeMeshSectionCreationParamsPtr FRuntimeMeshSection::GetSectionCreationPara
 
 FRuntimeMeshSectionUpdateParamsPtr FRuntimeMeshSection::GetSectionUpdateData(ERuntimeMeshBuffersToUpdate BuffersToUpdate)
 {
-	FRuntimeMeshSectionUpdateParamsPtr UpdateParams = MakeShared<FRuntimeMeshSectionUpdateParams>();
+	FRuntimeMeshSectionUpdateParamsPtr UpdateParams = MakeShared<FRuntimeMeshSectionUpdateParams, ESPMode::NotThreadSafe>();
 
 	UpdateParams->BuffersToUpdate = BuffersToUpdate;
 
@@ -195,7 +195,7 @@ FRuntimeMeshSectionUpdateParamsPtr FRuntimeMeshSection::GetSectionUpdateData(ERu
 
 TSharedPtr<struct FRuntimeMeshSectionPropertyUpdateParams, ESPMode::NotThreadSafe> FRuntimeMeshSection::GetSectionPropertyUpdateData()
 {
-	FRuntimeMeshSectionPropertyUpdateParamsPtr UpdateParams = MakeShared<FRuntimeMeshSectionPropertyUpdateParams>();
+	FRuntimeMeshSectionPropertyUpdateParamsPtr UpdateParams = MakeShared<FRuntimeMeshSectionPropertyUpdateParams, ESPMode::NotThreadSafe>();
 
 	UpdateParams->bCastsShadow = bCastsShadow;
 	UpdateParams->bIsVisible = bIsVisible;
