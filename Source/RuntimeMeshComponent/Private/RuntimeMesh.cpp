@@ -61,13 +61,13 @@ UWorld* FRuntimeMeshCollisionCookTickObject::GetTickableGameObjectWorld() const
 
 URuntimeMesh::URuntimeMesh(const FObjectInitializer& ObjectInitializer)
 	: UObject(ObjectInitializer)
+	, Data(new FRuntimeMeshData())
+	, bCollisionIsDirty(false)
 	, bUseComplexAsSimpleCollision(true)
 	, bUseAsyncCooking(false)
 	, bShouldSerializeMeshData(true)
-	, bCollisionIsDirty(false)
 	, CollisionMode(ERuntimeMeshCollisionCookingMode::CookingPerformance)
 	, BodySetup(nullptr)
-	, Data(new FRuntimeMeshData())
 {
 	Data->Setup(TWeakObjectPtr<URuntimeMesh>(this));
 }

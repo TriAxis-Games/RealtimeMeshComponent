@@ -40,8 +40,8 @@ public:
 		: Position(0.0f, 0.0f, 0.0f)
 		, Normal(0.0f, 0.0f, 1.0f)
 		, Tangent(FVector(1.0f, 0.0f, 0.0f), false)
-		, UV0(0.0f, 0.0f)
 		, Color(255, 255, 255)
+		, UV0(0.0f, 0.0f)
 	{
 	}
 
@@ -49,8 +49,8 @@ public:
 		: Position(InPosition)
 		, Normal(InNormal)
 		, Tangent(InTangent)
-		, UV0(InUV0)
 		, Color(InColor)
+		, UV0(InUV0)
 	{
 	}
 };
