@@ -29,6 +29,9 @@ namespace FRuntimeMeshVersion
 		// This was a total overhaul of the component, and with it the serialization
 		RuntimeMeshComponentV3 = 5,
 
+		// This was the 4.19 RHI upgrades requiring an internal restructure
+		RuntimeMeshComponentUE4_19 = 6,
+
 		// -----<new versions can be added above this line>-------------------------------------------------
 		VersionPlusOne,
 		LatestVersion = VersionPlusOne - 1
@@ -74,14 +77,15 @@ struct FRuntimeMeshVertexStreamStructure;
 enum class ERuntimeMeshBuffersToUpdate : uint8
 {
 	None = 0x0,
-	VertexBuffer0 = 0x1,
-	VertexBuffer1 = 0x2,
-	VertexBuffer2 = 0x4,
+	PositionBuffer = 0x1,
+	TangentBuffer = 0x2,
+	UVBuffer = 0x4,
+	ColorBuffer = 0x8, 
 
-	AllVertexBuffers = VertexBuffer0 | VertexBuffer1 | VertexBuffer2,
+	AllVertexBuffers = PositionBuffer | TangentBuffer | UVBuffer | ColorBuffer,
 
-	IndexBuffer = 0x8,
-	AdjacencyIndexBuffer = 0x10
+	IndexBuffer = 0x10,
+	AdjacencyIndexBuffer = 0x20
 };
 ENUM_CLASS_FLAGS(ERuntimeMeshBuffersToUpdate);
 
@@ -199,6 +203,21 @@ struct FRuntimeMeshTangent
 	void ModifyNormal(FPackedNormal& Normal) const { Normal.Vector.W = bFlipTangentY ? 0 : MAX_uint8; }
 	void ModifyNormal(FPackedRGBA16N& Normal) const { Normal.W = bFlipTangentY ? 0 : MAX_uint16; }
 };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

@@ -369,8 +369,8 @@ void URuntimeMeshLibrary::CopyStaticMeshToRuntimeMesh(UStaticMeshComponent* Stat
 			GetStaticMeshSection(StaticMesh, LODIndex, SectionIndex, Vertices, Triangles, AdjacencyTriangles);
 
 			// Create RuntimeMesh
-			RuntimeMesh->CreateMeshSection(SectionIndex, Vertices, Triangles, bCreateCollision);
-			RuntimeMesh->SetSectionTessellationTriangles(SectionIndex, AdjacencyTriangles);
+			//RuntimeMesh->CreateMeshSection(SectionIndex, Vertices, Triangles, bCreateCollision);
+			//RuntimeMesh->SetSectionTessellationTriangles(SectionIndex, AdjacencyTriangles);
 		}
 
 		//// SIMPLE COLLISION

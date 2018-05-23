@@ -504,7 +504,7 @@ int32 URuntimeMeshSlicer::CapMeshSlice(const FRuntimeMeshDataPtr& InRuntimeMesh,
 		// Adding new section for cap
 		else
 		{
-			CapSection = MakeRuntimeMeshBuilder<FVector, FRuntimeMeshVertexNoPosition, uint16>();
+			CapSection = MakeRuntimeMeshBuilder<FRuntimeMeshTangents, FVector2DHalf, uint16>();
 			CapSectionIndex = NewCapSectionIndex;
 		}
 
@@ -563,7 +563,7 @@ int32 URuntimeMeshSlicer::CapMeshSlice(const FRuntimeMeshDataPtr& InRuntimeMesh,
 			// Adding new section for cap
 			else
 			{
-				OtherCapSection = MakeRuntimeMeshBuilder<FVector, FRuntimeMeshVertexNoPosition, uint16>();
+				OtherCapSection = MakeRuntimeMeshBuilder<FRuntimeMeshTangents, FVector2DHalf, uint16>();
 				OtherCapSectionIndex = NewCapSectionIndex;
 			}
 

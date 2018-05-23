@@ -81,20 +81,14 @@ void FRuntimeMeshData::Setup(TWeakObjectPtr<URuntimeMesh> InParentMeshObject)
 	ParentMeshObject = InParentMeshObject;
 }
 
-void FRuntimeMeshData::CheckCreate(const FRuntimeMeshVertexStreamStructure Stream0Structure, const FRuntimeMeshVertexStreamStructure& Stream1Structure, const FRuntimeMeshVertexStreamStructure& Stream2Structure, bool bIndexIsValid) const
+void FRuntimeMeshData::CheckCreate(int32 NumUVs, bool bIndexIsValid) const
 {
 	SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_CheckCreate);
 #if DO_CHECK
-	// Check stream 0 contains the position element
-	if (!Stream0Structure.Position.IsValid())
-	{
-		UE_LOG(RuntimeMeshLog, Fatal, TEXT("Position element must always be in stream 0."));
-	}
 
-	// Check the 3 streams are valid when combined
-	if (!Stream0Structure.ValidTripleStream(Stream0Structure, Stream1Structure, Stream2Structure))
+	if (NumUVs < 1 || NumUVs > 8)
 	{
-		UE_LOG(RuntimeMeshLog, Fatal, TEXT("Streams cannot have overlapping elements, and all elements must be present."));
+		UE_LOG(RuntimeMeshLog, Fatal, TEXT("UV Channel Count must be between 1 and 8 inclusive"));
 	}
 
 	// Check indices
@@ -105,7 +99,8 @@ void FRuntimeMeshData::CheckCreate(const FRuntimeMeshVertexStreamStructure Strea
 #endif
 }
 
-void FRuntimeMeshData::CheckUpdate(const FRuntimeMeshVertexStreamStructure& Stream0Structure, const FRuntimeMeshVertexStreamStructure& Stream1Structure, const FRuntimeMeshVertexStreamStructure& Stream2Structure, bool b32BitIndices, int32 SectionIndex, bool bShouldCheckIndexType, bool bCheckVertexStream0 /*= true*/, bool bCheckVertexStream1 /*= true*/, bool bCheckVertexStream2 /*= true*/) const
+void FRuntimeMeshData::CheckUpdate(bool bUseHighPrecisionTangents, bool bUseHighPrecisionUVs, int32 NumUVs, bool b32BitIndices, int32 SectionIndex, bool bShouldCheckIndexType,
+	bool bCheckTangentVertexStream, bool bCheckUVVertexStream) const
 {
 	SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_CheckUpdate);
 #if DO_CHECK
@@ -115,18 +110,13 @@ void FRuntimeMeshData::CheckUpdate(const FRuntimeMeshVertexStreamStructure& Stre
 	}
 
 	FRuntimeMeshSectionPtr Section = MeshSections[SectionIndex];
-
-	if (bCheckVertexStream0 && !Section->CheckBuffer0VertexType(Stream0Structure))
-	{
-		UE_LOG(RuntimeMeshLog, Fatal, TEXT("Supplied vertex type does not match stream 0 for mesh section %d."), SectionIndex);
-	}
-
-	if (bCheckVertexStream1 && !Section->CheckBuffer1VertexType(Stream1Structure))
+	
+	if (bCheckTangentVertexStream && !Section->CheckTangentBuffer(bUseHighPrecisionTangents))
 	{
 		UE_LOG(RuntimeMeshLog, Fatal, TEXT("Supplied vertex type does not match stream 1 for mesh section %d."), SectionIndex);
 	}
 
-	if (bCheckVertexStream2 && !Section->CheckBuffer2VertexType(Stream2Structure))
+	if (bCheckUVVertexStream && !Section->CheckUVBuffer(bUseHighPrecisionUVs, NumUVs))
 	{
 		UE_LOG(RuntimeMeshLog, Fatal, TEXT("Supplied vertex type does not match stream 2 for mesh section %d."), SectionIndex);
 	}
@@ -157,13 +147,15 @@ void FRuntimeMeshData::CreateMeshSection(int32 SectionId, const TSharedPtr<FRunt
 
 	FRuntimeMeshScopeLock Lock(SyncRoot);
 
-	CheckCreate(MeshData->GetStream0Structure(), MeshData->GetStream1Structure(), MeshData->GetStream2Structure(), true);
+	CheckCreate(MeshData->NumUVChannels(), true);
 
-	auto NewSection = CreateOrResetSection(SectionId, MeshData->GetStream0Structure(), MeshData->GetStream1Structure(), MeshData->GetStream2Structure(), MeshData->IsUsing32BitIndices(), UpdateFrequency);
 
-	NewSection->UpdateVertexBuffer0(MeshData->GetStream0(), false);
-	NewSection->UpdateVertexBuffer1(MeshData->GetStream1(), false);
-	NewSection->UpdateVertexBuffer2(MeshData->GetStream2(), false);
+	auto NewSection = CreateOrResetSection(SectionId, MeshData->IsUsingHighPrecisionTangents(), MeshData->IsUsingHighPrecisionUVs(), MeshData->NumUVChannels(), MeshData->IsUsing32BitIndices(), UpdateFrequency);
+
+	NewSection->UpdatePositionBuffer(MeshData->GetPositionStream(), false);
+	NewSection->UpdateTangentsBuffer(MeshData->GetTangentStream(), false);
+	NewSection->UpdateUVsBuffer(MeshData->GetUVStream(), false);
+	NewSection->UpdateColorBuffer(MeshData->GetColorStream(), false);
 	NewSection->UpdateIndexBuffer(MeshData->GetIndexStream(), false);
 
 	// Track collision status and update collision information if necessary
@@ -179,13 +171,14 @@ void FRuntimeMeshData::CreateMeshSectionByMove(int32 SectionId, const TSharedPtr
 
 	FRuntimeMeshScopeLock Lock(SyncRoot);
 
-	CheckCreate(MeshData->GetStream0Structure(), MeshData->GetStream1Structure(), MeshData->GetStream2Structure(), true);
+	CheckCreate(MeshData->NumUVChannels(), true);
 
-	auto NewSection = CreateOrResetSection(SectionId, MeshData->GetStream0Structure(), MeshData->GetStream1Structure(), MeshData->GetStream2Structure(), MeshData->IsUsing32BitIndices(), UpdateFrequency);
+	auto NewSection = CreateOrResetSection(SectionId, MeshData->IsUsingHighPrecisionTangents(), MeshData->IsUsingHighPrecisionUVs(), MeshData->NumUVChannels(), MeshData->IsUsing32BitIndices(), UpdateFrequency);
 
-	NewSection->UpdateVertexBuffer0(MeshData->GetStream0(), true);
-	NewSection->UpdateVertexBuffer1(MeshData->GetStream1(), true);
-	NewSection->UpdateVertexBuffer2(MeshData->GetStream2(), true);
+	NewSection->UpdatePositionBuffer(MeshData->GetPositionStream(), true);
+	NewSection->UpdateTangentsBuffer(MeshData->GetTangentStream(), true);
+	NewSection->UpdateUVsBuffer(MeshData->GetUVStream(), true);
+	NewSection->UpdateColorBuffer(MeshData->GetColorStream(), true);
 	NewSection->UpdateIndexBuffer(MeshData->GetIndexStream(), true);
 
 	// Track collision status and update collision information if necessary
@@ -201,15 +194,16 @@ void FRuntimeMeshData::UpdateMeshSection(int32 SectionId, const TSharedPtr<FRunt
 
 	FRuntimeMeshScopeLock Lock(SyncRoot);
 
-	CheckUpdate(MeshData->GetStream0Structure(), MeshData->GetStream1Structure(), MeshData->GetStream2Structure(), MeshData->IsUsing32BitIndices(), SectionId, true, true, true, true);
+	CheckUpdate(MeshData->IsUsingHighPrecisionTangents(), MeshData->IsUsingHighPrecisionUVs(), MeshData->NumUVChannels(), MeshData->IsUsing32BitIndices(), SectionId, true, true, true);
 
 	FRuntimeMeshSectionPtr Section = MeshSections[SectionId];
 
 	ERuntimeMeshBuffersToUpdate BuffersToUpdate = ERuntimeMeshBuffersToUpdate::AllVertexBuffers | ERuntimeMeshBuffersToUpdate::IndexBuffer;
 
-	Section->UpdateVertexBuffer0(MeshData->GetStream0(), false);
-	Section->UpdateVertexBuffer1(MeshData->GetStream1(), false);
-	Section->UpdateVertexBuffer2(MeshData->GetStream2(), false);
+	Section->UpdatePositionBuffer(MeshData->GetPositionStream(), false);
+	Section->UpdateTangentsBuffer(MeshData->GetTangentStream(), false);
+	Section->UpdateUVsBuffer(MeshData->GetUVStream(), false);
+	Section->UpdateColorBuffer(MeshData->GetColorStream(), false);
 	Section->UpdateIndexBuffer(MeshData->GetIndexStream(), false);
 
 	UpdateSectionInternal(SectionId, BuffersToUpdate, UpdateFlags);
@@ -221,15 +215,16 @@ void FRuntimeMeshData::UpdateMeshSectionByMove(int32 SectionId, const TSharedPtr
 
 	FRuntimeMeshScopeLock Lock(SyncRoot);
 
-	CheckUpdate(MeshData->GetStream0Structure(), MeshData->GetStream1Structure(), MeshData->GetStream2Structure(), MeshData->IsUsing32BitIndices(), SectionId, true, true, true, true);
+	CheckUpdate(MeshData->IsUsingHighPrecisionTangents(), MeshData->IsUsingHighPrecisionUVs(), MeshData->NumUVChannels(), MeshData->IsUsing32BitIndices(), SectionId, true, true, true);
 
 	FRuntimeMeshSectionPtr Section = MeshSections[SectionId];
 
 	ERuntimeMeshBuffersToUpdate BuffersToUpdate = ERuntimeMeshBuffersToUpdate::AllVertexBuffers | ERuntimeMeshBuffersToUpdate::IndexBuffer;
 
-	Section->UpdateVertexBuffer0(MeshData->GetStream0(), true);
-	Section->UpdateVertexBuffer1(MeshData->GetStream1(), true);
-	Section->UpdateVertexBuffer2(MeshData->GetStream2(), true);
+	Section->UpdatePositionBuffer(MeshData->GetPositionStream(), true);
+	Section->UpdateTangentsBuffer(MeshData->GetTangentStream(), true);
+	Section->UpdateUVsBuffer(MeshData->GetUVStream(), true);
+	Section->UpdateColorBuffer(MeshData->GetColorStream(), true);
 	Section->UpdateIndexBuffer(MeshData->GetIndexStream(), true);
 
 	UpdateSectionInternal(SectionId, BuffersToUpdate, UpdateFlags);
@@ -286,22 +281,26 @@ void FRuntimeMeshData::UpdateMeshSectionFromComponents(int32 SectionIndex, const
 	FRuntimeMeshScopeLock Lock(SyncRoot);
 
 	// We only check stream 0 and 2 since stream 1 can change based on config, this is potentially dangerous to assume but probably not in practice.
-	CheckUpdate(GetStreamStructure<FVector>(), GetStreamStructure<FRuntimeMeshNullVertex>(), GetStreamStructure<FColor>(), true, SectionIndex, true, true, false, true);
+//	CheckUpdate(GetStreamStructure<FVector>(), GetStreamStructure<FRuntimeMeshNullVertex>(), GetStreamStructure<FColor>(), true, SectionIndex, true, true, false, true);
 
 	FRuntimeMeshSectionPtr& Section = MeshSections[SectionIndex];
 
 	ERuntimeMeshBuffersToUpdate BuffersToUpdate = ERuntimeMeshBuffersToUpdate::None;
 	if (Vertices.Num() > 0)
 	{
-		BuffersToUpdate |= ERuntimeMeshBuffersToUpdate::VertexBuffer0;
+		BuffersToUpdate |= ERuntimeMeshBuffersToUpdate::PositionBuffer;
 	}
-	if (Normals.Num() > 0 || Tangents.Num() > 0 || UV0.Num() > 0 || UV1.Num() > 0)
+	if (Normals.Num() > 0 || Tangents.Num() > 0)
 	{
-		BuffersToUpdate |= ERuntimeMeshBuffersToUpdate::VertexBuffer1;
+		BuffersToUpdate |= ERuntimeMeshBuffersToUpdate::TangentBuffer;
+	}
+	if (UV0.Num() > 0 || UV1.Num() > 0)
+	{
+		BuffersToUpdate |= ERuntimeMeshBuffersToUpdate::UVBuffer;
 	}
 	if (NumColors > 0)
 	{
-		BuffersToUpdate |= ERuntimeMeshBuffersToUpdate::VertexBuffer2;
+		BuffersToUpdate |= ERuntimeMeshBuffersToUpdate::ColorBuffer;
 	}
 
 	if (BuffersToUpdate != ERuntimeMeshBuffersToUpdate::None)
@@ -475,15 +474,14 @@ void FRuntimeMeshData::UpdateMeshSectionPacked_Blueprint(int32 SectionIndex, con
 	FRuntimeMeshScopeLock Lock(SyncRoot);
 
 	// We only check stream 0 and 2 since stream 1 can change based on config, this is potentially dangerous to assume but probably not in practice.
-	CheckUpdate(GetStreamStructure<FVector>(), GetStreamStructure<FRuntimeMeshNullVertex>(), GetStreamStructure<FColor>(), true, SectionIndex, true, true, false, true);
+//	CheckUpdate(GetStreamStructure<FVector>(), GetStreamStructure<FRuntimeMeshNullVertex>(), GetStreamStructure<FColor>(), true, SectionIndex, true, true, false, true);
 
 	FRuntimeMeshSectionPtr& Section = MeshSections[SectionIndex];
 
 	ERuntimeMeshBuffersToUpdate BuffersToUpdate = ERuntimeMeshBuffersToUpdate::None;
 	if (Vertices.Num() > 0)
 	{
-		BuffersToUpdate |= ERuntimeMeshBuffersToUpdate::VertexBuffer0 |
-			ERuntimeMeshBuffersToUpdate::VertexBuffer1 | ERuntimeMeshBuffersToUpdate::VertexBuffer2;
+		BuffersToUpdate |= ERuntimeMeshBuffersToUpdate::AllVertexBuffers;
 
 		TSharedPtr<FRuntimeMeshAccessor> MeshData = Section->GetSectionMeshAccessor();
 
@@ -969,10 +967,11 @@ FBoxSphereBounds FRuntimeMeshData::GetLocalBounds() const
 	return LocalBounds;
 }
 
-FRuntimeMeshSectionPtr FRuntimeMeshData::CreateOrResetSection(int32 SectionId, const FRuntimeMeshVertexStreamStructure& Stream0, const FRuntimeMeshVertexStreamStructure& Stream1, const FRuntimeMeshVertexStreamStructure& Stream2, bool b32BitIndices, EUpdateFrequency UpdateFrequency)
+FRuntimeMeshSectionPtr FRuntimeMeshData::CreateOrResetSection(int32 SectionId, bool bInUseHighPrecisionTangents, bool bInUseHighPrecisionUVs,
+	int32 InNumUVs, bool b32BitIndices, EUpdateFrequency UpdateFrequency)
 {
 	// Create new section
-	FRuntimeMeshSectionPtr NewSection = MakeShared<FRuntimeMeshSection, ESPMode::ThreadSafe>(Stream0, Stream1, Stream2, b32BitIndices, UpdateFrequency/*, LockFactory()*/);
+	FRuntimeMeshSectionPtr NewSection = MakeShared<FRuntimeMeshSection, ESPMode::ThreadSafe>(bInUseHighPrecisionTangents, bInUseHighPrecisionUVs, InNumUVs, b32BitIndices, UpdateFrequency/*, LockFactory()*/);
 
 	// Store section at index
 	if (MeshSections.Num() <= SectionId)
@@ -986,30 +985,7 @@ FRuntimeMeshSectionPtr FRuntimeMeshData::CreateOrResetSection(int32 SectionId, c
 
 FRuntimeMeshSectionPtr FRuntimeMeshData::CreateOrResetSectionForBlueprint(int32 SectionId, bool bWantsSecondUV, bool bHighPrecisionTangents, bool bHighPrecisionUVs, EUpdateFrequency UpdateFrequency)
 {
-	// This always uses stream 0 for position, stream1 for normal/tangent/uv0/uv1  and stream2 for color
-
-	FRuntimeMeshVertexStreamStructure Stream0 = GetStreamStructure<FVector>();
-
-	FRuntimeMeshVertexStreamStructure Stream2 = GetStreamStructure<FColor>();
-
-	int32 TangentSize = bHighPrecisionTangents ? 8 : 4;
-	int32 UVSize = bHighPrecisionUVs ? 8 : 4;
-	int32 NumUVs = bWantsSecondUV ? 2 : 1;
-
-	int32 VertexSize = (TangentSize * 2) + (UVSize * NumUVs);
-	int32 UVOffset = TangentSize * 2;
-
-	EVertexElementType TangentType = bHighPrecisionTangents ? VET_UShort4N : VET_PackedNormal;
-	EVertexElementType UVType = bWantsSecondUV ? (bHighPrecisionUVs ? VET_Float4 : VET_Half4) : (bHighPrecisionUVs ? VET_Float2 : VET_Half2);
-
-
-	FRuntimeMeshVertexStreamStructure Stream1;
-	Stream1.Normal = FRuntimeMeshVertexStreamStructureElement(0, VertexSize, TangentType);
-	Stream1.Tangent = FRuntimeMeshVertexStreamStructureElement(TangentSize, VertexSize, TangentType);
-
-	Stream1.UVs.Add(FRuntimeMeshVertexStreamStructureElement(UVOffset, VertexSize, UVType));
-
-	return CreateOrResetSection(SectionId, Stream0, Stream1, Stream2, true, UpdateFrequency);
+	return CreateOrResetSection(SectionId, bHighPrecisionTangents, bHighPrecisionUVs, bWantsSecondUV? 2 : 1, true, UpdateFrequency);
 }
 
 

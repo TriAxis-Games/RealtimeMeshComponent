@@ -6,224 +6,72 @@
 //////////////////////////////////////////////////////////////////////////
 //	FRuntimeMeshVerticesAccessor
 
-FRuntimeMeshVerticesAccessor::FRuntimeMeshVerticesAccessor(TArray<uint8>* Stream0Data, TArray<uint8>* Stream1Data,
-	TArray<uint8>* Stream2Data)
+FRuntimeMeshVerticesAccessor::FRuntimeMeshVerticesAccessor(TArray<uint8>* PositionStreamData, TArray<uint8>* TangentStreamData, TArray<uint8>* UVStreamData, TArray<uint8>* ColorStreamData)
 	: bIsInitialized(false)
-	, Stream0(Stream0Data), Stream0Stride(0)
-	, Stream1(Stream1Data), Stream1Stride(0)
-	, Stream2(Stream2Data), Stream2Stride(0)
+	, PositionStream(PositionStreamData)
+	, TangentStream(TangentStreamData), bTangentHighPrecision(false), TangentSize(0), TangentStride(0)
+	, UVStream(UVStreamData), bUVHighPrecision(false), UVSize(0), UVStride(0), UVChannelCount(0)
+	, ColorStream(ColorStreamData)
 {
 }
 
-FRuntimeMeshVerticesAccessor::FRuntimeMeshVerticesAccessor(const FRuntimeMeshVertexStreamStructure& Stream0Structure,
-	const FRuntimeMeshVertexStreamStructure& Stream1Structure,
-	const FRuntimeMeshVertexStreamStructure& Stream2Structure,
-	TArray<uint8>* Stream0Data, TArray<uint8>* Stream1Data, TArray<uint8>* Stream2Data)
+FRuntimeMeshVerticesAccessor::FRuntimeMeshVerticesAccessor(bool bInTangentsHighPrecision, bool bInUVsHighPrecision, int32 bInUVCount,
+	TArray<uint8>* PositionStreamData, TArray<uint8>* TangentStreamData, TArray<uint8>* UVStreamData, TArray<uint8>* ColorStreamData)
 	: bIsInitialized(false)
-	, Stream0(Stream0Data), Stream0Stride(0)
-	, Stream1(Stream1Data), Stream1Stride(0)
-	, Stream2(Stream2Data), Stream2Stride(0)
+	, PositionStream(PositionStreamData)
+	, TangentStream(TangentStreamData), bTangentHighPrecision(false), TangentSize(0), TangentStride(0)
+	, UVStream(UVStreamData), bUVHighPrecision(false), UVSize(0), UVStride(0), UVChannelCount(0)
+	, ColorStream(ColorStreamData)
 {
-	Initialize(Stream0Structure, Stream1Structure, Stream2Structure);
+	Initialize(bInTangentsHighPrecision, bInUVsHighPrecision, bInUVCount);
 }
 
 FRuntimeMeshVerticesAccessor::~FRuntimeMeshVerticesAccessor()
 {
 }
 
-void FRuntimeMeshVerticesAccessor::Initialize(const FRuntimeMeshVertexStreamStructure& InStream0Structure,
-	const FRuntimeMeshVertexStreamStructure& InStream1Structure,
-	const FRuntimeMeshVertexStreamStructure& InStream2Structure)
+void FRuntimeMeshVerticesAccessor::Initialize(bool bInTangentsHighPrecision, bool bInUVsHighPrecision, int32 bInUVCount)
 {
 	bIsInitialized = true;
-	Stream0Structure = InStream0Structure;
-	Stream0Stride = Stream0Structure.CalculateStride();
-	Stream1Structure = InStream1Structure;
-	Stream1Stride = Stream1Structure.CalculateStride();
-	Stream2Structure = InStream2Structure;
-	Stream2Stride = Stream2Structure.CalculateStride();
+	const_cast<bool&>(bTangentHighPrecision) = bInTangentsHighPrecision;
+	const_cast<int32&>(TangentSize) = (bTangentHighPrecision ? sizeof(FPackedRGBA16N) : sizeof(FPackedNormal));
+	const_cast<int32&>(TangentStride) = TangentSize * 2;
 
-	// Verify all streams have the same number of elements if they're enabled
-	check((Stream0Stride != 0) == Stream0Structure.HasAnyElements());
-	check((Stream1Stride != 0) == Stream1Structure.HasAnyElements());
-	check((Stream2Stride != 0) == Stream2Structure.HasAnyElements());
-
-	// Verify that all streams are sized correctly for their strides
-	check(Stream0Stride == 0 || ((Stream0->Num() % Stream0Stride) == 0));
-	check(Stream1Stride == 0 || ((Stream1->Num() % Stream1Stride) == 0));
-	check(Stream2Stride == 0 || ((Stream2->Num() % Stream2Stride) == 0));
-
-	// The position is required to be in stream0
-	check(Stream0Structure.Position.IsValid());
-	PositionReader.BindStatic(&FRuntimeMeshAccessor::Read<FVector>, Stream0, (int32)Stream0Structure.Position.Stride, (int32)Stream0Structure.Position.Offset);
-	PositionWriter.BindStatic(&FRuntimeMeshAccessor::Write<FVector>, Stream0, (int32)Stream0Structure.Position.Stride, (int32)Stream0Structure.Position.Offset);
-
-	const auto BindNormalTangentReaderWriter = [](FStreamNormalTangentReader& Reader, FStreamNormalTangentWriter& Writer, const FRuntimeMeshVertexStreamStructureElement& Element, TArray<uint8>* Data)
-	{
-		Reader.BindStatic(Element.Type == VET_PackedNormal ?
-			&FRuntimeMeshAccessor::ReadNormalTangentPackedNormal :
-			&FRuntimeMeshAccessor::ReadNormalTangentPackedRGBA16N,
-			Data, (int32)Element.Stride, (int32)Element.Offset);
-
-		Writer.BindStatic(Element.Type == VET_PackedNormal ?
-			&FRuntimeMeshAccessor::WriteNormalTangentPackedNormal :
-			&FRuntimeMeshAccessor::WriteNormalTangentPackedRGBA16N,
-			Data, (int32)Element.Stride, (int32)Element.Offset);
-	};
-
-	// Bind normal reader
-	if (Stream0Structure.Normal.IsValid()) BindNormalTangentReaderWriter(NormalReader, NormalWriter, Stream0Structure.Normal, Stream0);
-	else if (Stream1Structure.Normal.IsValid()) BindNormalTangentReaderWriter(NormalReader, NormalWriter, Stream1Structure.Normal, Stream1);
-	else if (Stream2Structure.Normal.IsValid()) BindNormalTangentReaderWriter(NormalReader, NormalWriter, Stream2Structure.Normal, Stream2);
-	else
-	{
-		NormalReader.BindStatic(&FRuntimeMeshAccessor::ReadNormalNull, (TArray<uint8>*)nullptr, 0, 0);
-		NormalWriter.BindStatic(&FRuntimeMeshAccessor::WriteNormalNull, (TArray<uint8>*)nullptr, 0, 0);
-	}
-
-	// Bind tangent reader
-	if (Stream0Structure.Tangent.IsValid()) BindNormalTangentReaderWriter(TangentReader, TangentWriter, Stream0Structure.Tangent, Stream0);
-	else if (Stream1Structure.Tangent.IsValid()) BindNormalTangentReaderWriter(TangentReader, TangentWriter, Stream1Structure.Tangent, Stream1);
-	else if (Stream2Structure.Tangent.IsValid()) BindNormalTangentReaderWriter(TangentReader, TangentWriter, Stream2Structure.Tangent, Stream2);
-	else
-	{
-		TangentReader.BindStatic(&FRuntimeMeshAccessor::ReadTangentNull, (TArray<uint8>*)nullptr, 0, 0);
-		TangentWriter.BindStatic(&FRuntimeMeshAccessor::WriteTangentNull, (TArray<uint8>*)nullptr, 0, 0);
-	}
-
-	// Bind color reader
-	if (Stream0Structure.Color.IsValid())
-	{
-		ColorReader.BindStatic(&FRuntimeMeshAccessor::Read<FColor>, Stream0, (int32)Stream0Structure.Color.Stride, (int32)Stream0Structure.Color.Offset);
-		ColorWriter.BindStatic(&FRuntimeMeshAccessor::Write<FColor>, Stream0, (int32)Stream0Structure.Color.Stride, (int32)Stream0Structure.Color.Offset);
-	}
-	else if (Stream1Structure.Color.IsValid())
-	{
-		ColorReader.BindStatic(&FRuntimeMeshAccessor::Read<FColor>, Stream1, (int32)Stream1Structure.Color.Stride, (int32)Stream1Structure.Color.Offset);
-		ColorWriter.BindStatic(&FRuntimeMeshAccessor::Write<FColor>, Stream1, (int32)Stream1Structure.Color.Stride, (int32)Stream1Structure.Color.Offset);
-	}
-	else if (Stream2Structure.Color.IsValid())
-	{
-		ColorReader.BindStatic(&FRuntimeMeshAccessor::Read<FColor>, Stream2, (int32)Stream2Structure.Color.Stride, (int32)Stream2Structure.Color.Offset);
-		ColorWriter.BindStatic(&FRuntimeMeshAccessor::Write<FColor>, Stream2, (int32)Stream2Structure.Color.Stride, (int32)Stream2Structure.Color.Offset);
-	}
-	else
-	{
-		ColorReader.BindStatic(&FRuntimeMeshAccessor::ReadColorNull, (TArray<uint8>*)nullptr, 0, 0);
-	}
-
-	const auto BindUVs = [&](const FRuntimeMeshVertexStreamStructure& Structure, TArray<uint8>* Data)
-	{
-		const auto IsHighPrecision = [](EVertexElementType Type) -> bool
-		{
-			if (Type == VET_Float2 || Type == VET_Float4)
-				return true;
-
-			check(Type == VET_Half2 || Type == VET_Half4);
-			return false;
-		};
-
-		const auto IsDualUV = [](EVertexElementType Type) -> bool
-		{
-			if (Type == VET_Float4 || Type == VET_Half4)
-				return true;
-
-			check(Type == VET_Float2 || Type == VET_Half2);
-			return false;
-		};
-
-		for (int32 Index = 0; Index < Structure.UVs.Num(); Index++)
-		{
-			bool bIsHighPrecision = IsHighPrecision(Structure.UVs[Index].Type);
-
-			UVReaders.Add(FStreamUVReader::CreateStatic(
-				bIsHighPrecision ? FRuntimeMeshAccessor::ReadUVVector2D : FRuntimeMeshAccessor::ReadUVVector2DHalf,
-				Data, (int32)Structure.UVs[Index].Stride, (int32)Structure.UVs[Index].Offset));
-
-			UVWriters.Add(FStreamUVWriter::CreateStatic(
-				bIsHighPrecision ? FRuntimeMeshAccessor::WriteUVVector2D : FRuntimeMeshAccessor::WriteUVVector2DHalf,
-				Data, (int32)Structure.UVs[Index].Stride, (int32)Structure.UVs[Index].Offset));
-
-			if (IsDualUV(Structure.UVs[Index].Type))
-			{
-				const int32 SecondOffset = bIsHighPrecision ? 8 : 4;
-
-				UVReaders.Add(FStreamUVReader::CreateStatic(
-					bIsHighPrecision ? FRuntimeMeshAccessor::ReadUVVector2D : FRuntimeMeshAccessor::ReadUVVector2DHalf,
-					Data, (int32)Structure.UVs[Index].Stride, (int32)Structure.UVs[Index].Offset + SecondOffset));
-
-				UVWriters.Add(FStreamUVWriter::CreateStatic(
-					bIsHighPrecision ? FRuntimeMeshAccessor::WriteUVVector2D : FRuntimeMeshAccessor::WriteUVVector2DHalf,
-					Data, (int32)Structure.UVs[Index].Stride, (int32)Structure.UVs[Index].Offset + SecondOffset));
-			}
-		}
-	};
-
-	if (Stream0Structure.HasUVs()) BindUVs(Stream0Structure, Stream0);
-	else if (Stream1Structure.HasUVs()) BindUVs(Stream1Structure, Stream1);
-	else if (Stream2Structure.HasUVs()) BindUVs(Stream2Structure, Stream2);
+	const_cast<bool&>(bUVHighPrecision) = bInUVsHighPrecision;
+	const_cast<int32&>(UVChannelCount) = bInUVCount;
+	const_cast<int32&>(UVSize) = (bUVHighPrecision ? sizeof(FVector2D) : sizeof(FVector2DHalf));
+	const_cast<int32&>(UVStride) = UVSize * UVChannelCount;
 }
 
 int32 FRuntimeMeshVerticesAccessor::NumVertices() const
 {
 	check(bIsInitialized);
-	int32 Count = Stream0->Num() / Stream0Stride;
-	check(Stream1Stride <= 0 || (Stream1->Num() / Stream1Stride) == Count);
-	check(Stream2Stride <= 0 || (Stream2->Num() / Stream2Stride) == Count);
+	int32 Count = PositionStream->Num() / PositionStride;
 	return Count;
 }
 
 int32 FRuntimeMeshVerticesAccessor::NumUVChannels() const
 {
 	check(bIsInitialized);
-	check(UVWriters.Num() == UVReaders.Num());
-	return UVWriters.Num();
+	return UVChannelCount;
 }
 
 void FRuntimeMeshVerticesAccessor::EmptyVertices(int32 Slack /*= 0*/)
 {
 	check(bIsInitialized);
-	check(Stream0Stride > 0);
-	Stream0->Empty(Slack * Stream0Stride);
-	if (Stream1Stride > 0)
-	{
-		Stream1->Empty(Slack * Stream1Stride);
-	}
-	else
-	{
-		check(Stream1->Num() == 0);
-	}
-	if (Stream2Stride > 0)
-	{
-		Stream2->Empty(Slack * Stream2Stride);
-	}
-	else
-	{
-		check(Stream2->Num() == 0);
-	}
+	PositionStream->Empty(Slack * PositionStride);
+	TangentStream->Empty(Slack * TangentStride);
+	UVStream->Empty(Slack * UVSize);
+	ColorStream->Empty(Slack * ColorStride);
 }
 
 void FRuntimeMeshVerticesAccessor::SetNumVertices(int32 NewNum)
 {
 	check(bIsInitialized);
-	check(Stream0Stride > 0);
-	Stream0->SetNumZeroed(NewNum * Stream0Stride);
-	if (Stream1Stride > 0)
-	{
-		Stream1->SetNumZeroed(NewNum * Stream1Stride);
-	}
-	else
-	{
-		check(Stream1->Num() == 0);
-	}
-	if (Stream2Stride > 0)
-	{
-		Stream2->SetNumZeroed(NewNum * Stream2Stride);
-	}
-	else
-	{
-		check(Stream2->Num() == 0);
-	}
+	PositionStream->SetNumZeroed(NewNum * PositionStride);
+	TangentStream->SetNumZeroed(NewNum * TangentStride);
+	UVStream->SetNumZeroed(NewNum * UVStride);
+	ColorStream->SetNumZeroed(NewNum * ColorStride);
 }
 
 int32 FRuntimeMeshVerticesAccessor::AddVertex(FVector InPosition)
@@ -239,50 +87,70 @@ int32 FRuntimeMeshVerticesAccessor::AddVertex(FVector InPosition)
 FVector FRuntimeMeshVerticesAccessor::GetPosition(int32 Index) const
 {
 	check(bIsInitialized);
-	return PositionReader.Execute(Index);
+	return Read<FVector>(Index, PositionStream, PositionStride, 0);
 }
 
 FVector4 FRuntimeMeshVerticesAccessor::GetNormal(int32 Index) const
 {
 	check(bIsInitialized);
-	return NormalReader.Execute(Index);
+	return bTangentHighPrecision ? 
+		FVector4(Read<FPackedRGBA16N>(Index, TangentStream, TangentStride, 0)) :
+		FVector4(Read<FPackedNormal>(Index, TangentStream, TangentStride, 0));
 }
 
 FVector FRuntimeMeshVerticesAccessor::GetTangent(int32 Index) const
 {
 	check(bIsInitialized);
-	return TangentReader.Execute(Index);
+	return bTangentHighPrecision ?
+		FVector(Read<FPackedRGBA16N>(Index, TangentStream, TangentStride, TangentSize)) :
+		FVector(Read<FPackedNormal>(Index, TangentStream, TangentStride, TangentSize));
 }
 
 FColor FRuntimeMeshVerticesAccessor::GetColor(int32 Index) const
 {
 	check(bIsInitialized);
-	return ColorReader.Execute(Index);
+	return Read<FColor>(Index, ColorStream, ColorStride, 0);
 }
 
 FVector2D FRuntimeMeshVerticesAccessor::GetUV(int32 Index, int32 Channel) const
 {
 	check(bIsInitialized);
-	check(Channel >= 0 && Channel < UVReaders.Num());
-	return UVReaders[Channel].Execute(Index);
+	check(Channel >= 0 && Channel < UVChannelCount);
+	return bUVHighPrecision ?
+		Read<FVector2D>(Index, UVStream, UVStride, UVSize * Channel) :
+		FVector2D(Read<FVector2DHalf>(Index, UVStream, UVStride, UVSize * Channel));
 }
 
 void FRuntimeMeshVerticesAccessor::SetPosition(int32 Index, FVector Value)
 {
 	check(bIsInitialized);
-	PositionWriter.Execute(Index, Value);
+	Write<FVector>(Index, Value, PositionStream, PositionStride, 0);
 }
 
 void FRuntimeMeshVerticesAccessor::SetNormal(int32 Index, const FVector4& Value)
 {
 	check(bIsInitialized);
-	NormalWriter.Execute(Index, Value);
+	if (bTangentHighPrecision)
+	{
+		Write<FPackedRGBA16N>(Index, Value, TangentStream, TangentStride, 0);
+	}
+	else
+	{
+		Write<FPackedNormal>(Index, Value, TangentStream, TangentStride, 0);
+	}
 }
 
 void FRuntimeMeshVerticesAccessor::SetTangent(int32 Index, FVector Value)
 {
 	check(bIsInitialized);
-	TangentWriter.Execute(Index, Value);
+	if (bTangentHighPrecision)
+	{
+		Write<FPackedRGBA16N>(Index, Value, TangentStream, TangentStride, TangentSize);
+	}
+	else
+	{
+		Write<FPackedNormal>(Index, Value, TangentStream, TangentStride, TangentSize);
+	}
 }
 
 void FRuntimeMeshVerticesAccessor::SetTangent(int32 Index, FRuntimeMeshTangent Value)
@@ -296,35 +164,66 @@ void FRuntimeMeshVerticesAccessor::SetTangent(int32 Index, FRuntimeMeshTangent V
 void FRuntimeMeshVerticesAccessor::SetColor(int32 Index, FColor Value)
 {
 	check(bIsInitialized);
-	ColorWriter.Execute(Index, Value);
+	Write<FColor>(Index, Value, ColorStream, ColorStride, 0);
 }
 
 void FRuntimeMeshVerticesAccessor::SetUV(int32 Index, FVector2D Value)
 {
 	check(bIsInitialized);
-	check(UVWriters.Num());
-	UVWriters[0].Execute(Index, Value);
+	check(UVChannelCount > 0);
+	if (bUVHighPrecision)
+	{
+		Write<FVector2D>(Index, Value, UVStream, UVStride, 0);
+	}
+	else
+	{
+		Write<FVector2DHalf>(Index, Value, UVStream, UVStride, 0);
+	}
 }
 
 void FRuntimeMeshVerticesAccessor::SetUV(int32 Index, int32 Channel, FVector2D Value)
 {
 	check(bIsInitialized);
-	check(Channel >= 0 && Channel < UVWriters.Num());
-	UVWriters[Channel].Execute(Index, Value);
+	check(Channel >= 0 && Channel < UVChannelCount);
+	if (bUVHighPrecision)
+	{
+		Write<FVector2D>(Index, Value, UVStream, UVStride, UVSize * Channel);
+	}
+	else
+	{
+		Write<FVector2DHalf>(Index, Value, UVStream, UVStride, UVSize * Channel);
+	}
 }
 
 void FRuntimeMeshVerticesAccessor::SetNormalTangent(int32 Index, FVector Normal, FRuntimeMeshTangent Tangent)
 {
 	check(bIsInitialized);
-	NormalWriter.Execute(Index, FVector4(Normal, Tangent.bFlipTangentY? -1 : 1));
-	TangentWriter.Execute(Index, Tangent.TangentX);
+	if (bTangentHighPrecision)
+	{
+		Write<FPackedRGBA16N>(Index, FVector4(Normal, Tangent.bFlipTangentY ? -1 : 1), TangentStream, TangentStride, 0);
+		Write<FPackedRGBA16N>(Index, Tangent.TangentX, TangentStream, TangentStride, TangentSize);
+	}
+	else
+	{
+		Write<FPackedNormal>(Index, FVector4(Normal, Tangent.bFlipTangentY ? -1 : 1), TangentStream, TangentStride, 0);
+		Write<FPackedNormal>(Index, Tangent.TangentX, TangentStream, TangentStride, TangentSize);
+	}
 }
 
 void FRuntimeMeshVerticesAccessor::SetTangents(int32 Index, FVector TangentX, FVector TangentY, FVector TangentZ)
 {
 	check(bIsInitialized);
-	NormalWriter.Execute(Index, FVector4(TangentZ, GetBasisDeterminantSign(TangentX, TangentY, TangentZ)));
-	TangentWriter.Execute(Index, TangentX);
+
+	if (bTangentHighPrecision)
+	{
+		Write<FPackedRGBA16N>(Index, FVector4(TangentZ, GetBasisDeterminantSign(TangentX, TangentY, TangentZ)), TangentStream, TangentStride, 0);
+		Write<FPackedRGBA16N>(Index, TangentX, TangentStream, TangentStride, TangentSize);
+	}
+	else
+	{
+		Write<FPackedNormal>(Index, FVector4(TangentZ, GetBasisDeterminantSign(TangentX, TangentY, TangentZ)), TangentStream, TangentStride, 0);
+		Write<FPackedNormal>(Index, TangentX, TangentStream, TangentStride, TangentSize);
+	}
 }
 
 
@@ -335,14 +234,20 @@ FRuntimeMeshAccessorVertex FRuntimeMeshVerticesAccessor::GetVertex(int32 Index) 
 {
 	check(bIsInitialized);
 	FRuntimeMeshAccessorVertex Vertex;
-	Vertex.Position = PositionReader.Execute(Index);
-	Vertex.Normal = NormalReader.Execute(Index);
-	Vertex.Tangent = TangentReader.Execute(Index);
-	Vertex.Color = ColorReader.Execute(Index);
+	Vertex.Position = Read<FVector>(Index, PositionStream, PositionStride, 0);
+	Vertex.Normal = bTangentHighPrecision ?
+		FVector4(Read<FPackedRGBA16N>(Index, TangentStream, TangentStride, 0)) :
+		FVector4(Read<FPackedNormal>(Index, TangentStream, TangentStride, 0));
+	Vertex.Tangent = bTangentHighPrecision ?
+		FVector(Read<FPackedRGBA16N>(Index, TangentStream, TangentStride, TangentSize)) :
+		FVector(Read<FPackedNormal>(Index, TangentStream, TangentStride, TangentSize));
+	Vertex.Color = Read<FColor>(Index, ColorStream, ColorStride, 0);
 	Vertex.UVs.SetNum(NumUVChannels());
 	for (int32 UVIndex = 0; UVIndex < Vertex.UVs.Num(); UVIndex++)
 	{
-		Vertex.UVs[UVIndex] = UVReaders[UVIndex].Execute(Index);
+		Vertex.UVs[UVIndex] = bUVHighPrecision ?
+			Read<FVector2D>(Index, UVStream, UVStride, UVSize * UVIndex) :
+			FVector2D(Read<FVector2DHalf>(Index, UVStream, UVStride, UVSize * UVIndex));
 	}
 	return Vertex;
 }
@@ -350,14 +255,29 @@ FRuntimeMeshAccessorVertex FRuntimeMeshVerticesAccessor::GetVertex(int32 Index) 
 void FRuntimeMeshVerticesAccessor::SetVertex(int32 Index, const FRuntimeMeshAccessorVertex& Vertex)
 {
 	check(bIsInitialized);
-	PositionWriter.Execute(Index, Vertex.Position);
-	NormalWriter.Execute(Index, Vertex.Normal);
-	TangentWriter.Execute(Index, Vertex.Tangent);
-	ColorWriter.Execute(Index, Vertex.Color);
+	Write<FVector>(Index, Vertex.Position, PositionStream, PositionStride, 0);
+	if (bTangentHighPrecision)
+	{
+		Write<FPackedRGBA16N>(Index, Vertex.Normal, TangentStream, TangentStride, 0);
+		Write<FPackedRGBA16N>(Index, Vertex.Tangent, TangentStream, TangentStride, TangentSize);
+	}
+	else
+	{
+		Write<FPackedNormal>(Index, Vertex.Normal, TangentStream, TangentStride, 0);
+		Write<FPackedNormal>(Index, Vertex.Tangent, TangentStream, TangentStride, TangentSize);
+	}
+	Write<FColor>(Index, Vertex.Color, ColorStream, ColorStride, 0);
 	int32 NumUVs = NumUVChannels();
 	for (int32 UVIndex = 0; UVIndex < NumUVs; UVIndex++)
 	{
-		UVWriters[UVIndex].Execute(Index, Vertex.UVs[UVIndex]);
+		if (bUVHighPrecision)
+		{
+			Write<FVector2D>(Index, Vertex.UVs[UVIndex], UVStream, UVStride, UVSize * UVIndex);
+		}
+		else
+		{
+			Write<FVector2DHalf>(Index, Vertex.UVs[UVIndex], UVStream, UVStride, UVSize * UVIndex);
+		}
 	}
 }
 
@@ -375,24 +295,10 @@ int32 FRuntimeMeshVerticesAccessor::AddSingleVertex()
 {
 	int32 NewIndex = NumVertices();
 
-	check(Stream0Stride > 0);
-	Stream0->AddZeroed(Stream0Stride);
-	if (Stream1Stride > 0)
-	{
-		Stream1->AddZeroed(Stream1Stride);
-	}
-	else
-	{
-		check(Stream1->Num() == 0);
-	}
-	if (Stream2Stride > 0)
-	{
-		Stream2->AddZeroed(Stream2Stride);
-	}
-	else
-	{
-		check(Stream2->Num() == 0);
-	}
+	PositionStream->AddZeroed(PositionStride);
+	TangentStream->AddZeroed(TangentStride);
+	UVStream->AddZeroed(UVStride);
+	ColorStream->AddZeroed(ColorStride);
 
 	return NewIndex;
 }
@@ -496,9 +402,9 @@ void FRuntimeMeshIndicesAccessor::SetIndex(int32 Index, int32 Value)
 //////////////////////////////////////////////////////////////////////////
 //	FRuntimeMeshAccessor
 
-FRuntimeMeshAccessor::FRuntimeMeshAccessor(const FRuntimeMeshVertexStreamStructure& Stream0, const FRuntimeMeshVertexStreamStructure& Stream1, const FRuntimeMeshVertexStreamStructure& Stream2,
-	bool bIn32BitIndices, TArray<uint8>* Stream0Data, TArray<uint8>* Stream1Data, TArray<uint8>* Stream2Data, TArray<uint8>* IndexStreamData)
-	: FRuntimeMeshVerticesAccessor(Stream0, Stream1, Stream2, Stream0Data, Stream1Data, Stream2Data)
+FRuntimeMeshAccessor::FRuntimeMeshAccessor(bool bInTangentsHighPrecision, bool bInUVsHighPrecision, int32 bInUVCount, bool bIn32BitIndices, TArray<uint8>* PositionStreamData,
+	TArray<uint8>* TangentStreamData, TArray<uint8>* UVStreamData, TArray<uint8>* ColorStreamData, TArray<uint8>* IndexStreamData)
+	: FRuntimeMeshVerticesAccessor(bInTangentsHighPrecision, bInUVsHighPrecision, bInUVCount, PositionStreamData, TangentStreamData, UVStreamData, ColorStreamData)
 	, FRuntimeMeshIndicesAccessor(bIn32BitIndices, IndexStreamData)
 {
 
@@ -508,16 +414,16 @@ FRuntimeMeshAccessor::~FRuntimeMeshAccessor()
 {
 }
 
-FRuntimeMeshAccessor::FRuntimeMeshAccessor(TArray<uint8>* Stream0Data, TArray<uint8>* Stream1Data, TArray<uint8>* Stream2Data, TArray<uint8>* IndexStreamData)
-	: FRuntimeMeshVerticesAccessor(Stream0Data, Stream1Data, Stream2Data)
+FRuntimeMeshAccessor::FRuntimeMeshAccessor(TArray<uint8>* PositionStreamData, TArray<uint8>* TangentStreamData, TArray<uint8>* UVStreamData, TArray<uint8>* ColorStreamData, TArray<uint8>* IndexStreamData)
+	: FRuntimeMeshVerticesAccessor(PositionStreamData, TangentStreamData, UVStreamData, ColorStreamData)
 	, FRuntimeMeshIndicesAccessor(IndexStreamData)
 {
 
 }
 
-void FRuntimeMeshAccessor::Initialize(const FRuntimeMeshVertexStreamStructure& InStream0Structure, const FRuntimeMeshVertexStreamStructure& InStream1Structure, const FRuntimeMeshVertexStreamStructure& InStream2Structure, bool bIn32BitIndices)
+void FRuntimeMeshAccessor::Initialize(bool bInTangentsHighPrecision, bool bInUVsHighPrecision, int32 bInUVCount, bool bIn32BitIndices)
 {
-	FRuntimeMeshVerticesAccessor::Initialize(InStream0Structure, InStream1Structure, InStream2Structure);
+	FRuntimeMeshVerticesAccessor::Initialize(bInTangentsHighPrecision, bInUVsHighPrecision, bInUVCount);
 	FRuntimeMeshIndicesAccessor::Initialize(bIn32BitIndices);
 }
 
@@ -558,11 +464,10 @@ void FRuntimeMeshAccessor::CopyTo(const TSharedPtr<FRuntimeMeshAccessor>& Other,
 //////////////////////////////////////////////////////////////////////////
 //	FRuntimeMeshBuilder
 
-FRuntimeMeshBuilder::FRuntimeMeshBuilder(const FRuntimeMeshVertexStreamStructure& InStream0Structure,
-	const FRuntimeMeshVertexStreamStructure& InStream1Structure, const FRuntimeMeshVertexStreamStructure& InStream2Structure, bool bIn32BitIndices)
-	: FRuntimeMeshAccessor(&Stream0, &Stream1, &Stream2, &IndexStream)
+FRuntimeMeshBuilder::FRuntimeMeshBuilder(bool bInTangentsHighPrecision, bool bInUVsHighPrecision, int32 bInUVCount, bool bIn32BitIndices)
+	: FRuntimeMeshAccessor(&PositionStream, &TangentStream, &UVStream, &ColorStream, &IndexStream)
 {
-	FRuntimeMeshAccessor::Initialize(InStream0Structure, InStream1Structure, InStream2Structure, bIn32BitIndices);
+	FRuntimeMeshAccessor::Initialize(bInTangentsHighPrecision, bInUVsHighPrecision, bInUVCount, bIn32BitIndices);
 }
 
 FRuntimeMeshBuilder::~FRuntimeMeshBuilder()

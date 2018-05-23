@@ -8,6 +8,8 @@
 
 enum class ERuntimeMeshBuffersToUpdate : uint8;
 struct FRuntimeMeshSectionVertexBufferParams;
+struct FRuntimeMeshSectionTangentVertexBufferParams;
+struct FRuntimeMeshSectionUVVertexBufferParams;
 struct FRuntimeMeshSectionIndexBufferParams;
 class UMaterialInterface;
 
@@ -16,16 +18,14 @@ class RUNTIMEMESHCOMPONENT_API FRuntimeMeshSection
 	struct FSectionVertexBuffer
 	{
 	private:
-		const FRuntimeMeshVertexStreamStructure VertexStructure;
 		const int32 Stride;
 		TArray<uint8> Data;
 	public:
-		FSectionVertexBuffer(const FRuntimeMeshVertexStreamStructure& InVertexStructure)
-			: VertexStructure(InVertexStructure)
-			, Stride(InVertexStructure.CalculateStride())
+		FSectionVertexBuffer(int32 InStride) : Stride(InStride)
 		{
 
 		}
+		virtual ~FSectionVertexBuffer() { }
 
 		void SetData(TArray<uint8>& InVertices, bool bUseMove)
 		{
@@ -42,9 +42,12 @@ class RUNTIMEMESHCOMPONENT_API FRuntimeMeshSection
 		template<typename VertexType>
 		void SetData(const TArray<VertexType>& InVertices)
 		{
+			if (InVertices.Num() == 0)
+			{
+				Data.Empty();
+				return;
+			}
 			check(InVertices.GetTypeSize() == GetStride());
-			check(VertexStructure.HasAnyElements());
-			//check(VertexStructure == GetVertexStructure<VertexType>());
 
 			Data.SetNum(InVertices.GetTypeSize() * InVertices.Num());
 			FMemory::Memcpy(Data.GetData(), InVertices.GetData(), Data.Num());
@@ -60,21 +63,103 @@ class RUNTIMEMESHCOMPONENT_API FRuntimeMeshSection
 			return Stride > 0 ? Data.Num() / Stride : 0;
 		}
 
-		const FRuntimeMeshVertexStreamStructure& GetStructure() const { return VertexStructure; }
-
 		TArray<uint8>& GetData() { return Data; }
 
 		void FillUpdateParams(FRuntimeMeshSectionVertexBufferParams& Params);
 
-		bool IsEnabled() const { return VertexStructure.HasAnyElements(); }
-
-
 		friend FArchive& operator <<(FArchive& Ar, FSectionVertexBuffer& Buffer)
 		{
-			Ar << const_cast<FRuntimeMeshVertexStreamStructure&>(Buffer.VertexStructure);
-			Ar << const_cast<int32&>(Buffer.Stride);
-			Ar << Buffer.Data;
+			Buffer.Serialize(Ar);
 			return Ar;
+		}
+
+	protected:
+		virtual void Serialize(FArchive& Ar)
+		{
+			if (Ar.CustomVer(FRuntimeMeshVersion::GUID) < FRuntimeMeshVersion::RuntimeMeshComponentUE4_19)
+			{
+				FRuntimeMeshVertexStreamStructure VertexStructure;
+				Ar << const_cast<FRuntimeMeshVertexStreamStructure&>(VertexStructure);
+			}
+			Ar << const_cast<int32&>(Stride);
+			Ar << Data;
+		}
+	};
+
+	struct FSectionPositionVertexBuffer : public FSectionVertexBuffer
+	{
+		FSectionPositionVertexBuffer() 
+			: FSectionVertexBuffer(sizeof(FVector))
+		{
+
+		}
+	};
+
+	struct FSectionTangentsVertexBuffer : public FSectionVertexBuffer
+	{
+	private:
+		bool bUseHighPrecision;
+
+	public:
+		FSectionTangentsVertexBuffer(bool bInUseHighPrecision) 
+			: FSectionVertexBuffer(bUseHighPrecision? (sizeof(FPackedRGBA16N) * 2) : (sizeof(FPackedNormal) * 2))
+			, bUseHighPrecision(bInUseHighPrecision)
+		{
+
+		}
+
+		bool IsUsingHighPrecision() const { return bUseHighPrecision; }
+
+		void FillUpdateParams(FRuntimeMeshSectionTangentVertexBufferParams& Params);
+
+		virtual void Serialize(FArchive& Ar) override
+		{
+			if (Ar.CustomVer(FRuntimeMeshVersion::GUID) >= FRuntimeMeshVersion::RuntimeMeshComponentUE4_19)
+			{
+				Ar << bUseHighPrecision;
+			}
+			FSectionVertexBuffer::Serialize(Ar);
+		}
+	};
+
+	struct FSectionUVsVertexBuffer : public FSectionVertexBuffer
+	{
+	private:
+		bool bUseHighPrecision;
+		int32 UVCount;
+
+	public:
+
+		FSectionUVsVertexBuffer(bool bInUseHighPrecision, int32 InUVCount)
+			: FSectionVertexBuffer(bInUseHighPrecision ? (sizeof(FVector2D) * 2) : (sizeof(FVector2DHalf) * 2))
+			, bUseHighPrecision(bInUseHighPrecision), UVCount(InUVCount)
+		{
+
+		}
+
+		bool IsUsingHighPrecision() const { return bUseHighPrecision; }
+
+		int32 NumUVs() const { return UVCount; }
+
+		void FillUpdateParams(FRuntimeMeshSectionUVVertexBufferParams& Params);
+
+		virtual void Serialize(FArchive& Ar) override
+		{
+			if (Ar.CustomVer(FRuntimeMeshVersion::GUID) >= FRuntimeMeshVersion::RuntimeMeshComponentUE4_19)
+			{
+				Ar << bUseHighPrecision;
+				Ar << UVCount;
+			}
+			FSectionVertexBuffer::Serialize(Ar);
+		}
+	};
+
+	struct FSectionColorVertexBuffer : public FSectionVertexBuffer
+	{
+		FSectionColorVertexBuffer()
+			: FSectionVertexBuffer(sizeof(FColor))
+		{
+
 		}
 	};
 
@@ -141,9 +226,18 @@ class RUNTIMEMESHCOMPONENT_API FRuntimeMeshSection
 
 	const EUpdateFrequency UpdateFrequency;
 
-	FSectionVertexBuffer VertexBuffer0;
-	FSectionVertexBuffer VertexBuffer1;
-	FSectionVertexBuffer VertexBuffer2;
+	/** Vertex buffer containing the positions for this section */
+	FSectionPositionVertexBuffer PositionBuffer;
+
+	/** Vertex buffer containing the tangents for this section */
+	FSectionTangentsVertexBuffer TangentsBuffer;
+
+	/** Vertex buffer containing the UVs for this section */
+	FSectionUVsVertexBuffer UVsBuffer;
+
+	/** Vertex buffer containing the colors for this section */
+	FSectionColorVertexBuffer ColorBuffer;
+
 	FSectionIndexBuffer IndexBuffer;
 	FSectionIndexBuffer AdjacencyIndexBuffer;
 
@@ -158,8 +252,7 @@ class RUNTIMEMESHCOMPONENT_API FRuntimeMeshSection
 //	TUniquePtr<FRuntimeMeshLockProvider> SyncRoot;
 public:
 	FRuntimeMeshSection(FArchive& Ar);
-	FRuntimeMeshSection(const FRuntimeMeshVertexStreamStructure& InVertexStructure0, const FRuntimeMeshVertexStreamStructure& InVertexStructure1,
-		const FRuntimeMeshVertexStreamStructure& InVertexStructure2, bool b32BitIndices, EUpdateFrequency InUpdateFrequency/*, FRuntimeMeshLockProvider* InSyncRoot*/);
+	FRuntimeMeshSection(bool bInUseHighPrecisionTangents, bool bInUseHighPrecisionUVs, int32 InNumUVs, bool b32BitIndices, EUpdateFrequency InUpdateFrequency/*, FRuntimeMeshLockProvider* InSyncRoot*/);
 
 // 	void SetNewLockProvider(FRuntimeMeshLockProvider* NewSyncRoot)
 // 	{
@@ -175,23 +268,23 @@ public:
 	EUpdateFrequency GetUpdateFrequency() const { return UpdateFrequency; }
 	FBox GetBoundingBox() const { return LocalBoundingBox; }
 
-	int32 GetNumVertices() const { return VertexBuffer0.GetNumVertices(); }
+	int32 GetNumVertices() const { return PositionBuffer.GetNumVertices(); }
 	int32 GetNumIndices() const { return IndexBuffer.GetNumIndices(); }
 
 	bool HasValidMeshData() const {
 		if (IndexBuffer.GetNumIndices() <= 0)
 			return false;
-		if (VertexBuffer0.GetNumVertices() <= 0)
+		if (PositionBuffer.GetNumVertices() <= 0)
 			return false;
-		if (VertexBuffer1.IsEnabled() && VertexBuffer1.GetNumVertices() != VertexBuffer0.GetNumVertices())
+		if (TangentsBuffer.GetNumVertices() != 0 && TangentsBuffer.GetNumVertices() != PositionBuffer.GetNumVertices())
 			return false;
-		if (VertexBuffer2.IsEnabled() && VertexBuffer2.GetNumVertices() != VertexBuffer2.GetNumVertices())
+		if (UVsBuffer.GetNumVertices() != 0 && UVsBuffer.GetNumVertices() != PositionBuffer.GetNumVertices())
+			return false;
+		if (ColorBuffer.GetNumVertices() != 0 && ColorBuffer.GetNumVertices() != PositionBuffer.GetNumVertices())
 			return false;
 		return true;
 	}
-
-	int32 NumVertexStreams() const;
-
+	
 	void SetVisible(bool bNewVisible)
 	{
 		bIsVisible = bNewVisible;
@@ -205,16 +298,16 @@ public:
 		bCollisionEnabled = bNewCollision;
 	}
 
-	void UpdateVertexBuffer0(TArray<uint8>& InVertices, bool bUseMove)
+	void UpdatePositionBuffer(TArray<uint8>& InVertices, bool bUseMove)
 	{
-		VertexBuffer0.SetData(InVertices, bUseMove);
+		PositionBuffer.SetData(InVertices, bUseMove);
 		UpdateBoundingBox();
 	}
 
 	template<typename VertexType>
-	void UpdateVertexBuffer0(const TArray<VertexType>& InVertices, const FBox* BoundingBox = nullptr)
+	void UpdatePositionBuffer(const TArray<VertexType>& InVertices, const FBox* BoundingBox = nullptr)
 	{
-		VertexBuffer0.SetData(InVertices);
+		PositionBuffer.SetData(InVertices);
 
 		if (BoundingBox)
 		{
@@ -226,26 +319,37 @@ public:
 		}
 	}
 
-	void UpdateVertexBuffer1(TArray<uint8>& InVertices, bool bUseMove)
+	void UpdateTangentsBuffer(TArray<uint8>& InVertices, bool bUseMove)
 	{
-		VertexBuffer1.SetData(InVertices, bUseMove);
+		TangentsBuffer.SetData(InVertices, bUseMove);
 	}
 
 	template<typename VertexType>
-	void UpdateVertexBuffer1(const TArray<VertexType>& InVertices)
+	void UpdateTangentsBuffer(const TArray<VertexType>& InVertices)
 	{
-		VertexBuffer1.SetData(InVertices);
+		TangentsBuffer.SetData(InVertices);
 	}
 
-	void UpdateVertexBuffer2(TArray<uint8>& InVertices, bool bUseMove)
+	void UpdateUVsBuffer(TArray<uint8>& InVertices, bool bUseMove)
 	{
-		VertexBuffer2.SetData(InVertices, bUseMove);
+		UVsBuffer.SetData(InVertices, bUseMove);
 	}
 
 	template<typename VertexType>
-	void UpdateVertexBuffer2(const TArray<VertexType>& InVertices)
+	void UpdateUVsBuffer(const TArray<VertexType>& InVertices)
 	{
-		VertexBuffer2.SetData(InVertices);
+		UVsBuffer.SetData(InVertices);
+	}
+
+	void UpdateColorBuffer(TArray<uint8>& InVertices, bool bUseMove)
+	{
+		ColorBuffer.SetData(InVertices, bUseMove);
+	}
+
+	template<typename VertexType>
+	void UpdateColorBuffer(const TArray<VertexType>& InVertices)
+	{
+		ColorBuffer.SetData(InVertices);
 	}
 
 	void UpdateIndexBuffer(TArray<uint8>& InIndices, bool bUseMove)
@@ -267,9 +371,10 @@ public:
 
 	TSharedPtr<FRuntimeMeshAccessor> GetSectionMeshAccessor()
 	{
-		return MakeShared<FRuntimeMeshAccessor>(VertexBuffer0.GetStructure(),
-			VertexBuffer1.GetStructure(), VertexBuffer2.GetStructure(), IndexBuffer.Is32BitIndices(),
-			&VertexBuffer0.GetData(), &VertexBuffer1.GetData(), &VertexBuffer2.GetData(), &IndexBuffer.GetData());
+ 		return nullptr; 
+//			MakeShared<FRuntimeMeshAccessor>(VertexBuffer0.GetStructure(),
+// 			VertexBuffer1.GetStructure(), VertexBuffer2.GetStructure(), IndexBuffer.Is32BitIndices(),
+// 			&VertexBuffer0.GetData(), &VertexBuffer1.GetData(), &VertexBuffer2.GetData(), &IndexBuffer.GetData());
 	}
 
 	TSharedPtr<FRuntimeMeshIndicesAccessor> GetTessellationIndexAccessor()
@@ -284,19 +389,14 @@ public:
 
 
 
-	bool CheckBuffer0VertexType(const FRuntimeMeshVertexStreamStructure& Stream0Structure) const
+	bool CheckTangentBuffer(bool bInUseHighPrecision) const
 	{
-		return VertexBuffer0.GetStructure() == Stream0Structure;
+		return TangentsBuffer.IsUsingHighPrecision() == bInUseHighPrecision;
 	}
 
-	bool CheckBuffer1VertexType(const FRuntimeMeshVertexStreamStructure& Stream1Structure) const
+	bool CheckUVBuffer(bool bInUseHighPrecision, int32 InNumUVs) const
 	{
-		return VertexBuffer1.GetStructure() == Stream1Structure;
-	}
-
-	bool CheckBuffer2VertexType(const FRuntimeMeshVertexStreamStructure& Stream2Structure) const
-	{
-		return VertexBuffer2.GetStructure() == Stream2Structure;
+		return UVsBuffer.IsUsingHighPrecision() == bInUseHighPrecision && UVsBuffer.NumUVs() == InNumUVs;
 	}
 
 	bool CheckIndexBufferSize(bool b32BitIndices) const
@@ -321,9 +421,21 @@ public:
 	{
 		Ar << const_cast<EUpdateFrequency&>(MeshData.UpdateFrequency);
 
-		Ar << MeshData.VertexBuffer0;
-		Ar << MeshData.VertexBuffer1;
-		Ar << MeshData.VertexBuffer2;
+		if (Ar.CustomVer(FRuntimeMeshVersion::GUID) >= FRuntimeMeshVersion::RuntimeMeshComponentUE4_19)
+		{
+			Ar << MeshData.PositionBuffer;
+			Ar << MeshData.TangentsBuffer;
+			Ar << MeshData.UVsBuffer;
+			Ar << MeshData.ColorBuffer;
+		}
+		else
+		{
+			// This is a hack to read the old data and ignore it
+			Ar << MeshData.PositionBuffer;
+			Ar << MeshData.PositionBuffer;
+			Ar << MeshData.PositionBuffer;
+		}
+
 
 		Ar << MeshData.IndexBuffer;
 		Ar << MeshData.AdjacencyIndexBuffer;
@@ -333,6 +445,16 @@ public:
 		Ar << MeshData.bCollisionEnabled;
 		Ar << MeshData.bIsVisible;
 		Ar << MeshData.bCastsShadow;
+
+		// This is a hack to read the old data and ignore it
+		if (Ar.CustomVer(FRuntimeMeshVersion::GUID) < FRuntimeMeshVersion::RuntimeMeshComponentUE4_19)
+		{
+			TArray<FVector> NullPositions;
+			TArray<uint8> NullIndices;
+			MeshData.PositionBuffer.SetData(NullPositions);
+			MeshData.IndexBuffer.SetData(NullIndices, false);
+			MeshData.AdjacencyIndexBuffer.SetData(NullIndices, false);
+		}
 
 		return Ar;
 	}

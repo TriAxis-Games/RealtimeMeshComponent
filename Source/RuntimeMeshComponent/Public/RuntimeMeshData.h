@@ -90,8 +90,7 @@ public:
 	~FRuntimeMeshData();
 
 private:
-	void CheckCreate(const FRuntimeMeshVertexStreamStructure Stream0Structure,
-		const FRuntimeMeshVertexStreamStructure& Stream1Structure, const FRuntimeMeshVertexStreamStructure& Stream2Structure, bool bIndexIsValid) const;
+	void CheckCreate(int32 NumUVs, bool bIndexIsValid) const;
 
 	template<typename VertexType0, typename VertexType1, typename VertexType2, typename IndexType>
 	void CheckCreate() const
@@ -101,16 +100,18 @@ private:
 #endif
 	}
 
-	void CheckUpdate(const FRuntimeMeshVertexStreamStructure& Stream0Structure, const FRuntimeMeshVertexStreamStructure& Stream1Structure,
-		const FRuntimeMeshVertexStreamStructure& Stream2Structure, bool b32BitIndices,
-		int32 SectionIndex, bool bShouldCheckIndexType, bool bCheckVertexStream0 = true, bool bCheckVertexStream1 = true, bool bCheckVertexStream2 = true) const;
+	void CheckUpdate(bool bUseHighPrecisionTangents, bool bUseHighPrecisionUVs, int32 NumUVs, bool b32BitIndices, int32 SectionIndex, bool bShouldCheckIndexType, 
+		bool bCheckTangentVertexStream, bool bCheckUVVertexStream) const;
 
-	template<typename VertexType0, typename VertexType1, typename VertexType2, typename IndexType>
-	void CheckUpdate(int32 SectionIndex, bool bShouldCheckIndexType, bool bCheckVertexStream0 = true, bool bCheckVertexStream1 = true, bool bCheckVertexStream2 = true) const
+	template<typename TangentType, typename UVType, typename IndexType>
+	void CheckUpdate(int32 SectionIndex, bool bShouldCheckIndexType, bool bCheckTangentVertexStream, bool bCheckUVVertexStream) const
 	{
 #if DO_CHECK
-		CheckUpdate(GetStreamStructure<VertexType0>(), GetStreamStructure<VertexType1>(), GetStreamStructure<VertexType2>(), FRuntimeMeshIndexTraits<IndexType>::Is32Bit, SectionIndex,
-			!bShouldCheckIndexType || FRuntimeMeshIndexTraits<IndexType>::IsValidIndexType, bCheckVertexStream0, bCheckVertexStream1, bCheckVertexStream2);
+		bool UVsAreHighPrecision;
+		int32 NumUVs;
+		GetUVVertexProperties<UVType>(UVsAreHighPrecision, NumUVs);
+		CheckUpdate(GetTangentIsHighPrecision<TangentType>(), UVsAreHighPrecision, NumUVs, FRuntimeMeshIndexTraits<IndexType>::Is32Bit, SectionIndex, bShouldCheckIndexType, bCheckTangentVertexStream, bCheckUVVertexStream);
+
 #endif
 	}
 
@@ -119,62 +120,62 @@ private:
 public:
 
 	
-	template<typename VertexType0, typename IndexType>
-	void CreateMeshSection(int32 SectionIndex, bool bCreateCollision = false, EUpdateFrequency UpdateFrequency = EUpdateFrequency::Average)
-	{
-		SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_CreateMeshSection_NoData);
-
-		FRuntimeMeshScopeLock Lock(SyncRoot);
-
-		CheckCreate<VertexType0, FRuntimeMeshNullVertex, FRuntimeMeshNullVertex, IndexType>();
-
-		// Create the section
-		FRuntimeMeshSectionPtr Section = CreateOrResetSection<VertexType0, FRuntimeMeshNullVertex, FRuntimeMeshNullVertex, IndexType>(SectionIndex, UpdateFrequency);
-
-		// Track collision status and update collision information if necessary
-		Section->SetCollisionEnabled(bCreateCollision);
-
-		// Finalize section.
-		CreateSectionInternal(SectionIndex, ESectionUpdateFlags::None);
-	}
-
-	template<typename VertexType0, typename VertexType1, typename IndexType>
-	void CreateMeshSectionDualBuffer(int32 SectionIndex, bool bCreateCollision = false, EUpdateFrequency UpdateFrequency = EUpdateFrequency::Average)
-	{
-		SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_CreateMeshSectionDualBuffer_NoData);
-
-		FRuntimeMeshScopeLock Lock(SyncRoot);
-
-		CheckCreate<VertexType0, VertexType1, FRuntimeMeshNullVertex, IndexType>();
-
-		// Create the section
-		FRuntimeMeshSectionPtr Section = CreateOrResetSection<VertexType0, VertexType1, FRuntimeMeshNullVertex, IndexType>(SectionIndex, UpdateFrequency);
-
-		// Track collision status and update collision information if necessary
-		Section->SetCollisionEnabled(bCreateCollision);
-
-		// Finalize section.
-		CreateSectionInternal(SectionIndex, ESectionUpdateFlags::None);
-	}
-
-	template<typename VertexType0, typename VertexType1, typename VertexType2, typename IndexType>
-	void CreateMeshSectionTripleBuffer(int32 SectionIndex, bool bCreateCollision = false, EUpdateFrequency UpdateFrequency = EUpdateFrequency::Average)
-	{
-		SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_CreateMeshSectionTripleBuffer_NoData);
-
-		FRuntimeMeshScopeLock Lock(SyncRoot);
-
-		CheckCreate<VertexType0, VertexType1, VertexType2, IndexType>();
-
-		// Create the section
-		FRuntimeMeshSectionPtr Section = CreateOrResetSection<VertexType0, VertexType1, VertexType2, IndexType>(SectionIndex, UpdateFrequency);
-
-		// Track collision status and update collision information if necessary
-		Section->SetCollisionEnabled(bCreateCollision);
-
-		// Finalize section.
-		CreateSectionInternal(SectionIndex, ESectionUpdateFlags::None);
-	}
+// 	template<typename VertexType0, typename IndexType>
+// 	void CreateMeshSection(int32 SectionIndex, bool bCreateCollision = false, EUpdateFrequency UpdateFrequency = EUpdateFrequency::Average)
+// 	{
+// 		SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_CreateMeshSection_NoData);
+// 
+// 		FRuntimeMeshScopeLock Lock(SyncRoot);
+// 
+// 		CheckCreate<VertexType0, FRuntimeMeshNullVertex, FRuntimeMeshNullVertex, IndexType>();
+// 
+// 		// Create the section
+// 		FRuntimeMeshSectionPtr Section = CreateOrResetSection<VertexType0, FRuntimeMeshNullVertex, FRuntimeMeshNullVertex, IndexType>(SectionIndex, UpdateFrequency);
+// 
+// 		// Track collision status and update collision information if necessary
+// 		Section->SetCollisionEnabled(bCreateCollision);
+// 
+// 		// Finalize section.
+// 		CreateSectionInternal(SectionIndex, ESectionUpdateFlags::None);
+// 	}
+// 
+// 	template<typename VertexType0, typename VertexType1, typename IndexType>
+// 	void CreateMeshSectionDualBuffer(int32 SectionIndex, bool bCreateCollision = false, EUpdateFrequency UpdateFrequency = EUpdateFrequency::Average)
+// 	{
+// 		SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_CreateMeshSectionDualBuffer_NoData);
+// 
+// 		FRuntimeMeshScopeLock Lock(SyncRoot);
+// 
+// 		CheckCreate<VertexType0, VertexType1, FRuntimeMeshNullVertex, IndexType>();
+// 
+// 		// Create the section
+// 		FRuntimeMeshSectionPtr Section = CreateOrResetSection<VertexType0, VertexType1, FRuntimeMeshNullVertex, IndexType>(SectionIndex, UpdateFrequency);
+// 
+// 		// Track collision status and update collision information if necessary
+// 		Section->SetCollisionEnabled(bCreateCollision);
+// 
+// 		// Finalize section.
+// 		CreateSectionInternal(SectionIndex, ESectionUpdateFlags::None);
+// 	}
+// 
+// 	template<typename VertexType0, typename VertexType1, typename VertexType2, typename IndexType>
+// 	void CreateMeshSectionTripleBuffer(int32 SectionIndex, bool bCreateCollision = false, EUpdateFrequency UpdateFrequency = EUpdateFrequency::Average)
+// 	{
+// 		SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_CreateMeshSectionTripleBuffer_NoData);
+// 
+// 		FRuntimeMeshScopeLock Lock(SyncRoot);
+// 
+// 		CheckCreate<VertexType0, VertexType1, VertexType2, IndexType>();
+// 
+// 		// Create the section
+// 		FRuntimeMeshSectionPtr Section = CreateOrResetSection<VertexType0, VertexType1, VertexType2, IndexType>(SectionIndex, UpdateFrequency);
+// 
+// 		// Track collision status and update collision information if necessary
+// 		Section->SetCollisionEnabled(bCreateCollision);
+// 
+// 		// Finalize section.
+// 		CreateSectionInternal(SectionIndex, ESectionUpdateFlags::None);
+// 	}
 
 	
 
@@ -1010,8 +1011,7 @@ public:
 		SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_SetSectionTessellationTriangles);
 
 		FRuntimeMeshScopeLock Lock(SyncRoot);
-
-		CheckUpdate<FRuntimeMeshNullVertex, FRuntimeMeshNullVertex, FRuntimeMeshNullVertex, IndexType>(SectionId, true, false, false, false);
+		CheckUpdate(false, false, 0, FRuntimeMeshIndexTraits<IndexType>::Is32Bit, SectionId, true, false, false);
 
 		FRuntimeMeshSectionPtr Section = MeshSections[SectionId];
 
@@ -1137,18 +1137,20 @@ private:
 
 
 	/* Creates an mesh section of a specified type at the specified index. */
-	template<typename VertexType0, typename VertexType1, typename VertexType2, typename IndexType>
+	template<typename TangentType, typename UVType>
 	FRuntimeMeshSectionPtr CreateOrResetSection(int32 SectionId, EUpdateFrequency UpdateFrequency)
 	{
 		static_assert(FRuntimeMeshIndexTraits<IndexType>::IsValidIndexType, "Indices can only be of type uint16, uint32, or int32");
 
-		return CreateOrResetSection(SectionId, GetStreamStructure<VertexType0>(), GetStreamStructure<VertexType1>(),
-			GetStreamStructure<VertexType2>(), FRuntimeMeshIndexTraits<IndexType>::Is32Bit, UpdateFrequency);
+		bool bHighPrecisionUVs;
+		int32 NumUVs;
+		GetUVVertexProperties<UVType>(bHighPrecisionUVs, NumUVs);
+
+		return CreateOrResetSection(SectionId, GetTangentIsHighPrecision<TangentType>(), bHighPrecisionUVs, NumUVs, FRuntimeMeshIndexTraits<IndexType>::Is32Bit, UpdateFrequency);
 	}
 
-	FRuntimeMeshSectionPtr CreateOrResetSection(int32 SectionId,
-		const FRuntimeMeshVertexStreamStructure& Stream0, const FRuntimeMeshVertexStreamStructure& Stream1,
-		const FRuntimeMeshVertexStreamStructure& Stream2, bool b32BitIndices, EUpdateFrequency UpdateFrequency);
+	FRuntimeMeshSectionPtr CreateOrResetSection(int32 SectionId, bool bInUseHighPrecisionTangents, bool bInUseHighPrecisionUVs, 
+		int32 InNumUVs, bool b32BitIndices, EUpdateFrequency UpdateFrequency);
 
 	FRuntimeMeshSectionPtr CreateOrResetSectionForBlueprint(int32 SectionId, bool bWantsSecondUV,
 		bool bHighPrecisionTangents, bool bHighPrecisionUVs, EUpdateFrequency UpdateFrequency);

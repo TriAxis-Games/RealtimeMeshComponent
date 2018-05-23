@@ -5,16 +5,17 @@
 #include "RuntimeMeshSectionProxy.h"
 
 
-FRuntimeMeshVertexBuffer::FRuntimeMeshVertexBuffer()
-	: VertexSize(-1), NumVertices(0), UsageFlags(EBufferUsageFlags::BUF_None)
+FRuntimeMeshVertexBuffer::FRuntimeMeshVertexBuffer(EUpdateFrequency InUpdateFrequency, int32 InVertexSize)
+	: UsageFlags(InUpdateFrequency == EUpdateFrequency::Frequent? BUF_Dynamic : BUF_Static)
+	, VertexSize(InVertexSize)
+	, NumVertices(0)
+	, ShaderResourceView(nullptr)
 {
 }
 
-void FRuntimeMeshVertexBuffer::Reset(int32 InVertexSize, int32 InNumVertices, EUpdateFrequency InUpdateFrequency)
+void FRuntimeMeshVertexBuffer::Reset(int32 InNumVertices)
 {
-	VertexSize = InVertexSize;
 	NumVertices = InNumVertices;
-	UsageFlags = InUpdateFrequency == EUpdateFrequency::Frequent ? BUF_Dynamic : BUF_Static;
 	ReleaseResource();
 	InitResource();
 }
@@ -25,7 +26,12 @@ void FRuntimeMeshVertexBuffer::InitRHI()
 	{
 		// Create the vertex buffer
 		FRHIResourceCreateInfo CreateInfo;
-		VertexBufferRHI = RHICreateVertexBuffer(GetBufferSize(), UsageFlags, CreateInfo);
+		VertexBufferRHI = RHICreateVertexBuffer(GetBufferSize(), UsageFlags | BUF_ShaderResource, CreateInfo);
+
+		if (RHISupportsManualVertexFetch(GMaxRHIShaderPlatform))
+		{
+			CreateSRV();
+		}
 	}
 }
 

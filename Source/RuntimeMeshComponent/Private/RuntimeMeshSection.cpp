@@ -89,7 +89,6 @@ public:
 
 void FRuntimeMeshSection::FSectionVertexBuffer::FillUpdateParams(FRuntimeMeshSectionVertexBufferParams& Params)
 {
-	Params.VertexStructure = VertexStructure;
 	Params.Data = Data;
 	Params.NumVertices = GetNumVertices();
 }
@@ -101,12 +100,10 @@ void FRuntimeMeshSection::FSectionIndexBuffer::FillUpdateParams(FRuntimeMeshSect
 	Params.NumIndices = GetNumIndices();
 }
 
-FRuntimeMeshSection::FRuntimeMeshSection(const FRuntimeMeshVertexStreamStructure& InVertexStructure0, const FRuntimeMeshVertexStreamStructure& InVertexStructure1, 
-	const FRuntimeMeshVertexStreamStructure& InVertexStructure2, bool b32BitIndices, EUpdateFrequency InUpdateFrequency/*, FRuntimeMeshLockProvider* InSyncRoot*/)
+FRuntimeMeshSection::FRuntimeMeshSection(bool bInUseHighPrecisionTangents, bool bInUseHighPrecisionUVs, int32 InNumUVs, bool b32BitIndices, EUpdateFrequency InUpdateFrequency/*, FRuntimeMeshLockProvider* InSyncRoot*/)
 	: UpdateFrequency(InUpdateFrequency)
-	, VertexBuffer0(InVertexStructure0)
-	, VertexBuffer1(InVertexStructure1)
-	, VertexBuffer2(InVertexStructure2)
+	, TangentsBuffer(bInUseHighPrecisionTangents)
+	, UVsBuffer(bInUseHighPrecisionUVs, InNumUVs)
 	, IndexBuffer(b32BitIndices)
 	, AdjacencyIndexBuffer(b32BitIndices)
 	, LocalBoundingBox(EForceInit::ForceInitToZero)
@@ -115,13 +112,14 @@ FRuntimeMeshSection::FRuntimeMeshSection(const FRuntimeMeshVertexStreamStructure
 	, bCastsShadow(true)
 //	, SyncRoot(InSyncRoot)
 {
+
+	
 }
 
 FRuntimeMeshSection::FRuntimeMeshSection(FArchive& Ar)
 	: UpdateFrequency(EUpdateFrequency::Average)
-	, VertexBuffer0(GetStreamStructure<FRuntimeMeshNullVertex>())
-	, VertexBuffer1(GetStreamStructure<FRuntimeMeshNullVertex>())
-	, VertexBuffer2(GetStreamStructure<FRuntimeMeshNullVertex>())
+	, TangentsBuffer(false)
+	, UVsBuffer(false, 1)
 	, IndexBuffer(false)
 	, AdjacencyIndexBuffer(false)
 	, LocalBoundingBox(EForceInit::ForceInitToZero)
@@ -132,23 +130,16 @@ FRuntimeMeshSection::FRuntimeMeshSection(FArchive& Ar)
 	Ar << *this;
 }
 
-int32 FRuntimeMeshSection::NumVertexStreams() const
-{
-	return
-		(VertexBuffer0.IsEnabled() ? 1 : 0) +
-		(VertexBuffer1.IsEnabled() ? 1 : 0) +
-		(VertexBuffer2.IsEnabled() ? 1 : 0);
-}
-
 FRuntimeMeshSectionCreationParamsPtr FRuntimeMeshSection::GetSectionCreationParams()
 {
 	FRuntimeMeshSectionCreationParamsPtr CreationParams = MakeShared<FRuntimeMeshSectionCreationParams>();
 
 	CreationParams->UpdateFrequency = UpdateFrequency;
 
-	VertexBuffer0.FillUpdateParams(CreationParams->VertexBuffer0);
-	VertexBuffer1.FillUpdateParams(CreationParams->VertexBuffer1);
-	VertexBuffer2.FillUpdateParams(CreationParams->VertexBuffer2);
+	PositionBuffer.FillUpdateParams(CreationParams->PositionVertexBuffer);
+	TangentsBuffer.FillUpdateParams(CreationParams->TangentsVertexBuffer);
+	UVsBuffer.FillUpdateParams(CreationParams->UVsVertexBuffer);
+	ColorBuffer.FillUpdateParams(CreationParams->ColorVertexBuffer);
 
 	IndexBuffer.FillUpdateParams(CreationParams->IndexBuffer);
 	AdjacencyIndexBuffer.FillUpdateParams(CreationParams->AdjacencyIndexBuffer);
@@ -165,19 +156,24 @@ FRuntimeMeshSectionUpdateParamsPtr FRuntimeMeshSection::GetSectionUpdateData(ERu
 
 	UpdateParams->BuffersToUpdate = BuffersToUpdate;
 
-	if (!!(BuffersToUpdate & ERuntimeMeshBuffersToUpdate::VertexBuffer0))
+	if (!!(BuffersToUpdate & ERuntimeMeshBuffersToUpdate::PositionBuffer))
 	{
-		VertexBuffer0.FillUpdateParams(UpdateParams->VertexBuffer0);
+		PositionBuffer.FillUpdateParams(UpdateParams->PositionVertexBuffer);
 	}
 
-	if (!!(BuffersToUpdate & ERuntimeMeshBuffersToUpdate::VertexBuffer1))
+	if (!!(BuffersToUpdate & ERuntimeMeshBuffersToUpdate::TangentBuffer))
 	{
-		VertexBuffer1.FillUpdateParams(UpdateParams->VertexBuffer1);
+		TangentsBuffer.FillUpdateParams(UpdateParams->TangentsVertexBuffer);
 	}
 
-	if (!!(BuffersToUpdate & ERuntimeMeshBuffersToUpdate::VertexBuffer2))
+	if (!!(BuffersToUpdate & ERuntimeMeshBuffersToUpdate::UVBuffer))
 	{
-		VertexBuffer2.FillUpdateParams(UpdateParams->VertexBuffer2);
+		UVsBuffer.FillUpdateParams(UpdateParams->UVsVertexBuffer);
+	}
+
+	if (!!(BuffersToUpdate & ERuntimeMeshBuffersToUpdate::ColorBuffer))
+	{
+		ColorBuffer.FillUpdateParams(UpdateParams->ColorVertexBuffer);
 	}
 
 	if (!!(BuffersToUpdate & ERuntimeMeshBuffersToUpdate::IndexBuffer))
@@ -205,107 +201,104 @@ TSharedPtr<struct FRuntimeMeshSectionPropertyUpdateParams, ESPMode::NotThreadSaf
 
 void FRuntimeMeshSection::UpdateBoundingBox()
 {
-	FRuntimeMeshVertexStreamPositionAccessor PositionAccessor(&VertexBuffer0.GetData(), VertexBuffer0.GetStructure());
-	check(PositionAccessor.Num() == VertexBuffer0.GetNumVertices());
-
-	FBox NewBoundingBox = FBox(EForceInit::ForceInitToZero);
-
-	for (int32 Index = 0; Index < PositionAccessor.Num(); Index++)
-	{
-		NewBoundingBox += PositionAccessor.Get(Index);
-	}
-
+	FBox NewBoundingBox(reinterpret_cast<FVector*>(PositionBuffer.GetData().GetData()), PositionBuffer.GetNumVertices());
+	
 	LocalBoundingBox = NewBoundingBox;
 }
 
 int32 FRuntimeMeshSection::GetCollisionData(TArray<FVector>& OutPositions, TArray<FTriIndices>& OutIndices, TArray<FVector2D>& OutUVs)
-{
-	FRuntimeMeshVertexStreamPositionAccessor PositionAccessor(&VertexBuffer0.GetData(), VertexBuffer0.GetStructure());
-	check(PositionAccessor.Num() == VertexBuffer0.GetNumVertices());
-
-	int32 StartVertexPosition = OutPositions.Num();
-
-	for (int32 Index = 0; Index < PositionAccessor.Num(); Index++)
-	{
-		OutPositions.Add(PositionAccessor.Get(Index));
-	}
-
-	bool bCopyUVs = UPhysicsSettings::Get()->bSupportUVFromHitResults;
-
-	if (bCopyUVs)
-	{
-		TUniquePtr<FRuntimeMeshVertexStreamUVAccessor> StreamAccessor = nullptr;
-
-		const auto SetupStreamAccessor = [](TArray<uint8>* Data, const FRuntimeMeshVertexStreamStructureElement& Element) -> TUniquePtr<FRuntimeMeshVertexStreamUVAccessor>
-		{
-			if (Element.Type == VET_Float2 || Element.Type == VET_Float4)
-			{
-				return MakeUnique<FRuntimeMeshVertexStreamUVFullPrecisionAccessor>(Data, Element);
-			}
-			else
-			{
-				check(Element.Type == VET_Half2 || Element.Type == VET_Half4);
-				return MakeUnique<FRuntimeMeshVertexStreamUVHalfPrecisionAccessor>(Data, Element);
-			}
-		};
-
-		if (VertexBuffer0.GetStructure().HasUVs())
-		{
-			StreamAccessor = SetupStreamAccessor(&VertexBuffer0.GetData(), VertexBuffer0.GetStructure().UVs[0]);
-		}
-		else if (VertexBuffer1.GetStructure().HasUVs())
-		{
-			StreamAccessor = SetupStreamAccessor(&VertexBuffer1.GetData(), VertexBuffer1.GetStructure().UVs[0]);
-		}
-		else if (VertexBuffer2.GetStructure().HasUVs())
-		{
-			StreamAccessor = SetupStreamAccessor(&VertexBuffer2.GetData(), VertexBuffer2.GetStructure().UVs[0]);
-		}
-		else
-		{
-			// Add blank entries since we can't get UV's for this section
-			OutUVs.AddZeroed(PositionAccessor.Num());
-		}
-
-		if (StreamAccessor.IsValid())
-		{
-			OutUVs.Reserve(OutUVs.Num() + StreamAccessor->Num());
-			for (int32 Index = 0; Index < StreamAccessor->Num(); Index++)
-			{
-				OutUVs.Add(StreamAccessor->GetUV(Index));
-			}
-		}
-	}
-
-	TArray<uint8>& IndexData = IndexBuffer.GetData();
-
-	if (IndexBuffer.Is32BitIndices())
-	{
-		int32 NumIndices = IndexBuffer.GetNumIndices();
-		for (int32 Index = 0; Index < NumIndices; Index += 3)
-		{
-			// Add the triangle
-			FTriIndices& Triangle = *new (OutIndices) FTriIndices;
-			Triangle.v0 = (*((int32*)&IndexData[(Index + 0) * 4])) + StartVertexPosition;
-			Triangle.v1 = (*((int32*)&IndexData[(Index + 1) * 4])) + StartVertexPosition;
-			Triangle.v2 = (*((int32*)&IndexData[(Index + 2) * 4])) + StartVertexPosition;
-		}
-	}
-	else
-	{
-		int32 NumIndices = IndexBuffer.GetNumIndices();
-		for (int32 Index = 0; Index < NumIndices; Index += 3)
-		{
-			// Add the triangle
-			FTriIndices& Triangle = *new (OutIndices) FTriIndices;
-			Triangle.v0 = (*((uint16*)&IndexData[(Index + 0) * 2])) + StartVertexPosition;
-			Triangle.v1 = (*((uint16*)&IndexData[(Index + 1) * 2])) + StartVertexPosition;
-			Triangle.v2 = (*((uint16*)&IndexData[(Index + 2) * 2])) + StartVertexPosition;
-		}
-	}
+{ 
+ 	int32 StartVertexPosition = OutPositions.Num();
+	OutPositions.Append(reinterpret_cast<FVector*>(PositionBuffer.GetData().GetData()), PositionBuffer.GetNumVertices());
+  
+ 	bool bCopyUVs = UPhysicsSettings::Get()->bSupportUVFromHitResults;
+ 
+ 	//if (bCopyUVs)
+ 	//{
+ 	//	TUniquePtr<FRuntimeMeshVertexStreamUVAccessor> StreamAccessor = nullptr;
+ 
+ 	//	const auto SetupStreamAccessor = [](TArray<uint8>* Data, const FRuntimeMeshVertexStreamStructureElement& Element) -> TUniquePtr<FRuntimeMeshVertexStreamUVAccessor>
+ 	//	{
+ 	//		if (Element.Type == VET_Float2 || Element.Type == VET_Float4)
+ 	//		{
+ 	//			return MakeUnique<FRuntimeMeshVertexStreamUVFullPrecisionAccessor>(Data, Element);
+ 	//		}
+ 	//		else
+ 	//		{
+ 	//			check(Element.Type == VET_Half2 || Element.Type == VET_Half4);
+ 	//			return MakeUnique<FRuntimeMeshVertexStreamUVHalfPrecisionAccessor>(Data, Element);
+ 	//		}
+ 	//	};
+ 
+ 	//	if (VertexBuffer0.GetStructure().HasUVs())
+ 	//	{
+ 	//		StreamAccessor = SetupStreamAccessor(&VertexBuffer0.GetData(), VertexBuffer0.GetStructure().UVs[0]);
+ 	//	}
+ 	//	else if (VertexBuffer1.GetStructure().HasUVs())
+ 	//	{
+ 	//		StreamAccessor = SetupStreamAccessor(&VertexBuffer1.GetData(), VertexBuffer1.GetStructure().UVs[0]);
+ 	//	}
+ 	//	else if (VertexBuffer2.GetStructure().HasUVs())
+ 	//	{
+ 	//		StreamAccessor = SetupStreamAccessor(&VertexBuffer2.GetData(), VertexBuffer2.GetStructure().UVs[0]);
+ 	//	}
+ 	//	else
+ 	//	{
+ 	//		// Add blank entries since we can't get UV's for this section
+ 	//		OutUVs.AddZeroed(PositionAccessor.Num());
+ 	//	}
+ 
+ 	//	if (StreamAccessor.IsValid())
+ 	//	{
+ 	//		OutUVs.Reserve(OutUVs.Num() + StreamAccessor->Num());
+ 	//		for (int32 Index = 0; Index < StreamAccessor->Num(); Index++)
+ 	//		{
+ 	//			OutUVs.Add(StreamAccessor->GetUV(Index));
+ 	//		}
+ 	//	}
+ 	//}
+ 
+ 	TArray<uint8>& IndexData = IndexBuffer.GetData();
+ 
+ 	if (IndexBuffer.Is32BitIndices())
+ 	{
+ 		int32 NumIndices = IndexBuffer.GetNumIndices();
+ 		for (int32 Index = 0; Index < NumIndices; Index += 3)
+ 		{
+ 			// Add the triangle
+ 			FTriIndices& Triangle = *new (OutIndices) FTriIndices;
+ 			Triangle.v0 = (*((int32*)&IndexData[(Index + 0) * 4])) + StartVertexPosition;
+ 			Triangle.v1 = (*((int32*)&IndexData[(Index + 1) * 4])) + StartVertexPosition;
+ 			Triangle.v2 = (*((int32*)&IndexData[(Index + 2) * 4])) + StartVertexPosition;
+ 		}
+ 	}
+ 	else
+ 	{
+ 		int32 NumIndices = IndexBuffer.GetNumIndices();
+ 		for (int32 Index = 0; Index < NumIndices; Index += 3)
+ 		{
+ 			// Add the triangle
+ 			FTriIndices& Triangle = *new (OutIndices) FTriIndices;
+ 			Triangle.v0 = (*((uint16*)&IndexData[(Index + 0) * 2])) + StartVertexPosition;
+ 			Triangle.v1 = (*((uint16*)&IndexData[(Index + 1) * 2])) + StartVertexPosition;
+ 			Triangle.v2 = (*((uint16*)&IndexData[(Index + 2) * 2])) + StartVertexPosition;
+ 		}
+ 	}
 
 
 	return IndexBuffer.GetNumIndices() / 3;
 }
 
 
+void FRuntimeMeshSection::FSectionTangentsVertexBuffer::FillUpdateParams(FRuntimeMeshSectionTangentVertexBufferParams& Params)
+{
+	Params.bUsingHighPrecision = bUseHighPrecision;
+	FSectionVertexBuffer::FillUpdateParams(Params);
+}
+
+void FRuntimeMeshSection::FSectionUVsVertexBuffer::FillUpdateParams(FRuntimeMeshSectionUVVertexBufferParams& Params)
+{
+	Params.bUsingHighPrecision = bUseHighPrecision;
+	Params.NumUVs = UVCount;
+	FSectionVertexBuffer::FillUpdateParams(Params);
+}
