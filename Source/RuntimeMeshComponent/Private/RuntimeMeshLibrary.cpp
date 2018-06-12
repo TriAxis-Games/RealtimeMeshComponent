@@ -358,19 +358,23 @@ void URuntimeMeshLibrary::CopyStaticMeshToRuntimeMesh(UStaticMeshComponent* Stat
 		for (int32 SectionIndex = 0; SectionIndex < NumSections; SectionIndex++)
 		{
 			// Buffers for copying geom data
-			TArray<FRuntimeMeshVertexSimple> Vertices;
-			TArray<int32> Triangles;
-			TArray<int32> AdjacencyTriangles;
+			TSharedPtr<FRuntimeMeshBuilder> MeshData = MakeRuntimeMeshBuilder<FRuntimeMeshTangents, FVector2DHalf, uint32>();
+			TArray<uint8> AdjacencyTrianglesData;
+			TSharedPtr<FRuntimeMeshIndicesAccessor> AdjacencyTrianglesAccessor = MakeShared<FRuntimeMeshIndicesAccessor>(true, &AdjacencyTrianglesData);
+			TArray<uint32> AdjacencyTriangles;
+			AdjacencyTriangles.SetNum(AdjacencyTrianglesData.Num() / 4);
+			FMemory::Memcpy(AdjacencyTriangles.GetData(), AdjacencyTrianglesData.GetData(), AdjacencyTrianglesData.Num());
+
 
 			// TODO: Make this smarter to setup a mesh section to match the static mesh vertex configuration
 			// This will let it pick up the additional UVs or high pri normals/tangents/uvs
 
 			// Get geom data from static mesh
-			GetStaticMeshSection(StaticMesh, LODIndex, SectionIndex, Vertices, Triangles, AdjacencyTriangles);
+			GetStaticMeshSection(StaticMesh, LODIndex, SectionIndex, MeshData, AdjacencyTrianglesAccessor);
 
 			// Create RuntimeMesh
-			//RuntimeMesh->CreateMeshSection(SectionIndex, Vertices, Triangles, bCreateCollision);
-			//RuntimeMesh->SetSectionTessellationTriangles(SectionIndex, AdjacencyTriangles);
+			RuntimeMesh->CreateMeshSection(SectionIndex, MeshData, bCreateCollision);
+			RuntimeMesh->SetSectionTessellationTriangles(SectionIndex, AdjacencyTriangles);
 		}
 
 		//// SIMPLE COLLISION

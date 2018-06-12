@@ -84,7 +84,7 @@ class FRuntimeMeshTangentsVertexBuffer : public FRuntimeMeshVertexBuffer
 
 public:
 	FRuntimeMeshTangentsVertexBuffer(EUpdateFrequency InUpdateFrequency, bool bInUseHighPrecision)
-		: FRuntimeMeshVertexBuffer(InUpdateFrequency, (bUseHighPrecision? sizeof(FPackedRGBA16N) : sizeof(FPackedNormal)) * 2)
+		: FRuntimeMeshVertexBuffer(InUpdateFrequency, (bInUseHighPrecision ? sizeof(FPackedRGBA16N) : sizeof(FPackedNormal)) * 2)
 		, bUseHighPrecision(bInUseHighPrecision)
 	{
 

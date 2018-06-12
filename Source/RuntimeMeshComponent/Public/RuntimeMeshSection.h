@@ -102,7 +102,7 @@ class RUNTIMEMESHCOMPONENT_API FRuntimeMeshSection
 
 	public:
 		FSectionTangentsVertexBuffer(bool bInUseHighPrecision) 
-			: FSectionVertexBuffer(bUseHighPrecision? (sizeof(FPackedRGBA16N) * 2) : (sizeof(FPackedNormal) * 2))
+			: FSectionVertexBuffer(bInUseHighPrecision ? (sizeof(FPackedRGBA16N) * 2) : (sizeof(FPackedNormal) * 2))
 			, bUseHighPrecision(bInUseHighPrecision)
 		{
 
@@ -131,7 +131,7 @@ class RUNTIMEMESHCOMPONENT_API FRuntimeMeshSection
 	public:
 
 		FSectionUVsVertexBuffer(bool bInUseHighPrecision, int32 InUVCount)
-			: FSectionVertexBuffer(bInUseHighPrecision ? (sizeof(FVector2D) * 2) : (sizeof(FVector2DHalf) * 2))
+			: FSectionVertexBuffer((bInUseHighPrecision ? sizeof(FVector2D) : sizeof(FVector2DHalf)) * InUVCount)
 			, bUseHighPrecision(bInUseHighPrecision), UVCount(InUVCount)
 		{
 
@@ -371,10 +371,8 @@ public:
 
 	TSharedPtr<FRuntimeMeshAccessor> GetSectionMeshAccessor()
 	{
- 		return nullptr; 
-//			MakeShared<FRuntimeMeshAccessor>(VertexBuffer0.GetStructure(),
-// 			VertexBuffer1.GetStructure(), VertexBuffer2.GetStructure(), IndexBuffer.Is32BitIndices(),
-// 			&VertexBuffer0.GetData(), &VertexBuffer1.GetData(), &VertexBuffer2.GetData(), &IndexBuffer.GetData());
+ 		return MakeShared<FRuntimeMeshAccessor>(TangentsBuffer.IsUsingHighPrecision(), UVsBuffer.IsUsingHighPrecision(), UVsBuffer.NumUVs(), IndexBuffer.Is32BitIndices(),
+ 			&PositionBuffer.GetData(), &TangentsBuffer.GetData(), &UVsBuffer.GetData(), &ColorBuffer.GetData(), &IndexBuffer.GetData());
 	}
 
 	TSharedPtr<FRuntimeMeshIndicesAccessor> GetTessellationIndexAccessor()
