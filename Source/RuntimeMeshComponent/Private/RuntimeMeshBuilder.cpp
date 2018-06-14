@@ -87,29 +87,43 @@ int32 FRuntimeMeshVerticesAccessor::AddVertex(FVector InPosition)
 FVector FRuntimeMeshVerticesAccessor::GetPosition(int32 Index) const
 {
 	check(bIsInitialized);
-	return Read<FVector>(Index, PositionStream, PositionStride, 0);
+	int32 StartPosition = Index * PositionStride;
+	return *((FVector*)(&(*PositionStream)[StartPosition]));
 }
 
 FVector4 FRuntimeMeshVerticesAccessor::GetNormal(int32 Index) const
 {
 	check(bIsInitialized);
-	return bTangentHighPrecision ? 
-		FVector4(Read<FPackedRGBA16N>(Index, TangentStream, TangentStride, 0)) :
-		FVector4(Read<FPackedNormal>(Index, TangentStream, TangentStride, 0));
+	int32 StartPosition = Index * TangentStride;
+	if (bTangentHighPrecision)
+	{
+		return (*((FRuntimeMeshTangentsHighPrecision*)(&(*TangentStream)[StartPosition]))).Normal;
+	}
+	else
+	{
+		return (*((FRuntimeMeshTangents*)(&(*TangentStream)[StartPosition]))).Normal;
+	}
 }
 
 FVector FRuntimeMeshVerticesAccessor::GetTangent(int32 Index) const
 {
 	check(bIsInitialized);
-	return bTangentHighPrecision ?
-		FVector(Read<FPackedRGBA16N>(Index, TangentStream, TangentStride, TangentSize)) :
-		FVector(Read<FPackedNormal>(Index, TangentStream, TangentStride, TangentSize));
+	int32 StartPosition = Index * TangentStride;
+	if (bTangentHighPrecision)
+	{
+		return (*((FRuntimeMeshTangentsHighPrecision*)(&(*TangentStream)[StartPosition]))).Tangent;
+	}
+	else
+	{
+		return (*((FRuntimeMeshTangents*)(&(*TangentStream)[StartPosition]))).Tangent;
+	}
 }
 
 FColor FRuntimeMeshVerticesAccessor::GetColor(int32 Index) const
 {
 	check(bIsInitialized);
-	return Read<FColor>(Index, ColorStream, ColorStride, 0);
+	int32 StartPosition = Index * ColorStride;
+	return *((FColor*)(&(*ColorStream)[StartPosition]));
 }
 
 FVector2D FRuntimeMeshVerticesAccessor::GetUV(int32 Index, int32 Channel) const
@@ -124,47 +138,65 @@ FVector2D FRuntimeMeshVerticesAccessor::GetUV(int32 Index, int32 Channel) const
 void FRuntimeMeshVerticesAccessor::SetPosition(int32 Index, FVector Value)
 {
 	check(bIsInitialized);
-	Write<FVector>(Index, Value, PositionStream, PositionStride, 0);
+	int32 StartPosition = Index * PositionStride;
+	(*((FVector*)(&(*PositionStream)[StartPosition]))) = Value;
 }
 
 void FRuntimeMeshVerticesAccessor::SetNormal(int32 Index, const FVector4& Value)
 {
 	check(bIsInitialized);
+	int32 StartPosition = Index * TangentStride;
 	if (bTangentHighPrecision)
 	{
-		Write<FPackedRGBA16N>(Index, Value, TangentStream, TangentStride, 0);
+		(*((FRuntimeMeshTangentsHighPrecision*)(&(*TangentStream)[StartPosition]))).Normal = Value;
 	}
 	else
 	{
-		Write<FPackedNormal>(Index, Value, TangentStream, TangentStride, 0);
+		(*((FRuntimeMeshTangents*)(&(*TangentStream)[StartPosition]))).Normal = Value;
 	}
 }
 
 void FRuntimeMeshVerticesAccessor::SetTangent(int32 Index, FVector Value)
 {
 	check(bIsInitialized);
+	int32 StartPosition = Index * TangentStride;
 	if (bTangentHighPrecision)
 	{
-		Write<FPackedRGBA16N>(Index, Value, TangentStream, TangentStride, TangentSize);
+		(*((FRuntimeMeshTangentsHighPrecision*)(&(*TangentStream)[StartPosition]))).Tangent = Value;
 	}
 	else
 	{
-		Write<FPackedNormal>(Index, Value, TangentStream, TangentStride, TangentSize);
+		(*((FRuntimeMeshTangents*)(&(*TangentStream)[StartPosition]))).Tangent = Value;
 	}
 }
 
 void FRuntimeMeshVerticesAccessor::SetTangent(int32 Index, FRuntimeMeshTangent Value)
 {
-	FVector4 Normal = GetNormal(Index);
-	Normal.W = Value.bFlipTangentY ? -1.0f : 1.0f;
-	SetNormal(Index, Normal);
-	SetTangent(Index, Value.TangentX);
+	check(bIsInitialized);
+	int32 StartPosition = Index * TangentStride;
+	if (bTangentHighPrecision)
+	{
+		FRuntimeMeshTangentsHighPrecision& Tangents = (*((FRuntimeMeshTangentsHighPrecision*)(&(*TangentStream)[StartPosition])));
+		FVector4 NewNormal = Tangents.Normal;
+		NewNormal.W = Value.bFlipTangentY ? -1.0f : 1.0f;
+		Tangents.Normal = NewNormal;
+		Tangents.Tangent = Value.TangentX;
+	}
+	else
+	{
+		FRuntimeMeshTangents& Tangents = (*((FRuntimeMeshTangents*)(&(*TangentStream)[StartPosition])));
+		FVector4 NewNormal = Tangents.Normal;
+		NewNormal.W = Value.bFlipTangentY ? -1.0f : 1.0f;
+		Tangents.Normal = NewNormal;
+		Tangents.Tangent = Value.TangentX;
+	}
 }
 
 void FRuntimeMeshVerticesAccessor::SetColor(int32 Index, FColor Value)
 {
 	check(bIsInitialized);
-	Write<FColor>(Index, Value, ColorStream, ColorStride, 0);
+	int32 StartPosition = Index * ColorStride;
+	*((FColor*)(&(*ColorStream)[StartPosition])) = Value;
 }
 
 void FRuntimeMeshVerticesAccessor::SetUV(int32 Index, FVector2D Value)
@@ -198,31 +230,36 @@ void FRuntimeMeshVerticesAccessor::SetUV(int32 Index, int32 Channel, FVector2D V
 void FRuntimeMeshVerticesAccessor::SetNormalTangent(int32 Index, FVector Normal, FRuntimeMeshTangent Tangent)
 {
 	check(bIsInitialized);
+	int32 StartPosition = Index * TangentStride;
 	if (bTangentHighPrecision)
 	{
-		Write<FPackedRGBA16N>(Index, FVector4(Normal, Tangent.bFlipTangentY ? -1 : 1), TangentStream, TangentStride, 0);
-		Write<FPackedRGBA16N>(Index, Tangent.TangentX, TangentStream, TangentStride, TangentSize);
+		FRuntimeMeshTangentsHighPrecision& Tangents = (*((FRuntimeMeshTangentsHighPrecision*)(&(*TangentStream)[StartPosition])));
+		Tangents.Normal = FVector4(Normal, Tangent.bFlipTangentY ? -1 : 1);
+		Tangents.Tangent = Tangent.TangentX;
 	}
 	else
 	{
-		Write<FPackedNormal>(Index, FVector4(Normal, Tangent.bFlipTangentY ? -1 : 1), TangentStream, TangentStride, 0);
-		Write<FPackedNormal>(Index, Tangent.TangentX, TangentStream, TangentStride, TangentSize);
+		FRuntimeMeshTangents& Tangents = (*((FRuntimeMeshTangents*)(&(*TangentStream)[StartPosition])));
+		Tangents.Normal = FVector4(Normal, Tangent.bFlipTangentY ? -1 : 1);
+		Tangents.Tangent = Tangent.TangentX;
 	}
 }
 
 void FRuntimeMeshVerticesAccessor::SetTangents(int32 Index, FVector TangentX, FVector TangentY, FVector TangentZ)
 {
 	check(bIsInitialized);
-
+	int32 StartPosition = Index * TangentStride;
 	if (bTangentHighPrecision)
 	{
-		Write<FPackedRGBA16N>(Index, FVector4(TangentZ, GetBasisDeterminantSign(TangentX, TangentY, TangentZ)), TangentStream, TangentStride, 0);
-		Write<FPackedRGBA16N>(Index, TangentX, TangentStream, TangentStride, TangentSize);
+		FRuntimeMeshTangentsHighPrecision& Tangents = (*((FRuntimeMeshTangentsHighPrecision*)(&(*TangentStream)[StartPosition])));
+		Tangents.Normal = FVector4(TangentZ, GetBasisDeterminantSign(TangentX, TangentY, TangentZ));
+		Tangents.Tangent = TangentX;
 	}
 	else
 	{
-		Write<FPackedNormal>(Index, FVector4(TangentZ, GetBasisDeterminantSign(TangentX, TangentY, TangentZ)), TangentStream, TangentStride, 0);
-		Write<FPackedNormal>(Index, TangentX, TangentStream, TangentStride, TangentSize);
+		FRuntimeMeshTangents& Tangents = (*((FRuntimeMeshTangents*)(&(*TangentStream)[StartPosition])));
+		Tangents.Normal = FVector4(TangentZ, GetBasisDeterminantSign(TangentX, TangentY, TangentZ));
+		Tangents.Tangent = TangentX;
 	}
 }
 

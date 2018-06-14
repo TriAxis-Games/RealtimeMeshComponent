@@ -89,14 +89,14 @@ protected:
 	int32 AddSingleVertex();
 
 	template<typename TYPE>
-	FORCEINLINE static TYPE Read(int32 Index, TArray<uint8>* Data, int32 Stride, int32 Offset)
+	FORCEINLINE_DEBUGGABLE static TYPE Read(int32 Index, TArray<uint8>* Data, int32 Stride, int32 Offset)
 	{
 		int32 StartPosition = (Index * Stride + Offset);
 		return *((TYPE*)(&(*Data)[StartPosition]));
 	}
 
 	template<typename TYPE>
-	FORCEINLINE static void Write(int32 Index, TYPE Value, TArray<uint8>* Data, int32 Stride, int32 Offset)
+	FORCENOINLINE static void Write(int32 Index, TYPE Value, TArray<uint8>* Data, int32 Stride, int32 Offset)
 	{
 		int32 StartPosition = (Index * Stride + Offset);
 		*((TYPE*)(&(*Data)[StartPosition])) = Value;

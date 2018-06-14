@@ -744,15 +744,14 @@ __DECLARE_RUNTIME_MESH_VERTEXINTERNAL(FRuntimeMeshVertexNoPositionDualUVHiPrecis
 
 struct FRuntimeMeshTangents
 {
-	FPackedNormal Normal;
 	FPackedNormal Tangent;
-
+	FPackedNormal Normal;
 };
 
 struct FRuntimeMeshTangentsHighPrecision
 {
-	FPackedRGBA16N Normal;
 	FPackedRGBA16N Tangent;
+	FPackedRGBA16N Normal;
 };
 
 struct FRuntimeMeshDualUV

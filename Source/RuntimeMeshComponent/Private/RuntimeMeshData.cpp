@@ -252,8 +252,9 @@ void FRuntimeMeshData::CreateMeshSectionFromComponents(int32 SectionIndex, const
 	for (int32 Index = 0; Index < Vertices.Num(); Index++)
 	{
 		MeshData->SetPosition(Index, Vertices[Index]);
-		MeshData->SetNormal(Index, Normals.Num() > Index ? Normals[Index] : FVector(0.0f, 0.0f, 1.0f));
-		MeshData->SetTangent(Index, Tangents.Num() > Index ? FVector4(Tangents[Index].TangentX, Tangents[Index].bFlipTangentY ? -1.0f : 1.0f) : FVector4(-1.0f, 0.0f, 0.0f, 1.0f));
+		MeshData->SetNormalTangent(Index, 
+			Normals.Num() > Index ? Normals[Index] : FVector(0.0f, 0.0f, 1.0f), 
+			Tangents.Num() > Index ? Tangents[Index] : FRuntimeMeshTangent(0, 0, 1.0f));
 		MeshData->SetColor(Index, NumColors > Index ? ColorAccessor(Index) : FColor::White);
 		MeshData->SetUV(Index, 0, UV0.Num() > Index ? UV0[Index] : FVector2D::ZeroVector);
 		if (bWantsSecondUV)
@@ -329,8 +330,9 @@ void FRuntimeMeshData::UpdateMeshSectionFromComponents(int32 SectionIndex, const
 		for (int32 Index = OldVertexCount; Index < Vertices.Num(); Index++)
 		{
 			MeshData->SetPosition(Index, Vertices[Index]);
-			MeshData->SetNormal(Index, Normals.Num() > Index ? Normals[Index] : FVector(0.0f, 0.0f, 1.0f));
-			MeshData->SetTangent(Index, Tangents.Num() > Index ? FVector4(Tangents[Index].TangentX, Tangents[Index].bFlipTangentY ? -1.0f : 1.0f) : FVector4(-1.0f, 0.0f, 0.0f, 1.0f));
+			MeshData->SetNormalTangent(Index,
+				Normals.Num() > Index ? Normals[Index] : FVector(0.0f, 0.0f, 1.0f),
+				Tangents.Num() > Index ? Tangents[Index] : FRuntimeMeshTangent(0, 0, 1.0f));
 			MeshData->SetColor(Index, NumColors > Index ? ColorAccessor(Index) : FColor::White);
 			MeshData->SetUV(Index, 0, UV0.Num() > Index ? UV0[Index] : FVector2D::ZeroVector);
 			if (bHasSecondUV)

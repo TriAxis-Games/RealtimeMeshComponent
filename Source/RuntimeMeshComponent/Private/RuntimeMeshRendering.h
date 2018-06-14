@@ -4,6 +4,7 @@
 
 #include "Engine.h"
 #include "RuntimeMeshCore.h"
+#include "RuntimeMeshGenericVertex.h"
 
 class FRuntimeMeshSectionProxy;
 using FRuntimeMeshSectionProxyPtr = TSharedPtr<FRuntimeMeshSectionProxy, ESPMode::NotThreadSafe>;
@@ -100,20 +101,20 @@ public:
 		if (bUseHighPrecision)
 		{
 			TangentElementType = VET_UShort4N;
-			TangentSizeInBytes = sizeof(FPackedRGBA16N) * 2;
-			TangentXOffset = sizeof(FPackedRGBA16N);
-			TangentZOffset = 0;
+			TangentSizeInBytes = sizeof(FRuntimeMeshTangentsHighPrecision);
+			TangentXOffset = offsetof(FRuntimeMeshTangentsHighPrecision, Tangent);
+			TangentZOffset = offsetof(FRuntimeMeshTangentsHighPrecision, Normal);
 		}
 		else
 		{
 			TangentElementType = VET_PackedNormal;
-			TangentSizeInBytes = sizeof(FPackedNormal) * 2;
-			TangentXOffset = sizeof(FPackedNormal);
-			TangentZOffset = 0;
+			TangentSizeInBytes = sizeof(FRuntimeMeshTangents);
+			TangentXOffset = offsetof(FRuntimeMeshTangents, Tangent);
+			TangentZOffset = offsetof(FRuntimeMeshTangents, Normal);
 		}
 
-		DataType.TangentBasisComponents[0] = FVertexStreamComponent(this, TangentXOffset, TangentSizeInBytes, TangentElementType, EVertexStreamUsage::ManualFetch);
-		DataType.TangentBasisComponents[1] = FVertexStreamComponent(this, TangentZOffset, TangentSizeInBytes, TangentElementType, EVertexStreamUsage::ManualFetch);
+ 		DataType.TangentBasisComponents[1] = FVertexStreamComponent(this, TangentXOffset, TangentSizeInBytes, TangentElementType, EVertexStreamUsage::ManualFetch);
+ 		DataType.TangentBasisComponents[0] = FVertexStreamComponent(this, TangentZOffset, TangentSizeInBytes, TangentElementType, EVertexStreamUsage::ManualFetch);
 		DataType.TangentsSRV = ShaderResourceView;
 	}
 

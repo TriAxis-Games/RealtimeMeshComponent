@@ -115,6 +115,7 @@ void URuntimeMesh::Serialize(FArchive& Ar)
 	Super::Serialize(Ar);
 
 	// Serialize the entire data object.
+	Ar.UsingCustomVersion(FRuntimeMeshVersion::GUID);
 	Ar << Data.Get();
 }
 

@@ -18,12 +18,6 @@ FRuntimeMeshSectionProxy::FRuntimeMeshSectionProxy(ERHIFeatureLevel::Type InFeat
 {
 	check(IsInRenderingThread());
 
-	FLocalVertexFactory::FDataType DataType;
-	BuildVertexDataType(DataType);
-
-	VertexFactory.Init(DataType);
-	VertexFactory.InitResource();
-
 	PositionBuffer.Reset(CreationData->PositionVertexBuffer.NumVertices);
 	PositionBuffer.SetData(CreationData->PositionVertexBuffer.Data);
 
@@ -42,6 +36,15 @@ FRuntimeMeshSectionProxy::FRuntimeMeshSectionProxy(ERHIFeatureLevel::Type InFeat
 
 	AdjacencyIndexBuffer.Reset(CreationData->IndexBuffer.b32BitIndices ? 4 : 2, CreationData->AdjacencyIndexBuffer.NumIndices, UpdateFrequency);
 	AdjacencyIndexBuffer.SetData(CreationData->AdjacencyIndexBuffer.Data);
+
+
+
+
+	FLocalVertexFactory::FDataType DataType;
+	BuildVertexDataType(DataType);
+
+	VertexFactory.Init(DataType);
+	VertexFactory.InitResource();
 }
 
 FRuntimeMeshSectionProxy::~FRuntimeMeshSectionProxy()
