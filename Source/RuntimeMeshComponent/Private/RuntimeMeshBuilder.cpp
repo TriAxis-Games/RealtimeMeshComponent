@@ -12,6 +12,15 @@ FORCEINLINE static TYPE& GetStreamAccess(TArray<uint8>* Data, int32 Index, int32
 }
 
 
+template<typename TYPE>
+struct FRuntimeMeshEightUV
+{
+	TStaticArray<TYPE, 8> UVs;
+};
+
+static_assert(sizeof(FRuntimeMeshEightUV<FVector2D>) == (8 * sizeof(FVector2D)), "Incorrect size for 8 UV struct");
+static_assert(sizeof(FRuntimeMeshEightUV<FVector2DHalf>) == (8 * sizeof(FVector2DHalf)), "Incorrect size for 8 UV struct");
+
 
 //////////////////////////////////////////////////////////////////////////
 //	FRuntimeMeshVerticesAccessor
@@ -138,11 +147,11 @@ FVector2D FRuntimeMeshVerticesAccessor::GetUV(int32 Index, int32 Channel) const
 	check(Channel >= 0 && Channel < UVChannelCount);
 	if (bUVHighPrecision)
 	{
-		return GetStreamAccess<FVector2D>(UVStream, Index, UVStride, Channel * UVStride);
+		return GetStreamAccess<FRuntimeMeshEightUV<FVector2D>>(UVStream, Index, UVStride, 0).UVs[Channel];
 	}
 	else
 	{
-		return GetStreamAccess<FVector2DHalf>(UVStream, Index, UVStride, Channel * UVStride);
+		return GetStreamAccess<FRuntimeMeshEightUV<FVector2DHalf>>(UVStream, Index, UVStride, 0).UVs[Channel];
 	}
 }
 
@@ -211,11 +220,11 @@ void FRuntimeMeshVerticesAccessor::SetUV(int32 Index, FVector2D Value)
 	check(UVChannelCount > 0);
 	if (bUVHighPrecision)
 	{
-		GetStreamAccess<FVector2D>(UVStream, Index, UVStride, 0) = Value;
+		GetStreamAccess<FRuntimeMeshEightUV<FVector2D>>(UVStream, Index, UVStride, 0).UVs[0] = Value;
 	}
 	else
 	{
-		GetStreamAccess<FVector2DHalf>(UVStream, Index, UVStride, 0) = Value;
+		GetStreamAccess<FRuntimeMeshEightUV<FVector2DHalf>>(UVStream, Index, UVStride, 0).UVs[0] = Value;
 	}
 }
 
@@ -225,11 +234,11 @@ void FRuntimeMeshVerticesAccessor::SetUV(int32 Index, int32 Channel, FVector2D V
 	check(Channel >= 0 && Channel < UVChannelCount);
 	if (bUVHighPrecision)
 	{
-		GetStreamAccess<FVector2D>(UVStream, Index, UVStride, Channel * UVSize) = Value;
+		GetStreamAccess<FRuntimeMeshEightUV<FVector2D>>(UVStream, Index, UVStride, 0).UVs[Channel] = Value;
 	}
 	else
 	{
-		GetStreamAccess<FVector2DHalf>(UVStream, Index, UVStride, Channel * UVSize) = Value;
+		GetStreamAccess<FRuntimeMeshEightUV<FVector2DHalf>>(UVStream, Index, UVStride, 0).UVs[Channel] = Value;
 	}
 }
 
@@ -296,16 +305,18 @@ FRuntimeMeshAccessorVertex FRuntimeMeshVerticesAccessor::GetVertex(int32 Index) 
 	Vertex.UVs.SetNum(NumUVChannels());
 	if (bUVHighPrecision)
 	{
+		FRuntimeMeshEightUV<FVector2D>& UVs = GetStreamAccess<FRuntimeMeshEightUV<FVector2D>>(UVStream, Index, UVStride, 0);
 		for (int32 UVIndex = 0; UVIndex < Vertex.UVs.Num(); UVIndex++)
 		{
-			Vertex.UVs[UVIndex] = GetStreamAccess<FVector2D>(UVStream, Index, UVStride, UVIndex * UVStride);
+			Vertex.UVs[UVIndex] = UVs.UVs[UVIndex];
 		}
 	}
 	else
 	{
+		FRuntimeMeshEightUV<FVector2DHalf>& UVs = GetStreamAccess<FRuntimeMeshEightUV<FVector2DHalf>>(UVStream, Index, UVStride, 0);
 		for (int32 UVIndex = 0; UVIndex < Vertex.UVs.Num(); UVIndex++)
 		{
-			Vertex.UVs[UVIndex] = GetStreamAccess<FVector2DHalf>(UVStream, Index, UVStride, UVIndex * UVStride);
+			Vertex.UVs[UVIndex] = UVs.UVs[UVIndex];
 		}
 	}
 
@@ -335,16 +346,18 @@ void FRuntimeMeshVerticesAccessor::SetVertex(int32 Index, const FRuntimeMeshAcce
 
 	if (bUVHighPrecision)
 	{
+		FRuntimeMeshEightUV<FVector2D>& UVs = GetStreamAccess<FRuntimeMeshEightUV<FVector2D>>(UVStream, Index, UVStride, 0);
 		for (int32 UVIndex = 0; UVIndex < Vertex.UVs.Num(); UVIndex++)
 		{
-			GetStreamAccess<FVector2D>(UVStream, Index, UVStride, UVIndex * UVStride) = Vertex.UVs[UVIndex];
+			UVs.UVs[UVIndex] = Vertex.UVs[UVIndex];
 		}
 	}
 	else
 	{
+		FRuntimeMeshEightUV<FVector2DHalf>& UVs = GetStreamAccess<FRuntimeMeshEightUV<FVector2DHalf>>(UVStream, Index, UVStride, 0);
 		for (int32 UVIndex = 0; UVIndex < Vertex.UVs.Num(); UVIndex++)
 		{
-			GetStreamAccess<FVector2DHalf>(UVStream, Index, UVStride, UVIndex * UVStride) = Vertex.UVs[UVIndex];
+			UVs.UVs[UVIndex] = Vertex.UVs[UVIndex];
 		}
 	}
 }
