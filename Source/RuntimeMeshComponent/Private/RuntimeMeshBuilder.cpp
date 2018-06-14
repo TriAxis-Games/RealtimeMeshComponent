@@ -3,6 +3,16 @@
 #include "RuntimeMeshComponentPlugin.h"
 #include "RuntimeMeshBuilder.h"
 
+
+template<typename TYPE>
+FORCEINLINE static TYPE& GetStreamAccess(TArray<uint8>* Data, int32 Index, int32 Stride, int32 Offset)
+{
+	int32 StartPosition = (Index * Stride + Offset);
+	return *((TYPE*)&(*Data)[StartPosition]);
+}
+
+
+
 //////////////////////////////////////////////////////////////////////////
 //	FRuntimeMeshVerticesAccessor
 
@@ -87,96 +97,93 @@ int32 FRuntimeMeshVerticesAccessor::AddVertex(FVector InPosition)
 FVector FRuntimeMeshVerticesAccessor::GetPosition(int32 Index) const
 {
 	check(bIsInitialized);
-	int32 StartPosition = Index * PositionStride;
-	return *((FVector*)(&(*PositionStream)[StartPosition]));
+	return GetStreamAccess<FVector>(PositionStream, Index, PositionStride, 0);
 }
 
 FVector4 FRuntimeMeshVerticesAccessor::GetNormal(int32 Index) const
 {
 	check(bIsInitialized);
-	int32 StartPosition = Index * TangentStride;
 	if (bTangentHighPrecision)
 	{
-		return (*((FRuntimeMeshTangentsHighPrecision*)(&(*TangentStream)[StartPosition]))).Normal;
+		return GetStreamAccess<FRuntimeMeshTangentsHighPrecision>(TangentStream, Index, TangentStride, 0).Normal;
 	}
 	else
 	{
-		return (*((FRuntimeMeshTangents*)(&(*TangentStream)[StartPosition]))).Normal;
+		return GetStreamAccess<FRuntimeMeshTangents>(TangentStream, Index, TangentStride, 0).Normal;
 	}
 }
 
 FVector FRuntimeMeshVerticesAccessor::GetTangent(int32 Index) const
 {
 	check(bIsInitialized);
-	int32 StartPosition = Index * TangentStride;
 	if (bTangentHighPrecision)
 	{
-		return (*((FRuntimeMeshTangentsHighPrecision*)(&(*TangentStream)[StartPosition]))).Tangent;
+		return GetStreamAccess<FRuntimeMeshTangentsHighPrecision>(TangentStream, Index, TangentStride, 0).Tangent;
 	}
 	else
 	{
-		return (*((FRuntimeMeshTangents*)(&(*TangentStream)[StartPosition]))).Tangent;
+		return GetStreamAccess<FRuntimeMeshTangents>(TangentStream, Index, TangentStride, 0).Tangent;
 	}
 }
 
 FColor FRuntimeMeshVerticesAccessor::GetColor(int32 Index) const
 {
 	check(bIsInitialized);
-	int32 StartPosition = Index * ColorStride;
-	return *((FColor*)(&(*ColorStream)[StartPosition]));
+	return GetStreamAccess<FColor>(ColorStream, Index, ColorStride, 0);
 }
 
 FVector2D FRuntimeMeshVerticesAccessor::GetUV(int32 Index, int32 Channel) const
 {
 	check(bIsInitialized);
 	check(Channel >= 0 && Channel < UVChannelCount);
-	return bUVHighPrecision ?
-		Read<FVector2D>(Index, UVStream, UVStride, UVSize * Channel) :
-		FVector2D(Read<FVector2DHalf>(Index, UVStream, UVStride, UVSize * Channel));
+	if (bUVHighPrecision)
+	{
+		return GetStreamAccess<FVector2D>(UVStream, Index, UVStride, Channel * UVStride);
+	}
+	else
+	{
+		return GetStreamAccess<FVector2DHalf>(UVStream, Index, UVStride, Channel * UVStride);
+	}
 }
 
 void FRuntimeMeshVerticesAccessor::SetPosition(int32 Index, FVector Value)
 {
 	check(bIsInitialized);
-	int32 StartPosition = Index * PositionStride;
-	(*((FVector*)(&(*PositionStream)[StartPosition]))) = Value;
+	GetStreamAccess<FVector>(PositionStream, Index, PositionStride, 0) = Value;
 }
 
 void FRuntimeMeshVerticesAccessor::SetNormal(int32 Index, const FVector4& Value)
 {
 	check(bIsInitialized);
-	int32 StartPosition = Index * TangentStride;
 	if (bTangentHighPrecision)
 	{
-		(*((FRuntimeMeshTangentsHighPrecision*)(&(*TangentStream)[StartPosition]))).Normal = Value;
+		GetStreamAccess<FRuntimeMeshTangentsHighPrecision>(TangentStream, Index, TangentStride, 0).Normal = Value;
 	}
 	else
 	{
-		(*((FRuntimeMeshTangents*)(&(*TangentStream)[StartPosition]))).Normal = Value;
+		GetStreamAccess<FRuntimeMeshTangents>(TangentStream, Index, TangentStride, 0).Normal = Value;
 	}
 }
 
 void FRuntimeMeshVerticesAccessor::SetTangent(int32 Index, FVector Value)
 {
 	check(bIsInitialized);
-	int32 StartPosition = Index * TangentStride;
 	if (bTangentHighPrecision)
 	{
-		(*((FRuntimeMeshTangentsHighPrecision*)(&(*TangentStream)[StartPosition]))).Tangent = Value;
+		GetStreamAccess<FRuntimeMeshTangentsHighPrecision>(TangentStream, Index, TangentStride, 0).Tangent = Value;
 	}
 	else
 	{
-		(*((FRuntimeMeshTangents*)(&(*TangentStream)[StartPosition]))).Tangent = Value;
+		GetStreamAccess<FRuntimeMeshTangents>(TangentStream, Index, TangentStride, 0).Tangent = Value;
 	}
 }
 
 void FRuntimeMeshVerticesAccessor::SetTangent(int32 Index, FRuntimeMeshTangent Value)
 {
 	check(bIsInitialized);
-	int32 StartPosition = Index * TangentStride;
 	if (bTangentHighPrecision)
 	{
-		FRuntimeMeshTangentsHighPrecision& Tangents = (*((FRuntimeMeshTangentsHighPrecision*)(&(*TangentStream)[StartPosition])));
+		FRuntimeMeshTangentsHighPrecision& Tangents = GetStreamAccess<FRuntimeMeshTangentsHighPrecision>(TangentStream, Index, TangentStride, 0);
 		FVector4 NewNormal = Tangents.Normal;
 		NewNormal.W = Value.bFlipTangentY ? -1.0f : 1.0f;
 		Tangents.Normal = NewNormal;
@@ -184,7 +191,7 @@ void FRuntimeMeshVerticesAccessor::SetTangent(int32 Index, FRuntimeMeshTangent V
 	}
 	else
 	{
-		FRuntimeMeshTangents& Tangents = (*((FRuntimeMeshTangents*)(&(*TangentStream)[StartPosition])));
+		FRuntimeMeshTangents& Tangents = GetStreamAccess<FRuntimeMeshTangents>(TangentStream, Index, TangentStride, 0);
 		FVector4 NewNormal = Tangents.Normal;
 		NewNormal.W = Value.bFlipTangentY ? -1.0f : 1.0f;
 		Tangents.Normal = NewNormal;
@@ -195,8 +202,7 @@ void FRuntimeMeshVerticesAccessor::SetTangent(int32 Index, FRuntimeMeshTangent V
 void FRuntimeMeshVerticesAccessor::SetColor(int32 Index, FColor Value)
 {
 	check(bIsInitialized);
-	int32 StartPosition = Index * ColorStride;
-	*((FColor*)(&(*ColorStream)[StartPosition])) = Value;
+	GetStreamAccess<FColor>(ColorStream, Index, ColorStride, 0) = Value;
 }
 
 void FRuntimeMeshVerticesAccessor::SetUV(int32 Index, FVector2D Value)
@@ -205,11 +211,11 @@ void FRuntimeMeshVerticesAccessor::SetUV(int32 Index, FVector2D Value)
 	check(UVChannelCount > 0);
 	if (bUVHighPrecision)
 	{
-		Write<FVector2D>(Index, Value, UVStream, UVStride, 0);
+		GetStreamAccess<FVector2D>(UVStream, Index, UVStride, 0) = Value;
 	}
 	else
 	{
-		Write<FVector2DHalf>(Index, Value, UVStream, UVStride, 0);
+		GetStreamAccess<FVector2DHalf>(UVStream, Index, UVStride, 0) = Value;
 	}
 }
 
@@ -219,27 +225,26 @@ void FRuntimeMeshVerticesAccessor::SetUV(int32 Index, int32 Channel, FVector2D V
 	check(Channel >= 0 && Channel < UVChannelCount);
 	if (bUVHighPrecision)
 	{
-		Write<FVector2D>(Index, Value, UVStream, UVStride, UVSize * Channel);
+		GetStreamAccess<FVector2D>(UVStream, Index, UVStride, Channel * UVSize) = Value;
 	}
 	else
 	{
-		Write<FVector2DHalf>(Index, Value, UVStream, UVStride, UVSize * Channel);
+		GetStreamAccess<FVector2DHalf>(UVStream, Index, UVStride, Channel * UVSize) = Value;
 	}
 }
 
 void FRuntimeMeshVerticesAccessor::SetNormalTangent(int32 Index, FVector Normal, FRuntimeMeshTangent Tangent)
 {
 	check(bIsInitialized);
-	int32 StartPosition = Index * TangentStride;
 	if (bTangentHighPrecision)
 	{
-		FRuntimeMeshTangentsHighPrecision& Tangents = (*((FRuntimeMeshTangentsHighPrecision*)(&(*TangentStream)[StartPosition])));
+		FRuntimeMeshTangentsHighPrecision& Tangents = GetStreamAccess<FRuntimeMeshTangentsHighPrecision>(TangentStream, Index, TangentStride, 0);
 		Tangents.Normal = FVector4(Normal, Tangent.bFlipTangentY ? -1 : 1);
 		Tangents.Tangent = Tangent.TangentX;
 	}
 	else
 	{
-		FRuntimeMeshTangents& Tangents = (*((FRuntimeMeshTangents*)(&(*TangentStream)[StartPosition])));
+		FRuntimeMeshTangents& Tangents = GetStreamAccess<FRuntimeMeshTangents>(TangentStream, Index, TangentStride, 0);
 		Tangents.Normal = FVector4(Normal, Tangent.bFlipTangentY ? -1 : 1);
 		Tangents.Tangent = Tangent.TangentX;
 	}
@@ -248,16 +253,15 @@ void FRuntimeMeshVerticesAccessor::SetNormalTangent(int32 Index, FVector Normal,
 void FRuntimeMeshVerticesAccessor::SetTangents(int32 Index, FVector TangentX, FVector TangentY, FVector TangentZ)
 {
 	check(bIsInitialized);
-	int32 StartPosition = Index * TangentStride;
 	if (bTangentHighPrecision)
 	{
-		FRuntimeMeshTangentsHighPrecision& Tangents = (*((FRuntimeMeshTangentsHighPrecision*)(&(*TangentStream)[StartPosition])));
+		FRuntimeMeshTangentsHighPrecision& Tangents = GetStreamAccess<FRuntimeMeshTangentsHighPrecision>(TangentStream, Index, TangentStride, 0);
 		Tangents.Normal = FVector4(TangentZ, GetBasisDeterminantSign(TangentX, TangentY, TangentZ));
 		Tangents.Tangent = TangentX;
 	}
 	else
 	{
-		FRuntimeMeshTangents& Tangents = (*((FRuntimeMeshTangents*)(&(*TangentStream)[StartPosition])));
+		FRuntimeMeshTangents& Tangents = GetStreamAccess<FRuntimeMeshTangents>(TangentStream, Index, TangentStride, 0);
 		Tangents.Normal = FVector4(TangentZ, GetBasisDeterminantSign(TangentX, TangentY, TangentZ));
 		Tangents.Tangent = TangentX;
 	}
@@ -271,49 +275,76 @@ FRuntimeMeshAccessorVertex FRuntimeMeshVerticesAccessor::GetVertex(int32 Index) 
 {
 	check(bIsInitialized);
 	FRuntimeMeshAccessorVertex Vertex;
-	Vertex.Position = Read<FVector>(Index, PositionStream, PositionStride, 0);
-	Vertex.Normal = bTangentHighPrecision ?
-		FVector4(Read<FPackedRGBA16N>(Index, TangentStream, TangentStride, 0)) :
-		FVector4(Read<FPackedNormal>(Index, TangentStream, TangentStride, 0));
-	Vertex.Tangent = bTangentHighPrecision ?
-		FVector(Read<FPackedRGBA16N>(Index, TangentStream, TangentStride, TangentSize)) :
-		FVector(Read<FPackedNormal>(Index, TangentStream, TangentStride, TangentSize));
-	Vertex.Color = Read<FColor>(Index, ColorStream, ColorStride, 0);
-	Vertex.UVs.SetNum(NumUVChannels());
-	for (int32 UVIndex = 0; UVIndex < Vertex.UVs.Num(); UVIndex++)
+
+	Vertex.Position = GetStreamAccess<FVector>(PositionStream, Index, PositionStride, 0);
+
+	if (bTangentHighPrecision)
 	{
-		Vertex.UVs[UVIndex] = bUVHighPrecision ?
-			Read<FVector2D>(Index, UVStream, UVStride, UVSize * UVIndex) :
-			FVector2D(Read<FVector2DHalf>(Index, UVStream, UVStride, UVSize * UVIndex));
+		FRuntimeMeshTangentsHighPrecision& Tangents = GetStreamAccess<FRuntimeMeshTangentsHighPrecision>(TangentStream, Index, TangentStride, 0);
+		Vertex.Normal = Tangents.Normal;
+		Vertex.Tangent = Tangents.Tangent;
 	}
+	else
+	{
+		FRuntimeMeshTangents& Tangents = GetStreamAccess<FRuntimeMeshTangents>(TangentStream, Index, TangentStride, 0);
+		Vertex.Normal = Tangents.Normal;
+		Vertex.Tangent = Tangents.Tangent;
+	}
+
+	Vertex.Color = GetStreamAccess<FColor>(ColorStream, Index, ColorStride, 0);
+			
+	Vertex.UVs.SetNum(NumUVChannels());
+	if (bUVHighPrecision)
+	{
+		for (int32 UVIndex = 0; UVIndex < Vertex.UVs.Num(); UVIndex++)
+		{
+			Vertex.UVs[UVIndex] = GetStreamAccess<FVector2D>(UVStream, Index, UVStride, UVIndex * UVStride);
+		}
+	}
+	else
+	{
+		for (int32 UVIndex = 0; UVIndex < Vertex.UVs.Num(); UVIndex++)
+		{
+			Vertex.UVs[UVIndex] = GetStreamAccess<FVector2DHalf>(UVStream, Index, UVStride, UVIndex * UVStride);
+		}
+	}
+
 	return Vertex;
 }
 
 void FRuntimeMeshVerticesAccessor::SetVertex(int32 Index, const FRuntimeMeshAccessorVertex& Vertex)
 {
 	check(bIsInitialized);
-	Write<FVector>(Index, Vertex.Position, PositionStream, PositionStride, 0);
+
+	GetStreamAccess<FVector>(PositionStream, Index, PositionStride, 0) = Vertex.Position;
+
 	if (bTangentHighPrecision)
 	{
-		Write<FPackedRGBA16N>(Index, Vertex.Normal, TangentStream, TangentStride, 0);
-		Write<FPackedRGBA16N>(Index, Vertex.Tangent, TangentStream, TangentStride, TangentSize);
+		FRuntimeMeshTangentsHighPrecision& Tangents = GetStreamAccess<FRuntimeMeshTangentsHighPrecision>(TangentStream, Index, TangentStride, 0);
+		Tangents.Normal = Vertex.Normal;
+		Tangents.Tangent = Vertex.Tangent;
 	}
 	else
 	{
-		Write<FPackedNormal>(Index, Vertex.Normal, TangentStream, TangentStride, 0);
-		Write<FPackedNormal>(Index, Vertex.Tangent, TangentStream, TangentStride, TangentSize);
+		FRuntimeMeshTangents& Tangents = GetStreamAccess<FRuntimeMeshTangents>(TangentStream, Index, TangentStride, 0);
+		Tangents.Normal = Vertex.Normal;
+		Tangents.Tangent = Vertex.Tangent;
 	}
-	Write<FColor>(Index, Vertex.Color, ColorStream, ColorStride, 0);
-	int32 NumUVs = NumUVChannels();
-	for (int32 UVIndex = 0; UVIndex < NumUVs; UVIndex++)
+
+	GetStreamAccess<FColor>(ColorStream, Index, ColorStride, 0) = Vertex.Color;
+
+	if (bUVHighPrecision)
 	{
-		if (bUVHighPrecision)
+		for (int32 UVIndex = 0; UVIndex < Vertex.UVs.Num(); UVIndex++)
 		{
-			Write<FVector2D>(Index, Vertex.UVs[UVIndex], UVStream, UVStride, UVSize * UVIndex);
+			GetStreamAccess<FVector2D>(UVStream, Index, UVStride, UVIndex * UVStride) = Vertex.UVs[UVIndex];
 		}
-		else
+	}
+	else
+	{
+		for (int32 UVIndex = 0; UVIndex < Vertex.UVs.Num(); UVIndex++)
 		{
-			Write<FVector2DHalf>(Index, Vertex.UVs[UVIndex], UVStream, UVStride, UVSize * UVIndex);
+			GetStreamAccess<FVector2DHalf>(UVStream, Index, UVStride, UVIndex * UVStride) = Vertex.UVs[UVIndex];
 		}
 	}
 }
@@ -370,17 +401,6 @@ void FRuntimeMeshIndicesAccessor::Initialize(bool bIn32BitIndices)
 	b32BitIndices = bIn32BitIndices;
 
 	check((IndexStream->Num() % (b32BitIndices ? 4 : 2)) == 0);
-
-	if (b32BitIndices)
-	{
-		IndexReader.BindStatic(&FRuntimeMeshAccessor::ReadIndex32, IndexStream);
-		IndexWriter.BindStatic(&FRuntimeMeshAccessor::WriteIndex32, IndexStream);
-	}
-	else
-	{
-		IndexReader.BindStatic(&FRuntimeMeshAccessor::ReadIndex16, IndexStream);
-		IndexWriter.BindStatic(&FRuntimeMeshAccessor::WriteIndex16, IndexStream);
-	}
 }
 
 int32 FRuntimeMeshIndicesAccessor::NumIndices() const
@@ -424,13 +444,27 @@ int32 FRuntimeMeshIndicesAccessor::AddTriangle(int32 Index0, int32 Index1, int32
 int32 FRuntimeMeshIndicesAccessor::GetIndex(int32 Index) const
 {
 	check(bIsInitialized);
-	return IndexReader.Execute(Index);
+	if (b32BitIndices)
+	{
+		return GetStreamAccess<int32>(IndexStream, Index, sizeof(int32), 0);
+	}
+	else
+	{
+		return GetStreamAccess<uint16>(IndexStream, Index, sizeof(uint16), 0);
+	}
 }
 
 void FRuntimeMeshIndicesAccessor::SetIndex(int32 Index, int32 Value)
 {
 	check(bIsInitialized);
-	IndexWriter.Execute(Index, Value);
+	if (b32BitIndices)
+	{
+		GetStreamAccess<int32>(IndexStream, Index, sizeof(int32), 0) = Value;
+	}
+	else
+	{
+		GetStreamAccess<uint16>(IndexStream, Index, sizeof(uint16), 0) = Value;
+	}
 }
 
 
@@ -474,6 +508,8 @@ void FRuntimeMeshAccessor::CopyTo(const TSharedPtr<FRuntimeMeshAccessor>& Other,
 		Other->EmptyVertices(NumVertices());
 		Other->EmptyIndices(NumIndices());
 	}
+
+	// TODO: Make this faster using short paths when the structures are the same.
 
 	int32 StartVertex = Other->NumVertices();
 	int32 NumVerts = NumVertices();

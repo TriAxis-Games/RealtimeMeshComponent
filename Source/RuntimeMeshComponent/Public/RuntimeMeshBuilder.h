@@ -88,19 +88,6 @@ protected:
 
 	int32 AddSingleVertex();
 
-	template<typename TYPE>
-	FORCEINLINE_DEBUGGABLE static TYPE Read(int32 Index, TArray<uint8>* Data, int32 Stride, int32 Offset)
-	{
-		int32 StartPosition = (Index * Stride + Offset);
-		return *((TYPE*)(&(*Data)[StartPosition]));
-	}
-
-	template<typename TYPE>
-	FORCENOINLINE static void Write(int32 Index, TYPE Value, TArray<uint8>* Data, int32 Stride, int32 Offset)
-	{
-		int32 StartPosition = (Index * Stride + Offset);
-		*((TYPE*)(&(*Data)[StartPosition])) = Value;
-	}
 };
 
 
@@ -111,12 +98,6 @@ class RUNTIMEMESHCOMPONENT_API FRuntimeMeshIndicesAccessor
 	bool bIsInitialized;
 	TArray<uint8>* IndexStream;
 	bool b32BitIndices;
-
-	DECLARE_DELEGATE_RetVal_OneParam(int32, FIndexStreamReader, int32);
-	DECLARE_DELEGATE_TwoParams(FIndexStreamWriter, int32, int32);
-
-	FIndexStreamReader IndexReader;
-	FIndexStreamWriter IndexWriter;
 
 public:
 
@@ -142,30 +123,8 @@ public:
 
 protected:
 
-	FORCEINLINE int32 GetIndexStride() const { return b32BitIndices ? 4 : 2; }
-
-	FORCEINLINE static int32 ReadIndex16(int32 Index, TArray<uint8>* Data)
-	{
-		int32 StartPosition = (Index * 2);
-		return *((uint16*)(&(*Data)[StartPosition]));
-	}
-	FORCEINLINE static int32 ReadIndex32(int32 Index, TArray<uint8>* Data)
-	{
-		int32 StartPosition = (Index * 4);
-		return *((int32*)(&(*Data)[StartPosition]));
-	}
-
-	FORCEINLINE static void WriteIndex16(int32 Index, int32 Value, TArray<uint8>* Data)
-	{
-		int32 StartPosition = (Index * 2);
-		*((uint16*)(&(*Data)[StartPosition])) = Value;
-	}
-	FORCEINLINE static void WriteIndex32(int32 Index, int32 Value, TArray<uint8>* Data)
-	{
-		int32 StartPosition = (Index * 4);
-		*((int32*)(&(*Data)[StartPosition])) = Value;
-	}
-
+	FORCEINLINE int32 GetIndexStride() const { return b32BitIndices ? sizeof(int32) : sizeof(uint16); }
+	
 };
 
 
