@@ -638,7 +638,7 @@ void URuntimeMeshSlicer::SliceRuntimeMesh(URuntimeMesh* InRuntimeMesh, FVector P
 				continue;
 			}
 
-			auto MeshData = InRuntimeMesh->GetReadonlyMeshAccessor(SectionIndex);
+			auto MeshData = InRuntimeMesh->GetSectionReadonly(SectionIndex);
 
 			// Skip if we don't have mesh data
 			if (MeshData->NumVertices() < 3 || MeshData->NumIndices() < 3)
@@ -660,9 +660,9 @@ void URuntimeMeshSlicer::SliceRuntimeMesh(URuntimeMesh* InRuntimeMesh, FVector P
 				// Box totally on the far side of the plane, move the entire section to the other RMC if it exists
 				if (bShouldCreateOtherHalf)
 				{
-					auto SourceMeshData = InRuntimeMesh->GetReadonlyMeshAccessor(SectionIndex).ToSharedRef();
+					auto SourceMeshData = InRuntimeMesh->GetSectionReadonly(SectionIndex);
 
-					auto NewBuilder = MakeRuntimeMeshBuilder(SourceMeshData);
+					auto NewBuilder = MakeRuntimeMeshBuilder(*SourceMeshData.Get());
 					SourceMeshData->CopyTo(NewBuilder);
 
 					OutOtherHalf->CreateMeshSection(SectionIndex, MoveTemp(NewBuilder));

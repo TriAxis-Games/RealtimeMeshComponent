@@ -599,10 +599,7 @@ FRuntimeMeshScopedUpdater::FRuntimeMeshScopedUpdater(const FRuntimeMeshDataPtr& 
 
 FRuntimeMeshScopedUpdater::~FRuntimeMeshScopedUpdater()
 {
-	if (!IsReadonly())
-	{
-		Commit();
-	}
+	Cancel();
 }
 
 void FRuntimeMeshScopedUpdater::Commit()

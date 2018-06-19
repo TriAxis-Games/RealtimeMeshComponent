@@ -83,7 +83,6 @@ class RUNTIMEMESHCOMPONENT_API FRuntimeMeshData : public TSharedFromThis<FRuntim
 	FRuntimeMeshProxyPtr RenderProxy;
 
 	TUniquePtr<FRuntimeMeshLockProvider> SyncRoot;
-	TFunction<FRuntimeMeshLockProvider*()> LockFactory;
 	
 public:
 	FRuntimeMeshData();

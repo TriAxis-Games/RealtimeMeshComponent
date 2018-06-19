@@ -299,24 +299,20 @@ public:
 		GetOrCreateRuntimeMesh()->UpdateMeshSectionByMove(SectionId, MeshData, UpdateFlags);
 	}
 
+	
+	TUniquePtr<FRuntimeMeshScopedUpdater> BeginSectionUpdate(int32 SectionId, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
+	{
+		check(IsInGameThread());
+		return GetOrCreateRuntimeMesh()->BeginSectionUpdate(SectionId, UpdateFlags);
+	}
+
+	TUniquePtr<FRuntimeMeshScopedUpdater> GetSectionReadonly(int32 SectionId)
+	{
+		check(IsInGameThread());
+		return GetOrCreateRuntimeMesh()->GetSectionReadonly(SectionId);
+	}
 
 
-
-
-// 
-// 	/** DEPRECATED! Use UpdateMeshSectionPrimaryBuffer() instead.  Updates the position buffer of a dual buffer mesh section */
-// 	DEPRECATED(3.0, "UpdateMeshSectionPositionsImmediate for dual buffer sections deprecated. Please use UpdateMeshSectionPrimaryBuffer instead.")
-// 	void UpdateMeshSectionPositionsImmediate(int32 SectionIndex, TArray<FVector>& VertexPositions, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
-// 	{
-// 		UpdateMeshSectionPrimaryBuffer(SectionIndex, VertexPositions, UpdateFlags);
-// 	}
-// 
-// 	/** DEPRECATED! Use UpdateMeshSectionPrimaryBuffer() instead.  Updates the position buffer of a dual buffer mesh section */
-// 	DEPRECATED(3.0, "UpdateMeshSectionPositionsImmediate for dual buffer sections deprecated. Please use UpdateMeshSectionPrimaryBuffer instead.")
-// 	void UpdateMeshSectionPositionsImmediate(int32 SectionIndex, TArray<FVector>& VertexPositions, const FBox& BoundingBox, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
-// 	{
-// 		UpdateMeshSectionPrimaryBuffer(SectionIndex, VertexPositions, BoundingBox, UpdateFlags);
-// 	}
 	
 	FORCEINLINE void CreateMeshSection(int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals,
 	const TArray<FVector2D>& UV0, const TArray<FColor>& Colors, const TArray<FRuntimeMeshTangent>& Tangents, bool bCreateCollision = false,
@@ -397,20 +393,7 @@ public:
 		GetOrCreateRuntimeMesh()->UpdateMeshSectionPacked_Blueprint(SectionIndex, Vertices, Triangles, bCalculateNormalTangent, bShouldCreateHardTangents, bGenerateTessellationTriangles);
 	}
 
-
-
-	TSharedPtr<const FRuntimeMeshAccessor> GetReadonlyMeshAccessor(int32 SectionId)
-	{
-		if (URuntimeMesh* Mesh = GetRuntimeMesh())
-		{
-			return Mesh->GetReadonlyMeshAccessor(SectionId);
-		}
-		return nullptr;
-	}
-
-
-
-
+	
 
 
 

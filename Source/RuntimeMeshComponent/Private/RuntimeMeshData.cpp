@@ -67,8 +67,7 @@ DECLARE_CYCLE_STAT(TEXT("RM - Copy Collision Elements to Body Setup"), STAT_Runt
 DECLARE_CYCLE_STAT(TEXT("RM - Get Section From Collision Face Index"), STAT_RuntimeMesh_GetSectionFromCollisionFaceIndex, STATGROUP_RuntimeMesh);
 
 FRuntimeMeshData::FRuntimeMeshData()
-	: SyncRoot(FRuntimeMeshNullLockProvider::CreateLock())
-	, LockFactory(&FRuntimeMeshNullLockProvider::CreateLock)
+	: SyncRoot(new FRuntimeMeshNullLockProvider())
 {
 }
 

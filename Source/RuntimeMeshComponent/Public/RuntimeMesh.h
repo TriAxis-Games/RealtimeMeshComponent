@@ -348,6 +348,21 @@ public:
 	}
 
 
+	TUniquePtr<FRuntimeMeshScopedUpdater> BeginSectionUpdate(int32 SectionId, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
+	{
+		check(IsInGameThread());
+		return GetRuntimeMeshData()->BeginSectionUpdate(SectionId, UpdateFlags);
+	}
+
+	TUniquePtr<FRuntimeMeshScopedUpdater> GetSectionReadonly(int32 SectionId)
+	{
+		check(IsInGameThread());
+		return GetRuntimeMeshData()->GetSectionReadonly(SectionId);
+	}
+
+
+
+
 	FORCEINLINE void CreateMeshSection(int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals,
 	const TArray<FVector2D>& UV0, const TArray<FColor>& Colors, const TArray<FRuntimeMeshTangent>& Tangents, bool bCreateCollision = false,
 		EUpdateFrequency UpdateFrequency = EUpdateFrequency::Average, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None,
@@ -439,15 +454,8 @@ public:
 	}
 
 
+	
 
-
-
-
-	FORCEINLINE TSharedPtr<const FRuntimeMeshAccessor> GetReadonlyMeshAccessor(int32 SectionId)
-	{
-		check(IsInGameThread());
-		return GetRuntimeMeshData()->GetReadonlyMeshAccessor(SectionId);
-	}
 
 
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")

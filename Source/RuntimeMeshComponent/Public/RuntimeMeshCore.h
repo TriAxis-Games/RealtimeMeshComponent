@@ -6,6 +6,7 @@
 #include "Components/MeshComponent.h"
 #include "Runtime/Launch/Resources/Version.h"
 #include "Stats/Stats.h"
+#include "CriticalSection.h"
 #include "RuntimeMeshCore.generated.h"
 
 DECLARE_STATS_GROUP(TEXT("RuntimeMesh"), STATGROUP_RuntimeMesh, STATCAT_Advanced);
@@ -327,7 +328,7 @@ inline FRuntimeMeshVertexStreamStructure GetStreamStructure<FColor>()
 struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshLockProvider
 {
 	virtual ~FRuntimeMeshLockProvider() { }
-	virtual void Lock() = 0;
+	virtual void Lock(bool bIgnoreThreadIfNullLock = false) = 0;
 	virtual void Unlock() = 0;
 };
 
@@ -337,10 +338,21 @@ struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshNullLockProvider : public FRuntimeMe
 {
 	FRuntimeMeshNullLockProvider() { check(IsInGameThread()); }
 	virtual ~FRuntimeMeshNullLockProvider() { }
-	virtual void Lock() override { check(IsInGameThread()); }
+	virtual void Lock(bool bIgnoreThreadIfNullLock = false) override { check(IsInGameThread()); }
 	virtual void Unlock() override { check(IsInGameThread()); }
+};
 
-	static FRuntimeMeshLockProvider* CreateLock() { return new FRuntimeMeshNullLockProvider(); }
+struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshMutexLockProvider : public FRuntimeMeshLockProvider
+{
+private:
+	FCriticalSection SyncObject;
+
+public:
+
+	FRuntimeMeshMutexLockProvider() { check(IsInGameThread()); }
+	virtual ~FRuntimeMeshMutexLockProvider() { }
+	virtual void Lock(bool bIgnoreThreadIfNullLock = false) override { SyncObject.Lock(); }
+	virtual void Unlock() override { SyncObject.Unlock(); }
 };
 
 

@@ -123,7 +123,7 @@ FReply FRuntimeMeshComponentDetails::ClickedOnConvertToStaticMesh()
 			int32 MaxUVs = 0;
 			for (int32 SectionIdx = 0; SectionIdx < NumSections; SectionIdx++)
 			{
-				auto MeshData = RuntimeMeshComp->GetReadonlyMeshAccessor(SectionIdx);
+				auto MeshData = RuntimeMeshComp->GetSectionReadonly(SectionIdx);
 				check(MeshData.IsValid());
 
 				int32 NumUVs = MeshData->NumUVChannels();
