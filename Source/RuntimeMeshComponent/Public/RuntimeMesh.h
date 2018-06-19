@@ -790,7 +790,7 @@ public:
 
 	FBoxSphereBounds GetLocalBounds() const 
 	{
-		check(IsInGameThread()); 
+		//check(IsInGameThread()); 
 		return GetRuntimeMeshData()->GetLocalBounds();
 	}
 

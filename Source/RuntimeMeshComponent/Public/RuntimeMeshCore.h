@@ -337,8 +337,8 @@ struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshNullLockProvider : public FRuntimeMe
 {
 	FRuntimeMeshNullLockProvider() { check(IsInGameThread()); }
 	virtual ~FRuntimeMeshNullLockProvider() { }
-	virtual void Lock() override { check(IsInGameThread()); }
-	virtual void Unlock() override { check(IsInGameThread()); }
+	virtual void Lock() override { /*check(IsInGameThread());*/ }
+	virtual void Unlock() override { /*check(IsInGameThread());*/ }
 
 	static FRuntimeMeshLockProvider* CreateLock() { return new FRuntimeMeshNullLockProvider(); }
 };
