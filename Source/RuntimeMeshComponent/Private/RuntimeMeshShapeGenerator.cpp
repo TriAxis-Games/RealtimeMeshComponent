@@ -101,7 +101,25 @@ void URuntimeMeshShapeGenerator::CreateBoxMesh(FVector BoxRadius, const TSharedP
 	};
 
 	CreateBoxMesh(BoxRadius, VerticesBuilder, TrianglesBuilder);
+}
 
+void URuntimeMeshShapeGenerator::CreateBoxMesh(FVector BoxRadius, FRuntimeMeshAccessor& MeshBuilder)
+{
+	MeshBuilder.EmptyVertices(CREATEBOX_NUMVERTS);
+	MeshBuilder.EmptyIndices(CREATEBOX_NUMTRIS);
+	FVerticesBuilderFunction VerticesBuilder = [&](const FVector& Position, const FVector& Normal, const FRuntimeMeshTangent& Tangent, const FVector2D& UV0)
+	{
+		int32 NewVertex = MeshBuilder.AddVertex(Position);
+		MeshBuilder.SetNormalTangent(NewVertex, Normal, Tangent);
+		MeshBuilder.SetUV(NewVertex, UV0);
+	};
+
+	FTrianglesBuilderFunction TrianglesBuilder = [&](int32 Index)
+	{
+		MeshBuilder.AddIndex(Index);
+	};
+
+	CreateBoxMesh(BoxRadius, VerticesBuilder, TrianglesBuilder);
 }
 
 

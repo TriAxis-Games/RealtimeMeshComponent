@@ -2,6 +2,7 @@
 
 #include "RuntimeMeshComponentPlugin.h"
 #include "RuntimeMeshBuilder.h"
+#include "RuntimeMeshData.h"
 
 
 template<typename TYPE>
@@ -25,8 +26,9 @@ static_assert(sizeof(FRuntimeMeshEightUV<FVector2DHalf>) == (8 * sizeof(FVector2
 //////////////////////////////////////////////////////////////////////////
 //	FRuntimeMeshVerticesAccessor
 
-FRuntimeMeshVerticesAccessor::FRuntimeMeshVerticesAccessor(TArray<uint8>* PositionStreamData, TArray<uint8>* TangentStreamData, TArray<uint8>* UVStreamData, TArray<uint8>* ColorStreamData)
+FRuntimeMeshVerticesAccessor::FRuntimeMeshVerticesAccessor(TArray<uint8>* PositionStreamData, TArray<uint8>* TangentStreamData, TArray<uint8>* UVStreamData, TArray<uint8>* ColorStreamData, bool bInIsReadonly)
 	: bIsInitialized(false)
+	, bIsReadonly(bInIsReadonly)
 	, PositionStream(PositionStreamData)
 	, TangentStream(TangentStreamData), bTangentHighPrecision(false), TangentSize(0), TangentStride(0)
 	, UVStream(UVStreamData), bUVHighPrecision(false), UVSize(0), UVStride(0), UVChannelCount(0)
@@ -35,8 +37,9 @@ FRuntimeMeshVerticesAccessor::FRuntimeMeshVerticesAccessor(TArray<uint8>* Positi
 }
 
 FRuntimeMeshVerticesAccessor::FRuntimeMeshVerticesAccessor(bool bInTangentsHighPrecision, bool bInUVsHighPrecision, int32 bInUVCount,
-	TArray<uint8>* PositionStreamData, TArray<uint8>* TangentStreamData, TArray<uint8>* UVStreamData, TArray<uint8>* ColorStreamData)
+	TArray<uint8>* PositionStreamData, TArray<uint8>* TangentStreamData, TArray<uint8>* UVStreamData, TArray<uint8>* ColorStreamData, bool bInIsReadonly)
 	: bIsInitialized(false)
+	, bIsReadonly(bInIsReadonly)
 	, PositionStream(PositionStreamData)
 	, TangentStream(TangentStreamData), bTangentHighPrecision(false), TangentSize(0), TangentStride(0)
 	, UVStream(UVStreamData), bUVHighPrecision(false), UVSize(0), UVStride(0), UVChannelCount(0)
@@ -78,6 +81,7 @@ int32 FRuntimeMeshVerticesAccessor::NumUVChannels() const
 void FRuntimeMeshVerticesAccessor::EmptyVertices(int32 Slack /*= 0*/)
 {
 	check(bIsInitialized);
+	check(!bIsReadonly);
 	PositionStream->Empty(Slack * PositionStride);
 	TangentStream->Empty(Slack * TangentStride);
 	UVStream->Empty(Slack * UVSize);
@@ -87,6 +91,7 @@ void FRuntimeMeshVerticesAccessor::EmptyVertices(int32 Slack /*= 0*/)
 void FRuntimeMeshVerticesAccessor::SetNumVertices(int32 NewNum)
 {
 	check(bIsInitialized);
+	check(!bIsReadonly);
 	PositionStream->SetNumZeroed(NewNum * PositionStride);
 	TangentStream->SetNumZeroed(NewNum * TangentStride);
 	UVStream->SetNumZeroed(NewNum * UVStride);
@@ -96,6 +101,7 @@ void FRuntimeMeshVerticesAccessor::SetNumVertices(int32 NewNum)
 int32 FRuntimeMeshVerticesAccessor::AddVertex(FVector InPosition)
 {
 	check(bIsInitialized);
+	check(!bIsReadonly);
 	int32 NewIndex = AddSingleVertex();
 
 	SetPosition(NewIndex, InPosition);
@@ -164,6 +170,7 @@ void FRuntimeMeshVerticesAccessor::SetPosition(int32 Index, FVector Value)
 void FRuntimeMeshVerticesAccessor::SetNormal(int32 Index, const FVector4& Value)
 {
 	check(bIsInitialized);
+	check(!bIsReadonly);
 	if (bTangentHighPrecision)
 	{
 		GetStreamAccess<FRuntimeMeshTangentsHighPrecision>(TangentStream, Index, TangentStride, 0).Normal = Value;
@@ -177,6 +184,7 @@ void FRuntimeMeshVerticesAccessor::SetNormal(int32 Index, const FVector4& Value)
 void FRuntimeMeshVerticesAccessor::SetTangent(int32 Index, FVector Value)
 {
 	check(bIsInitialized);
+	check(!bIsReadonly);
 	if (bTangentHighPrecision)
 	{
 		GetStreamAccess<FRuntimeMeshTangentsHighPrecision>(TangentStream, Index, TangentStride, 0).Tangent = Value;
@@ -190,6 +198,7 @@ void FRuntimeMeshVerticesAccessor::SetTangent(int32 Index, FVector Value)
 void FRuntimeMeshVerticesAccessor::SetTangent(int32 Index, FRuntimeMeshTangent Value)
 {
 	check(bIsInitialized);
+	check(!bIsReadonly);
 	if (bTangentHighPrecision)
 	{
 		FRuntimeMeshTangentsHighPrecision& Tangents = GetStreamAccess<FRuntimeMeshTangentsHighPrecision>(TangentStream, Index, TangentStride, 0);
@@ -211,12 +220,14 @@ void FRuntimeMeshVerticesAccessor::SetTangent(int32 Index, FRuntimeMeshTangent V
 void FRuntimeMeshVerticesAccessor::SetColor(int32 Index, FColor Value)
 {
 	check(bIsInitialized);
+	check(!bIsReadonly);
 	GetStreamAccess<FColor>(ColorStream, Index, ColorStride, 0) = Value;
 }
 
 void FRuntimeMeshVerticesAccessor::SetUV(int32 Index, FVector2D Value)
 {
 	check(bIsInitialized);
+	check(!bIsReadonly);
 	check(UVChannelCount > 0);
 	if (bUVHighPrecision)
 	{
@@ -231,6 +242,7 @@ void FRuntimeMeshVerticesAccessor::SetUV(int32 Index, FVector2D Value)
 void FRuntimeMeshVerticesAccessor::SetUV(int32 Index, int32 Channel, FVector2D Value)
 {
 	check(bIsInitialized);
+	check(!bIsReadonly);
 	check(Channel >= 0 && Channel < UVChannelCount);
 	if (bUVHighPrecision)
 	{
@@ -245,6 +257,7 @@ void FRuntimeMeshVerticesAccessor::SetUV(int32 Index, int32 Channel, FVector2D V
 void FRuntimeMeshVerticesAccessor::SetNormalTangent(int32 Index, FVector Normal, FRuntimeMeshTangent Tangent)
 {
 	check(bIsInitialized);
+	check(!bIsReadonly);
 	if (bTangentHighPrecision)
 	{
 		FRuntimeMeshTangentsHighPrecision& Tangents = GetStreamAccess<FRuntimeMeshTangentsHighPrecision>(TangentStream, Index, TangentStride, 0);
@@ -262,6 +275,7 @@ void FRuntimeMeshVerticesAccessor::SetNormalTangent(int32 Index, FVector Normal,
 void FRuntimeMeshVerticesAccessor::SetTangents(int32 Index, FVector TangentX, FVector TangentY, FVector TangentZ)
 {
 	check(bIsInitialized);
+	check(!bIsReadonly);
 	if (bTangentHighPrecision)
 	{
 		FRuntimeMeshTangentsHighPrecision& Tangents = GetStreamAccess<FRuntimeMeshTangentsHighPrecision>(TangentStream, Index, TangentStride, 0);
@@ -326,6 +340,7 @@ FRuntimeMeshAccessorVertex FRuntimeMeshVerticesAccessor::GetVertex(int32 Index) 
 void FRuntimeMeshVerticesAccessor::SetVertex(int32 Index, const FRuntimeMeshAccessorVertex& Vertex)
 {
 	check(bIsInitialized);
+	check(!bIsReadonly);
 
 	GetStreamAccess<FVector>(PositionStream, Index, PositionStride, 0) = Vertex.Position;
 
@@ -365,6 +380,7 @@ void FRuntimeMeshVerticesAccessor::SetVertex(int32 Index, const FRuntimeMeshAcce
 int32 FRuntimeMeshVerticesAccessor::AddVertex(const FRuntimeMeshAccessorVertex& Vertex)
 {
 	check(bIsInitialized);
+	check(!bIsReadonly);
 	int32 NewIndex = AddSingleVertex();
 	SetVertex(NewIndex, Vertex);
 	return NewIndex;
@@ -391,14 +407,16 @@ int32 FRuntimeMeshVerticesAccessor::AddSingleVertex()
 //////////////////////////////////////////////////////////////////////////
 //	FRuntimeMeshIndicesAccessor
 
-FRuntimeMeshIndicesAccessor::FRuntimeMeshIndicesAccessor(TArray<uint8>* IndexStreamData)
+FRuntimeMeshIndicesAccessor::FRuntimeMeshIndicesAccessor(TArray<uint8>* IndexStreamData, bool bInIsReadonly)
 	: bIsInitialized(false)
+	, bIsReadonly(bInIsReadonly)
 	, IndexStream(IndexStreamData), b32BitIndices(false)
 {
 }
 
-FRuntimeMeshIndicesAccessor::FRuntimeMeshIndicesAccessor(bool bIn32BitIndices, TArray<uint8>* IndexStreamData)
+FRuntimeMeshIndicesAccessor::FRuntimeMeshIndicesAccessor(bool bIn32BitIndices, TArray<uint8>* IndexStreamData, bool bInIsReadonly)
 	: bIsInitialized(false)
+	, bIsReadonly(bInIsReadonly)
 	, IndexStream(IndexStreamData), b32BitIndices(false)
 {
 	Initialize(bIn32BitIndices);
@@ -425,18 +443,21 @@ int32 FRuntimeMeshIndicesAccessor::NumIndices() const
 void FRuntimeMeshIndicesAccessor::EmptyIndices(int32 Slack)
 {
 	check(bIsInitialized);
+	check(!bIsReadonly);
 	IndexStream->Empty(Slack * GetIndexStride());
 }
 
 void FRuntimeMeshIndicesAccessor::SetNumIndices(int32 NewNum)
 {
 	check(bIsInitialized);
+	check(!bIsReadonly);
 	IndexStream->SetNumZeroed(NewNum * GetIndexStride());
 }
 
 int32 FRuntimeMeshIndicesAccessor::AddIndex(int32 NewIndex)
 {
 	check(bIsInitialized);
+	check(!bIsReadonly);
 	int32 NewPosition = NumIndices();
 	IndexStream->AddZeroed(GetIndexStride());
 	SetIndex(NewPosition, NewIndex);
@@ -446,6 +467,7 @@ int32 FRuntimeMeshIndicesAccessor::AddIndex(int32 NewIndex)
 int32 FRuntimeMeshIndicesAccessor::AddTriangle(int32 Index0, int32 Index1, int32 Index2)
 {
 	check(bIsInitialized);
+	check(!bIsReadonly);
 	int32 NewPosition = NumIndices();
 	IndexStream->AddZeroed(GetIndexStride() * 3);
 	SetIndex(NewPosition + 0, Index0);
@@ -470,6 +492,7 @@ int32 FRuntimeMeshIndicesAccessor::GetIndex(int32 Index) const
 void FRuntimeMeshIndicesAccessor::SetIndex(int32 Index, int32 Value)
 {
 	check(bIsInitialized);
+	check(!bIsReadonly);
 	if (b32BitIndices)
 	{
 		GetStreamAccess<int32>(IndexStream, Index, sizeof(int32), 0) = Value;
@@ -487,9 +510,9 @@ void FRuntimeMeshIndicesAccessor::SetIndex(int32 Index, int32 Value)
 //	FRuntimeMeshAccessor
 
 FRuntimeMeshAccessor::FRuntimeMeshAccessor(bool bInTangentsHighPrecision, bool bInUVsHighPrecision, int32 bInUVCount, bool bIn32BitIndices, TArray<uint8>* PositionStreamData,
-	TArray<uint8>* TangentStreamData, TArray<uint8>* UVStreamData, TArray<uint8>* ColorStreamData, TArray<uint8>* IndexStreamData)
-	: FRuntimeMeshVerticesAccessor(bInTangentsHighPrecision, bInUVsHighPrecision, bInUVCount, PositionStreamData, TangentStreamData, UVStreamData, ColorStreamData)
-	, FRuntimeMeshIndicesAccessor(bIn32BitIndices, IndexStreamData)
+	TArray<uint8>* TangentStreamData, TArray<uint8>* UVStreamData, TArray<uint8>* ColorStreamData, TArray<uint8>* IndexStreamData, bool bInIsReadonly)
+	: FRuntimeMeshVerticesAccessor(bInTangentsHighPrecision, bInUVsHighPrecision, bInUVCount, PositionStreamData, TangentStreamData, UVStreamData, ColorStreamData, bInIsReadonly)
+	, FRuntimeMeshIndicesAccessor(bIn32BitIndices, IndexStreamData, bInIsReadonly)
 {
 
 }
@@ -498,9 +521,9 @@ FRuntimeMeshAccessor::~FRuntimeMeshAccessor()
 {
 }
 
-FRuntimeMeshAccessor::FRuntimeMeshAccessor(TArray<uint8>* PositionStreamData, TArray<uint8>* TangentStreamData, TArray<uint8>* UVStreamData, TArray<uint8>* ColorStreamData, TArray<uint8>* IndexStreamData)
-	: FRuntimeMeshVerticesAccessor(PositionStreamData, TangentStreamData, UVStreamData, ColorStreamData)
-	, FRuntimeMeshIndicesAccessor(IndexStreamData)
+FRuntimeMeshAccessor::FRuntimeMeshAccessor(TArray<uint8>* PositionStreamData, TArray<uint8>* TangentStreamData, TArray<uint8>* UVStreamData, TArray<uint8>* ColorStreamData, TArray<uint8>* IndexStreamData, bool bInIsReadonly)
+	: FRuntimeMeshVerticesAccessor(PositionStreamData, TangentStreamData, UVStreamData, ColorStreamData, bInIsReadonly)
+	, FRuntimeMeshIndicesAccessor(IndexStreamData, bInIsReadonly)
 {
 
 }
@@ -551,7 +574,7 @@ void FRuntimeMeshAccessor::CopyTo(const TSharedPtr<FRuntimeMeshAccessor>& Other,
 //	FRuntimeMeshBuilder
 
 FRuntimeMeshBuilder::FRuntimeMeshBuilder(bool bInTangentsHighPrecision, bool bInUVsHighPrecision, int32 bInUVCount, bool bIn32BitIndices)
-	: FRuntimeMeshAccessor(&PositionStream, &TangentStream, &UVStream, &ColorStream, &IndexStream)
+	: FRuntimeMeshAccessor(&PositionStream, &TangentStream, &UVStream, &ColorStream, &IndexStream, false)
 {
 	FRuntimeMeshAccessor::Initialize(bInTangentsHighPrecision, bInUVsHighPrecision, bInUVCount, bIn32BitIndices);
 }
@@ -562,4 +585,49 @@ FRuntimeMeshBuilder::~FRuntimeMeshBuilder()
 }
 
 
+//////////////////////////////////////////////////////////////////////////
+//	FRuntimeMeshScopedUpdater
 
+FRuntimeMeshScopedUpdater::FRuntimeMeshScopedUpdater(const FRuntimeMeshDataPtr& InLinkedMeshData, int32 InSectionIndex, ESectionUpdateFlags InUpdateFlags, bool bInTangentsHighPrecision, bool bInUVsHighPrecision, int32 bInUVCount, bool bIn32BitIndices,
+	TArray<uint8>* PositionStreamData, TArray<uint8>* TangentStreamData, TArray<uint8>* UVStreamData, TArray<uint8>* ColorStreamData, TArray<uint8>* IndexStreamData, FRuntimeMeshLockProvider* InSyncObject, bool bIsReadonly)
+	: FRuntimeMeshAccessor(bInTangentsHighPrecision, bInUVsHighPrecision, bInUVCount, bIn32BitIndices, PositionStreamData, TangentStreamData, UVStreamData, ColorStreamData, IndexStreamData, bIsReadonly)
+	, FRuntimeMeshScopeLock(InSyncObject, true)
+	, LinkedMeshData(InLinkedMeshData), SectionIndex(InSectionIndex), UpdateFlags(InUpdateFlags)
+{
+
+}
+
+FRuntimeMeshScopedUpdater::~FRuntimeMeshScopedUpdater()
+{
+	if (!IsReadonly())
+	{
+		Commit();
+	}
+}
+
+void FRuntimeMeshScopedUpdater::Commit()
+{
+	check(!IsReadonly());
+	LinkedMeshData->EndSectionUpdate(this);
+
+	// Release the mesh and lock.
+	FRuntimeMeshAccessor::Unlink();
+	FRuntimeMeshScopeLock::Unlock();
+}
+
+void FRuntimeMeshScopedUpdater::Commit(const FBox& BoundingBox)
+{
+	check(!IsReadonly());
+	LinkedMeshData->EndSectionUpdate(this, &BoundingBox);
+
+	// Release the mesh and lock.
+	FRuntimeMeshAccessor::Unlink();
+	FRuntimeMeshScopeLock::Unlock();
+}
+
+void FRuntimeMeshScopedUpdater::Cancel()
+{
+	// Release the mesh and lock.
+	FRuntimeMeshAccessor::Unlink();
+	FRuntimeMeshScopeLock::Unlock();
+}

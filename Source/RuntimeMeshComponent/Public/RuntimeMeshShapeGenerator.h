@@ -38,6 +38,8 @@ public:
 
 	static void CreateBoxMesh(FVector BoxRadius, const TSharedPtr<FRuntimeMeshAccessor>& MeshBuilder);
 
+	static void CreateBoxMesh(FVector BoxRadius, FRuntimeMeshAccessor& MeshBuilder);
+
 	/**
 	*	Generate an index buffer for a grid of quads.
 	*	@param	NumX			Number of vertices in X direction (must be >= 2)

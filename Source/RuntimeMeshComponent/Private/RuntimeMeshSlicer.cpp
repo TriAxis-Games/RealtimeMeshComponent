@@ -270,9 +270,9 @@ void URuntimeMeshSlicer::SliceRuntimeMeshSection(const FRuntimeMeshDataPtr& InRu
 {
 	bool bShouldCreateOtherHalf = OutOtherHalf.IsValid();
 
-	auto SourceMeshData = InRuntimeMesh->GetReadonlyMeshAccessor(SectionIndex).ToSharedRef();
-	TSharedPtr<FRuntimeMeshBuilder> NewMeshData = MakeRuntimeMeshBuilder(SourceMeshData);
-	TSharedPtr<FRuntimeMeshBuilder> OtherMeshData = bShouldCreateOtherHalf ? MakeRuntimeMeshBuilder(SourceMeshData) : TSharedPtr<FRuntimeMeshBuilder>(nullptr);
+	auto SourceMeshData = InRuntimeMesh->GetSectionReadonly(SectionIndex);
+	TSharedPtr<FRuntimeMeshBuilder> NewMeshData = MakeRuntimeMeshBuilder(*SourceMeshData.Get());
+	TSharedPtr<FRuntimeMeshBuilder> OtherMeshData = bShouldCreateOtherHalf ? MakeRuntimeMeshBuilder(*SourceMeshData.Get()) : TSharedPtr<FRuntimeMeshBuilder>(nullptr);
 
 	// Map of base vert index to sliced vert index
 	TMap<int32, int32> BaseToSlicedVertIndex;
@@ -497,8 +497,8 @@ int32 URuntimeMeshSlicer::CapMeshSlice(const FRuntimeMeshDataPtr& InRuntimeMesh,
 		if (CapOption == ERuntimeMeshSlicerCapOption::UseLastSectionForCap)
 		{
 			CapSectionIndex = InRuntimeMesh->GetLastSectionIndex();
-			auto ExistingMesh = InRuntimeMesh->GetReadonlyMeshAccessor(CapSectionIndex);
-			CapSection = MakeRuntimeMeshBuilder(ExistingMesh.ToSharedRef());
+			auto ExistingMesh = InRuntimeMesh->GetSectionReadonly(NewCapSectionIndex);
+			CapSection = MakeRuntimeMeshBuilder(*ExistingMesh.Get());
 			ExistingMesh->CopyTo(CapSection);
 		}
 		// Adding new section for cap
@@ -556,8 +556,8 @@ int32 URuntimeMeshSlicer::CapMeshSlice(const FRuntimeMeshDataPtr& InRuntimeMesh,
 			if (CapOption == ERuntimeMeshSlicerCapOption::UseLastSectionForCap)
 			{
 				OtherCapSectionIndex = OutOtherHalf->GetLastSectionIndex();
-				auto ExistingMesh = OutOtherHalf->GetReadonlyMeshAccessor(CapSectionIndex);
-				OtherCapSection = MakeRuntimeMeshBuilder(ExistingMesh.ToSharedRef());
+				auto ExistingMesh = OutOtherHalf->GetSectionReadonly(CapSectionIndex);
+				OtherCapSection = MakeRuntimeMeshBuilder(*ExistingMesh.Get());
 				ExistingMesh->CopyTo(OtherCapSection);
 			}
 			// Adding new section for cap

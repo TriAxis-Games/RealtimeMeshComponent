@@ -25,6 +25,7 @@ struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshAccessorVertex
 class RUNTIMEMESHCOMPONENT_API FRuntimeMeshVerticesAccessor
 {
 	bool bIsInitialized;
+	bool bIsReadonly;
 	TArray<uint8>* PositionStream;
 	static const int32 PositionStride = 12;
 	TArray<uint8>* TangentStream;
@@ -42,17 +43,19 @@ class RUNTIMEMESHCOMPONENT_API FRuntimeMeshVerticesAccessor
 public:
 
 	FRuntimeMeshVerticesAccessor(bool bInTangentsHighPrecision, bool bInUVsHighPrecision, int32 bInUVCount,
-		TArray<uint8>* PositionStreamData, TArray<uint8>* TangentStreamData, TArray<uint8>* UVStreamData, TArray<uint8>* ColorStreamData);
+		TArray<uint8>* PositionStreamData, TArray<uint8>* TangentStreamData, TArray<uint8>* UVStreamData, TArray<uint8>* ColorStreamData, bool bInIsReadonly = false);
 	virtual ~FRuntimeMeshVerticesAccessor();
 
 protected:
-	FRuntimeMeshVerticesAccessor(TArray<uint8>* PositionStreamData, TArray<uint8>* TangentStreamData, TArray<uint8>* UVStreamData, TArray<uint8>* ColorStreamData);
+	FRuntimeMeshVerticesAccessor(TArray<uint8>* PositionStreamData, TArray<uint8>* TangentStreamData, TArray<uint8>* UVStreamData, TArray<uint8>* ColorStreamData, bool bInIsReadonly);
 
 	void Initialize(bool bInTangentsHighPrecision, bool bInUVsHighPrecision, int32 bInUVCount);
 
 public:
 	const bool IsUsingHighPrecisionTangents() const { return bTangentHighPrecision; }
 	const bool IsUsingHighPrecisionUVs() const { return bUVHighPrecision; }
+
+	const bool IsReadonly() const { return bIsReadonly; }
 
 	int32 NumVertices() const;
 	int32 NumUVChannels() const;
@@ -84,33 +87,252 @@ public:
 	void SetVertex(int32 Index, const FRuntimeMeshAccessorVertex& Vertex);
 	int32 AddVertex(const FRuntimeMeshAccessorVertex& Vertex);
 
+
+private:
+	template<typename Type>
+	typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasPosition>::Type
+		SetPositionValue(int32 Index, const Type& Vertex)
+	{
+		SetPosition(Index, Vertex.Position);
+	}
+
+	template<typename Type>
+	typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasPosition>::Type
+		SetPositionValue(int32 Index, const Type& Vertex)
+	{
+	}
+
+	template<typename Type>
+	typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasNormal>::Type
+		SetNormalValue(int32 Index, const Type& Vertex)
+	{
+		SetNormal(Index, Vertex.Normal);
+	}
+
+	template<typename Type>
+	typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasNormal>::Type
+		SetNormalValue(int32 Index, const Type& Vertex)
+	{
+	}
+
+	template<typename Type>
+	typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasTangent>::Type
+		SetTangentValue(int32 Index, const Type& Vertex)
+	{
+		SetTangent(Index, Vertex.Tangent);
+	}
+
+	template<typename Type>
+	typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasTangent>::Type
+		SetTangentValue(int32 Index, const Type& Vertex)
+	{
+	}
+
+	template<typename Type>
+	typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasColor>::Type
+		SetColorValue(int32 Index, const Type& Vertex)
+	{
+		SetColor(Index, Vertex.Color);
+	}
+
+	template<typename Type>
+	typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasColor>::Type
+		SetColorValue(int32 Index, const Type& Vertex)
+	{
+	}
+
+
+
+
+	template<typename Type>
+	typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasUV0>::Type
+		SetUV0Value(int32 Index, const Type& Vertex)
+	{
+		SetUV(Index, 0, Vertex.UV0);
+	}
+
+	template<typename Type>
+	typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasUV0>::Type
+		SetUV0Value(int32 Index, const Type& Vertex)
+	{
+	}
+
+	template<typename Type>
+	typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasUV1>::Type
+		SetUV1Value(int32 Index, const Type& Vertex)
+	{
+		SetUV(Index, 1, Vertex.UV1);
+	}
+
+	template<typename Type>
+	typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasUV1>::Type
+		SetUV1Value(int32 Index, const Type& Vertex)
+	{
+	}
+
+	template<typename Type>
+	typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasUV2>::Type
+		SetUV2Value(int32 Index, const Type& Vertex)
+	{
+		SetUV(Index, 2, Vertex.UV2);
+	}
+
+	template<typename Type>
+	typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasUV2>::Type
+		SetUV2Value(int32 Index, const Type& Vertex)
+	{
+	}
+
+	template<typename Type>
+	typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasUV3>::Type
+		SetUV3Value(int32 Index, const Type& Vertex)
+	{
+		SetUV(Index, 3, Vertex.UV3);
+	}
+
+	template<typename Type>
+	typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasUV3>::Type
+		SetUV3Value(int32 Index, const Type& Vertex)
+	{
+	}
+
+	template<typename Type>
+	typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasUV4>::Type
+		SetUV4Value(int32 Index, const Type& Vertex)
+	{
+		SetUV(Index, 4, Vertex.UV4);
+	}
+
+	template<typename Type>
+	typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasUV4>::Type
+		SetUV4Value(int32 Index, const Type& Vertex)
+	{
+	}
+
+	template<typename Type>
+	typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasUV5>::Type
+		SetUV5Value(int32 Index, const Type& Vertex)
+	{
+		SetUV(Index, 5, Vertex.UV5);
+	}
+
+	template<typename Type>
+	typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasUV5>::Type
+		SetUV5Value(int32 Index, const Type& Vertex)
+	{
+	}
+
+	template<typename Type>
+	typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasUV6>::Type
+		SetUV6Value(int32 Index, const Type& Vertex)
+	{
+		SetUV(Index, 6, Vertex.UV6);
+	}
+
+	template<typename Type>
+	typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasUV6>::Type
+		SetUV6Value(int32 Index, const Type& Vertex)
+	{
+	}
+
+	template<typename Type>
+	typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasUV7>::Type
+		SetUV7Value(int32 Index, const Type& Vertex)
+	{
+		SetUV(Index, 7, Vertex.UV7);
+	}
+
+	template<typename Type>
+	typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasUV7>::Type
+		SetUV7Value(int32 Index, const Type& Vertex)
+	{
+	}
+
+
+
+
+public:
+	// Helper for setting vertex properties from the old style packed vertices like the generic vertex
+	template<typename VertexType>
+	void SetVertexProperties(int32 Index, const VertexType& Vertex)
+	{
+		SetPositionValue(Index, Vertex);
+		SetNormalValue(Index, Vertex);
+		SetTangentValue(Index, Vertex);
+		SetColorValue(Index, Vertex);
+
+		SetUV0Value(Index, Vertex);
+		SetUV1Value(Index, Vertex);
+		SetUV2Value(Index, Vertex);
+		SetUV3Value(Index, Vertex);
+		SetUV4Value(Index, Vertex);
+		SetUV5Value(Index, Vertex);
+		SetUV6Value(Index, Vertex);
+		SetUV7Value(Index, Vertex);
+	}
+
+	template<typename VertexType0>
+	void AddVertexByProperties(const VertexType0& Vertex0)
+	{
+		int32 NewIndex = AddSingleVertex();
+		SetVertexProperties(NewIndex, Vertex0);
+	}
+
+	template<typename VertexType0, typename VertexType1>
+	void AddVertexByProperties(const VertexType0& Vertex0, const VertexType1& Vertex1)
+	{
+		int32 NewIndex = AddSingleVertex();
+		SetVertexProperties(NewIndex, Vertex0);
+		SetVertexProperties(NewIndex, Vertex1);
+	}
+
+	template<typename VertexType0, typename VertexType1, typename VertexType2>
+	void AddVertexByProperties(const VertexType0& Vertex0, const VertexType1& Vertex1, const VertexType2& Vertex2)
+	{
+		int32 NewIndex = AddSingleVertex();
+		SetVertexProperties(NewIndex, Vertex0);
+		SetVertexProperties(NewIndex, Vertex1);
+		SetVertexProperties(NewIndex, Vertex2);
+	}
+
+
 protected:
+
+	void Unlink()
+	{
+		bIsInitialized = false;
+		PositionStream = nullptr;
+		TangentStream = nullptr;
+		UVStream = nullptr;
+		ColorStream = nullptr;
+	}
 
 	int32 AddSingleVertex();
 
 };
 
-
-
-
 class RUNTIMEMESHCOMPONENT_API FRuntimeMeshIndicesAccessor
 {
 	bool bIsInitialized;
+	bool bIsReadonly;
 	TArray<uint8>* IndexStream;
 	bool b32BitIndices;
 
 public:
 
-	FRuntimeMeshIndicesAccessor(bool bIn32BitIndices, TArray<uint8>* IndexStreamData);
+	FRuntimeMeshIndicesAccessor(bool bIn32BitIndices, TArray<uint8>* IndexStreamData, bool bInIsReadonly = false);
 	virtual ~FRuntimeMeshIndicesAccessor();
 
 protected:
-	FRuntimeMeshIndicesAccessor(TArray<uint8>* IndexStreamData);
+	FRuntimeMeshIndicesAccessor(TArray<uint8>* IndexStreamData, bool bInIsReadonly);
 
 	void Initialize(bool bIn32BitIndices);
 
 public:
 	bool IsUsing32BitIndices() const { return b32BitIndices; }
+
+	const bool IsReadonly() const { return bIsReadonly; }
+
 
 	int32 NumIndices() const;
 	void EmptyIndices(int32 Slack = 0);
@@ -124,10 +346,13 @@ public:
 protected:
 
 	FORCEINLINE int32 GetIndexStride() const { return b32BitIndices ? sizeof(int32) : sizeof(uint16); }
-	
+
+	void Unlink()
+	{
+		bIsInitialized = false;
+		IndexStream = nullptr;
+	}
 };
-
-
 
 
 /**
@@ -140,16 +365,24 @@ class RUNTIMEMESHCOMPONENT_API FRuntimeMeshAccessor : public FRuntimeMeshVertice
 public:
 
 	FRuntimeMeshAccessor(bool bInTangentsHighPrecision, bool bInUVsHighPrecision, int32 bInUVCount, bool bIn32BitIndices, TArray<uint8>* PositionStreamData,
-		TArray<uint8>* TangentStreamData, TArray<uint8>* UVStreamData, TArray<uint8>* ColorStreamData, TArray<uint8>* IndexStreamData);
+		TArray<uint8>* TangentStreamData, TArray<uint8>* UVStreamData, TArray<uint8>* ColorStreamData, TArray<uint8>* IndexStreamData, bool bInIsReadonly = false);
 	virtual ~FRuntimeMeshAccessor() override;
 
 protected:
-	FRuntimeMeshAccessor(TArray<uint8>* PositionStreamData, TArray<uint8>* TangentStreamData, TArray<uint8>* UVStreamData, TArray<uint8>* ColorStreamData, TArray<uint8>* IndexStreamData);
+	FRuntimeMeshAccessor(TArray<uint8>* PositionStreamData, TArray<uint8>* TangentStreamData, TArray<uint8>* UVStreamData, TArray<uint8>* ColorStreamData, TArray<uint8>* IndexStreamData, bool bInIsReadonly);
 
 	void Initialize(bool bInTangentsHighPrecision, bool bInUVsHighPrecision, int32 bInUVCount, bool bIn32BitIndices);
 
 public:
+	bool IsReadonly() const { return FRuntimeMeshVerticesAccessor::IsReadonly() || FRuntimeMeshIndicesAccessor::IsReadonly(); }
+
 	void CopyTo(const TSharedPtr<FRuntimeMeshAccessor>& Other, bool bClearDestination = false) const;
+
+	void Unlink()
+	{
+		FRuntimeMeshVerticesAccessor::Unlink();
+		FRuntimeMeshIndicesAccessor::Unlink();
+	}
 
 };
 
@@ -180,6 +413,28 @@ public:
 };
 
 
+class RUNTIMEMESHCOMPONENT_API FRuntimeMeshScopedUpdater : public FRuntimeMeshAccessor, private FRuntimeMeshScopeLock
+{
+	FRuntimeMeshDataPtr	LinkedMeshData;
+	int32 SectionIndex;
+	ESectionUpdateFlags UpdateFlags;
+	
+private:
+	FRuntimeMeshScopedUpdater(const FRuntimeMeshDataPtr& InLinkedMeshData, int32 InSectionIndex, ESectionUpdateFlags InUpdateFlags, bool bInTangentsHighPrecision, bool bInUVsHighPrecision, int32 bInUVCount, bool bIn32BitIndices, TArray<uint8>* PositionStreamData,
+		TArray<uint8>* TangentStreamData, TArray<uint8>* UVStreamData, TArray<uint8>* ColorStreamData, TArray<uint8>* IndexStreamData, FRuntimeMeshLockProvider* InSyncObject, bool bIsReadonly);
+	
+public:
+	~FRuntimeMeshScopedUpdater();
+
+	void Commit();
+	void Commit(const FBox& BoundingBox);
+	void Cancel();
+
+	friend class FRuntimeMeshData;
+	friend class FRuntimeMeshSection;
+};
+
+
 
 template<typename TangentType, typename UVType, typename IndexType>
 FORCEINLINE TSharedRef<FRuntimeMeshBuilder> MakeRuntimeMeshBuilder()
@@ -191,8 +446,22 @@ FORCEINLINE TSharedRef<FRuntimeMeshBuilder> MakeRuntimeMeshBuilder()
 	return MakeShared<FRuntimeMeshBuilder>(GetTangentIsHighPrecision<TangentType>(), bIsUsingHighPrecisionUVs, NumUVChannels, (bool)FRuntimeMeshIndexTraits<IndexType>::Is32Bit);
 }
 
+FORCEINLINE TSharedRef<FRuntimeMeshBuilder> MakeRuntimeMeshBuilder(bool bUsingHighPrecisionTangents, bool bUsingHighPrecisionUVs, int32 NumUVs, bool bUsing32BitIndices)
+{
+	return MakeShared<FRuntimeMeshBuilder>(bUsingHighPrecisionTangents, bUsingHighPrecisionUVs, NumUVs, bUsing32BitIndices);
+}
 
 FORCEINLINE TSharedRef<FRuntimeMeshBuilder> MakeRuntimeMeshBuilder(const TSharedRef<const FRuntimeMeshAccessor>& StructureToCopy)
 {
 	return MakeShared<FRuntimeMeshBuilder>(StructureToCopy->IsUsingHighPrecisionTangents(), StructureToCopy->IsUsingHighPrecisionUVs(), StructureToCopy->NumUVChannels(), StructureToCopy->IsUsing32BitIndices());
+}
+
+FORCEINLINE TSharedRef<FRuntimeMeshBuilder> MakeRuntimeMeshBuilder(const TUniquePtr<const FRuntimeMeshAccessor>& StructureToCopy)
+{
+	return MakeShared<FRuntimeMeshBuilder>(StructureToCopy->IsUsingHighPrecisionTangents(), StructureToCopy->IsUsingHighPrecisionUVs(), StructureToCopy->NumUVChannels(), StructureToCopy->IsUsing32BitIndices());
+}
+
+FORCEINLINE TSharedRef<FRuntimeMeshBuilder> MakeRuntimeMeshBuilder(const FRuntimeMeshAccessor& StructureToCopy)
+{
+	return MakeShared<FRuntimeMeshBuilder>(StructureToCopy.IsUsingHighPrecisionTangents(), StructureToCopy.IsUsingHighPrecisionUVs(), StructureToCopy.NumUVChannels(), StructureToCopy.IsUsing32BitIndices());
 }

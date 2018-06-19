@@ -112,7 +112,7 @@ public:
 	/** Gets the internal mesh data */
 	FRuntimeMeshDataRef GetRuntimeMeshData() const
 	{
-		check(IsInGameThread());
+		//check(IsInGameThread());
 		return Data;
 	}
 
@@ -124,28 +124,11 @@ public:
 
 public:
 
-	template<typename VertexType0, typename IndexType>
-	FORCEINLINE void CreateMeshSection(int32 SectionIndex, bool bCreateCollision = false, EUpdateFrequency UpdateFrequency = EUpdateFrequency::Average)
+	void CreateMeshSection(int32 SectionIndex, bool bWantsHighPrecisionTangents, bool bWantsHighPrecisionUVs, int32 NumUVs, bool bWants32BitIndices, bool bCreateCollision, EUpdateFrequency UpdateFrequency = EUpdateFrequency::Average)
 	{
 		check(IsInGameThread());
-		GetRuntimeMeshData()->CreateMeshSection<VertexType0, IndexType>(SectionIndex, bCreateCollision, UpdateFrequency);
+		GetRuntimeMeshData()->CreateMeshSection(SectionIndex, bWantsHighPrecisionTangents, bWantsHighPrecisionUVs, NumUVs, bWants32BitIndices, bCreateCollision, UpdateFrequency);
 	}
-
-	template<typename VertexType0, typename VertexType1, typename IndexType>
-	FORCEINLINE void CreateMeshSectionDualBuffer(int32 SectionIndex, bool bCreateCollision = false, EUpdateFrequency UpdateFrequency = EUpdateFrequency::Average)
-	{
-		check(IsInGameThread());
-		GetRuntimeMeshData()->CreateMeshSectionDualBuffer<VertexType0, VertexType1, IndexType>(SectionIndex, bCreateCollision, UpdateFrequency);
-	}
-
-	template<typename VertexType0, typename VertexType1, typename VertexType2, typename IndexType>
-	FORCEINLINE void CreateMeshSectionTripleBuffer(int32 SectionIndex, bool bCreateCollision = false, EUpdateFrequency UpdateFrequency = EUpdateFrequency::Average)
-	{
-		check(IsInGameThread());
-		GetRuntimeMeshData()->CreateMeshSectionTripleBuffer<VertexType0, VertexType1, VertexType2, IndexType>(SectionIndex, bCreateCollision, UpdateFrequency);
-	}
-
-
 
 	template<typename VertexType0, typename IndexType>
 	FORCEINLINE void CreateMeshSection(int32 SectionIndex, TArray<VertexType0>& InVertices0, TArray<IndexType>& InTriangles, bool bCreateCollision = false,

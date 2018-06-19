@@ -66,25 +66,11 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
 	void SetRuntimeMesh(URuntimeMesh* NewMesh);
 
-	template<typename VertexType0, typename IndexType>
-	FORCEINLINE void CreateMeshSection(int32 SectionIndex, bool bCreateCollision = false, EUpdateFrequency UpdateFrequency = EUpdateFrequency::Average)
+
+	void CreateMeshSection(int32 SectionIndex, bool bWantsHighPrecisionTangents, bool bWantsHighPrecisionUVs, int32 NumUVs, bool bWants32BitIndices, bool bCreateCollision, EUpdateFrequency UpdateFrequency = EUpdateFrequency::Average)
 	{
-		GetOrCreateRuntimeMesh()->CreateMeshSection<VertexType0, IndexType>(SectionIndex, bCreateCollision, UpdateFrequency);
+		GetOrCreateRuntimeMesh()->CreateMeshSection(SectionIndex, bWantsHighPrecisionTangents, bWantsHighPrecisionUVs, NumUVs, bWants32BitIndices, bCreateCollision, UpdateFrequency);
 	}
-
-	template<typename VertexType0, typename VertexType1, typename IndexType>
-	FORCEINLINE void CreateMeshSectionDualBuffer(int32 SectionIndex, bool bCreateCollision = false, EUpdateFrequency UpdateFrequency = EUpdateFrequency::Average)
-	{
-		GetOrCreateRuntimeMesh()->CreateMeshSection<VertexType0, VertexType1, IndexType>(SectionIndex, bCreateCollision, UpdateFrequency);
-	}
-
-	template<typename VertexType0, typename VertexType1, typename VertexType2, typename IndexType>
-	FORCEINLINE void CreateMeshSectionTripleBuffer(int32 SectionIndex, bool bCreateCollision = false, EUpdateFrequency UpdateFrequency = EUpdateFrequency::Average)
-	{
-		GetOrCreateRuntimeMesh()->CreateMeshSection<VertexType0, VertexType1, VertexType2, IndexType>(SectionIndex, bCreateCollision, UpdateFrequency);
-	}
-
-
 
 	template<typename VertexType0, typename IndexType>
 	FORCEINLINE void CreateMeshSection(int32 SectionIndex, TArray<VertexType0>& InVertices0, TArray<IndexType>& InTriangles, bool bCreateCollision = false,

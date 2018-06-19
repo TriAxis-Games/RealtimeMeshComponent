@@ -163,6 +163,17 @@ void FRuntimeMeshSectionProxy::FinishUpdate_RenderThread(FRuntimeMeshSectionUpda
 		AdjacencyIndexBuffer.SetNum(UpdateData->AdjacencyIndexBuffer.NumIndices);
 		AdjacencyIndexBuffer.SetData(UpdateData->AdjacencyIndexBuffer.Data);
 	}
+
+	// If this platform uses manual vertex fetch, we need to update the SRVs
+	if (RHISupportsManualVertexFetch(GMaxRHIShaderPlatform))
+	{
+		FLocalVertexFactory::FDataType DataType;
+		BuildVertexDataType(DataType);
+
+		VertexFactory.Init(DataType);
+		VertexFactory.ReleaseResource();
+		VertexFactory.InitResource();
+	}
 }
 
 void FRuntimeMeshSectionProxy::FinishPropertyUpdate_RenderThread(FRuntimeMeshSectionPropertyUpdateParamsPtr UpdateData)

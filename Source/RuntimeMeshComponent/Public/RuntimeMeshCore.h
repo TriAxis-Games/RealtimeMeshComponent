@@ -358,25 +358,39 @@ public:
 	*
 	* @param InSynchObject The synchronization object to manage
 	*/
-	FRuntimeMeshScopeLock(const FRuntimeMeshLockProvider* InSyncObject)
+	FRuntimeMeshScopeLock(const FRuntimeMeshLockProvider* InSyncObject, bool bIsAlreadyLocked = false)
 		: SynchObject(const_cast<FRuntimeMeshLockProvider*>(InSyncObject))
 	{
 		check(SynchObject);
-		SynchObject->Lock();
+		if (!bIsAlreadyLocked)
+		{
+			SynchObject->Lock();
+		}
 	}
 
-	FRuntimeMeshScopeLock(const TUniquePtr<FRuntimeMeshLockProvider>& InSyncObject)
+	FRuntimeMeshScopeLock(const TUniquePtr<FRuntimeMeshLockProvider>& InSyncObject, bool bIsAlreadyLocked = false)
 		: SynchObject(InSyncObject.Get())
 	{
 		check(SynchObject);
-		SynchObject->Lock();
+		if (!bIsAlreadyLocked)
+		{
+			SynchObject->Lock();
+		}
 	}
 
 	/** Destructor that performs a release on the synchronization object. */
 	~FRuntimeMeshScopeLock()
 	{
-		check(SynchObject);
-		SynchObject->Unlock();
+		Unlock();
+	}
+
+	void Unlock()
+	{
+		if (SynchObject)
+		{
+			SynchObject->Unlock();
+			SynchObject = nullptr;
+		}
 	}
 private:
 
@@ -390,5 +404,202 @@ private:
 	FRuntimeMeshScopeLock& operator=(FRuntimeMeshScopeLock& InScopeLock)
 	{
 		return *this;
+	}
+};
+
+
+
+
+template<typename T>
+struct FRuntimeMeshVertexTraits
+{
+private:
+	template<typename C, C> struct ChT;
+
+	struct FallbackPosition { FVector Position; };
+	struct DerivedPosition : T, FallbackPosition { };
+	template<typename C> static char(&PositionCheck(ChT<FVector FallbackPosition::*, &C::Position>*))[1];
+	template<typename C> static char(&PositionCheck(...))[2];
+
+	struct FallbackNormal { FPackedRGBA16N Normal; };
+	struct DerivedNormal : T, FallbackNormal { };
+	template<typename C> static char(&NormalCheck(ChT<FPackedRGBA16N FallbackNormal::*, &C::Normal>*))[1];
+	template<typename C> static char(&NormalCheck(...))[2];
+
+	struct FallbackTangent { FPackedRGBA16N Tangent; };
+	struct DerivedTangent : T, FallbackTangent { };
+	template<typename C> static char(&TangentCheck(ChT<FPackedRGBA16N FallbackTangent::*, &C::Tangent>*))[1];
+	template<typename C> static char(&TangentCheck(...))[2];
+
+	struct FallbackColor { FColor Color; };
+	struct DerivedColor : T, FallbackColor { };
+	template<typename C> static char(&ColorCheck(ChT<FColor FallbackColor::*, &C::Color>*))[1];
+	template<typename C> static char(&ColorCheck(...))[2];
+
+	struct FallbackUV0 { FVector2D UV0; };
+	struct DerivedUV0 : T, FallbackUV0 { };
+	template<typename C> static char(&UV0Check(ChT<FVector2D FallbackUV0::*, &C::UV0>*))[1];
+	template<typename C> static char(&UV0Check(...))[2];
+
+	struct FallbackUV1 { FVector2D UV1; };
+	struct DerivedUV1 : T, FallbackUV1 { };
+	template<typename C> static char(&UV1Check(ChT<FVector2D FallbackUV1::*, &C::UV1>*))[1];
+	template<typename C> static char(&UV1Check(...))[2];
+
+	struct FallbackUV2 { FVector2D UV2; };
+	struct DerivedUV2 : T, FallbackUV2 { };
+	template<typename C> static char(&UV2Check(ChT<FVector2D FallbackUV2::*, &C::UV2>*))[1];
+	template<typename C> static char(&UV2Check(...))[2];
+
+	struct FallbackUV3 { FVector2D UV3; };
+	struct DerivedUV3 : T, FallbackUV3 { };
+	template<typename C> static char(&UV3Check(ChT<FVector2D FallbackUV3::*, &C::UV3>*))[1];
+	template<typename C> static char(&UV3Check(...))[2];
+
+	struct FallbackUV4 { FVector2D UV4; };
+	struct DerivedUV4 : T, FallbackUV4 { };
+	template<typename C> static char(&UV4Check(ChT<FVector2D FallbackUV4::*, &C::UV4>*))[1];
+	template<typename C> static char(&UV4Check(...))[2];
+
+	struct FallbackUV5 { FVector2D UV5; };
+	struct DerivedUV5 : T, FallbackUV5 { };
+	template<typename C> static char(&UV5Check(ChT<FVector2D FallbackUV5::*, &C::UV5>*))[1];
+	template<typename C> static char(&UV5Check(...))[2];
+
+	struct FallbackUV6 { FVector2D UV6; };
+	struct DerivedUV6 : T, FallbackUV6 { };
+	template<typename C> static char(&UV6Check(ChT<FVector2D FallbackUV6::*, &C::UV6>*))[1];
+	template<typename C> static char(&UV6Check(...))[2];
+
+	struct FallbackUV7 { FVector2D UV7; };
+	struct DerivedUV7 : T, FallbackUV7 { };
+	template<typename C> static char(&UV7Check(ChT<FVector2D FallbackUV7::*, &C::UV7>*))[1];
+	template<typename C> static char(&UV7Check(...))[2];
+
+	template<typename A, typename B>
+	struct IsSameType
+	{
+		static const bool Value = false;
+	};
+
+	template<typename A>
+	struct IsSameType<A, A>
+	{
+		static const bool Value = true;
+	};
+
+	template<bool HasNormal, bool HasTangent, typename Type>
+	struct TangentBasisHighPrecisionDetector
+	{
+		static const bool Value = false;
+	};
+
+	template<typename Type>
+	struct TangentBasisHighPrecisionDetector<true, false, Type>
+	{
+		static const bool Value = IsSameType<decltype(DeclVal<T>().Normal), FPackedRGBA16N>::Value;
+	};
+
+	template<bool HasNormal, typename Type>
+	struct TangentBasisHighPrecisionDetector<HasNormal, true, Type>
+	{
+		static const bool Value = IsSameType<decltype(DeclVal<T>().Tangent), FPackedRGBA16N>::Value;
+	};
+
+	template<bool HasUV0, typename Type>
+	struct UVChannelHighPrecisionDetector
+	{
+		static const bool Value = false;
+	};
+
+	template<typename Type>
+	struct UVChannelHighPrecisionDetector<true, Type>
+	{
+		static const bool Value = IsSameType<decltype(DeclVal<T>().UV0), FVector2D>::Value;
+	};
+
+
+public:
+	static const bool HasPosition = sizeof(PositionCheck<DerivedPosition>(0)) == 2;
+	static const bool HasNormal = sizeof(NormalCheck<DerivedNormal>(0)) == 2;
+	static const bool HasTangent = sizeof(TangentCheck<DerivedTangent>(0)) == 2;
+	static const bool HasColor = sizeof(ColorCheck<DerivedColor>(0)) == 2;
+	static const bool HasUV0 = sizeof(UV0Check<DerivedUV0>(0)) == 2;
+	static const bool HasUV1 = sizeof(UV1Check<DerivedUV1>(0)) == 2;
+	static const bool HasUV2 = sizeof(UV2Check<DerivedUV2>(0)) == 2;
+	static const bool HasUV3 = sizeof(UV3Check<DerivedUV3>(0)) == 2;
+	static const bool HasUV4 = sizeof(UV4Check<DerivedUV4>(0)) == 2;
+	static const bool HasUV5 = sizeof(UV5Check<DerivedUV5>(0)) == 2;
+	static const bool HasUV6 = sizeof(UV6Check<DerivedUV6>(0)) == 2;
+	static const bool HasUV7 = sizeof(UV7Check<DerivedUV7>(0)) == 2;
+	static const int32 NumUVChannels =
+		(HasUV0 ? 1 : 0) +
+		(HasUV1 ? 1 : 0) +
+		(HasUV2 ? 1 : 0) +
+		(HasUV3 ? 1 : 0) +
+		(HasUV4 ? 1 : 0) +
+		(HasUV5 ? 1 : 0) +
+		(HasUV6 ? 1 : 0) +
+		(HasUV7 ? 1 : 0);
+
+
+
+	static const bool HasHighPrecisionNormals = TangentBasisHighPrecisionDetector<HasNormal, HasTangent, T>::Value;
+	static const bool HasHighPrecisionUVs = UVChannelHighPrecisionDetector<HasUV0, T>::Value;
+};
+
+
+struct FRuntimeMeshVertexTypeTraitsAggregator
+{
+	template<typename VertexType0>
+	static bool IsUsingHighPrecisionTangents()
+	{
+		return FRuntimeMeshVertexTraits<VertexType0>::HasHighPrecisionNormals;
+	}
+	template<typename VertexType0, typename VertexType1>
+	static bool IsUsingHighPrecisionTangents()
+	{
+		return FRuntimeMeshVertexTraits<VertexType0>::HasHighPrecisionNormals | FRuntimeMeshVertexTraits<VertexType1>::HasHighPrecisionNormals;
+	}
+	template<typename VertexType0, typename VertexType1, typename VertexType2>
+	static bool IsUsingHighPrecisionTangents()
+	{
+		return FRuntimeMeshVertexTraits<VertexType0>::HasHighPrecisionNormals | FRuntimeMeshVertexTraits<VertexType1>::HasHighPrecisionNormals | FRuntimeMeshVertexTraits<VertexType2>::HasHighPrecisionNormals;
+	}
+
+
+
+	template<typename VertexType0>
+	static bool IsUsingHighPrecisionUVs()
+	{
+		return FRuntimeMeshVertexTraits<VertexType0>::HasHighPrecisionUVs;
+	}
+	template<typename VertexType0, typename VertexType1>
+	static bool IsUsingHighPrecisionUVs()
+	{
+		return FRuntimeMeshVertexTraits<VertexType0>::HasHighPrecisionUVs | FRuntimeMeshVertexTraits<VertexType1>::HasHighPrecisionUVs;
+	}
+	template<typename VertexType0, typename VertexType1, typename VertexType2>
+	static bool IsUsingHighPrecisionUVs()
+	{
+		return FRuntimeMeshVertexTraits<VertexType0>::HasHighPrecisionUVs | FRuntimeMeshVertexTraits<VertexType1>::HasHighPrecisionUVs | FRuntimeMeshVertexTraits<VertexType2>::HasHighPrecisionUVs;
+	}
+
+
+
+	template<typename VertexType0>
+	static int32 NumUVs()
+	{
+		return FRuntimeMeshVertexTraits<VertexType0>::NumUVChannels;
+	}
+	template<typename VertexType0, typename VertexType1>
+	static int32 NumUVs()
+	{
+		return FMath::Max(FRuntimeMeshVertexTraits<VertexType0>::NumUVChannels, FRuntimeMeshVertexTraits<VertexType1>::NumUVChannels);
+	}
+	template<typename VertexType0, typename VertexType1, typename VertexType2>
+	static int32 NumUVs()
+	{
+		return FMath::Max(FRuntimeMeshVertexTraits<VertexType0>::NumUVChannels, FMath::Max(FRuntimeMeshVertexTraits<VertexType1>::NumUVChannels, FRuntimeMeshVertexTraits<VertexType2>::NumUVChannels));
 	}
 };

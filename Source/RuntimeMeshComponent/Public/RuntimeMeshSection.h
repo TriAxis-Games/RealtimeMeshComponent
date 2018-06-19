@@ -88,7 +88,7 @@ class RUNTIMEMESHCOMPONENT_API FRuntimeMeshSection
 
 	struct FSectionPositionVertexBuffer : public FSectionVertexBuffer
 	{
-		FSectionPositionVertexBuffer() 
+		FSectionPositionVertexBuffer()
 			: FSectionVertexBuffer(sizeof(FVector))
 		{
 
@@ -101,7 +101,7 @@ class RUNTIMEMESHCOMPONENT_API FRuntimeMeshSection
 		bool bUseHighPrecision;
 
 	public:
-		FSectionTangentsVertexBuffer(bool bInUseHighPrecision) 
+		FSectionTangentsVertexBuffer(bool bInUseHighPrecision)
 			: FSectionVertexBuffer(bInUseHighPrecision ? (sizeof(FPackedRGBA16N) * 2) : (sizeof(FPackedNormal) * 2))
 			, bUseHighPrecision(bInUseHighPrecision)
 		{
@@ -249,17 +249,17 @@ class RUNTIMEMESHCOMPONENT_API FRuntimeMeshSection
 
 	bool bCastsShadow;
 
-//	TUniquePtr<FRuntimeMeshLockProvider> SyncRoot;
+	//	TUniquePtr<FRuntimeMeshLockProvider> SyncRoot;
 public:
 	FRuntimeMeshSection(FArchive& Ar);
 	FRuntimeMeshSection(bool bInUseHighPrecisionTangents, bool bInUseHighPrecisionUVs, int32 InNumUVs, bool b32BitIndices, EUpdateFrequency InUpdateFrequency/*, FRuntimeMeshLockProvider* InSyncRoot*/);
 
-// 	void SetNewLockProvider(FRuntimeMeshLockProvider* NewSyncRoot)
-// 	{
-// 		SyncRoot.Reset(NewSyncRoot);
-// 	}
+	// 	void SetNewLockProvider(FRuntimeMeshLockProvider* NewSyncRoot)
+	// 	{
+	// 		SyncRoot.Reset(NewSyncRoot);
+	// 	}
 
-//	FRuntimeMeshLockProvider GetSyncRoot() { return SyncRoot->Get(); }
+	//	FRuntimeMeshLockProvider GetSyncRoot() { return SyncRoot->Get(); }
 
 	bool IsCollisionEnabled() const { return bCollisionEnabled; }
 	bool IsVisible() const { return bIsVisible; }
@@ -284,7 +284,7 @@ public:
 			return false;
 		return true;
 	}
-	
+
 	void SetVisible(bool bNewVisible)
 	{
 		bIsVisible = bNewVisible;
@@ -371,8 +371,14 @@ public:
 
 	TSharedPtr<FRuntimeMeshAccessor> GetSectionMeshAccessor()
 	{
- 		return MakeShared<FRuntimeMeshAccessor>(TangentsBuffer.IsUsingHighPrecision(), UVsBuffer.IsUsingHighPrecision(), UVsBuffer.NumUVs(), IndexBuffer.Is32BitIndices(),
- 			&PositionBuffer.GetData(), &TangentsBuffer.GetData(), &UVsBuffer.GetData(), &ColorBuffer.GetData(), &IndexBuffer.GetData());
+		return MakeShared<FRuntimeMeshAccessor>(TangentsBuffer.IsUsingHighPrecision(), UVsBuffer.IsUsingHighPrecision(), UVsBuffer.NumUVs(), IndexBuffer.Is32BitIndices(),
+			&PositionBuffer.GetData(), &TangentsBuffer.GetData(), &UVsBuffer.GetData(), &ColorBuffer.GetData(), &IndexBuffer.GetData());
+	}
+
+	TUniquePtr<FRuntimeMeshScopedUpdater> GetSectionMeshUpdater(const FRuntimeMeshDataPtr& ParentData, int32 SectionIndex, ESectionUpdateFlags UpdateFlags, FRuntimeMeshLockProvider* LockProvider, bool bIsReadonly)
+	{
+		return TUniquePtr<FRuntimeMeshScopedUpdater>(new FRuntimeMeshScopedUpdater(ParentData, SectionIndex, UpdateFlags, TangentsBuffer.IsUsingHighPrecision(), UVsBuffer.IsUsingHighPrecision(), UVsBuffer.NumUVs(), IndexBuffer.Is32BitIndices(),
+			&PositionBuffer.GetData(), &TangentsBuffer.GetData(), &UVsBuffer.GetData(), &ColorBuffer.GetData(), &IndexBuffer.GetData(), LockProvider, bIsReadonly));
 	}
 
 	TSharedPtr<FRuntimeMeshIndicesAccessor> GetTessellationIndexAccessor()
@@ -411,6 +417,7 @@ public:
 	TSharedPtr<struct FRuntimeMeshSectionPropertyUpdateParams, ESPMode::NotThreadSafe> GetSectionPropertyUpdateData();
 
 	void UpdateBoundingBox();
+	void SetBoundingBox(const FBox& InBoundingBox) { LocalBoundingBox = InBoundingBox; }
 
 	int32 GetCollisionData(TArray<FVector>& OutPositions, TArray<FTriIndices>& OutIndices, TArray<FVector2D>& OutUVs);
 

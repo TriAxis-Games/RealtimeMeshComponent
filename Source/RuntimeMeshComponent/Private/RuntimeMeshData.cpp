@@ -99,6 +99,31 @@ void FRuntimeMeshData::CheckCreate(int32 NumUVs, bool bIndexIsValid) const
 #endif
 }
 
+void FRuntimeMeshData::CheckCreateLegacyInternal(const FRuntimeMeshVertexStreamStructure& Stream0Structure, const FRuntimeMeshVertexStreamStructure& Stream1Structure, const FRuntimeMeshVertexStreamStructure& Stream2Structure, bool bIsIndexValid) const
+{
+#if DO_CHECK
+
+	// Check stream 0 contains the position element
+	if (!Stream0Structure.Position.IsValid())
+	{
+
+		UE_LOG(RuntimeMeshLog, Fatal, TEXT("Position element must always be in stream 0."));
+	}
+
+	// Check the 3 streams are valid when combined
+	if (!FRuntimeMeshVertexStreamStructure::ValidTripleStream(Stream0Structure, Stream1Structure, Stream2Structure))
+	{
+		UE_LOG(RuntimeMeshLog, Fatal, TEXT("Streams cannot have overlapping elements, and all elements must be present."));
+	}
+
+	// Check indices
+	if (!bIsIndexValid)
+	{
+		UE_LOG(RuntimeMeshLog, Fatal, TEXT("Indices can only be of type uint16, int32, or uint32."));
+	}
+#endif
+}
+
 void FRuntimeMeshData::CheckUpdate(bool bUseHighPrecisionTangents, bool bUseHighPrecisionUVs, int32 NumUVs, bool b32BitIndices, int32 SectionIndex, bool bShouldCheckIndexType,
 	bool bCheckTangentVertexStream, bool bCheckUVVertexStream) const
 {
@@ -140,6 +165,23 @@ void FRuntimeMeshData::CheckBoundingBox(const FBox& Box) const
 }
 
 
+
+void FRuntimeMeshData::CreateMeshSection(int32 SectionIndex, bool bWantsHighPrecisionTangents, bool bWantsHighPrecisionUVs, int32 NumUVs, bool bWants32BitIndices, bool bCreateCollision, EUpdateFrequency UpdateFrequency /*= EUpdateFrequency::Average*/)
+{
+	SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_CreateMeshSection_NoData);
+
+	FRuntimeMeshScopeLock Lock(SyncRoot);
+
+	CheckCreate(NumUVs, true);
+	
+	auto NewSection = CreateOrResetSection(SectionIndex, bWantsHighPrecisionTangents, bWantsHighPrecisionUVs, NumUVs, bWants32BitIndices, UpdateFrequency);
+	
+	// Track collision status and update collision information if necessary
+	NewSection->SetCollisionEnabled(bCreateCollision);
+
+	// Finalize section.
+	CreateSectionInternal(SectionIndex, ESectionUpdateFlags::None);
+}
 
 void FRuntimeMeshData::CreateMeshSection(int32 SectionId, const TSharedPtr<FRuntimeMeshBuilder>& MeshData, bool bCreateCollision /*= false*/, EUpdateFrequency UpdateFrequency /*= EUpdateFrequency::Average*/, ESectionUpdateFlags UpdateFlags /*= ESectionUpdateFlags::None*/)
 {
@@ -231,6 +273,49 @@ void FRuntimeMeshData::UpdateMeshSectionByMove(int32 SectionId, const TSharedPtr
 }
 
 
+
+
+TUniquePtr<FRuntimeMeshScopedUpdater> FRuntimeMeshData::BeginSectionUpdate(int32 SectionId, ESectionUpdateFlags UpdateFlags /*= ESectionUpdateFlags::None*/)
+{
+	check(DoesSectionExist(SectionId));
+
+	// Enter the lock and then hand this lock to the updater
+	SyncRoot->Lock();
+	
+	FRuntimeMeshSectionPtr Section = MeshSections[SectionId];
+
+	return Section->GetSectionMeshUpdater(this->AsShared(), SectionId, UpdateFlags, SyncRoot.Get(), false);
+}
+
+TUniquePtr<FRuntimeMeshScopedUpdater> FRuntimeMeshData::GetSectionReadonly(int32 SectionId)
+{
+	check(DoesSectionExist(SectionId));
+
+	// Enter the lock and then hand this lock to the updater
+	SyncRoot->Lock();
+
+	FRuntimeMeshSectionPtr Section = MeshSections[SectionId];
+
+	return Section->GetSectionMeshUpdater(this->AsShared(), SectionId, ESectionUpdateFlags::None, SyncRoot.Get(), true);
+}
+
+void FRuntimeMeshData::EndSectionUpdate(FRuntimeMeshScopedUpdater* Updater, const FBox* BoundingBox)
+{
+	check(DoesSectionExist(Updater->SectionIndex));
+
+	FRuntimeMeshSectionPtr Section = MeshSections[Updater->SectionIndex];
+
+	if (BoundingBox)
+	{
+		Section->SetBoundingBox(*BoundingBox);
+	}
+	else
+	{
+		Section->UpdateBoundingBox();
+	}
+
+	UpdateSectionInternal(Updater->SectionIndex, ERuntimeMeshBuffersToUpdate::AllVertexBuffers | ERuntimeMeshBuffersToUpdate::IndexBuffer, Updater->UpdateFlags);
+}
 
 void FRuntimeMeshData::CreateMeshSectionFromComponents(int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals,
 	const TArray<FVector2D>& UV0, const TArray<FVector2D>& UV1, TFunction<FColor(int32 Index)> ColorAccessor, int32 NumColors,
@@ -532,7 +617,6 @@ TSharedPtr<const FRuntimeMeshAccessor> FRuntimeMeshData::GetReadonlyMeshAccessor
 
 	return ConstCastSharedPtr<const FRuntimeMeshAccessor, FRuntimeMeshAccessor>(Section->GetSectionMeshAccessor());
 }
-
 
 void FRuntimeMeshData::ClearMeshSection(int32 SectionId)
 {
