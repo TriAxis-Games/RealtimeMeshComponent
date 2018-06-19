@@ -71,7 +71,7 @@ void FRuntimeMeshVertexBuffer::SetData(const TArray<uint8>& Data)
 
 
 FRuntimeMeshIndexBuffer::FRuntimeMeshIndexBuffer()
-	: IndexSize(-1), NumIndices(0), UsageFlags(EBufferUsageFlags::BUF_None)
+	: NumIndices(0), IndexSize(-1), UsageFlags(EBufferUsageFlags::BUF_None)
 {
 }
 
