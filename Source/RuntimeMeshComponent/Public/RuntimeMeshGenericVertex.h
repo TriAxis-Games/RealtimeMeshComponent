@@ -779,7 +779,7 @@ struct FRuntimeMeshDualUVHighPrecision
 template<typename VertexType>
 inline bool GetTangentIsHighPrecision()
 {
-	static_assert(false, "Invalid Tangent type.");
+	static_assert(sizeof(VertexType) == -1, "Invalid Tangent type.");
 }
 
 template<>
@@ -797,7 +797,7 @@ inline bool GetTangentIsHighPrecision<FRuntimeMeshTangentsHighPrecision>()
 template<typename VertexType>
 inline void GetUVVertexProperties(bool& bIsUsingHighPrecision, int32& NumUVs)
 {
-	static_assert(false, "Invalid UV type.");
+	static_assert(sizeof(VertexType) == -1, "Invalid UV type.");
 }
 
 template<>

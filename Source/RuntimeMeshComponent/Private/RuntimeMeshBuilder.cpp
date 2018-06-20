@@ -31,7 +31,7 @@ FRuntimeMeshVerticesAccessor::FRuntimeMeshVerticesAccessor(TArray<uint8>* Positi
 	, bIsReadonly(bInIsReadonly)
 	, PositionStream(PositionStreamData)
 	, TangentStream(TangentStreamData), bTangentHighPrecision(false), TangentSize(0), TangentStride(0)
-	, UVStream(UVStreamData), bUVHighPrecision(false), UVSize(0), UVStride(0), UVChannelCount(0)
+	, UVStream(UVStreamData), bUVHighPrecision(false), UVChannelCount(0), UVSize(0), UVStride(0)
 	, ColorStream(ColorStreamData)
 {
 }
@@ -42,7 +42,7 @@ FRuntimeMeshVerticesAccessor::FRuntimeMeshVerticesAccessor(bool bInTangentsHighP
 	, bIsReadonly(bInIsReadonly)
 	, PositionStream(PositionStreamData)
 	, TangentStream(TangentStreamData), bTangentHighPrecision(false), TangentSize(0), TangentStride(0)
-	, UVStream(UVStreamData), bUVHighPrecision(false), UVSize(0), UVStride(0), UVChannelCount(0)
+	, UVStream(UVStreamData), bUVHighPrecision(false), UVChannelCount(0), UVSize(0), UVStride(0)
 	, ColorStream(ColorStreamData)
 {
 	Initialize(bInTangentsHighPrecision, bInUVsHighPrecision, bInUVCount);

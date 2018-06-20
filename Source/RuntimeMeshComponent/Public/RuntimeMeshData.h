@@ -1043,7 +1043,7 @@ private:
 
 
 	/* Creates an mesh section of a specified type at the specified index. */
-	template<typename TangentType, typename UVType>
+	template<typename TangentType, typename UVType, typename IndexType>
 	FRuntimeMeshSectionPtr CreateOrResetSection(int32 SectionId, EUpdateFrequency UpdateFrequency)
 	{
 		static_assert(FRuntimeMeshIndexTraits<IndexType>::IsValidIndexType, "Indices can only be of type uint16, uint32, or int32");
