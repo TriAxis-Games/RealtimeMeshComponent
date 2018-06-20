@@ -1,5 +1,9 @@
 # UE4 Runtime Mesh Component
 
+## The RMC takes a lot of effort to build, extend, and maintain. Please consider [supporting the project!](https://github.com/Koderz/RuntimeMeshComponent/wiki/Support-the-development!)
+
+
+
 **Examples project can be found here https://github.com/Koderz/RuntimeMeshComponent-Examples**
 
 
@@ -25,12 +29,12 @@
 * Collision has lower overhead compared to ProceduralMeshComponent
 
 
-** The RMC fully supports the cooking speed improvements of UE4.14 and UE4.17 including async cooking. As of right now, the RMC is forced to always use async cooking in a shipping build due to an engine bug which I've submitted a fix to Epic for**
+**The RMC fully supports the cooking speed improvements of UE4.14 and UE4.17 including async cooking. As of right now, the RMC is forced to always use async cooking in a shipping build due to an engine bug which I've submitted a fix to Epic for**
 
 
 For information on installation, usage and everything else, [please read the Wiki](https://github.com/Koderz/UE4RuntimeMeshComponent/wiki/)
 
-** Some features that I'm looking into now that the core has been rewritten **
+**Some features that I'm looking into now that the core has been rewritten:**
 * LOD (Probably with dithering support)
 * Dithered transitions for mesh updates
 * Instancing support (Probably ISMC style unless there's enough demand for HISMC style support)
