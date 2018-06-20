@@ -3,8 +3,12 @@
 ## The RMC takes a lot of effort to build, extend, and maintain. Please consider [supporting the project!](https://github.com/Koderz/RuntimeMeshComponent/wiki/Support-the-development!)
 
 
+**There's a Discord server for the RMC!  https://discord.gg/KGvBBTv**
 
 **Examples project can be found here https://github.com/Koderz/RuntimeMeshComponent-Examples**
+
+***
+
 
 
 **The RuntimeMeshComponent, or RMC for short, is a component designed specifically to support rendering and collision on meshes generated at runtime. This could be anything from voxel engines like Minecraft, to custom model viewers, or just supporting loading user models for things like modding. It has numerous different features to support most of the normal rendering needs of a game, as well as ability to support both static collision for things such as terrain, as well as dynamic collision for things that need to be able to move and bounce around!**
