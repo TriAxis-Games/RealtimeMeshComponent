@@ -93,7 +93,11 @@ private:
 	template<typename Type>
 	FVector4 ConvertPackedToNormal(const Type& Input)
 	{
+#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 20
 		return Input.ToFVector4();
+#else
+		return Input;
+#endif
 	}
 	template<>
 	FVector4 ConvertPackedToNormal<FVector4>(const FVector4& Input)
@@ -104,7 +108,11 @@ private:
 	template<typename Type>
 	FVector ConvertPackedToTangent(const Type& Input)
 	{
+#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 20
 		return Input.ToFVector();
+#else
+		return Input;
+#endif
 	}
 	template<>
 	FVector ConvertPackedToTangent<FVector>(const FVector& Input)
