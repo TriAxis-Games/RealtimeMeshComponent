@@ -120,11 +120,19 @@ FVector4 FRuntimeMeshVerticesAccessor::GetNormal(int32 Index) const
 	check(bIsInitialized);
 	if (bTangentHighPrecision)
 	{
+#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 20
+		return GetStreamAccess<FRuntimeMeshTangentsHighPrecision>(TangentStream, Index, TangentStride, 0).Normal.ToFVector4();
+#else
 		return GetStreamAccess<FRuntimeMeshTangentsHighPrecision>(TangentStream, Index, TangentStride, 0).Normal;
+#endif
 	}
 	else
 	{
+#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 20
+		return GetStreamAccess<FRuntimeMeshTangents>(TangentStream, Index, TangentStride, 0).Normal.ToFVector4();
+#else
 		return GetStreamAccess<FRuntimeMeshTangents>(TangentStream, Index, TangentStride, 0).Normal;
+#endif
 	}
 }
 
@@ -133,11 +141,19 @@ FVector FRuntimeMeshVerticesAccessor::GetTangent(int32 Index) const
 	check(bIsInitialized);
 	if (bTangentHighPrecision)
 	{
+#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 20
+		return GetStreamAccess<FRuntimeMeshTangentsHighPrecision>(TangentStream, Index, TangentStride, 0).Tangent.ToFVector4();
+#else
 		return GetStreamAccess<FRuntimeMeshTangentsHighPrecision>(TangentStream, Index, TangentStride, 0).Tangent;
+#endif
 	}
 	else
 	{
+#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 20
+		return GetStreamAccess<FRuntimeMeshTangents>(TangentStream, Index, TangentStride, 0).Tangent.ToFVector4();
+#else
 		return GetStreamAccess<FRuntimeMeshTangents>(TangentStream, Index, TangentStride, 0).Tangent;
+#endif
 	}
 }
 
@@ -202,7 +218,11 @@ void FRuntimeMeshVerticesAccessor::SetTangent(int32 Index, FRuntimeMeshTangent V
 	if (bTangentHighPrecision)
 	{
 		FRuntimeMeshTangentsHighPrecision& Tangents = GetStreamAccess<FRuntimeMeshTangentsHighPrecision>(TangentStream, Index, TangentStride, 0);
+#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 20
+		FVector4 NewNormal = Tangents.Normal.ToFVector4();
+#else
 		FVector4 NewNormal = Tangents.Normal;
+#endif
 		NewNormal.W = Value.bFlipTangentY ? -1.0f : 1.0f;
 		Tangents.Normal = NewNormal;
 		Tangents.Tangent = Value.TangentX;
@@ -210,7 +230,11 @@ void FRuntimeMeshVerticesAccessor::SetTangent(int32 Index, FRuntimeMeshTangent V
 	else
 	{
 		FRuntimeMeshTangents& Tangents = GetStreamAccess<FRuntimeMeshTangents>(TangentStream, Index, TangentStride, 0);
+#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 20
+		FVector4 NewNormal = Tangents.Normal.ToFVector4();
+#else
 		FVector4 NewNormal = Tangents.Normal;
+#endif
 		NewNormal.W = Value.bFlipTangentY ? -1.0f : 1.0f;
 		Tangents.Normal = NewNormal;
 		Tangents.Tangent = Value.TangentX;
@@ -303,15 +327,25 @@ FRuntimeMeshAccessorVertex FRuntimeMeshVerticesAccessor::GetVertex(int32 Index) 
 
 	if (bTangentHighPrecision)
 	{
-		FRuntimeMeshTangentsHighPrecision& Tangents = GetStreamAccess<FRuntimeMeshTangentsHighPrecision>(TangentStream, Index, TangentStride, 0);
+		FRuntimeMeshTangentsHighPrecision& Tangents = GetStreamAccess<FRuntimeMeshTangentsHighPrecision>(TangentStream, Index, TangentStride, 0); 
+#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 20
+		Vertex.Normal = Tangents.Normal.ToFVector4();
+		Vertex.Tangent = Tangents.Tangent.ToFVector();
+#else
 		Vertex.Normal = Tangents.Normal;
 		Vertex.Tangent = Tangents.Tangent;
+#endif
 	}
 	else
 	{
 		FRuntimeMeshTangents& Tangents = GetStreamAccess<FRuntimeMeshTangents>(TangentStream, Index, TangentStride, 0);
+#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 20
+		Vertex.Normal = Tangents.Normal.ToFVector4();
+		Vertex.Tangent = Tangents.Tangent.ToFVector();
+#else
 		Vertex.Normal = Tangents.Normal;
 		Vertex.Tangent = Tangents.Tangent;
+#endif
 	}
 
 	Vertex.Color = GetStreamAccess<FColor>(ColorStream, Index, ColorStride, 0);

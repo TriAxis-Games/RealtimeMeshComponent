@@ -64,6 +64,9 @@ void URuntimeMeshComponent::NewCollisionMeshReceived()
 	RecreatePhysicsState();
 	
  	// Now update the navigation.
+#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 20
+	FNavigationSystem::UpdateComponentData(*this);
+#else
  	if (UNavigationSystem::ShouldUpdateNavOctreeOnComponentChange() && IsRegistered())
  	{
  		UWorld* MyWorld = GetWorld();
@@ -74,6 +77,7 @@ void URuntimeMeshComponent::NewCollisionMeshReceived()
  			UNavigationSystem::UpdateComponentInNavOctree(*this);
  		}
  	}
+#endif
 }
 
 void URuntimeMeshComponent::NewBoundsReceived()

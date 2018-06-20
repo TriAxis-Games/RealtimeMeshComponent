@@ -756,33 +756,23 @@ struct FRuntimeMeshTangentsHighPrecision
 
 struct FRuntimeMeshDualUV
 {
-	union
+	FVector2DHalf UV0;
+	FVector2DHalf UV1;
+
+	FVector2DHalf& operator[] (int32 Index) 
 	{
-		struct  
-		{
-			FVector2DHalf UV0;
-			FVector2DHalf UV1;
-		};
-		struct  
-		{
-			TStaticArray<FVector2DHalf, 2> UVs;
-		};
-	};
+		return Index > 0 ? UV1 : UV0;
+	}
 };
 struct FRuntimeMeshDualUVHighPrecision
 {
-	union
+	FVector2D UV0;
+	FVector2D UV1;
+
+	FVector2D& operator[] (int32 Index)
 	{
-		struct
-		{
-			FVector2D UV0;
-			FVector2D UV1;
-		};
-		struct  
-		{
-			TStaticArray<FVector2D, 2> UVs;
-		};
-	};
+		return Index > 0 ? UV1 : UV0;
+	}
 };
 
 

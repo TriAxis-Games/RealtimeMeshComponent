@@ -164,6 +164,7 @@ void FRuntimeMeshSectionProxy::FinishUpdate_RenderThread(FRuntimeMeshSectionUpda
 		AdjacencyIndexBuffer.SetData(UpdateData->AdjacencyIndexBuffer.Data);
 	}
 
+#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 19
 	// If this platform uses manual vertex fetch, we need to update the SRVs
 	if (RHISupportsManualVertexFetch(GMaxRHIShaderPlatform))
 	{
@@ -174,6 +175,7 @@ void FRuntimeMeshSectionProxy::FinishUpdate_RenderThread(FRuntimeMeshSectionUpda
 		VertexFactory.ReleaseResource();
 		VertexFactory.InitResource();
 	}
+#endif
 }
 
 void FRuntimeMeshSectionProxy::FinishPropertyUpdate_RenderThread(FRuntimeMeshSectionPropertyUpdateParamsPtr UpdateData)

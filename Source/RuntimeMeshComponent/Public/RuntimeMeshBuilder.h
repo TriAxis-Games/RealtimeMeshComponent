@@ -89,6 +89,29 @@ public:
 
 
 private:
+
+	template<typename Type>
+	FVector4 ConvertPackedToNormal(const Type& Input)
+	{
+		return Input.ToFVector4();
+	}
+	template<>
+	FVector4 ConvertPackedToNormal<FVector4>(const FVector4& Input)
+	{
+		return Input;
+	}
+
+	template<typename Type>
+	FVector ConvertPackedToTangent(const Type& Input)
+	{
+		return Input.ToFVector();
+	}
+	template<>
+	FVector ConvertPackedToTangent<FVector>(const FVector& Input)
+	{
+		return Input;
+	}
+
 	template<typename Type>
 	typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasPosition>::Type
 		SetPositionValue(int32 Index, const Type& Vertex)
@@ -106,7 +129,7 @@ private:
 	typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasNormal>::Type
 		SetNormalValue(int32 Index, const Type& Vertex)
 	{
-		SetNormal(Index, Vertex.Normal);
+		SetNormal(Index, ConvertPackedToNormal(Vertex.Normal));
 	}
 
 	template<typename Type>
@@ -119,7 +142,7 @@ private:
 	typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasTangent>::Type
 		SetTangentValue(int32 Index, const Type& Vertex)
 	{
-		SetTangent(Index, Vertex.Tangent);
+		SetTangent(Index, ConvertPackedToTangent(Vertex.Tangent));
 	}
 
 	template<typename Type>

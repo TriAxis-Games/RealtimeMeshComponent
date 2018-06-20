@@ -62,9 +62,11 @@ public:
 		return(FPrimitiveSceneProxy::GetAllocatedSize());
 	}
 
+#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 19
 	SIZE_T GetTypeHash() const override
 	{
 		static size_t UniquePointer;
 		return reinterpret_cast<size_t>(&UniquePointer);
 	}
+#endif
 };

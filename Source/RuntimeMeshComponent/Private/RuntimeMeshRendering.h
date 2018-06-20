@@ -52,7 +52,9 @@ public:
 	virtual void Bind(FLocalVertexFactory::FDataType& DataType) = 0;
 
 protected:
+#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 19
 	virtual void CreateSRV() = 0;
+#endif
 };
 
 
@@ -68,14 +70,18 @@ public:
 	virtual void Bind(FLocalVertexFactory::FDataType& DataType) override 
 	{
 		DataType.PositionComponent = FVertexStreamComponent(this, 0, 12, VET_Float3);
+#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION >= 19
 		DataType.PositionComponentSRV = ShaderResourceView;
+#endif
 	}
 
 protected:
+#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 19
 	virtual void CreateSRV() override 
 	{
 		ShaderResourceView = RHICreateShaderResourceView(VertexBufferRHI, 4, PF_R32_FLOAT);
 	}
+#endif
 };
 
 class FRuntimeMeshTangentsVertexBuffer : public FRuntimeMeshVertexBuffer
@@ -113,16 +119,23 @@ public:
 			TangentZOffset = offsetof(FRuntimeMeshTangents, Normal);
 		}
 
+#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION >= 19
  		DataType.TangentBasisComponents[1] = FVertexStreamComponent(this, TangentXOffset, TangentSizeInBytes, TangentElementType, EVertexStreamUsage::ManualFetch);
  		DataType.TangentBasisComponents[0] = FVertexStreamComponent(this, TangentZOffset, TangentSizeInBytes, TangentElementType, EVertexStreamUsage::ManualFetch);
 		DataType.TangentsSRV = ShaderResourceView;
+#else
+		DataType.TangentBasisComponents[1] = FVertexStreamComponent(this, TangentXOffset, TangentSizeInBytes, TangentElementType);
+		DataType.TangentBasisComponents[0] = FVertexStreamComponent(this, TangentZOffset, TangentSizeInBytes, TangentElementType);
+#endif
 	}
 
 protected:
+#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 19
 	virtual void CreateSRV() override
 	{
 		ShaderResourceView = RHICreateShaderResourceView(VertexBufferRHI, bUseHighPrecision? 8 : 4, bUseHighPrecision? PF_A16B16G16R16 : PF_R8G8B8A8);
 	}
+#endif
 };
 
 class FRuntimeMeshUVsVertexBuffer : public FRuntimeMeshVertexBuffer
@@ -144,7 +157,10 @@ public:
 	virtual void Bind(FLocalVertexFactory::FDataType& DataType) override
 	{ 
 		DataType.TextureCoordinates.Empty();
+
+#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 19
 		DataType.NumTexCoords = NumUVs;
+#endif
 
 
 		EVertexElementType UVDoubleWideVertexElementType = VET_None;
@@ -168,35 +184,35 @@ public:
 		int32 UVIndex;
 		for (UVIndex = 0; UVIndex < NumUVs - 1; UVIndex += 2)
 		{
-			DataType.TextureCoordinates.Add(FVertexStreamComponent(
-				this,
-				UVSizeInBytes * UVIndex,
-				UVStride,
-				UVDoubleWideVertexElementType,
-				EVertexStreamUsage::ManualFetch
-			));
+#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION >= 19
+			DataType.TextureCoordinates.Add(FVertexStreamComponent(this, UVSizeInBytes * UVIndex, UVStride, UVDoubleWideVertexElementType, EVertexStreamUsage::ManualFetch));
+#else
+			DataType.TextureCoordinates.Add(FVertexStreamComponent(this, UVSizeInBytes * UVIndex, UVStride, UVDoubleWideVertexElementType));
+#endif
 		}
 
 		// possible last UV channel if we have an odd number
 		if (UVIndex < NumUVs)
 		{
-			DataType.TextureCoordinates.Add(FVertexStreamComponent(
-				this,
-				UVSizeInBytes * UVIndex,
-				UVStride,
-				UVVertexElementType,
-				EVertexStreamUsage::ManualFetch
-			));
+#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION >= 19
+			DataType.TextureCoordinates.Add(FVertexStreamComponent(this, UVSizeInBytes * UVIndex, UVStride, UVDoubleWideVertexElementType, EVertexStreamUsage::ManualFetch));
+#else
+			DataType.TextureCoordinates.Add(FVertexStreamComponent(this, UVSizeInBytes * UVIndex, UVStride, UVDoubleWideVertexElementType));
+#endif
 		}
 
+#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION >= 19
 		DataType.TextureCoordinatesSRV = ShaderResourceView;
+#endif
 	}
 
 protected:
+#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 19
 	virtual void CreateSRV() override
 	{
 		ShaderResourceView = RHICreateShaderResourceView(VertexBufferRHI, bUseHighPrecision ? 8 : 4, bUseHighPrecision ? PF_G32R32F : PF_G16R16F);
 	}
+#endif
 };
 
 class FRuntimeMeshColorVertexBuffer : public FRuntimeMeshVertexBuffer
@@ -210,15 +226,21 @@ public:
 
 	virtual void Bind(FLocalVertexFactory::FDataType& DataType) override
 	{
+#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION >= 19
 		DataType.ColorComponent = FVertexStreamComponent(this, 0, 4, EVertexElementType::VET_Color, EVertexStreamUsage::ManualFetch);
 		DataType.ColorComponentsSRV = ShaderResourceView;
+#else
+		DataType.ColorComponent = FVertexStreamComponent(this, 0, 4, EVertexElementType::VET_Color);
+#endif
 	}
 
 protected:
+#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 19
 	virtual void CreateSRV() override
 	{
 		ShaderResourceView = RHICreateShaderResourceView(VertexBufferRHI, 4, PF_R8G8B8A8);
 	}
+#endif
 };
 
 

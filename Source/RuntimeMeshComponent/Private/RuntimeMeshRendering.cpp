@@ -28,10 +28,13 @@ void FRuntimeMeshVertexBuffer::InitRHI()
 		FRHIResourceCreateInfo CreateInfo;
 		VertexBufferRHI = RHICreateVertexBuffer(GetBufferSize(), UsageFlags | BUF_ShaderResource, CreateInfo);
 
+
+#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 19
 		if (RHISupportsManualVertexFetch(GMaxRHIShaderPlatform))
 		{
 			CreateSRV();
 		}
+#endif
 	}
 }
 
@@ -132,7 +135,11 @@ void FRuntimeMeshIndexBuffer::SetData(const TArray<uint8>& Data)
 
 
 FRuntimeMeshVertexFactory::FRuntimeMeshVertexFactory(ERHIFeatureLevel::Type InFeatureLevel, FRuntimeMeshSectionProxy* InSectionParent)
-	: FLocalVertexFactory(InFeatureLevel, "FRuntimeMeshVertexFactory")
+	: FLocalVertexFactory(
+#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 19
+		InFeatureLevel, "FRuntimeMeshVertexFactory"
+#endif
+	)
 	, SectionParent(InSectionParent)
 {
 }
