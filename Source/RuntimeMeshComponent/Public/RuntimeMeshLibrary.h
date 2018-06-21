@@ -76,9 +76,9 @@ public:
 	static void CopyStaticMeshToRuntimeMeshComponent(UStaticMeshComponent* StaticMeshComponent, int32 LODIndex, URuntimeMeshComponent* RuntimeMeshComponent, bool bCreateCollision);
 
 
+	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
 	static void CopyCollisionFromStaticMesh(UStaticMesh* StaticMesh, URuntimeMesh* RuntimeMesh);
 
-	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
 	static void CopyCollisionFromStaticMesh(UStaticMeshComponent* StaticMeshComponent, URuntimeMesh* RuntimeMesh)
 	{
 		CopyCollisionFromStaticMesh(StaticMeshComponent->GetStaticMesh(), RuntimeMesh);
