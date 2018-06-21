@@ -83,12 +83,12 @@ struct RuntimeMeshNormalUtil
 {
 	static void SetNormalW(FPackedNormal& Target, float Determinant)
 	{
-		Target.Vector.W = Determinant < 0.0f ? 0 : 255;
+		Target.Vector.W = Determinant < 0.0f ? 0 : -1; // -1 == 0xFF
 	}
 
 	static void SetNormalW(FPackedRGBA16N& Target, float Determinant)
 	{
-		Target.W = Determinant < 0.0f ? 0 : 65535;
+		Target.W = Determinant < 0.0f ? 0 : -1; // -1 == 0xFFFF
 	}
 };
 

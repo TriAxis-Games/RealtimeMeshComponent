@@ -99,11 +99,6 @@ private:
 		return Input;
 #endif
 	}
-	template<>
-	FVector4 ConvertPackedToNormal<FVector4>(const FVector4& Input)
-	{
-		return Input;
-	}
 
 	template<typename Type>
 	FVector ConvertPackedToTangent(const Type& Input)
@@ -113,11 +108,6 @@ private:
 #else
 		return Input;
 #endif
-	}
-	template<>
-	FVector ConvertPackedToTangent<FVector>(const FVector& Input)
-	{
-		return Input;
 	}
 
 	template<typename Type>
@@ -341,6 +331,18 @@ protected:
 	int32 AddSingleVertex();
 
 };
+
+// ISO C++ (IS 14.7.2/6) and Clang want template specializations to occur outside of the class scope
+template<>
+inline FVector4 FRuntimeMeshVerticesAccessor::ConvertPackedToNormal<FVector4>(const FVector4& Input)
+{
+	return Input;
+}
+template<>
+inline FVector FRuntimeMeshVerticesAccessor::ConvertPackedToTangent<FVector>(const FVector& Input)
+{
+	return Input;
+}
 
 class RUNTIMEMESHCOMPONENT_API FRuntimeMeshIndicesAccessor
 {
