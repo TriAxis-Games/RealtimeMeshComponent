@@ -1,7 +1,7 @@
 // Copyright 2016-2018 Chris Conway (Koderz). All Rights Reserved.
 
-#include "RuntimeMeshComponentPlugin.h"
 #include "RuntimeMeshProxy.h"
+#include "RuntimeMeshComponentPlugin.h"
 #include "RuntimeMesh.h"
 
 FRuntimeMeshProxy::FRuntimeMeshProxy(ERHIFeatureLevel::Type InFeatureLevel)

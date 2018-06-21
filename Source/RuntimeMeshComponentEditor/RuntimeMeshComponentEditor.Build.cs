@@ -6,7 +6,7 @@ public class RuntimeMeshComponentEditor : ModuleRules
 {
     public RuntimeMeshComponentEditor(ReadOnlyTargetRules rules) : base(rules)
     {
-        PCHUsage = PCHUsageMode.UseSharedPCHs;
+        PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 
         PublicIncludePaths.AddRange(
             new string[] {

@@ -3,9 +3,11 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "RuntimeMeshProxy.h"
+#include "RuntimeMeshData.h"
+#include "RuntimeMeshSectionProxy.h"
 
 class UBodySetup;
+class URuntimeMeshComponent;
 
 /** Runtime mesh scene proxy */
 class FRuntimeMeshComponentSceneProxy : public FPrimitiveSceneProxy

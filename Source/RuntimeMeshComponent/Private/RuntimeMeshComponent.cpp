@@ -1,10 +1,10 @@
 // Copyright 2016-2018 Chris Conway (Koderz). All Rights Reserved.
 
+#include "RuntimeMeshComponent.h"
 #include "RuntimeMeshComponentPlugin.h"
 #include "PhysicsEngine/BodySetup.h"
 #include "PhysicsEngine/PhysicsSettings.h"
 #include "Physics/IPhysXCookingModule.h"
-#include "RuntimeMeshComponent.h"
 #include "RuntimeMeshCore.h"
 #include "RuntimeMeshGenericVertex.h"
 #include "RuntimeMeshUpdateCommands.h"

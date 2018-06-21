@@ -1,7 +1,7 @@
 // Copyright 2016-2018 Chris Conway (Koderz). All Rights Reserved.
 
-#include "RuntimeMeshComponentPlugin.h"
 #include "RuntimeMeshTessellationUtilities.h"
+#include "RuntimeMeshComponentPlugin.h"
 
 const uint32 EdgesPerTriangle = 3;
 const uint32 IndicesPerTriangle = 3;

@@ -1,8 +1,8 @@
 // Copyright 2016-2018 Chris Conway (Koderz). All Rights Reserved.
 
-#include "RuntimeMeshComponentPlugin.h"
-#include "RuntimeMeshComponent.h"
 #include "RuntimeMeshActor.h"
+#include "RuntimeMeshComponent.h"
+#include "RuntimeMeshComponentPlugin.h"
 
 
 ARuntimeMeshActor::ARuntimeMeshActor(const FObjectInitializer& ObjectInitializer)

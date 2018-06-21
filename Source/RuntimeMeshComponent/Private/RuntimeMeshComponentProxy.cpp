@@ -1,8 +1,9 @@
 // Copyright 2016-2018 Chris Conway (Koderz). All Rights Reserved.
 
+#include "RuntimeMeshComponentProxy.h"
 #include "RuntimeMeshComponentPlugin.h"
 #include "RuntimeMeshComponent.h"
-#include "RuntimeMeshComponentProxy.h"
+#include "RuntimeMeshProxy.h"
 #include "PhysicsEngine/BodySetup.h"
 
 FRuntimeMeshComponentSceneProxy::FRuntimeMeshComponentSceneProxy(URuntimeMeshComponent* Component) 

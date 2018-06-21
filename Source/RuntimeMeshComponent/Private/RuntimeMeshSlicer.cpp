@@ -1,7 +1,7 @@
 // Copyright 2016-2018 Chris Conway (Koderz). All Rights Reserved.
 
-#include "RuntimeMeshComponentPlugin.h"
 #include "RuntimeMeshSlicer.h"
+#include "RuntimeMeshComponentPlugin.h"
 #include "GeomTools.h"
 #include "RuntimeMesh.h"
 #include "RuntimeMeshData.h"

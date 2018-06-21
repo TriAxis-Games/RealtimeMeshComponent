@@ -1,8 +1,8 @@
 // Copyright 2016-2018 Chris Conway (Koderz). All Rights Reserved.
 
+#include "RuntimeMeshLibrary.h"
 #include "RuntimeMeshComponentPlugin.h"
 #include "RuntimeMeshComponent.h"
-#include "RuntimeMeshLibrary.h"
 #include "EngineGlobals.h"
 #include "Logging/TokenizedMessage.h"
 #include "Logging/MessageLog.h"

@@ -1,7 +1,7 @@
 // Copyright 2016-2018 Chris Conway (Koderz). All Rights Reserved.
 
-#include "RuntimeMeshComponentPlugin.h"
 #include "RuntimeMeshData.h"
+#include "RuntimeMeshComponentPlugin.h"
 #include "RuntimeMesh.h"
 #include "RuntimeMeshLibrary.h"
 #include "RuntimeMeshCollision.h"

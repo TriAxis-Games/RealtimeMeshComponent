@@ -1,15 +1,17 @@
 // Copyright 2016-2018 Chris Conway (Koderz). All Rights Reserved.
 
-#include "RuntimeMeshComponentEditorPrivatePCH.h"
 #include "RuntimeMeshComponentDetails.h"
 #include "RuntimeMeshComponent.h"
-
 #include "DlgPickAssetPath.h"
 #include "IAssetTools.h"
 #include "AssetToolsModule.h"
 #include "AssetRegistryModule.h"
 #include "PhysicsEngine/PhysicsSettings.h"
 #include "PhysicsEngine/BodySetup.h"
+#include "IDetailCustomization.h"
+#include "DetailCategoryBuilder.h"
+#include "DetailWidgetRow.h"
+#include "RawMesh.h"
 
 #define LOCTEXT_NAMESPACE "RuntimeMeshComponentDetails"
 

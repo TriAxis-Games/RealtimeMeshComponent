@@ -1,7 +1,7 @@
 // Copyright 2016-2018 Chris Conway (Koderz). All Rights Reserved.
 
-#include "RuntimeMeshComponentPlugin.h"
 #include "RuntimeMeshSection.h"
+#include "RuntimeMeshComponentPlugin.h"
 #include "PhysicsEngine/PhysicsSettings.h"
 #include "RuntimeMeshUpdateCommands.h"
 

@@ -1,7 +1,9 @@
 // Copyright 2016-2018 Chris Conway (Koderz). All Rights Reserved.
 
-#include "RuntimeMeshComponentEditorPrivatePCH.h"
-
+#include "IRuntimeMeshComponentEditorPlugin.h"
+#include "PropertyEditorModule.h"
+#include "RuntimeMeshComponent.h"
+#include "RuntimeMeshComponentDetails.h"
 
 
 
