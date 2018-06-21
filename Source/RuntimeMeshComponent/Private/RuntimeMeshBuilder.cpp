@@ -636,20 +636,36 @@ FRuntimeMeshScopedUpdater::~FRuntimeMeshScopedUpdater()
 	Cancel();
 }
 
-void FRuntimeMeshScopedUpdater::Commit()
+void FRuntimeMeshScopedUpdater::Commit(bool bNeedsPositionUpdate, bool bNeedsNormalTangentUpdate, bool bNeedsColorUpdate, bool bNeedsUVUpdate, bool bNeedsIndexUpdate)
 {
 	check(!IsReadonly());
-	LinkedMeshData->EndSectionUpdate(this);
+
+	ERuntimeMeshBuffersToUpdate BuffersToUpdate;
+	BuffersToUpdate |= bNeedsPositionUpdate ? ERuntimeMeshBuffersToUpdate::PositionBuffer : ERuntimeMeshBuffersToUpdate::None;
+	BuffersToUpdate |= bNeedsNormalTangentUpdate ? ERuntimeMeshBuffersToUpdate::TangentBuffer : ERuntimeMeshBuffersToUpdate::None;
+	BuffersToUpdate |= bNeedsColorUpdate ? ERuntimeMeshBuffersToUpdate::ColorBuffer : ERuntimeMeshBuffersToUpdate::None;
+	BuffersToUpdate |= bNeedsUVUpdate ? ERuntimeMeshBuffersToUpdate::UVBuffer : ERuntimeMeshBuffersToUpdate::None;
+	BuffersToUpdate |= bNeedsIndexUpdate ? ERuntimeMeshBuffersToUpdate::IndexBuffer : ERuntimeMeshBuffersToUpdate::None;
+
+	LinkedMeshData->EndSectionUpdate(this, BuffersToUpdate);
 
 	// Release the mesh and lock.
 	FRuntimeMeshAccessor::Unlink();
 	FRuntimeMeshScopeLock::Unlock();
 }
 
-void FRuntimeMeshScopedUpdater::Commit(const FBox& BoundingBox)
+void FRuntimeMeshScopedUpdater::Commit(const FBox& BoundingBox, bool bNeedsPositionUpdate, bool bNeedsNormalTangentUpdate, bool bNeedsColorUpdate, bool bNeedsUVUpdate, bool bNeedsIndexUpdate)
 {
 	check(!IsReadonly());
-	LinkedMeshData->EndSectionUpdate(this, &BoundingBox);
+
+	ERuntimeMeshBuffersToUpdate BuffersToUpdate;
+	BuffersToUpdate |= bNeedsPositionUpdate ? ERuntimeMeshBuffersToUpdate::PositionBuffer : ERuntimeMeshBuffersToUpdate::None;
+	BuffersToUpdate |= bNeedsNormalTangentUpdate ? ERuntimeMeshBuffersToUpdate::TangentBuffer : ERuntimeMeshBuffersToUpdate::None;
+	BuffersToUpdate |= bNeedsColorUpdate ? ERuntimeMeshBuffersToUpdate::ColorBuffer : ERuntimeMeshBuffersToUpdate::None;
+	BuffersToUpdate |= bNeedsUVUpdate ? ERuntimeMeshBuffersToUpdate::UVBuffer : ERuntimeMeshBuffersToUpdate::None;
+	BuffersToUpdate |= bNeedsIndexUpdate ? ERuntimeMeshBuffersToUpdate::IndexBuffer : ERuntimeMeshBuffersToUpdate::None;
+
+	LinkedMeshData->EndSectionUpdate(this, BuffersToUpdate, &BoundingBox);
 
 	// Release the mesh and lock.
 	FRuntimeMeshAccessor::Unlink();

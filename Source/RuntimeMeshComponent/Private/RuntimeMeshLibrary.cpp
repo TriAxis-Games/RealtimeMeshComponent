@@ -378,22 +378,8 @@ void URuntimeMeshLibrary::CopyStaticMeshToRuntimeMesh(UStaticMeshComponent* Stat
 		}
 
 		//// SIMPLE COLLISION
+		CopyCollisionFromStaticMesh(StaticMesh, RuntimeMesh);
 
-		// Clear any existing collision hulls
-		RuntimeMesh->ClearAllConvexCollisionSections();
-
-		if (StaticMesh->BodySetup != nullptr)
-		{
-			// Iterate over all convex hulls on static mesh..
-			const int32 NumConvex = StaticMesh->BodySetup->AggGeom.ConvexElems.Num();
-			for (int ConvexIndex = 0; ConvexIndex < NumConvex; ConvexIndex++)
-			{
-				// Copy convex verts
-				FKConvexElem& MeshConvex = StaticMesh->BodySetup->AggGeom.ConvexElems[ConvexIndex];
-
-				RuntimeMesh->AddConvexCollisionSection(MeshConvex.VertexData);
-			}
-		}
 
 		//// MATERIALS
 
@@ -408,6 +394,25 @@ void URuntimeMeshLibrary::CopyStaticMeshToRuntimeMesh(UStaticMeshComponent* Stat
 void URuntimeMeshLibrary::CopyStaticMeshToRuntimeMeshComponent(UStaticMeshComponent* StaticMeshComponent, int32 LODIndex, URuntimeMeshComponent* RuntimeMeshComponent, bool bCreateCollision)
 {
 	CopyStaticMeshToRuntimeMesh(StaticMeshComponent, LODIndex, RuntimeMeshComponent->GetOrCreateRuntimeMesh(), bCreateCollision);
+}
+
+void URuntimeMeshLibrary::CopyCollisionFromStaticMesh(UStaticMesh* StaticMesh, URuntimeMesh* RuntimeMesh)
+{
+	// Clear any existing collision hulls
+	RuntimeMesh->ClearAllConvexCollisionSections();
+
+	if (StaticMesh->BodySetup != nullptr)
+	{
+		// Iterate over all convex hulls on static mesh..
+		const int32 NumConvex = StaticMesh->BodySetup->AggGeom.ConvexElems.Num();
+		for (int ConvexIndex = 0; ConvexIndex < NumConvex; ConvexIndex++)
+		{
+			// Copy convex verts
+			FKConvexElem& MeshConvex = StaticMesh->BodySetup->AggGeom.ConvexElems[ConvexIndex];
+
+			RuntimeMesh->AddConvexCollisionSection(MeshConvex.VertexData);
+		}
+	}
 }
 
 void URuntimeMeshLibrary::CalculateTangentsForMesh(TFunction<int32(int32 Index)> IndexAccessor, TFunction<FVector(int32 Index)> VertexAccessor, TFunction<FVector2D(int32 Index)> UVAccessor,

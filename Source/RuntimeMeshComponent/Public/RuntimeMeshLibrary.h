@@ -70,11 +70,19 @@ public:
 	/** Copy sections from a static mesh to a runtime mesh */
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
 	static void CopyStaticMeshToRuntimeMesh(UStaticMeshComponent* StaticMeshComponent, int32 LODIndex, URuntimeMesh* RuntimeMesh, bool bCreateCollision);
-
+	
 	/** Copy sections from a static mesh to a runtime mesh */
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
 	static void CopyStaticMeshToRuntimeMeshComponent(UStaticMeshComponent* StaticMeshComponent, int32 LODIndex, URuntimeMeshComponent* RuntimeMeshComponent, bool bCreateCollision);
 
+
+	static void CopyCollisionFromStaticMesh(UStaticMesh* StaticMesh, URuntimeMesh* RuntimeMesh);
+
+	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
+	static void CopyCollisionFromStaticMesh(UStaticMeshComponent* StaticMeshComponent, URuntimeMesh* RuntimeMesh)
+	{
+		CopyCollisionFromStaticMesh(StaticMeshComponent->GetStaticMesh(), RuntimeMesh);
+	}
 
 private:
 	static void CalculateTangentsForMesh(TFunction<int32(int32 Index)> IndexAccessor, TFunction<FVector(int32 Index)> VertexAccessor, TFunction<FVector2D(int32 Index)> UVAccessor,

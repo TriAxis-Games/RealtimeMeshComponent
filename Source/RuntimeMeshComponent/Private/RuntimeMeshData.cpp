@@ -298,7 +298,7 @@ TUniquePtr<FRuntimeMeshScopedUpdater> FRuntimeMeshData::GetSectionReadonly(int32
 	return Section->GetSectionMeshUpdater(this->AsShared(), SectionId, ESectionUpdateFlags::None, SyncRoot.Get(), true);
 }
 
-void FRuntimeMeshData::EndSectionUpdate(FRuntimeMeshScopedUpdater* Updater, const FBox* BoundingBox)
+void FRuntimeMeshData::EndSectionUpdate(FRuntimeMeshScopedUpdater* Updater, ERuntimeMeshBuffersToUpdate BuffersToUpdate, const FBox* BoundingBox /*= nullptr*/)
 {
 	check(DoesSectionExist(Updater->SectionIndex));
 
@@ -313,7 +313,7 @@ void FRuntimeMeshData::EndSectionUpdate(FRuntimeMeshScopedUpdater* Updater, cons
 		Section->UpdateBoundingBox();
 	}
 
-	UpdateSectionInternal(Updater->SectionIndex, ERuntimeMeshBuffersToUpdate::AllVertexBuffers | ERuntimeMeshBuffersToUpdate::IndexBuffer, Updater->UpdateFlags);
+	UpdateSectionInternal(Updater->SectionIndex, BuffersToUpdate, Updater->UpdateFlags);
 }
 
 void FRuntimeMeshData::CreateMeshSectionFromComponents(int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals,

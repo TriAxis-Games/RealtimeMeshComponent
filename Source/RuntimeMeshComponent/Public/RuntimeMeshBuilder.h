@@ -457,8 +457,8 @@ private:
 public:
 	~FRuntimeMeshScopedUpdater();
 
-	void Commit();
-	void Commit(const FBox& BoundingBox);
+	void Commit(bool bNeedsPositionUpdate = true, bool bNeedsNormalTangentUpdate = true, bool bNeedsColorUpdate = true, bool bNeedsUVUpdate = true, bool bNeedsIndexUpdate = true);
+	void Commit(const FBox& BoundingBox, bool bNeedsPositionUpdate = true, bool bNeedsNormalTangentUpdate = true, bool bNeedsColorUpdate = true, bool bNeedsUVUpdate = true, bool bNeedsIndexUpdate = true);
 	void Cancel();
 
 	friend class FRuntimeMeshData;

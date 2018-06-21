@@ -852,7 +852,7 @@ public:
 
 
 private:
-	void EndSectionUpdate(FRuntimeMeshScopedUpdater* Updater, const FBox* BoundingBox = nullptr);
+	void EndSectionUpdate(FRuntimeMeshScopedUpdater* Updater, ERuntimeMeshBuffersToUpdate BuffersToUpdate, const FBox* BoundingBox = nullptr);
 
 
 private:
