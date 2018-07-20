@@ -177,10 +177,36 @@ FVector2D FRuntimeMeshVerticesAccessor::GetUV(int32 Index, int32 Channel) const
 	}
 }
 
-void FRuntimeMeshVerticesAccessor::SetPosition(int32 Index, FVector Value)
+void FRuntimeMeshVerticesAccessor::SetPosition(int32 Index, const FVector& Value)
 {
 	check(bIsInitialized);
 	GetStreamAccess<FVector>(PositionStream, Index, PositionStride, 0) = Value;
+}
+
+bool FRuntimeMeshVerticesAccessor::SetPositions(const int32 InsertAtIndex, const TArray<FVector>& Positions, const int32 Count, const bool bSizeToFit)
+{
+	int32 CountClamped = FMath::Clamp(Count, 0, Positions.Num());
+	return SetPositions(InsertAtIndex, Positions.GetData(), CountClamped, bSizeToFit);
+}
+
+bool FRuntimeMeshVerticesAccessor::SetPositions(const int32 InsertAtIndex, const FVector *const Positions, const int32 Count, const bool bSizeToFit)
+{
+	check(bIsInitialized);
+	check(!bIsReadonly);
+	if (InsertAtIndex + Count > NumVertices())
+	{
+		if (bSizeToFit)
+		{
+			SetNumVertices(InsertAtIndex + Count);
+		}
+		else
+		{
+			return false;
+		}
+	}
+
+	FMemory::Memcpy(GetStreamAccessPointer(PositionStream, InsertAtIndex, PositionStride, 0), Positions, Count * sizeof(*Positions));
+	return true;
 }
 
 void FRuntimeMeshVerticesAccessor::SetNormal(int32 Index, const FVector4& Value)
@@ -197,7 +223,7 @@ void FRuntimeMeshVerticesAccessor::SetNormal(int32 Index, const FVector4& Value)
 	}
 }
 
-void FRuntimeMeshVerticesAccessor::SetTangent(int32 Index, FVector Value)
+void FRuntimeMeshVerticesAccessor::SetTangent(int32 Index, const FVector& Value)
 {
 	check(bIsInitialized);
 	check(!bIsReadonly);
@@ -211,7 +237,7 @@ void FRuntimeMeshVerticesAccessor::SetTangent(int32 Index, FVector Value)
 	}
 }
 
-void FRuntimeMeshVerticesAccessor::SetTangent(int32 Index, FRuntimeMeshTangent Value)
+void FRuntimeMeshVerticesAccessor::SetTangent(int32 Index, const FRuntimeMeshTangent& Value)
 {
 	check(bIsInitialized);
 	check(!bIsReadonly);
@@ -241,14 +267,40 @@ void FRuntimeMeshVerticesAccessor::SetTangent(int32 Index, FRuntimeMeshTangent V
 	}
 }
 
-void FRuntimeMeshVerticesAccessor::SetColor(int32 Index, FColor Value)
+void FRuntimeMeshVerticesAccessor::SetColor(int32 Index, const FColor& Value)
 {
 	check(bIsInitialized);
 	check(!bIsReadonly);
 	GetStreamAccess<FColor>(ColorStream, Index, ColorStride, 0) = Value;
 }
 
-void FRuntimeMeshVerticesAccessor::SetUV(int32 Index, FVector2D Value)
+bool FRuntimeMeshVerticesAccessor::SetColors(const int32 InsertAtIndex, const TArray<FColor>& Colors, const int32 Count, const bool bSizeToFit)
+{
+	int32 CountClamped = FMath::Clamp(Count, 0, Colors.Num());
+	return SetColors(InsertAtIndex, Colors.GetData(), CountClamped, bSizeToFit);
+}
+
+bool FRuntimeMeshVerticesAccessor::SetColors(const int32 InsertAtIndex, const FColor *const Colors, const int32 Count, const bool bSizeToFit)
+{
+	check(bIsInitialized);
+	check(!bIsReadonly);
+	if (InsertAtIndex + Count > NumVertices())
+	{
+		if (bSizeToFit)
+		{
+			SetNumVertices(InsertAtIndex + Count);
+		}
+		else
+		{
+			return false;
+		}
+	}
+
+	FMemory::Memcpy(GetStreamAccessPointer(ColorStream, InsertAtIndex, ColorStride, 0), Colors, Count * sizeof(*Colors));
+	return true;
+}
+
+void FRuntimeMeshVerticesAccessor::SetUV(int32 Index, const FVector2D& Value)
 {
 	check(bIsInitialized);
 	check(!bIsReadonly);
@@ -263,7 +315,7 @@ void FRuntimeMeshVerticesAccessor::SetUV(int32 Index, FVector2D Value)
 	}
 }
 
-void FRuntimeMeshVerticesAccessor::SetUV(int32 Index, int32 Channel, FVector2D Value)
+void FRuntimeMeshVerticesAccessor::SetUV(int32 Index, int32 Channel, const FVector2D& Value)
 {
 	check(bIsInitialized);
 	check(!bIsReadonly);
@@ -537,8 +589,59 @@ void FRuntimeMeshIndicesAccessor::SetIndex(int32 Index, int32 Value)
 	}
 }
 
+bool FRuntimeMeshIndicesAccessor::SetIndices(const int32 InsertAtIndex, const TArray<uint16>& Indices, const int32 Count, const bool bSizeToFit)
+{
+	int32 CountClamped = FMath::Clamp(Count, 0, Indices.Num());
+	return SetIndices(InsertAtIndex, Indices.GetData(), CountClamped, bSizeToFit);
+}
 
+bool FRuntimeMeshIndicesAccessor::SetIndices(const int32 InsertAtIndex, const uint16 *const Indices, const int32 Count, const bool bSizeToFit)
+{
+	check(!b32BitIndices);
+	check(bIsInitialized);
+	check(!bIsReadonly);
+	if (InsertAtIndex + Count > NumIndices())
+	{
+		if (bSizeToFit)
+		{
+			SetNumIndices(InsertAtIndex + Count);
+		}
+		else
+		{
+			return false;
+		}
+	}
 
+	FMemory::Memcpy(GetStreamAccessPointer(IndexStream, InsertAtIndex, sizeof(uint16), 0), Indices, Count * sizeof(*Indices));
+	return true;
+}
+
+bool FRuntimeMeshIndicesAccessor::SetIndices(const int32 InsertAtIndex, const TArray<int32>& Indices, const int32 Count, const bool bSizeToFit)
+{
+	int32 CountClamped = FMath::Clamp(Count, 0, Indices.Num());
+	return SetIndices(InsertAtIndex, Indices.GetData(), CountClamped, bSizeToFit);
+}
+
+bool FRuntimeMeshIndicesAccessor::SetIndices(const int32 InsertAtIndex, const int32 *const Indices, const int32 Count, const bool bSizeToFit)
+{
+	check(b32BitIndices);
+	check(bIsInitialized);
+	check(!bIsReadonly);
+	if (InsertAtIndex + Count > NumIndices())
+	{
+		if (bSizeToFit)
+		{
+			SetNumIndices(InsertAtIndex + Count);
+		}
+		else
+		{
+			return false;
+		}
+	}
+
+	FMemory::Memcpy(GetStreamAccessPointer(IndexStream, InsertAtIndex, sizeof(int32), 0), Indices, Count * sizeof(*Indices));
+	return true;
+}
 
 //////////////////////////////////////////////////////////////////////////
 //	FRuntimeMeshAccessor
