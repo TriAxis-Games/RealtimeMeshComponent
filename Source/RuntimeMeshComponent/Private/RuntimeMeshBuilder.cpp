@@ -12,6 +12,11 @@ FORCEINLINE static TYPE& GetStreamAccess(TArray<uint8>* Data, int32 Index, int32
 	return *((TYPE*)&(*Data)[StartPosition]);
 }
 
+FORCEINLINE static uint8* GetStreamAccessPointer(TArray<uint8>* Data, int32 Index, int32 Stride, int32 Offset)
+{
+    int32 StartPosition = (Index * Stride + Offset);
+    return &(*Data)[StartPosition];
+}
 
 template<typename TYPE>
 struct FRuntimeMeshEightUV
