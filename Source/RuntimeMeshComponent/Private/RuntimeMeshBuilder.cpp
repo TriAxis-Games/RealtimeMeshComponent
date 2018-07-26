@@ -330,6 +330,64 @@ void FRuntimeMeshVerticesAccessor::SetUV(int32 Index, int32 Channel, const FVect
 	}
 }
 
+bool FRuntimeMeshVerticesAccessor::SetUVs(const int32 InsertAtVertexIndex, const TArray<FVector2D>& UVs, const int32 CountVertices, const bool bSizeToFit)
+{
+	check(FMath::IsNearlyZero(FMath::Fractional((float)UVs.Num() / (float)UVChannelCount))); // If this triggers, the your uv data are out of alignment.
+	int32 CountClamped = FMath::Clamp(CountVertices, 0, UVs.Num());
+	return SetUVs(InsertAtVertexIndex, UVs.GetData(), CountClamped, bSizeToFit);
+}
+
+
+bool FRuntimeMeshVerticesAccessor::SetUVs(const int32 InsertAtVertexIndex, const TArray<FVector2DHalf>& UVs, const int32 CountVertices, const bool bSizeToFit)
+{
+	check(FMath::IsNearlyZero(FMath::Fractional((float)UVs.Num() / (float)UVChannelCount))); // If this triggers, the your uv data are out of alignment.
+	int32 CountClamped = FMath::Clamp(CountVertices, 0, UVs.Num());
+	return SetUVs(InsertAtVertexIndex, UVs.GetData(), CountClamped, bSizeToFit);
+
+}
+
+bool FRuntimeMeshVerticesAccessor::SetUVs(const int32 InsertAtVertexIndex, const FVector2D *const UVs, const int32 CountVertices, const bool bSizeToFit)
+{
+	check(bIsInitialized);
+	check(!bIsReadonly);
+	check(bUVHighPrecision); // Half precision is not supported by this function
+	if (InsertAtVertexIndex + CountVertices > NumVertices())
+	{
+		if (bSizeToFit)
+		{
+			SetNumVertices(InsertAtVertexIndex + CountVertices);
+		}
+		else
+		{
+			return false;
+		}
+	}
+
+	FMemory::Memcpy(GetStreamAccessPointer(UVStream, InsertAtVertexIndex, UVStride, 0), UVs, CountVertices * sizeof(*UVs) * UVChannelCount);
+	return true;
+}
+
+bool FRuntimeMeshVerticesAccessor::SetUVs(const int32 InsertAtVertexIndex, const FVector2DHalf *const UVs, const int32 CountVertices, const bool bSizeToFit)
+{
+	check(bIsInitialized);
+	check(!bIsReadonly);
+	check(!bUVHighPrecision); // Only Half precision is supported by this function
+	if (InsertAtVertexIndex + CountVertices > NumVertices())
+	{
+		if (bSizeToFit)
+		{
+			SetNumVertices(InsertAtVertexIndex + CountVertices);
+		}
+		else
+		{
+			return false;
+		}
+	}
+
+	FMemory::Memcpy(GetStreamAccessPointer(UVStream, InsertAtVertexIndex, UVStride, 0), UVs, CountVertices * sizeof(*UVs) * UVChannelCount);
+	return true;
+}
+
 void FRuntimeMeshVerticesAccessor::SetNormalTangent(int32 Index, FVector Normal, FRuntimeMeshTangent Tangent)
 {
 	check(bIsInitialized);
