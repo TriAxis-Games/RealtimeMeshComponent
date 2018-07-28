@@ -15,7 +15,7 @@ ARuntimeMeshActor::ARuntimeMeshActor(const FObjectInitializer& ObjectInitializer
 	RuntimeMeshComponent = CreateDefaultSubobject<URuntimeMeshComponent>(TEXT("RuntimeMeshComponent0"));
 	RuntimeMeshComponent->SetCollisionProfileName(UCollisionProfile::BlockAll_ProfileName);
 	RuntimeMeshComponent->Mobility = EComponentMobility::Static;
-	RuntimeMeshComponent->bGenerateOverlapEvents = false;
+	RuntimeMeshComponent->SetGenerateOverlapEvents(false);
 
 	RootComponent = RuntimeMeshComponent;
 }
