@@ -120,12 +120,12 @@ public:
 		}
 
 #if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION >= 19
- 		DataType.TangentBasisComponents[1] = FVertexStreamComponent(this, TangentXOffset, TangentSizeInBytes, TangentElementType, EVertexStreamUsage::ManualFetch);
- 		DataType.TangentBasisComponents[0] = FVertexStreamComponent(this, TangentZOffset, TangentSizeInBytes, TangentElementType, EVertexStreamUsage::ManualFetch);
+ 		DataType.TangentBasisComponents[0] = FVertexStreamComponent(this, TangentXOffset, TangentSizeInBytes, TangentElementType, EVertexStreamUsage::ManualFetch);
+ 		DataType.TangentBasisComponents[1] = FVertexStreamComponent(this, TangentZOffset, TangentSizeInBytes, TangentElementType, EVertexStreamUsage::ManualFetch);
 		DataType.TangentsSRV = ShaderResourceView;
 #else
-		DataType.TangentBasisComponents[1] = FVertexStreamComponent(this, TangentXOffset, TangentSizeInBytes, TangentElementType);
-		DataType.TangentBasisComponents[0] = FVertexStreamComponent(this, TangentZOffset, TangentSizeInBytes, TangentElementType);
+		DataType.TangentBasisComponents[0] = FVertexStreamComponent(this, TangentXOffset, TangentSizeInBytes, TangentElementType);
+		DataType.TangentBasisComponents[1] = FVertexStreamComponent(this, TangentZOffset, TangentSizeInBytes, TangentElementType);
 #endif
 	}
 

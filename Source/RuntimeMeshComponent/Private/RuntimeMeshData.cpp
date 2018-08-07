@@ -165,6 +165,14 @@ void FRuntimeMeshData::CheckBoundingBox(const FBox& Box) const
 
 
 
+void FRuntimeMeshData::EnterSerializedMode()
+{
+	if (!SyncRoot->IsThreadSafe())
+	{
+		SyncRoot = MakeUnique<FRuntimeMeshMutexLockProvider>();
+	}
+}
+
 void FRuntimeMeshData::CreateMeshSection(int32 SectionIndex, bool bWantsHighPrecisionTangents, bool bWantsHighPrecisionUVs, int32 NumUVs, bool bWants32BitIndices, bool bCreateCollision, EUpdateFrequency UpdateFrequency /*= EUpdateFrequency::Average*/)
 {
 	SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_CreateMeshSection_NoData);
@@ -1048,7 +1056,7 @@ void FRuntimeMeshData::SetCollisionCapsules(const TArray<FRuntimeMeshCollisionCa
 
 FBoxSphereBounds FRuntimeMeshData::GetLocalBounds() const
 {
-	FRuntimeMeshScopeLock Lock(SyncRoot);
+	FRuntimeMeshScopeLock Lock(SyncRoot, false, true);
 	return LocalBounds;
 }
 

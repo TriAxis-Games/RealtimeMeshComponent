@@ -8,6 +8,7 @@
 #include "RuntimeMeshData.h"
 #include "RuntimeMeshBlueprint.h"
 #include "RuntimeMeshCollision.h"
+#include "RuntimeMeshBlueprintMeshBuilder.h"
 #include "RuntimeMesh.generated.h"
 
 class UBodySetup;
@@ -333,6 +334,13 @@ public:
 		GetRuntimeMeshData()->CreateMeshSectionByMove(SectionId, MeshData, bCreateCollision, UpdateFrequency, UpdateFlags);
 	}
 
+	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
+	void CreateMeshSectionFromBuilder(int32 SectionId, URuntimeBlueprintMeshBuilder* MeshData, bool bCreateCollision = false,
+		EUpdateFrequency UpdateFrequency = EUpdateFrequency::Average/*, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None*/)
+	{
+		check(IsInGameThread());
+		GetRuntimeMeshData()->CreateMeshSection(SectionId, MeshData->GetMeshBuilder(), bCreateCollision, UpdateFrequency/*, UpdateFlags*/);
+	}
 
 
 	FORCEINLINE void UpdateMeshSection(int32 SectionId, const TSharedPtr<FRuntimeMeshBuilder>& MeshData, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
@@ -345,6 +353,13 @@ public:
 	{
 		check(IsInGameThread());
 		GetRuntimeMeshData()->UpdateMeshSectionByMove(SectionId, MeshData, UpdateFlags);
+	}
+	
+	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
+	void UpdateMeshSectionFromBuilder(int32 SectionId, URuntimeBlueprintMeshBuilder* MeshData/*, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None*/)
+	{
+		check(IsInGameThread());
+		GetRuntimeMeshData()->UpdateMeshSection(SectionId, MeshData->GetMeshBuilder()/*, UpdateFlags*/);
 	}
 
 

@@ -330,6 +330,7 @@ struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshLockProvider
 	virtual ~FRuntimeMeshLockProvider() { }
 	virtual void Lock(bool bIgnoreThreadIfNullLock = false) = 0;
 	virtual void Unlock() = 0;
+	virtual bool IsThreadSafe() const { return false; }
 };
 
 
@@ -338,7 +339,7 @@ struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshNullLockProvider : public FRuntimeMe
 {
 	FRuntimeMeshNullLockProvider() { check(IsInGameThread()); }
 	virtual ~FRuntimeMeshNullLockProvider() { }
-	virtual void Lock(bool bIgnoreThreadIfNullLock = false) override { check(IsInGameThread()); }
+	virtual void Lock(bool bIgnoreThreadIfNullLock = false) override { if (!bIgnoreThreadIfNullLock) { check(IsInGameThread()); } }
 	virtual void Unlock() override { check(IsInGameThread()); }
 };
 
@@ -353,6 +354,7 @@ public:
 	virtual ~FRuntimeMeshMutexLockProvider() { }
 	virtual void Lock(bool bIgnoreThreadIfNullLock = false) override { SyncObject.Lock(); }
 	virtual void Unlock() override { SyncObject.Unlock(); }
+	virtual bool IsThreadSafe() const override { return true; }
 };
 
 
@@ -370,23 +372,23 @@ public:
 	*
 	* @param InSynchObject The synchronization object to manage
 	*/
-	FRuntimeMeshScopeLock(const FRuntimeMeshLockProvider* InSyncObject, bool bIsAlreadyLocked = false)
+	FRuntimeMeshScopeLock(const FRuntimeMeshLockProvider* InSyncObject, bool bIsAlreadyLocked = false, bool bIgnoreThreadIfNullLock = false)
 		: SynchObject(const_cast<FRuntimeMeshLockProvider*>(InSyncObject))
 	{
 		check(SynchObject);
 		if (!bIsAlreadyLocked)
 		{
-			SynchObject->Lock();
+			SynchObject->Lock(bIgnoreThreadIfNullLock);
 		}
 	}
 
-	FRuntimeMeshScopeLock(const TUniquePtr<FRuntimeMeshLockProvider>& InSyncObject, bool bIsAlreadyLocked = false)
+	FRuntimeMeshScopeLock(const TUniquePtr<FRuntimeMeshLockProvider>& InSyncObject, bool bIsAlreadyLocked = false, bool bIgnoreThreadIfNullLock = false)
 		: SynchObject(InSyncObject.Get())
 	{
 		check(SynchObject);
 		if (!bIsAlreadyLocked)
 		{
-			SynchObject->Lock();
+			SynchObject->Lock(bIgnoreThreadIfNullLock);
 		}
 	}
 
