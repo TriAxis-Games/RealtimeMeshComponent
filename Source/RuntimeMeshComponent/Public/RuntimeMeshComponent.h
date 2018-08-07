@@ -744,12 +744,15 @@ private:
 	virtual UMaterialInterface* GetMaterialFromCollisionFaceIndex(int32 FaceIndex, int32& SectionIndex) const override;
 	//~ End UPrimitiveComponent Interface.
 
+public:
 	//~ Begin UMeshComponent Interface.
 	virtual int32 GetNumMaterials() const override;
 	virtual void GetUsedMaterials(TArray<UMaterialInterface*>& OutMaterials, bool bGetDebugMaterials = false) const override;
 	virtual UMaterialInterface* GetMaterial(int32 ElementIndex) const override;
+	virtual UMaterialInterface* GetOverrideMaterial(int32 ElementIndex) const;
 	//~ End UMeshComponent Interface.
 
+private:
 
 	/* Serializes this component */
 	virtual void Serialize(FArchive& Ar) override;
