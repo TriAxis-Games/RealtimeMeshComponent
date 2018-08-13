@@ -741,6 +741,12 @@ private:
 	//~ Begin UPrimitiveComponent Interface.
 	virtual FPrimitiveSceneProxy* CreateSceneProxy() override;
 	virtual class UBodySetup* GetBodySetup() override;
+
+public:
+
+	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
+	int32 GetSectionIdFromCollisionFaceIndex(int32 FaceIndex) const;
+
 	virtual UMaterialInterface* GetMaterialFromCollisionFaceIndex(int32 FaceIndex, int32& SectionIndex) const override;
 	//~ End UPrimitiveComponent Interface.
 

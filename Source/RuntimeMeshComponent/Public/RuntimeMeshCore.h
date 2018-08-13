@@ -337,10 +337,26 @@ struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshLockProvider
 
 struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshNullLockProvider : public FRuntimeMeshLockProvider
 {
+private:
+	bool bIsIgnoringLock;
+public:
 	FRuntimeMeshNullLockProvider() { check(IsInGameThread()); }
 	virtual ~FRuntimeMeshNullLockProvider() { }
-	virtual void Lock(bool bIgnoreThreadIfNullLock = false) override { if (!bIgnoreThreadIfNullLock) { check(IsInGameThread()); } }
-	virtual void Unlock() override { check(IsInGameThread()); }
+	virtual void Lock(bool bIgnoreThreadIfNullLock = false) override 
+	{ 
+		bIsIgnoringLock = bIgnoreThreadIfNullLock;
+		if (!bIgnoreThreadIfNullLock) 
+		{ 
+			check(IsInGameThread()); 
+		} 
+	}
+	virtual void Unlock() override 
+	{ 
+		if (!bIsIgnoringLock)
+		{
+			check(IsInGameThread());
+		}
+	}
 };
 
 struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshMutexLockProvider : public FRuntimeMeshLockProvider

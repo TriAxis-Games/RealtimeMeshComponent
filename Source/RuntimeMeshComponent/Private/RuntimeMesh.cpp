@@ -138,6 +138,11 @@ UMaterialInterface* URuntimeMesh::GetMaterialFromCollisionFaceIndex(int32 FaceIn
 	return nullptr;
 }
 
+int32 URuntimeMesh::GetSectionIdFromCollisionFaceIndex(int32 FaceIndex) const
+{
+	return GetRuntimeMeshData()->GetSectionFromCollisionFaceIndex(FaceIndex);
+}
+
 void URuntimeMesh::MarkCollisionDirty()
 {
 	// Flag the collision as dirty

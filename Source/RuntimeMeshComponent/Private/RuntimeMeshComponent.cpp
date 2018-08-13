@@ -172,6 +172,18 @@ UMaterialInterface* URuntimeMeshComponent::GetOverrideMaterial(int32 ElementInde
 	return Super::GetMaterial(ElementIndex);
 }
 
+int32 URuntimeMeshComponent::GetSectionIdFromCollisionFaceIndex(int32 FaceIndex) const
+{
+	int32 SectionIndex = 0;
+
+	if (URuntimeMesh* Mesh = GetRuntimeMesh())
+	{
+		SectionIndex = Mesh->GetSectionIdFromCollisionFaceIndex(FaceIndex);
+	}
+
+	return SectionIndex;
+}
+
 UMaterialInterface* URuntimeMeshComponent::GetMaterialFromCollisionFaceIndex(int32 FaceIndex, int32& SectionIndex) const
 {
 	UMaterialInterface* Result = nullptr;

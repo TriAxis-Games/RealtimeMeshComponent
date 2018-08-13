@@ -878,9 +878,16 @@ private:
 	virtual void Serialize(FArchive& Ar) override; 
 	void PostLoad();
 
+
+public:
+	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
 	UMaterialInterface* GetMaterialFromCollisionFaceIndex(int32 FaceIndex, int32& SectionIndex) const;
 
+	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
+	int32 GetSectionIdFromCollisionFaceIndex(int32 FaceIndex) const;
 
+
+private:
 	/** Triggers a rebuild of the collision data on the next tick */
 	void MarkCollisionDirty();
 	/** Helper to create new body setup objects */
