@@ -60,7 +60,7 @@ EComponentMobility::Type ARuntimeMeshActor::GetMobility()
 
 void ARuntimeMeshActor::OnConstruction(const FTransform& Transform)
 {
-	Super::OnConstruction();
+	Super::OnConstruction(Transform);
 	
 	if (bRunGenerateMeshesOnConstruction)
 	{
