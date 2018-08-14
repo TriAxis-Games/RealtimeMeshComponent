@@ -60,6 +60,8 @@ EComponentMobility::Type ARuntimeMeshActor::GetMobility()
 
 void ARuntimeMeshActor::OnConstruction(const FTransform& Transform)
 {
+	Super::OnConstruction();
+	
 	if (bRunGenerateMeshesOnConstruction)
 	{
 		GenerateMeshes();
@@ -68,6 +70,8 @@ void ARuntimeMeshActor::OnConstruction(const FTransform& Transform)
 
 void ARuntimeMeshActor::BeginPlay()
 {
+	Super::BeginPlay();
+	
 	bool bIsGameWorld = GetWorld() && GetWorld()->IsGameWorld() && !GetWorld()->IsPreviewWorld() && !GetWorld()->IsEditorWorld();
 
 	bool bHadSerializedMeshData = false;
