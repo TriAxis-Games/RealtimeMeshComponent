@@ -39,79 +39,79 @@ public:
 
 
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMeshBuilder")
-	bool IsUsingHighPrecisionTangents(URuntimeBlueprintMeshBuilder*& MeshBuilder)
+	bool IsUsingHighPrecisionTangents(URuntimeBlueprintMeshBuilder*& OutMeshBuilder)
 	{
-		MeshBuilder = this;
+		OutMeshBuilder = this;
 		return MeshAccessor->IsUsingHighPrecisionTangents();
 	}
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMeshBuilder")
-	bool IsUsingHighPrecisionUVs(URuntimeBlueprintMeshBuilder*& MeshBuilder)
+	bool IsUsingHighPrecisionUVs(URuntimeBlueprintMeshBuilder*& OutMeshBuilder)
 	{
-		MeshBuilder = this;
+		OutMeshBuilder = this;
 		return MeshAccessor->IsUsingHighPrecisionUVs();
 	}
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMeshBuilder")
-	bool IsUsing32BitIndices(URuntimeBlueprintMeshBuilder*& MeshBuilder)
+	bool IsUsing32BitIndices(URuntimeBlueprintMeshBuilder*& OutMeshBuilder)
 	{
-		MeshBuilder = this;
+		OutMeshBuilder = this;
 		return MeshAccessor->IsUsing32BitIndices();
 	}
 
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMeshBuilder")
-	bool IsReadonly(URuntimeBlueprintMeshBuilder*& MeshBuilder)
+	bool IsReadonly(URuntimeBlueprintMeshBuilder*& OutMeshBuilder)
 	{
-		MeshBuilder = this;
+		OutMeshBuilder = this;
 		return MeshAccessor->IsReadonly();
 	}
 
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMeshBuilder")
-	int32 NumVertices(URuntimeBlueprintMeshBuilder*& MeshBuilder)
+	int32 NumVertices(URuntimeBlueprintMeshBuilder*& OutMeshBuilder)
 	{
-		MeshBuilder = this;
+		OutMeshBuilder = this;
 		return MeshAccessor->NumVertices();
 	}
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMeshBuilder")
-	int32 NumUVChannels(URuntimeBlueprintMeshBuilder*& MeshBuilder)
+	int32 NumUVChannels(URuntimeBlueprintMeshBuilder*& OutMeshBuilder)
 	{
-		MeshBuilder = this;
+		OutMeshBuilder = this;
 		return MeshAccessor->NumUVChannels();
 	}
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMeshBuilder")
-	int32 NumIndices(URuntimeBlueprintMeshBuilder*& MeshBuilder)
+	int32 NumIndices(URuntimeBlueprintMeshBuilder*& OutMeshBuilder)
 	{
-		MeshBuilder = this;
+		OutMeshBuilder = this;
 		return MeshAccessor->NumIndices();
 	}
 
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMeshBuilder")
-	void EmptyVertices(URuntimeBlueprintMeshBuilder*& MeshBuilder, int32 Slack = 0)
+	void EmptyVertices(URuntimeBlueprintMeshBuilder*& OutMeshBuilder, int32 Slack = 0)
 	{
-		MeshBuilder = this;
+		OutMeshBuilder = this;
 		MeshAccessor->EmptyVertices(Slack);
 	}
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMeshBuilder")
-	void SetNumVertices(URuntimeBlueprintMeshBuilder*& MeshBuilder, int32 NewNum)
+	void SetNumVertices(URuntimeBlueprintMeshBuilder*& OutMeshBuilder, int32 NewNum)
 	{
-		MeshBuilder = this;
+		OutMeshBuilder = this;
 		MeshAccessor->SetNumVertices(NewNum);
 	}
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMeshBuilder")
-	void EmptyIndices(URuntimeBlueprintMeshBuilder*& MeshBuilder, int32 Slack = 0)
+	void EmptyIndices(URuntimeBlueprintMeshBuilder*& OutMeshBuilder, int32 Slack = 0)
 	{
-		MeshBuilder = this;
+		OutMeshBuilder = this;
 		MeshAccessor->EmptyIndices(Slack);
 	}
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMeshBuilder")
-	void SetNumIndices(URuntimeBlueprintMeshBuilder*& MeshBuilder, int32 NewNum)
+	void SetNumIndices(URuntimeBlueprintMeshBuilder*& OutMeshBuilder, int32 NewNum)
 	{
-		MeshBuilder = this;
+		OutMeshBuilder = this;
 		MeshAccessor->SetNumIndices(NewNum);
 	}
 
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMeshBuilder")
-	int32 AddVertex(URuntimeBlueprintMeshBuilder*& MeshBuilder, FVector InPosition, FVector Normal, FRuntimeMeshTangent Tangent, FVector2D UV0, FLinearColor Color)
+	int32 AddVertex(URuntimeBlueprintMeshBuilder*& OutMeshBuilder, FVector InPosition, FVector Normal, FRuntimeMeshTangent Tangent, FVector2D UV0, FLinearColor Color)
 	{
-		MeshBuilder = this;
+		OutMeshBuilder = this;
 		int32 Index = MeshAccessor->AddVertex(InPosition);
 		MeshAccessor->SetNormalTangent(Index, Normal, Tangent);
 		MeshAccessor->SetUV(Index, UV0);
@@ -120,40 +120,40 @@ public:
 	}
 
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMeshBuilder")
-	FVector GetPosition(URuntimeBlueprintMeshBuilder*& MeshBuilder, int32 Index)
+	FVector GetPosition(URuntimeBlueprintMeshBuilder*& OutMeshBuilder, int32 Index)
 	{
-		MeshBuilder = this;
+		OutMeshBuilder = this;
 		return MeshAccessor->GetPosition(Index);
 	}
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMeshBuilder")
-	FVector4 GetNormal(URuntimeBlueprintMeshBuilder*& MeshBuilder, int32 Index)
+	FVector4 GetNormal(URuntimeBlueprintMeshBuilder*& OutMeshBuilder, int32 Index)
 	{
-		MeshBuilder = this;
+		OutMeshBuilder = this;
 		return MeshAccessor->GetNormal(Index);
 	}
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMeshBuilder")
-	FVector GetTangent(URuntimeBlueprintMeshBuilder*& MeshBuilder, int32 Index)
+	FVector GetTangent(URuntimeBlueprintMeshBuilder*& OutMeshBuilder, int32 Index)
 	{
-		MeshBuilder = this;
+		OutMeshBuilder = this;
 		return MeshAccessor->GetTangent(Index);
 	}
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMeshBuilder")
-	FLinearColor GetColor(URuntimeBlueprintMeshBuilder*& MeshBuilder, int32 Index)
+	FLinearColor GetColor(URuntimeBlueprintMeshBuilder*& OutMeshBuilder, int32 Index)
 	{
-		MeshBuilder = this;
+		OutMeshBuilder = this;
 		return FLinearColor(MeshAccessor->GetColor(Index));
 	}
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMeshBuilder")
-	FVector2D GetUV(URuntimeBlueprintMeshBuilder*& MeshBuilder, int32 Index, int32 Channel = 0)
+	FVector2D GetUV(URuntimeBlueprintMeshBuilder*& OutMeshBuilder, int32 Index, int32 Channel = 0)
 	{
-		MeshBuilder = this;
+		OutMeshBuilder = this;
 		return MeshAccessor->GetUV(Index, Channel);
 	}
 
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMeshBuilder")
-	int32 SetVertex(URuntimeBlueprintMeshBuilder*& MeshBuilder, int32 Index, FVector InPosition, FVector Normal, FRuntimeMeshTangent Tangent, FVector2D UV0, FLinearColor Color)
+	int32 SetVertex(URuntimeBlueprintMeshBuilder*& OutMeshBuilder, int32 Index, FVector InPosition, FVector Normal, FRuntimeMeshTangent Tangent, FVector2D UV0, FLinearColor Color)
 	{
-		MeshBuilder = this;
+		OutMeshBuilder = this;
 		MeshAccessor->SetPosition(Index, InPosition);
 		MeshAccessor->SetNormalTangent(Index, Normal, Tangent);
 		MeshAccessor->SetUV(Index, UV0);
@@ -163,53 +163,53 @@ public:
 
 
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMeshBuilder")
-	int32 SetPosition(URuntimeBlueprintMeshBuilder*& MeshBuilder, int32 Index, FVector Value)
+	int32 SetPosition(URuntimeBlueprintMeshBuilder*& OutMeshBuilder, int32 Index, FVector Value)
 	{
-		MeshBuilder = this;
+		OutMeshBuilder = this;
 		MeshAccessor->SetPosition(Index, Value);
 		return Index;
 	}
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMeshBuilder")
-	int32 SetNormal(URuntimeBlueprintMeshBuilder*& MeshBuilder, int32 Index, const FVector4& Value)
+	int32 SetNormal(URuntimeBlueprintMeshBuilder*& OutMeshBuilder, int32 Index, const FVector4& Value)
 	{
-		MeshBuilder = this;
+		OutMeshBuilder = this;
 		MeshAccessor->SetNormal(Index, Value);
 		return Index;
 	}
 
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMeshBuilder")
-	int32 SetTangent(URuntimeBlueprintMeshBuilder*& MeshBuilder, int32 Index, FRuntimeMeshTangent Value)
+	int32 SetTangent(URuntimeBlueprintMeshBuilder*& OutMeshBuilder, int32 Index, FRuntimeMeshTangent Value)
 	{
-		MeshBuilder = this;
+		OutMeshBuilder = this;
 		MeshAccessor->SetTangent(Index, Value);
 		return Index;
 	}
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMeshBuilder")
-	int32 SetColor(URuntimeBlueprintMeshBuilder*& MeshBuilder, int32 Index, FLinearColor Value)
+	int32 SetColor(URuntimeBlueprintMeshBuilder*& OutMeshBuilder, int32 Index, FLinearColor Value)
 	{
-		MeshBuilder = this;
+		OutMeshBuilder = this;
 		MeshAccessor->SetColor(Index, Value.ToFColor(false));
 		return Index;
 	}
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMeshBuilder")
-	int32 SetUV(URuntimeBlueprintMeshBuilder*& MeshBuilder, int32 Index, FVector2D Value, int32 Channel = 0)
+	int32 SetUV(URuntimeBlueprintMeshBuilder*& OutMeshBuilder, int32 Index, FVector2D Value, int32 Channel = 0)
 	{
-		MeshBuilder = this;
+		OutMeshBuilder = this;
 		MeshAccessor->SetUV(Index, Channel, Value);
 		return Index;
 	}
 
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMeshBuilder")
-	int32 SetNormalTangent(URuntimeBlueprintMeshBuilder*& MeshBuilder, int32 Index, FVector Normal, FRuntimeMeshTangent Tangent)
+	int32 SetNormalTangent(URuntimeBlueprintMeshBuilder*& OutMeshBuilder, int32 Index, FVector Normal, FRuntimeMeshTangent Tangent)
 	{
-		MeshBuilder = this;
+		OutMeshBuilder = this;
 		MeshAccessor->SetNormalTangent(Index, Normal, Tangent);
 		return Index;
 	}
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMeshBuilder")
-	int32 SetTangents(URuntimeBlueprintMeshBuilder*& MeshBuilder, int32 Index, FVector TangentX, FVector TangentY, FVector TangentZ)
+	int32 SetTangents(URuntimeBlueprintMeshBuilder*& OutMeshBuilder, int32 Index, FVector TangentX, FVector TangentY, FVector TangentZ)
 	{
-		MeshBuilder = this;
+		OutMeshBuilder = this;
 		MeshAccessor->SetTangents(Index, TangentX, TangentY, TangentZ);
 		return Index;
 	}
@@ -220,28 +220,28 @@ public:
 
 
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMeshBuilder")
-	int32 AddIndex(URuntimeBlueprintMeshBuilder*& MeshBuilder, int32 NewIndex)
+	int32 AddIndex(URuntimeBlueprintMeshBuilder*& OutMeshBuilder, int32 NewIndex)
 	{
-		MeshBuilder = this;
+		OutMeshBuilder = this;
 		return MeshAccessor->AddIndex(NewIndex);
 	}
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMeshBuilder")
-	int32 AddTriangle(URuntimeBlueprintMeshBuilder*& MeshBuilder, int32 Index0, int32 Index1, int32 Index2)
+	int32 AddTriangle(URuntimeBlueprintMeshBuilder*& OutMeshBuilder, int32 Index0, int32 Index1, int32 Index2)
 	{
-		MeshBuilder = this;
+		OutMeshBuilder = this;
 		return MeshAccessor->AddTriangle(Index0, Index1, Index2);
 	}
 
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMeshBuilder")
-	int32 GetIndex(URuntimeBlueprintMeshBuilder*& MeshBuilder, int32 Index)
+	int32 GetIndex(URuntimeBlueprintMeshBuilder*& OutMeshBuilder, int32 Index)
 	{
-		MeshBuilder = this;
+		OutMeshBuilder = this;
 		return MeshAccessor->GetIndex(Index);
 	}
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMeshBuilder")
-	void SetIndex(URuntimeBlueprintMeshBuilder*& MeshBuilder, int32 Index, int32 Value)
+	void SetIndex(URuntimeBlueprintMeshBuilder*& OutMeshBuilder, int32 Index, int32 Value)
 	{
-		MeshBuilder = this;
+		OutMeshBuilder = this;
 		MeshAccessor->SetIndex(Index, Value);
 	}
 };
