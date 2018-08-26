@@ -62,6 +62,7 @@ public:
 	~FRuntimeMeshSectionProxy();
 
 	bool ShouldRender();
+	bool CanRender();
 
 	bool WantsToRenderInStaticPath() const;
 

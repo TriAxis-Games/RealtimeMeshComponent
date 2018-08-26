@@ -38,13 +38,14 @@ FRuntimeMeshSectionProxy::FRuntimeMeshSectionProxy(ERHIFeatureLevel::Type InFeat
 	AdjacencyIndexBuffer.SetData(CreationData->AdjacencyIndexBuffer.Data);
 
 
+	if (CanRender())
+	{
+		FLocalVertexFactory::FDataType DataType;
+		BuildVertexDataType(DataType);
 
-
-	FLocalVertexFactory::FDataType DataType;
-	BuildVertexDataType(DataType);
-
-	VertexFactory.Init(DataType);
-	VertexFactory.InitResource();
+		VertexFactory.Init(DataType);
+		VertexFactory.InitResource();
+	}
 }
 
 FRuntimeMeshSectionProxy::~FRuntimeMeshSectionProxy()
@@ -62,14 +63,20 @@ FRuntimeMeshSectionProxy::~FRuntimeMeshSectionProxy()
 
 bool FRuntimeMeshSectionProxy::ShouldRender()
 {
-	if (!bIsVisible)
-		return false;
+	return bIsVisible && CanRender();
+}
 
-	if (IndexBuffer.Num() <= 0)
-		return false;
-
+bool FRuntimeMeshSectionProxy::CanRender()
+{
 	if (PositionBuffer.Num() <= 0)
+	{
 		return false;
+	}
+
+	if (PositionBuffer.Num() != TangentsBuffer.Num() || PositionBuffer.Num() != UVsBuffer.Num())
+	{
+		return false;
+	}
 
 	return true;
 }
@@ -171,8 +178,8 @@ void FRuntimeMeshSectionProxy::FinishUpdate_RenderThread(FRuntimeMeshSectionUpda
 		FLocalVertexFactory::FDataType DataType;
 		BuildVertexDataType(DataType);
 
-		VertexFactory.Init(DataType);
 		VertexFactory.ReleaseResource();
+		VertexFactory.Init(DataType);
 		VertexFactory.InitResource();
 	}
 #endif
