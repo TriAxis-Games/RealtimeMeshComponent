@@ -45,10 +45,12 @@ public class RuntimeMeshComponentEditor : ModuleRules
                 "Slate",
                 "SlateCore",
                 "UnrealEd",
+                "LevelEditor",
                 "PropertyEditor",
                 "RawMesh",
                 "AssetTools",
                 "AssetRegistry",
+                "Projects",
 
                 "RuntimeMeshComponent",
             }
