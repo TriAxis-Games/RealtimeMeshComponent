@@ -194,14 +194,22 @@ void URuntimeMesh::UpdateCollision(bool bForceCookNow)
 
 	if (bShouldCookAsync)
 	{
-		UBodySetup* CurrentBodySetup = CreateNewBodySetup();
-		AsyncBodySetupQueue.Add(CurrentBodySetup);
+#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 21
+		// Abort all previous ones still standing
+		for (UBodySetup* OldBody : AsyncBodySetupQueue)
+		{
+			OldBody->AbortPhysicsMeshAsyncCreation();
+		}
+#endif
 
-		SetBasicBodySetupParameters(CurrentBodySetup);
-		CopyCollisionElementsToBodySetup(CurrentBodySetup);
+		UBodySetup* NewBodySetup = CreateNewBodySetup();
+		AsyncBodySetupQueue.Add(NewBodySetup);
 
-		CurrentBodySetup->CreatePhysicsMeshesAsync(
-			FOnAsyncPhysicsCookFinished::CreateUObject(this, &URuntimeMesh::FinishPhysicsAsyncCook, CurrentBodySetup));
+		SetBasicBodySetupParameters(NewBodySetup);
+		CopyCollisionElementsToBodySetup(NewBodySetup);
+
+		NewBodySetup->CreatePhysicsMeshesAsync(
+			FOnAsyncPhysicsCookFinished::CreateUObject(this, &URuntimeMesh::FinishPhysicsAsyncCook, NewBodySetup));
 	}
 	else
 	{
@@ -224,7 +232,11 @@ void URuntimeMesh::UpdateCollision(bool bForceCookNow)
 	}
 }
 
+#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 21
+void URuntimeMesh::FinishPhysicsAsyncCook(bool bSuccess, UBodySetup* FinishedBodySetup)
+#else
 void URuntimeMesh::FinishPhysicsAsyncCook(UBodySetup* FinishedBodySetup)
+#endif
 {
 	SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_AsyncCollisionFinish);
 	check(IsInGameThread());
@@ -232,18 +244,32 @@ void URuntimeMesh::FinishPhysicsAsyncCook(UBodySetup* FinishedBodySetup)
 	int32 FoundIdx;
 	if (AsyncBodySetupQueue.Find(FinishedBodySetup, FoundIdx))
 	{
-		// The new body was found in the array meaning it's newer so use it
-		BodySetup = FinishedBodySetup;
 
-		// Shift down all remaining body setups, removing any old setups
-		for (int32 Index = FoundIdx + 1; Index < AsyncBodySetupQueue.Num(); Index++)
+#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 21
+		if (bSuccess)
 		{
-			AsyncBodySetupQueue[Index - (FoundIdx + 1)] = AsyncBodySetupQueue[Index];
-			AsyncBodySetupQueue[Index] = nullptr;
-		}
-		AsyncBodySetupQueue.SetNum(AsyncBodySetupQueue.Num() - (FoundIdx + 1));
+#endif
+			
+			// The new body was found in the array meaning it's newer so use it
+			BodySetup = FinishedBodySetup;
 
-		FinalizeNewCookedData();
+			// Shift down all remaining body setups, removing any old setups
+			for (int32 Index = FoundIdx + 1; Index < AsyncBodySetupQueue.Num(); Index++)
+			{
+				AsyncBodySetupQueue[Index - (FoundIdx + 1)] = AsyncBodySetupQueue[Index];
+				AsyncBodySetupQueue[Index] = nullptr;
+			}
+			AsyncBodySetupQueue.SetNum(AsyncBodySetupQueue.Num() - (FoundIdx + 1));
+
+			FinalizeNewCookedData();
+
+#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 21
+		}
+		else
+		{
+			AsyncBodySetupQueue.RemoveAt(FoundIdx);
+		}
+#endif
 	}
 }
 
