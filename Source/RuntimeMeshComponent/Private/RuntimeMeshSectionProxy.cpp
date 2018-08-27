@@ -38,14 +38,18 @@ FRuntimeMeshSectionProxy::FRuntimeMeshSectionProxy(ERHIFeatureLevel::Type InFeat
 	AdjacencyIndexBuffer.SetData(CreationData->AdjacencyIndexBuffer.Data);
 
 
+#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 19
 	if (CanRender())
 	{
+#endif
 		FLocalVertexFactory::FDataType DataType;
 		BuildVertexDataType(DataType);
 
 		VertexFactory.Init(DataType);
 		VertexFactory.InitResource();
+#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 19
 	}
+#endif
 }
 
 FRuntimeMeshSectionProxy::~FRuntimeMeshSectionProxy()

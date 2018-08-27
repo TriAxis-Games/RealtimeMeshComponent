@@ -154,6 +154,7 @@ void URuntimeMesh::MarkCollisionDirty()
 	}
 }
 
+#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 21
 UBodySetup* URuntimeMesh::CreateNewBodySetup()
 {
 	UBodySetup* NewBodySetup = NewObject<UBodySetup>(this, NAME_None, (IsTemplate() ? RF_Public : RF_NoFlags));
@@ -161,14 +162,7 @@ UBodySetup* URuntimeMesh::CreateNewBodySetup()
 
 	return NewBodySetup;
 }
-
-void URuntimeMesh::EnsureBodySetupCreated()
-{
-	if (BodySetup == nullptr)
-	{
-		BodySetup = CreateNewBodySetup();
-	}
-}
+#endif
 
 void URuntimeMesh::CopyCollisionElementsToBodySetup(UBodySetup* Setup)
 {
@@ -186,6 +180,13 @@ void URuntimeMesh::SetBasicBodySetupParameters(UBodySetup* Setup)
 
 void URuntimeMesh::UpdateCollision(bool bForceCookNow)
 {
+#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION < 21
+	DoForAllLinkedComponents([bForceCookNow](URuntimeMeshComponent* Mesh)
+	{
+		Mesh->UpdateCollision(bForceCookNow);
+	});
+
+#else
 	SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_CollisionUpdate);
 	check(IsInGameThread());
 	
@@ -194,13 +195,11 @@ void URuntimeMesh::UpdateCollision(bool bForceCookNow)
 
 	if (bShouldCookAsync)
 	{
-#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 21
 		// Abort all previous ones still standing
 		for (UBodySetup* OldBody : AsyncBodySetupQueue)
 		{
 			OldBody->AbortPhysicsMeshAsyncCreation();
 		}
-#endif
 
 		UBodySetup* NewBodySetup = CreateNewBodySetup();
 		AsyncBodySetupQueue.Add(NewBodySetup);
@@ -230,13 +229,11 @@ void URuntimeMesh::UpdateCollision(bool bForceCookNow)
 		BodySetup = NewBodySetup;
 		FinalizeNewCookedData();
 	}
+#endif
 }
 
 #if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 21
 void URuntimeMesh::FinishPhysicsAsyncCook(bool bSuccess, UBodySetup* FinishedBodySetup)
-#else
-void URuntimeMesh::FinishPhysicsAsyncCook(UBodySetup* FinishedBodySetup)
-#endif
 {
 	SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_AsyncCollisionFinish);
 	check(IsInGameThread());
@@ -244,12 +241,8 @@ void URuntimeMesh::FinishPhysicsAsyncCook(UBodySetup* FinishedBodySetup)
 	int32 FoundIdx;
 	if (AsyncBodySetupQueue.Find(FinishedBodySetup, FoundIdx))
 	{
-
-#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 21
 		if (bSuccess)
-		{
-#endif
-			
+		{			
 			// The new body was found in the array meaning it's newer so use it
 			BodySetup = FinishedBodySetup;
 
@@ -263,13 +256,11 @@ void URuntimeMesh::FinishPhysicsAsyncCook(UBodySetup* FinishedBodySetup)
 
 			FinalizeNewCookedData();
 
-#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 21
 		}
 		else
 		{
 			AsyncBodySetupQueue.RemoveAt(FoundIdx);
 		}
-#endif
 	}
 }
 
@@ -290,6 +281,7 @@ void URuntimeMesh::FinalizeNewCookedData()
 		CollisionUpdated.Broadcast();
 	}
 }
+#endif
 
 void URuntimeMesh::UpdateLocalBounds()
 {

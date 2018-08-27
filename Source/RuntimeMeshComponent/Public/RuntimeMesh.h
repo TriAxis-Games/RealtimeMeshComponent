@@ -44,7 +44,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE(FRuntimeMeshCollisionUpdatedDelegate);
 
 
 UCLASS(HideCategories = Object, BlueprintType)
-class RUNTIMEMESHCOMPONENT_API URuntimeMesh : public UObject, public IInterface_CollisionDataProvider/*, public IInterface_AssetUserData*/
+class RUNTIMEMESHCOMPONENT_API URuntimeMesh : public UObject, public IInterface_CollisionDataProvider
 {
 	GENERATED_UCLASS_BODY()
 
@@ -867,15 +867,13 @@ private:
 		OutMaterials.Append(Materials.FilterByPredicate([](UMaterialInterface* Mat) -> bool { return Mat != nullptr; }));
 	}
 
-
-
 	//~ Begin Interface_CollisionDataProvider Interface
 	virtual bool GetPhysicsTriMeshData(struct FTriMeshCollisionData* CollisionData, bool InUseAllTriData) override;
 	virtual bool ContainsPhysicsTriMeshData(bool InUseAllTriData) const override;
 	virtual bool WantsNegXTriMesh() override { return false; }
 	//~ End Interface_CollisionDataProvider Interface
 
-	virtual void Serialize(FArchive& Ar) override; 
+	virtual void Serialize(FArchive& Ar) override;
 	void PostLoad();
 
 
@@ -890,10 +888,11 @@ public:
 private:
 	/** Triggers a rebuild of the collision data on the next tick */
 	void MarkCollisionDirty();
+
+#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 21
 	/** Helper to create new body setup objects */
 	UBodySetup* CreateNewBodySetup();
-	/** Ensure ProcMeshBodySetup is allocated and configured */
-	void EnsureBodySetupCreated();
+#endif
 	/** Copies the convex element geometry to a supplied body setup */
 	void CopyCollisionElementsToBodySetup(UBodySetup* Setup);
 	/** Sets all basic configuration on body setup */
@@ -903,11 +902,9 @@ private:
 	/** Once async physics cook is done, create needed state, and then call the user event */
 #if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 21
 	void FinishPhysicsAsyncCook(bool bSuccess, UBodySetup* FinishedBodySetup);
-#else
-	void FinishPhysicsAsyncCook(UBodySetup* FinishedBodySetup);
-#endif
 	/** Runs all post cook tasks like alerting the user event and alerting linked components */
 	void FinalizeNewCookedData();
+#endif
 
 
 	FRuntimeMeshProxyPtr EnsureProxyCreated(ERHIFeatureLevel::Type InFeatureLevel)
