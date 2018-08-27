@@ -80,7 +80,7 @@ void ARuntimeMeshActor::BeginPlay()
 		URuntimeMesh* Mesh = RuntimeMeshComponent->GetRuntimeMesh();
 		if (Mesh)
 		{
-			bHadSerializedMeshData = Mesh->HasSerializedMeshData();
+			bHadSerializedMeshData = Mesh->ShouldSerializeMeshData();
 		}
 	}
 

@@ -48,6 +48,18 @@ public:
 		return RuntimeMeshReference;
 	}
 
+	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
+	bool ShouldSerializeMeshData()
+	{
+		return GetRuntimeMesh() ? GetRuntimeMesh()->ShouldSerializeMeshData() : false;
+	}
+
+	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
+	void SetShouldSerializeMeshData(bool bShouldSerialize)
+	{
+		GetOrCreateRuntimeMesh()->SetShouldSerializeMeshData(bShouldSerialize);
+	}
+
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh", Meta = (AllowPrivateAccess = "true", DisplayName = "Get Mobility"))
 		ERuntimeMeshMobility GetRuntimeMeshMobility()
 	{
@@ -719,6 +731,13 @@ public:
 	void SetCollisionUseAsyncCooking(bool bNewValue)
 	{
 		GetOrCreateRuntimeMesh()->SetCollisionUseAsyncCooking(bNewValue);
+	}
+
+	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
+	bool IsCollisionUsingAsyncCooking()
+	{
+		check(IsInGameThread());
+		return GetRuntimeMesh() != nullptr ? GetRuntimeMesh()->IsCollisionUsingAsyncCooking() : false;
 	}
 
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")

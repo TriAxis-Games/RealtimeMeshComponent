@@ -101,9 +101,16 @@ private:
 
 public:
 
-	bool HasSerializedMeshData() 
+	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
+	bool ShouldSerializeMeshData() 
 	{
 		return bShouldSerializeMeshData;			
+	}
+
+	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
+	void SetShouldSerializeMeshData(bool bShouldSerialize)
+	{
+		bShouldSerializeMeshData = bShouldSerialize;
 	}
 
 	/** Event called when the collision has finished updated, this works both with standard following frame synchronous updates, as well as async updates */
@@ -805,10 +812,24 @@ public:
 	}
 
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
+	bool IsCollisionUsingAsyncCooking()
+	{
+		check(IsInGameThread());
+		return bUseAsyncCooking;
+	}
+
+	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
 	void SetCollisionMode(ERuntimeMeshCollisionCookingMode NewMode)
 	{
 		check(IsInGameThread());
 		CollisionMode = NewMode;
+	}
+
+	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
+	ERuntimeMeshCollisionCookingMode GetCollisionMode() const
+	{
+		check(IsInGameThread());
+		return CollisionMode;
 	}
 
 	FBoxSphereBounds GetLocalBounds() const 
