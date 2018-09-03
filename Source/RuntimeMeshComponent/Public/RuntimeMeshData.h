@@ -121,6 +121,14 @@ private:
 	void CheckBoundingBox(const FBox& Box) const;
 
 public:
+
+	/* 
+		This will put the RuntimeMesh into serialized mode where it becomes safe to access it from other threads. 
+		Don't do this if you don't need it as it will make interacting with it slighly slower as it incurs thread locks.
+	*/
+	void EnterSerializedMode();
+
+
 	void CreateMeshSection(int32 SectionIndex, bool bWantsHighPrecisionTangents, bool bWantsHighPrecisionUVs, int32 NumUVs, bool bWants32BitIndices, bool bCreateCollision, EUpdateFrequency UpdateFrequency = EUpdateFrequency::Average);
 	
 	template<typename VertexType0, typename IndexType>
@@ -1102,7 +1110,7 @@ private:
 	{
 		SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_SerializationOperator);
 
-		//FRuntimeMeshScopeLock Lock(MeshData.SyncRoot);
+		FRuntimeMeshScopeLock Lock(MeshData.SyncRoot, false, true);
 
 		Ar << MeshData.MeshSections;
 

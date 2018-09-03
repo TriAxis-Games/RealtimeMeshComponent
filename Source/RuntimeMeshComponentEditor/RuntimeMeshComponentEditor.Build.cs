@@ -30,7 +30,8 @@ public class RuntimeMeshComponentEditor : ModuleRules
             {
                 "Core",
 				// ... add other public dependencies that you statically link with here ...
-			}
+                
+            }
             );
 
 
@@ -38,18 +39,22 @@ public class RuntimeMeshComponentEditor : ModuleRules
             new string[]
             {
                 "CoreUObject",
-                "Engine",
                 // ... add private dependencies that you statically link with here ...	
+                "Engine",
+                "Slate",
+                "SlateCore",
                 "RenderCore",
                 "ShaderCore",
                 "RHI",
-                "Slate",
-                "SlateCore",
                 "UnrealEd",
+                "LevelEditor",
                 "PropertyEditor",
                 "RawMesh",
                 "AssetTools",
                 "AssetRegistry",
+                "Projects",
+                "EditorStyle",
+                "InputCore",
 
                 "RuntimeMeshComponent",
             }

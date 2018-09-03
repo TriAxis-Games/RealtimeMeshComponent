@@ -16,6 +16,7 @@ protected:
 	UPROPERTY(Category = "RuntimeMeshActor", VisibleAnywhere, BlueprintReadOnly, Meta = (ExposeFunctionCategories = "Mesh,Rendering,Physics,Components|RuntimeMesh", AllowPrivateAccess = "true"))
 	class URuntimeMeshComponent* RuntimeMeshComponent;
 
+public:
 	UPROPERTY(Category = "RuntimeMeshActor", EditAnywhere, Meta = (AllowPrivateAccess = "true"))
 	bool bRunGenerateMeshesOnConstruction;
 

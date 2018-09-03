@@ -14,7 +14,7 @@
 *	Component that allows you to specify custom triangle mesh geometry for rendering and collision.
 */
 UCLASS(HideCategories = (Object, LOD), Meta = (BlueprintSpawnableComponent))
-class RUNTIMEMESHCOMPONENT_API URuntimeMeshComponent : public UMeshComponent
+class RUNTIMEMESHCOMPONENT_API URuntimeMeshComponent : public UMeshComponent, public IInterface_CollisionDataProvider
 {
 	GENERATED_BODY()
 
@@ -32,9 +32,6 @@ public:
 
 	URuntimeMeshComponent(const FObjectInitializer& ObjectInitializer);
 
-	//HORU: I've made this public from private
-	virtual UMaterialInterface* GetMaterial(int32 ElementIndex) const override;
-
 	/** Clears the geometry for ALL collision only sections */
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
 	FORCEINLINE URuntimeMesh* GetRuntimeMesh() const
@@ -49,6 +46,18 @@ public:
 		EnsureHasRuntimeMesh();
 
 		return RuntimeMeshReference;
+	}
+
+	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
+	bool ShouldSerializeMeshData()
+	{
+		return GetRuntimeMesh() ? GetRuntimeMesh()->ShouldSerializeMeshData() : false;
+	}
+
+	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
+	void SetShouldSerializeMeshData(bool bShouldSerialize)
+	{
+		GetOrCreateRuntimeMesh()->SetShouldSerializeMeshData(bShouldSerialize);
 	}
 
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh", Meta = (AllowPrivateAccess = "true", DisplayName = "Get Mobility"))
@@ -290,6 +299,13 @@ public:
 		GetOrCreateRuntimeMesh()->CreateMeshSectionByMove(SectionId, MeshData, bCreateCollision, UpdateFrequency, UpdateFlags);
 	}
 
+	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
+	void CreateMeshSectionFromBuilder(int32 SectionId, URuntimeBlueprintMeshBuilder* MeshData, bool bCreateCollision = false,
+		EUpdateFrequency UpdateFrequency = EUpdateFrequency::Average/*, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None*/)
+	{
+		GetOrCreateRuntimeMesh()->CreateMeshSectionFromBuilder(SectionId, MeshData, bCreateCollision, UpdateFrequency/*, UpdateFlags*/);
+	}
+
 
 
 	FORCEINLINE void UpdateMeshSection(int32 SectionId, const TSharedPtr<FRuntimeMeshBuilder>& MeshData, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
@@ -300,6 +316,12 @@ public:
 	FORCEINLINE void UpdateMeshSectionByMove(int32 SectionId, const TSharedPtr<FRuntimeMeshBuilder>& MeshData, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
 	{
 		GetOrCreateRuntimeMesh()->UpdateMeshSectionByMove(SectionId, MeshData, UpdateFlags);
+	}
+
+	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
+	void UpdateMeshSectionFromBuilder(int32 SectionId, URuntimeBlueprintMeshBuilder* MeshData/*, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None*/)
+	{
+		GetOrCreateRuntimeMesh()->UpdateMeshSectionFromBuilder(SectionId, MeshData/*, UpdateFlags*/);
 	}
 
 	
@@ -712,6 +734,13 @@ public:
 	}
 
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
+	bool IsCollisionUsingAsyncCooking()
+	{
+		check(IsInGameThread());
+		return GetRuntimeMesh() != nullptr ? GetRuntimeMesh()->IsCollisionUsingAsyncCooking() : false;
+	}
+
+	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
 	void SetCollisionMode(ERuntimeMeshCollisionCookingMode NewMode)
 	{
 		GetOrCreateRuntimeMesh()->SetCollisionMode(NewMode);
@@ -731,16 +760,24 @@ private:
 	//~ Begin UPrimitiveComponent Interface.
 	virtual FPrimitiveSceneProxy* CreateSceneProxy() override;
 	virtual class UBodySetup* GetBodySetup() override;
+
+public:
+
+	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
+	int32 GetSectionIdFromCollisionFaceIndex(int32 FaceIndex) const;
+
 	virtual UMaterialInterface* GetMaterialFromCollisionFaceIndex(int32 FaceIndex, int32& SectionIndex) const override;
 	//~ End UPrimitiveComponent Interface.
 
+public:
 	//~ Begin UMeshComponent Interface.
 	virtual int32 GetNumMaterials() const override;
 	virtual void GetUsedMaterials(TArray<UMaterialInterface*>& OutMaterials, bool bGetDebugMaterials = false) const override;
-	//HORU: I've made this public
-	//virtual UMaterialInterface* GetMaterial(int32 ElementIndex) const override;
+	virtual UMaterialInterface* GetMaterial(int32 ElementIndex) const override;
+	virtual UMaterialInterface* GetOverrideMaterial(int32 ElementIndex) const;
 	//~ End UMeshComponent Interface.
 
+private:
 
 	/* Serializes this component */
 	virtual void Serialize(FArchive& Ar) override;
@@ -758,6 +795,30 @@ private:
 
 	void SendSectionCreation(int32 SectionIndex);
 	void SendSectionPropertiesUpdate(int32 SectionIndex);
+
+	// This collision setup is only to support older engine versions where the BodySetup being owned by a non UActorComponent breaks runtime cooking
+
+	/** Collision data */
+	UPROPERTY(Instanced)
+	UBodySetup* BodySetup;
+
+	/** Queue of pending collision cooks */
+	UPROPERTY(Transient)
+	TArray<UBodySetup*> AsyncBodySetupQueue;
+
+	//~ Begin Interface_CollisionDataProvider Interface
+	virtual bool GetPhysicsTriMeshData(struct FTriMeshCollisionData* CollisionData, bool InUseAllTriData) override;
+	virtual bool ContainsPhysicsTriMeshData(bool InUseAllTriData) const override;
+	virtual bool WantsNegXTriMesh() override { return false; }
+	//~ End Interface_CollisionDataProvider Interface
+
+#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION < 21
+	UBodySetup* CreateNewBodySetup();
+	void FinishPhysicsAsyncCook(UBodySetup* FinishedBodySetup);
+
+	void UpdateCollision(bool bForceCookNow);
+#endif
+
 
 
 	friend class URuntimeMesh;
