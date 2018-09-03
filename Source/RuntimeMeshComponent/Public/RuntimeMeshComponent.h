@@ -32,6 +32,9 @@ public:
 
 	URuntimeMeshComponent(const FObjectInitializer& ObjectInitializer);
 
+	//HORU: I've made this public from private
+	virtual UMaterialInterface* GetMaterial(int32 ElementIndex) const override;
+
 	/** Clears the geometry for ALL collision only sections */
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
 	FORCEINLINE URuntimeMesh* GetRuntimeMesh() const
@@ -734,7 +737,8 @@ private:
 	//~ Begin UMeshComponent Interface.
 	virtual int32 GetNumMaterials() const override;
 	virtual void GetUsedMaterials(TArray<UMaterialInterface*>& OutMaterials, bool bGetDebugMaterials = false) const override;
-	virtual UMaterialInterface* GetMaterial(int32 ElementIndex) const override;
+	//HORU: I've made this public
+	//virtual UMaterialInterface* GetMaterial(int32 ElementIndex) const override;
 	//~ End UMeshComponent Interface.
 
 

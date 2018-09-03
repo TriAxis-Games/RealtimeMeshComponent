@@ -13,7 +13,7 @@
 #include "RuntimeMesh.h"
 #include "RuntimeMeshComponentProxy.h"
 #include "RuntimeMeshLegacySerialization.h"
-
+#include "AI/Navigation/NavigationSystem.h"
 
 
 

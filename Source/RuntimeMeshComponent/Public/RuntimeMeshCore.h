@@ -2,11 +2,12 @@
 
 #pragma once
 
-#include "Engine.h"
+#include "Engine/Engine.h"
 #include "Components/MeshComponent.h"
 #include "Runtime/Launch/Resources/Version.h"
 #include "Stats/Stats.h"
 #include "CriticalSection.h"
+#include "PackedNormal.h"
 #include "RuntimeMeshCore.generated.h"
 
 DECLARE_STATS_GROUP(TEXT("RuntimeMesh"), STATGROUP_RuntimeMesh, STATCAT_Advanced);
@@ -338,8 +339,8 @@ struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshNullLockProvider : public FRuntimeMe
 {
 	FRuntimeMeshNullLockProvider() { check(IsInGameThread()); }
 	virtual ~FRuntimeMeshNullLockProvider() { }
-	virtual void Lock(bool bIgnoreThreadIfNullLock = false) override { check(IsInGameThread()); }
-	virtual void Unlock() override { check(IsInGameThread()); }
+	virtual void Lock(bool bIgnoreThreadIfNullLock = false) override { /*check(IsInGameThread());*/ }
+	virtual void Unlock() override { /*check(IsInGameThread());*/ }
 };
 
 struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshMutexLockProvider : public FRuntimeMeshLockProvider

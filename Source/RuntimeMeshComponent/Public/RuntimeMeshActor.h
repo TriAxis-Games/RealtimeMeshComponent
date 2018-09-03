@@ -11,7 +11,8 @@ class RUNTIMEMESHCOMPONENT_API ARuntimeMeshActor : public AActor
 {
 	GENERATED_UCLASS_BODY()
 
-private:
+// HORU: all this used to be private
+protected:
 	UPROPERTY(Category = "RuntimeMeshActor", VisibleAnywhere, BlueprintReadOnly, Meta = (ExposeFunctionCategories = "Mesh,Rendering,Physics,Components|RuntimeMesh", AllowPrivateAccess = "true"))
 	class URuntimeMeshComponent* RuntimeMeshComponent;
 

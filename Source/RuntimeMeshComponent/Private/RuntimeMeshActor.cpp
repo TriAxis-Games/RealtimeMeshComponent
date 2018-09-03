@@ -3,6 +3,7 @@
 #include "RuntimeMeshActor.h"
 #include "RuntimeMeshComponent.h"
 #include "RuntimeMeshComponentPlugin.h"
+#include "Engine/CollisionProfile.h"
 
 
 ARuntimeMeshActor::ARuntimeMeshActor(const FObjectInitializer& ObjectInitializer)

@@ -5,6 +5,7 @@
 #include "RuntimeMeshComponent.h"
 #include "RuntimeMeshProxy.h"
 #include "PhysicsEngine/BodySetup.h"
+#include "TessellationRendering.h"
 
 FRuntimeMeshComponentSceneProxy::FRuntimeMeshComponentSceneProxy(URuntimeMeshComponent* Component) 
 	: FPrimitiveSceneProxy(Component)
