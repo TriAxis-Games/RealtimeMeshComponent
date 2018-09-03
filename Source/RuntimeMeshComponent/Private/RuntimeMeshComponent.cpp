@@ -13,7 +13,7 @@
 #include "RuntimeMesh.h"
 #include "RuntimeMeshComponentProxy.h"
 #include "RuntimeMeshLegacySerialization.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "NavigationSystem.h"
 
 
 
@@ -67,14 +67,14 @@ void URuntimeMeshComponent::NewCollisionMeshReceived()
 #if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 20
 	FNavigationSystem::UpdateComponentData(*this);
 #else
- 	if (UNavigationSystem::ShouldUpdateNavOctreeOnComponentChange() && IsRegistered())
+ 	if (UNavigationSystemV1::ShouldUpdateNavOctreeOnComponentChange() && IsRegistered())
  	{
  		UWorld* MyWorld = GetWorld();
  
- 		if (MyWorld != nullptr && MyWorld->GetNavigationSystem() != nullptr &&
- 			(MyWorld->GetNavigationSystem()->ShouldAllowClientSideNavigation() || !MyWorld->IsNetMode(ENetMode::NM_Client)))
+ 		if (MyWorld != nullptr && FNavigationSystem::GetCurrent(MyWorld) != nullptr &&
+ 			(FNavigationSystem::GetCurrent(MyWorld)->ShouldAllowClientSideNavigation() || !MyWorld->IsNetMode(ENetMode::NM_Client)))
  		{
- 			UNavigationSystem::UpdateComponentInNavOctree(*this);
+			UNavigationSystemV1::UpdateComponentInNavOctree(*this);
  		}
  	}
 #endif

@@ -8,20 +8,21 @@ public class RuntimeMeshComponentEditor : ModuleRules
     {
         PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 
-        PublicIncludePaths.AddRange(
-            new string[] {
-                "RuntimeMeshComponentEditor/Public"
-				// ... add public include paths required here ...
-			}
-            );
+        // HORU: this was throwing warnings
+        //     PublicIncludePaths.AddRange(
+        //         new string[] {
+        //             "RuntimeMeshComponentEditor/Public"
+        //	// ... add public include paths required here ...
+        //}
+        //         );
 
-
-        PrivateIncludePaths.AddRange(
-            new string[] {
-                "RuntimeMeshComponentEditor/Private",
-				// ... add other private include paths required here ...
-			}
-            );
+        // HORU: this was throwing warnings
+        //     PrivateIncludePaths.AddRange(
+        //         new string[] {
+        //             "RuntimeMeshComponentEditor/Private",
+        //	// ... add other private include paths required here ...
+        //}
+        //         );
 
 
         PublicDependencyModuleNames.AddRange(
