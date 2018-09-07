@@ -334,7 +334,7 @@ void FRuntimeMeshData::CreateMeshSectionFromComponents(int32 SectionIndex, const
 	FRuntimeMeshScopeLock Lock(SyncRoot);
 
 	// Create the section
-	auto NewSection = CreateOrResetSectionForBlueprint(SectionIndex, false, bUseHighPrecisionTangents, bUseHighPrecisionUVs, UpdateFrequency);
+	auto NewSection = CreateOrResetSectionForBlueprint(SectionIndex, bWantsSecondUV, bUseHighPrecisionTangents, bUseHighPrecisionUVs, UpdateFrequency);
 
 	TSharedPtr<FRuntimeMeshAccessor> MeshData = NewSection->GetSectionMeshAccessor();
 
