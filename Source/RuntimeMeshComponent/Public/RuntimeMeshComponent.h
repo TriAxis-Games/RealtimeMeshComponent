@@ -14,7 +14,7 @@
 *	Component that allows you to specify custom triangle mesh geometry for rendering and collision.
 */
 UCLASS(HideCategories = (Object, LOD), Meta = (BlueprintSpawnableComponent))
-class RUNTIMEMESHCOMPONENT_API URuntimeMeshComponent : public UMeshComponent
+class RUNTIMEMESHCOMPONENT_API URuntimeMeshComponent : public UMeshComponent, public IInterface_CollisionDataProvider
 {
 	GENERATED_BODY()
 
@@ -46,6 +46,18 @@ public:
 		EnsureHasRuntimeMesh();
 
 		return RuntimeMeshReference;
+	}
+
+	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
+	bool ShouldSerializeMeshData()
+	{
+		return GetRuntimeMesh() ? GetRuntimeMesh()->ShouldSerializeMeshData() : false;
+	}
+
+	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
+	void SetShouldSerializeMeshData(bool bShouldSerialize)
+	{
+		GetOrCreateRuntimeMesh()->SetShouldSerializeMeshData(bShouldSerialize);
 	}
 
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh", Meta = (AllowPrivateAccess = "true", DisplayName = "Get Mobility"))
@@ -722,6 +734,13 @@ public:
 	}
 
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
+	bool IsCollisionUsingAsyncCooking()
+	{
+		check(IsInGameThread());
+		return GetRuntimeMesh() != nullptr ? GetRuntimeMesh()->IsCollisionUsingAsyncCooking() : false;
+	}
+
+	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
 	void SetCollisionMode(ERuntimeMeshCollisionCookingMode NewMode)
 	{
 		GetOrCreateRuntimeMesh()->SetCollisionMode(NewMode);
@@ -776,6 +795,30 @@ private:
 
 	void SendSectionCreation(int32 SectionIndex);
 	void SendSectionPropertiesUpdate(int32 SectionIndex);
+
+	// This collision setup is only to support older engine versions where the BodySetup being owned by a non UActorComponent breaks runtime cooking
+
+	/** Collision data */
+	UPROPERTY(Instanced)
+	UBodySetup* BodySetup;
+
+	/** Queue of pending collision cooks */
+	UPROPERTY(Transient)
+	TArray<UBodySetup*> AsyncBodySetupQueue;
+
+	//~ Begin Interface_CollisionDataProvider Interface
+	virtual bool GetPhysicsTriMeshData(struct FTriMeshCollisionData* CollisionData, bool InUseAllTriData) override;
+	virtual bool ContainsPhysicsTriMeshData(bool InUseAllTriData) const override;
+	virtual bool WantsNegXTriMesh() override { return false; }
+	//~ End Interface_CollisionDataProvider Interface
+
+#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION < 21
+	UBodySetup* CreateNewBodySetup();
+	void FinishPhysicsAsyncCook(UBodySetup* FinishedBodySetup);
+
+	void UpdateCollision(bool bForceCookNow);
+#endif
+
 
 
 	friend class URuntimeMesh;

@@ -130,7 +130,12 @@ public:
 	}
 
 protected:
-#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 19
+#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 20
+	virtual void CreateSRV() override
+	{
+		ShaderResourceView = RHICreateShaderResourceView(VertexBufferRHI, bUseHighPrecision ? 8 : 4, bUseHighPrecision ? PF_R16G16B16A16_SNORM : PF_R8G8B8A8_SNORM);
+	}
+#elif ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 19
 	virtual void CreateSRV() override
 	{
 		ShaderResourceView = RHICreateShaderResourceView(VertexBufferRHI, bUseHighPrecision? 8 : 4, bUseHighPrecision? PF_A16B16G16R16 : PF_R8G8B8A8);

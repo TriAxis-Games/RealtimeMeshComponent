@@ -33,6 +33,8 @@ namespace FRuntimeMeshVersion
 		// This was the 4.19 RHI upgrades requiring an internal restructure
 		RuntimeMeshComponentUE4_19 = 6,
 
+		SerializationUpgradeToConfigurable = 7,
+
 		// -----<new versions can be added above this line>-------------------------------------------------
 		VersionPlusOne,
 		LatestVersion = VersionPlusOne - 1
