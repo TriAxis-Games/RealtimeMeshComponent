@@ -106,7 +106,11 @@ public:
 
 		if (bUseHighPrecision)
 		{
+#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 20
+			TangentElementType = VET_Short4N;
+#else
 			TangentElementType = VET_UShort4N;
+#endif
 			TangentSizeInBytes = sizeof(FRuntimeMeshTangentsHighPrecision);
 			TangentXOffset = offsetof(FRuntimeMeshTangentsHighPrecision, Tangent);
 			TangentZOffset = offsetof(FRuntimeMeshTangentsHighPrecision, Normal);
