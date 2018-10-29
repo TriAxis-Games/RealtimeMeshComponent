@@ -1100,6 +1100,8 @@ private:
 
 	int32 GetSectionFromCollisionFaceIndex(int32 FaceIndex) const;
 
+	int32 GetSectionAndFaceIndexFromCollisionFaceIndex(int32 & FaceIndex) const;
+
 
 	void DoOnGameThread(FRuntimeMeshGameThreadTaskDelegate Func);
 

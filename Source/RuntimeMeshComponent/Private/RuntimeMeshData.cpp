@@ -1479,6 +1479,40 @@ int32 FRuntimeMeshData::GetSectionFromCollisionFaceIndex(int32 FaceIndex) const
 
 	return SectionIndex;
 }
+/*
+* Gets the section ID from the given face index reference,
+* The face index reference then gets set to it's face index in the section.
+*/
+int32 FRuntimeMeshData::GetSectionAndFaceIndexFromCollisionFaceIndex(int32& FaceIndex) const
+{
+	SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_GetSectionFromCollisionFaceIndex);
+
+	FRuntimeMeshScopeLock Lock(SyncRoot);
+
+	int32 SectionIndex = 0;
+
+	// Look for element that corresponds to the supplied face
+	int32 TotalFaceCount = 0;
+
+	for (int32 SectionIdx = 0; SectionIdx < MeshSections.Num(); SectionIdx++)
+	{
+		const FRuntimeMeshSectionPtr& Section = MeshSections[SectionIdx];
+
+		if (Section.IsValid() && Section->IsCollisionEnabled())
+		{
+			int32 NumFaces = Section->GetNumIndices() / 3;
+
+			if (FaceIndex < TotalFaceCount + NumFaces)
+			{
+				// Grab the material
+				FaceIndex -= TotalFaceCount;
+				return SectionIdx;
+			}
+			TotalFaceCount += NumFaces;
+		}
+	}
+	return -1;
+}
 
 class FRuntimeMeshGameThreadTask
 {
