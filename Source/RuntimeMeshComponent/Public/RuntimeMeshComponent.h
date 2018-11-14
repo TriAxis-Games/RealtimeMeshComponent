@@ -807,10 +807,12 @@ private:
 	TArray<UBodySetup*> AsyncBodySetupQueue;
 
 	//~ Begin Interface_CollisionDataProvider Interface
+#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION < 22
 	virtual bool GetPhysicsTriMeshData(struct FTriMeshCollisionData* CollisionData, bool InUseAllTriData) override;
 	virtual bool ContainsPhysicsTriMeshData(bool InUseAllTriData) const override;
 	virtual bool WantsNegXTriMesh() override { return false; }
 	//~ End Interface_CollisionDataProvider Interface
+#endif
 
 #if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION < 21
 	UBodySetup* CreateNewBodySetup();

@@ -239,7 +239,7 @@ void URuntimeMeshComponent::PostLoad()
 }
 
 
-#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION < 21
+#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION < 22
 
 bool URuntimeMeshComponent::GetPhysicsTriMeshData(struct FTriMeshCollisionData* CollisionData, bool InUseAllTriData)
 {
@@ -252,6 +252,7 @@ bool URuntimeMeshComponent::GetPhysicsTriMeshData(struct FTriMeshCollisionData* 
 	return false;
 }
 
+
 bool URuntimeMeshComponent::ContainsPhysicsTriMeshData(bool InUseAllTriData) const
 {
 	URuntimeMesh* RuntimeMesh = GetRuntimeMesh();
@@ -261,6 +262,10 @@ bool URuntimeMeshComponent::ContainsPhysicsTriMeshData(bool InUseAllTriData) con
 	}
 	return false;
 }
+
+#endif
+
+#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION < 21
 
 UBodySetup* URuntimeMeshComponent::CreateNewBodySetup()
 {
