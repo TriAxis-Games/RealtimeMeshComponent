@@ -1,988 +1,541 @@
-// Copyright 2016 Chris Conway (Koderz). All Rights Reserved.
+// Copyright 2016-2018 Chris Conway (Koderz). All Rights Reserved.
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "RuntimeMeshCore.h"
 #include "RuntimeMeshGenericVertex.h"
 
-//////////////////////////////////////////////////////////////////////////
-//	This is a work in progress, it's functional, but could use some improvement
-//////////////////////////////////////////////////////////////////////////
+class FRuntimeMeshData;
+using FRuntimeMeshDataPtr = TSharedPtr<FRuntimeMeshData, ESPMode::ThreadSafe>;
+class FRuntimeMeshSection;
+using FRuntimeMeshSectionPtr = TSharedPtr<FRuntimeMeshSection, ESPMode::ThreadSafe>;
 
-enum class ERuntimeMeshVerticesBuilderType : uint8
+
+struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshAccessorVertex
 {
-	Component,
-	Packed
+	FVector Position;
+	FVector4 Normal;
+	FVector Tangent;
+	FColor Color;
+
+	TArray<FVector2D, TInlineAllocator<RUNTIMEMESH_MAXTEXCOORDS>> UVs;
 };
 
-
-class IRuntimeMeshVerticesBuilder
+class RUNTIMEMESHCOMPONENT_API FRuntimeMeshVerticesAccessor
 {
-public:
-	IRuntimeMeshVerticesBuilder() { }
-	IRuntimeMeshVerticesBuilder(const IRuntimeMeshVerticesBuilder& Other) = delete;
-	IRuntimeMeshVerticesBuilder& operator=(const IRuntimeMeshVerticesBuilder& Other) = delete;
-	virtual ~IRuntimeMeshVerticesBuilder() { }
+	bool bIsInitialized;
+	bool bIsReadonly;
+	TArray<uint8>* PositionStream;
+	static const int32 PositionStride = 12;
+	TArray<uint8>* TangentStream;
+	const bool bTangentHighPrecision;
+	const int32 TangentSize;
+	const int32 TangentStride;
+	TArray<uint8>* UVStream;
+	const bool bUVHighPrecision;
+	const int32 UVChannelCount;
+	const int32 UVSize;
+	const int32 UVStride;
+	TArray<uint8>* ColorStream;
+	static const int32 ColorStride = 4;
 
-	virtual ERuntimeMeshVerticesBuilderType GetBuilderType() const = 0;
-	virtual const FRuntimeMeshVertexTypeInfo* GetVertexType() const = 0;
-
-	virtual bool HasPositionComponent() const = 0;
-	virtual bool HasNormalComponent() const = 0;
-	virtual bool HasTangentComponent() const = 0;
-	virtual bool HasColorComponent() const = 0;
-	virtual bool HasUVComponent(int32 Index) const = 0;
-	virtual bool HasHighPrecisionNormals() const = 0;
-	virtual bool HasHighPrecisionUVs() const = 0;
-
-	virtual void SetPosition(const FVector& InPosition) = 0;
-	virtual void SetNormal(const FVector4& InNormal) = 0;
-	virtual void SetTangent(const FVector& InTangent) = 0;
-	virtual void SetColor(const FColor& InColor) = 0;
-	virtual void SetUV(int32 Index, const FVector2D& InUV) = 0;
-
-	virtual void SetPosition(int32 VertexIndex, const FVector& InPosition) = 0;
-	virtual void SetNormal(int32 VertexIndex, const FVector4& InNormal) = 0;
-	virtual void SetTangent(int32 VertexIndex, const FVector& InTangent) = 0;
-	virtual void SetColor(int32 VertexIndex, const FColor& InColor) = 0;
-	virtual void SetUV(int32 VertexIndex, int32 Index, const FVector2D& InUV) = 0;
-	
-	void SetTangents(const FVector& InTangentX, const FVector& InTangentY, const FVector& InTangentZ)
-	{
-		SetNormal(FVector4(InTangentZ, GetBasisDeterminantSign(InTangentX, InTangentY, InTangentZ)));
-		SetTangent(InTangentX);
-	}
-	void SetTangents(int32 VertexIndex, const FVector& InTangentX, const FVector& InTangentY, const FVector& InTangentZ)
-	{
-		Seek(VertexIndex);
-		SetNormal(FVector4(InTangentZ, GetBasisDeterminantSign(InTangentX, InTangentY, InTangentZ)));
-		SetTangent(InTangentX);
-	}
-
-	virtual FVector GetPosition() const = 0;
-	virtual FVector4 GetNormal() const = 0;
-	virtual FVector GetTangent() const = 0;
-	virtual FColor GetColor() const = 0;
-	virtual FVector2D GetUV(int32 Index) const = 0;
-
-	virtual FVector GetPosition(int32 VertexIndex) const = 0;
-	virtual FVector4 GetNormal(int32 VertexIndex) const = 0;
-	virtual FVector GetTangent(int32 VertexIndex) const = 0;
-	virtual FColor GetColor(int32 VertexIndex) const = 0;
-	virtual FVector2D GetUV(int32 VertexIndex, int32 Index) const = 0;
-
-	virtual int32 Length() const = 0;
-	virtual void Seek(int32 Position) const = 0;
-	void SeekEnd() const
-	{
-		Seek(Length() - 1);
-	}
-	virtual int32 MoveNext() const = 0;
-	virtual int32 MoveNextOrAdd() = 0;
-
-	virtual void Reset() = 0;
-
-	virtual IRuntimeMeshVerticesBuilder* Clone(bool bIncludeData = true) const = 0;
-
-	virtual bool WantsSeparatePositionBuffer() const
-	{
-		return false;
-	}
-};
-
-
-template<typename VertexType>
-class FRuntimeMeshPackedVerticesBuilder : public IRuntimeMeshVerticesBuilder
-{
-private:
-	TArray<VertexType>* Vertices;
-	TArray<FVector>* Positions;
-	int32 CurrentPosition;
-	bool bOwnsVertexArray;
 public:
 
-	FRuntimeMeshPackedVerticesBuilder(bool bWantsSeparatePositions = false)
-		: Vertices(new TArray<VertexType>())
-		, Positions(bWantsSeparatePositions? new TArray<FVector>() : nullptr)
-		, CurrentPosition(-1)
-		, bOwnsVertexArray(true)
-	{ }
-	FRuntimeMeshPackedVerticesBuilder(TArray<VertexType>* InVertices, TArray<FVector>* InPositions = nullptr)
-		: Vertices(InVertices)
-		, Positions(InPositions)
-		, CurrentPosition(-1)
-		, bOwnsVertexArray(false)
-	{ }
-	FRuntimeMeshPackedVerticesBuilder(const FRuntimeMeshPackedVerticesBuilder& Other) = delete;
-	FRuntimeMeshPackedVerticesBuilder& operator=(const FRuntimeMeshPackedVerticesBuilder& Other) = delete;
-	virtual ~FRuntimeMeshPackedVerticesBuilder() override
-	{
-		if (bOwnsVertexArray)
-		{
-			delete Vertices;
+	FRuntimeMeshVerticesAccessor(bool bInTangentsHighPrecision, bool bInUVsHighPrecision, int32 bInUVCount,
+		TArray<uint8>* PositionStreamData, TArray<uint8>* TangentStreamData, TArray<uint8>* UVStreamData, TArray<uint8>* ColorStreamData, bool bInIsReadonly = false);
+	virtual ~FRuntimeMeshVerticesAccessor();
 
-			if (Positions)
-			{
-				delete Positions;
-			}
-		}
-	}
+protected:
+	FRuntimeMeshVerticesAccessor(TArray<uint8>* PositionStreamData, TArray<uint8>* TangentStreamData, TArray<uint8>* UVStreamData, TArray<uint8>* ColorStreamData, bool bInIsReadonly);
 
+	void Initialize(bool bInTangentsHighPrecision, bool bInUVsHighPrecision, int32 bInUVCount);
 
-	virtual ERuntimeMeshVerticesBuilderType GetBuilderType() const
-	{
-		return ERuntimeMeshVerticesBuilderType::Packed;
-	}
-	virtual const FRuntimeMeshVertexTypeInfo* GetVertexType() const
-	{
-		return &VertexType::TypeInfo;
-	}
+public:
+	const bool IsUsingHighPrecisionTangents() const { return bTangentHighPrecision; }
+	const bool IsUsingHighPrecisionUVs() const { return bUVHighPrecision; }
+
+	const bool IsReadonly() const { return bIsReadonly; }
+
+	int32 NumVertices() const;
+	int32 NumUVChannels() const;
+
+	void EmptyVertices(int32 Slack = 0);
+	void SetNumVertices(int32 NewNum);
+
+	int32 AddVertex(FVector InPosition);
+
+	FVector GetPosition(int32 Index) const;
+	FVector4 GetNormal(int32 Index) const;
+	FVector GetTangent(int32 Index) const;
+	FColor GetColor(int32 Index) const;
+	FVector2D GetUV(int32 Index, int32 Channel = 0) const;
 
 
-	virtual bool HasPositionComponent() const override { return Positions != nullptr || FRuntimeMeshVertexTraits<VertexType>::HasPosition; }
-	virtual bool HasNormalComponent() const override { return FRuntimeMeshVertexTraits<VertexType>::HasNormal; }
-	virtual bool HasTangentComponent() const override { return FRuntimeMeshVertexTraits<VertexType>::HasTangent; }
-	virtual bool HasColorComponent() const override { return FRuntimeMeshVertexTraits<VertexType>::HasColor; }
-	virtual bool HasUVComponent(int32 Index) const override
-	{
-		switch (Index)
-		{
-		case 0:
-			return FRuntimeMeshVertexTraits<VertexType>::HasUV0;
-		case 1:
-			return FRuntimeMeshVertexTraits<VertexType>::HasUV1;
-		case 2:
-			return FRuntimeMeshVertexTraits<VertexType>::HasUV2;
-		case 3:
-			return FRuntimeMeshVertexTraits<VertexType>::HasUV3;
-		case 4:
-			return FRuntimeMeshVertexTraits<VertexType>::HasUV4;
-		case 5:
-			return FRuntimeMeshVertexTraits<VertexType>::HasUV5;
-		case 6:
-			return FRuntimeMeshVertexTraits<VertexType>::HasUV6;
-		case 7:
-			return FRuntimeMeshVertexTraits<VertexType>::HasUV7;
-		}
-		return false;
-	}
-	virtual bool HasHighPrecisionNormals() const override { return FRuntimeMeshVertexTraits<VertexType>::HasHighPrecisionNormals; }
-	virtual bool HasHighPrecisionUVs() const override { return FRuntimeMeshVertexTraits<VertexType>::HasHighPrecisionUVs; }
+	void SetPosition(int32 Index, const FVector& Value);
+	bool SetPositions(const int32 InsertAtIndex, const TArray<FVector>& Positions, const int32 Count, const bool bSizeToFit);
+	bool SetPositions(const int32 InsertAtIndex, const FVector *const Positions, const int32 Count, const bool bSizeToFit);
+	void SetNormal(int32 Index, const FVector4& Value);
+	void SetTangent(int32 Index, const FVector& Value);
+	void SetTangent(int32 Index, const FRuntimeMeshTangent& Value);
+	void SetColor(int32 Index, const FColor& Value);
+	bool SetColors(const int32 InsertAtIndex, const TArray<FColor>& Colors, const int32 Count, const bool bSizeToFit);
+	bool SetColors(const int32 InsertAtIndex, const FColor *const Colors, const int32 Count, const bool bSizeToFit);
+	void SetUV(int32 Index, const FVector2D& Value);
+	void SetUV(int32 Index, int32 Channel, const FVector2D& Value);
 
-	virtual void SetPosition(const FVector& InPosition) override 
-	{ 
-		if (Positions)
-		{
-			(*Positions)[CurrentPosition] = InPosition;
-		}
-		else
-		{
-			SetPositionInternal<VertexType>((*Vertices)[CurrentPosition], InPosition);
-		}		
-	}
-	virtual void SetNormal(const FVector4& InNormal) override { SetNormalInternal<VertexType>((*Vertices)[CurrentPosition], InNormal); }
-	virtual void SetTangent(const FVector& InTangent) override { SetTangentInternal<VertexType>((*Vertices)[CurrentPosition], InTangent); }
-	virtual void SetColor(const FColor& InColor) override { SetColorInternal<VertexType>((*Vertices)[CurrentPosition], InColor); }
-	virtual void SetUV(int32 Index, const FVector2D& InUV)
-	{
-		switch (Index)
-		{
-		case 0:
-			SetUV0Internal<VertexType>((*Vertices)[CurrentPosition], InUV);
-			return;
-		case 1:
-			SetUV1Internal<VertexType>((*Vertices)[CurrentPosition], InUV);
-			return;
-		case 2:
-			SetUV2Internal<VertexType>((*Vertices)[CurrentPosition], InUV);
-			return;
-		case 3:
-			SetUV3Internal<VertexType>((*Vertices)[CurrentPosition], InUV);
-			return;
-		case 4:
-			SetUV4Internal<VertexType>((*Vertices)[CurrentPosition], InUV);
-			return;
-		case 5:
-			SetUV5Internal<VertexType>((*Vertices)[CurrentPosition], InUV);
-			return;
-		case 6:
-			SetUV6Internal<VertexType>((*Vertices)[CurrentPosition], InUV);
-			return;
-		case 7:
-			SetUV7Internal<VertexType>((*Vertices)[CurrentPosition], InUV);
-			return;
-		}
-	}
+	/**
+	*	UV arrangement for 3 uv channels:
+	*	UVs[0]: vertex 0:uvChannel[0]
+	*	UVs[1]: vertex 0:uvChannel[1]
+	*	UVs[2]: vertex 0:uvChannel[2]
+	*	UVs[3]: vertex 1:uvChannel[0]
+	*	UVs[4]: vertex 1:uvChannel[1]
+	*	UVs[5]: vertex 1:uvChannel[2]
+	*	UVs[6]: vertex 2:uvChannel[0]
+	*	...
+	*
+	*	@param CountVertices			The number of vertices you want to add UV data for!
+	*/
+	bool SetUVs(const int32 InsertAtVertexIndex, const TArray<FVector2D>& UVs, const int32 CountVertices, const bool bSizeToFit);
+	bool SetUVs(const int32 InsertAtVertexIndex, const TArray<FVector2DHalf>& UVs, const int32 CountVertices, const bool bSizeToFit);
 
+	/**
+	*	UV arrangement for 3 uv channels:
+	*	UVs[0]: vertex 0:uvChannel[0]
+	*	UVs[1]: vertex 0:uvChannel[1]
+	*	UVs[2]: vertex 0:uvChannel[2]
+	*	UVs[3]: vertex 1:uvChannel[0]
+	*	UVs[4]: vertex 1:uvChannel[1]
+	*	UVs[5]: vertex 1:uvChannel[2]
+	*	UVs[6]: vertex 2:uvChannel[0]
+	*	...
+	*
+	*	@param UVs						Must point to the start of the uv data for a vertex!
+	*	@param CountVertices			The number of vertices you want to add UV data for!
+	*/
+	bool SetUVs(const int32 InsertAtVertexIndex, const FVector2D *const UVs, const int32 CountVertices, const bool bSizeToFit);
+	bool SetUVs(const int32 InsertAtVertexIndex, const FVector2DHalf *const UVs, const int32 CountVertices, const bool bSizeToFit);
 
-	virtual void SetPosition(int32 VertexIndex, const FVector& InPosition) override
-	{
-		Seek(VertexIndex);
-		if (Positions)
-		{
-			(*Positions)[CurrentPosition] = InPosition;
-		}
-		else
-		{
-			SetPositionInternal<VertexType>((*Vertices)[CurrentPosition], InPosition);
-		}
-	}
-	virtual void SetNormal(int32 VertexIndex, const FVector4& InNormal) override { Seek(VertexIndex); SetNormalInternal<VertexType>((*Vertices)[CurrentPosition], InNormal); }
-	virtual void SetTangent(int32 VertexIndex, const FVector& InTangent) override { Seek(VertexIndex); SetTangentInternal<VertexType>((*Vertices)[CurrentPosition], InTangent); }
-	virtual void SetColor(int32 VertexIndex, const FColor& InColor) override { Seek(VertexIndex); SetColorInternal<VertexType>((*Vertices)[CurrentPosition], InColor); }
-	virtual void SetUV(int32 VertexIndex, int32 Index, const FVector2D& InUV)
-	{
-		Seek(VertexIndex);
-		switch (Index)
-		{
-		case 0:
-			SetUV0Internal<VertexType>((*Vertices)[CurrentPosition], InUV);
-			return;
-		case 1:
-			SetUV1Internal<VertexType>((*Vertices)[CurrentPosition], InUV);
-			return;
-		case 2:
-			SetUV2Internal<VertexType>((*Vertices)[CurrentPosition], InUV);
-			return;
-		case 3:
-			SetUV3Internal<VertexType>((*Vertices)[CurrentPosition], InUV);
-			return;
-		case 4:
-			SetUV4Internal<VertexType>((*Vertices)[CurrentPosition], InUV);
-			return;
-		case 5:
-			SetUV5Internal<VertexType>((*Vertices)[CurrentPosition], InUV);
-			return;
-		case 6:
-			SetUV6Internal<VertexType>((*Vertices)[CurrentPosition], InUV);
-			return;
-		case 7:
-			SetUV7Internal<VertexType>((*Vertices)[CurrentPosition], InUV);
-			return;
-		}
-	}
+	void SetNormalTangent(int32 Index, FVector Normal, FRuntimeMeshTangent Tangent);
+	void SetTangents(int32 Index, FVector TangentX, FVector TangentY, FVector TangentZ);
 
+	FRuntimeMeshAccessorVertex GetVertex(int32 Index) const;
+	void SetVertex(int32 Index, const FRuntimeMeshAccessorVertex& Vertex);
+	int32 AddVertex(const FRuntimeMeshAccessorVertex& Vertex);
 
-	virtual FVector GetPosition() const override 
-	{ 
-		if (Positions)
-		{
-			return (*Positions)[CurrentPosition];
-		}
-		else
-		{
-			return GetPositionInternal<VertexType>((*Vertices)[CurrentPosition]);
-		}
-	}
-	virtual FVector4 GetNormal() const override { return GetNormalInternal<VertexType>((*Vertices)[CurrentPosition]); }
-	virtual FVector GetTangent() const override { return GetTangentInternal<VertexType>((*Vertices)[CurrentPosition]); }
-	virtual FColor GetColor() const override { return GetColorInternal<VertexType>((*Vertices)[CurrentPosition]); }
-	virtual FVector2D GetUV(int32 Index) const override
-	{
-		switch (Index)
-		{
-		case 0:
-			return GetUV0Internal<VertexType>((*Vertices)[CurrentPosition]);
-		case 1:
-			return GetUV1Internal<VertexType>((*Vertices)[CurrentPosition]);
-		case 2:
-			return GetUV2Internal<VertexType>((*Vertices)[CurrentPosition]);
-		case 3:
-			return GetUV3Internal<VertexType>((*Vertices)[CurrentPosition]);
-		case 4:
-			return GetUV4Internal<VertexType>((*Vertices)[CurrentPosition]);
-		case 5:
-			return GetUV5Internal<VertexType>((*Vertices)[CurrentPosition]);
-		case 6:
-			return GetUV6Internal<VertexType>((*Vertices)[CurrentPosition]);
-		case 7:
-			return GetUV7Internal<VertexType>((*Vertices)[CurrentPosition]);
-		}
-		return FVector2D::ZeroVector;
-	}
-
-
-	virtual FVector GetPosition(int32 VertexIndex) const override
-	{
-		Seek(VertexIndex);
-		if (Positions)
-		{
-			return (*Positions)[CurrentPosition];
-		}
-		else
-		{
-			return GetPositionInternal<VertexType>((*Vertices)[CurrentPosition]);
-		}
-	}
-	virtual FVector4 GetNormal(int32 VertexIndex) const override { Seek(VertexIndex); return GetNormalInternal<VertexType>((*Vertices)[CurrentPosition]); }
-	virtual FVector GetTangent(int32 VertexIndex) const override { Seek(VertexIndex); return GetTangentInternal<VertexType>((*Vertices)[CurrentPosition]); }
-	virtual FColor GetColor(int32 VertexIndex) const override { Seek(VertexIndex); return GetColorInternal<VertexType>((*Vertices)[CurrentPosition]); }
-	virtual FVector2D GetUV(int32 VertexIndex, int32 Index) const override
-	{
-		Seek(VertexIndex);
-		switch (Index)
-		{
-		case 0:
-			return GetUV0Internal<VertexType>((*Vertices)[CurrentPosition]);
-		case 1:
-			return GetUV1Internal<VertexType>((*Vertices)[CurrentPosition]);
-		case 2:
-			return GetUV2Internal<VertexType>((*Vertices)[CurrentPosition]);
-		case 3:
-			return GetUV3Internal<VertexType>((*Vertices)[CurrentPosition]);
-		case 4:
-			return GetUV4Internal<VertexType>((*Vertices)[CurrentPosition]);
-		case 5:
-			return GetUV5Internal<VertexType>((*Vertices)[CurrentPosition]);
-		case 6:
-			return GetUV6Internal<VertexType>((*Vertices)[CurrentPosition]);
-		case 7:
-			return GetUV7Internal<VertexType>((*Vertices)[CurrentPosition]);
-		}
-		return FVector2D::ZeroVector;
-	}
-
-	virtual int32 Length() const override { return Vertices->Num(); }
-	virtual void Seek(int32 Position) const override 
-	{ 
-		const_cast<FRuntimeMeshPackedVerticesBuilder<VertexType>*>(this)->CurrentPosition = Position;
-	}
-	virtual int32 MoveNext() const override
-	{
-		return ++const_cast<FRuntimeMeshPackedVerticesBuilder<VertexType>*>(this)->CurrentPosition;
-	}
-	virtual int32 MoveNextOrAdd() override
-	{
-		CurrentPosition++;
-		if (CurrentPosition >= Vertices->Num())
-		{
-			Vertices->SetNumZeroed(CurrentPosition + 1, false);
-			if (Positions)
-			{
-				Positions->SetNumZeroed(CurrentPosition + 1, false);
-			}
-		}
-		return CurrentPosition;
-	}
-
-	virtual void Reset() override
-	{
-		Vertices->Reset();
-		if (Positions)
-		{
-			Positions->Reset();
-		}
-		CurrentPosition = -1;
-	}
-
-	virtual IRuntimeMeshVerticesBuilder* Clone(bool bIncludeData = true) const override
-	{
-		FRuntimeMeshPackedVerticesBuilder<VertexType>* NewBuilder = new FRuntimeMeshPackedVerticesBuilder(Positions != nullptr);
-
-		if (bIncludeData)
-		{
-			*NewBuilder->Vertices = *Vertices;
-			*NewBuilder->Positions = *Positions;
-			NewBuilder->Seek(0);
-		}
-
-		return NewBuilder;
-	}
-
-	TArray<VertexType>* GetVertices()
-	{
-		return Vertices;
-	}
-
-	TArray<FVector>* GetPositions()
-	{
-		return Positions;
-	}
-
-
-	virtual bool WantsSeparatePositionBuffer() const
-	{
-		return Positions != nullptr;
-	}
 
 private:
-	template<typename Type>
-	FORCEINLINE static typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasPosition>::Type SetPositionInternal(Type& Vertex, const FVector& Position)
-	{
-		Vertex.Position = Position;
-	}
-	template<typename Type>
-	FORCEINLINE static typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasPosition>::Type SetPositionInternal(Type& Vertex, const FVector& Position)
-	{
-
-	}	
-	template<typename Type>
-	FORCEINLINE static typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasPosition, FVector>::Type GetPositionInternal(const Type& Vertex)
-	{
-		return Vertex.Position;
-	}
-	template<typename Type>
-	FORCEINLINE static typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasPosition, FVector>::Type GetPositionInternal(const Type& Vertex)
-	{
-		return FVector::ZeroVector;
-	}
-
 
 	template<typename Type>
-	FORCEINLINE static typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasNormal>::Type SetNormalInternal(Type& Vertex, const FVector4& Normal)
+	FVector4 ConvertPackedToNormal(const Type& Input)
 	{
-		Vertex.Normal = Normal;
-	}
-	template<typename Type>
-	FORCEINLINE static typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasNormal>::Type SetNormalInternal(Type& Vertex, const FVector4& Normal)
-	{
-
-	}
-	template<typename Type>
-	FORCEINLINE static typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasNormal, FVector4>::Type GetNormalInternal(const Type& Vertex)
-	{
-		return Vertex.Normal;
-	}
-	template<typename Type>
-	FORCEINLINE static typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasNormal, FVector4>::Type GetNormalInternal(const Type& Vertex)
-	{
-		return FVector::ZeroVector;
+#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 20
+		return Input.ToFVector4();
+#else
+		return Input;
+#endif
 	}
 
-
 	template<typename Type>
-	FORCEINLINE static typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasTangent>::Type SetTangentInternal(Type& Vertex, const FVector4& Tangent)
+	FVector ConvertPackedToTangent(const Type& Input)
 	{
-		Vertex.Tangent = Tangent;
-	}
-	template<typename Type>
-	FORCEINLINE static typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasTangent>::Type SetTangentInternal(Type& Vertex, const FVector4& Tangent)
-	{
-
-	}
-	template<typename Type>
-	FORCEINLINE static typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasTangent, FVector4>::Type GetTangentInternal(const Type& Vertex)
-	{
-		return Vertex.Tangent;
-	}
-	template<typename Type>
-	FORCEINLINE static typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasTangent, FVector4>::Type GetTangentInternal(const Type& Vertex)
-	{
-		return FVector::ZeroVector;
+#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 20
+		return Input.ToFVector();
+#else
+		return Input;
+#endif
 	}
 
+	template<typename Type>
+	typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasPosition>::Type
+		SetPositionValue(int32 Index, const Type& Vertex)
+	{
+		SetPosition(Index, Vertex.Position);
+	}
 
 	template<typename Type>
-	FORCEINLINE static typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasColor>::Type SetColorInternal(Type& Vertex, const FColor& Color)
+	typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasPosition>::Type
+		SetPositionValue(int32 Index, const Type& Vertex)
 	{
-		Vertex.Color = Color;
 	}
-	template<typename Type>
-	FORCEINLINE static typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasColor>::Type SetColorInternal(Type& Vertex, const FColor& Color)
-	{
 
-	}
 	template<typename Type>
-	FORCEINLINE static typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasColor, FColor>::Type GetColorInternal(const Type& Vertex)
+	typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasNormal>::Type
+		SetNormalValue(int32 Index, const Type& Vertex)
 	{
-		return Vertex.Color;
+		SetNormal(Index, ConvertPackedToNormal(Vertex.Normal));
 	}
+
 	template<typename Type>
-	FORCEINLINE static typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasColor, FColor>::Type GetColorInternal(const Type& Vertex)
+	typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasNormal>::Type
+		SetNormalValue(int32 Index, const Type& Vertex)
 	{
-		return FColor::Transparent;
+	}
+
+	template<typename Type>
+	typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasTangent>::Type
+		SetTangentValue(int32 Index, const Type& Vertex)
+	{
+		SetTangent(Index, ConvertPackedToTangent(Vertex.Tangent));
+	}
+
+	template<typename Type>
+	typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasTangent>::Type
+		SetTangentValue(int32 Index, const Type& Vertex)
+	{
+	}
+
+	template<typename Type>
+	typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasColor>::Type
+		SetColorValue(int32 Index, const Type& Vertex)
+	{
+		SetColor(Index, Vertex.Color);
+	}
+
+	template<typename Type>
+	typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasColor>::Type
+		SetColorValue(int32 Index, const Type& Vertex)
+	{
 	}
 
 
 
-#define CreateUVChannelGetSetPair(Index)																											\
-	template<typename Type>																															\
-	FORCEINLINE static typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasUV##Index>::Type SetUV##Index##Internal(Type& Vertex, const FVector2D& UV##Index)			\
-	{																																				\
-		Vertex.UV##Index = UV##Index;																												\
-	}																																				\
-	template<typename Type>																															\
-	FORCEINLINE static typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasUV##Index>::Type SetUV##Index##Internal(Type& Vertex, const FVector2D& UV##Index)			\
-	{																																				\
-	}																																				\
-	template<typename Type>																															\
-	FORCEINLINE static typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasUV##Index, FVector2D>::Type GetUV##Index##Internal(const Type& Vertex)						\
-	{																																				\
-		return Vertex.UV##Index;																													\
-	}																																				\
-	template<typename Type>																															\
-	FORCEINLINE static typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasUV##Index, FVector2D>::Type GetUV##Index##Internal(const Type& Vertex)					\
-	{																																				\
-		return FVector2D::ZeroVector;																												\
-	}																																				
+
+	template<typename Type>
+	typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasUV0>::Type
+		SetUV0Value(int32 Index, const Type& Vertex)
+	{
+		SetUV(Index, 0, Vertex.UV0);
+	}
+
+	template<typename Type>
+	typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasUV0>::Type
+		SetUV0Value(int32 Index, const Type& Vertex)
+	{
+	}
+
+	template<typename Type>
+	typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasUV1>::Type
+		SetUV1Value(int32 Index, const Type& Vertex)
+	{
+		SetUV(Index, 1, Vertex.UV1);
+	}
+
+	template<typename Type>
+	typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasUV1>::Type
+		SetUV1Value(int32 Index, const Type& Vertex)
+	{
+	}
+
+	template<typename Type>
+	typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasUV2>::Type
+		SetUV2Value(int32 Index, const Type& Vertex)
+	{
+		SetUV(Index, 2, Vertex.UV2);
+	}
+
+	template<typename Type>
+	typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasUV2>::Type
+		SetUV2Value(int32 Index, const Type& Vertex)
+	{
+	}
+
+	template<typename Type>
+	typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasUV3>::Type
+		SetUV3Value(int32 Index, const Type& Vertex)
+	{
+		SetUV(Index, 3, Vertex.UV3);
+	}
+
+	template<typename Type>
+	typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasUV3>::Type
+		SetUV3Value(int32 Index, const Type& Vertex)
+	{
+	}
+
+	template<typename Type>
+	typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasUV4>::Type
+		SetUV4Value(int32 Index, const Type& Vertex)
+	{
+		SetUV(Index, 4, Vertex.UV4);
+	}
+
+	template<typename Type>
+	typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasUV4>::Type
+		SetUV4Value(int32 Index, const Type& Vertex)
+	{
+	}
+
+	template<typename Type>
+	typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasUV5>::Type
+		SetUV5Value(int32 Index, const Type& Vertex)
+	{
+		SetUV(Index, 5, Vertex.UV5);
+	}
+
+	template<typename Type>
+	typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasUV5>::Type
+		SetUV5Value(int32 Index, const Type& Vertex)
+	{
+	}
+
+	template<typename Type>
+	typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasUV6>::Type
+		SetUV6Value(int32 Index, const Type& Vertex)
+	{
+		SetUV(Index, 6, Vertex.UV6);
+	}
+
+	template<typename Type>
+	typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasUV6>::Type
+		SetUV6Value(int32 Index, const Type& Vertex)
+	{
+	}
+
+	template<typename Type>
+	typename TEnableIf<FRuntimeMeshVertexTraits<Type>::HasUV7>::Type
+		SetUV7Value(int32 Index, const Type& Vertex)
+	{
+		SetUV(Index, 7, Vertex.UV7);
+	}
+
+	template<typename Type>
+	typename TEnableIf<!FRuntimeMeshVertexTraits<Type>::HasUV7>::Type
+		SetUV7Value(int32 Index, const Type& Vertex)
+	{
+	}
 
 
-CreateUVChannelGetSetPair(0);
-CreateUVChannelGetSetPair(1);
-CreateUVChannelGetSetPair(2);
-CreateUVChannelGetSetPair(3);
-CreateUVChannelGetSetPair(4);
-CreateUVChannelGetSetPair(5);
-CreateUVChannelGetSetPair(6);
-CreateUVChannelGetSetPair(7);
 
 
-#undef CreateUVChannelGetSetPair
+public:
+	// Helper for setting vertex properties from the old style packed vertices like the generic vertex
+	template<typename VertexType>
+	void SetVertexProperties(int32 Index, const VertexType& Vertex)
+	{
+		SetPositionValue(Index, Vertex);
+		SetNormalValue(Index, Vertex);
+		SetTangentValue(Index, Vertex);
+		SetColorValue(Index, Vertex);
+
+		SetUV0Value(Index, Vertex);
+		SetUV1Value(Index, Vertex);
+		SetUV2Value(Index, Vertex);
+		SetUV3Value(Index, Vertex);
+		SetUV4Value(Index, Vertex);
+		SetUV5Value(Index, Vertex);
+		SetUV6Value(Index, Vertex);
+		SetUV7Value(Index, Vertex);
+	}
+
+	template<typename VertexType0>
+	void AddVertexByProperties(const VertexType0& Vertex0)
+	{
+		int32 NewIndex = AddSingleVertex();
+		SetVertexProperties(NewIndex, Vertex0);
+	}
+
+	template<typename VertexType0, typename VertexType1>
+	void AddVertexByProperties(const VertexType0& Vertex0, const VertexType1& Vertex1)
+	{
+		int32 NewIndex = AddSingleVertex();
+		SetVertexProperties(NewIndex, Vertex0);
+		SetVertexProperties(NewIndex, Vertex1);
+	}
+
+	template<typename VertexType0, typename VertexType1, typename VertexType2>
+	void AddVertexByProperties(const VertexType0& Vertex0, const VertexType1& Vertex1, const VertexType2& Vertex2)
+	{
+		int32 NewIndex = AddSingleVertex();
+		SetVertexProperties(NewIndex, Vertex0);
+		SetVertexProperties(NewIndex, Vertex1);
+		SetVertexProperties(NewIndex, Vertex2);
+	}
+
+
+protected:
+
+	void Unlink()
+	{
+		bIsInitialized = false;
+		PositionStream = nullptr;
+		TangentStream = nullptr;
+		UVStream = nullptr;
+		ColorStream = nullptr;
+	}
+
+	int32 AddSingleVertex();
+
 };
 
-class RUNTIMEMESHCOMPONENT_API FRuntimeMeshComponentVerticesBuilder : public IRuntimeMeshVerticesBuilder
+// ISO C++ (IS 14.7.2/6) and Clang want template specializations to occur outside of the class scope
+template<>
+inline FVector4 FRuntimeMeshVerticesAccessor::ConvertPackedToNormal<FVector4>(const FVector4& Input)
 {
+	return Input;
+}
+template<>
+inline FVector FRuntimeMeshVerticesAccessor::ConvertPackedToTangent<FVector>(const FVector& Input)
+{
+	return Input;
+}
+
+class RUNTIMEMESHCOMPONENT_API FRuntimeMeshIndicesAccessor
+{
+	bool bIsInitialized;
+	bool bIsReadonly;
+	TArray<uint8>* IndexStream;
+	bool b32BitIndices;
+
+public:
+
+	FRuntimeMeshIndicesAccessor(bool bIn32BitIndices, TArray<uint8>* IndexStreamData, bool bInIsReadonly = false);
+	virtual ~FRuntimeMeshIndicesAccessor();
+
+protected:
+	FRuntimeMeshIndicesAccessor(TArray<uint8>* IndexStreamData, bool bInIsReadonly);
+
+	void Initialize(bool bIn32BitIndices);
+
+public:
+	bool IsUsing32BitIndices() const { return b32BitIndices; }
+
+	const bool IsReadonly() const { return bIsReadonly; }
+
+
+	int32 NumIndices() const;
+	void EmptyIndices(int32 Slack = 0);
+	void SetNumIndices(int32 NewNum);
+	int32 AddIndex(int32 NewIndex);
+	int32 AddTriangle(int32 Index0, int32 Index1, int32 Index2);
+
+	int32 GetIndex(int32 Index) const;
+	void SetIndex(int32 Index, int32 Value);
+	bool SetIndices(const int32 InsertAtIndex, const TArray<uint16>& Indices, const int32 Count, const bool bSizeToFit);
+	bool SetIndices(const int32 InsertAtIndex, const uint16 *const Indices, const int32 Count, const bool bSizeToFit);
+	bool SetIndices(const int32 InsertAtIndex, const TArray<int32>& Indices, const int32 Count, const bool bSizeToFit);
+	bool SetIndices(const int32 InsertAtIndex, const int32 *const Indices, const int32 Count, const bool bSizeToFit);
+
+protected:
+
+	FORCEINLINE int32 GetIndexStride() const { return b32BitIndices ? sizeof(int32) : sizeof(uint16); }
+
+	void Unlink()
+	{
+		bIsInitialized = false;
+		IndexStream = nullptr;
+	}
+};
+
+
+/**
+*
+*/
+class RUNTIMEMESHCOMPONENT_API FRuntimeMeshAccessor : public FRuntimeMeshVerticesAccessor, public FRuntimeMeshIndicesAccessor
+{
+
+
+public:
+
+	FRuntimeMeshAccessor(bool bInTangentsHighPrecision, bool bInUVsHighPrecision, int32 bInUVCount, bool bIn32BitIndices, TArray<uint8>* PositionStreamData,
+		TArray<uint8>* TangentStreamData, TArray<uint8>* UVStreamData, TArray<uint8>* ColorStreamData, TArray<uint8>* IndexStreamData, bool bInIsReadonly = false);
+	virtual ~FRuntimeMeshAccessor() override;
+
+protected:
+	FRuntimeMeshAccessor(TArray<uint8>* PositionStreamData, TArray<uint8>* TangentStreamData, TArray<uint8>* UVStreamData, TArray<uint8>* ColorStreamData, TArray<uint8>* IndexStreamData, bool bInIsReadonly);
+
+	void Initialize(bool bInTangentsHighPrecision, bool bInUVsHighPrecision, int32 bInUVCount, bool bIn32BitIndices);
+
+public:
+	bool IsReadonly() const { return FRuntimeMeshVerticesAccessor::IsReadonly() || FRuntimeMeshIndicesAccessor::IsReadonly(); }
+
+	void CopyTo(const TSharedPtr<FRuntimeMeshAccessor>& Other, bool bClearDestination = false) const;
+
+	void Unlink()
+	{
+		FRuntimeMeshVerticesAccessor::Unlink();
+		FRuntimeMeshIndicesAccessor::Unlink();
+	}
+
+};
+
+
+/**
+ * Generic mesh builder. Can work on any valid stream configuration.
+ * Wraps FRuntimeMeshAccessor to provide standalone operation for creating new mesh data.
+ */
+class RUNTIMEMESHCOMPONENT_API FRuntimeMeshBuilder : public FRuntimeMeshAccessor
+{
+	TArray<uint8> PositionStream;
+	TArray<uint8> TangentStream;
+	TArray<uint8> UVStream;
+	TArray<uint8> ColorStream;
+
+	TArray<uint8> IndexStream;
+
+public:
+	FRuntimeMeshBuilder(bool bInTangentsHighPrecision, bool bInUVsHighPrecision, int32 bInUVCount, bool bIn32BitIndices);
+
+	virtual ~FRuntimeMeshBuilder() override;
+	
+	TArray<uint8>& GetPositionStream() { return PositionStream; }
+	TArray<uint8>& GetTangentStream() { return TangentStream; }
+	TArray<uint8>& GetUVStream() { return UVStream; }
+	TArray<uint8>& GetColorStream() { return ColorStream; }
+	TArray<uint8>& GetIndexStream() { return IndexStream; }
+};
+
+
+class RUNTIMEMESHCOMPONENT_API FRuntimeMeshScopedUpdater : public FRuntimeMeshAccessor, private FRuntimeMeshScopeLock
+{
+	FRuntimeMeshDataPtr	LinkedMeshData;
+	int32 SectionIndex;
+	ESectionUpdateFlags UpdateFlags;
+	
 private:
-	TArray<FVector>* Positions;
-	TArray<FVector>* Normals;
-	TArray<FRuntimeMeshTangent>* Tangents;
-	TArray<FColor>* Colors;
-	TArray<FVector2D>* UV0s;
-	TArray<FVector2D>* UV1s;
-	int32 CurrentPosition;
-	bool bOwnsBuffers;
-public:
-
-	FRuntimeMeshComponentVerticesBuilder(bool bInWantsNormal, bool bInWantsTangent, bool bInWantsColor, bool bInWantsUV0, bool bInWantsUV1)
-		: Positions(new TArray<FVector>())
-		, Normals(bInWantsNormal ? new TArray<FVector>() : nullptr)
-		, Tangents(bInWantsTangent ? new TArray<FRuntimeMeshTangent>() : nullptr)
-		, Colors(bInWantsColor ? new TArray<FColor>() : nullptr)
-		, UV0s(bInWantsUV0 ? new TArray<FVector2D>() : nullptr)
-		, UV1s(bInWantsUV1 ? new TArray<FVector2D>() : nullptr)
-		, CurrentPosition(-1)
-		, bOwnsBuffers(true)		
-	{ }
-	FRuntimeMeshComponentVerticesBuilder(TArray<FVector>* InPositions, TArray<FVector>* InNormals, TArray<FRuntimeMeshTangent>* InTangents,
-		TArray<FColor>* InColors, TArray<FVector2D>* InUV0s, TArray<FVector2D>* InUV1s = nullptr)
-		: Positions(InPositions)
-		, Normals(InNormals)
-		, Tangents(InTangents)
-		, Colors(InColors)
-		, UV0s(InUV0s)
-		, UV1s(InUV1s)
-		, CurrentPosition(-1)
-		, bOwnsBuffers(false)
-	{ }
-	FRuntimeMeshComponentVerticesBuilder(const FRuntimeMeshComponentVerticesBuilder& Other) = delete;
-	FRuntimeMeshComponentVerticesBuilder& operator=(const FRuntimeMeshComponentVerticesBuilder& Other) = delete;
-	virtual ~FRuntimeMeshComponentVerticesBuilder() override
-	{
-		if (bOwnsBuffers)
-		{			
-			if (Positions) delete Positions;
-			if (Normals) delete Normals;
-			if (Tangents) delete Tangents;
-			if (Colors) delete Colors;
-			if (UV0s) delete UV0s;
-			if (UV1s) delete UV1s;
-		}
-	}
-
-
-	virtual ERuntimeMeshVerticesBuilderType GetBuilderType() const { return ERuntimeMeshVerticesBuilderType::Packed; }
-	virtual const FRuntimeMeshVertexTypeInfo* GetVertexType() const;
-
-
-	virtual bool HasPositionComponent() const override { return Positions != nullptr; }
-	virtual bool HasNormalComponent() const override { return Normals != nullptr; }
-	virtual bool HasTangentComponent() const override { return Tangents != nullptr; }
-	virtual bool HasColorComponent() const override { return Colors != nullptr; }
-	virtual bool HasUVComponent(int32 Index) const override
-	{
-		switch (Index)
-		{
-		case 0:
-			return UV0s != nullptr;
-		case 1:
-			return UV1s != nullptr;
-		default:
-			return false;
-		}
-	}
-	virtual bool HasHighPrecisionNormals() const override { return false; }
-	virtual bool HasHighPrecisionUVs() const override { return true; }
-
-	virtual void SetPosition(const FVector& InPosition) override 
-	{
-		if (CurrentPosition >= Positions->Num())
-		{
-			Positions->SetNumZeroed(CurrentPosition + 1, false);
-		}
-		(*Positions)[CurrentPosition] = InPosition;
-	}
-	virtual void SetNormal(const FVector4& InNormal) override
-	{
-		if (Normals)
-		{
-			if (CurrentPosition >= Normals->Num())
-			{
-				Normals->SetNumZeroed(CurrentPosition + 1, false);
-			}
-			(*Normals)[CurrentPosition] = InNormal;
-			
-			if (CurrentPosition >= Tangents->Num())
-			{
-				Tangents->SetNumZeroed(CurrentPosition + 1, false);
-			}
-			(*Tangents)[CurrentPosition].bFlipTangentY = InNormal.W < 0.0f;
-		}
-	}
-	virtual void SetTangent(const FVector& InTangent) override
-	{
-		if (Tangents)
-		{
-			if (CurrentPosition >= Tangents->Num())
-			{
-				Tangents->SetNumZeroed(CurrentPosition + 1, false);
-			}
-			(*Tangents)[CurrentPosition].TangentX = InTangent;
-		}
-	}
-	virtual void SetColor(const FColor& InColor) override
-	{
-		if (Colors)
-		{
-			if (CurrentPosition >= Colors->Num())
-			{
-				Colors->SetNumZeroed(CurrentPosition + 1, false);
-			}
-			(*Colors)[CurrentPosition] = InColor;
-		}
-	}
-	virtual void SetUV(int32 Index, const FVector2D& InUV)
-	{
-		switch (Index)
-		{
-		case 0:
-		{
-			if (UV0s)
-			{
-				if (CurrentPosition >= UV0s->Num())
-				{
-					UV0s->SetNumZeroed(CurrentPosition + 1, false);
-				}
-				(*UV0s)[CurrentPosition] = InUV;
-			}
-		}
-		case 1:
-		{
-			if (UV1s)
-			{
-				if (CurrentPosition >= UV1s->Num())
-				{
-					UV1s->SetNumZeroed(CurrentPosition + 1, false);
-				}
-				(*UV1s)[CurrentPosition] = InUV;
-			}
-		}
-		default:
-			return;
-		}
-	}
-
-	virtual void SetPosition(int32 VertexIndex, const FVector& InPosition) override
-	{
-		Seek(VertexIndex);
-		if (CurrentPosition >= Positions->Num())
-		{
-			Positions->SetNumZeroed(CurrentPosition + 1, false);
-		}
-		(*Positions)[CurrentPosition] = InPosition;
-	}
-	virtual void SetNormal(int32 VertexIndex, const FVector4& InNormal) override
-	{
-		Seek(VertexIndex);
-		if (Normals)
-		{
-			if (CurrentPosition >= Normals->Num())
-			{
-				Normals->SetNumZeroed(CurrentPosition + 1, false);
-			}
-			(*Normals)[CurrentPosition] = InNormal;
-			(*Tangents)[CurrentPosition].bFlipTangentY = InNormal.W < 0.0f;
-		}
-	}
-	virtual void SetTangent(int32 VertexIndex, const FVector& InTangent) override
-	{
-		Seek(VertexIndex);
-		if (Tangents)
-		{
-			if (CurrentPosition >= Tangents->Num())
-			{
-				Tangents->SetNumZeroed(CurrentPosition + 1, false);
-			}
-			(*Tangents)[CurrentPosition].TangentX = InTangent;
-		}
-	}
-	virtual void SetColor(int32 VertexIndex, const FColor& InColor) override
-	{
-		Seek(VertexIndex);
-		if (Colors)
-		{
-			if (CurrentPosition >= Colors->Num())
-			{
-				Colors->SetNumZeroed(CurrentPosition + 1, false);
-			}
-			(*Colors)[CurrentPosition] = InColor;
-		}
-	}
-	virtual void SetUV(int32 VertexIndex, int32 Index, const FVector2D& InUV)
-	{
-		Seek(VertexIndex);
-		switch (Index)
-		{
-		case 0:
-		{
-			if (UV0s)
-			{
-				if (CurrentPosition >= UV0s->Num())
-				{
-					UV0s->SetNumZeroed(CurrentPosition + 1, false);
-				}
-				(*UV0s)[CurrentPosition] = InUV;
-			}
-		}
-		case 1:
-		{
-			if (UV1s)
-			{
-				if (CurrentPosition >= UV1s->Num())
-				{
-					UV1s->SetNumZeroed(CurrentPosition + 1, false);
-				}
-				(*UV1s)[CurrentPosition] = InUV;
-			}
-		}
-		default:
-			return;
-		}
-	}
-
-	virtual FVector GetPosition() const override
-	{
-		check(Positions && Positions->Num() > CurrentPosition);
-		return (*Positions)[CurrentPosition];
-	}
-	virtual FVector4 GetNormal() const override
-	{
-		check(Normals && Normals->Num() > CurrentPosition);
-		float W = (Tangents && Tangents->Num() > CurrentPosition) ? ((*Tangents)[CurrentPosition].bFlipTangentY ? -1.0f : 1.0f) : 1.0f;
-		return FVector4((*Normals)[CurrentPosition], W);
-	}
-	virtual FVector GetTangent() const override
-	{
-		check(Tangents && Tangents->Num() > CurrentPosition);
-		return (*Tangents)[CurrentPosition].TangentX;
-	}
-	virtual FColor GetColor() const override
-	{
-		check(Colors && Colors->Num() > CurrentPosition);
-		return (*Colors)[CurrentPosition];
-	}
-	virtual FVector2D GetUV(int32 Index) const override
-	{
-		switch (Index)
-		{
-		case 0:
-			check(UV0s && UV0s->Num() > CurrentPosition);
-			return (*UV0s)[CurrentPosition];
-		case 1:
-			check(UV1s && UV1s->Num() > CurrentPosition);
-			return (*UV1s)[CurrentPosition];
-		}
-		return FVector2D::ZeroVector;
-	}
-
-	virtual FVector GetPosition(int32 VertexIndex) const override
-	{
-		Seek(VertexIndex);
-		check(Positions && Positions->Num() > CurrentPosition);
-		return (*Positions)[CurrentPosition];
-	}
-	virtual FVector4 GetNormal(int32 VertexIndex) const override
-	{
-		Seek(VertexIndex);
-		check(Normals && Normals->Num() > CurrentPosition);
-		float W = (Tangents && Tangents->Num() > CurrentPosition) ? ((*Tangents)[CurrentPosition].bFlipTangentY ? -1.0f : 1.0f) : 1.0f;
-		return FVector4((*Normals)[CurrentPosition], W);
-	}
-	virtual FVector GetTangent(int32 VertexIndex) const override
-	{
-		Seek(VertexIndex);
-		check(Tangents && Tangents->Num() > CurrentPosition);
-		return (*Tangents)[CurrentPosition].TangentX;
-	}
-	virtual FColor GetColor(int32 VertexIndex) const override
-	{
-		Seek(VertexIndex);
-		check(Colors && Colors->Num() > CurrentPosition);
-		return (*Colors)[CurrentPosition];
-	}
-	virtual FVector2D GetUV(int32 VertexIndex, int32 Index) const override
-	{
-		Seek(VertexIndex);
-		switch (Index)
-		{
-		case 0:
-			check(UV0s && UV0s->Num() > CurrentPosition);
-			return (*UV0s)[CurrentPosition];
-		case 1:
-			check(UV1s && UV1s->Num() > CurrentPosition);
-			return (*UV1s)[CurrentPosition];
-		}
-		return FVector2D::ZeroVector;
-	}
-
-
-	virtual int32 Length() const override { return Positions->Num(); }
-	virtual void Seek(int32 Position) const override
-	{
-		const_cast<FRuntimeMeshComponentVerticesBuilder*>(this)->CurrentPosition = Position;
-	}
-	virtual int32 MoveNext() const override
-	{
-		return ++const_cast<FRuntimeMeshComponentVerticesBuilder*>(this)->CurrentPosition;
-	}
-	virtual int32 MoveNextOrAdd() override
-	{
-		return ++CurrentPosition;
-	}
-
+	FRuntimeMeshScopedUpdater(const FRuntimeMeshDataPtr& InLinkedMeshData, int32 InSectionIndex, ESectionUpdateFlags InUpdateFlags, bool bInTangentsHighPrecision, bool bInUVsHighPrecision, int32 bInUVCount, bool bIn32BitIndices, TArray<uint8>* PositionStreamData,
+		TArray<uint8>* TangentStreamData, TArray<uint8>* UVStreamData, TArray<uint8>* ColorStreamData, TArray<uint8>* IndexStreamData, FRuntimeMeshLockProvider* InSyncObject, bool bIsReadonly);
 	
-	TArray<FVector>* GetPositions() const { return Positions; }
-	TArray<FVector>* GetNormals() const { return Normals; }
-	TArray<FRuntimeMeshTangent>* GetTangents() const { return Tangents; }
-	TArray<FColor>* GetColors() const { return Colors; }
-	TArray<FVector2D>* GetUV0s() const { return UV0s; }
-	TArray<FVector2D>* GetUV1s() const { return UV1s; }
+public:
+	~FRuntimeMeshScopedUpdater();
 
-	virtual void Reset() override
-	{
-		Positions->Reset();
-		Normals->Reset();
-		Tangents->Reset();
-		Colors->Reset();
-		UV0s->Reset();
-		UV1s->Reset();
-		CurrentPosition = -1;
-	}
+	void Commit(bool bNeedsPositionUpdate = true, bool bNeedsNormalTangentUpdate = true, bool bNeedsColorUpdate = true, bool bNeedsUVUpdate = true, bool bNeedsIndexUpdate = true);
+	void Commit(const FBox& BoundingBox, bool bNeedsPositionUpdate = true, bool bNeedsNormalTangentUpdate = true, bool bNeedsColorUpdate = true, bool bNeedsUVUpdate = true, bool bNeedsIndexUpdate = true);
+	void Cancel();
 
-	virtual IRuntimeMeshVerticesBuilder* Clone(bool bIncludeData = true) const override
-	{
-		FRuntimeMeshComponentVerticesBuilder* NewBuilder = new FRuntimeMeshComponentVerticesBuilder(Normals != nullptr, Tangents != nullptr, Colors != nullptr, UV0s != nullptr, UV1s != nullptr);
-
-		if (bIncludeData)
-		{
-			*NewBuilder->Positions = *Positions;
-			*NewBuilder->Normals = *Normals;
-			*NewBuilder->Tangents = *Tangents;
-			*NewBuilder->Colors = *Colors;
-			*NewBuilder->UV0s = *UV0s;
-			*NewBuilder->UV1s = *UV1s;
-			NewBuilder->Seek(0);
-		}
-
-		return NewBuilder;
-	}
+	friend class FRuntimeMeshData;
+	friend class FRuntimeMeshSection;
 };
 
 
 
-class FRuntimeMeshIndicesBuilder
+template<typename TangentType, typename UVType, typename IndexType>
+FORCEINLINE TSharedRef<FRuntimeMeshBuilder> MakeRuntimeMeshBuilder()
 {
-	bool bOwnsIndexArray;
-	TArray<int32>* Indices;
-	int32 CurrentPosition;
-public:
+	bool bIsUsingHighPrecisionUVs;
+	int32 NumUVChannels;
+	GetUVVertexProperties<UVType>(bIsUsingHighPrecisionUVs, NumUVChannels);
 
-	FRuntimeMeshIndicesBuilder()
-		: bOwnsIndexArray(true), Indices(new TArray<int32>()), CurrentPosition(0)
-	{ }
-	FRuntimeMeshIndicesBuilder(TArray<int32>* InVertices)
-		: bOwnsIndexArray(false), Indices(InVertices), CurrentPosition(0)
-	{ }
-	FRuntimeMeshIndicesBuilder(const FRuntimeMeshIndicesBuilder& Other) = delete;
-	FRuntimeMeshIndicesBuilder& operator=(const FRuntimeMeshIndicesBuilder& Other) = delete;
-	virtual ~FRuntimeMeshIndicesBuilder()
-	{
-		if (bOwnsIndexArray)
-		{
-			delete Indices;
-		}
-	}
+	return MakeShared<FRuntimeMeshBuilder>(GetTangentIsHighPrecision<TangentType>(), bIsUsingHighPrecisionUVs, NumUVChannels, (bool)FRuntimeMeshIndexTraits<IndexType>::Is32Bit);
+}
 
-	virtual ERuntimeMeshVerticesBuilderType GetBuilderType() const { return ERuntimeMeshVerticesBuilderType::Component; }
+FORCEINLINE TSharedRef<FRuntimeMeshBuilder> MakeRuntimeMeshBuilder(bool bUsingHighPrecisionTangents, bool bUsingHighPrecisionUVs, int32 NumUVs, bool bUsing32BitIndices)
+{
+	return MakeShared<FRuntimeMeshBuilder>(bUsingHighPrecisionTangents, bUsingHighPrecisionUVs, NumUVs, bUsing32BitIndices);
+}
 
+FORCEINLINE TSharedRef<FRuntimeMeshBuilder> MakeRuntimeMeshBuilder(const TSharedRef<const FRuntimeMeshAccessor>& StructureToCopy)
+{
+	return MakeShared<FRuntimeMeshBuilder>(StructureToCopy->IsUsingHighPrecisionTangents(), StructureToCopy->IsUsingHighPrecisionUVs(), StructureToCopy->NumUVChannels(), StructureToCopy->IsUsing32BitIndices());
+}
 
-	void AddTriangle(int32 Index0, int32 Index1, int32 Index2)
-	{
-		if ((CurrentPosition + 3) >= Indices->Num())
-		{
-			Indices->SetNum(CurrentPosition + 3);
-		}
+FORCEINLINE TSharedRef<FRuntimeMeshBuilder> MakeRuntimeMeshBuilder(const TUniquePtr<const FRuntimeMeshAccessor>& StructureToCopy)
+{
+	return MakeShared<FRuntimeMeshBuilder>(StructureToCopy->IsUsingHighPrecisionTangents(), StructureToCopy->IsUsingHighPrecisionUVs(), StructureToCopy->NumUVChannels(), StructureToCopy->IsUsing32BitIndices());
+}
 
-		(*Indices)[CurrentPosition++] = Index0;
-		(*Indices)[CurrentPosition++] = Index1;
-		(*Indices)[CurrentPosition++] = Index2;
-	}
-
-	void AddIndex(int32 Index)
-	{
-		if ((CurrentPosition + 1) >= Indices->Num())
-		{
-			Indices->SetNum(CurrentPosition + 1);
-		}
-		(*Indices)[CurrentPosition++] = Index;
-	}
-	int32 ReadOne() const
-	{
-		return (*Indices)[const_cast<FRuntimeMeshIndicesBuilder*>(this)->CurrentPosition++];
-	}
-
-	int32 GetIndex(int32 Position) const
-	{
-		const_cast<FRuntimeMeshIndicesBuilder*>(this)->CurrentPosition = Position;
-		return (*Indices)[CurrentPosition];
-	}
-
-	int32 TriangleLength() const { return Length() / 3; }
-	int32 Length() const { return Indices->Num(); }
-
-	bool HasRemaining() const { return CurrentPosition < Indices->Num(); }
-	
-	void Seek(int32 Position) const
-	{
-		const_cast<FRuntimeMeshIndicesBuilder*>(this)->CurrentPosition = Position;
-	}
-	void SeekEnd() const
-	{
-		Seek(Length());
-	}
-	void Reset(int32 NewSize = 0)
-	{
-		Indices->Reset(NewSize);
-		CurrentPosition = 0;
-	}
-	void SetNum(int32 NewSize)
-	{
-		Indices->SetNum(NewSize);
-	}
-	
-	FRuntimeMeshIndicesBuilder* Clone(bool bIncludeData = true) const
-	{
-		FRuntimeMeshIndicesBuilder* NewBuilder = new FRuntimeMeshIndicesBuilder();
-
-		if (bIncludeData)
-		{
-			*NewBuilder->Indices = *Indices;
-		}
-		
-		return NewBuilder;
-	}
-
-	TArray<int32>* GetIndices()
-	{
-		return Indices;
-	}
-};
+FORCEINLINE TSharedRef<FRuntimeMeshBuilder> MakeRuntimeMeshBuilder(const FRuntimeMeshAccessor& StructureToCopy)
+{
+	return MakeShared<FRuntimeMeshBuilder>(StructureToCopy.IsUsingHighPrecisionTangents(), StructureToCopy.IsUsingHighPrecisionUVs(), StructureToCopy.NumUVChannels(), StructureToCopy.IsUsing32BitIndices());
+}

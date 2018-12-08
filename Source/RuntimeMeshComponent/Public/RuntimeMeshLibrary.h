@@ -1,129 +1,100 @@
-// Copyright 2016 Chris Conway (Koderz). All Rights Reserved.
+// Copyright 2016-2018 Chris Conway (Koderz). All Rights Reserved.
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "RuntimeMeshGenericVertex.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
-#include "RuntimeMeshComponent.h"
+#include "RuntimeMeshBuilder.h"
+#include "RuntimeMeshBlueprint.h"
 #include "RuntimeMeshLibrary.generated.h"
 
-class RuntimeMeshComponent;
-
+/**
+ *
+ */
 UCLASS()
 class RUNTIMEMESHCOMPONENT_API URuntimeMeshLibrary : public UBlueprintFunctionLibrary
 {
-	GENERATED_UCLASS_BODY()
+	GENERATED_BODY()
 
-	/** Add a quad, specified by four indices, to a triangle index buffer as two triangles. */
-	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
-	static void ConvertQuadToTriangles(UPARAM(ref) TArray<int32>& Triangles, int32 Vert0, int32 Vert1, int32 Vert2, int32 Vert3);
-
-	/**
-	*	Generate an index buffer for a grid of quads.
-	*	@param	NumX			Number of vertices in X direction (must be >= 2)
-	*	@param	NumY			Number of vertices in y direction (must be >= 2)
-	*	@param	bWinding		Reverses winding of indices generated for each quad
-	*	@out	Triangles		Output index buffer
-	*/
-	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
-	static void CreateGridMeshTriangles(int32 NumX, int32 NumY, bool bWinding, TArray<int32>& Triangles);
-
-	/** Generate vertex and index buffer for a simple box, given the supplied dimensions. Normals, UVs and tangents are also generated for each vertex. */
-	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
-	static void CreateBoxMesh(FVector BoxRadius, TArray<FVector>& Vertices, TArray<int32>& Triangles, TArray<FVector>& Normals, TArray<FVector2D>& UVs, TArray<FRuntimeMeshTangent>& Tangents);
-
-
-
-	/**
-	*	Automatically generate normals and tangent vectors for a mesh
-	*	UVs are required for correct tangent generation.
-	*/
-	static void CalculateTangentsForMesh(IRuntimeMeshVerticesBuilder* Vertices, const FRuntimeMeshIndicesBuilder* Triangles);
-
-	/**
-	*	Automatically generate normals and tangent vectors for a mesh
-	*	UVs are required for correct tangent generation.
-	*/
-	template <typename VertexType>
-	static void CalculateTangentsForMesh(TArray<VertexType>& Vertices, const TArray<int32>& Triangles)
-	{
-		FRuntimeMeshPackedVerticesBuilder<VertexType> VerticesBuilder(&Vertices);
-		FRuntimeMeshIndicesBuilder IndicesBuilder(const_cast<TArray<int32>*>(&Triangles));
-
-		CalculateTangentsForMesh(&VerticesBuilder, &IndicesBuilder);
-	}
-
-	/**
-	*	Automatically generate normals and tangent vectors for a mesh
-	*	UVs are required for correct tangent generation.
-	*/
-	template <typename VertexType>
-	static void CalculateTangentsForMesh(TArray<FVector>& Positions, TArray<VertexType>& Vertices, const TArray<int32>& Triangles)
-	{
-		FRuntimeMeshPackedVerticesBuilder<VertexType> VerticesBuilder(&Vertices, &Positions);
-		FRuntimeMeshIndicesBuilder IndicesBuilder(const_cast<TArray<int32>*>(&Triangles));
-
-		CalculateTangentsForMesh(&VerticesBuilder, &IndicesBuilder);
-	}
-
+public:
 	/**
 	*	Automatically generate normals and tangent vectors for a mesh
 	*	UVs are required for correct tangent generation.
 	*/
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh", meta = (AutoCreateRefTerm = "UVs"))
-	static void CalculateTangentsForMesh(const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector2D>& UVs, TArray<FVector>& Normals, TArray<FRuntimeMeshTangent>& Tangents);
+	static void CalculateTangentsForMesh(const TArray<FVector>& Vertices, const TArray<int32>& Triangles,
+		TArray<FVector>& Normals, const TArray<FVector2D>& UVs, TArray<FRuntimeMeshTangent>& Tangents, bool bCreateSmoothNormals = true);
+
+	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
+	static void CalculateTangentsForMeshPacked(TArray<FRuntimeMeshBlueprintVertexSimple>& Vertices, const TArray<int32>& Triangles, bool bCreateSmoothNormals = true);
+
+	static void CalculateTangentsForMesh(TArray<FRuntimeMeshVertexSimple>& Vertices, const TArray<int32>& Triangles, bool bCreateSmoothNormals = true);
+
+	static void CalculateTangentsForMesh(const TSharedPtr<FRuntimeMeshAccessor>& MeshAccessor, bool bCreateSmoothNormals = true);
 
 
 
-	/**
-	*	Generates the tessellation indices needed to support tessellation in materials
-	*/
-	static void GenerateTessellationIndexBuffer(const IRuntimeMeshVerticesBuilder* Vertices, const FRuntimeMeshIndicesBuilder* Indices, FRuntimeMeshIndicesBuilder* OutTessellationIndices);
-
-	/**
-	*	Generates the tessellation indices needed to support tessellation in materials
-	*/
-	template <typename VertexType>
-	static void GenerateTessellationIndexBuffer(TArray<VertexType>& Vertices, const TArray<int32>& Triangles, TArray<int32>& OutTessTriangles)
-	{
-		FRuntimeMeshPackedVerticesBuilder<VertexType> VerticesBuilder(&Vertices);
-		FRuntimeMeshIndicesBuilder IndicesBuilder(const_cast<TArray<int32>*>(&Triangles));
-		FRuntimeMeshIndicesBuilder OutIndicesBuilder(&OutTessTriangles);
-
-		GenerateTessellationIndexBuffer(&VerticesBuilder, &IndicesBuilder, &OutIndicesBuilder);
-	}
-
-	/**
-	*	Generates the tessellation indices needed to support tessellation in materials
-	*/
-	template <typename VertexType>
-	static void GenerateTessellationIndexBuffer(TArray<FVector>& Positions, TArray<VertexType>& Vertices, const TArray<int32>& Triangles, TArray<int32>& OutTessTriangles)
-	{
-		FRuntimeMeshPackedVerticesBuilder<VertexType> VerticesBuilder(&Vertices, &Positions);
-		FRuntimeMeshIndicesBuilder IndicesBuilder(const_cast<TArray<int32>*>(&Triangles));
-		FRuntimeMeshIndicesBuilder OutIndicesBuilder(&OutTessTriangles);
-
-		GenerateTessellationIndexBuffer(&VerticesBuilder, &IndicesBuilder, &OutIndicesBuilder);
-	}
-
-	/**
-	*	Generates the tessellation indices needed to support tessellation in materials
-	*/
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh", meta = (AutoCreateRefTerm = "UVs"))
-	static void GenerateTessellationIndexBuffer(const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector2D>& UVs, TArray<FVector>& Normals, TArray<FRuntimeMeshTangent>& Tangents, TArray<int32>& OutTessTriangles);
+	static TArray<int32> GenerateTessellationIndexBuffer(const TArray<FVector>& Vertices, const TArray<int32>& Triangles,
+		TArray<FVector>& Normals, const TArray<FVector2D>& UVs, TArray<FRuntimeMeshTangent>& Tangents);
 
-	
+	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
+	static TArray<int32> GenerateTessellationIndexBufferPacked(const TArray<FRuntimeMeshBlueprintVertexSimple>& Vertices, const TArray<int32>& Triangles);
+
+	static TArray<int32> GenerateTessellationIndexBuffer(const TArray<FRuntimeMeshVertexSimple>& Vertices, const TArray<int32>& Triangles);
+
+	static TArray<int32> GenerateTessellationIndexBuffer(const TSharedPtr<FRuntimeMeshAccessor>& MeshAccessor);
+
+	static void GenerateTessellationIndexBuffer(const TSharedPtr<FRuntimeMeshAccessor>& MeshAccessor, const TSharedPtr<FRuntimeMeshIndicesAccessor>& OutTessellationIndices);
+
 
 	/** Grab geometry data from a StaticMesh asset. */
-	static void GetSectionFromStaticMesh(UStaticMesh* InMesh, int32 LODIndex, int32 SectionIndex,
-		IRuntimeMeshVerticesBuilder* Vertices, FRuntimeMeshIndicesBuilder* Triangles, FRuntimeMeshIndicesBuilder* AdjacencyTriangles);
+	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh", meta = (AutoCreateRefTerm = "UVs"))
+	static void GetStaticMeshSection(UStaticMesh* InMesh, int32 LODIndex, int32 SectionIndex, TArray<FVector>& Vertices, TArray<int32>& Triangles,
+		TArray<FVector>& Normals, TArray<FVector2D>& UVs, TArray<FColor>& Colors, TArray<FRuntimeMeshTangent>& Tangents);
 
-	/** Grab geometry data from a StaticMesh asset. */
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
-	static void GetSectionFromStaticMesh(UStaticMesh* InMesh, int32 LODIndex, int32 SectionIndex, TArray<FVector>& Vertices, TArray<int32>& Triangles, TArray<FVector>& Normals, TArray<FVector2D>& UVs, TArray<FRuntimeMeshTangent>& Tangents);
-	
-	/* Copies an entire Static Mesh to a Runtime Mesh. Includes all materials, and sections.*/
+	static void GetStaticMeshSectionPacked(UStaticMesh* InMesh, int32 LODIndex, int32 SectionIndex, TArray<FRuntimeMeshBlueprintVertexSimple>& Vertices, TArray<int32>& Triangles);
+
+	static void GetStaticMeshSection(UStaticMesh* InMesh, int32 LODIndex, int32 SectionIndex, TArray<FRuntimeMeshVertexSimple>& Vertices, TArray<int32>& Triangles);
+
+	static void GetStaticMeshSection(UStaticMesh* InMesh, int32 LODIndex, int32 SectionIndex, TArray<FRuntimeMeshVertexSimple>& Vertices, TArray<int32>& Triangles, TArray<int32>& AdjacencyTriangles);
+
+	static void GetStaticMeshSection(UStaticMesh* InMesh, int32 LODIndex, int32 SectionIndex, const TSharedPtr<FRuntimeMeshAccessor>& MeshAccessor);
+
+	static void GetStaticMeshSection(UStaticMesh* InMesh, int32 LODIndex, int32 SectionIndex, const TSharedPtr<FRuntimeMeshAccessor>& MeshAccessor, const TSharedPtr<FRuntimeMeshIndicesAccessor>& TessellationIndicesAccessor);
+
+
+
+	/** Copy sections from a static mesh to a runtime mesh */
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
-	static void CopyRuntimeMeshFromStaticMeshComponent(UStaticMeshComponent* StaticMeshComp, int32 LODIndex, URuntimeMeshComponent* RuntimeMeshComp, bool bShouldCreateCollision);
+	static void CopyStaticMeshToRuntimeMesh(UStaticMeshComponent* StaticMeshComponent, int32 LODIndex, URuntimeMesh* RuntimeMesh, bool bCreateCollision);
 	
+	/** Copy sections from a static mesh to a runtime mesh */
+	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
+	static void CopyStaticMeshToRuntimeMeshComponent(UStaticMeshComponent* StaticMeshComponent, int32 LODIndex, URuntimeMeshComponent* RuntimeMeshComponent, bool bCreateCollision);
+
+
+	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
+	static void CopyCollisionFromStaticMesh(UStaticMesh* StaticMesh, URuntimeMesh* RuntimeMesh);
+
+	static void CopyCollisionFromStaticMesh(UStaticMeshComponent* StaticMeshComponent, URuntimeMesh* RuntimeMesh)
+	{
+		CopyCollisionFromStaticMesh(StaticMeshComponent->GetStaticMesh(), RuntimeMesh);
+	}
+
+private:
+	static void CalculateTangentsForMesh(TFunction<int32(int32 Index)> IndexAccessor, TFunction<FVector(int32 Index)> VertexAccessor, TFunction<FVector2D(int32 Index)> UVAccessor,
+		TFunction<void(int32 Index, FVector TangentX, FVector TangentY, FVector TangentZ)> TangentSetter, int32 NumVertices, int32 NumUVs, int32 NumIndices, bool bCreateSmoothNormals);
+
+
+	static int32 GetNewIndexForOldVertIndex(const FPositionVertexBuffer* PosBuffer, const FStaticMeshVertexBuffer* VertBuffer, const FColorVertexBuffer* ColorBuffer,
+		TMap<int32, int32>& MeshToSectionVertMap, int32 VertexIndex, int32 NumUVChannels, TFunction<int32(FVector Position, FVector TangentX, FVector TangentY, FVector TangentZ)> VertexCreator,
+		TFunction<void(int32 VertexIndex, int32 UVIndex, FVector2D UV)> UVSetter, TFunction<void(int32 VertexIndex, FColor Color)> ColorSetter);
+
+	static void GetStaticMeshSection(UStaticMesh* InMesh, int32 LODIndex, int32 SectionIndex, int32 NumSupportedUVs,
+		TFunction<int32(FVector Position, FVector TangentX, FVector TangentY, FVector TangentZ)> VertexCreator,
+		TFunction<void(int32 VertexIndex, int32 UVIndex, FVector2D UV)> UVSetter, TFunction<void(int32 VertexIndex, FColor Color)> ColorSetter, TFunction<void(int32)> IndexCreator, TFunction<void(int32)> AdjacencyIndexCreator);
 
 };

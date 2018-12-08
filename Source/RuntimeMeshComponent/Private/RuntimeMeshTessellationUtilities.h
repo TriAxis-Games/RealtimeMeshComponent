@@ -1,17 +1,20 @@
-// Copyright 2016 Chris Conway (Koderz). All Rights Reserved.
+// Copyright 2016-2018 Chris Conway (Koderz). All Rights Reserved.
 
 #pragma once
+
+#include "CoreMinimal.h"
 #include "RuntimeMeshBuilder.h"
 
 
-
 /**
- * 
- */
-class TessellationUtilities
+*
+*/
+class FTessellationUtilities
 {
 public:
-	static void CalculateTessellationIndices(const IRuntimeMeshVerticesBuilder* Vertices, const FRuntimeMeshIndicesBuilder* Indices, FRuntimeMeshIndicesBuilder* TessellationIndices);
+	static void CalculateTessellationIndices(int32 NumVertices, int32 NumIndices,
+		TFunction<FVector(int32)> PositionAccessor, TFunction<FVector2D(int32)> UVAccessor, TFunction<int32(int32)> IndexAccessor,
+		TFunction<void(int32)> OutIndicesSizeSetter, TFunction<int32()> OutIndicesSizeGetter, TFunction<void(int32, int32)> OutIndicesWriter, TFunction<int32(int32)> OutIndicesReader);
 
 
 
@@ -170,9 +173,13 @@ private:
 
 	static void AddIfLeastUV(PositionDictionary& PosDict, const Vertex& Vert, uint32 Index);
 
-	static void ReplacePlaceholderIndices(const IRuntimeMeshVerticesBuilder* Vertices, const FRuntimeMeshIndicesBuilder* Indices,
-		EdgeDictionary& EdgeDict, PositionDictionary& PosDict, FRuntimeMeshIndicesBuilder* OutIndices);
+	static void ReplacePlaceholderIndices(int32 NumVertices, int32 NumIndices,
+		TFunction<FVector(int32)> PositionAccessor, TFunction<FVector2D(int32)> UVAccessor, TFunction<int32(int32)> IndexAccessor,
+		TFunction<void(int32)> OutIndicesSizeSetter, TFunction<int32()> OutIndicesSizeGetter, TFunction<void(int32, int32)> OutIndicesWriter, TFunction<int32(int32)> OutIndicesReader,
+		EdgeDictionary& EdgeDict, PositionDictionary& PosDict);
 
-	static void ExpandIB(const IRuntimeMeshVerticesBuilder* Vertices, const FRuntimeMeshIndicesBuilder* Indices,
-		EdgeDictionary& OutEdgeDict, PositionDictionary& OutPosDict, FRuntimeMeshIndicesBuilder* OutIndices);
+	static void ExpandIB(int32 NumVertices, int32 NumIndices,
+		TFunction<FVector(int32)> PositionAccessor, TFunction<FVector2D(int32)> UVAccessor, TFunction<int32(int32)> IndexAccessor,
+		TFunction<void(int32)> OutIndicesSizeSetter, TFunction<int32()> OutIndicesSizeGetter, TFunction<void(int32, int32)> OutIndicesWriter, TFunction<int32(int32)> OutIndicesReader,
+		EdgeDictionary& OutEdgeDict, PositionDictionary& OutPosDict);
 };
