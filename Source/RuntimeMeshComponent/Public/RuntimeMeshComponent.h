@@ -806,13 +806,15 @@ private:
 	UPROPERTY(Transient)
 	TArray<UBodySetup*> AsyncBodySetupQueue;
 
+#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION < 21
+
 	//~ Begin Interface_CollisionDataProvider Interface
 	virtual bool GetPhysicsTriMeshData(struct FTriMeshCollisionData* CollisionData, bool InUseAllTriData) override;
 	virtual bool ContainsPhysicsTriMeshData(bool InUseAllTriData) const override;
 	virtual bool WantsNegXTriMesh() override { return false; }
 	//~ End Interface_CollisionDataProvider Interface
 
-#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION < 21
+
 	UBodySetup* CreateNewBodySetup();
 	void FinishPhysicsAsyncCook(UBodySetup* FinishedBodySetup);
 
