@@ -8,49 +8,31 @@ public class RuntimeMeshComponent : ModuleRules
     {
         PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 
-        PublicIncludePaths.AddRange(
-            new string[] {
-                "RuntimeMeshComponent/Public"
-				// ... add public include paths required here ...
-			}
-            );
+        if (Target.Version.MinorVersion <= 19)
+        {
+            PublicIncludePaths.AddRange(
+                new string[] {
+                    "RuntimeMeshComponent/Public"
+                });
 
-
-        PrivateIncludePaths.AddRange(
-            new string[] {
-                "RuntimeMeshComponent/Private",
-				// ... add other private include paths required here ...
-			}
-            );
-
-
+            PrivateIncludePaths.AddRange(
+                new string[] {
+                    "RuntimeMeshComponent/Private"
+                });
+        }
+        
         PublicDependencyModuleNames.AddRange(
-            new string[]
-            {
-                "Core",
-				// ... add other public dependencies that you statically link with here ...
-			}
-            );
-
+            new string[] {
+                "Core"
+			});
 
         PrivateDependencyModuleNames.AddRange(
-            new string[]
-            {
+            new string[] {
                 "CoreUObject",
                 "Engine",
-				// ... add private dependencies that you statically link with here ...	
                 "RenderCore",
                 "ShaderCore",
                 "RHI",
-            }
-            );
-
-
-        DynamicallyLoadedModuleNames.AddRange(
-            new string[]
-            {
-				// ... add any modules that your module loads dynamically here ...
-			}
-            );
+            });
     }
 }

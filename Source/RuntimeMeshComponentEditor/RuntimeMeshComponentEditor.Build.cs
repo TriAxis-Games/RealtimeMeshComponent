@@ -8,37 +8,27 @@ public class RuntimeMeshComponentEditor : ModuleRules
     {
         PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 
-        PublicIncludePaths.AddRange(
-            new string[] {
-                "RuntimeMeshComponentEditor/Public"
-				// ... add public include paths required here ...
-			}
-            );
+        if (Target.Version.MinorVersion <= 19)
+        {
+            PublicIncludePaths.AddRange(
+                new string[] {
+                    "RuntimeMeshComponentEditor/Public"
+                });
 
-
-        PrivateIncludePaths.AddRange(
-            new string[] {
-                "RuntimeMeshComponentEditor/Private",
-				// ... add other private include paths required here ...
-			}
-            );
-
+            PrivateIncludePaths.AddRange(
+                new string[] {
+                    "RuntimeMeshComponentEditor/Private",
+                });
+        }
 
         PublicDependencyModuleNames.AddRange(
-            new string[]
-            {
+            new string[] {
                 "Core",
-				// ... add other public dependencies that you statically link with here ...
-                
-            }
-            );
-
+            });
 
         PrivateDependencyModuleNames.AddRange(
-            new string[]
-            {
+            new string[] {
                 "CoreUObject",
-                // ... add private dependencies that you statically link with here ...	
                 "Engine",
                 "Slate",
                 "SlateCore",
@@ -56,13 +46,6 @@ public class RuntimeMeshComponentEditor : ModuleRules
                 "InputCore",
 
                 "RuntimeMeshComponent",
-            }
-            );
-        DynamicallyLoadedModuleNames.AddRange(
-            new string[]
-            {
-				// ... add any modules that your module loads dynamically here ...
-			}
-            );
+            });
     }
 }
