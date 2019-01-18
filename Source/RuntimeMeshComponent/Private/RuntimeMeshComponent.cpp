@@ -297,7 +297,10 @@ void URuntimeMeshComponent::UpdateCollision(bool bForceCookNow)
 {
 	//SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_CollisionUpdate);
 	check(IsInGameThread());
-	check(GetRuntimeMesh());
+	// HORU: workaround for a nullpointer
+	if (!GetRuntimeMesh())
+		return;
+	//check(GetRuntimeMesh());
 
 	UWorld* World = GetWorld();
 	const bool bShouldCookAsync = !bForceCookNow && World && World->IsGameWorld() && GetRuntimeMesh()->bUseAsyncCooking;
