@@ -152,7 +152,7 @@ void FRuntimeMeshComponentSceneProxy::GetDynamicMeshElements(const TArray<const 
 	}
 
 	// Draw bounds
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+#if RUNTIMEMESH_ENABLE_DEBUG_RENDERING
 	for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
 	{
 		if (VisibilityMap & (1 << ViewIndex))

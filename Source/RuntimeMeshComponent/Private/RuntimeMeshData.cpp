@@ -1450,6 +1450,16 @@ void FRuntimeMeshData::SendSectionPropertiesUpdate(int32 SectionIndex)
 
 int32 FRuntimeMeshData::GetSectionFromCollisionFaceIndex(int32 FaceIndex) const
 {
+	int32 FaceIdx = FaceIndex;
+
+	return GetSectionAndFaceFromCollisionFaceIndex(FaceIdx);
+}
+/*
+* Gets the section ID from the given face index reference,
+* The face index reference then gets set to it's face index in the section.
+*/
+int32 FRuntimeMeshData::GetSectionAndFaceFromCollisionFaceIndex(int32& FaceIndex) const
+{
 	SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_GetSectionFromCollisionFaceIndex);
 
 	FRuntimeMeshScopeLock Lock(SyncRoot);
@@ -1465,19 +1475,20 @@ int32 FRuntimeMeshData::GetSectionFromCollisionFaceIndex(int32 FaceIndex) const
 
 		if (Section.IsValid() && Section->IsCollisionEnabled())
 		{
-			int32 NumFaces = Section->GetNumIndices() / 3;
-			TotalFaceCount += NumFaces;
 
-			if (FaceIndex < TotalFaceCount)
+			int32 NumFaces = Section->GetNumIndices() / 3;
+
+			if (FaceIndex < TotalFaceCount + NumFaces)
 			{
 				// Grab the material
 				SectionIndex = SectionIdx;
-				break;
+				FaceIndex -= TotalFaceCount;
 			}
+			TotalFaceCount += NumFaces;
 		}
 	}
-
 	return SectionIndex;
+	return -1;
 }
 
 class FRuntimeMeshGameThreadTask

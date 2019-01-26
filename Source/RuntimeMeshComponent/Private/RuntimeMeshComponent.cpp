@@ -192,6 +192,14 @@ int32 URuntimeMeshComponent::GetSectionIdFromCollisionFaceIndex(int32 FaceIndex)
 	return SectionIndex;
 }
 
+void URuntimeMeshComponent::GetSectionIdAndFaceIdFromCollisionFaceIndex(int32 FaceIndex, int32 & SectionIndex, int32 & SectionFaceIndex) const
+{
+	if (URuntimeMesh* Mesh = GetRuntimeMesh())
+	{
+		Mesh->GetSectionIdAndFaceIdFromCollisionFaceIndex(FaceIndex, SectionIndex, SectionFaceIndex);
+	}
+}
+
 UMaterialInterface* URuntimeMeshComponent::GetMaterialFromCollisionFaceIndex(int32 FaceIndex, int32& SectionIndex) const
 {
 	UMaterialInterface* Result = nullptr;
@@ -239,7 +247,7 @@ void URuntimeMeshComponent::PostLoad()
 }
 
 
-#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION < 21
+#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION < 22
 
 bool URuntimeMeshComponent::GetPhysicsTriMeshData(struct FTriMeshCollisionData* CollisionData, bool InUseAllTriData)
 {
@@ -261,6 +269,10 @@ bool URuntimeMeshComponent::ContainsPhysicsTriMeshData(bool InUseAllTriData) con
 	}
 	return false;
 }
+
+#endif
+
+#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION < 21
 
 UBodySetup* URuntimeMeshComponent::CreateNewBodySetup()
 {

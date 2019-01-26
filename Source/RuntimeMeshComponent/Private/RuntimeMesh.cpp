@@ -147,6 +147,12 @@ int32 URuntimeMesh::GetSectionIdFromCollisionFaceIndex(int32 FaceIndex) const
 	return GetRuntimeMeshData()->GetSectionFromCollisionFaceIndex(FaceIndex);
 }
 
+void URuntimeMesh::GetSectionIdAndFaceIdFromCollisionFaceIndex(int32 FaceIndex, int32 & SectionIndex, int32 & SectionFaceIndex) const
+{
+	SectionFaceIndex = FaceIndex;
+	SectionIndex = GetRuntimeMeshData()->GetSectionAndFaceFromCollisionFaceIndex(SectionFaceIndex);
+}
+
 void URuntimeMesh::MarkCollisionDirty()
 {
 	// Flag the collision as dirty
