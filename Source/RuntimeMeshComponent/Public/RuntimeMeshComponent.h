@@ -110,6 +110,7 @@ public:
 	 * Otherwise update the section.
 	 * Will automatically delete the section if there are no vertices given
 	 */
+	template<typename VertexType0, typename IndexType>
 	ERuntimeMeshSetAction SetMeshSection(int32 SectionIndex, TArray<VertexType0>& InVertices0, TArray<IndexType>& InTriangles, bool bCreateCollision = false,
 		EUpdateFrequency UpdateFrequency = EUpdateFrequency::Average, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
 	{
@@ -137,6 +138,8 @@ public:
 	 */
 	ERuntimeMeshSetAction SetMeshSection(int32 SectionId, const TSharedPtr<FRuntimeMeshBuilder>& MeshData, bool bCreateCollision = false,
 		EUpdateFrequency UpdateFrequency = EUpdateFrequency::Average, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
+	{
+		if (GetOrCreateRuntimeMeshData()->DoesSectionExist(SectionId)) {
 			if (MeshData->NumIndices() == 0) {
 				GetOrCreateRuntimeMeshData()->ClearMeshSection(SectionId);
 				return ERuntimeMeshSetAction::Remove;
