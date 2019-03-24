@@ -720,6 +720,9 @@ __DECLARE_RUNTIME_MESH_VERTEXINTERNAL(FRuntimeMeshVertexSimple, true, true, true
 /** Simple vertex with 2 UV channels */
 __DECLARE_RUNTIME_MESH_VERTEXINTERNAL(FRuntimeMeshVertexDualUV, true, true, true, true, 2, ERuntimeMeshVertexTangentBasisType::Default, ERuntimeMeshVertexUVType::HighPrecision, RUNTIMEMESHCOMPONENT_API)
 
+/** Simple vertex with 2 UV channels */
+__DECLARE_RUNTIME_MESH_VERTEXINTERNAL(FRuntimeMeshVertexTripleUV, true, true, true, true, 3, ERuntimeMeshVertexTangentBasisType::Default, ERuntimeMeshVertexUVType::HighPrecision, RUNTIMEMESHCOMPONENT_API)
+
 /** Simple vertex with 1 UV channel and NO position component (Meant to be used with separate position buffer) */
 __DECLARE_RUNTIME_MESH_VERTEXINTERNAL(FRuntimeMeshVertexNoPosition, false, true, true, true, 1, ERuntimeMeshVertexTangentBasisType::Default, ERuntimeMeshVertexUVType::HighPrecision, RUNTIMEMESHCOMPONENT_API)
 

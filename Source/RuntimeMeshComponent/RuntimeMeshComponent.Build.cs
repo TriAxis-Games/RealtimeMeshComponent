@@ -1,20 +1,23 @@
 // Copyright 2016-2018 Chris Conway (Koderz). All Rights Reserved.
 
 using UnrealBuildTool;
+using System;
+using System.IO;
+using System.Diagnostics;
+using System.Collections.Generic;
 
 public class RuntimeMeshComponent : ModuleRules
 {
+    private string ModulePath
+    {
+        get { return Path.GetDirectoryName(ModuleDirectory); }
+    }
+
     public RuntimeMeshComponent(ReadOnlyTargetRules rules) : base(rules)
     {
         PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 
-        PublicIncludePaths.AddRange(
-            new string[] {
-                "RuntimeMeshComponent/Public"
-				// ... add public include paths required here ...
-			}
-            );
-
+        PublicIncludePaths.Add(Path.Combine(ModulePath, "RuntimeMeshComponent/Public"));
 
         PrivateIncludePaths.AddRange(
             new string[] {

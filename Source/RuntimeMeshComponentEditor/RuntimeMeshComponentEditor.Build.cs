@@ -8,14 +8,6 @@ public class RuntimeMeshComponentEditor : ModuleRules
     {
         PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 
-        PublicIncludePaths.AddRange(
-            new string[] {
-                "RuntimeMeshComponentEditor/Public"
-				// ... add public include paths required here ...
-			}
-            );
-
-
         PrivateIncludePaths.AddRange(
             new string[] {
                 "RuntimeMeshComponentEditor/Private",
