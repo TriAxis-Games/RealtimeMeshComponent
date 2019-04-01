@@ -25,7 +25,7 @@ DECLARE_CYCLE_STAT(TEXT("RMC - New Collision Data Recieved"), STAT_RuntimeMeshCo
 
 URuntimeMeshComponent::URuntimeMeshComponent(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
-#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION < 21
+#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION < 22
 	, BodySetup(nullptr)
 #endif
 
@@ -127,7 +127,7 @@ FPrimitiveSceneProxy* URuntimeMeshComponent::CreateSceneProxy()
 
 UBodySetup* URuntimeMeshComponent::GetBodySetup()
 {
-#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION < 21
+#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION < 22
 	return BodySetup;
 #else
 	if (GetRuntimeMesh())
@@ -239,7 +239,7 @@ void URuntimeMeshComponent::PostLoad()
 }
 
 
-#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION < 21
+#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION < 22
 
 bool URuntimeMeshComponent::GetPhysicsTriMeshData(struct FTriMeshCollisionData* CollisionData, bool InUseAllTriData)
 {
@@ -270,7 +270,7 @@ UBodySetup* URuntimeMeshComponent::CreateNewBodySetup()
 	return NewBodySetup;
 }
 
-void URuntimeMeshComponent::FinishPhysicsAsyncCook(UBodySetup* FinishedBodySetup)
+void URuntimeMeshComponent::FinishPhysicsAsyncCook(bool bSuccess, UBodySetup* FinishedBodySetup)
 {
 	//SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_AsyncCollisionFinish);
 	check(IsInGameThread());
@@ -309,9 +309,10 @@ void URuntimeMeshComponent::UpdateCollision(bool bForceCookNow)
 
 		GetRuntimeMesh()->SetBasicBodySetupParameters(NewBodySetup);
 		GetRuntimeMesh()->CopyCollisionElementsToBodySetup(NewBodySetup);
-
-		NewBodySetup->CreatePhysicsMeshesAsync(
-			FOnAsyncPhysicsCookFinished::CreateUObject(this, &URuntimeMeshComponent::FinishPhysicsAsyncCook, NewBodySetup));
+		
+		FOnAsyncPhysicsCookFinished AsyncCookDelegate;
+		AsyncCookDelegate.BindUObject(this, &URuntimeMeshComponent::FinishPhysicsAsyncCook, NewBodySetup);
+		NewBodySetup->CreatePhysicsMeshesAsync(AsyncCookDelegate);
 	}
 	else
 	{

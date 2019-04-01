@@ -184,7 +184,7 @@ void URuntimeMesh::SetBasicBodySetupParameters(UBodySetup* Setup)
 
 void URuntimeMesh::UpdateCollision(bool bForceCookNow)
 {
-#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION < 21
+#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION < 22
 	DoForAllLinkedComponents([bForceCookNow](URuntimeMeshComponent* Mesh)
 	{
 		Mesh->UpdateCollision(bForceCookNow);
