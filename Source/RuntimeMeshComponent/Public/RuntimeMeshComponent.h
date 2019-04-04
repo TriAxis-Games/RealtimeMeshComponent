@@ -8,6 +8,7 @@
 #include "RuntimeMeshGenericVertex.h"
 #include "PhysicsEngine/ConvexElem.h"
 #include "RuntimeMesh.h"
+#include "Interfaces/Interface_CollisionDataProvider.h"
 #include "RuntimeMeshComponent.generated.h"
 
 /**
@@ -221,7 +222,7 @@ public:
 
 	/** DEPRECATED! Use UpdateMeshSectionDualBuffer() instead.  Updates the dual buffer mesh section */
 	template<typename VertexType>
-	DEPRECATED(3.0, "UpdateMeshSection for dual buffer sections deprecated. Please use UpdateMeshSectionDualBuffer instead.")
+	UE_DEPRECATED(3.0, "UpdateMeshSection for dual buffer sections deprecated. Please use UpdateMeshSectionDualBuffer instead.")
 	void UpdateMeshSection(int32 SectionIndex, TArray<FVector>& VertexPositions, TArray<VertexType>& VertexData, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
 	{
 		UpdateMeshSectionDualBuffer(SectionIndex, VertexPositions, VertexData, UpdateFlags);
@@ -229,7 +230,7 @@ public:
 
 	/** DEPRECATED! Use UpdateMeshSectionDualBuffer() instead.  Updates the dual buffer mesh section */
 	template<typename VertexType>
-	DEPRECATED(3.0, "UpdateMeshSection for dual buffer sections deprecated. Please use UpdateMeshSectionDualBuffer instead.")
+	UE_DEPRECATED(3.0, "UpdateMeshSection for dual buffer sections deprecated. Please use UpdateMeshSectionDualBuffer instead.")
 	void UpdateMeshSection(int32 SectionIndex, TArray<FVector>& VertexPositions, TArray<VertexType>& VertexData, const FBox& BoundingBox, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
 	{
 		UpdateMeshSectionDualBuffer(SectionIndex, VertexPositions, VertexData, BoundingBox, UpdateFlags);
@@ -237,7 +238,7 @@ public:
 
 	/** DEPRECATED! Use UpdateMeshSectionDualBuffer() instead.  Updates the dual buffer mesh section */
 	template<typename VertexType>
-	DEPRECATED(3.0, "UpdateMeshSection for dual buffer sections deprecated. Please use UpdateMeshSectionDualBuffer instead.")
+	UE_DEPRECATED(3.0, "UpdateMeshSection for dual buffer sections deprecated. Please use UpdateMeshSectionDualBuffer instead.")
 	void UpdateMeshSection(int32 SectionIndex, TArray<FVector>& VertexPositions, TArray<VertexType>& VertexData, TArray<int32>& Triangles, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
 	{
 		UpdateMeshSectionDualBuffer(SectionIndex, VertexPositions, VertexData, Triangles, UpdateFlags);
@@ -245,7 +246,7 @@ public:
 
 	/** DEPRECATED! Use UpdateMeshSectionDualBuffer() instead.  Updates the dual buffer mesh section */
 	template<typename VertexType>
-	DEPRECATED(3.0, "UpdateMeshSection for dual buffer sections deprecated. Please use UpdateMeshSectionDualBuffer instead.")
+	UE_DEPRECATED(3.0, "UpdateMeshSection for dual buffer sections deprecated. Please use UpdateMeshSectionDualBuffer instead.")
 	void UpdateMeshSection(int32 SectionIndex, TArray<FVector>& VertexPositions, TArray<VertexType>& VertexData, TArray<int32>& Triangles, const FBox& BoundingBox, ESectionUpdateFlags UpdateFlags = ESectionUpdateFlags::None)
 	{
 		UpdateMeshSectionDualBuffer(SectionIndex, VertexPositions, VertexData, Triangles, BoundingBox, UpdateFlags);
@@ -763,6 +764,10 @@ private:
 
 public:
 
+	// HORU: returns true if any async collision cooking is pending.
+	UFUNCTION(BlueprintCallable)
+	bool IsAsyncCollisionCookingPending() const;
+
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
 	int32 GetSectionIdFromCollisionFaceIndex(int32 FaceIndex) const;
 
@@ -806,11 +811,12 @@ private:
 	UPROPERTY(Transient)
 	TArray<UBodySetup*> AsyncBodySetupQueue;
 
-	//~ Begin Interface_CollisionDataProvider Interface
+#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION < 22
 	virtual bool GetPhysicsTriMeshData(struct FTriMeshCollisionData* CollisionData, bool InUseAllTriData) override;
 	virtual bool ContainsPhysicsTriMeshData(bool InUseAllTriData) const override;
 	virtual bool WantsNegXTriMesh() override { return false; }
 	//~ End Interface_CollisionDataProvider Interface
+#endif
 
 #if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION < 21
 	UBodySetup* CreateNewBodySetup();

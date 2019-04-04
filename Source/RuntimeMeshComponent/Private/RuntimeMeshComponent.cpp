@@ -338,3 +338,8 @@ void URuntimeMeshComponent::UpdateCollision(bool bForceCookNow)
 }
 
 #endif
+
+bool URuntimeMeshComponent::IsAsyncCollisionCookingPending() const
+{
+	return AsyncBodySetupQueue.Num() != 0;
+}

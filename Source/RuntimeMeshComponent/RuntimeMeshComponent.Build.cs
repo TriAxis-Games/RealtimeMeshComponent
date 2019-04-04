@@ -41,7 +41,6 @@ public class RuntimeMeshComponent : ModuleRules
                 "Engine",
 				// ... add private dependencies that you statically link with here ...	
                 "RenderCore",
-                "ShaderCore",
                 "RHI",
                 "NavigationSystem"
             }
