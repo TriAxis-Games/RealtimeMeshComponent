@@ -13,7 +13,7 @@
 #include "RuntimeMesh.h"
 #include "RuntimeMeshComponentProxy.h"
 #include "RuntimeMeshLegacySerialization.h"
-
+#include "NavigationSystem.h"
 
 
 
@@ -71,14 +71,14 @@ void URuntimeMeshComponent::NewCollisionMeshReceived()
 #if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 20
 	FNavigationSystem::UpdateComponentData(*this);
 #else
- 	if (UNavigationSystem::ShouldUpdateNavOctreeOnComponentChange() && IsRegistered())
+ 	if (UNavigationSystemV1::ShouldUpdateNavOctreeOnComponentChange() && IsRegistered())
  	{
  		UWorld* MyWorld = GetWorld();
  
- 		if (MyWorld != nullptr && MyWorld->GetNavigationSystem() != nullptr &&
- 			(MyWorld->GetNavigationSystem()->ShouldAllowClientSideNavigation() || !MyWorld->IsNetMode(ENetMode::NM_Client)))
+ 		if (MyWorld != nullptr && FNavigationSystem::GetCurrent(MyWorld) != nullptr &&
+ 			(FNavigationSystem::GetCurrent(MyWorld)->ShouldAllowClientSideNavigation() || !MyWorld->IsNetMode(ENetMode::NM_Client)))
  		{
- 			UNavigationSystem::UpdateComponentInNavOctree(*this);
+			UNavigationSystemV1::UpdateComponentInNavOctree(*this);
  		}
  	}
 #endif
@@ -309,7 +309,10 @@ void URuntimeMeshComponent::UpdateCollision(bool bForceCookNow)
 {
 	//SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_CollisionUpdate);
 	check(IsInGameThread());
-	check(GetRuntimeMesh());
+	// HORU: workaround for a nullpointer
+	if (!GetRuntimeMesh())
+		return;
+	//check(GetRuntimeMesh());
 
 	UWorld* World = GetWorld();
 	const bool bShouldCookAsync = !bForceCookNow && World && World->IsGameWorld() && GetRuntimeMesh()->bUseAsyncCooking;
@@ -347,3 +350,8 @@ void URuntimeMeshComponent::UpdateCollision(bool bForceCookNow)
 }
 
 #endif
+
+bool URuntimeMeshComponent::IsAsyncCollisionCookingPending() const
+{
+	return AsyncBodySetupQueue.Num() != 0;
+}

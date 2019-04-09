@@ -447,7 +447,30 @@ void FRuntimeMeshData::UpdateMeshSectionFromComponents(int32 SectionIndex, const
 	UpdateSectionInternal(SectionIndex, BuffersToUpdate, UpdateFlags);
 }
 
+void FRuntimeMeshData::UpdateMeshSectionColors(int32 SectionIndex, TArray<FColor>& Colors, ESectionUpdateFlags UpdateFlags /*= ESectionUpdateFlags::None*/)
+{
+	if (Colors.Num() == 0)
+		return;
 
+	check(DoesSectionExist(SectionIndex));
+
+	FRuntimeMeshScopeLock Lock(SyncRoot);
+	const FRuntimeMeshSectionPtr& Section = MeshSections[SectionIndex];
+	const ERuntimeMeshBuffersToUpdate BuffersToUpdate = ERuntimeMeshBuffersToUpdate::ColorBuffer;
+	TSharedPtr<FRuntimeMeshAccessor> MeshData = Section->GetSectionMeshAccessor();
+
+	for (int i = 0; i < Colors.Num(); i++)
+		MeshData->SetColor(i, Colors[i]);
+
+	if (RenderProxy.IsValid())
+		RenderProxy->UpdateSection_GameThread(SectionIndex, Section->GetSectionUpdateData(BuffersToUpdate));
+
+	const bool bRequireProxyRecreate = Section->GetUpdateFrequency() == EUpdateFrequency::Infrequent;
+	if (bRequireProxyRecreate)
+		MarkRenderStateDirty();
+
+	MarkChanged();
+}
 
 void FRuntimeMeshData::CreateMeshSection(int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals,
 	const TArray<FVector2D>& UV0, const TArray<FColor>& Colors, const TArray<FRuntimeMeshTangent>& Tangents, bool bCreateCollision, EUpdateFrequency UpdateFrequency,
