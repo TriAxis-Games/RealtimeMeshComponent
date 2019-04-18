@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "PrimitiveSceneProxy.h"
 #include "RuntimeMeshData.h"
 #include "RuntimeMeshSectionProxy.h"
 

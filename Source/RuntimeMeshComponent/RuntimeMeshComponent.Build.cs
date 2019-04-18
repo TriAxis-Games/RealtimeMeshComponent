@@ -9,26 +9,26 @@ public class RuntimeMeshComponent : ModuleRules
         PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 
         // HORU: this was throwing warnings
-        //     PublicIncludePaths.AddRange(
+      //       PublicIncludePaths.AddRange(
         //         new string[] {
-        //             "RuntimeMeshComponent/Public"
+         //            "RuntimeMeshComponent/Public"
         //	// ... add public include paths required here ...
-        //}
-        //         );
+     //   }
+      //           );
 
         // HORU: this was throwing warnings
         //     PrivateIncludePaths.AddRange(
         //         new string[] {
-        //             "RuntimeMeshComponent/Private",
+          //           "RuntimeMeshComponent/Private",
         //	// ... add other private include paths required here ...
-        //}
+       // }
         //         );
 
 
         PublicDependencyModuleNames.AddRange(
             new string[]
             {
-                "Core",
+                "Core"
 				// ... add other public dependencies that you statically link with here ...
 			}
             );
