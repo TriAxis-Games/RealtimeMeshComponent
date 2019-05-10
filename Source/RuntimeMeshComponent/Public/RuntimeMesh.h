@@ -8,6 +8,7 @@
 #include "RuntimeMeshData.h"
 #include "RuntimeMeshBlueprint.h"
 #include "RuntimeMeshCollision.h"
+#include "Runtime/Engine/Public/Tickable.h"
 #include "RuntimeMeshBlueprintMeshBuilder.h"
 #include "RuntimeMesh.generated.h"
 

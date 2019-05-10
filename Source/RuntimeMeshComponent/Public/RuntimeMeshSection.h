@@ -5,6 +5,7 @@
 #include "Engine/Engine.h"
 #include "RuntimeMeshCore.h"
 #include "RuntimeMeshBuilder.h"
+#include "Interfaces/Interface_CollisionDataProvider.h"
 
 enum class ERuntimeMeshBuffersToUpdate : uint8;
 struct FRuntimeMeshSectionVertexBufferParams;
