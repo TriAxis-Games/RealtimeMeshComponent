@@ -1040,10 +1040,10 @@ public:
 
 
 	FBoxSphereBounds GetLocalBounds() const;
-
-private:
 	
 	FRuntimeMeshSectionPtr GetSection(int32 SectionIndex) { return MeshSections[SectionIndex]; }
+	
+private:
 
 	void Setup(TWeakObjectPtr<URuntimeMesh> InParentMeshObject);
 

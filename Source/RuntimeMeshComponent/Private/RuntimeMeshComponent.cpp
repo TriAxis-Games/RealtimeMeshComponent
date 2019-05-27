@@ -3,32 +3,19 @@
 #include "RuntimeMeshComponent.h"
 #include "RuntimeMeshComponentPlugin.h"
 #include "PhysicsEngine/BodySetup.h"
-#include "PhysicsEngine/PhysicsSettings.h"
-#include "Physics/IPhysXCookingModule.h"
 #include "RuntimeMeshCore.h"
-#include "RuntimeMeshGenericVertex.h"
 #include "RuntimeMeshUpdateCommands.h"
-#include "RuntimeMeshSection.h"
-#include "RuntimeMeshSectionProxy.h"
 #include "RuntimeMesh.h"
 #include "RuntimeMeshComponentProxy.h"
 #include "RuntimeMeshLegacySerialization.h"
 
-
-
-
 DECLARE_CYCLE_STAT(TEXT("RMC - New Collision Data Recieved"), STAT_RuntimeMeshComponent_NewCollisionMeshReceived, STATGROUP_RuntimeMesh);
-
-
-
-
 
 URuntimeMeshComponent::URuntimeMeshComponent(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 #if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION < 21
 	, BodySetup(nullptr)
 #endif
-
 {
 	SetNetAddressable();
 }
@@ -36,9 +23,7 @@ URuntimeMeshComponent::URuntimeMeshComponent(const FObjectInitializer& ObjectIni
 void URuntimeMeshComponent::EnsureHasRuntimeMesh()
 {
 	if (RuntimeMeshReference == nullptr)
-	{
-		SetRuntimeMesh(NewObject<URuntimeMesh>(this));
-	}
+        SetRuntimeMesh(NewObject<URuntimeMesh>(this));
 }
 
 void URuntimeMeshComponent::SetRuntimeMesh(URuntimeMesh* NewMesh)
@@ -58,7 +43,6 @@ void URuntimeMeshComponent::SetRuntimeMesh(URuntimeMesh* NewMesh)
 
 	MarkRenderStateDirty();
 }
-
 
 void URuntimeMeshComponent::NewCollisionMeshReceived()
 {
@@ -95,10 +79,6 @@ void URuntimeMeshComponent::ForceProxyRecreate()
 	MarkRenderStateDirty();
 }
 
-
-
-
-
 void URuntimeMeshComponent::SendSectionCreation(int32 SectionIndex)
 {
 	MarkRenderStateDirty();
@@ -112,13 +92,10 @@ void URuntimeMeshComponent::SendSectionPropertiesUpdate(int32 SectionIndex)
 FBoxSphereBounds URuntimeMeshComponent::CalcBounds(const FTransform& LocalToWorld) const
 {
 	if (GetRuntimeMesh())
-	{
-		return GetRuntimeMesh()->GetLocalBounds().TransformBy(LocalToWorld);
-	}
+        return GetRuntimeMesh()->GetLocalBounds().TransformBy(LocalToWorld);
 
-	return FBoxSphereBounds(FSphere(FVector::ZeroVector, 1));
+    return FBoxSphereBounds(FSphere(FVector::ZeroVector, 1));
 }
-
 
 FPrimitiveSceneProxy* URuntimeMeshComponent::CreateSceneProxy()
 {
@@ -131,81 +108,68 @@ UBodySetup* URuntimeMeshComponent::GetBodySetup()
 	return BodySetup;
 #else
 	if (GetRuntimeMesh())
-	{
-		return GetRuntimeMesh()->BodySetup;
-	}
-	
-	return nullptr;
+        return GetRuntimeMesh()->BodySetup;
+
+    return nullptr;
 #endif
 }
 
-
 int32 URuntimeMeshComponent::GetNumMaterials() const
 {
-	int32 RuntimeMeshSections = GetRuntimeMesh() != nullptr ? GetRuntimeMesh()->GetNumSections() : 0;
+    const auto RuntimeMeshSections = GetRuntimeMesh() != nullptr ? GetRuntimeMesh()->GetNumSections() : 0;
 
 	return FMath::Max(Super::GetNumMaterials(), RuntimeMeshSections);
 }
 
 void URuntimeMeshComponent::GetUsedMaterials(TArray<UMaterialInterface*>& OutMaterials, bool bGetDebugMaterials) const
 {
-	if (URuntimeMesh* Mesh = GetRuntimeMesh())
-	{
-		Mesh->GetUsedMaterials(OutMaterials);
-	}
+	if (const auto Mesh = GetRuntimeMesh())
+        Mesh->GetUsedMaterials(OutMaterials);
 
-	Super::GetUsedMaterials(OutMaterials, bGetDebugMaterials);
+    Super::GetUsedMaterials(OutMaterials, bGetDebugMaterials);
 }
 
-UMaterialInterface* URuntimeMeshComponent::GetMaterial(int32 ElementIndex) const
+UMaterialInterface* URuntimeMeshComponent::GetMaterial(const int32 ElementIndex) const
 {
-	UMaterialInterface* Mat = Super::GetMaterial(ElementIndex);
+    const auto Material = Super::GetMaterial(ElementIndex);
 
 	// Use default override material system
-	if (Mat != nullptr)
-		return Mat;
+	if (Material != nullptr)
+		return Material;
 
 	// fallback to RM sections material
-	if (URuntimeMesh* Mesh = GetRuntimeMesh())
-	{
-		return Mesh->GetSectionMaterial(ElementIndex);
-	}
+	if (auto Mesh = GetRuntimeMesh())
+        return Mesh->GetSectionMaterial(ElementIndex);
 
-	// Had no RM/Section return null
+    // Had no RM/Section return null
 	return nullptr;
 }
 
-UMaterialInterface* URuntimeMeshComponent::GetOverrideMaterial(int32 ElementIndex) const
+UMaterialInterface* URuntimeMeshComponent::GetOverrideMaterial(const int32 ElementIndex) const
 {
 	return Super::GetMaterial(ElementIndex);
 }
 
-int32 URuntimeMeshComponent::GetSectionIdFromCollisionFaceIndex(int32 FaceIndex) const
+int32 URuntimeMeshComponent::GetSectionIdFromCollisionFaceIndex(const int32 FaceIndex) const
 {
-	int32 SectionIndex = 0;
+    auto SectionIndex = 0;
 
-	if (URuntimeMesh* Mesh = GetRuntimeMesh())
-	{
-		SectionIndex = Mesh->GetSectionIdFromCollisionFaceIndex(FaceIndex);
-	}
+	if (const auto Mesh = GetRuntimeMesh())
+        SectionIndex = Mesh->GetSectionIdFromCollisionFaceIndex(FaceIndex);
 
-	return SectionIndex;
+    return SectionIndex;
 }
 
-UMaterialInterface* URuntimeMeshComponent::GetMaterialFromCollisionFaceIndex(int32 FaceIndex, int32& SectionIndex) const
+UMaterialInterface* URuntimeMeshComponent::GetMaterialFromCollisionFaceIndex(const int32 FaceIndex, int32& SectionIndex) const
 {
 	UMaterialInterface* Result = nullptr;
 	SectionIndex = 0;
 
-	if (URuntimeMesh* Mesh = GetRuntimeMesh())
-	{
-		Result = Mesh->GetMaterialFromCollisionFaceIndex(FaceIndex, SectionIndex);
-	}
+	if (const auto Mesh = GetRuntimeMesh())
+        Result = Mesh->GetMaterialFromCollisionFaceIndex(FaceIndex, SectionIndex);
 
-	return Result;
+    return Result;
 }
-
-
 
 void URuntimeMeshComponent::Serialize(FArchive& Ar)
 {
@@ -216,7 +180,7 @@ void URuntimeMeshComponent::Serialize(FArchive& Ar)
 	if (FRuntimeMeshComponentLegacySerialization::Serialize(Ar))
 	{
 		//// If this was an old file we attempt to recover by just rerunning the construction script of the owning actor.
-		//if (AActor* Actor = GetOwner())
+		//if (AActor* Actor = GetContainerOwner())
 		//{
 		//	if (!Actor->HasAnyFlags(RF_ClassDefaultObject))
 		//	{
@@ -226,16 +190,12 @@ void URuntimeMeshComponent::Serialize(FArchive& Ar)
 	}
 }
 
-
-
 void URuntimeMeshComponent::PostLoad()
 {
 	Super::PostLoad();
 
 	if (RuntimeMeshReference)
-	{
-		RuntimeMeshReference->RegisterLinkedComponent(this);
-	}
+        RuntimeMeshReference->RegisterLinkedComponent(this);
 }
 
 
@@ -338,5 +298,4 @@ void URuntimeMeshComponent::UpdateCollision(bool bForceCookNow)
 		NewCollisionMeshReceived();
 	}
 }
-
 #endif

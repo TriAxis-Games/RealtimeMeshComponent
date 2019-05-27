@@ -1,9 +1,18 @@
 // Copyright 2016-2018 Chris Conway (Koderz). All Rights Reserved.
 
 using UnrealBuildTool;
+using System;
+using System.IO;
+using System.Diagnostics;
+using System.Collections.Generic;
 
 public class RuntimeMeshComponent : ModuleRules
 {
+    private string ModulePath
+    {
+        get { return Path.GetDirectoryName(ModuleDirectory); }
+    }
+
     public RuntimeMeshComponent(ReadOnlyTargetRules rules) : base(rules)
     {
         PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
@@ -20,7 +29,7 @@ public class RuntimeMeshComponent : ModuleRules
                     "RuntimeMeshComponent/Private"
                 });
         }
-
+        
         PublicDependencyModuleNames.AddRange(
             new string[] {
                 "Core"
@@ -30,7 +39,6 @@ public class RuntimeMeshComponent : ModuleRules
             new string[] {
                 "CoreUObject",
                 "Engine",
-
                 "RenderCore",
                 "ShaderCore",
                 "RHI",

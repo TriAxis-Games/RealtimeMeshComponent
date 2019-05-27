@@ -17,19 +17,18 @@ public class RuntimeMeshComponentEditor : ModuleRules
 
             PrivateIncludePaths.AddRange(
                 new string[] {
-                    "RuntimeMeshComponentEditor/Private"
+                    "RuntimeMeshComponentEditor/Private",
                 });
         }
 
         PublicDependencyModuleNames.AddRange(
             new string[] {
-                "Core"
+                "Core",
             });
 
         PrivateDependencyModuleNames.AddRange(
             new string[] {
                 "CoreUObject",
-
                 "Engine",
                 "Slate",
                 "SlateCore",
