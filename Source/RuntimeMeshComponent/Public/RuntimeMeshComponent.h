@@ -218,7 +218,9 @@ public:
 	}
 
 
-
+#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION < 22
+#define UE_DEPRECATED(VERSION, MESSAGE) DEPRECATED(VERSION, MESSAGE)
+#endif
 
 	/** DEPRECATED! Use UpdateMeshSectionDualBuffer() instead.  Updates the dual buffer mesh section */
 	template<typename VertexType>
@@ -811,14 +813,12 @@ private:
 	UPROPERTY(Transient)
 	TArray<UBodySetup*> AsyncBodySetupQueue;
 
-#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION < 22
+#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION < 21
 	virtual bool GetPhysicsTriMeshData(struct FTriMeshCollisionData* CollisionData, bool InUseAllTriData) override;
 	virtual bool ContainsPhysicsTriMeshData(bool InUseAllTriData) const override;
 	virtual bool WantsNegXTriMesh() override { return false; }
 	//~ End Interface_CollisionDataProvider Interface
-#endif
 
-#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION < 21
 	UBodySetup* CreateNewBodySetup();
 	void FinishPhysicsAsyncCook(UBodySetup* FinishedBodySetup);
 
