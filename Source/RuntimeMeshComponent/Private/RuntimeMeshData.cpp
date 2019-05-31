@@ -1506,12 +1506,12 @@ int32 FRuntimeMeshData::GetSectionAndFaceFromCollisionFaceIndex(int32& FaceIndex
 				// Grab the material
 				SectionIndex = SectionIdx;
 				FaceIndex -= TotalFaceCount;
+				break;
 			}
 			TotalFaceCount += NumFaces;
 		}
 	}
 	return SectionIndex;
-	return -1;
 }
 
 class FRuntimeMeshGameThreadTask
