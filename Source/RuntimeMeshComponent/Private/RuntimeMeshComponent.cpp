@@ -13,7 +13,7 @@
 #include "RuntimeMesh.h"
 #include "RuntimeMeshComponentProxy.h"
 #include "RuntimeMeshLegacySerialization.h"
-
+#include "NavigationSystem.h"
 
 
 
@@ -71,14 +71,14 @@ void URuntimeMeshComponent::NewCollisionMeshReceived()
 #if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 20
 	FNavigationSystem::UpdateComponentData(*this);
 #else
- 	if (UNavigationSystem::ShouldUpdateNavOctreeOnComponentChange() && IsRegistered())
+ 	if (UNavigationSystemV1::ShouldUpdateNavOctreeOnComponentChange() && IsRegistered())
  	{
  		UWorld* MyWorld = GetWorld();
  
- 		if (MyWorld != nullptr && MyWorld->GetNavigationSystem() != nullptr &&
- 			(MyWorld->GetNavigationSystem()->ShouldAllowClientSideNavigation() || !MyWorld->IsNetMode(ENetMode::NM_Client)))
+ 		if (MyWorld != nullptr && FNavigationSystem::GetCurrent(MyWorld) != nullptr &&
+ 			(FNavigationSystem::GetCurrent(MyWorld)->ShouldAllowClientSideNavigation() || !MyWorld->IsNetMode(ENetMode::NM_Client)))
  		{
- 			UNavigationSystem::UpdateComponentInNavOctree(*this);
+			UNavigationSystemV1::UpdateComponentInNavOctree(*this);
  		}
  	}
 #endif
@@ -192,6 +192,14 @@ int32 URuntimeMeshComponent::GetSectionIdFromCollisionFaceIndex(int32 FaceIndex)
 	return SectionIndex;
 }
 
+void URuntimeMeshComponent::GetSectionIdAndFaceIdFromCollisionFaceIndex(int32 FaceIndex, int32 & SectionIndex, int32 & SectionFaceIndex) const
+{
+	if (URuntimeMesh* Mesh = GetRuntimeMesh())
+	{
+		Mesh->GetSectionIdAndFaceIdFromCollisionFaceIndex(FaceIndex, SectionIndex, SectionFaceIndex);
+	}
+}
+
 UMaterialInterface* URuntimeMeshComponent::GetMaterialFromCollisionFaceIndex(int32 FaceIndex, int32& SectionIndex) const
 {
 	UMaterialInterface* Result = nullptr;
@@ -239,7 +247,7 @@ void URuntimeMeshComponent::PostLoad()
 }
 
 
-#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION < 21
+#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION < 22
 
 bool URuntimeMeshComponent::GetPhysicsTriMeshData(struct FTriMeshCollisionData* CollisionData, bool InUseAllTriData)
 {
@@ -261,6 +269,10 @@ bool URuntimeMeshComponent::ContainsPhysicsTriMeshData(bool InUseAllTriData) con
 	}
 	return false;
 }
+
+#endif
+
+#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION < 21
 
 UBodySetup* URuntimeMeshComponent::CreateNewBodySetup()
 {
@@ -297,7 +309,10 @@ void URuntimeMeshComponent::UpdateCollision(bool bForceCookNow)
 {
 	//SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_CollisionUpdate);
 	check(IsInGameThread());
-	check(GetRuntimeMesh());
+	// HORU: workaround for a nullpointer
+	if (!GetRuntimeMesh())
+		return;
+	//check(GetRuntimeMesh());
 
 	UWorld* World = GetWorld();
 	const bool bShouldCookAsync = !bForceCookNow && World && World->IsGameWorld() && GetRuntimeMesh()->bUseAsyncCooking;
@@ -335,3 +350,8 @@ void URuntimeMeshComponent::UpdateCollision(bool bForceCookNow)
 }
 
 #endif
+
+bool URuntimeMeshComponent::IsAsyncCollisionCookingPending() const
+{
+	return AsyncBodySetupQueue.Num() != 0;
+}
