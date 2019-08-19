@@ -691,7 +691,7 @@ void URuntimeMeshLibrary::GetStaticMeshSection(UStaticMesh* InMesh, int32 LODInd
 					uint32 StartIndex = Section.FirstIndex * 4;
 					uint32 NumIndices = Section.NumTriangles * 3 * 4;
 
-					for (uint32 Index = 0; Index < NumIndices; Index++)
+					for (uint32 Index = StartIndex; Index < NumIndices; Index++)
 					{
 						AdjacencyIndexCreator(MeshToSectionVertMap[AdjacencyIndices[Index]]);
 					}
