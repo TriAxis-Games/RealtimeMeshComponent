@@ -16,7 +16,10 @@ struct /*RUNTIMEMESHCOMPONENT_API*/ FRuntimeMeshDataStructBP //Do not uncomment 
 {
 	GENERATED_BODY()
 
+	UPROPERTY(BlueprintReadWrite)
 	TArray<FRuntimeMeshBlueprintVertexSimple> Vertices;
+
+	UPROPERTY(BlueprintReadWrite)
 	TArray<int32> Triangles;
 
 	FRuntimeMeshDataStructBP() {}
