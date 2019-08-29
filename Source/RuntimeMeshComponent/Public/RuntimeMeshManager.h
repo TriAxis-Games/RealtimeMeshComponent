@@ -56,7 +56,7 @@ public:
 	/* Used to know if a mesh is already present in the mesh manager */
 	FORCEINLINE bool HasMesh(Datastruct id) 
 	{
-		return DataMap.contains(id);
+		return DataMap.Contains(id);
 	}
 
 	/* Returns the full mesh that combines all provided meshes */
@@ -75,7 +75,7 @@ public:
 	/* Returns the mesh that was saved at the ID */
 	FORCEINLINE MeshType GetMesh(Datastruct id)
 	{
-		int32 index = DataMap.find(id);
+		int32 index = DataMap.Find(id);
 		return GetMeshAtIndex(index);
 	}
 	
@@ -96,6 +96,8 @@ public:
 		{
 			submesh.Triangles[i] = Mesh.Triangles[i + trisstart];
 		}
+
+		return submesh;
 	}
 
 	/* Adds or updates the mesh for the specified ID
