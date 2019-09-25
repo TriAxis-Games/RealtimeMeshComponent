@@ -917,6 +917,20 @@ public:
 	void UpdateMeshSectionPacked_Blueprint(int32 SectionIndex, const TArray<FRuntimeMeshBlueprintVertexSimple>& Vertices, const TArray<int32>& Triangles,
 		bool bCalculateNormalTangent = false, bool bShouldCreateHardTangents = false, bool bGenerateTessellationTriangles = false);
 
+    void GetMeshSectionData(int32 SectionIndex, TArray<FVector>& OutVertices, TArray<int32>& OutTriangles)
+    {
+        TSharedPtr<const FRuntimeMeshAccessor> acc = GetReadonlyMeshAccessor(SectionIndex);
+        int32 vertCount = acc->NumVertices();
+        OutVertices.SetNum(vertCount, true);
+        for (int32 i=0; i < vertCount; i++)
+            OutVertices[i] = acc->GetPosition(i);
+
+        int32 indexCount = acc->NumIndices();
+        OutTriangles.SetNum(indexCount, true);
+        for (int32 i=0; i < indexCount; i++)
+            OutTriangles[i] = acc->GetIndex(i);
+    }
+
 	
 
 

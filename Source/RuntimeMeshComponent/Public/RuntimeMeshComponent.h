@@ -379,6 +379,11 @@ public:
 		GetOrCreateRuntimeMesh()->UpdateMeshSectionTripleBuffer(SectionId, InVertices0, InVertices1, InVertices2, InTriangles, BoundingBox, UpdateFlags);
 	}
 
+    template<typename VertexType, typename IndexType>
+    FORCEINLINE void GetMeshSectionData(int32 SectionIndex, TArray<VertexType>& OutVertices, TArray<IndexType>& OutTriangles)
+    {
+        GetOrCreateRuntimeMesh()->GetMeshSectionData(SectionIndex, OutVertices, OutTriangles);
+    }
 
 
 

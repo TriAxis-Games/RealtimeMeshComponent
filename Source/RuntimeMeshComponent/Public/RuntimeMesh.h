@@ -325,6 +325,12 @@ public:
 		GetRuntimeMeshData()->UpdateMeshSectionTriangles<IndexType>(SectionId, InTriangles, UpdateFlags);
 	}
 
+    template<typename VertexType, typename IndexType>
+    FORCEINLINE void GetMeshSectionData(int32 SectionIndex, TArray<VertexType>& OutVertices, TArray<IndexType>& OutTriangles)
+    {
+		check(IsInGameThread());
+        GetRuntimeMeshData()->GetMeshSectionData(SectionIndex, OutVertices, OutTriangles);
+    }
 
 
 	FORCEINLINE void CreateMeshSection(int32 SectionId, const TSharedPtr<FRuntimeMeshBuilder>& MeshData, bool bCreateCollision = false,
