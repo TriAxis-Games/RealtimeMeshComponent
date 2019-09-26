@@ -73,6 +73,9 @@ FPrimitiveViewRelevance FRuntimeMeshComponentSceneProxy::GetViewRelevance(const 
 	Result.bUsesLightingChannels = GetLightingChannelMask() != GetDefaultLightingChannelMask();
 	Result.bRenderCustomDepth = ShouldRenderCustomDepth();
 	MaterialRelevance.SetPrimitiveViewRelevance(Result);
+
+	Result.bVelocityRelevance = IsMovable() && Result.bOpaqueRelevance && Result.bRenderInMainPass;
+
 	return Result;
 }
 
