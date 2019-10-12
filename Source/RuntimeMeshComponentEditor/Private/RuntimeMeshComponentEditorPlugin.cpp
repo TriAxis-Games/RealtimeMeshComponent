@@ -7,7 +7,7 @@
 #include "RuntimeMeshComponentEditorStyle.h"
 #include "RuntimeMeshComponentEditorCommands.h"
 
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "LevelEditor.h"
 
 class FToolBarBuilder;
