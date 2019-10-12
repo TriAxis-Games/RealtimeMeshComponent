@@ -927,7 +927,7 @@ private:
 public:
 
 	// HORU: returns true if any async collision cooking is pending.
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
 	bool IsAsyncCollisionCookingPending() const;
 
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
