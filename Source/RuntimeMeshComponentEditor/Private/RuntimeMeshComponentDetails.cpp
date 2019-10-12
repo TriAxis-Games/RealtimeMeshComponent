@@ -13,8 +13,8 @@
 #include "DetailWidgetRow.h"
 #include "RawMesh.h"
 
-#include "Input/SCheckBox.h"
-#include "Input/SComboBox.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "Widgets/Input/SComboBox.h"
 
 #define LOCTEXT_NAMESPACE "RuntimeMeshComponentDetails"
 
