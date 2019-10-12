@@ -2,7 +2,7 @@
 
 #include "RuntimeMeshComponentDetails.h"
 #include "RuntimeMeshComponent.h"
-#include "DlgPickAssetPath.h"
+#include "Dialogs/DlgPickAssetPath.h"
 #include "IAssetTools.h"
 #include "AssetToolsModule.h"
 #include "AssetRegistryModule.h"
