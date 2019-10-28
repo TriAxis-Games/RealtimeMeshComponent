@@ -93,7 +93,7 @@ void FRuntimeMeshIndexBuffer::InitRHI()
 	{
 		// Create the index buffer
 		FRHIResourceCreateInfo CreateInfo;
-		IndexBufferRHI = RHICreateIndexBuffer(IndexSize, GetBufferSize(), BUF_Dynamic, CreateInfo);
+		IndexBufferRHI = RHICreateIndexBuffer(IndexSize, GetBufferSize(), UsageFlags | BUF_ShaderResource, CreateInfo);
 	}
 }
 
