@@ -3,8 +3,8 @@
 
 #include "RuntimeMeshProviderBox.h"
 
-FRuntimeMeshProviderBoxProxy::FRuntimeMeshProviderBoxProxy(TWeakObjectPtr<URuntimeMeshProvider> InParent, const FVector& InBoxRadius, UMaterialInterface* InMaterial)
-	: FRuntimeMeshProviderProxy(InParent), BoxRadius(InBoxRadius), Material(InMaterial)
+FRuntimeMeshProviderBoxProxy::FRuntimeMeshProviderBoxProxy(TWeakObjectPtr<URuntimeMeshProvider> InParent)
+	: FRuntimeMeshProviderProxy(InParent)
 {
 
 }
@@ -14,13 +14,20 @@ FRuntimeMeshProviderBoxProxy::~FRuntimeMeshProviderBoxProxy()
 
 }
 
+void FRuntimeMeshProviderBoxProxy::UpdateProxyParameters(URuntimeMeshProvider* ParentProvider, bool bIsInitialSetup)
+{
+	URuntimeMeshProviderBox* BoxProvider = Cast<URuntimeMeshProviderBox>(ParentProvider);
+	BoxRadius = BoxProvider->BoxRadius;
+	Material = BoxProvider->Material;
+}
+
 void FRuntimeMeshProviderBoxProxy::Initialize()
 {
 	FRuntimeMeshLODProperties LODProperties;
 	LODProperties.ScreenSize = 0.0f;
 	ConfigureLOD(0, LODProperties);
 
-	SetupMaterialSlot(0, FName("Cube Base"), Material);
+	SetupMaterialSlot(0, FName("Cube Base"), Material.Get());
 
 	FRuntimeMeshSectionProperties Properties;
 	Properties.bCastsShadow = true;

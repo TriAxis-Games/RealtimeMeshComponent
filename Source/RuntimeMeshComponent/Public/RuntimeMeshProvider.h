@@ -47,8 +47,10 @@ public:
  */
 class RUNTIMEMESHCOMPONENT_API FRuntimeMeshProviderProxy : public IRuntimeMeshProviderProxy, public TSharedFromThis<FRuntimeMeshProviderProxy, ESPMode::ThreadSafe>
 {
-protected:
+private:
 	TWeakObjectPtr<URuntimeMeshProvider> Parent;
+
+protected:
 	FRuntimeMeshProviderProxyPtr PreviousProvider;
 
 public:
@@ -57,7 +59,10 @@ public:
 protected:
 	virtual void BindPreviousProvider(const FRuntimeMeshProviderProxyPtr& InPreviousProvider);
 
+
 public:
+	virtual void UpdateProxyParameters(URuntimeMeshProvider* ParentProvider, bool bIsInitialSetup);
+
 	virtual void ConfigureLOD(uint8 LODIndex, const FRuntimeMeshLODProperties& LODProperties) override
 	{
 		if (PreviousProvider.IsValid())
@@ -125,6 +130,7 @@ public:
 private:
 	friend class FRuntimeMeshData;
 	friend class FRuntimeMeshProviderProxyPassThrough;
+	friend class FRuntimeMeshProviderProxyUObjectProviderConnector;
 };
 
 
@@ -162,18 +168,17 @@ class RUNTIMEMESHCOMPONENT_API URuntimeMeshProvider : public UObject, public IRu
 {
 	GENERATED_BODY()
 
-protected:
+private:
 	FRuntimeMeshProviderProxyPtr Proxy;
 
+protected:
 	virtual FRuntimeMeshProviderProxyRef GetProxy();
 
 public:
-	FRuntimeMeshProviderProxyRef SetupProxy()
-	{
-		FRuntimeMeshProviderProxyRef NewProxy = GetProxy();
-		Proxy = NewProxy;
-		return NewProxy;
-	}
+	FRuntimeMeshProviderProxyRef SetupProxy();
+
+	virtual void MarkProxyParametersDirty();
+
 
 	virtual void Initialize() { };
 

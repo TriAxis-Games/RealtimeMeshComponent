@@ -8,12 +8,14 @@
 
 class RUNTIMEMESHCOMPONENT_API FRuntimeMeshProviderBoxProxy : public FRuntimeMeshProviderProxy
 {
-	const FVector BoxRadius;
-	UMaterialInterface* Material;
+	FVector BoxRadius;
+	TWeakObjectPtr<UMaterialInterface> Material;
 
 public:
-	FRuntimeMeshProviderBoxProxy(TWeakObjectPtr<URuntimeMeshProvider> InParent, const FVector& InBoxRadius, UMaterialInterface* InMaterial);
+	FRuntimeMeshProviderBoxProxy(TWeakObjectPtr<URuntimeMeshProvider> InParent);
 	~FRuntimeMeshProviderBoxProxy();
+
+	void UpdateProxyParameters(URuntimeMeshProvider* ParentProvider, bool bIsInitialSetup) override;
 
 	virtual void Initialize() override;
 
@@ -27,6 +29,8 @@ public:
 
 	bool IsThreadSafe() const override;
 
+
+
 };
 
 UCLASS(HideCategories = Object, BlueprintType)
@@ -35,8 +39,6 @@ class RUNTIMEMESHCOMPONENT_API URuntimeMeshProviderBox : public URuntimeMeshProv
 	GENERATED_BODY()
 
 public:
-
-
 	UPROPERTY(EditAnywhere)
 	FVector BoxRadius;
 
@@ -44,5 +46,5 @@ public:
 	UMaterialInterface* Material;
 
 protected:
-	virtual FRuntimeMeshProviderProxyRef GetProxy() override { return MakeShared<FRuntimeMeshProviderBoxProxy, ESPMode::ThreadSafe>(TWeakObjectPtr<URuntimeMeshProvider>(this), BoxRadius, Material); }
+	virtual FRuntimeMeshProviderProxyRef GetProxy() override { return MakeShared<FRuntimeMeshProviderBoxProxy, ESPMode::ThreadSafe>(TWeakObjectPtr<URuntimeMeshProvider>(this)); }
 };

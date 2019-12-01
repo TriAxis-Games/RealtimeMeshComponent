@@ -13,6 +13,11 @@ void FRuntimeMeshProviderProxy::BindPreviousProvider(const FRuntimeMeshProviderP
 	PreviousProvider = InPreviousProvider;
 }
 
+void FRuntimeMeshProviderProxy::UpdateProxyParameters(URuntimeMeshProvider* ParentProvider, bool bIsInitialSetup)
+{
+
+}
+
 
 FRuntimeMeshProviderProxyPassThrough::FRuntimeMeshProviderProxyPassThrough(TWeakObjectPtr<URuntimeMeshProvider> InParent, const FRuntimeMeshProviderProxyPtr& InNextProvider)
 	: FRuntimeMeshProviderProxy(InParent), NextProvider(InNextProvider)
@@ -191,3 +196,24 @@ FRuntimeMeshProviderProxyRef URuntimeMeshProvider::GetProxy()
 	return NewConnector;
 }
 
+FRuntimeMeshProviderProxyRef URuntimeMeshProvider::SetupProxy()
+{
+	FRuntimeMeshProviderProxyRef NewProxy = GetProxy();
+	Proxy = NewProxy;
+
+	// We can go ahead and update the parameters once to kick it off.
+	NewProxy->UpdateProxyParameters(this, true);
+	return NewProxy;
+}
+
+void URuntimeMeshProvider::MarkProxyParametersDirty()
+{
+	// Right now this just blindly updates the parameters
+	// This gives us the ability to add the threading support later hopefully without
+	// affecting the public API
+
+	if (Proxy.IsValid())
+	{
+		Proxy->UpdateProxyParameters(this, false);
+	}
+}
