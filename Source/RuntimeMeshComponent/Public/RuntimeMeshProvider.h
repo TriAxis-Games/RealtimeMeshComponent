@@ -8,22 +8,18 @@
 #include "RuntimeMeshProvider.generated.h"
 
 
-class IRuntimeMeshProviderProxy;
-using IRuntimeMeshProviderProxyRef = TSharedRef<IRuntimeMeshProviderProxy, ESPMode::ThreadSafe>;
-using IRuntimeMeshProviderProxyPtr = TSharedPtr<IRuntimeMeshProviderProxy, ESPMode::ThreadSafe>;
-using IRuntimeMeshProviderProxyWeakPtr = TWeakPtr<IRuntimeMeshProviderProxy, ESPMode::ThreadSafe>;
+class FRuntimeMeshProviderProxy;
+using FRuntimeMeshProviderProxyRef = TSharedRef<FRuntimeMeshProviderProxy, ESPMode::ThreadSafe>;
+using FRuntimeMeshProviderProxyPtr = TSharedPtr<FRuntimeMeshProviderProxy, ESPMode::ThreadSafe>;
+using FRuntimeMeshProviderProxyWeakPtr = TWeakPtr<FRuntimeMeshProviderProxy, ESPMode::ThreadSafe>;
 
 
-class RUNTIMEMESHCOMPONENT_API IRuntimeMeshProviderProxy : public TSharedFromThis<IRuntimeMeshProviderProxy, ESPMode::ThreadSafe>
+class RUNTIMEMESHCOMPONENT_API IRuntimeMeshProviderProxy
 {
 public:
 	IRuntimeMeshProviderProxy() { }
 	virtual ~IRuntimeMeshProviderProxy() { }
 
-protected:
-	virtual void BindPreviousProvider(const IRuntimeMeshProviderProxyPtr& InPreviousProvider) { }
-
-public:
 	virtual void Initialize() { };
 
 	virtual void ConfigureLOD(uint8 LODIndex, const FRuntimeMeshLODProperties& LODProperties) { }
@@ -35,7 +31,6 @@ public:
 	virtual void RemoveSection(uint8 LODIndex, int32 SectionId) { }
 	virtual void MarkCollisionDirty() { }
 
-
 	virtual FBoxSphereBounds GetBounds() { return FBoxSphereBounds(); }
 
 	virtual bool GetSectionMeshForLOD(uint8 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData) { return false; }
@@ -43,28 +38,24 @@ public:
 	virtual FRuntimeMeshCollisionSettings GetCollisionSettings() { return FRuntimeMeshCollisionSettings(); }
 	virtual bool HasCollisionMesh() { return false; }
 	virtual bool GetCollisionMesh(FRuntimeMeshCollisionData& CollisionData) { return false; }
-	   
-	virtual bool IsThreadSafe() const { return false; }
 
-private:
-	friend class FRuntimeMeshData;
-	friend class FRuntimeMeshProviderProxyPassThrough;
+	virtual bool IsThreadSafe() const { return false; }
 };
 
 /**
  *
  */
-class RUNTIMEMESHCOMPONENT_API FRuntimeMeshProviderProxy : public IRuntimeMeshProviderProxy
+class RUNTIMEMESHCOMPONENT_API FRuntimeMeshProviderProxy : public IRuntimeMeshProviderProxy, public TSharedFromThis<FRuntimeMeshProviderProxy, ESPMode::ThreadSafe>
 {
 protected:
 	TWeakObjectPtr<URuntimeMeshProvider> Parent;
-	IRuntimeMeshProviderProxyPtr PreviousProvider;
+	FRuntimeMeshProviderProxyPtr PreviousProvider;
 
 public:
 	FRuntimeMeshProviderProxy(TWeakObjectPtr<URuntimeMeshProvider> InParent);
 
 protected:
-	virtual void BindPreviousProvider(const IRuntimeMeshProviderProxyPtr& InPreviousProvider) override;
+	virtual void BindPreviousProvider(const FRuntimeMeshProviderProxyPtr& InPreviousProvider);
 
 public:
 	virtual void ConfigureLOD(uint8 LODIndex, const FRuntimeMeshLODProperties& LODProperties) override
@@ -130,59 +121,59 @@ public:
 			PreviousProvider->MarkCollisionDirty();
 		}
 	}
+
+private:
+	friend class FRuntimeMeshData;
+	friend class FRuntimeMeshProviderProxyPassThrough;
 };
 
 
-// class RUNTIMEMESHCOMPONENT_API FRuntimeMeshProviderProxyPassThrough : public FRuntimeMeshProviderProxy
-// {
-// protected:
-// 	IRuntimeMeshProviderProxyWeakPtr NextProvider;
-// 
-// public:
-// 	FRuntimeMeshProviderProxyPassThrough(const IRuntimeMeshProviderProxyRef& InNextProvider);
-// 
-// protected:
-// 	virtual void BindPreviousProvider(const IRuntimeMeshProviderProxyPtr& InPreviousProvider) override;
-// 
-// public:
-// 	virtual void Initialize() override;
-// 
-// 	virtual bool GetSectionMeshForLOD(uint8 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData) override
-// 	{
-// 		auto Temp = NextProvider.Pin();
-// 		if (Temp.IsValid())
-// 		{
-// 			return Temp->GetSectionMeshForLOD(LODIndex, SectionId, MeshData);
-// 		}
-// 		return false;
-// 	}
-// 
-// 	virtual bool GetCollisionMesh(FRuntimeMeshCollisionVertexStream& CollisionVertices, FRuntimeMeshCollisionTriangleStream& CollisionTriangles) override
-// 	{
-// 		auto Temp = NextProvider.Pin();
-// 		if (Temp.IsValid())
-// 		{
-// 			return Temp->GetCollisionMesh(CollisionVertices, CollisionTriangles);
-// 
-// 		}
-// 		return false;
-// 	}
-// 
-// }; 
+class RUNTIMEMESHCOMPONENT_API FRuntimeMeshProviderProxyPassThrough : public FRuntimeMeshProviderProxy
+{
+protected:
+	FRuntimeMeshProviderProxyWeakPtr NextProvider;
+
+public:
+	FRuntimeMeshProviderProxyPassThrough(TWeakObjectPtr<URuntimeMeshProvider> InParent, const FRuntimeMeshProviderProxyPtr& InNextProvider);
+
+protected:
+	virtual void BindPreviousProvider(const FRuntimeMeshProviderProxyPtr& InPreviousProvider) override;
+
+public:
+	virtual void Initialize() override;
+
+	virtual FBoxSphereBounds GetBounds();
+
+	virtual bool GetSectionMeshForLOD(uint8 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData) override;
+
+	virtual FRuntimeMeshCollisionSettings GetCollisionSettings();
+
+	virtual bool HasCollisionMesh();
+
+	virtual bool GetCollisionMesh(FRuntimeMeshCollisionData& CollisionData) override;
+
+	virtual bool IsThreadSafe() const;
+};
 
 
 
 UCLASS(Abstract, HideCategories = Object, BlueprintType)
-class RUNTIMEMESHCOMPONENT_API URuntimeMeshProvider : public UObject
+class RUNTIMEMESHCOMPONENT_API URuntimeMeshProvider : public UObject, public IRuntimeMeshProviderProxy
 {
 	GENERATED_BODY()
 
 protected:
-	IRuntimeMeshProviderProxyPtr Proxy;
+	FRuntimeMeshProviderProxyPtr Proxy;
 
+	virtual FRuntimeMeshProviderProxyRef GetProxy();
 
 public:
-	virtual IRuntimeMeshProviderProxyRef GetProxy();
+	FRuntimeMeshProviderProxyRef SetupProxy()
+	{
+		FRuntimeMeshProviderProxyRef NewProxy = GetProxy();
+		Proxy = NewProxy;
+		return NewProxy;
+	}
 
 	virtual void Initialize() { };
 
@@ -209,7 +200,7 @@ public:
 		if (Proxy.IsValid())
 		{
 			Proxy->SetupMaterialSlot(MaterialSlot, SlotName, InMaterial);
-		}		
+		}
 	}
 
 	virtual void MarkSectionDirty(uint8 LODIndex, int32 SectionId)
@@ -250,15 +241,6 @@ public:
 		{
 			Proxy->MarkCollisionDirty();
 		}
-	}
-
-	   	  
-	virtual FBoxSphereBounds GetBounds() { return FBoxSphereBounds(); }
-
-	virtual bool GetSectionMeshForLOD(uint8 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData) { return false; }
-	virtual bool GetCollisionMesh(FRuntimeMeshCollisionData& CollisionData)
-	{
-		return false;
 	}
 
 

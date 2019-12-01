@@ -8,36 +8,98 @@ FRuntimeMeshProviderProxy::FRuntimeMeshProviderProxy(TWeakObjectPtr<URuntimeMesh
 {
 }
 
-void FRuntimeMeshProviderProxy::BindPreviousProvider(const IRuntimeMeshProviderProxyPtr& InPreviousProvider)
+void FRuntimeMeshProviderProxy::BindPreviousProvider(const FRuntimeMeshProviderProxyPtr& InPreviousProvider)
 {
 	PreviousProvider = InPreviousProvider;
 }
 
 
-// FRuntimeMeshProviderProxyPassThrough::FRuntimeMeshProviderProxyPassThrough(const IRuntimeMeshProviderProxyRef& InNextProvider)
-// 	: NextProvider(InNextProvider)
-// {
-// }
-// 
-// void FRuntimeMeshProviderProxyPassThrough::BindPreviousProvider(const IRuntimeMeshProviderProxyPtr& InPreviousProvider)
-// {
-// 	auto Next = NextProvider.Pin();
-// 	if (Next.IsValid())
-// 	{
-// 		Next->BindPreviousProvider(this->AsShared());
-// 	}
-// 
-// 	FRuntimeMeshProviderProxy::BindPreviousProvider(InPreviousProvider);
-// }
-// 
-// void FRuntimeMeshProviderProxyPassThrough::Initialize()
-// {
-// 	auto Next = NextProvider.Pin();
-// 	if (Next.IsValid())
-// 	{
-// 		Next->Initialize();
-// 	}
-// }
+FRuntimeMeshProviderProxyPassThrough::FRuntimeMeshProviderProxyPassThrough(TWeakObjectPtr<URuntimeMeshProvider> InParent, const FRuntimeMeshProviderProxyPtr& InNextProvider)
+	: FRuntimeMeshProviderProxy(InParent), NextProvider(InNextProvider)
+{
+}
+
+void FRuntimeMeshProviderProxyPassThrough::BindPreviousProvider(const FRuntimeMeshProviderProxyPtr& InPreviousProvider)
+{
+	auto Next = NextProvider.Pin();
+	if (Next.IsValid())
+	{
+		Next->BindPreviousProvider(this->AsShared());
+	}
+
+	FRuntimeMeshProviderProxy::BindPreviousProvider(InPreviousProvider);
+}
+
+void FRuntimeMeshProviderProxyPassThrough::Initialize()
+{
+	auto Next = NextProvider.Pin();
+	if (Next.IsValid())
+	{
+		Next->Initialize();
+	}
+}
+
+FBoxSphereBounds FRuntimeMeshProviderProxyPassThrough::GetBounds()
+{
+	auto Temp = NextProvider.Pin();
+	if (Temp.IsValid())
+	{
+		return Temp->GetBounds();
+	}
+	return FBoxSphereBounds();
+}
+
+bool FRuntimeMeshProviderProxyPassThrough::GetSectionMeshForLOD(uint8 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData)
+{
+	auto Temp = NextProvider.Pin();
+	if (Temp.IsValid())
+	{
+		return Temp->GetSectionMeshForLOD(LODIndex, SectionId, MeshData);
+	}
+	return false;
+}
+
+FRuntimeMeshCollisionSettings FRuntimeMeshProviderProxyPassThrough::GetCollisionSettings()
+{
+	auto Temp = NextProvider.Pin();
+	if (Temp.IsValid())
+	{
+		return Temp->GetCollisionSettings();
+	}
+	return FRuntimeMeshCollisionSettings();
+}
+
+bool FRuntimeMeshProviderProxyPassThrough::HasCollisionMesh()
+{
+	auto Temp = NextProvider.Pin();
+	if (Temp.IsValid())
+	{
+		return Temp->HasCollisionMesh();
+	}
+	return false;
+}
+
+bool FRuntimeMeshProviderProxyPassThrough::GetCollisionMesh(FRuntimeMeshCollisionData& CollisionData)
+{
+	auto Temp = NextProvider.Pin();
+	if (Temp.IsValid())
+	{
+		return Temp->GetCollisionMesh(CollisionData);
+	}
+	return false;
+}
+
+bool FRuntimeMeshProviderProxyPassThrough::IsThreadSafe() const
+{
+	auto Temp = NextProvider.Pin();
+	if (Temp.IsValid())
+	{
+		return Temp->IsThreadSafe();
+
+	}
+	return false;
+}
+
 
 
 
@@ -85,6 +147,27 @@ public:
 		return false;
 	}
 
+	virtual FRuntimeMeshCollisionSettings GetCollisionSettings()
+	{
+		check(IsInGameThread());
+		URuntimeMeshProvider* Temp = Parent.Get();
+		if (Temp)
+		{
+			return Temp->GetCollisionSettings();
+		}
+		return FRuntimeMeshCollisionSettings();
+	}
+	virtual bool HasCollisionMesh()
+	{
+		check(IsInGameThread());
+		URuntimeMeshProvider* Temp = Parent.Get();
+		if (Temp)
+		{
+			return Temp->HasCollisionMesh();
+		}
+		return false;
+	}
+
 	virtual bool GetCollisionMesh(FRuntimeMeshCollisionData& CollisionDatas) override
 	{
 		check(IsInGameThread());
@@ -96,12 +179,15 @@ public:
 		return false;
 	}
 
+
+	// UObject based providers are never thread safe
 	virtual bool IsThreadSafe() const override { return false; }
 };
 
-IRuntimeMeshProviderProxyRef URuntimeMeshProvider::GetProxy()
+FRuntimeMeshProviderProxyRef URuntimeMeshProvider::GetProxy()
 {
-	IRuntimeMeshProviderProxyRef NewConnector = MakeShared<FRuntimeMeshProviderProxyUObjectProviderConnector, ESPMode::ThreadSafe>(TWeakObjectPtr<URuntimeMeshProvider>(this));
+	FRuntimeMeshProviderProxyRef NewConnector = MakeShared<FRuntimeMeshProviderProxyUObjectProviderConnector, ESPMode::ThreadSafe>(TWeakObjectPtr<URuntimeMeshProvider>(this));
 	Proxy = NewConnector;
 	return NewConnector;
 }
+

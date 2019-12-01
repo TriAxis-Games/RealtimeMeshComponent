@@ -17,13 +17,13 @@ DECLARE_DELEGATE_OneParam(FRuntimeMeshGameThreadTaskDelegate, URuntimeMesh*);
 /**
  * 
  */
-class FRuntimeMeshData : public IRuntimeMeshProviderProxy
+class FRuntimeMeshData : public FRuntimeMeshProviderProxy
 {
 	/** Parent mesh object that owns this provider. */
 	TWeakObjectPtr<URuntimeMesh> ParentMeshObject;
 
 	/** Reference to the root provider that we use for all mesh data and collision data */
-	IRuntimeMeshProviderProxyRef BaseProvider;
+	FRuntimeMeshProviderProxyRef BaseProvider;
 
 	/** Render proxy for this mesh */
 	FRuntimeMeshProxyPtr RenderProxy;
@@ -36,7 +36,7 @@ class FRuntimeMeshData : public IRuntimeMeshProviderProxy
 	FCriticalSection SyncRoot;
 
 public:
-	FRuntimeMeshData(const IRuntimeMeshProviderProxyRef& InBaseProvider, TWeakObjectPtr<URuntimeMesh> InParentMeshObject);
+	FRuntimeMeshData(const FRuntimeMeshProviderProxyRef& InBaseProvider, TWeakObjectPtr<URuntimeMesh> InParentMeshObject);
 	virtual ~FRuntimeMeshData() override;
 
 

@@ -5,8 +5,8 @@
 #include "RuntimeMeshProxy.h"
 #include "RuntimeMesh.h"
 
-FRuntimeMeshData::FRuntimeMeshData(const IRuntimeMeshProviderProxyRef& InBaseProvider, TWeakObjectPtr<URuntimeMesh> InParentMeshObject)
-	: ParentMeshObject(InParentMeshObject), BaseProvider(InBaseProvider)
+FRuntimeMeshData::FRuntimeMeshData(const FRuntimeMeshProviderProxyRef& InBaseProvider, TWeakObjectPtr<URuntimeMesh> InParentMeshObject)
+	: FRuntimeMeshProviderProxy(nullptr), ParentMeshObject(InParentMeshObject), BaseProvider(InBaseProvider)
 {
 	LODs.SetNum(RuntimeMesh_MAXLODS);
 }
@@ -42,7 +42,6 @@ UMaterialInterface* FRuntimeMeshData::GetMaterial(int32 SlotIndex)
 
 void FRuntimeMeshData::Initialize()
 {
-
 	UE_LOG(LogRuntimeMesh, Warning, TEXT("RMD: initializing data.. %d"), FPlatformTLS::GetCurrentThreadId());
 
 	// Make sure the provider chain is bound

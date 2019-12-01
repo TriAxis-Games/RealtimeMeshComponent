@@ -36,12 +36,13 @@ class RUNTIMEMESHCOMPONENT_API URuntimeMeshProviderBox : public URuntimeMeshProv
 
 public:
 
+
 	UPROPERTY(EditAnywhere)
 	FVector BoxRadius;
 
 	UPROPERTY(EditAnywhere)
 	UMaterialInterface* Material;
 
-
-	virtual IRuntimeMeshProviderProxyRef GetProxy() override { return MakeShared<FRuntimeMeshProviderBoxProxy, ESPMode::ThreadSafe>(TWeakObjectPtr<URuntimeMeshProvider>(this), BoxRadius, Material); }
+protected:
+	virtual FRuntimeMeshProviderProxyRef GetProxy() override { return MakeShared<FRuntimeMeshProviderBoxProxy, ESPMode::ThreadSafe>(TWeakObjectPtr<URuntimeMeshProvider>(this), BoxRadius, Material); }
 };

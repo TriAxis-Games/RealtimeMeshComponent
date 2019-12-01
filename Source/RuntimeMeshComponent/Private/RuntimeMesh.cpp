@@ -298,7 +298,7 @@ bool URuntimeMesh::ContainsPhysicsTriMeshData(bool InUseAllTriData) const
 
 void URuntimeMesh::InitializeInternal()
 {
-	auto ProviderProxy = MeshProvider->GetProxy();
+	auto ProviderProxy = MeshProvider->SetupProxy();
 
 	// This is a very loaded assignment...
 	// If the old provider loses all its references here then it will take with it
