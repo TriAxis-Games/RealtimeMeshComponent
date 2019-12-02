@@ -218,9 +218,20 @@ void FRuntimeMeshLODProxy::UpdateSectionMesh_RenderThread(int32 SectionId, const
 void FRuntimeMeshLODProxy::ClearSectionMesh_RenderThread(int32 SectionId)
 {
 	check(IsInRenderingThread());
-	FRuntimeMeshSectionProxyPtr* Section = Sections.Find(SectionId);
-	if (Section)
+
+	if (SectionId == INDEX_NONE)
 	{
-		(*Section)->ClearSection_RenderThread();
+		for (const auto& Section : Sections)
+		{
+			Section.Value->ClearSection_RenderThread();
+		}
 	}
+	else
+	{
+		FRuntimeMeshSectionProxyPtr* Section = Sections.Find(SectionId);
+		if (Section)
+		{
+			(*Section)->ClearSection_RenderThread();
+		}
+	}	
 }

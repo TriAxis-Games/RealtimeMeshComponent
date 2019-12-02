@@ -18,6 +18,72 @@ void FRuntimeMeshProviderProxy::UpdateProxyParameters(URuntimeMeshProvider* Pare
 
 }
 
+void FRuntimeMeshProviderProxy::ConfigureLOD(int32 LODIndex, const FRuntimeMeshLODProperties& LODProperties)
+{
+	if (PreviousProvider.IsValid())
+	{
+		PreviousProvider->ConfigureLOD(LODIndex, LODProperties);
+	}
+}
+
+void FRuntimeMeshProviderProxy::CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties)
+{
+	if (PreviousProvider.IsValid())
+	{
+		PreviousProvider->CreateSection(LODIndex, SectionId, SectionProperties);
+	}
+}
+
+void FRuntimeMeshProviderProxy::SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial)
+{
+	if (PreviousProvider.IsValid())
+	{
+		PreviousProvider->SetupMaterialSlot(MaterialSlot, SlotName, InMaterial);
+	}
+}
+
+void FRuntimeMeshProviderProxy::MarkSectionDirty(int32 LODIndex, int32 SectionId)
+{
+	if (PreviousProvider.IsValid())
+	{
+		PreviousProvider->MarkSectionDirty(LODIndex, SectionId);
+	}
+}
+
+void FRuntimeMeshProviderProxy::SetSectionVisibility(int32 LODIndex, int32 SectionId, bool bIsVisible)
+{
+	if (PreviousProvider.IsValid())
+	{
+		PreviousProvider->SetSectionVisibility(LODIndex, SectionId, bIsVisible);
+	}
+}
+
+void FRuntimeMeshProviderProxy::SetSectionCastsShadow(int32 LODIndex, int32 SectionId, bool bCastsShadow)
+{
+	if (PreviousProvider.IsValid())
+	{
+		PreviousProvider->SetSectionCastsShadow(LODIndex, SectionId, bCastsShadow);
+	}
+}
+
+void FRuntimeMeshProviderProxy::RemoveSection(int32 LODIndex, int32 SectionId)
+{
+	if (PreviousProvider.IsValid())
+	{
+		PreviousProvider->RemoveSection(LODIndex, SectionId);
+	}
+}
+
+void FRuntimeMeshProviderProxy::MarkCollisionDirty()
+{
+	if (PreviousProvider.IsValid())
+	{
+		PreviousProvider->MarkCollisionDirty();
+	}
+}
+
+
+
 
 FRuntimeMeshProviderProxyPassThrough::FRuntimeMeshProviderProxyPassThrough(TWeakObjectPtr<URuntimeMeshProvider> InParent, const FRuntimeMeshProviderProxyPtr& InNextProvider)
 	: FRuntimeMeshProviderProxy(InParent), NextProvider(InNextProvider)
@@ -54,7 +120,7 @@ FBoxSphereBounds FRuntimeMeshProviderProxyPassThrough::GetBounds()
 	return FBoxSphereBounds();
 }
 
-bool FRuntimeMeshProviderProxyPassThrough::GetSectionMeshForLOD(uint8 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData)
+bool FRuntimeMeshProviderProxyPassThrough::GetSectionMeshForLOD(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData)
 {
 	auto Temp = NextProvider.Pin();
 	if (Temp.IsValid())
@@ -141,7 +207,7 @@ public:
 		return FRuntimeMeshProviderProxy::GetBounds();
 	}
 
-	virtual bool GetSectionMeshForLOD(uint8 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData) override
+	virtual bool GetSectionMeshForLOD(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData) override
 	{
 		check(IsInGameThread());
 		URuntimeMeshProvider* Temp = Parent.Get();
@@ -186,8 +252,13 @@ public:
 
 
 	// UObject based providers are never thread safe
+	// So here we'll ignore any result that the actual provider 
+	// would have otherwise said and just say no, so that nobody has the brainy 
+	// idea of saying yes in the UObject provider and causing issues. :)
 	virtual bool IsThreadSafe() const override { return false; }
 };
+
+
 
 FRuntimeMeshProviderProxyRef URuntimeMeshProvider::GetProxy()
 {
@@ -217,3 +288,68 @@ void URuntimeMeshProvider::MarkProxyParametersDirty()
 		Proxy->UpdateProxyParameters(this, false);
 	}
 }
+
+void URuntimeMeshProvider::ConfigureLOD(int32 LODIndex, const FRuntimeMeshLODProperties& LODProperties)
+{
+	if (Proxy.IsValid())
+	{
+		Proxy->ConfigureLOD(LODIndex, LODProperties);
+	}
+}
+
+void URuntimeMeshProvider::CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties)
+{
+	if (Proxy.IsValid())
+	{
+		Proxy->CreateSection(LODIndex, SectionId, SectionProperties);
+	}
+}
+
+void URuntimeMeshProvider::SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial)
+{
+	if (Proxy.IsValid())
+	{
+		Proxy->SetupMaterialSlot(MaterialSlot, SlotName, InMaterial);
+	}
+}
+
+void URuntimeMeshProvider::MarkSectionDirty(int32 LODIndex, int32 SectionId)
+{
+	if (Proxy.IsValid())
+	{
+		Proxy->MarkSectionDirty(LODIndex, SectionId);
+	}
+}
+
+void URuntimeMeshProvider::SetSectionVisibility(int32 LODIndex, int32 SectionId, bool bIsVisible)
+{
+	if (Proxy.IsValid())
+	{
+		Proxy->SetSectionVisibility(LODIndex, SectionId, bIsVisible);
+	}
+}
+
+void URuntimeMeshProvider::SetSectionCastsShadow(int32 LODIndex, int32 SectionId, bool bCastsShadow)
+{
+	if (Proxy.IsValid())
+	{
+		Proxy->SetSectionCastsShadow(LODIndex, SectionId, bCastsShadow);
+	}
+}
+
+void URuntimeMeshProvider::RemoveSection(int32 LODIndex, int32 SectionId)
+{
+	if (Proxy.IsValid())
+	{
+		Proxy->RemoveSection(LODIndex, SectionId);
+	}
+}
+
+void URuntimeMeshProvider::MarkCollisionDirty()
+{
+	if (Proxy.IsValid())
+	{
+		Proxy->MarkCollisionDirty();
+	}
+}
+

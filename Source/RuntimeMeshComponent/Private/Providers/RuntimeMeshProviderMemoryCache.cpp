@@ -20,19 +20,19 @@ void FRuntimeMeshProviderMemoryCacheProxy::ClearCache()
 	CachedCollisionData.Reset();
 }
 
-void FRuntimeMeshProviderMemoryCacheProxy::CreateSection(uint8 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties)
+void FRuntimeMeshProviderMemoryCacheProxy::CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties)
 {
 	CachedMeshData.Remove(GenerateKeyFromLODAndSection(LODIndex, SectionId));
 	FRuntimeMeshProviderProxyPassThrough::CreateSection(LODIndex, SectionId, SectionProperties);
 }
 
-void FRuntimeMeshProviderMemoryCacheProxy::MarkSectionDirty(uint8 LODIndex, int32 SectionId)
+void FRuntimeMeshProviderMemoryCacheProxy::MarkSectionDirty(int32 LODIndex, int32 SectionId)
 {
 	CachedMeshData.Remove(GenerateKeyFromLODAndSection(LODIndex, SectionId));
 	FRuntimeMeshProviderProxyPassThrough::MarkSectionDirty(LODIndex, SectionId);
 }
 
-void FRuntimeMeshProviderMemoryCacheProxy::RemoveSection(uint8 LODIndex, int32 SectionId)
+void FRuntimeMeshProviderMemoryCacheProxy::RemoveSection(int32 LODIndex, int32 SectionId)
 {
 	CachedMeshData.Remove(GenerateKeyFromLODAndSection(LODIndex, SectionId));
 	FRuntimeMeshProviderProxyPassThrough::RemoveSection(LODIndex, SectionId);
@@ -46,7 +46,7 @@ void FRuntimeMeshProviderMemoryCacheProxy::MarkCollisionDirty()
 	FRuntimeMeshProviderProxyPassThrough::MarkCollisionDirty();
 }
 
-bool FRuntimeMeshProviderMemoryCacheProxy::GetSectionMeshForLOD(uint8 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData)
+bool FRuntimeMeshProviderMemoryCacheProxy::GetSectionMeshForLOD(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData)
 {
 	TOptional<FRuntimeMeshRenderableMeshData>* CachedData = CachedMeshData.Find(GenerateKeyFromLODAndSection(LODIndex, SectionId));
 	if (CachedData)

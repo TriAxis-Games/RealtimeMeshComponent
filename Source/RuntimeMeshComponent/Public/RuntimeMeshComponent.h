@@ -13,7 +13,7 @@
 /**
 *	Component that allows you to specify custom triangle mesh geometry for rendering and collision.
 */
-UCLASS(HideCategories = (Object, LOD), Meta = (BlueprintSpawnableComponent))
+UCLASS(HideCategories = (Object, LOD), ShowCategories = (Mobility), Meta = (BlueprintSpawnableComponent))
 class RUNTIMEMESHCOMPONENT_API URuntimeMeshComponent : public UMeshComponent, public IInterface_CollisionDataProvider
 {
 	GENERATED_BODY()

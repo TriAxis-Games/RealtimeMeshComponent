@@ -13,6 +13,10 @@ class RUNTIMEMESHCOMPONENT_API ARuntimeMeshActor : public AActor
 	GENERATED_UCLASS_BODY()
 
 private:
+	// This is purposefully not a UPROPERTY as we want it to not store across sessions
+	bool bHasGeneratedThisRun;
+
+private:
 	UPROPERTY(Category = "RuntimeMeshActor", VisibleAnywhere, BlueprintReadOnly, Meta = (ExposeFunctionCategories = "Mesh,Rendering,Physics,Components|RuntimeMesh", AllowPrivateAccess = "true"))
 	class URuntimeMeshComponent* RuntimeMeshComponent;
 

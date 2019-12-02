@@ -49,10 +49,11 @@ void FRuntimeMeshData::Initialize()
 
 	BaseProvider->Initialize();
 
+	MarkSectionDirty(INDEX_NONE, INDEX_NONE);
 	MarkCollisionDirty();
 }
 
-void FRuntimeMeshData::ConfigureLOD(uint8 LODIndex, const FRuntimeMeshLODProperties& LODProperties)
+void FRuntimeMeshData::ConfigureLOD(int32 LODIndex, const FRuntimeMeshLODProperties& LODProperties)
 {
 	{
 		FScopeLock Lock(&SyncRoot);
@@ -66,7 +67,7 @@ void FRuntimeMeshData::ConfigureLOD(uint8 LODIndex, const FRuntimeMeshLODPropert
 	}
 }
 
-void FRuntimeMeshData::CreateSection(uint8 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties)
+void FRuntimeMeshData::CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties)
 {
 
 	UE_LOG(LogRuntimeMesh, Warning, TEXT("RMD: Creating section.. %d"), FPlatformTLS::GetCurrentThreadId());
@@ -93,7 +94,7 @@ void FRuntimeMeshData::SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMa
 	MaterialSlots[MaterialSlot] = FRuntimeMeshMaterialSlot(SlotName, InMaterial);
 }
 
-void FRuntimeMeshData::MarkSectionDirty(uint8 LODIndex, int32 SectionId)
+void FRuntimeMeshData::MarkSectionDirty(int32 LODIndex, int32 SectionId)
 {
 	if (RenderProxy.IsValid())
 	{
@@ -105,7 +106,7 @@ void FRuntimeMeshData::MarkSectionDirty(uint8 LODIndex, int32 SectionId)
 	}	
 }
 
-void FRuntimeMeshData::SetSectionVisibility(uint8 LODIndex, int32 SectionId, bool bIsVisible)
+void FRuntimeMeshData::SetSectionVisibility(int32 LODIndex, int32 SectionId, bool bIsVisible)
 {
 	FScopeLock Lock(&SyncRoot);
 
@@ -117,7 +118,7 @@ void FRuntimeMeshData::SetSectionVisibility(uint8 LODIndex, int32 SectionId, boo
 	}
 }
 
-void FRuntimeMeshData::SetSectionCastsShadow(uint8 LODIndex, int32 SectionId, bool bCastsShadow)
+void FRuntimeMeshData::SetSectionCastsShadow(int32 LODIndex, int32 SectionId, bool bCastsShadow)
 {
 	FScopeLock Lock(&SyncRoot);
 
@@ -129,7 +130,7 @@ void FRuntimeMeshData::SetSectionCastsShadow(uint8 LODIndex, int32 SectionId, bo
 	}
 }
 
-void FRuntimeMeshData::RemoveSection(uint8 LODIndex, int32 SectionId)
+void FRuntimeMeshData::RemoveSection(int32 LODIndex, int32 SectionId)
 {
 	FScopeLock Lock(&SyncRoot);
 

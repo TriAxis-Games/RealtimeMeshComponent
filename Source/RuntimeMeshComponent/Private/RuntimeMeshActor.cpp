@@ -9,6 +9,7 @@
 
 ARuntimeMeshActor::ARuntimeMeshActor(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
+	, bHasGeneratedThisRun(false)
 {
 	bCanBeDamaged = false;
 
@@ -58,11 +59,16 @@ void ARuntimeMeshActor::OnConstruction(const FTransform& Transform)
 {
 	Super::OnConstruction(Transform);
 	GenerateMeshes();
+	bHasGeneratedThisRun = true;
 }
 
 void ARuntimeMeshActor::BeginPlay()
 {
 	Super::BeginPlay();
+	if (!bHasGeneratedThisRun)
+	{
+		GenerateMeshes();
+	}
 }
 
 void ARuntimeMeshActor::GenerateMeshes_Implementation()

@@ -27,14 +27,14 @@ public:
 	void ClearCache();
 
 protected:
-	virtual void CreateSection(uint8 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties);
-	virtual void MarkSectionDirty(uint8 LODIndex, int32 SectionId);
-	virtual void RemoveSection(uint8 LODIndex, int32 SectionId);
+	virtual void CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties);
+	virtual void MarkSectionDirty(int32 LODIndex, int32 SectionId);
+	virtual void RemoveSection(int32 LODIndex, int32 SectionId);
 	virtual void MarkCollisionDirty();
 
 
 
-	virtual bool GetSectionMeshForLOD(uint8 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData) override;
+	virtual bool GetSectionMeshForLOD(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData) override;
 
 	FRuntimeMeshCollisionSettings GetCollisionSettings() override;
 	bool HasCollisionMesh() override;

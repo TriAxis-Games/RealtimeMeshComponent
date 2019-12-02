@@ -54,6 +54,17 @@ public:
 		*((FVector*)&Data[Index * sizeof(FVector)]) = NewPosition;
 	}
 
+	FBox GetBounds() const
+	{
+		FBox NewBox;
+		int32 Count = Num();
+		for (int32 Index = 0; Index < Count; Index++)
+		{
+			NewBox += GetPosition(Index);
+		}
+		return NewBox;
+	}
+
 
 	friend FArchive& operator <<(FArchive& Ar, FRuntimeMeshVertexPositionStream& Stream)
 	{
@@ -600,11 +611,21 @@ struct FRuntimeMeshRenderableMeshData
 	FRuntimeMeshTriangleStream Triangles;
 	FRuntimeMeshTriangleStream AdjacencyTriangles;
 
+	FRuntimeMeshRenderableMeshData()
+		: Tangents(false), TexCoords(1, false), Triangles(false), AdjacencyTriangles(false)
+	{
+
+	}
 	FRuntimeMeshRenderableMeshData(bool bWantsHighPrecisionTangents, bool bWantsHighPrecisionTexCoords, uint8 NumTexCoords, bool bWants32BitIndices)
 		: Tangents(bWantsHighPrecisionTangents), TexCoords(NumTexCoords, bWantsHighPrecisionTexCoords)
 		, Triangles(bWants32BitIndices), AdjacencyTriangles(bWants32BitIndices)
 	{
 
+	}
+
+	bool HasValidMeshData()
+	{
+		return Positions.Num() > 0 && Positions.Num() == Tangents.Num() && Positions.Num() == TexCoords.Num() && Positions.Num() == Colors.Num() && Triangles.Num() > 0;
 	}
 
 	// 	friend FArchive& operator <<(FArchive& Ar, FRuntimeMeshRenderableMeshData& RenderableMeshData)

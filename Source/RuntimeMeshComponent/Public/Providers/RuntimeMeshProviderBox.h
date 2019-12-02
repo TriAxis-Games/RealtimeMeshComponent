@@ -19,7 +19,7 @@ public:
 
 	virtual void Initialize() override;
 
-	virtual bool GetSectionMeshForLOD(uint8 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData) override;
+	virtual bool GetSectionMeshForLOD(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData) override;
 
 	FRuntimeMeshCollisionSettings GetCollisionSettings() override;
 	bool HasCollisionMesh() override;

@@ -22,18 +22,18 @@ public:
 
 	virtual void Initialize() { };
 
-	virtual void ConfigureLOD(uint8 LODIndex, const FRuntimeMeshLODProperties& LODProperties) { }
-	virtual void CreateSection(uint8 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties) { }
+	virtual void ConfigureLOD(int32 LODIndex, const FRuntimeMeshLODProperties& LODProperties) { }
+	virtual void CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties) { }
 	virtual void SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial) { }
-	virtual void MarkSectionDirty(uint8 LODIndex, int32 SectionId) { }
-	virtual void SetSectionVisibility(uint8 LODIndex, int32 SectionId, bool bIsVisible) { }
-	virtual void SetSectionCastsShadow(uint8 LODIndex, int32 SectionId, bool bCastsShadow) { }
-	virtual void RemoveSection(uint8 LODIndex, int32 SectionId) { }
+	virtual void MarkSectionDirty(int32 LODIndex, int32 SectionId) { }
+	virtual void SetSectionVisibility(int32 LODIndex, int32 SectionId, bool bIsVisible) { }
+	virtual void SetSectionCastsShadow(int32 LODIndex, int32 SectionId, bool bCastsShadow) { }
+	virtual void RemoveSection(int32 LODIndex, int32 SectionId) { }
 	virtual void MarkCollisionDirty() { }
 
 	virtual FBoxSphereBounds GetBounds() { return FBoxSphereBounds(); }
 
-	virtual bool GetSectionMeshForLOD(uint8 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData) { return false; }
+	virtual bool GetSectionMeshForLOD(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData) { return false; }
 
 	virtual FRuntimeMeshCollisionSettings GetCollisionSettings() { return FRuntimeMeshCollisionSettings(); }
 	virtual bool HasCollisionMesh() { return false; }
@@ -58,74 +58,18 @@ public:
 
 protected:
 	virtual void BindPreviousProvider(const FRuntimeMeshProviderProxyPtr& InPreviousProvider);
-
-
+	
 public:
 	virtual void UpdateProxyParameters(URuntimeMeshProvider* ParentProvider, bool bIsInitialSetup);
 
-	virtual void ConfigureLOD(uint8 LODIndex, const FRuntimeMeshLODProperties& LODProperties) override
-	{
-		if (PreviousProvider.IsValid())
-		{
-			PreviousProvider->ConfigureLOD(LODIndex, LODProperties);
-		}
-	}
-
-	virtual void CreateSection(uint8 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties) override
-	{
-		if (PreviousProvider.IsValid())
-		{
-			PreviousProvider->CreateSection(LODIndex, SectionId, SectionProperties);
-		}
-	}
-
-	virtual void SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial) override
-	{
-		if (PreviousProvider.IsValid())
-		{
-			PreviousProvider->SetupMaterialSlot(MaterialSlot, SlotName, InMaterial);
-		}
-	}
-
-	virtual void MarkSectionDirty(uint8 LODIndex, int32 SectionId) override
-	{
-		if (PreviousProvider.IsValid())
-		{
-			PreviousProvider->MarkSectionDirty(LODIndex, SectionId);
-		}
-	}
-
-	virtual void SetSectionVisibility(uint8 LODIndex, int32 SectionId, bool bIsVisible) override
-	{
-		if (PreviousProvider.IsValid())
-		{
-			PreviousProvider->SetSectionVisibility(LODIndex, SectionId, bIsVisible);
-		}
-	}
-
-	virtual void SetSectionCastsShadow(uint8 LODIndex, int32 SectionId, bool bCastsShadow) override
-	{
-		if (PreviousProvider.IsValid())
-		{
-			PreviousProvider->SetSectionCastsShadow(LODIndex, SectionId, bCastsShadow);
-		}
-	}
-
-	virtual void RemoveSection(uint8 LODIndex, int32 SectionId) override
-	{
-		if (PreviousProvider.IsValid())
-		{
-			PreviousProvider->RemoveSection(LODIndex, SectionId);
-		}
-	}
-
-	virtual void MarkCollisionDirty() override
-	{
-		if (PreviousProvider.IsValid())
-		{
-			PreviousProvider->MarkCollisionDirty();
-		}
-	}
+	virtual void ConfigureLOD(int32 LODIndex, const FRuntimeMeshLODProperties& LODProperties) override;
+	virtual void CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties) override;
+	virtual void SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial) override;
+	virtual void MarkSectionDirty(int32 LODIndex, int32 SectionId) override;
+	virtual void SetSectionVisibility(int32 LODIndex, int32 SectionId, bool bIsVisible) override;
+	virtual void SetSectionCastsShadow(int32 LODIndex, int32 SectionId, bool bCastsShadow) override;
+	virtual void RemoveSection(int32 LODIndex, int32 SectionId) override;
+	virtual void MarkCollisionDirty() override;
 
 private:
 	friend class FRuntimeMeshData;
@@ -150,12 +94,10 @@ public:
 
 	virtual FBoxSphereBounds GetBounds();
 
-	virtual bool GetSectionMeshForLOD(uint8 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData) override;
+	virtual bool GetSectionMeshForLOD(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData) override;
 
 	virtual FRuntimeMeshCollisionSettings GetCollisionSettings();
-
 	virtual bool HasCollisionMesh();
-
 	virtual bool GetCollisionMesh(FRuntimeMeshCollisionData& CollisionData) override;
 
 	virtual bool IsThreadSafe() const;
@@ -176,77 +118,16 @@ protected:
 
 public:
 	FRuntimeMeshProviderProxyRef SetupProxy();
-
 	virtual void MarkProxyParametersDirty();
-
-
+	
 	virtual void Initialize() { };
-
-
-
-	virtual void ConfigureLOD(uint8 LODIndex, const FRuntimeMeshLODProperties& LODProperties)
-	{
-		if (Proxy.IsValid())
-		{
-			Proxy->ConfigureLOD(LODIndex, LODProperties);
-		}
-	}
-
-	virtual void CreateSection(uint8 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties)
-	{
-		if (Proxy.IsValid())
-		{
-			Proxy->CreateSection(LODIndex, SectionId, SectionProperties);
-		}
-	}
-
-	virtual void SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial)
-	{
-		if (Proxy.IsValid())
-		{
-			Proxy->SetupMaterialSlot(MaterialSlot, SlotName, InMaterial);
-		}
-	}
-
-	virtual void MarkSectionDirty(uint8 LODIndex, int32 SectionId)
-	{
-		if (Proxy.IsValid())
-		{
-			Proxy->MarkSectionDirty(LODIndex, SectionId);
-		}
-	}
-
-	virtual void SetSectionVisibility(uint8 LODIndex, int32 SectionId, bool bIsVisible)
-	{
-		if (Proxy.IsValid())
-		{
-			Proxy->SetSectionVisibility(LODIndex, SectionId, bIsVisible);
-		}
-	}
-
-	virtual void SetSectionCastsShadow(uint8 LODIndex, int32 SectionId, bool bCastsShadow)
-	{
-		if (Proxy.IsValid())
-		{
-			Proxy->SetSectionCastsShadow(LODIndex, SectionId, bCastsShadow);
-		}
-	}
-
-	virtual void RemoveSection(uint8 LODIndex, int32 SectionId)
-	{
-		if (Proxy.IsValid())
-		{
-			Proxy->RemoveSection(LODIndex, SectionId);
-		}
-	}
-
-	virtual void MarkCollisionDirty()
-	{
-		if (Proxy.IsValid())
-		{
-			Proxy->MarkCollisionDirty();
-		}
-	}
-
-
+	
+	virtual void ConfigureLOD(int32 LODIndex, const FRuntimeMeshLODProperties& LODProperties);
+	virtual void CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties);
+	virtual void SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial);
+	virtual void MarkSectionDirty(int32 LODIndex, int32 SectionId);
+	virtual void SetSectionVisibility(int32 LODIndex, int32 SectionId, bool bIsVisible);
+	virtual void SetSectionCastsShadow(int32 LODIndex, int32 SectionId, bool bCastsShadow);
+	virtual void RemoveSection(int32 LODIndex, int32 SectionId);
+	virtual void MarkCollisionDirty();
 };

@@ -6,43 +6,102 @@
 #include "RuntimeMeshProvider.h"
 #include "RuntimeMeshProviderStatic.generated.h"
 
-
-class RUNTIMEMESHCOMPONENT_API FRuntimeMeshProviderStaticProxy : public FRuntimeMeshProviderProxy
-{
-	const FVector BoxRadius;
-	UMaterialInterface* Material;
-
-public:
-	FRuntimeMeshProviderStaticProxy(TWeakObjectPtr<URuntimeMeshProvider> InParent, const FVector& InBoxRadius, UMaterialInterface* InMaterial);
-	~FRuntimeMeshProviderStaticProxy();
-
-// 	virtual void Initialize() override;
-// 
-// 	virtual bool GetSectionMeshForLOD(uint8 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData) override;
-// 
-// 	FRuntimeMeshCollisionSettings GetCollisionSettings() override;
-// 	bool HasCollisionMesh() override;
-// 	virtual bool GetCollisionMesh(FRuntimeMeshCollisionData& CollisionData) override;
-// 
-// 	virtual FBoxSphereBounds GetBounds() override { return FBoxSphereBounds(FBox(-BoxRadius, BoxRadius)); }
-// 
-// 	bool IsThreadSafe() const override;
-
-};
-
 UCLASS(HideCategories = Object, BlueprintType)
 class RUNTIMEMESHCOMPONENT_API URuntimeMeshProviderStatic : public URuntimeMeshProvider
 {
 	GENERATED_BODY()
 
+private:
+	FORCEINLINE int64 GenerateKeyFromLODAndSection(int32 LODIndex, int32 SectionId)
+	{
+		return (((int64)LODIndex) << 32) | ((int64)SectionId);
+	}
+private:
+	TMap<int64, TTuple<FRuntimeMeshRenderableMeshData, FBoxSphereBounds>> StoredMeshData;
+	
+	int32 LODForMeshCollision;
+	TSet<int32> SectionsForMeshCollision;
+
+	FRuntimeMeshCollisionSettings CollisionSettings;
+	TOptional<FRuntimeMeshCollisionData> CollisionMesh;
+	FBoxSphereBounds CombinedBounds;
 public:
 
-	UPROPERTY(EditAnywhere)
-	FVector BoxRadius;
+	URuntimeMeshProviderStatic();
 
-	UPROPERTY(EditAnywhere)
-	UMaterialInterface* Material;
+	// This brings forward the internal CreateSection as there's nothing wrong with using that version
+	using URuntimeMeshProvider::CreateSection;
+
+	void CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties, const FRuntimeMeshRenderableMeshData& SectionData)
+	{
+		URuntimeMeshProvider::CreateSection(LODIndex, SectionId, SectionProperties);
+		UpdateSectionInternal(LODIndex, SectionId, SectionData, GetBoundsFromMeshData(SectionData));
+	}
+	void CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties, FRuntimeMeshRenderableMeshData&& SectionData)
+	{
+		URuntimeMeshProvider::CreateSection(LODIndex, SectionId, SectionProperties);
+		UpdateSectionInternal(LODIndex, SectionId, MoveTemp(SectionData), GetBoundsFromMeshData(SectionData));
+	}
+	void CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties, const FRuntimeMeshRenderableMeshData& SectionData, FBoxSphereBounds KnownBounds)
+	{
+		URuntimeMeshProvider::CreateSection(LODIndex, SectionId, SectionProperties);
+		UpdateSectionInternal(LODIndex, SectionId, SectionData, GetBoundsFromMeshData(SectionData));
+	}
+	void CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties, FRuntimeMeshRenderableMeshData&& SectionData, FBoxSphereBounds KnownBounds)
+	{
+		URuntimeMeshProvider::CreateSection(LODIndex, SectionId, SectionProperties);
+		UpdateSectionInternal(LODIndex, SectionId, MoveTemp(SectionData), GetBoundsFromMeshData(SectionData));
+	}
+
+	void UpdateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshRenderableMeshData& SectionData)
+	{
+		UpdateSectionInternal(LODIndex, SectionId, SectionData, GetBoundsFromMeshData(SectionData));
+	}
+	void UpdateSection(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData&& SectionData)
+	{
+		UpdateSectionInternal(LODIndex, SectionId, MoveTemp(SectionData), GetBoundsFromMeshData(SectionData));
+	}
+	void UpdateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshRenderableMeshData& SectionData, FBoxSphereBounds KnownBounds)
+	{
+		UpdateSectionInternal(LODIndex, SectionId, SectionData, KnownBounds);
+	}
+	void UpdateSection(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData&& SectionData, FBoxSphereBounds KnownBounds)
+	{
+		UpdateSectionInternal(LODIndex, SectionId, MoveTemp(SectionData), KnownBounds);
+	}
+
+	void ClearSection(int32 LODIndex, int32 SectionId);
 
 
-	virtual IRuntimeMeshProviderProxyRef GetProxy() override { return MakeShared<FRuntimeMeshProviderStaticProxy, ESPMode::ThreadSafe>(TWeakObjectPtr<URuntimeMeshProvider>(this), BoxRadius, Material); }
+	void SetCollisionSettings(const FRuntimeMeshCollisionSettings& NewCollisionSettings);
+	void SetCollisionMesh(const FRuntimeMeshCollisionData& NewCollisionMesh);
+	void SetRenderableLODForCollision(int32 LODIndex);
+	void SetRenderableSectionAffectsCollision(int32 SectionId, bool bCollisionEnabled);
+
+protected:
+	virtual FBoxSphereBounds GetBounds() override { return CombinedBounds; }
+
+	bool GetSectionMeshForLOD(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData) override;
+
+	FRuntimeMeshCollisionSettings GetCollisionSettings() override;
+	bool HasCollisionMesh() override;
+	bool GetCollisionMesh(FRuntimeMeshCollisionData& CollisionData) override;
+
+private:
+	void UpdateBounds();
+	FBoxSphereBounds GetBoundsFromMeshData(const FRuntimeMeshRenderableMeshData& MeshData);
+
+
+	void UpdateSectionInternal(int32 LODIndex, int32 SectionId, const FRuntimeMeshRenderableMeshData& SectionData, FBoxSphereBounds KnownBounds)
+	{
+		FRuntimeMeshRenderableMeshData TempData = SectionData;
+		UpdateSectionInternal(LODIndex, SectionId, MoveTemp(TempData), KnownBounds);
+	}
+	void UpdateSectionInternal(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData&& SectionData, FBoxSphereBounds KnownBounds)
+	{
+		TTuple<FRuntimeMeshRenderableMeshData, FBoxSphereBounds>& NewCache = StoredMeshData.FindOrAdd(GenerateKeyFromLODAndSection(LODIndex, SectionId));
+		NewCache = MakeTuple<FRuntimeMeshRenderableMeshData, FBoxSphereBounds>(MoveTemp(SectionData), MoveTemp(KnownBounds));
+		UpdateBounds();
+		MarkSectionDirty(LODIndex, SectionId);
+	}
 };

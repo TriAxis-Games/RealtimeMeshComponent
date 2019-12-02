@@ -21,23 +21,23 @@ public:
 
 	ERHIFeatureLevel::Type GetFeatureLevel() const { return FeatureLevel; }
 
-	void ConfigureLOD_GameThread(uint8 LODIndex, const FRuntimeMeshLODProperties& InProperties);
-	void ClearLOD_GameThread(uint8 LODIndex);
+	void ConfigureLOD_GameThread(int32 LODIndex, const FRuntimeMeshLODProperties& InProperties);
+	void ClearLOD_GameThread(int32 LODIndex);
 
-	void CreateSection_GameThread(uint8 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& InProperties);
-	void UpdateSectionProperties_GameThread(uint8 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& InProperties);
-	void UpdateSection_GameThread(uint8 LODIndex, int32 SectionId, const TSharedPtr<FRuntimeMeshRenderableMeshData>& MeshData);
-	void ClearSection_GameThread(uint8 LODIndex, int32 SectionId);
-	void RemoveSection_GameThread(uint8 LODIndex, int32 SectionId);
+	void CreateSection_GameThread(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& InProperties);
+	void UpdateSectionProperties_GameThread(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& InProperties);
+	void UpdateSection_GameThread(int32 LODIndex, int32 SectionId, const TSharedPtr<FRuntimeMeshRenderableMeshData>& MeshData);
+	void ClearSection_GameThread(int32 LODIndex, int32 SectionId);
+	void RemoveSection_GameThread(int32 LODIndex, int32 SectionId);
 
-	void ConfigureLOD_RenderThread(uint8 LODIndex, const FRuntimeMeshLODProperties& InProperties);
-	void ClearLOD_RenderThread(uint8 LODIndex);
+	void ConfigureLOD_RenderThread(int32 LODIndex, const FRuntimeMeshLODProperties& InProperties);
+	void ClearLOD_RenderThread(int32 LODIndex);
 
-	void CreateSection_RenderThread(uint8 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& InProperties);
-	void UpdateSectionProperties_RenderThread(uint8 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& InProperties);
-	void UpdateSection_RenderThread(uint8 LODIndex, int32 SectionId, const TSharedPtr<FRuntimeMeshRenderableMeshData>& MeshData);
-	void ClearSection_RenderThread(uint8 LODIndex, int32 SectionId);
-	void RemoveSection_RenderThread(uint8 LODIndex, int32 SectionId);
+	void CreateSection_RenderThread(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& InProperties);
+	void UpdateSectionProperties_RenderThread(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& InProperties);
+	void UpdateSection_RenderThread(int32 LODIndex, int32 SectionId, const TSharedPtr<FRuntimeMeshRenderableMeshData>& MeshData);
+	void ClearSection_RenderThread(int32 LODIndex, int32 SectionId);
+	void RemoveSection_RenderThread(int32 LODIndex, int32 SectionId);
 
 
 

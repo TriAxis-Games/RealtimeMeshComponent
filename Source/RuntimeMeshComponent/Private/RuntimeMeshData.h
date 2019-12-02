@@ -48,16 +48,16 @@ public:
 protected: // IRuntimeMeshProvider signatures
 	virtual void Initialize() override;
 
-	virtual void ConfigureLOD(uint8 LODIndex, const FRuntimeMeshLODProperties& LODProperties) override;
-	virtual void CreateSection(uint8 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties) override;
+	virtual void ConfigureLOD(int32 LODIndex, const FRuntimeMeshLODProperties& LODProperties) override;
+	virtual void CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties) override;
 	virtual void SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial) override;
-	virtual void MarkSectionDirty(uint8 LODIndex, int32 SectionId) override;
-	virtual void SetSectionVisibility(uint8 LODIndex, int32 SectionId, bool bIsVisible) override;
-	virtual void SetSectionCastsShadow(uint8 LODIndex, int32 SectionId, bool bCastsShadow) override;
-	virtual void RemoveSection(uint8 LODIndex, int32 SectionId) override;
+	virtual void MarkSectionDirty(int32 LODIndex, int32 SectionId) override;
+	virtual void SetSectionVisibility(int32 LODIndex, int32 SectionId, bool bIsVisible) override;
+	virtual void SetSectionCastsShadow(int32 LODIndex, int32 SectionId, bool bCastsShadow) override;
+	virtual void RemoveSection(int32 LODIndex, int32 SectionId) override;
 	virtual void MarkCollisionDirty() override;
 
-	virtual bool GetSectionMeshForLOD(uint8 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData) override
+	virtual bool GetSectionMeshForLOD(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData) override
 	{
 		return BaseProvider->GetSectionMeshForLOD(LODIndex, SectionId, MeshData);
 	}
