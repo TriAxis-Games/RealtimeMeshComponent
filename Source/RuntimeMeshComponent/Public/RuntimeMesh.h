@@ -28,7 +28,7 @@ struct FRuntimeMeshCollisionCookTickObject : FTickableGameObject
 	FRuntimeMeshCollisionCookTickObject(TWeakObjectPtr<URuntimeMesh> InOwner) : Owner(InOwner) {}
 	virtual void Tick(float DeltaTime);
 	virtual bool IsTickable() const;
-	virtual bool IsTickableInEditor() const { return false; }
+	virtual bool IsTickableInEditor() const { return true; }
 	virtual TStatId GetStatId() const;
 
 	virtual UWorld* GetTickableGameObjectWorld() const;

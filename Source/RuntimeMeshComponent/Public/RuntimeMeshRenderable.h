@@ -56,7 +56,7 @@ public:
 
 	FBox GetBounds() const
 	{
-		FBox NewBox;
+		FBox NewBox(ForceInit);
 		int32 Count = Num();
 		for (int32 Index = 0; Index < Count; Index++)
 		{
