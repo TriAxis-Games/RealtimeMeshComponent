@@ -271,6 +271,11 @@ public:
 		return Data.Num() / GetStride();
 	}
 
+	int32 NumChannels() const
+	{
+		return ChannelCount;
+	}
+
 	const uint8* GetData() const { return reinterpret_cast<const uint8*>(Data.GetData()); }
 
 	void Empty(int32 Slack = 0)
