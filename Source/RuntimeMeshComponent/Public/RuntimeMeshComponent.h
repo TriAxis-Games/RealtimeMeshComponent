@@ -29,6 +29,12 @@ public:
 
 	URuntimeMeshComponent(const FObjectInitializer& ObjectInitializer);
 
+	UFUNCTION(BlueprintCallable)
+	void Initialize(URuntimeMeshProvider* Provider)
+	{
+		GetOrCreateRuntimeMesh()->Initialize(Provider);
+	}
+
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
 	void SetRuntimeMesh(URuntimeMesh* NewMesh);
 

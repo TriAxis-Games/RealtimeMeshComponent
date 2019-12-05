@@ -22,20 +22,20 @@ private:
 
 public:
 
-	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshActor", Meta = (AllowPrivateAccess = "true", DisplayName = "Get Mobility"))
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshActor", Meta = (DisplayName = "Get Mobility"))
 	ERuntimeMeshMobility GetRuntimeMeshMobility();
 
-	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshActor", Meta = (AllowPrivateAccess = "true", DisplayName = "Set Mobility"))
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshActor", Meta = (DisplayName = "Set Mobility"))
 	void SetRuntimeMeshMobility(ERuntimeMeshMobility NewMobility);
 
 public:
 
 	/** Function to change mobility type */
 	void SetMobility(EComponentMobility::Type InMobility);
-
 	EComponentMobility::Type GetMobility();
 
 	/** Returns RuntimeMeshComponent subobject **/
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshActor", Meta = (DisplayName = "Get Runtime Mesh Component"))
 	class URuntimeMeshComponent* GetRuntimeMeshComponent() const { return RuntimeMeshComponent; }
 
 

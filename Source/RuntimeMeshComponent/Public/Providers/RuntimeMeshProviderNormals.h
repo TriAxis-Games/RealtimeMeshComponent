@@ -29,12 +29,14 @@ class RUNTIMEMESHCOMPONENT_API URuntimeMeshProviderNormals : public URuntimeMesh
 
 public:
 
-	UPROPERTY(EditAnywhere)
-		URuntimeMeshProvider* SourceProvider;
-	UPROPERTY(EditAnywhere)
-		bool ComputeNormals = true;
-	UPROPERTY(EditAnywhere)
-		bool ComputeTangents = true;
+	UPROPERTY(Category = "RuntimeMesh|Providers|Normals", EditAnywhere, BlueprintReadWrite)
+	URuntimeMeshProvider* SourceProvider;
+
+	UPROPERTY(Category = "RuntimeMesh|Providers|Normals", EditAnywhere, BlueprintReadWrite)
+	bool ComputeNormals = true;
+
+	UPROPERTY(Category = "RuntimeMesh|Providers|Normals", EditAnywhere, BlueprintReadWrite)
+	bool ComputeTangents = true;
 
 protected:
 	virtual FRuntimeMeshProviderProxyRef GetProxy() override

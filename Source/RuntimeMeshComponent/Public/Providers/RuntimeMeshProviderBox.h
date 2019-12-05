@@ -39,10 +39,10 @@ class RUNTIMEMESHCOMPONENT_API URuntimeMeshProviderBox : public URuntimeMeshProv
 	GENERATED_BODY()
 
 public:
-	UPROPERTY(EditAnywhere)
+	UPROPERTY(Category = "RuntimeMesh|Providers|Box", EditAnywhere, BlueprintReadWrite)
 	FVector BoxRadius;
 
-	UPROPERTY(EditAnywhere)
+	UPROPERTY(Category = "RuntimeMesh|Providers|Box", EditAnywhere, BlueprintReadWrite)
 	UMaterialInterface* Material;
 
 protected:

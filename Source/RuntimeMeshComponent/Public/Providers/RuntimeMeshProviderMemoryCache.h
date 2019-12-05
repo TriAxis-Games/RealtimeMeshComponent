@@ -50,8 +50,7 @@ class RUNTIMEMESHCOMPONENT_API URuntimeMeshProviderMemoryCache : public URuntime
 	GENERATED_BODY()
 
 public:
-
-	UPROPERTY(EditAnywhere)
+	UPROPERTY(Category = "RuntimeMesh|Providers|MemoryCache", EditAnywhere, BlueprintReadWrite)
 	URuntimeMeshProvider* SourceProvider;
 
 protected:

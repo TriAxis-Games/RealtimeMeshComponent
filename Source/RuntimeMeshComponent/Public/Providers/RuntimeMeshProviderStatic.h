@@ -70,12 +70,19 @@ public:
 		UpdateSectionInternal(LODIndex, SectionId, MoveTemp(SectionData), KnownBounds);
 	}
 
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static")
 	void ClearSection(int32 LODIndex, int32 SectionId);
 
 
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static")
 	void SetCollisionSettings(const FRuntimeMeshCollisionSettings& NewCollisionSettings);
+
 	void SetCollisionMesh(const FRuntimeMeshCollisionData& NewCollisionMesh);
+
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static")
 	void SetRenderableLODForCollision(int32 LODIndex);
+
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static")
 	void SetRenderableSectionAffectsCollision(int32 SectionId, bool bCollisionEnabled);
 
 protected:

@@ -78,9 +78,13 @@ public:
 
 	int32 GetNumMaterials();
 	void GetUsedMaterials(TArray<UMaterialInterface*>& OutMaterials);
+	
+	UFUNCTION(BlueprintCallable)
 	UMaterialInterface* GetMaterialForSlot(int32 SlotIndex);
 
+	UFUNCTION(BlueprintCallable)
 	FBoxSphereBounds GetLocalBounds() const;
+
 	UBodySetup* GetBodySetup() { return nullptr;  }
 	
 	/** Event called when the collision has finished updated, this works both with standard following frame synchronous updates, as well as async updates */

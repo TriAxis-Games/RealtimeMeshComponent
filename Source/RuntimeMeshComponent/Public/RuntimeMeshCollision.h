@@ -11,11 +11,11 @@
 USTRUCT(BlueprintType)
 struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshCollisionConvexMesh
 {
-	GENERATED_USTRUCT_BODY()
+	GENERATED_BODY()
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = RuntimeMeshCollisionConvex)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Collision|Convex")
 	TArray<FVector> VertexBuffer;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = RuntimeMeshCollisionConvex)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Collision|Convex")
 	FBox BoundingBox;
 
 	friend FArchive& operator <<(FArchive& Ar, FRuntimeMeshCollisionConvexMesh& Section)
@@ -30,14 +30,14 @@ struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshCollisionConvexMesh
 USTRUCT(BlueprintType)
 struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshCollisionSphere
 {
-	GENERATED_USTRUCT_BODY()
+	GENERATED_BODY()
 
 	/** Position of the sphere's origin */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = RuntimeMeshCollisionSphere)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Collision|Sphere")
 	FVector Center;
 
 	/** Radius of the sphere */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = RuntimeMeshCollisionSphere)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Collision|Sphere")
 	float Radius;
 
 	FRuntimeMeshCollisionSphere()
@@ -66,18 +66,18 @@ struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshCollisionSphere
 USTRUCT(BlueprintType)
 struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshCollisionBox
 {
-	GENERATED_USTRUCT_BODY()
+	GENERATED_BODY()
 
 	/** Position of the box's origin */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = RuntimeMeshCollisionBox)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Collision|Box")
 	FVector Center;
 
 	/** Rotation of the box */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = RuntimeMeshCollisionBox)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Collision|Box")
 	FRotator Rotation;
 
 	/** Extents of the box */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = RuntimeMeshCollisionBox)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Collision|Box")
 	FVector Extents;
 
 
@@ -118,22 +118,22 @@ struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshCollisionBox
 USTRUCT(BlueprintType)
 struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshCollisionCapsule
 {
-	GENERATED_USTRUCT_BODY()
+	GENERATED_BODY()
 
 	/** Position of the capsule's origin */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = RuntimeMeshCollisionCapsule)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Collision|Capsule")
 	FVector Center;
 
 	/** Rotation of the capsule */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = RuntimeMeshCollisionCapsule)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Collision|Capsule")
 	FRotator Rotation;
 
 	/** Radius of the capsule */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = RuntimeMeshCollisionCapsule)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Collision|Capsule")
 	float Radius;
 
 	/** This is of line-segment ie. add Radius to both ends to find total length. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = RuntimeMeshCollisionCapsule)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Collision|Capsule")
 	float Length;
 
 	FRuntimeMeshCollisionCapsule()
@@ -394,20 +394,20 @@ struct FRuntimeMeshCollisionSettings
 {
 	GENERATED_USTRUCT_BODY()
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = RuntimeMeshCollision)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Collision|Settings")
 	bool bUseComplexAsSimple;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = RuntimeMeshCollision)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Collision|Settings")
 	bool bUseAsyncCooking;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = RuntimeMeshCollision)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Collision|Settings")
 	ERuntimeMeshCollisionCookingMode CookingMode;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = RuntimeMeshCollisionShapes)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Collision|Settings")
 	TArray<FRuntimeMeshCollisionConvexMesh> ConvexElements;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = RuntimeMeshCollisionShapes)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Collision|Settings")
 	TArray<FRuntimeMeshCollisionSphere> Spheres;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = RuntimeMeshCollisionShapes)
-	TArray<FRuntimeMeshCollisionBox> Boxes; 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = RuntimeMeshCollisionShapes)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Collision|Settings")
+	TArray<FRuntimeMeshCollisionBox> Boxes;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Collision|Settings")
 	TArray<FRuntimeMeshCollisionCapsule> Capsules;
 
 	FRuntimeMeshCollisionSettings()

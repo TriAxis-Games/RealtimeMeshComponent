@@ -509,20 +509,31 @@ public:
 };
 
 
-
+USTRUCT(BlueprintType)
 struct FRuntimeMeshSectionProperties
 {
+	GENERATED_USTRUCT_BODY();
+public:
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Rendering|SectionProperties")
 	ERuntimeMeshUpdateFrequency UpdateFrequency;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Rendering|SectionProperties")
 	int32 MaterialSlot;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Rendering|SectionProperties")
 	bool bIsVisible;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Rendering|SectionProperties")
 	bool bCastsShadow;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Rendering|SectionProperties")
 	bool bUseHighPrecisionTangents;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Rendering|SectionProperties")
 	bool bUseHighPrecisionTexCoords;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Rendering|SectionProperties")
 	uint8 NumTexCoords;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Rendering|SectionProperties")
 	bool bWants32BitIndices;
 
 	FRuntimeMeshSectionProperties()
@@ -556,8 +567,13 @@ struct FRuntimeMeshSectionProperties
 	// 	}
 };
 
+USTRUCT(BlueprintType)
 struct FRuntimeMeshLODProperties
 {
+	GENERATED_USTRUCT_BODY();
+public:
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Rendering|LODProperties")
 	float ScreenSize;
 
 	FRuntimeMeshLODProperties()
@@ -584,9 +600,15 @@ struct FRuntimeMeshLOD
 	// 	}
 };
 
+USTRUCT(BlueprintType)
 struct FRuntimeMeshMaterialSlot
 {
+	GENERATED_USTRUCT_BODY();
+public:
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Rendering|MaterialSlot")
 	FName SlotName;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Rendering|MaterialSlot")
 	TWeakObjectPtr<UMaterialInterface> Material;
 
 	FRuntimeMeshMaterialSlot() { }
