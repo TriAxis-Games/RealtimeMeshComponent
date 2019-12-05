@@ -303,7 +303,7 @@ public:
 		Data.Append(InOther.Data);
 	}
 
-	const FVector2D& GetTexCoord(int32 Index, int32 ChannelId = 0) const
+	const FVector2D GetTexCoord(int32 Index, int32 ChannelId = 0) const
 	{
 		if (bIsHighPrecision)
 		{
