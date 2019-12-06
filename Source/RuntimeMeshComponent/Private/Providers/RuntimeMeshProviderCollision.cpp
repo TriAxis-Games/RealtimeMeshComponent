@@ -3,46 +3,46 @@
 
 #include "RuntimeMeshProviderCollision.h"
 
-FRuntimeMeshProviderCollisionFromRenderable::FRuntimeMeshProviderCollisionFromRenderable(TWeakObjectPtr<URuntimeMeshProvider> InParent, const FRuntimeMeshProviderProxyPtr& InNextProvider)
+FRuntimeMeshProviderCollisionFromRenderableProxy::FRuntimeMeshProviderCollisionFromRenderableProxy(TWeakObjectPtr<URuntimeMeshProvider> InParent, const FRuntimeMeshProviderProxyPtr& InNextProvider)
 	: FRuntimeMeshProviderProxyPassThrough(InParent, InNextProvider),
 	LODForMeshCollision(0)
 {
 
 }
 
-FRuntimeMeshProviderCollisionFromRenderable::~FRuntimeMeshProviderCollisionFromRenderable()
+FRuntimeMeshProviderCollisionFromRenderableProxy::~FRuntimeMeshProviderCollisionFromRenderableProxy()
 {
 
 }
 
-void FRuntimeMeshProviderCollisionFromRenderable::UpdateProxyParameters(URuntimeMeshProvider* ParentProvider, bool bIsInitialSetup)
+void FRuntimeMeshProviderCollisionFromRenderableProxy::UpdateProxyParameters(URuntimeMeshProvider* ParentProvider, bool bIsInitialSetup)
 {
-	if (!ParentProvider->IsA<URuntimeMeshProviderCollisionFromRenderable>()) //Avoid potential crashes
+	URuntimeMeshProviderCollisionFromRenderable* CastParent = Cast<URuntimeMeshProviderCollisionFromRenderable>(ParentProvider);
+	if (CastParent)
 	{
-		return;
-	}
-	URuntimeMeshProviderCollisionFromRenderable* CastParent = (URuntimeMeshProviderCollisionFromRenderable*) ParentProvider;
-	LODForMeshCollision = CastParent->LODForMeshCollision;
-	SectionsForMeshCollision = CastParent->SectionsForMeshCollision;
-	CollisionSettings = CastParent->CollisionSettings;
-	CollisionMesh = CastParent->CollisionMesh;
-	if (!bIsInitialSetup)
-	{
-		MarkCollisionDirty();
+
+		LODForMeshCollision = CastParent->LODForMeshCollision;
+		SectionsForMeshCollision = CastParent->SectionsForMeshCollision;
+		CollisionSettings = CastParent->CollisionSettings;
+		CollisionMesh = CastParent->CollisionMesh;
+		if (!bIsInitialSetup)
+		{
+			MarkCollisionDirty();
+		}
 	}
 }
 
-FRuntimeMeshCollisionSettings FRuntimeMeshProviderCollisionFromRenderable::GetCollisionSettings()
+FRuntimeMeshCollisionSettings FRuntimeMeshProviderCollisionFromRenderableProxy::GetCollisionSettings()
 {
 	return CollisionSettings;
 }
 
-bool FRuntimeMeshProviderCollisionFromRenderable::HasCollisionMesh()
+bool FRuntimeMeshProviderCollisionFromRenderableProxy::HasCollisionMesh()
 {
 	return SectionsForMeshCollision.Num()>0;
 }
 
-bool FRuntimeMeshProviderCollisionFromRenderable::GetCollisionMesh(FRuntimeMeshCollisionData& CollisionData)
+bool FRuntimeMeshProviderCollisionFromRenderableProxy::GetCollisionMesh(FRuntimeMeshCollisionData& CollisionData)
 {
 	if (CollisionMesh.Vertices.Num() > 0 && CollisionMesh.Triangles.Num() > 0) //If the given collision mesh is valid, use it
 	{
@@ -81,7 +81,7 @@ bool FRuntimeMeshProviderCollisionFromRenderable::GetCollisionMesh(FRuntimeMeshC
 			}
 
 			int32 FirstTris = CollisionData.Triangles.Num();
-			int32 NumIndices = SectionMesh.Triangles.Num;
+			int32 NumIndices = SectionMesh.Triangles.Num();
 			for (int32 TrisIdx = 0; TrisIdx < NumIndices/3; TrisIdx++)
 			{
 				CollisionData.Triangles.SetTriangleIndices(TrisIdx + FirstTris, 
@@ -94,7 +94,7 @@ bool FRuntimeMeshProviderCollisionFromRenderable::GetCollisionMesh(FRuntimeMeshC
 	return true;
 }
 
-bool FRuntimeMeshProviderCollisionFromRenderable::IsThreadSafe() const
+bool FRuntimeMeshProviderCollisionFromRenderableProxy::IsThreadSafe() const
 {
 	return true;
 }

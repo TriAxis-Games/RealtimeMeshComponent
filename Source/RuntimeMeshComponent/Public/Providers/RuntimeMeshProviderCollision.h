@@ -7,7 +7,7 @@
 #include "RuntimeMeshProviderCollision.generated.h"
 
 
-class RUNTIMEMESHCOMPONENT_API FRuntimeMeshProviderCollisionFromRenderable : public FRuntimeMeshProviderProxyPassThrough
+class RUNTIMEMESHCOMPONENT_API FRuntimeMeshProviderCollisionFromRenderableProxy : public FRuntimeMeshProviderProxyPassThrough
 {
 	int32 LODForMeshCollision;
 	TSet<int32> SectionsForMeshCollision;
@@ -16,8 +16,8 @@ class RUNTIMEMESHCOMPONENT_API FRuntimeMeshProviderCollisionFromRenderable : pub
 	FRuntimeMeshCollisionData CollisionMesh;
 
 public:
-	FRuntimeMeshProviderCollisionFromRenderable(TWeakObjectPtr<URuntimeMeshProvider> InParent, const FRuntimeMeshProviderProxyPtr& InNextProvider);
-	~FRuntimeMeshProviderCollisionFromRenderable();
+	FRuntimeMeshProviderCollisionFromRenderableProxy(TWeakObjectPtr<URuntimeMeshProvider> InParent, const FRuntimeMeshProviderProxyPtr& InNextProvider);
+	~FRuntimeMeshProviderCollisionFromRenderableProxy();
 
 	void UpdateProxyParameters(URuntimeMeshProvider* ParentProvider, bool bIsInitialSetup) override;
 
@@ -43,7 +43,7 @@ private:
 	FRuntimeMeshCollisionSettings CollisionSettings;
 	FRuntimeMeshCollisionData CollisionMesh;
 
-	friend class FRuntimeMeshProviderCollisionFromRenderable;
+	friend class FRuntimeMeshProviderCollisionFromRenderableProxy;
 public:
 
 	UPROPERTY(EditAnywhere)
@@ -63,6 +63,6 @@ protected:
 	{
 		FRuntimeMeshProviderProxyPtr SourceProviderProxy = SourceProvider ? SourceProvider->SetupProxy() : FRuntimeMeshProviderProxyPtr();
 
-		return MakeShared<FRuntimeMeshProviderCollisionFromRenderable, ESPMode::ThreadSafe>(TWeakObjectPtr<URuntimeMeshProvider>(this), SourceProviderProxy);
+		return MakeShared<FRuntimeMeshProviderCollisionFromRenderableProxy, ESPMode::ThreadSafe>(TWeakObjectPtr<URuntimeMeshProvider>(this), SourceProviderProxy);
 	}
 };
