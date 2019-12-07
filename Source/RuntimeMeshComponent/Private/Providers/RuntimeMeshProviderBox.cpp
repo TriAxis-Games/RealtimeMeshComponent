@@ -17,8 +17,13 @@ FRuntimeMeshProviderBoxProxy::~FRuntimeMeshProviderBoxProxy()
 void FRuntimeMeshProviderBoxProxy::UpdateProxyParameters(URuntimeMeshProvider* ParentProvider, bool bIsInitialSetup)
 {
 	URuntimeMeshProviderBox* BoxProvider = Cast<URuntimeMeshProviderBox>(ParentProvider);
+	if (BoxRadius != BoxProvider->BoxRadius)
+	{
+		MarkCollisionDirty();
+	}
 	BoxRadius = BoxProvider->BoxRadius;
 	Material = BoxProvider->Material;
+	MarkSectionDirty(0, 0);
 }
 
 void FRuntimeMeshProviderBoxProxy::Initialize()
