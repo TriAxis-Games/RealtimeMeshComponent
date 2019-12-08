@@ -13,6 +13,7 @@ struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshCollisionConvexMesh
 {
 	GENERATED_BODY()
 
+public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Collision|Convex")
 	TArray<FVector> VertexBuffer;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Collision|Convex")
@@ -32,6 +33,7 @@ struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshCollisionSphere
 {
 	GENERATED_BODY()
 
+public:
 	/** Position of the sphere's origin */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Collision|Sphere")
 	FVector Center;
@@ -68,6 +70,7 @@ struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshCollisionBox
 {
 	GENERATED_BODY()
 
+public:
 	/** Position of the box's origin */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Collision|Box")
 	FVector Center;
@@ -120,6 +123,7 @@ struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshCollisionCapsule
 {
 	GENERATED_BODY()
 
+public:
 	/** Position of the capsule's origin */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Collision|Capsule")
 	FVector Center;
@@ -163,8 +167,11 @@ struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshCollisionCapsule
 	}
 };
 
-struct FRuntimeMeshCollisionVertexStream
+USTRUCT(BlueprintType)
+struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshCollisionVertexStream
 {
+	GENERATED_USTRUCT_BODY()
+
 private:
 	TArray<FVector> Data;
 
@@ -208,10 +215,37 @@ private:
 	}
 
 	friend class URuntimeMesh;
+
+public:
+	bool Serialize(FArchive& Ar)
+	{
+		Ar << Data;
+		return true;
+	}
 };
 
-struct FRuntimeMeshCollisionTriangleStream
+template<> struct TStructOpsTypeTraits<FRuntimeMeshCollisionVertexStream> : public TStructOpsTypeTraitsBase2<FRuntimeMeshCollisionVertexStream>
 {
+	enum
+	{
+		WithSerializer = true
+	};
+};
+
+static FArchive& operator<<(FArchive& Ar, FTriIndices& Tri)
+{
+	Ar << Tri.v0;
+	Ar << Tri.v1;
+	Ar << Tri.v2;
+	return Ar;
+}
+
+
+USTRUCT(BlueprintType)
+struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshCollisionTriangleStream
+{
+	GENERATED_USTRUCT_BODY()
+
 private:
 	TArray<FTriIndices> Data;
 
@@ -269,10 +303,30 @@ private:
 	}
 
 	friend class URuntimeMesh;
+
+public:
+
+
+	bool Serialize(FArchive& Ar)
+	{
+		Ar << Data;
+		return true;
+	}
 };
 
-struct FRuntimeMeshCollisionTexCoordStream
+template<> struct TStructOpsTypeTraits<FRuntimeMeshCollisionTriangleStream> : public TStructOpsTypeTraitsBase2<FRuntimeMeshCollisionTriangleStream>
 {
+	enum
+	{
+		WithSerializer = true
+	};
+};
+
+USTRUCT(BlueprintType)
+struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshCollisionTexCoordStream
+{
+	GENERATED_USTRUCT_BODY()
+
 private:
 	TArray<TArray<FVector2D>> Data;
 
@@ -337,10 +391,28 @@ private:
 	}
 
 	friend class URuntimeMesh;
+
+public:
+	bool Serialize(FArchive& Ar)
+	{
+		Ar << Data;
+		return true;
+	}
 };
 
-struct FRuntimeMeshCollisionMaterialIndexStream
+template<> struct TStructOpsTypeTraits<FRuntimeMeshCollisionTexCoordStream> : public TStructOpsTypeTraitsBase2<FRuntimeMeshCollisionTexCoordStream>
 {
+	enum
+	{
+		WithSerializer = true
+	};
+};
+
+USTRUCT(BlueprintType)
+struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshCollisionMaterialIndexStream
+{
+	GENERATED_USTRUCT_BODY()
+
 private:
 	TArray<uint16> Data;
 
@@ -384,15 +456,32 @@ private:
 	}
 
 	friend class URuntimeMesh;
+
+public:
+	bool Serialize(FArchive& Ar)
+	{
+		Ar << Data;
+		return true;
+	}
+};
+
+template<> struct TStructOpsTypeTraits<FRuntimeMeshCollisionMaterialIndexStream> : public TStructOpsTypeTraitsBase2<FRuntimeMeshCollisionMaterialIndexStream>
+{
+	enum
+	{
+		WithSerializer = true
+	};
 };
 
 
 
 
 USTRUCT(BlueprintType)
-struct FRuntimeMeshCollisionSettings
+struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshCollisionSettings
 {
 	GENERATED_USTRUCT_BODY()
+
+public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Collision|Settings")
 	bool bUseComplexAsSimple;
@@ -419,16 +508,29 @@ struct FRuntimeMeshCollisionSettings
 	}
 };
 
-struct FRuntimeMeshCollisionData
+USTRUCT(BlueprintType)
+struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshCollisionData
 {
+	GENERATED_USTRUCT_BODY()
+
+public:
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Collision|CollisionMesh")
 	FRuntimeMeshCollisionVertexStream Vertices;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Collision|CollisionMesh")
 	FRuntimeMeshCollisionTriangleStream Triangles;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Collision|CollisionMesh")
 	FRuntimeMeshCollisionTexCoordStream TexCoords;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Collision|CollisionMesh")
 	FRuntimeMeshCollisionMaterialIndexStream MaterialIndices;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Collision|CollisionMesh")
 	bool bFlipNormals;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Collision|CollisionMesh")
 	bool bDeformableMesh;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Collision|CollisionMesh")
 	bool bFastCook;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Collision|CollisionMesh")
 	bool bDisableActiveEdgePrecompute;
 
 	FRuntimeMeshCollisionData()

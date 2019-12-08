@@ -9,6 +9,11 @@ FRuntimeMeshData::FRuntimeMeshData(const FRuntimeMeshProviderProxyRef& InBasePro
 	: FRuntimeMeshProviderProxy(nullptr), ParentMeshObject(InParentMeshObject), BaseProvider(InBaseProvider)
 {
 	LODs.SetNum(RuntimeMesh_MAXLODS);
+	for (int32 Index = 1; Index < RuntimeMesh_MAXLODS; Index++)
+	{
+		// All but the first LOD gets defaulted to 0 screen size to not show ever.
+		LODs[Index].Properties.ScreenSize = 0.0f;
+	}
 }
 
 FRuntimeMeshData::~FRuntimeMeshData()

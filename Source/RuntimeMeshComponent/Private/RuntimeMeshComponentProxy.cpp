@@ -101,9 +101,6 @@ void FRuntimeMeshComponentSceneProxy::CreateMeshBatch(FMeshBatch& MeshBatch, con
 #endif
 
 	MeshBatch.bDitheredLODTransition = false; // !IsMovable() && Material->GetMaterialInterface()->IsDitheredLODTransition();
-
-
-
 	MeshBatch.bWireframe = WireframeMaterial != nullptr;
 	MeshBatch.MaterialRenderProxy = MeshBatch.bWireframe ? WireframeMaterial : Material;
 
@@ -115,8 +112,8 @@ void FRuntimeMeshComponentSceneProxy::CreateMeshBatch(FMeshBatch& MeshBatch, con
 	FMeshBatchElement& BatchElement = MeshBatch.Elements[0];
 	//BatchElement.PrimitiveUniformBufferResource = GetUniformBuffer();
 
-	BatchElement.MaxScreenSize = 1.0f;// RuntimeMeshProxy->GetScreenSize(LODIndex);
-	BatchElement.MinScreenSize = 0.0f;// RuntimeMeshProxy->GetScreenSize(LODIndex + 1);
+	BatchElement.MaxScreenSize = RuntimeMeshProxy->GetScreenSize(LODIndex);
+	BatchElement.MinScreenSize = RuntimeMeshProxy->GetScreenSize(LODIndex + 1);
 }
 
 void FRuntimeMeshComponentSceneProxy::DrawStaticElements(FStaticPrimitiveDrawInterface* PDI)
@@ -138,9 +135,7 @@ void FRuntimeMeshComponentSceneProxy::DrawStaticElements(FStaticPrimitiveDrawInt
 
 				FMeshBatch MeshBatch;
 				CreateMeshBatch(MeshBatch, *Section, LODIndex, *RenderData, Material, nullptr);
-				PDI->DrawMesh(MeshBatch, 0.0f);// RuntimeMeshProxy->GetScreenSize(LODIndex));
-
-
+				PDI->DrawMesh(MeshBatch, FLT_MAX);
 			}
 		}
 	}

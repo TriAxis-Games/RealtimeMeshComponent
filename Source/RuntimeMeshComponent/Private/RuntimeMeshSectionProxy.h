@@ -118,6 +118,7 @@ public:
 	bool HasAnyDynamicPath() const;
 	bool HasAnyShadowCasters() const;
 
+	float GetMaxScreenSize() const { return Properties.ScreenSize; }
 
 	void UpdateProperties_RenderThread(const FRuntimeMeshLODProperties& InProperties);
 	void Clear_RenderThread();

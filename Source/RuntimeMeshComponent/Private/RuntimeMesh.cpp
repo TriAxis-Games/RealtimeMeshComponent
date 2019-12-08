@@ -9,53 +9,76 @@
 #include "RuntimeMeshProxy.h"
 #include "RuntimeMeshData.h"
 
-//////////////////////////////////////////////////////////////////////////
-//	URuntimeMesh
-
 
 //////////////////////////////////////////////////////////////////////////
 //	FRuntimeMeshCollisionCookTickObject
-void FRuntimeMeshCollisionCookTickObject::Tick(float DeltaTime)
+
+/*
+*	This tick function is used to drive the collision cooker.
+*	It is enabled for one frame when we need to update collision.
+*	This keeps from cooking on each individual create/update section as the original PMC did
+*/
+struct FRuntimeMeshDelayedActionTickObject : FTickableGameObject
 {
-	URuntimeMesh* Mesh = Owner.Get();
-	if (Mesh && Mesh->bCollisionIsDirty)
+private:
+	TQueue<TWeakObjectPtr<URuntimeMesh>, EQueueMode::Mpsc> UpdateList;
+
+public:
+	FRuntimeMeshDelayedActionTickObject() {}
+
+	static FRuntimeMeshDelayedActionTickObject& GetInstance()
 	{
-		Mesh->UpdateCollision();
-		Mesh->bCollisionIsDirty = false;
+		static TUniquePtr<FRuntimeMeshDelayedActionTickObject> UpdaterObject;
+		if (!UpdaterObject.IsValid())
+		{
+			UpdaterObject = MakeUnique<FRuntimeMeshDelayedActionTickObject>();
+		}
+		return *UpdaterObject.Get();
 	}
-}
-
-bool FRuntimeMeshCollisionCookTickObject::IsTickable() const
-{
-	URuntimeMesh* Mesh = Owner.Get();
-	if (Mesh)
+	void RegisterForUpdate(TWeakObjectPtr<URuntimeMesh> InMesh)
 	{
-		return Mesh->bCollisionIsDirty;
+		UpdateList.Enqueue(InMesh);
 	}
-	return false;
-}
 
-TStatId FRuntimeMeshCollisionCookTickObject::GetStatId() const
-{
-	return TStatId();
-}
-
-
-UWorld* FRuntimeMeshCollisionCookTickObject::GetTickableGameObjectWorld() const
-{
-	URuntimeMesh* Mesh = Owner.Get();
-	if (Mesh)
+	virtual void Tick(float DeltaTime)
 	{
-		return Mesh->GetWorld();
+		TWeakObjectPtr<URuntimeMesh> TempMesh;
+		while (UpdateList.Dequeue(TempMesh))
+		{
+			URuntimeMesh* Mesh = TempMesh.Get();
+			if (Mesh)
+			{
+				if (Mesh->bNeedsInitialization)
+				{
+					if (Mesh->MeshProvider)
+					{
+						Mesh->InitializeInternal();
+						Mesh->bNeedsInitialization = false;
+					}
+					Mesh->UpdateAllComponentsBounds();
+				}
+
+				if (Mesh->bCollisionIsDirty)
+				{
+					Mesh->UpdateCollision();
+					Mesh->bCollisionIsDirty = false;
+				}
+			}
+		}
 	}
-	return nullptr;
-}
+	virtual bool IsTickable() const { return !UpdateList.IsEmpty(); }
+	virtual bool IsTickableInEditor() const { return true; }
+	virtual TStatId GetStatId() const { return TStatId(); }
+};
+
+
 
 //////////////////////////////////////////////////////////////////////////
 //	URuntimeMesh
 
 URuntimeMesh::URuntimeMesh(const FObjectInitializer& ObjectInitializer)
 	: UObject(ObjectInitializer)
+	, bNeedsInitialization(false)
 	, bCollisionIsDirty(false)
 	, BodySetup(nullptr)
 {
@@ -96,11 +119,7 @@ void URuntimeMesh::MarkCollisionDirty()
 {
 	// Flag the collision as dirty
 	bCollisionIsDirty = true;
-
-	if (!CookTickObject.IsValid())
-	{
-		CookTickObject = MakeUnique<FRuntimeMeshCollisionCookTickObject>(TWeakObjectPtr<URuntimeMesh>(this));
-	}
+	FRuntimeMeshDelayedActionTickObject::GetInstance().RegisterForUpdate(TWeakObjectPtr<URuntimeMesh>(this));
 }
 
 UBodySetup* URuntimeMesh::CreateNewBodySetup()
@@ -390,13 +409,8 @@ void URuntimeMesh::PostLoad()
 {
 	Super::PostLoad();
 
-	if (MeshProvider)
-	{
-
-		UE_LOG(LogRuntimeMesh, Warning, TEXT("RM: Initializing mesh from load. %d"), FPlatformTLS::GetCurrentThreadId());
-		InitializeInternal();
-	}
-
-	UpdateAllComponentsBounds();
-	//MarkCollisionDirty();
+	bNeedsInitialization = true; 
+	FRuntimeMeshDelayedActionTickObject::GetInstance().RegisterForUpdate(TWeakObjectPtr<URuntimeMesh>(this));
 }
+
+

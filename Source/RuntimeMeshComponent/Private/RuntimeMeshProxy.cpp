@@ -21,9 +21,15 @@ FRuntimeMeshProxy::~FRuntimeMeshProxy()
 	check(IsInRenderingThread());
 }
 
+float FRuntimeMeshProxy::GetScreenSize(int32 LODIndex)
+{
+	if (LODIndex >= RuntimeMesh_MAXLODS)
+	{
+		return 0;
+	}
 
-
-
+	return LODs[LODIndex]->GetMaxScreenSize();
+}
 
 void FRuntimeMeshProxy::ConfigureLOD_GameThread(int32 LODIndex, const FRuntimeMeshLODProperties& InProperties)
 {

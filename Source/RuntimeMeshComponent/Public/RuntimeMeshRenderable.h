@@ -5,16 +5,20 @@
 #include "RuntimeMeshCore.h"
 #include "Containers/StaticArray.h"
 #include "Interfaces/Interface_CollisionDataProvider.h"
+#include "RuntimeMeshRenderable.generated.h"
 
-struct FRuntimeMeshVertexPositionStream
+USTRUCT(BlueprintType)
+struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshVertexPositionStream
 {
+	GENERATED_USTRUCT_BODY();
+
 private:
 	TArray<uint8> Data;
 
 public:
 	FRuntimeMeshVertexPositionStream() { }
 
-	void SetNum(int32 NewNum, bool bAllowShrinking)
+	void SetNum(int32 NewNum, bool bAllowShrinking = true)
 	{
 		Data.SetNum(NewNum * sizeof(FVector), bAllowShrinking);
 	}
@@ -65,15 +69,25 @@ public:
 		return NewBox;
 	}
 
-
-	friend FArchive& operator <<(FArchive& Ar, FRuntimeMeshVertexPositionStream& Stream)
+	bool Serialize(FArchive& Ar)
 	{
-		Ar << Stream.Data;
+		Ar << Data;
+		return true;
 	}
 };
 
-struct FRuntimeMeshVertexTangentStream
+template<> struct TStructOpsTypeTraits<FRuntimeMeshVertexPositionStream> : public TStructOpsTypeTraitsBase2<FRuntimeMeshVertexPositionStream>
 {
+	enum
+	{
+		WithSerializer = true
+	};
+};
+
+USTRUCT(BlueprintType)
+struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshVertexTangentStream
+{
+	GENERATED_USTRUCT_BODY();
 	/*
 		This is always laid out tangent first, normal second, and it's either FPackedNormal for normal precision or FPackedRGBA16N for high precision.
 	*/
@@ -149,7 +163,7 @@ public:
 		Data.Append(InOther.Data);
 	}
 
-	const FVector& GetNormal(int32 Index) const
+	FVector GetNormal(int32 Index) const
 	{
 		const int32 EntryIndex = Index * 2 + 1;
 		if (bIsHighPrecision)
@@ -175,7 +189,7 @@ public:
 		}
 	}
 
-	const FVector& GetTangent(int32 Index) const
+	FVector GetTangent(int32 Index) const
 	{
 		const int32 EntryIndex = Index * 2;
 		if (bIsHighPrecision)
@@ -238,15 +252,27 @@ public:
 	}
 
 
-	friend FArchive& operator <<(FArchive& Ar, FRuntimeMeshVertexTangentStream& Stream)
+	bool Serialize(FArchive& Ar)
 	{
-		Ar << Stream.bIsHighPrecision;
-		Ar << Stream.Data;
+		Ar << bIsHighPrecision;
+		Ar << Data;
+		return true;
 	}
 };
 
-struct FRuntimeMeshVertexTexCoordStream
+template<> struct TStructOpsTypeTraits<FRuntimeMeshVertexTangentStream> : public TStructOpsTypeTraitsBase2<FRuntimeMeshVertexTangentStream>
 {
+	enum
+	{
+		WithSerializer = true
+	};
+};
+
+USTRUCT(BlueprintType)
+struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshVertexTexCoordStream
+{
+	GENERATED_USTRUCT_BODY();
+
 private:
 	TArray<uint8> Data;
 	int32 ChannelCount;
@@ -342,10 +368,29 @@ public:
 		Ar << Stream.ChannelCount;
 		Ar << Stream.Data;
 	}
+	
+	bool Serialize(FArchive& Ar)
+	{
+		Ar << bIsHighPrecision;
+		Ar << ChannelCount;
+		Ar << Data;
+		return true;
+	}
 };
 
-struct FRuntimeMeshVertexColorStream
+template<> struct TStructOpsTypeTraits<FRuntimeMeshVertexTexCoordStream> : public TStructOpsTypeTraitsBase2<FRuntimeMeshVertexTexCoordStream>
 {
+	enum
+	{
+		WithSerializer = true
+	};
+};
+
+USTRUCT(BlueprintType)
+struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshVertexColorStream
+{
+	GENERATED_USTRUCT_BODY();
+
 private:
 	TArray<uint8> Data;
 
@@ -387,19 +432,31 @@ public:
 		return *((FColor*)&Data[Index * sizeof(FColor)]);
 	}
 
-	void SetColor(int32 Index, const FColor& NewPosition)
+	void SetColor(int32 Index, const FColor& NewColor)
 	{
-		*((FColor*)&Data[Index * sizeof(FColor)]) = NewPosition;
+		*((FColor*)&Data[Index * sizeof(FColor)]) = NewColor;
 	}
 
-	friend FArchive& operator <<(FArchive& Ar, FRuntimeMeshVertexColorStream& Stream)
+	bool Serialize(FArchive& Ar)
 	{
-		Ar << Stream.Data;
+		Ar << Data;
+		return true;
 	}
 };
 
-struct FRuntimeMeshTriangleStream
+template<> struct TStructOpsTypeTraits<FRuntimeMeshVertexColorStream> : public TStructOpsTypeTraitsBase2<FRuntimeMeshVertexColorStream>
 {
+	enum
+	{
+		WithSerializer = true
+	};
+};
+
+USTRUCT(BlueprintType)
+struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshTriangleStream
+{
+	GENERATED_USTRUCT_BODY();
+
 private:
 	TArray<uint8> Data;
 	bool bIsUsing32BitIndices;
@@ -505,17 +562,26 @@ public:
 		}
 	}
 
-	friend FArchive& operator <<(FArchive& Ar, FRuntimeMeshTriangleStream& Stream)
+	bool Serialize(FArchive& Ar)
 	{
-		Ar << Stream.bIsUsing32BitIndices;
-		Ar << Stream.Stride;
-		Ar << Stream.Data;
+		Ar << bIsUsing32BitIndices;
+		Ar << Stride;
+		Ar << Data;
+		return true;
 	}
+};
+
+template<> struct TStructOpsTypeTraits<FRuntimeMeshTriangleStream> : public TStructOpsTypeTraitsBase2<FRuntimeMeshTriangleStream>
+{
+	enum
+	{
+		WithSerializer = true
+	};
 };
 
 
 USTRUCT(BlueprintType)
-struct FRuntimeMeshSectionProperties
+struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshSectionProperties
 {
 	GENERATED_USTRUCT_BODY();
 public:
@@ -553,27 +619,10 @@ public:
 
 	}
 
-
-
-	// 	friend FArchive& operator <<(FArchive& Ar, FRuntimeMeshSectionProperties& SectionProps)
-	// 	{
-	// 		//Ar << SectionProps.UpdateFrequency;
-	// 
-	// 		Ar << SectionProps.MaterialSlot;
-	// 		
-	// 		Ar << SectionProps.bIsVisible;
-	// 		Ar << SectionProps.bCastsShadow;
-	// 
-	// 		Ar << SectionProps.bUseHighPrecisionTangents;
-	// 		Ar << SectionProps.bUseHighPrecisionTexCoords;
-	// 		Ar << SectionProps.NumTexCoords;
-	// 
-	// 		Ar << SectionProps.bWants32BitIndices;
-	// 	}
 };
 
 USTRUCT(BlueprintType)
-struct FRuntimeMeshLODProperties
+struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshLODProperties
 {
 	GENERATED_USTRUCT_BODY();
 public:
@@ -582,31 +631,22 @@ public:
 	float ScreenSize;
 
 	FRuntimeMeshLODProperties()
-		: ScreenSize(0.0)
+		: ScreenSize(1.0f)
 	{
 
 	}
 
-	// 	friend FArchive& operator <<(FArchive& Ar, FRuntimeMeshLODProperties& LODProps)
-	// 	{
-	// 		Ar << LODProps.ScreenSize;
-	// 	}
 };
 
-struct FRuntimeMeshLOD
+struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshLOD
 {
 	FRuntimeMeshLODProperties Properties;
 	TMap<int32, FRuntimeMeshSectionProperties> Sections;
 
-	// 	friend FArchive& operator <<(FArchive& Ar, FRuntimeMeshLOD& LOD)
-	// 	{
-	// 		Ar << LOD.Properties;
-	// 		Ar << LOD.Sections;
-	// 	}
 };
 
 USTRUCT(BlueprintType)
-struct FRuntimeMeshMaterialSlot
+struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshMaterialSlot
 {
 	GENERATED_USTRUCT_BODY();
 public:
@@ -621,21 +661,26 @@ public:
 	FRuntimeMeshMaterialSlot(const FName& InSlotName, const TWeakObjectPtr<UMaterialInterface>& InMaterial)
 		: SlotName(InSlotName), Material(InMaterial) { }
 
-	// 	friend FArchive& operator <<(FArchive& Ar, FRuntimeMeshMaterialSlot& MaterialSlot)
-	// 	{
-	// 		Ar << MaterialSlot.SlotName;
-	// 		//Ar << MaterialSlot.Material;
-	// 	}
 };
 
-struct FRuntimeMeshRenderableMeshData
+USTRUCT(BlueprintType)
+struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshRenderableMeshData
 {
+	GENERATED_USTRUCT_BODY();
+
+public:
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "RuntimeMesh|Rendering|MeshData")
 	FRuntimeMeshVertexPositionStream Positions;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "RuntimeMesh|Rendering|MeshData")
 	FRuntimeMeshVertexTangentStream Tangents;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "RuntimeMesh|Rendering|MeshData")
 	FRuntimeMeshVertexTexCoordStream TexCoords;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "RuntimeMesh|Rendering|MeshData")
 	FRuntimeMeshVertexColorStream Colors;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "RuntimeMesh|Rendering|MeshData")
 	FRuntimeMeshTriangleStream Triangles;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "RuntimeMesh|Rendering|MeshData")
 	FRuntimeMeshTriangleStream AdjacencyTriangles;
 
 	FRuntimeMeshRenderableMeshData()
@@ -655,14 +700,5 @@ struct FRuntimeMeshRenderableMeshData
 		return Positions.Num() > 0 && Positions.Num() == Tangents.Num() && Positions.Num() == TexCoords.Num() && Positions.Num() == Colors.Num() && Triangles.Num() > 0;
 	}
 
-	// 	friend FArchive& operator <<(FArchive& Ar, FRuntimeMeshRenderableMeshData& RenderableMeshData)
-	// 	{
-	// 		Ar << RenderableMeshData.Positions;
-	// 		Ar << RenderableMeshData.Tangents;
-	// 		Ar << RenderableMeshData.TexCoords;
-	// 		Ar << RenderableMeshData.Colors;
-	// 
-	// 		Ar << RenderableMeshData.Triangles;
-	// 		Ar << RenderableMeshData.AdjacencyTriangles;
-	// 	}
 };
+

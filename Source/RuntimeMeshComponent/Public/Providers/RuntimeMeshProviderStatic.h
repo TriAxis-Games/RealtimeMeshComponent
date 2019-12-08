@@ -29,8 +29,16 @@ public:
 
 	URuntimeMeshProviderStatic();
 
+	
 	// This brings forward the internal CreateSection as there's nothing wrong with using that version
 	using URuntimeMeshProvider::CreateSection;
+
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static", Meta=(DisplayName = "Create Section"))
+	void CreateSection_Blueprint(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties, const FRuntimeMeshRenderableMeshData& SectionData)
+	{
+		URuntimeMeshProvider::CreateSection(LODIndex, SectionId, SectionProperties);
+		UpdateSectionInternal(LODIndex, SectionId, SectionData, GetBoundsFromMeshData(SectionData));
+	}
 
 	void CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties, const FRuntimeMeshRenderableMeshData& SectionData)
 	{
@@ -86,13 +94,13 @@ public:
 	void SetRenderableSectionAffectsCollision(int32 SectionId, bool bCollisionEnabled);
 
 protected:
-	virtual FBoxSphereBounds GetBounds() override { return CombinedBounds; }
+	virtual FBoxSphereBounds GetBounds_Implementation() override { return CombinedBounds; }
 
-	bool GetSectionMeshForLOD(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData) override;
+	bool GetSectionMeshForLOD_Implementation(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData) override;
 
-	FRuntimeMeshCollisionSettings GetCollisionSettings() override;
-	bool HasCollisionMesh() override;
-	bool GetCollisionMesh(FRuntimeMeshCollisionData& CollisionData) override;
+	FRuntimeMeshCollisionSettings GetCollisionSettings_Implementation() override;
+	bool HasCollisionMesh_Implementation() override;
+	bool GetCollisionMesh_Implementation(FRuntimeMeshCollisionData& CollisionData) override;
 
 private:
 	void UpdateBounds();

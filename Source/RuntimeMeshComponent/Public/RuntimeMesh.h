@@ -16,23 +16,6 @@ using FRuntimeMeshDataPtr = TSharedPtr<FRuntimeMeshData, ESPMode::ThreadSafe>;
 class FRuntimeMeshProxy;
 using FRuntimeMeshProxyPtr = TSharedPtr<FRuntimeMeshProxy, ESPMode::ThreadSafe>;
 
-/*
-*	This tick function is used to drive the collision cooker.
-*	It is enabled for one frame when we need to update collision.
-*	This keeps from cooking on each individual create/update section as the original PMC did
-*/
-struct FRuntimeMeshCollisionCookTickObject : FTickableGameObject
-{
-	TWeakObjectPtr<URuntimeMesh> Owner;
-
-	FRuntimeMeshCollisionCookTickObject(TWeakObjectPtr<URuntimeMesh> InOwner) : Owner(InOwner) {}
-	virtual void Tick(float DeltaTime);
-	virtual bool IsTickable() const;
-	virtual bool IsTickableInEditor() const { return true; }
-	virtual TStatId GetStatId() const;
-
-	virtual UWorld* GetTickableGameObjectWorld() const;
-};
 
 /**
 *	Delegate for when the collision was updated.
@@ -46,6 +29,13 @@ class RUNTIMEMESHCOMPONENT_API URuntimeMesh : public UObject, public IInterface_
 	GENERATED_UCLASS_BODY()
 
 private:
+	/** 
+	*	Whether this mesh needs to be initialized by the tick object. 
+	*	This is to get away from postload so BP calls in the 
+	*	provider are safe 
+	*/
+	bool bNeedsInitialization;
+
 	/** Reference to the underlying data object */
 	FRuntimeMeshDataPtr Data;
 
@@ -58,8 +48,7 @@ private:
 	/** Do we need to update our collision? */
 	bool bCollisionIsDirty;
 
-	/** Object used to tick the collision cooking at the end of the frame */
-	TUniquePtr<FRuntimeMeshCollisionCookTickObject> CookTickObject;
+
 
 	/** Collision data */
 	UPROPERTY(Instanced)
@@ -151,9 +140,10 @@ private:
 
 	void PostLoad();
 
+
 	friend class URuntimeMeshComponent;
 	friend class FRuntimeMeshComponentSceneProxy;
 	friend class FRuntimeMeshData;
-	friend struct FRuntimeMeshCollisionCookTickObject;
+	friend struct FRuntimeMeshDelayedActionTickObject;
 };
 

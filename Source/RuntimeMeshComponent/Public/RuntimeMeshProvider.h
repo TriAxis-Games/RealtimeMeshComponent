@@ -106,7 +106,7 @@ public:
 
 
 UCLASS(Abstract, HideCategories = Object, BlueprintType)
-class RUNTIMEMESHCOMPONENT_API URuntimeMeshProvider : public UObject, public IRuntimeMeshProviderProxy
+class RUNTIMEMESHCOMPONENT_API URuntimeMeshProvider : public UObject
 {
 	GENERATED_BODY()
 
@@ -118,16 +118,53 @@ protected:
 
 public:
 	FRuntimeMeshProviderProxyRef SetupProxy();
-	virtual void MarkProxyParametersDirty();
+
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Common")
+	void MarkProxyParametersDirty();
+
+	UFUNCTION(BlueprintNativeEvent, Category = "RuntimeMesh|Providers|Common")
+	void Initialize();
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "RuntimeMesh|Providers|Common")
+	void ConfigureLOD(int32 LODIndex, const FRuntimeMeshLODProperties& LODProperties);
 	
-	virtual void Initialize() { };
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "RuntimeMesh|Providers|Common")
+	void CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties);
 	
-	virtual void ConfigureLOD(int32 LODIndex, const FRuntimeMeshLODProperties& LODProperties);
-	virtual void CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties);
-	virtual void SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial);
-	virtual void MarkSectionDirty(int32 LODIndex, int32 SectionId);
-	virtual void SetSectionVisibility(int32 LODIndex, int32 SectionId, bool bIsVisible);
-	virtual void SetSectionCastsShadow(int32 LODIndex, int32 SectionId, bool bCastsShadow);
-	virtual void RemoveSection(int32 LODIndex, int32 SectionId);
-	virtual void MarkCollisionDirty();
-};
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "RuntimeMesh|Providers|Common")
+	void SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial);
+	
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "RuntimeMesh|Providers|Common")
+	void MarkSectionDirty(int32 LODIndex, int32 SectionId);
+	
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "RuntimeMesh|Providers|Common")
+	void SetSectionVisibility(int32 LODIndex, int32 SectionId, bool bIsVisible);
+	
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "RuntimeMesh|Providers|Common")
+	void SetSectionCastsShadow(int32 LODIndex, int32 SectionId, bool bCastsShadow);
+	
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "RuntimeMesh|Providers|Common")
+	void RemoveSection(int32 LODIndex, int32 SectionId);
+	
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "RuntimeMesh|Providers|Common")
+	void MarkCollisionDirty();
+
+
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "RuntimeMesh|Providers|Common")
+	FBoxSphereBounds GetBounds();
+
+	UFUNCTION(BlueprintNativeEvent, Category = "RuntimeMesh|Providers|Common")
+	bool GetSectionMeshForLOD(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData);
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "RuntimeMesh|Providers|Common")
+	FRuntimeMeshCollisionSettings GetCollisionSettings();
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "RuntimeMesh|Providers|Common")
+	bool HasCollisionMesh();
+
+	UFUNCTION(BlueprintNativeEvent, Category = "RuntimeMesh|Providers|Common")
+	bool GetCollisionMesh(FRuntimeMeshCollisionData& CollisionData);
+
+}; 
+

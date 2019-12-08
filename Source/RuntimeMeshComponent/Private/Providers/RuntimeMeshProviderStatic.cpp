@@ -50,7 +50,7 @@ void URuntimeMeshProviderStatic::SetRenderableSectionAffectsCollision(int32 Sect
 	}
 }
 
-bool URuntimeMeshProviderStatic::GetSectionMeshForLOD(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData)
+bool URuntimeMeshProviderStatic::GetSectionMeshForLOD_Implementation(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData)
 {
 	TTuple<FRuntimeMeshRenderableMeshData, FBoxSphereBounds>* CachedData = StoredMeshData.Find(GenerateKeyFromLODAndSection(LODIndex, SectionId));
 	if (CachedData)
@@ -61,12 +61,12 @@ bool URuntimeMeshProviderStatic::GetSectionMeshForLOD(int32 LODIndex, int32 Sect
 	return false;
 }
 
-FRuntimeMeshCollisionSettings URuntimeMeshProviderStatic::GetCollisionSettings()
+FRuntimeMeshCollisionSettings URuntimeMeshProviderStatic::GetCollisionSettings_Implementation()
 {
 	return CollisionSettings;
 }
 
-bool URuntimeMeshProviderStatic::HasCollisionMesh()
+bool URuntimeMeshProviderStatic::HasCollisionMesh_Implementation()
 {
 	if (CollisionMesh.IsSet())
 	{
@@ -89,7 +89,7 @@ bool URuntimeMeshProviderStatic::HasCollisionMesh()
 	return false;
 }
 
-bool URuntimeMeshProviderStatic::GetCollisionMesh(FRuntimeMeshCollisionData& CollisionData)
+bool URuntimeMeshProviderStatic::GetCollisionMesh_Implementation(FRuntimeMeshCollisionData& CollisionData)
 {
 	bool bHadMeshData = false;
 	if (CollisionMesh.IsSet())
