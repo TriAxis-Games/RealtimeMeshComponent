@@ -15,7 +15,21 @@ class RUNTIMEMESHCOMPONENT_API FRuntimeMeshProviderSphereProxy : public FRuntime
 	TWeakObjectPtr<UMaterialInterface> Material;
 private:
 	int32 MaxLOD;
-	int32 GetMaximumPossibleLOD() { return FMath::Min(FMath::Log2(LatitudeSegmentsLOD0), FMath::Log2(LongitudeSegmentsLOD0) - 1) - 1; }
+
+	int32 GetMaximumPossibleLOD() 
+	{ 
+		int32 MaxLODs = FMath::Min(
+			FMath::LogX(LODMultiplier, LatitudeSegmentsLOD0),
+			FMath::LogX(LODMultiplier, LongitudeSegmentsLOD0));
+
+		return FMath::Max(1, FMath::Min<int32>(MaxLODs - 1, RuntimeMesh_MAXLODS));
+	}
+	float CalculateScreenSize(int32 LODIndex)
+	{
+		float ScreenSize = FMath::Pow(LODMultiplier, LODIndex);
+
+		return ScreenSize;
+	}
 
 	bool GetSphereMesh(int32 LatitudeSegments, int32 LongitudeSegments, FRuntimeMeshRenderableMeshData& MeshData);
 public:
@@ -34,10 +48,7 @@ public:
 
 	virtual FBoxSphereBounds GetBounds() override { return FBoxSphereBounds(FSphere(FVector::ZeroVector, SphereRadius)); }
 
-	bool IsThreadSafe() const override;
-
-
-
+	bool IsThreadSafe() const override { return true; }
 };
 
 UCLASS(HideCategories = Object, BlueprintType)
@@ -46,16 +57,16 @@ class RUNTIMEMESHCOMPONENT_API URuntimeMeshProviderSphere : public URuntimeMeshP
 	GENERATED_BODY()
 
 public:
-	UPROPERTY(EditAnywhere)
+	UPROPERTY(Category = "RuntimeMesh|Providers|Sphere", EditAnywhere, BlueprintReadWrite)
 	float SphereRadius;
-	UPROPERTY(EditAnywhere)
+	UPROPERTY(Category = "RuntimeMesh|Providers|Sphere", EditAnywhere, BlueprintReadWrite)
 	int32 LatitudeSegments;
-	UPROPERTY(EditAnywhere)
+	UPROPERTY(Category = "RuntimeMesh|Providers|Sphere", EditAnywhere, BlueprintReadWrite)
 	int32 LongitudeSegments;
-	UPROPERTY(EditAnywhere)
+	UPROPERTY(Category = "RuntimeMesh|Providers|Sphere", EditAnywhere, BlueprintReadWrite)
 	float LODMultiplier;
 
-	UPROPERTY(EditAnywhere)
+	UPROPERTY(Category = "RuntimeMesh|Providers|Sphere", EditAnywhere, BlueprintReadWrite)
 	UMaterialInterface* Material;
 
 	URuntimeMeshProviderSphere();

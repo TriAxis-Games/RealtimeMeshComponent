@@ -30,9 +30,6 @@ FRuntimeMeshComponentSceneProxy::FRuntimeMeshComponentSceneProxy(URuntimeMeshCom
 
 		for (const auto& Section : LOD.Sections)
 		{
-			UE_LOG(LogRuntimeMesh, Warning, TEXT("RMCP: creating renderable section data. %d"), FPlatformTLS::GetCurrentThreadId());
-
-
 			const FRuntimeMeshSectionProperties& SectionProperties = Section.Value;
 
 			auto& RenderData = SectionRenderData[LODIndex].Add(Section.Key);
@@ -114,6 +111,9 @@ void FRuntimeMeshComponentSceneProxy::CreateMeshBatch(FMeshBatch& MeshBatch, con
 
 	BatchElement.MaxScreenSize = RuntimeMeshProxy->GetScreenSize(LODIndex);
 	BatchElement.MinScreenSize = RuntimeMeshProxy->GetScreenSize(LODIndex + 1);
+
+	UE_LOG(LogRuntimeMesh, Warning, TEXT("Section Screen Size: %f - %f"), BatchElement.MaxScreenSize, BatchElement.MinScreenSize);
+	return;
 }
 
 void FRuntimeMeshComponentSceneProxy::DrawStaticElements(FStaticPrimitiveDrawInterface* PDI)
@@ -129,13 +129,13 @@ void FRuntimeMeshComponentSceneProxy::DrawStaticElements(FStaticPrimitiveDrawInt
 
 			if (RenderData != nullptr && Section->ShouldRender() && Section->WantsToRenderInStaticPath())
 			{
-
-				UE_LOG(LogRuntimeMesh, Warning, TEXT("RMCP: Registering renderable section. %d"), FPlatformTLS::GetCurrentThreadId());
 				FMaterialRenderProxy* Material = RenderData->Material->GetRenderProxy();
 
 				FMeshBatch MeshBatch;
 				CreateMeshBatch(MeshBatch, *Section, LODIndex, *RenderData, Material, nullptr);
-				PDI->DrawMesh(MeshBatch, FLT_MAX);
+				PDI->DrawMesh(MeshBatch, RuntimeMeshProxy->GetScreenSize(LODIndex));
+
+				UE_LOG(LogRuntimeMesh, Warning, TEXT("Section Screen Size Max: %f"), RuntimeMeshProxy->GetScreenSize(LODIndex));
 			}
 		}
 	}
