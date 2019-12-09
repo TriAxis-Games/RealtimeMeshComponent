@@ -38,6 +38,7 @@ void FRuntimeMeshProviderBoxProxy::Initialize()
 	Properties.bCastsShadow = true;
 	Properties.bIsVisible = true;
 	Properties.MaterialSlot = 0;
+	Properties.UpdateFrequency = ERuntimeMeshUpdateFrequency::Infrequent;
 	CreateSection(0, 0, Properties);
 }
 

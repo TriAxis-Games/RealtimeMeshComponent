@@ -1,9 +1,14 @@
 // Copyright 2016-2019 Chris Conway (Koderz). All Rights Reserved.
 
-
 #include "RuntimeMeshData.h"
 #include "RuntimeMeshProxy.h"
 #include "RuntimeMesh.h"
+
+DECLARE_CYCLE_STAT(TEXT("RuntimeMeshData - Initialize"), STAT_RuntimeMeshData_Initialize, STATGROUP_RuntimeMesh);
+DECLARE_CYCLE_STAT(TEXT("RuntimeMeshData - Update Section Properties"), STAT_RuntimeMeshData_UpdateSectionProperties, STATGROUP_RuntimeMesh);
+DECLARE_CYCLE_STAT(TEXT("RuntimeMeshData - Update Section"), STAT_RuntimeMeshData_UpdateSection, STATGROUP_RuntimeMesh);
+DECLARE_CYCLE_STAT(TEXT("RuntimeMeshData - Recreate All Proxies"), STAT_RuntimeMeshData_RecreateProxies, STATGROUP_RuntimeMesh);
+
 
 FRuntimeMeshData::FRuntimeMeshData(const FRuntimeMeshProviderProxyRef& InBaseProvider, TWeakObjectPtr<URuntimeMesh> InParentMeshObject)
 	: FRuntimeMeshProviderProxy(nullptr), ParentMeshObject(InParentMeshObject), BaseProvider(InBaseProvider)
@@ -47,7 +52,7 @@ UMaterialInterface* FRuntimeMeshData::GetMaterial(int32 SlotIndex)
 
 void FRuntimeMeshData::Initialize()
 {
-	UE_LOG(LogRuntimeMesh, Warning, TEXT("RMD: initializing data.. %d"), FPlatformTLS::GetCurrentThreadId());
+	SCOPE_CYCLE_COUNTER(STAT_RuntimeMeshData_Initialize);
 
 	// Make sure the provider chain is bound
 	BaseProvider->BindPreviousProvider(this->AsShared());
@@ -74,8 +79,6 @@ void FRuntimeMeshData::ConfigureLOD(int32 LODIndex, const FRuntimeMeshLODPropert
 
 void FRuntimeMeshData::CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties)
 {
-
-	UE_LOG(LogRuntimeMesh, Warning, TEXT("RMD: Creating section.. %d"), FPlatformTLS::GetCurrentThreadId());
 	{
 		FScopeLock Lock(&SyncRoot);
 
@@ -84,7 +87,6 @@ void FRuntimeMeshData::CreateSection(int32 LODIndex, int32 SectionId, const FRun
 
 	if (RenderProxy.IsValid())
 	{
-		UE_LOG(LogRuntimeMesh, Warning, TEXT("RMD: requesting recreate proxy for new section.. %d"), FPlatformTLS::GetCurrentThreadId());
 		RenderProxy->CreateSection_GameThread(LODIndex, SectionId, SectionProperties);
 		HandleProxySectionUpdate(LODIndex, SectionId, true);
 	}
@@ -160,6 +162,8 @@ void FRuntimeMeshData::MarkCollisionDirty()
 
 void FRuntimeMeshData::HandleProxySectionPropertiesUpdate(int32 LODIndex, int32 SectionId)
 {
+	SCOPE_CYCLE_COUNTER(STAT_RuntimeMeshData_UpdateSectionProperties);
+
 	if (RenderProxy.IsValid())
 	{
 		RenderProxy->UpdateSectionProperties_GameThread(LODIndex, SectionId, LODs[LODIndex].Sections[SectionId]);
@@ -168,6 +172,8 @@ void FRuntimeMeshData::HandleProxySectionPropertiesUpdate(int32 LODIndex, int32 
 
 void FRuntimeMeshData::HandleProxySectionUpdate(int32 LODIndex, int32 SectionId, bool bForceRecreateProxies, bool bSkipRecreateProxies)
 {
+	SCOPE_CYCLE_COUNTER(STAT_RuntimeMeshData_UpdateSection);
+
 	if (RenderProxy.IsValid())
 	{
 		// TODO: Here we'd want to interject threading to allow the proxy to be 
@@ -183,16 +189,12 @@ void FRuntimeMeshData::HandleProxySectionUpdate(int32 LODIndex, int32 SectionId,
 				Properties.bWants32BitIndices);
 			bool bResult = BaseProvider->GetSectionMeshForLOD(LODIdx, SectionIdx, *MeshData);
 
-			UE_LOG(LogRuntimeMesh, Warning, TEXT("RMD: updating sectiond data.. %d"), FPlatformTLS::GetCurrentThreadId());
 			if (bResult)
 			{
-
-				UE_LOG(LogRuntimeMesh, Warning, TEXT("RMD: got mesh.. %d"), FPlatformTLS::GetCurrentThreadId());
 				RenderProxy->UpdateSection_GameThread(LODIdx, SectionIdx, MeshData);
 			}
 			else
 			{
-				UE_LOG(LogRuntimeMesh, Warning, TEXT("RMD: cleared mesh.. %d"), FPlatformTLS::GetCurrentThreadId());
 				RenderProxy->ClearSection_GameThread(LODIdx, SectionIdx);
 			}
 
@@ -238,6 +240,8 @@ void FRuntimeMeshData::HandleProxySectionUpdate(int32 LODIndex, int32 SectionId,
 
 void FRuntimeMeshData::RecreateAllComponentProxies()
 {
+	SCOPE_CYCLE_COUNTER(STAT_RuntimeMeshData_RecreateProxies);
+
 	DoOnGameThread(FRuntimeMeshGameThreadTaskDelegate::CreateLambda(
 		[](URuntimeMesh* Mesh)
 		{

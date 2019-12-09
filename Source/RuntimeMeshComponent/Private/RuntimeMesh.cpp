@@ -10,6 +10,16 @@
 #include "RuntimeMeshData.h"
 
 
+DECLARE_DWORD_COUNTER_STAT(TEXT("RuntimeMeshDelayedActions - Updated Actors"), STAT_RuntimeMeshDelayedAction_UpdatedActors, STATGROUP_RuntimeMesh);
+DECLARE_CYCLE_STAT(TEXT("RuntimeMeshDelayedActions - Tick"), STAT_RuntimeMeshData_Tick, STATGROUP_RuntimeMesh);
+DECLARE_CYCLE_STAT(TEXT("RuntimeMeshDelayedActions - Initialize"), STAT_RuntimeMeshData_Initialize, STATGROUP_RuntimeMesh);
+DECLARE_CYCLE_STAT(TEXT("RuntimeMeshDelayedActions - Get Physics TriMesh"), STAT_RuntimeMeshData_GetPhysicsTriMesh, STATGROUP_RuntimeMesh);
+DECLARE_CYCLE_STAT(TEXT("RuntimeMeshDelayedActions - Has Physics TriMesh"), STAT_RuntimeMeshData_HasPhysicsTriMesh, STATGROUP_RuntimeMesh);
+DECLARE_CYCLE_STAT(TEXT("RuntimeMeshDelayedActions - Update Collision"), STAT_RuntimeMeshData_UpdateCollision, STATGROUP_RuntimeMesh);
+DECLARE_CYCLE_STAT(TEXT("RuntimeMeshDelayedActions - Finish Collision Async Cook"), STAT_RuntimeMeshData_FinishCollisionAsyncCook, STATGROUP_RuntimeMesh);
+DECLARE_CYCLE_STAT(TEXT("RuntimeMeshDelayedActions - Finalize Collision Cooked Data"), STAT_RuntimeMeshData_FinalizeCollisionCookedData, STATGROUP_RuntimeMesh);
+
+
 //////////////////////////////////////////////////////////////////////////
 //	FRuntimeMeshCollisionCookTickObject
 
@@ -42,20 +52,24 @@ public:
 
 	virtual void Tick(float DeltaTime)
 	{
+		SCOPE_CYCLE_COUNTER(STAT_RuntimeMeshData_Tick);
+
 		TWeakObjectPtr<URuntimeMesh> TempMesh;
 		while (UpdateList.Dequeue(TempMesh))
 		{
 			URuntimeMesh* Mesh = TempMesh.Get();
 			if (Mesh)
 			{
+				INC_DWORD_STAT_BY(STAT_RuntimeMeshDelayedAction_UpdatedActors, 1);
+
 				if (Mesh->bNeedsInitialization)
 				{
 					if (Mesh->MeshProvider)
 					{
 						Mesh->InitializeInternal();
-						Mesh->bNeedsInitialization = false;
 					}
 					Mesh->UpdateAllComponentsBounds();
+					Mesh->bNeedsInitialization = false;
 				}
 
 				if (Mesh->bCollisionIsDirty)
@@ -114,7 +128,6 @@ FBoxSphereBounds URuntimeMesh::GetLocalBounds() const
 	return Data.IsValid() ? Data->GetBounds() : FBoxSphereBounds();
 }
 
-
 void URuntimeMesh::MarkCollisionDirty()
 {
 	// Flag the collision as dirty
@@ -132,6 +145,8 @@ UBodySetup* URuntimeMesh::CreateNewBodySetup()
 
 void URuntimeMesh::UpdateCollision(bool bForceCookNow)
 {
+	SCOPE_CYCLE_COUNTER(STAT_RuntimeMeshData_UpdateCollision);
+
 	check(IsInGameThread());
 
 	if (Data.IsValid())
@@ -232,6 +247,8 @@ void URuntimeMesh::UpdateCollision(bool bForceCookNow)
 
 void URuntimeMesh::FinishPhysicsAsyncCook(bool bSuccess, UBodySetup* FinishedBodySetup)
 {
+	SCOPE_CYCLE_COUNTER(STAT_RuntimeMeshData_FinishCollisionAsyncCook);
+
 	check(IsInGameThread());
 
 	int32 FoundIdx;
@@ -262,6 +279,8 @@ void URuntimeMesh::FinishPhysicsAsyncCook(bool bSuccess, UBodySetup* FinishedBod
 
 void URuntimeMesh::FinalizeNewCookedData()
 {
+	SCOPE_CYCLE_COUNTER(STAT_RuntimeMeshData_FinalizeCollisionCookedData);
+
 	check(IsInGameThread());
 
 	// Alert all linked components so they can update their physics state.
@@ -282,6 +301,8 @@ void URuntimeMesh::FinalizeNewCookedData()
 
 bool URuntimeMesh::GetPhysicsTriMeshData(struct FTriMeshCollisionData* CollisionData, bool InUseAllTriData)
 {
+	SCOPE_CYCLE_COUNTER(STAT_RuntimeMeshData_GetPhysicsTriMesh);
+
 	if (Data.IsValid())
 	{
 		FRuntimeMeshCollisionData CollisionMesh;
@@ -307,6 +328,8 @@ bool URuntimeMesh::GetPhysicsTriMeshData(struct FTriMeshCollisionData* Collision
 
 bool URuntimeMesh::ContainsPhysicsTriMeshData(bool InUseAllTriData) const
 {
+	SCOPE_CYCLE_COUNTER(STAT_RuntimeMeshData_HasPhysicsTriMesh);
+
 	if (Data.IsValid())
 	{
 		return Data->BaseProvider->HasCollisionMesh();
@@ -317,6 +340,8 @@ bool URuntimeMesh::ContainsPhysicsTriMeshData(bool InUseAllTriData) const
 
 void URuntimeMesh::InitializeInternal()
 {
+	SCOPE_CYCLE_COUNTER(STAT_RuntimeMeshData_Initialize);
+
 	auto ProviderProxy = MeshProvider->SetupProxy();
 
 	// This is a very loaded assignment...

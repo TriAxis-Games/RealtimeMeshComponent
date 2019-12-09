@@ -14,10 +14,8 @@
 
 
 
-DECLARE_CYCLE_STAT(TEXT("RMC - New Collision Data Recieved"), STAT_RuntimeMeshComponent_NewCollisionMeshReceived, STATGROUP_RuntimeMesh);
-
-
-
+DECLARE_CYCLE_STAT(TEXT("RuntimeMeshComponent - Collision Data Received"), STAT_RuntimeMeshComponent_NewCollisionMeshReceived, STATGROUP_RuntimeMesh);
+DECLARE_CYCLE_STAT(TEXT("RuntimeMeshComponent - Create Scene Proxy"), STAT_RuntimeMeshComponent_CreateSceneProxy, STATGROUP_RuntimeMesh);
 
 
 URuntimeMeshComponent::URuntimeMeshComponent(const FObjectInitializer& ObjectInitializer)
@@ -78,11 +76,9 @@ void URuntimeMeshComponent::NewBoundsReceived()
 
 void URuntimeMeshComponent::ForceProxyRecreate()
 {
-	UE_LOG(LogRuntimeMesh, Warning, TEXT("RMC: Force recreate requested. %d"), FPlatformTLS::GetCurrentThreadId());
 	check(IsInGameThread());
 	if (bRenderStateCreated)
 	{
-		UE_LOG(LogRuntimeMesh, Warning, TEXT("RMC: marking state dirty proxy.. %d"), FPlatformTLS::GetCurrentThreadId());
 		MarkRenderStateDirty();
 	}
 }
@@ -103,14 +99,13 @@ FBoxSphereBounds URuntimeMeshComponent::CalcBounds(const FTransform& LocalToWorl
 
 FPrimitiveSceneProxy* URuntimeMeshComponent::CreateSceneProxy()
 {
+	SCOPE_CYCLE_COUNTER(STAT_RuntimeMeshComponent_CreateSceneProxy);
 
 	if (RuntimeMeshReference == nullptr || RuntimeMeshReference->GetRenderProxy(GetScene()->GetFeatureLevel()) == nullptr)
 	{
-		UE_LOG(LogRuntimeMesh, Warning, TEXT("RMC: Unable to create proxy.. %d"), FPlatformTLS::GetCurrentThreadId());
 		return nullptr;
 	}
 
-	UE_LOG(LogRuntimeMesh, Warning, TEXT("RMC: Creating proxy.. %d"), FPlatformTLS::GetCurrentThreadId());
 	return new FRuntimeMeshComponentSceneProxy(this);
 }
 

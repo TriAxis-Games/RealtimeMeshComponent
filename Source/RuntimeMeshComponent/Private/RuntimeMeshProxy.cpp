@@ -4,6 +4,15 @@
 #include "RuntimeMeshComponentPlugin.h"
 #include "RuntimeMesh.h"
 
+
+DECLARE_CYCLE_STAT(TEXT("RuntimeMeshProxy - Configure LOD - RenderThread"), STAT_RuntimeMeshProxy_ConfigureLOD_RT, STATGROUP_RuntimeMesh);
+DECLARE_CYCLE_STAT(TEXT("RuntimeMeshProxy - Clear LOD - RenderThread"), STAT_RuntimeMeshProxy_ClearLOD_RT, STATGROUP_RuntimeMesh);
+DECLARE_CYCLE_STAT(TEXT("RuntimeMeshProxy - Create Section - RenderThread"), STAT_RuntimeMeshProxy_CreateSection_RT, STATGROUP_RuntimeMesh);
+DECLARE_CYCLE_STAT(TEXT("RuntimeMeshProxy - Update Section Properties - RenderThread"), STAT_RuntimeMeshProxy_UpdateSectionProperties_RT, STATGROUP_RuntimeMesh);
+DECLARE_CYCLE_STAT(TEXT("RuntimeMeshProxy - Update Section - RenderThread"), STAT_RuntimeMeshProxy_UpdateSection_RT, STATGROUP_RuntimeMesh);
+DECLARE_CYCLE_STAT(TEXT("RuntimeMeshProxy - Clear Section - RenderThread"), STAT_RuntimeMeshProxy_ClearSection_RT, STATGROUP_RuntimeMesh);
+DECLARE_CYCLE_STAT(TEXT("RuntimeMeshProxy - Remove Section - RenderThread"), STAT_RuntimeMeshProxy_RemoveSection_RT, STATGROUP_RuntimeMesh);
+
 FRuntimeMeshProxy::FRuntimeMeshProxy(ERHIFeatureLevel::Type InFeatureLevel)
 	: FeatureLevel(InFeatureLevel)
 {
@@ -30,6 +39,8 @@ float FRuntimeMeshProxy::GetScreenSize(int32 LODIndex)
 
 	return LODs[LODIndex]->GetMaxScreenSize();
 }
+
+
 
 void FRuntimeMeshProxy::ConfigureLOD_GameThread(int32 LODIndex, const FRuntimeMeshLODProperties& InProperties)
 {
@@ -107,6 +118,8 @@ void FRuntimeMeshProxy::RemoveSection_GameThread(int32 LODIndex, int32 SectionId
 
 void FRuntimeMeshProxy::ConfigureLOD_RenderThread(int32 LODIndex, const FRuntimeMeshLODProperties& InProperties)
 {
+	SCOPE_CYCLE_COUNTER(STAT_RuntimeMeshProxy_ConfigureLOD_RT);
+
 	check(IsInRenderingThread());
 
 	LODs[LODIndex]->UpdateProperties_RenderThread(InProperties);
@@ -114,6 +127,8 @@ void FRuntimeMeshProxy::ConfigureLOD_RenderThread(int32 LODIndex, const FRuntime
 
 void FRuntimeMeshProxy::ClearLOD_RenderThread(int32 LODIndex)
 {
+	SCOPE_CYCLE_COUNTER(STAT_RuntimeMeshProxy_ClearLOD_RT);
+
 	check(IsInRenderingThread());
 
 	LODs[LODIndex]->Clear_RenderThread();
@@ -121,6 +136,8 @@ void FRuntimeMeshProxy::ClearLOD_RenderThread(int32 LODIndex)
 
 void FRuntimeMeshProxy::CreateSection_RenderThread(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& InProperties)
 {
+	SCOPE_CYCLE_COUNTER(STAT_RuntimeMeshProxy_CreateSection_RT);
+
 	check(IsInRenderingThread());
 
 	LODs[LODIndex]->CreateSection_RenderThread(SectionId, InProperties);
@@ -128,6 +145,8 @@ void FRuntimeMeshProxy::CreateSection_RenderThread(int32 LODIndex, int32 Section
 
 void FRuntimeMeshProxy::UpdateSectionProperties_RenderThread(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& InProperties)
 {
+	SCOPE_CYCLE_COUNTER(STAT_RuntimeMeshProxy_UpdateSectionProperties_RT);
+
 	check(IsInRenderingThread());
 
 	LODs[LODIndex]->UpdateSectionProperties_RenderThread(SectionId, InProperties);
@@ -135,6 +154,8 @@ void FRuntimeMeshProxy::UpdateSectionProperties_RenderThread(int32 LODIndex, int
 
 void FRuntimeMeshProxy::UpdateSection_RenderThread(int32 LODIndex, int32 SectionId, const TSharedPtr<FRuntimeMeshRenderableMeshData>& MeshData)
 {
+	SCOPE_CYCLE_COUNTER(STAT_RuntimeMeshProxy_UpdateSection_RT);
+
 	check(IsInRenderingThread());
 
 	LODs[LODIndex]->UpdateSectionMesh_RenderThread(SectionId, *MeshData);
@@ -142,6 +163,8 @@ void FRuntimeMeshProxy::UpdateSection_RenderThread(int32 LODIndex, int32 Section
 
 void FRuntimeMeshProxy::ClearSection_RenderThread(int32 LODIndex, int32 SectionId)
 {
+	SCOPE_CYCLE_COUNTER(STAT_RuntimeMeshProxy_ClearSection_RT);
+
 	check(IsInRenderingThread());
 
 	if (LODIndex == INDEX_NONE)
@@ -160,6 +183,8 @@ void FRuntimeMeshProxy::ClearSection_RenderThread(int32 LODIndex, int32 SectionI
 
 void FRuntimeMeshProxy::RemoveSection_RenderThread(int32 LODIndex, int32 SectionId)
 {
+	SCOPE_CYCLE_COUNTER(STAT_RuntimeMeshProxy_RemoveSection_RT);
+
 	check(IsInRenderingThread());
 
 	LODs[LODIndex]->RemoveSection_RenderThread(SectionId);

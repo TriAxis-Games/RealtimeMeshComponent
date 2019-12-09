@@ -4,6 +4,10 @@
 #include "RuntimeMeshComponentPlugin.h"
 
 
+
+DECLARE_DWORD_COUNTER_STAT(TEXT("RuntimeMeshSectionProxy - Num Triangles"), STAT_RuntimeMeshSectionProxy_NumTriangles, STATGROUP_RuntimeMesh);
+
+
 void FRuntimeMeshSectionProxy::Reset()
 {
 	PositionBuffer.ReleaseResource();
@@ -69,6 +73,9 @@ void FRuntimeMeshSectionProxy::CreateMeshBatch(FMeshBatch& MeshBatch, bool bCast
 	BatchElement.NumPrimitives = NumPrimitives;
 	BatchElement.MinVertexIndex = 0;
 	BatchElement.MaxVertexIndex = PositionBuffer.Num() - 1;
+
+
+	INC_DWORD_STAT_BY(STAT_RuntimeMeshSectionProxy_NumTriangles, NumPrimitives);
 }
 
 void FRuntimeMeshSectionProxy::UpdateProperties_RenderThread(const FRuntimeMeshSectionProperties& SectionProperties)
