@@ -8,6 +8,8 @@
 #include "TessellationRendering.h"
 #include "PrimitiveSceneProxy.h"
 #include "Materials/Material.h"
+#include "UnrealEngine.h"
+#include "SceneManagement.h"
 
 
 DECLARE_CYCLE_STAT(TEXT("RuntimeMeshComponentSceneProxy - Create Mesh Batch"), STAT_RuntimeMeshComponentSceneProxy_CreateMeshBatch, STATGROUP_RuntimeMesh);
@@ -105,7 +107,7 @@ void FRuntimeMeshComponentSceneProxy::CreateMeshBatch(FMeshBatch& MeshBatch, con
 	MeshBatch.VisualizeLODIndex = LODIndex;
 #endif
 
-	MeshBatch.bDitheredLODTransition = false; // !IsMovable() && Material->GetMaterialInterface()->IsDitheredLODTransition();
+	MeshBatch.bDitheredLODTransition = !IsMovable() && Material->GetMaterialInterface()->IsDitheredLODTransition();
 	MeshBatch.bWireframe = WireframeMaterial != nullptr;
 	MeshBatch.MaterialRenderProxy = MeshBatch.bWireframe ? WireframeMaterial : Material;
 
@@ -170,33 +172,41 @@ void FRuntimeMeshComponentSceneProxy::GetDynamicMeshElements(const TArray<const 
 	}
 
 
-
-	auto& LODs = RuntimeMeshProxy->GetLODs();
-	for (int32 LODIndex = 0; LODIndex < LODs.Num(); LODIndex++)
+	for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
 	{
-		auto& LOD = LODs[LODIndex];
-		for (const auto& SectionEntry : LOD->GetSections())
+		const FSceneView* View = Views[ViewIndex];
+
+		if (IsShown(View) && (VisibilityMap & (1 << ViewIndex)))
 		{
-			auto& Section = SectionEntry.Value;
-			auto* RenderData = SectionRenderData[LODIndex].Find(SectionEntry.Key);
+			FFrozenSceneViewMatricesGuard FrozenMatricesGuard(*const_cast<FSceneView*>(Views[ViewIndex]));
 
-			if (RenderData != nullptr && Section->ShouldRender())
+			FLODMask LODMask = GetLODMask(View);
+
+			auto& LODs = RuntimeMeshProxy->GetLODs();
+			for (int32 LODIndex = 0; LODIndex < LODs.Num(); LODIndex++)
 			{
-				// Add the mesh batch to every view it's visible in
-				for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
+				if (LODMask.ContainsLOD(LODIndex))
 				{
-					if (VisibilityMap & (1 << ViewIndex))
+					auto& LOD = LODs[LODIndex];
+					for (const auto& SectionEntry : LOD->GetSections())
 					{
-						bool bForceDynamicPath = IsRichView(*Views[ViewIndex]->Family) || Views[ViewIndex]->Family->EngineShowFlags.Wireframe || IsSelected() || !IsStaticPathAvailable();
+						auto& Section = SectionEntry.Value;
+						auto* RenderData = SectionRenderData[LODIndex].Find(SectionEntry.Key);
 
-						if (bForceDynamicPath || !Section->WantsToRenderInStaticPath())
+						if (RenderData != nullptr && Section->ShouldRender())
 						{
-							FMaterialRenderProxy* Material = RenderData->Material->GetRenderProxy();
+							bool bForceDynamicPath = IsRichView(*Views[ViewIndex]->Family) || Views[ViewIndex]->Family->EngineShowFlags.Wireframe || IsSelected() || !IsStaticPathAvailable();
 
-							FMeshBatch& MeshBatch = Collector.AllocateMesh();
-							CreateMeshBatch(MeshBatch, *Section, LODIndex, *RenderData, Material, WireframeMaterialInstance);
+							if (bForceDynamicPath || !Section->WantsToRenderInStaticPath())
+							{
+								FMaterialRenderProxy* Material = RenderData->Material->GetRenderProxy();
 
-							Collector.AddMesh(ViewIndex, MeshBatch);
+								FMeshBatch& MeshBatch = Collector.AllocateMesh();
+								CreateMeshBatch(MeshBatch, *Section, LODIndex, *RenderData, Material, WireframeMaterialInstance);
+								MeshBatch.bDitheredLODTransition = LODMask.IsDithered();
+
+								Collector.AddMesh(ViewIndex, MeshBatch);
+							}
 						}
 					}
 				}
@@ -221,4 +231,111 @@ void FRuntimeMeshComponentSceneProxy::GetDynamicMeshElements(const TArray<const 
 		}
 	}
 #endif
+}
+
+
+
+// Ideally I should be able to use the engines version of this... Should submit a PR to open access up... lol
+static float ComputeBoundsScreenRadiusSquared(const FVector4& BoundsOrigin, const float SphereRadius, const FVector4& ViewOrigin, const FMatrix& ProjMatrix)
+{
+	const float DistSqr = FVector::DistSquared(BoundsOrigin, ViewOrigin);
+
+	// Get projection multiple accounting for view scaling.
+	const float ScreenMultiple = FMath::Max(0.5f * ProjMatrix.M[0][0], 0.5f * ProjMatrix.M[1][1]);
+
+	// Calculate screen-space projected radius
+	return FMath::Square(ScreenMultiple * SphereRadius) / FMath::Max(1.0f, DistSqr);
+}
+
+int8 FRuntimeMeshComponentSceneProxy::ComputeTemporalStaticMeshLOD(const FVector4& Origin, const float SphereRadius, const FSceneView& View, int32 MinLOD, float FactorScale, int32 SampleIndex) const
+{
+	const int32 NumLODs = RuntimeMesh_MAXLODS;
+
+	const float ScreenRadiusSquared = ComputeBoundsScreenRadiusSquared(Origin, SphereRadius, View.GetTemporalLODOrigin(SampleIndex), View.ViewMatrices.GetProjectionMatrix())
+		* FactorScale * FactorScale * View.LODDistanceFactor * View.LODDistanceFactor;
+
+	// Walk backwards and return the first matching LOD
+	for (int32 LODIndex = NumLODs - 1; LODIndex >= 0; --LODIndex)
+	{
+		if (FMath::Square(RuntimeMeshProxy->GetScreenSize(LODIndex) * 0.5f) > ScreenRadiusSquared)
+		{
+			return LODIndex;
+		}
+	}
+
+	return MinLOD;
+}
+
+int8 FRuntimeMeshComponentSceneProxy::ComputeStaticMeshLOD(const FVector4& Origin, const float SphereRadius, const FSceneView& View, int32 MinLOD, float FactorScale) const
+{
+	const int32 NumLODs = RuntimeMesh_MAXLODS;
+	const FSceneView& LODView = GetLODView(View);
+	const float ScreenRadiusSquared = ComputeBoundsScreenRadiusSquared(Origin, SphereRadius, LODView) * FactorScale * FactorScale * LODView.LODDistanceFactor * LODView.LODDistanceFactor;
+
+	// Walk backwards and return the first matching LOD
+	for (int32 LODIndex = NumLODs - 1; LODIndex >= 0; --LODIndex)
+	{
+		if (FMath::Square(RuntimeMeshProxy->GetScreenSize(LODIndex) * 0.5f) > ScreenRadiusSquared)
+		{
+			return FMath::Max(LODIndex, MinLOD);
+		}
+	}
+
+	return MinLOD;
+}
+
+
+
+FLODMask FRuntimeMeshComponentSceneProxy::GetLODMask(const FSceneView* View) const
+{
+	FLODMask Result;
+
+// 	if (View->DrawDynamicFlags & EDrawDynamicFlags::ForceLowestLOD)
+// 	{
+// 		// Pin the LOD
+// 	}
+// 	else if (View->Family && View->Family->EngineShowFlags.LOD == 0)
+// 	{
+// 		// 
+// 	}
+
+	const FBoxSphereBounds& ProxyBounds = GetBounds();
+	bool bUseDithered = false;
+	if (RuntimeMeshProxy->GetMaxLOD() > 0)
+	{
+		// only dither if at least one section in LOD0 is dithered. Mixed dithering on sections won't work very well, but it makes an attempt
+		const ERHIFeatureLevel::Type FeatureLevel = GetScene().GetFeatureLevel();
+
+		TSharedPtr<FRuntimeMeshLODProxy> LOD = RuntimeMeshProxy->GetLODs()[0];
+
+		const auto& LOD0Sections = SectionRenderData[0];
+
+		for (const auto& Section : LOD0Sections)
+		{
+			if (Section.Value.Material->IsDitheredLODTransition())
+			{
+				bUseDithered = true;
+				break;
+			}
+		}
+	}
+
+	FCachedSystemScalabilityCVars CachedSystemScalabilityCVars = GetCachedScalabilityCVars();
+	float InvScreenSizeScale = (CachedSystemScalabilityCVars.StaticMeshLODDistanceScale != 0.f) ? (1.0f / CachedSystemScalabilityCVars.StaticMeshLODDistanceScale) : 1.0f;
+
+	int32 ClampedMinLOD = 0;
+
+	if (bUseDithered)
+	{
+		for (int32 Sample = 0; Sample < 2; Sample++)
+		{
+			Result.SetLODSample(ComputeTemporalStaticMeshLOD(ProxyBounds.Origin, ProxyBounds.SphereRadius, *View, ClampedMinLOD, InvScreenSizeScale, Sample), Sample);
+		}
+	}
+	else
+	{
+		Result.SetLOD(ComputeStaticMeshLOD(ProxyBounds.Origin, ProxyBounds.SphereRadius, *View, ClampedMinLOD, InvScreenSizeScale));
+	}
+
+	return Result;
 }

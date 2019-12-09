@@ -21,6 +21,10 @@ public:
 
 	ERHIFeatureLevel::Type GetFeatureLevel() const { return FeatureLevel; }
 
+	int32 GetMaxLOD() 
+	{
+		return RuntimeMesh_MAXLODS;
+	}
 	float GetScreenSize(int32 LODIndex);
 
 	void ConfigureLOD_GameThread(int32 LODIndex, const FRuntimeMeshLODProperties& InProperties);
