@@ -309,21 +309,21 @@ public:
 		Data.Empty(Slack * GetStride());
 	}
 
-	int32 Add(const FVector2D& InTexCoord)
+	int32 Add(const FVector2D& InTexCoord, int32 ChannelId = 0)
 	{
-		int32 Index = Data.Num();
+		int32 Index = Num();
 		int32 Stride = GetStride();
 		Data.AddUninitialized(Stride);
 
 		if (bIsHighPrecision)
 		{
 			static const int32 ElementSize = sizeof(FVector2D);
-			*((FVector2D*)&Data[Index]) = InTexCoord;
+			*((FVector2D*)&Data[(Index * Stride) + (ChannelId * ElementSize)]) = InTexCoord;
 		}
 		else
 		{
 			static const int32 ElementSize = sizeof(FVector2DHalf);
-			*((FVector2DHalf*)&Data[Index]) = InTexCoord;
+			*((FVector2DHalf*)&Data[(Index * Stride) + (ChannelId * ElementSize)]) = InTexCoord;
 		}
 
 		return Index / Stride;

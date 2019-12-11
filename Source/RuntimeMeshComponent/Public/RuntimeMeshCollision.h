@@ -14,6 +14,28 @@ struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshCollisionConvexMesh
 	GENERATED_BODY()
 
 public:
+	FRuntimeMeshCollisionConvexMesh() { }
+	FRuntimeMeshCollisionConvexMesh(const TArray<FVector>& InVertexBuffer)
+		: VertexBuffer(InVertexBuffer)
+		, BoundingBox(InVertexBuffer)
+	{
+	}
+	FRuntimeMeshCollisionConvexMesh(TArray<FVector>&& InVertexBuffer)
+		: VertexBuffer(InVertexBuffer)
+	{
+		BoundingBox = FBox(VertexBuffer);
+	}
+	FRuntimeMeshCollisionConvexMesh(const TArray<FVector>& InVertexBuffer, const FBox& InBoundingBox)
+		: VertexBuffer(InVertexBuffer)
+		, BoundingBox(InBoundingBox)
+	{
+	}
+	FRuntimeMeshCollisionConvexMesh(TArray<FVector>&& InVertexBuffer, const FBox& InBoundingBox)
+		: VertexBuffer(InVertexBuffer)
+	{
+		BoundingBox = FBox(VertexBuffer);
+	}
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Collision|Convex")
 	TArray<FVector> VertexBuffer;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Collision|Convex")
@@ -49,9 +71,16 @@ public:
 
 	}
 
-	FRuntimeMeshCollisionSphere(float r)
+	FRuntimeMeshCollisionSphere(float InRadius)
 		: Center(FVector::ZeroVector)
-		, Radius(r)
+		, Radius(InRadius)
+	{
+
+	}
+
+	FRuntimeMeshCollisionSphere(const FVector& Center, float InRadius)
+		: Center(Center)
+		, Radius(InRadius)
 	{
 
 	}
@@ -109,6 +138,15 @@ public:
 
 	}
 
+	FRuntimeMeshCollisionBox(const FVector& InCenter, const FRotator& InRotation, float InX, float InY, float InZ)
+		: Center(InCenter)
+		, Rotation(InRotation)
+		, Extents(InX, InY, InZ)
+
+	{
+
+	}
+
 	friend FArchive& operator <<(FArchive& Ar, FRuntimeMeshCollisionBox& Box)
 	{
 		Ar << Box.Center;
@@ -153,6 +191,15 @@ public:
 		: Center(FVector::ZeroVector)
 		, Rotation(FRotator::ZeroRotator)
 		, Radius(InRadius), Length(InLength)
+	{
+
+	}
+
+	FRuntimeMeshCollisionCapsule(const FVector& InCenter, const FRotator& InRotator, float InRadius, float InLength)
+		: Center(InCenter)
+		, Rotation(InRotator)
+		, Radius(InRadius)
+		, Length(InLength)
 	{
 
 	}
@@ -336,7 +383,7 @@ public:
 
 	}
 
-	void SetNumChannels(int32 NewNumChannels, bool bAllowShrinking)
+	void SetNumChannels(int32 NewNumChannels, bool bAllowShrinking = true)
 	{
 		Data.SetNum(NewNumChannels, bAllowShrinking);
 	}
@@ -363,6 +410,14 @@ public:
 	int32 NumTexCoords(int32 ChannelId)
 	{
 		return Data[ChannelId].Num();
+	}
+
+	void Empty(int32 Slack = 0)
+	{
+		for (int32 Index = 0; Index < Data.Num(); Index++)
+		{
+			Data[Index].Empty(Slack);
+		}
 	}
 
 	void EmptyChannel(int32 ChannelId, int32 Slack = 0)

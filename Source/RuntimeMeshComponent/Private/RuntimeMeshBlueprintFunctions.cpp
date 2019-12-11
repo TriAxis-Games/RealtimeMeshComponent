@@ -194,10 +194,10 @@ void URuntimeMeshBlueprintFunctions::EmptyTexCoords(FRuntimeMeshVertexTexCoordSt
 	Stream.Empty(Slack);
 }
 
-void URuntimeMeshBlueprintFunctions::AddTexCoord(FRuntimeMeshVertexTexCoordStream& Stream, FRuntimeMeshVertexTexCoordStream& OutStream, const FVector2D& InTexCoord, int32& OutIndex)
+void URuntimeMeshBlueprintFunctions::AddTexCoord(FRuntimeMeshVertexTexCoordStream& Stream, FRuntimeMeshVertexTexCoordStream& OutStream, int32& OutIndex, const FVector2D& InTexCoord, int32 ChannelId)
 {
 	OutStream = Stream;
-	OutIndex = Stream.Add(InTexCoord);
+	OutIndex = Stream.Add(InTexCoord, ChannelId);
 }
 
 void URuntimeMeshBlueprintFunctions::AppendTexCoords(FRuntimeMeshVertexTexCoordStream& Stream, FRuntimeMeshVertexTexCoordStream& OutStream, const FRuntimeMeshVertexTexCoordStream& InOther)

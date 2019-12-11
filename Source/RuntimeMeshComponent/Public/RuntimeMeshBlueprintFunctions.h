@@ -91,7 +91,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|TextureCoordinates")
 	static void EmptyTexCoords(UPARAM(ref) FRuntimeMeshVertexTexCoordStream& Stream, FRuntimeMeshVertexTexCoordStream& OutStream, int32 Slack = 0);
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|TextureCoordinates")
-	static void AddTexCoord(UPARAM(ref) FRuntimeMeshVertexTexCoordStream& Stream, FRuntimeMeshVertexTexCoordStream& OutStream, const FVector2D& InTexCoord, int32& OutIndex);
+	static void AddTexCoord(UPARAM(ref) FRuntimeMeshVertexTexCoordStream& Stream, FRuntimeMeshVertexTexCoordStream& OutStream, int32& OutIndex, const FVector2D& InTexCoord, int32 ChannelId = 0);
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|TextureCoordinates")
 	static void AppendTexCoords(UPARAM(ref) FRuntimeMeshVertexTexCoordStream& Stream, FRuntimeMeshVertexTexCoordStream& OutStream, const FRuntimeMeshVertexTexCoordStream& InOther);
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|TextureCoordinates")

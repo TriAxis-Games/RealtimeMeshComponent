@@ -96,11 +96,11 @@ public:
 protected:
 	virtual FBoxSphereBounds GetBounds_Implementation() override { return CombinedBounds; }
 
-	bool GetSectionMeshForLOD_Implementation(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData) override;
+	virtual bool GetSectionMeshForLOD_Implementation(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData) override;
 
-	FRuntimeMeshCollisionSettings GetCollisionSettings_Implementation() override;
-	bool HasCollisionMesh_Implementation() override;
-	bool GetCollisionMesh_Implementation(FRuntimeMeshCollisionData& CollisionData) override;
+	virtual FRuntimeMeshCollisionSettings GetCollisionSettings_Implementation() override;
+	virtual bool HasCollisionMesh_Implementation() override;
+	virtual bool GetCollisionMesh_Implementation(FRuntimeMeshCollisionData& CollisionData) override;
 
 private:
 	void UpdateBounds();
