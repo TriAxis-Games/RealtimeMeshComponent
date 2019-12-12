@@ -10,14 +10,14 @@
 #include "RuntimeMeshData.h"
 
 
-DECLARE_DWORD_COUNTER_STAT(TEXT("RuntimeMeshDelayedActions - Updated Actors"), STAT_RuntimeMeshDelayedAction_UpdatedActors, STATGROUP_RuntimeMesh);
-DECLARE_CYCLE_STAT(TEXT("RuntimeMeshDelayedActions - Tick"), STAT_RuntimeMeshData_Tick, STATGROUP_RuntimeMesh);
-DECLARE_CYCLE_STAT(TEXT("RuntimeMeshDelayedActions - Initialize"), STAT_RuntimeMeshData_Initialize, STATGROUP_RuntimeMesh);
-DECLARE_CYCLE_STAT(TEXT("RuntimeMeshDelayedActions - Get Physics TriMesh"), STAT_RuntimeMeshData_GetPhysicsTriMesh, STATGROUP_RuntimeMesh);
-DECLARE_CYCLE_STAT(TEXT("RuntimeMeshDelayedActions - Has Physics TriMesh"), STAT_RuntimeMeshData_HasPhysicsTriMesh, STATGROUP_RuntimeMesh);
-DECLARE_CYCLE_STAT(TEXT("RuntimeMeshDelayedActions - Update Collision"), STAT_RuntimeMeshData_UpdateCollision, STATGROUP_RuntimeMesh);
-DECLARE_CYCLE_STAT(TEXT("RuntimeMeshDelayedActions - Finish Collision Async Cook"), STAT_RuntimeMeshData_FinishCollisionAsyncCook, STATGROUP_RuntimeMesh);
-DECLARE_CYCLE_STAT(TEXT("RuntimeMeshDelayedActions - Finalize Collision Cooked Data"), STAT_RuntimeMeshData_FinalizeCollisionCookedData, STATGROUP_RuntimeMesh);
+DECLARE_DWORD_COUNTER_STAT(TEXT("RuntimeMeshDelayedActions - Updated Actors"), STAT_RuntimeMeshDelayedActions_UpdatedActors, STATGROUP_RuntimeMesh);
+DECLARE_CYCLE_STAT(TEXT("RuntimeMeshDelayedActions - Tick"), STAT_RuntimeMeshDelayedActions_Tick, STATGROUP_RuntimeMesh);
+DECLARE_CYCLE_STAT(TEXT("RuntimeMeshDelayedActions - Initialize"), STAT_RuntimeMesh_Initialize, STATGROUP_RuntimeMesh);
+DECLARE_CYCLE_STAT(TEXT("RuntimeMeshDelayedActions - Get Physics TriMesh"), STAT_RuntimeMesh_GetPhysicsTriMesh, STATGROUP_RuntimeMesh);
+DECLARE_CYCLE_STAT(TEXT("RuntimeMeshDelayedActions - Has Physics TriMesh"), STAT_RuntimeMesh_HasPhysicsTriMesh, STATGROUP_RuntimeMesh);
+DECLARE_CYCLE_STAT(TEXT("RuntimeMeshDelayedActions - Update Collision"), STAT_RuntimeMesh_UpdateCollision, STATGROUP_RuntimeMesh);
+DECLARE_CYCLE_STAT(TEXT("RuntimeMeshDelayedActions - Finish Collision Async Cook"), STAT_RuntimeMesh_FinishCollisionAsyncCook, STATGROUP_RuntimeMesh);
+DECLARE_CYCLE_STAT(TEXT("RuntimeMeshDelayedActions - Finalize Collision Cooked Data"), STAT_RuntimeMesh_FinalizeCollisionCookedData, STATGROUP_RuntimeMesh);
 
 
 //////////////////////////////////////////////////////////////////////////
@@ -52,7 +52,7 @@ public:
 
 	virtual void Tick(float DeltaTime)
 	{
-		SCOPE_CYCLE_COUNTER(STAT_RuntimeMeshData_Tick);
+		SCOPE_CYCLE_COUNTER(STAT_RuntimeMeshDelayedActions_Tick);
 
 		TWeakObjectPtr<URuntimeMesh> TempMesh;
 		while (UpdateList.Dequeue(TempMesh))
@@ -60,7 +60,7 @@ public:
 			URuntimeMesh* Mesh = TempMesh.Get();
 			if (Mesh)
 			{
-				INC_DWORD_STAT_BY(STAT_RuntimeMeshDelayedAction_UpdatedActors, 1);
+				INC_DWORD_STAT_BY(STAT_RuntimeMeshDelayedActions_UpdatedActors, 1);
 
 				if (Mesh->bNeedsInitialization)
 				{
@@ -145,7 +145,7 @@ UBodySetup* URuntimeMesh::CreateNewBodySetup()
 
 void URuntimeMesh::UpdateCollision(bool bForceCookNow)
 {
-	SCOPE_CYCLE_COUNTER(STAT_RuntimeMeshData_UpdateCollision);
+	SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_UpdateCollision);
 
 	check(IsInGameThread());
 
@@ -247,7 +247,7 @@ void URuntimeMesh::UpdateCollision(bool bForceCookNow)
 
 void URuntimeMesh::FinishPhysicsAsyncCook(bool bSuccess, UBodySetup* FinishedBodySetup)
 {
-	SCOPE_CYCLE_COUNTER(STAT_RuntimeMeshData_FinishCollisionAsyncCook);
+	SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_FinishCollisionAsyncCook);
 
 	check(IsInGameThread());
 
@@ -279,7 +279,7 @@ void URuntimeMesh::FinishPhysicsAsyncCook(bool bSuccess, UBodySetup* FinishedBod
 
 void URuntimeMesh::FinalizeNewCookedData()
 {
-	SCOPE_CYCLE_COUNTER(STAT_RuntimeMeshData_FinalizeCollisionCookedData);
+	SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_FinalizeCollisionCookedData);
 
 	check(IsInGameThread());
 
@@ -301,7 +301,7 @@ void URuntimeMesh::FinalizeNewCookedData()
 
 bool URuntimeMesh::GetPhysicsTriMeshData(struct FTriMeshCollisionData* CollisionData, bool InUseAllTriData)
 {
-	SCOPE_CYCLE_COUNTER(STAT_RuntimeMeshData_GetPhysicsTriMesh);
+	SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_GetPhysicsTriMesh);
 
 	if (Data.IsValid())
 	{
@@ -328,7 +328,7 @@ bool URuntimeMesh::GetPhysicsTriMeshData(struct FTriMeshCollisionData* Collision
 
 bool URuntimeMesh::ContainsPhysicsTriMeshData(bool InUseAllTriData) const
 {
-	SCOPE_CYCLE_COUNTER(STAT_RuntimeMeshData_HasPhysicsTriMesh);
+	SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_HasPhysicsTriMesh);
 
 	if (Data.IsValid())
 	{
@@ -340,7 +340,7 @@ bool URuntimeMesh::ContainsPhysicsTriMeshData(bool InUseAllTriData) const
 
 void URuntimeMesh::InitializeInternal()
 {
-	SCOPE_CYCLE_COUNTER(STAT_RuntimeMeshData_Initialize);
+	SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_Initialize);
 
 	auto ProviderProxy = MeshProvider->SetupProxy();
 

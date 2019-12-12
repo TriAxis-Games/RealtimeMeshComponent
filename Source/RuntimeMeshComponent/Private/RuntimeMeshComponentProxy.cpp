@@ -235,17 +235,19 @@ void FRuntimeMeshComponentSceneProxy::GetDynamicMeshElements(const TArray<const 
 
 
 
-// Ideally I should be able to use the engines version of this... Should submit a PR to open access up... lol
-static float ComputeBoundsScreenRadiusSquared(const FVector4& BoundsOrigin, const float SphereRadius, const FVector4& ViewOrigin, const FMatrix& ProjMatrix)
-{
-	const float DistSqr = FVector::DistSquared(BoundsOrigin, ViewOrigin);
-
-	// Get projection multiple accounting for view scaling.
-	const float ScreenMultiple = FMath::Max(0.5f * ProjMatrix.M[0][0], 0.5f * ProjMatrix.M[1][1]);
-
-	// Calculate screen-space projected radius
-	return FMath::Square(ScreenMultiple * SphereRadius) / FMath::Max(1.0f, DistSqr);
-}
+// This function was exposed on 4.24, previously it existed but wasn't public
+#if ENGINE_MAJOR_VERSION <= 4 && ENGINE_MINOR_VERSION < 24
+ static float ComputeBoundsScreenRadiusSquared(const FVector4& BoundsOrigin, const float SphereRadius, const FVector4& ViewOrigin, const FMatrix& ProjMatrix)
+ {
+ 	const float DistSqr = FVector::DistSquared(BoundsOrigin, ViewOrigin);
+ 
+ 	// Get projection multiple accounting for view scaling.
+ 	const float ScreenMultiple = FMath::Max(0.5f * ProjMatrix.M[0][0], 0.5f * ProjMatrix.M[1][1]);
+ 
+ 	// Calculate screen-space projected radius
+ 	return FMath::Square(ScreenMultiple * SphereRadius) / FMath::Max(1.0f, DistSqr);
+ }
+#endif
 
 int8 FRuntimeMeshComponentSceneProxy::ComputeTemporalStaticMeshLOD(const FVector4& Origin, const float SphereRadius, const FSceneView& View, int32 MinLOD, float FactorScale, int32 SampleIndex) const
 {
