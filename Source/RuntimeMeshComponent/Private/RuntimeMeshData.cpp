@@ -26,20 +26,12 @@ FRuntimeMeshData::~FRuntimeMeshData()
 
 }
 
-int32 FRuntimeMeshData::GetNumMaterials()
+int32 FRuntimeMeshData::GetNumMaterials() const
 {
 	return MaterialSlots.Num();
 }
 
-void FRuntimeMeshData::GetUsedMaterials(TArray<UMaterialInterface*>& OutMaterials)
-{
-	for (const auto& Mat : MaterialSlots)
-	{
-		OutMaterials.Add(Mat.Material.Get());
-	}
-}
-
-UMaterialInterface* FRuntimeMeshData::GetMaterial(int32 SlotIndex)
+UMaterialInterface* FRuntimeMeshData::GetMaterial(int32 SlotIndex) const
 {
 	if (!MaterialSlots.IsValidIndex(SlotIndex))
 	{
@@ -48,6 +40,24 @@ UMaterialInterface* FRuntimeMeshData::GetMaterial(int32 SlotIndex)
 
 	TWeakObjectPtr<UMaterialInterface> Material = MaterialSlots[SlotIndex].Material;
 	return Material.Get();
+}
+
+int32 FRuntimeMeshData::GetMaterialIndex(FName MaterialSlotName) const
+{
+	const int32* SlotIndex = SlotNameLookup.Find(MaterialSlotName);
+	return SlotIndex ? *SlotIndex : INDEX_NONE;
+}
+
+TArray<FName> FRuntimeMeshData::GetMaterialSlotNames() const
+{
+	TArray<FName> OutNames;
+	SlotNameLookup.GetKeys(OutNames);
+	return OutNames;
+}
+
+bool FRuntimeMeshData::IsMaterialSlotNameValid(FName MaterialSlotName) const
+{
+	return SlotNameLookup.Contains(MaterialSlotName);
 }
 
 void FRuntimeMeshData::Initialize()
@@ -92,13 +102,28 @@ void FRuntimeMeshData::CreateSection(int32 LODIndex, int32 SectionId, const FRun
 	}
 }
 
-void FRuntimeMeshData::SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial)
+bool FRuntimeMeshData::SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial)
 {
+	// Does this slot already exist?
+	if (SlotNameLookup.Contains(SlotName))
+	{
+		// If the indices match then just go with it
+		if (SlotNameLookup[SlotName] == MaterialSlot)
+		{
+			MaterialSlots[SlotNameLookup[SlotName]].Material = InMaterial;
+			return true;
+		}
+		return false;
+	}
+	
 	if (!MaterialSlots.IsValidIndex(MaterialSlot))
 	{
 		MaterialSlots.SetNum(MaterialSlot + 1);
 	}
 	MaterialSlots[MaterialSlot] = FRuntimeMeshMaterialSlot(SlotName, InMaterial);
+	SlotNameLookup.Add(SlotName, MaterialSlots.Num() - 1);
+
+	return true;
 }
 
 void FRuntimeMeshData::MarkSectionDirty(int32 LODIndex, int32 SectionId)

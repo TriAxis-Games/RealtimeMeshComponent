@@ -65,11 +65,20 @@ public:
 	UFUNCTION(BlueprintCallable)
 	URuntimeMeshProvider* GetProvider() { return MeshProvider; }
 
+	UFUNCTION(BlueprintCallable)
 	int32 GetNumMaterials();
-	void GetUsedMaterials(TArray<UMaterialInterface*>& OutMaterials);
 	
 	UFUNCTION(BlueprintCallable)
-	UMaterialInterface* GetMaterialForSlot(int32 SlotIndex);
+	UMaterialInterface* GetMaterial(int32 SlotIndex);
+
+	UFUNCTION(BlueprintCallable)
+	int32 GetMaterialIndex(FName MaterialSlotName) const;
+
+	UFUNCTION(BlueprintCallable)
+	TArray<FName> GetMaterialSlotNames() const;
+
+	UFUNCTION(BlueprintCallable)
+	bool IsMaterialSlotNameValid(FName MaterialSlotName) const;
 
 	UFUNCTION(BlueprintCallable)
 	FBoxSphereBounds GetLocalBounds() const;

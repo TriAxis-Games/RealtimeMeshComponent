@@ -5,40 +5,40 @@
 
 // MeshData
 
-void URuntimeMeshBlueprintFunctions::GetPositionStream(FRuntimeMeshRenderableMeshData& MeshData, FRuntimeMeshRenderableMeshData& OutMeshData, FRuntimeMeshVertexPositionStream& OutPositionStream)
+FRuntimeMeshVertexPositionStream& URuntimeMeshBlueprintFunctions::GetPositionStream(FRuntimeMeshRenderableMeshData& MeshData, FRuntimeMeshRenderableMeshData& OutMeshData)
 {
 	OutMeshData = MeshData;
-	OutPositionStream = MeshData.Positions;
+	return MeshData.Positions;
 }
 
-void URuntimeMeshBlueprintFunctions::GetTangentStream(FRuntimeMeshRenderableMeshData& MeshData, FRuntimeMeshRenderableMeshData& OutMeshData, FRuntimeMeshVertexTangentStream& OutTangentStream)
+FRuntimeMeshVertexTangentStream& URuntimeMeshBlueprintFunctions::GetTangentStream(FRuntimeMeshRenderableMeshData& MeshData, FRuntimeMeshRenderableMeshData& OutMeshData)
 {
 	OutMeshData = MeshData;
-	OutTangentStream = MeshData.Tangents;
+	return MeshData.Tangents;
 }
 
-void URuntimeMeshBlueprintFunctions::GetTexCoordStream(FRuntimeMeshRenderableMeshData& MeshData, FRuntimeMeshRenderableMeshData& OutMeshData, FRuntimeMeshVertexTexCoordStream& OutTexCoordStream)
+FRuntimeMeshVertexTexCoordStream& URuntimeMeshBlueprintFunctions::GetTexCoordStream(FRuntimeMeshRenderableMeshData& MeshData, FRuntimeMeshRenderableMeshData& OutMeshData)
 {
 	OutMeshData = MeshData;
-	OutTexCoordStream = MeshData.TexCoords;
+	return MeshData.TexCoords;
 }
 
-void URuntimeMeshBlueprintFunctions::GetColorStream(FRuntimeMeshRenderableMeshData& MeshData, FRuntimeMeshRenderableMeshData& OutMeshData, FRuntimeMeshVertexColorStream& OutColorStream)
+FRuntimeMeshVertexColorStream& URuntimeMeshBlueprintFunctions::GetColorStream(FRuntimeMeshRenderableMeshData& MeshData, FRuntimeMeshRenderableMeshData& OutMeshData)
 {
 	OutMeshData = MeshData;
-	OutColorStream = MeshData.Colors;
+	return MeshData.Colors;
 }
 
-void URuntimeMeshBlueprintFunctions::GetTriangleStream(FRuntimeMeshRenderableMeshData& MeshData, FRuntimeMeshRenderableMeshData& OutMeshData, FRuntimeMeshTriangleStream& OutTriangleStream)
+FRuntimeMeshTriangleStream& URuntimeMeshBlueprintFunctions::GetTriangleStream(FRuntimeMeshRenderableMeshData& MeshData, FRuntimeMeshRenderableMeshData& OutMeshData)
 {
 	OutMeshData = MeshData;
-	OutTriangleStream = MeshData.Triangles;
+	return MeshData.Triangles;
 }
 
-void URuntimeMeshBlueprintFunctions::GetAdjacencyTriangleStream(FRuntimeMeshRenderableMeshData& MeshData, FRuntimeMeshRenderableMeshData& OutMeshData, FRuntimeMeshTriangleStream& OutAdjacencyTriangleStream)
+FRuntimeMeshTriangleStream& URuntimeMeshBlueprintFunctions::GetAdjacencyTriangleStream(FRuntimeMeshRenderableMeshData& MeshData, FRuntimeMeshRenderableMeshData& OutMeshData)
 {
 	OutMeshData = MeshData;
-	OutAdjacencyTriangleStream = MeshData.AdjacencyTriangles;
+	return MeshData.AdjacencyTriangles;
 }
 
 
@@ -113,13 +113,13 @@ void URuntimeMeshBlueprintFunctions::EmptyTangents(FRuntimeMeshVertexTangentStre
 	Stream.Empty(Slack);
 }
 
-void URuntimeMeshBlueprintFunctions::AddNormalAndTangent(FRuntimeMeshVertexTangentStream& Stream, FRuntimeMeshVertexTangentStream& OutStream, const FVector& InNormal, const FVector& InTangent, int32& OutIndex)
+void URuntimeMeshBlueprintFunctions::AddNormalAndTangent(FRuntimeMeshVertexTangentStream& Stream, FRuntimeMeshVertexTangentStream& OutStream, FVector InNormal, FVector InTangent, int32& OutIndex)
 {
 	OutStream = Stream;
 	OutIndex = Stream.Add(InNormal, InTangent);
 }
 
-void URuntimeMeshBlueprintFunctions::AddTangents(FRuntimeMeshVertexTangentStream& Stream, FRuntimeMeshVertexTangentStream& OutStream, const FVector& InTangentX, const FVector& InTangentY, const FVector& InTangentZ, int32& OutIndex)
+void URuntimeMeshBlueprintFunctions::AddTangents(FRuntimeMeshVertexTangentStream& Stream, FRuntimeMeshVertexTangentStream& OutStream, FVector InTangentX, FVector InTangentY, FVector InTangentZ, int32& OutIndex)
 {
 	OutStream = Stream;
 	OutIndex = Stream.Add(InTangentX, InTangentY, InTangentZ);
@@ -194,7 +194,7 @@ void URuntimeMeshBlueprintFunctions::EmptyTexCoords(FRuntimeMeshVertexTexCoordSt
 	Stream.Empty(Slack);
 }
 
-void URuntimeMeshBlueprintFunctions::AddTexCoord(FRuntimeMeshVertexTexCoordStream& Stream, FRuntimeMeshVertexTexCoordStream& OutStream, int32& OutIndex, const FVector2D& InTexCoord, int32 ChannelId)
+void URuntimeMeshBlueprintFunctions::AddTexCoord(FRuntimeMeshVertexTexCoordStream& Stream, FRuntimeMeshVertexTexCoordStream& OutStream, int32& OutIndex, FVector2D InTexCoord, int32 ChannelId)
 {
 	OutStream = Stream;
 	OutIndex = Stream.Add(InTexCoord, ChannelId);
@@ -212,7 +212,7 @@ void URuntimeMeshBlueprintFunctions::GetTexCoord(FRuntimeMeshVertexTexCoordStrea
 	OutTexCoord = Stream.GetTexCoord(Index);
 }
 
-void URuntimeMeshBlueprintFunctions::SetTexCoord(FRuntimeMeshVertexTexCoordStream& Stream, FRuntimeMeshVertexTexCoordStream& OutStream, int32 Index, const FVector2D& NewTexCoord, int32 ChannelId /*= 0*/)
+void URuntimeMeshBlueprintFunctions::SetTexCoord(FRuntimeMeshVertexTexCoordStream& Stream, FRuntimeMeshVertexTexCoordStream& OutStream, int32 Index, FVector2D NewTexCoord, int32 ChannelId /*= 0*/)
 {
 	OutStream = Stream;
 	Stream.SetTexCoord(Index, NewTexCoord, ChannelId);
@@ -239,10 +239,10 @@ void URuntimeMeshBlueprintFunctions::EmptyColors(FRuntimeMeshVertexColorStream& 
 	Stream.Empty(Slack);
 }
 
-void URuntimeMeshBlueprintFunctions::AddColor(FRuntimeMeshVertexColorStream& Stream, FRuntimeMeshVertexColorStream& OutStream, const FColor& InColor, int32& OutIndex)
+void URuntimeMeshBlueprintFunctions::AddColor(FRuntimeMeshVertexColorStream& Stream, FRuntimeMeshVertexColorStream& OutStream, FLinearColor InColor, int32& OutIndex)
 {
 	OutStream = Stream;
-	OutIndex = Stream.Add(InColor);
+	OutIndex = Stream.Add(InColor.ToFColor(false));
 }
 
 void URuntimeMeshBlueprintFunctions::AppendColors(FRuntimeMeshVertexColorStream& Stream, FRuntimeMeshVertexColorStream& OutStream, const FRuntimeMeshVertexColorStream& InOther)
@@ -251,16 +251,16 @@ void URuntimeMeshBlueprintFunctions::AppendColors(FRuntimeMeshVertexColorStream&
 	Stream.Append(InOther);
 }
 
-void URuntimeMeshBlueprintFunctions::GetColor(FRuntimeMeshVertexColorStream& Stream, FRuntimeMeshVertexColorStream& OutStream, int32 Index, FColor& OutColor)
+void URuntimeMeshBlueprintFunctions::GetColor(FRuntimeMeshVertexColorStream& Stream, FRuntimeMeshVertexColorStream& OutStream, int32 Index, FLinearColor& OutColor)
 {
 	OutStream = Stream;
-	OutColor = Stream.GetColor(Index);
+	OutColor = FLinearColor(Stream.GetColor(Index));
 }
 
-void URuntimeMeshBlueprintFunctions::SetColor(FRuntimeMeshVertexColorStream& Stream, FRuntimeMeshVertexColorStream& OutStream, int32 Index, const FColor& NewColor)
+void URuntimeMeshBlueprintFunctions::SetColor(FRuntimeMeshVertexColorStream& Stream, FRuntimeMeshVertexColorStream& OutStream, int32 Index, FLinearColor NewColor)
 {
 	OutStream = Stream;
-	Stream.SetColor(Index, NewColor);
+	Stream.SetColor(Index, NewColor.ToFColor(false));
 }
 
 
@@ -323,28 +323,28 @@ void URuntimeMeshBlueprintFunctions::SetVertexIndex(FRuntimeMeshTriangleStream& 
 
 // CollisionData
 
-void URuntimeMeshBlueprintFunctions::GetCollisionVertexStream(FRuntimeMeshCollisionData& CollisionData, FRuntimeMeshCollisionData& OutCollisionData, FRuntimeMeshCollisionVertexStream& OutPositionStream)
+FRuntimeMeshCollisionVertexStream& URuntimeMeshBlueprintFunctions::GetCollisionVertexStream(FRuntimeMeshCollisionData& CollisionData, FRuntimeMeshCollisionData& OutCollisionData)
 {
 	OutCollisionData = CollisionData;
-	OutPositionStream = CollisionData.Vertices;
+	return CollisionData.Vertices;
 }
 
-void URuntimeMeshBlueprintFunctions::GetCollisionTriangleStream(FRuntimeMeshCollisionData& CollisionData, FRuntimeMeshCollisionData& OutCollisionData, FRuntimeMeshCollisionTriangleStream& OutTriangleStream)
+FRuntimeMeshCollisionTriangleStream& URuntimeMeshBlueprintFunctions::GetCollisionTriangleStream(FRuntimeMeshCollisionData& CollisionData, FRuntimeMeshCollisionData& OutCollisionData)
 {
 	OutCollisionData = CollisionData;
-	OutTriangleStream = CollisionData.Triangles;
+	return CollisionData.Triangles;
 }
 
-void URuntimeMeshBlueprintFunctions::GetCollisionTexCoordStream(FRuntimeMeshCollisionData& CollisionData, FRuntimeMeshCollisionData& OutCollisionData, FRuntimeMeshCollisionTexCoordStream& OutTexCoordStream)
+FRuntimeMeshCollisionTexCoordStream& URuntimeMeshBlueprintFunctions::GetCollisionTexCoordStream(FRuntimeMeshCollisionData& CollisionData, FRuntimeMeshCollisionData& OutCollisionData)
 {
 	OutCollisionData = CollisionData;
-	OutTexCoordStream = CollisionData.TexCoords;
+	return CollisionData.TexCoords;
 }
 
-void URuntimeMeshBlueprintFunctions::GetCollisionMaterialIndexStream(FRuntimeMeshCollisionData& CollisionData, FRuntimeMeshCollisionData& OutCollisionData, FRuntimeMeshCollisionMaterialIndexStream& OutMaterialIndexStream)
+FRuntimeMeshCollisionMaterialIndexStream& URuntimeMeshBlueprintFunctions::GetCollisionMaterialIndexStream(FRuntimeMeshCollisionData& CollisionData, FRuntimeMeshCollisionData& OutCollisionData)
 {
 	OutCollisionData = CollisionData;
-	OutMaterialIndexStream = CollisionData.MaterialIndices;
+	return CollisionData.MaterialIndices;
 }
 
 
@@ -446,7 +446,7 @@ void URuntimeMeshBlueprintFunctions::EmptyCollisionTexCoords(FRuntimeMeshVertexT
 	Stream.Empty(Slack);
 }
 
-void URuntimeMeshBlueprintFunctions::AddCollisionTexCoord(FRuntimeMeshVertexTexCoordStream& Stream, FRuntimeMeshVertexTexCoordStream& OutStream, const FVector2D& InTexCoord, int32& OutIndex)
+void URuntimeMeshBlueprintFunctions::AddCollisionTexCoord(FRuntimeMeshVertexTexCoordStream& Stream, FRuntimeMeshVertexTexCoordStream& OutStream, FVector2D InTexCoord, int32& OutIndex)
 {
 	OutStream = Stream;
 	OutIndex = Stream.Add(InTexCoord);
@@ -458,7 +458,7 @@ void URuntimeMeshBlueprintFunctions::GetCollisionTexCoord(FRuntimeMeshVertexTexC
 	OutTexCoord = Stream.GetTexCoord(Index, ChannelId);
 }
 
-void URuntimeMeshBlueprintFunctions::SetCollisionTexCoord(FRuntimeMeshVertexTexCoordStream& Stream, FRuntimeMeshVertexTexCoordStream& OutStream, int32 Index, const FVector2D& NewTexCoord, int32 ChannelId /*= 0*/)
+void URuntimeMeshBlueprintFunctions::SetCollisionTexCoord(FRuntimeMeshVertexTexCoordStream& Stream, FRuntimeMeshVertexTexCoordStream& OutStream, int32 Index, FVector2D NewTexCoord, int32 ChannelId /*= 0*/)
 {
 	OutStream = Stream;
 	Stream.SetTexCoord(Index, NewTexCoord, ChannelId);
@@ -501,4 +501,31 @@ void URuntimeMeshBlueprintFunctions::SeCollisionMaterialIndex(FRuntimeMeshCollis
 {
 	OutStream = Stream;
 	Stream.SetMaterialIndex(Index, NewIndex);
+}
+
+
+// Collision Settings
+
+void URuntimeMeshBlueprintFunctions::AddCollisionBox(FRuntimeMeshCollisionSettings& Settings, FRuntimeMeshCollisionSettings& OutSettings, FRuntimeMeshCollisionBox NewBox)
+{
+	Settings.Boxes.Add(NewBox);
+	OutSettings = Settings;
+}
+
+void URuntimeMeshBlueprintFunctions::AddCollisionSphere(FRuntimeMeshCollisionSettings& Settings, FRuntimeMeshCollisionSettings& OutSettings, FRuntimeMeshCollisionSphere NewSphere)
+{
+	Settings.Spheres.Add(NewSphere);
+	OutSettings = Settings;
+}
+
+void URuntimeMeshBlueprintFunctions::AddCollisionCapsule(FRuntimeMeshCollisionSettings& Settings, FRuntimeMeshCollisionSettings& OutSettings, FRuntimeMeshCollisionCapsule NewCapsule)
+{
+	Settings.Capsules.Add(NewCapsule);
+	OutSettings = Settings;
+}
+
+void URuntimeMeshBlueprintFunctions::AddCollisionConvex(FRuntimeMeshCollisionSettings& Settings, FRuntimeMeshCollisionSettings& OutSettings, FRuntimeMeshCollisionConvexMesh NewConvex)
+{
+	Settings.ConvexElements.Add(NewConvex);
+	OutSettings = Settings;
 }

@@ -34,12 +34,13 @@ void FRuntimeMeshProviderProxy::CreateSection(int32 LODIndex, int32 SectionId, c
 	}
 }
 
-void FRuntimeMeshProviderProxy::SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial)
+bool FRuntimeMeshProviderProxy::SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial)
 {
 	if (PreviousProvider.IsValid())
 	{
-		PreviousProvider->SetupMaterialSlot(MaterialSlot, SlotName, InMaterial);
+		return PreviousProvider->SetupMaterialSlot(MaterialSlot, SlotName, InMaterial);
 	}
+	return false;
 }
 
 void FRuntimeMeshProviderProxy::MarkSectionDirty(int32 LODIndex, int32 SectionId)
@@ -310,12 +311,13 @@ void URuntimeMeshProvider::CreateSection_Implementation(int32 LODIndex, int32 Se
 	}
 }
 
-void URuntimeMeshProvider::SetupMaterialSlot_Implementation(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial)
+bool URuntimeMeshProvider::SetupMaterialSlot_Implementation(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial)
 {
 	if (Proxy.IsValid())
 	{
-		Proxy->SetupMaterialSlot(MaterialSlot, SlotName, InMaterial);
+		return Proxy->SetupMaterialSlot(MaterialSlot, SlotName, InMaterial);
 	}
+	return false;
 }
 
 void URuntimeMeshProvider::MarkSectionDirty_Implementation(int32 LODIndex, int32 SectionId)

@@ -22,17 +22,17 @@ public:
 
 	// MeshData
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|MeshData")
-	static void GetPositionStream(UPARAM(ref) FRuntimeMeshRenderableMeshData& MeshData, FRuntimeMeshRenderableMeshData& OutMeshData, FRuntimeMeshVertexPositionStream& OutPositionStream);
+	static FRuntimeMeshVertexPositionStream& GetPositionStream(UPARAM(ref) FRuntimeMeshRenderableMeshData& MeshData, FRuntimeMeshRenderableMeshData& OutMeshData);
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|MeshData")
-	static void GetTangentStream(UPARAM(ref) FRuntimeMeshRenderableMeshData& MeshData, FRuntimeMeshRenderableMeshData& OutMeshData, FRuntimeMeshVertexTangentStream& OutTangentStream);
+	static FRuntimeMeshVertexTangentStream& GetTangentStream(UPARAM(ref) FRuntimeMeshRenderableMeshData& MeshData, FRuntimeMeshRenderableMeshData& OutMeshData);
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|MeshData")
-	static void GetTexCoordStream(UPARAM(ref) FRuntimeMeshRenderableMeshData& MeshData, FRuntimeMeshRenderableMeshData& OutMeshData, FRuntimeMeshVertexTexCoordStream& OutTexCoordStream);
+	static FRuntimeMeshVertexTexCoordStream& GetTexCoordStream(UPARAM(ref) FRuntimeMeshRenderableMeshData& MeshData, FRuntimeMeshRenderableMeshData& OutMeshData);
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|MeshData")
-	static void GetColorStream(UPARAM(ref) FRuntimeMeshRenderableMeshData& MeshData, FRuntimeMeshRenderableMeshData& OutMeshData, FRuntimeMeshVertexColorStream& OutColorStream);
+	static FRuntimeMeshVertexColorStream& GetColorStream(UPARAM(ref) FRuntimeMeshRenderableMeshData& MeshData, FRuntimeMeshRenderableMeshData& OutMeshData);
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|MeshData")
-	static void GetTriangleStream(UPARAM(ref) FRuntimeMeshRenderableMeshData& MeshData, FRuntimeMeshRenderableMeshData& OutMeshData, FRuntimeMeshTriangleStream& OutTriangleStream);
+	static FRuntimeMeshTriangleStream& GetTriangleStream(UPARAM(ref) FRuntimeMeshRenderableMeshData& MeshData, FRuntimeMeshRenderableMeshData& OutMeshData);
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|MeshData")
-	static void GetAdjacencyTriangleStream(UPARAM(ref) FRuntimeMeshRenderableMeshData& MeshData, FRuntimeMeshRenderableMeshData& OutMeshData, FRuntimeMeshTriangleStream& OutAdjacencyTriangleStream);
+	static FRuntimeMeshTriangleStream& GetAdjacencyTriangleStream(UPARAM(ref) FRuntimeMeshRenderableMeshData& MeshData, FRuntimeMeshRenderableMeshData& OutMeshData);
 
 
 	// Positions
@@ -62,9 +62,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|Tangents")
 	static void EmptyTangents(UPARAM(ref) FRuntimeMeshVertexTangentStream& Stream, FRuntimeMeshVertexTangentStream& OutStream, int32 Slack = 0);
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|Tangents")
-	static void AddNormalAndTangent(UPARAM(ref) FRuntimeMeshVertexTangentStream& Stream, FRuntimeMeshVertexTangentStream& OutStream, const FVector& InNormal, const FVector& InTangent, int32& OutIndex);
+	static void AddNormalAndTangent(UPARAM(ref) FRuntimeMeshVertexTangentStream& Stream, FRuntimeMeshVertexTangentStream& OutStream, FVector InNormal, FVector InTangent, int32& OutIndex);
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|Tangents")
-	static void AddTangents(UPARAM(ref) FRuntimeMeshVertexTangentStream& Stream, FRuntimeMeshVertexTangentStream& OutStream, const FVector& InTangentX, const FVector& InTangentY, const FVector& InTangentZ, int32& OutIndex);
+	static void AddTangents(UPARAM(ref) FRuntimeMeshVertexTangentStream& Stream, FRuntimeMeshVertexTangentStream& OutStream, FVector InTangentX, FVector InTangentY, FVector InTangentZ, int32& OutIndex);
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|Tangents")
 	static void AppendTangents(UPARAM(ref) FRuntimeMeshVertexTangentStream& Stream, FRuntimeMeshVertexTangentStream& OutStream, const FRuntimeMeshVertexTangentStream& InOther);
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|Tangents")
@@ -91,13 +91,13 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|TextureCoordinates")
 	static void EmptyTexCoords(UPARAM(ref) FRuntimeMeshVertexTexCoordStream& Stream, FRuntimeMeshVertexTexCoordStream& OutStream, int32 Slack = 0);
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|TextureCoordinates")
-	static void AddTexCoord(UPARAM(ref) FRuntimeMeshVertexTexCoordStream& Stream, FRuntimeMeshVertexTexCoordStream& OutStream, int32& OutIndex, const FVector2D& InTexCoord, int32 ChannelId = 0);
+	static void AddTexCoord(UPARAM(ref) FRuntimeMeshVertexTexCoordStream& Stream, FRuntimeMeshVertexTexCoordStream& OutStream, int32& OutIndex, FVector2D InTexCoord, int32 ChannelId = 0);
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|TextureCoordinates")
 	static void AppendTexCoords(UPARAM(ref) FRuntimeMeshVertexTexCoordStream& Stream, FRuntimeMeshVertexTexCoordStream& OutStream, const FRuntimeMeshVertexTexCoordStream& InOther);
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|TextureCoordinates")
 	static void GetTexCoord(UPARAM(ref) FRuntimeMeshVertexTexCoordStream& Stream, FRuntimeMeshVertexTexCoordStream& OutStream, int32 Index, FVector2D& OutTexCoord);
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|TextureCoordinates")
-	static void SetTexCoord(UPARAM(ref) FRuntimeMeshVertexTexCoordStream& Stream, FRuntimeMeshVertexTexCoordStream& OutStream, int32 Index, const FVector2D& NewTexCoord, int32 ChannelId = 0);
+	static void SetTexCoord(UPARAM(ref) FRuntimeMeshVertexTexCoordStream& Stream, FRuntimeMeshVertexTexCoordStream& OutStream, int32 Index, FVector2D NewTexCoord, int32 ChannelId = 0);
 
 
 	// Colors
@@ -108,13 +108,13 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|Colors")
 	static void EmptyColors(UPARAM(ref) FRuntimeMeshVertexColorStream& Stream, FRuntimeMeshVertexColorStream& OutStream, int32 Slack = 0);
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|Colors")
-	static void AddColor(UPARAM(ref) FRuntimeMeshVertexColorStream& Stream, FRuntimeMeshVertexColorStream& OutStream, const FColor& InColor, int32& OutIndex);
+	static void AddColor(UPARAM(ref) FRuntimeMeshVertexColorStream& Stream, FRuntimeMeshVertexColorStream& OutStream, FLinearColor InColor, int32& OutIndex);
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|Colors")
 	static void AppendColors(UPARAM(ref) FRuntimeMeshVertexColorStream& Stream, FRuntimeMeshVertexColorStream& OutStream, const FRuntimeMeshVertexColorStream& InOther);
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|Colors")
-	static void GetColor(UPARAM(ref) FRuntimeMeshVertexColorStream& Stream, FRuntimeMeshVertexColorStream& OutStream, int32 Index, FColor& OutColor);
+	static void GetColor(UPARAM(ref) FRuntimeMeshVertexColorStream& Stream, FRuntimeMeshVertexColorStream& OutStream, int32 Index, FLinearColor& OutColor);
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|Colors")
-	static void SetColor(UPARAM(ref) FRuntimeMeshVertexColorStream& Stream, FRuntimeMeshVertexColorStream& OutStream, int32 Index, const FColor& NewColor);
+	static void SetColor(UPARAM(ref) FRuntimeMeshVertexColorStream& Stream, FRuntimeMeshVertexColorStream& OutStream, int32 Index, FLinearColor NewColor);
 
 
 	// Triangles
@@ -140,13 +140,13 @@ public:
 
 	// CollisionData
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Collision|CollisionData")
-	static void GetCollisionVertexStream(UPARAM(ref) FRuntimeMeshCollisionData& CollisionData, FRuntimeMeshCollisionData& OutCollisionData, FRuntimeMeshCollisionVertexStream& OutPositionStream);
+	static FRuntimeMeshCollisionVertexStream& GetCollisionVertexStream(UPARAM(ref) FRuntimeMeshCollisionData& CollisionData, FRuntimeMeshCollisionData& OutCollisionData);
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Collision|CollisionData")
-	static void GetCollisionTriangleStream(UPARAM(ref) FRuntimeMeshCollisionData& CollisionData, FRuntimeMeshCollisionData& OutCollisionData, FRuntimeMeshCollisionTriangleStream& OutTriangleStream);
+	static FRuntimeMeshCollisionTriangleStream& GetCollisionTriangleStream(UPARAM(ref) FRuntimeMeshCollisionData& CollisionData, FRuntimeMeshCollisionData& OutCollisionData);
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Collision|CollisionData")
-	static void GetCollisionTexCoordStream(UPARAM(ref) FRuntimeMeshCollisionData& CollisionData, FRuntimeMeshCollisionData& OutCollisionData, FRuntimeMeshCollisionTexCoordStream& OutTexCoordStream);
+	static FRuntimeMeshCollisionTexCoordStream& GetCollisionTexCoordStream(UPARAM(ref) FRuntimeMeshCollisionData& CollisionData, FRuntimeMeshCollisionData& OutCollisionData);
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Collision|CollisionData")
-	static void GetCollisionMaterialIndexStream(UPARAM(ref) FRuntimeMeshCollisionData& CollisionData, FRuntimeMeshCollisionData& OutCollisionData, FRuntimeMeshCollisionMaterialIndexStream& OutMaterialIndexStream);
+	static FRuntimeMeshCollisionMaterialIndexStream& GetCollisionMaterialIndexStream(UPARAM(ref) FRuntimeMeshCollisionData& CollisionData, FRuntimeMeshCollisionData& OutCollisionData);
 
 
 	// Vertices 
@@ -187,15 +187,15 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Collision|TextureCoordinates")
 	static void EmptyCollisionTexCoords(UPARAM(ref) FRuntimeMeshVertexTexCoordStream& Stream, FRuntimeMeshVertexTexCoordStream& OutStream, int32 Slack = 0);
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Collision|TextureCoordinates")
-	static void AddCollisionTexCoord(UPARAM(ref) FRuntimeMeshVertexTexCoordStream& Stream, FRuntimeMeshVertexTexCoordStream& OutStream, const FVector2D& InTexCoord, int32& OutIndex);
+	static void AddCollisionTexCoord(UPARAM(ref) FRuntimeMeshVertexTexCoordStream& Stream, FRuntimeMeshVertexTexCoordStream& OutStream, FVector2D InTexCoord, int32& OutIndex);
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Collision|TextureCoordinates")
 	static void GetCollisionTexCoord(UPARAM(ref) FRuntimeMeshVertexTexCoordStream& Stream, FRuntimeMeshVertexTexCoordStream& OutStream, int32 Index, FVector2D& OutTexCoord, int32 ChannelId = 0);
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Collision|TextureCoordinates")
-	static void SetCollisionTexCoord(UPARAM(ref) FRuntimeMeshVertexTexCoordStream& Stream, FRuntimeMeshVertexTexCoordStream& OutStream, int32 Index, const FVector2D& NewTexCoord, int32 ChannelId = 0);
+	static void SetCollisionTexCoord(UPARAM(ref) FRuntimeMeshVertexTexCoordStream& Stream, FRuntimeMeshVertexTexCoordStream& OutStream, int32 Index, FVector2D NewTexCoord, int32 ChannelId = 0);
 
 
 	// Material Indices
-	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|Triangles")
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Collision|Triangles")
 	static void SetNumCollisionMaterialIndices(UPARAM(ref) FRuntimeMeshCollisionMaterialIndexStream& Stream, FRuntimeMeshCollisionMaterialIndexStream& OutStream, int32 NewNum, bool bAllowShrinking = true);
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Collision|MaterialIndices")
 	static void NumCollisionMaterialIndices(UPARAM(ref) FRuntimeMeshCollisionMaterialIndexStream& Stream, FRuntimeMeshCollisionMaterialIndexStream& OutStream, int32& OutNumIndices);
@@ -207,5 +207,15 @@ public:
 	static void GetCollisionMaterialIndex(UPARAM(ref) FRuntimeMeshCollisionMaterialIndexStream& Stream, FRuntimeMeshCollisionMaterialIndexStream& OutStream, int32 Index, int32& OutIndex);
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Collision|MaterialIndices")
 	static void SeCollisionMaterialIndex(UPARAM(ref) FRuntimeMeshCollisionMaterialIndexStream& Stream, FRuntimeMeshCollisionMaterialIndexStream& OutStream, int32 Index, int32 NewIndex);
+
+	// Collision Settings
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Collision|Simple")
+	static void AddCollisionBox(UPARAM(ref) FRuntimeMeshCollisionSettings& Settings, FRuntimeMeshCollisionSettings& OutSettings, FRuntimeMeshCollisionBox NewBox);
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Collision|Simple")
+	static void AddCollisionSphere(UPARAM(ref) FRuntimeMeshCollisionSettings& Settings, FRuntimeMeshCollisionSettings& OutSettings, FRuntimeMeshCollisionSphere NewSphere);
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Collision|Simple")
+	static void AddCollisionCapsule(UPARAM(ref) FRuntimeMeshCollisionSettings& Settings, FRuntimeMeshCollisionSettings& OutSettings, FRuntimeMeshCollisionCapsule NewCapsule);
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Collision|Simple")
+	static void AddCollisionConvex(UPARAM(ref) FRuntimeMeshCollisionSettings& Settings, FRuntimeMeshCollisionSettings& OutSettings, FRuntimeMeshCollisionConvexMesh NewConvex);
 
 };

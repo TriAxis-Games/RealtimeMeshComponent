@@ -24,7 +24,7 @@ public:
 
 	virtual void ConfigureLOD(int32 LODIndex, const FRuntimeMeshLODProperties& LODProperties) { }
 	virtual void CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties) { }
-	virtual void SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial) { }
+	virtual bool SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial) { return false; }
 	virtual void MarkSectionDirty(int32 LODIndex, int32 SectionId) { }
 	virtual void SetSectionVisibility(int32 LODIndex, int32 SectionId, bool bIsVisible) { }
 	virtual void SetSectionCastsShadow(int32 LODIndex, int32 SectionId, bool bCastsShadow) { }
@@ -64,7 +64,7 @@ public:
 
 	virtual void ConfigureLOD(int32 LODIndex, const FRuntimeMeshLODProperties& LODProperties) override;
 	virtual void CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties) override;
-	virtual void SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial) override;
+	virtual bool SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial) override;
 	virtual void MarkSectionDirty(int32 LODIndex, int32 SectionId) override;
 	virtual void SetSectionVisibility(int32 LODIndex, int32 SectionId, bool bIsVisible) override;
 	virtual void SetSectionCastsShadow(int32 LODIndex, int32 SectionId, bool bCastsShadow) override;
@@ -105,7 +105,7 @@ public:
 
 
 
-UCLASS(Abstract, HideCategories = Object, BlueprintType)
+UCLASS(Abstract, HideCategories = Object, BlueprintType, Blueprintable, Meta = (ShortTooltip = "A RuntimeMeshProvider is a class containing the logic to create the mesh data and related information to be used by a RuntimeMeshComponent for rendering."))
 class RUNTIMEMESHCOMPONENT_API URuntimeMeshProvider : public UObject
 {
 	GENERATED_BODY()
@@ -132,7 +132,7 @@ public:
 	void CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties);
 	
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "RuntimeMesh|Providers|Common")
-	void SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial);
+	bool SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial);
 	
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "RuntimeMesh|Providers|Common")
 	void MarkSectionDirty(int32 LODIndex, int32 SectionId);
@@ -155,7 +155,7 @@ public:
 	FBoxSphereBounds GetBounds();
 
 	UFUNCTION(BlueprintNativeEvent, Category = "RuntimeMesh|Providers|Common")
-	bool GetSectionMeshForLOD(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData);
+	bool GetSectionMeshForLOD(int32 LODIndex, int32 SectionId, UPARAM(Ref) FRuntimeMeshRenderableMeshData& MeshData);
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "RuntimeMesh|Providers|Common")
 	FRuntimeMeshCollisionSettings GetCollisionSettings();
@@ -164,7 +164,7 @@ public:
 	bool HasCollisionMesh();
 
 	UFUNCTION(BlueprintNativeEvent, Category = "RuntimeMesh|Providers|Common")
-	bool GetCollisionMesh(FRuntimeMeshCollisionData& CollisionData);
+	bool GetCollisionMesh(UPARAM(Ref) FRuntimeMeshCollisionData& CollisionData);
 
 }; 
 

@@ -30,6 +30,7 @@ class FRuntimeMeshData : public FRuntimeMeshProviderProxy
 
 	/** This really only tracks basic section configuration. it never stores mesh data. */
 	TArray<FRuntimeMeshMaterialSlot> MaterialSlots;
+	TMap<FName, int32> SlotNameLookup;
 	TArray<FRuntimeMeshLOD, TInlineAllocator<RuntimeMesh_MAXLODS>> LODs;
 	//TMap<int32, FRuntimeMeshSectionProperties> Sections;
 
@@ -40,9 +41,11 @@ public:
 	virtual ~FRuntimeMeshData() override;
 
 
-	int32 GetNumMaterials();
-	void GetUsedMaterials(TArray<UMaterialInterface*>& OutMaterials);
-	UMaterialInterface* GetMaterial(int32 SlotIndex);
+	int32 GetNumMaterials() const;
+	UMaterialInterface* GetMaterial(int32 SlotIndex) const;
+	int32 GetMaterialIndex(FName MaterialSlotName) const;
+	TArray<FName> GetMaterialSlotNames() const;
+	bool IsMaterialSlotNameValid(FName MaterialSlotName) const;
 
 
 protected: // IRuntimeMeshProvider signatures
@@ -50,7 +53,7 @@ protected: // IRuntimeMeshProvider signatures
 
 	virtual void ConfigureLOD(int32 LODIndex, const FRuntimeMeshLODProperties& LODProperties) override;
 	virtual void CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties) override;
-	virtual void SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial) override;
+	virtual bool SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial) override;
 	virtual void MarkSectionDirty(int32 LODIndex, int32 SectionId) override;
 	virtual void SetSectionVisibility(int32 LODIndex, int32 SectionId, bool bIsVisible) override;
 	virtual void SetSectionCastsShadow(int32 LODIndex, int32 SectionId, bool bCastsShadow) override;

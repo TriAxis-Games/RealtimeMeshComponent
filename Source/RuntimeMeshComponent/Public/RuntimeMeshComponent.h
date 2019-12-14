@@ -90,12 +90,16 @@ private:
 	//~ End UPrimitiveComponent Interface.
 public:
 
-	//~ Begin UMeshComponent Interface.
+	//~ Begin UMeshComponent Interface
+	virtual int32 GetMaterialIndex(FName MaterialSlotName) const;
+	virtual TArray<FName> GetMaterialSlotNames() const;
+	virtual bool IsMaterialSlotNameValid(FName MaterialSlotName) const;
+	//~ End UMeshComponent Interface
+
+	//~ Being UPrimitiveComponent Interface
 	virtual int32 GetNumMaterials() const override;
-	virtual void GetUsedMaterials(TArray<UMaterialInterface*>& OutMaterials, bool bGetDebugMaterials = false) const override;
 	virtual UMaterialInterface* GetMaterial(int32 ElementIndex) const override;
-	virtual UMaterialInterface* GetOverrideMaterial(int32 ElementIndex) const;
-	//~ End UMeshComponent Interface.
+	//~ End UPrimitiveComponent Interface
 
 
 public:

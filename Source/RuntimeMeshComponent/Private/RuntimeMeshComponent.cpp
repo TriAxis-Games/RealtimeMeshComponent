@@ -121,21 +121,38 @@ UBodySetup* URuntimeMeshComponent::GetBodySetup()
 
 
 
+int32 URuntimeMeshComponent::GetMaterialIndex(FName MaterialSlotName) const
+{
+	if (URuntimeMesh* Mesh = GetRuntimeMesh())
+	{
+		return Mesh->GetMaterialIndex(MaterialSlotName);
+	}
+	return INDEX_NONE;
+}
+
+TArray<FName> URuntimeMeshComponent::GetMaterialSlotNames() const
+{
+	if (URuntimeMesh* Mesh = GetRuntimeMesh())
+	{
+		return Mesh->GetMaterialSlotNames();
+	}
+	return TArray<FName>();
+}
+
+bool URuntimeMeshComponent::IsMaterialSlotNameValid(FName MaterialSlotName) const
+{
+	if (URuntimeMesh* Mesh = GetRuntimeMesh())
+	{
+		return Mesh->IsMaterialSlotNameValid(MaterialSlotName);
+	}
+	return false;
+}
+
 int32 URuntimeMeshComponent::GetNumMaterials() const
 {
 	int32 RuntimeMeshSections = GetRuntimeMesh() != nullptr ? GetRuntimeMesh()->GetNumMaterials() : 0;
 
 	return FMath::Max(Super::GetNumMaterials(), RuntimeMeshSections);
-}
-
-void URuntimeMeshComponent::GetUsedMaterials(TArray<UMaterialInterface*>& OutMaterials, bool bGetDebugMaterials) const
-{
-	if (URuntimeMesh* Mesh = GetRuntimeMesh())
-	{
-		Mesh->GetUsedMaterials(OutMaterials);
-	}
-
-	Super::GetUsedMaterials(OutMaterials, bGetDebugMaterials);
 }
 
 UMaterialInterface* URuntimeMeshComponent::GetMaterial(int32 ElementIndex) const
@@ -149,17 +166,13 @@ UMaterialInterface* URuntimeMeshComponent::GetMaterial(int32 ElementIndex) const
 	// fallback to RM sections material
 	if (URuntimeMesh* Mesh = GetRuntimeMesh())
 	{
-		return Mesh->GetMaterialForSlot(ElementIndex);
+		return Mesh->GetMaterial(ElementIndex);
 	}
 
 	// Had no RM/Section return null
 	return nullptr;
 }
 
-UMaterialInterface* URuntimeMeshComponent::GetOverrideMaterial(int32 ElementIndex) const
-{
-	return Super::GetMaterial(ElementIndex);
-}
 
 
 

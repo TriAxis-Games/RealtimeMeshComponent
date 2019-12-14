@@ -110,17 +110,24 @@ int32 URuntimeMesh::GetNumMaterials()
 	return Data.IsValid() ? Data->GetNumMaterials() : 0;
 }
 
-void URuntimeMesh::GetUsedMaterials(TArray<UMaterialInterface*>& OutMaterials)
-{
-	if (Data.IsValid())
-	{
-		Data->GetUsedMaterials(OutMaterials);
-	}
-}
-
-UMaterialInterface* URuntimeMesh::GetMaterialForSlot(int32 SlotIndex)
+UMaterialInterface* URuntimeMesh::GetMaterial(int32 SlotIndex)
 {
 	return Data.IsValid() ? Data->GetMaterial(SlotIndex) : nullptr;
+}
+
+int32 URuntimeMesh::GetMaterialIndex(FName MaterialSlotName) const
+{
+	return Data.IsValid() ? Data->GetMaterialIndex(MaterialSlotName) : INDEX_NONE;
+}
+
+TArray<FName> URuntimeMesh::GetMaterialSlotNames() const
+{
+	return Data.IsValid() ? Data->GetMaterialSlotNames() : TArray<FName>();
+}
+
+bool URuntimeMesh::IsMaterialSlotNameValid(FName MaterialSlotName) const
+{
+	return Data.IsValid() ? Data->IsMaterialSlotNameValid(MaterialSlotName) : false;
 }
 
 FBoxSphereBounds URuntimeMesh::GetLocalBounds() const
