@@ -55,6 +55,15 @@ public:
 
 	virtual void GetDynamicMeshElements(const TArray<const FSceneView*>& Views, const FSceneViewFamily& ViewFamily, uint32 VisibilityMap, FMeshElementCollector& Collector) const override;
 
+#if RHI_RAYTRACING
+	virtual bool IsRayTracingRelevant() const { return true; }
+	virtual bool IsRayTracingStaticRelevant() const { return false; }
+
+	/** Gathers dynamic ray tracing instances from this proxy. */
+	virtual void GetDynamicRayTracingInstances(struct FRayTracingMaterialGatheringContext& Context, TArray<struct FRayTracingInstance>& OutRayTracingInstances);
+
+#endif // RHI_RAYTRACING
+
 
 	int8 ComputeTemporalStaticMeshLOD(const FVector4& Origin, const float SphereRadius, const FSceneView& View, int32 MinLOD, float FactorScale, int32 SampleIndex) const;
 	int8 ComputeStaticMeshLOD(const FVector4& Origin, const float SphereRadius, const FSceneView& View, int32 MinLOD, float FactorScale) const;

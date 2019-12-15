@@ -9,12 +9,15 @@ public class RuntimeMeshComponent : ModuleRules
     {
         PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
         bFasterWithoutUnity = true;
-               
+
+        // This is to access RayTracing Definitions
+        PrivateIncludePaths.Add(Path.Combine(EngineDirectory, "Shaders", "Shared"));
+
         PublicDependencyModuleNames.AddRange(
             new string[]
             {
                 "Core",
-			}
+            }
             );
 
 

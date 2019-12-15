@@ -17,6 +17,13 @@ void FRuntimeMeshSectionProxy::Reset()
 	IndexBuffer.ReleaseResource();
 	AdjacencyIndexBuffer.ReleaseResource();
 	VertexFactory.ReleaseResource();
+
+#if RHI_RAYTRACING
+	if (IsRayTracingEnabled())
+	{
+		RayTracingGeometry.ReleaseResource();
+	}
+#endif
 }
 
 bool FRuntimeMeshSectionProxy::CanRender() const
@@ -108,6 +115,41 @@ void FRuntimeMeshSectionProxy::UpdateSection_RenderThread(const FRuntimeMeshRend
 
 		VertexFactory.Init(DataType);
 		VertexFactory.InitResource();
+
+
+#if RHI_RAYTRACING
+		if (IsRayTracingEnabled())
+		{
+			ENQUEUE_RENDER_COMMAND(InitRuntimeMeshSectionRayTracingGeometry)(
+				[this](FRHICommandListImmediate& RHICmdList)
+				{
+					FRayTracingGeometryInitializer Initializer;
+					Initializer.PositionVertexBuffer = nullptr;
+					Initializer.IndexBuffer = nullptr;
+					Initializer.BaseVertexIndex = 0;
+					Initializer.VertexBufferStride = 12;
+					Initializer.VertexBufferByteOffset = 0;
+					Initializer.TotalPrimitiveCount = 0;
+					Initializer.VertexBufferElementType = VET_Float3;
+					Initializer.GeometryType = RTGT_Triangles;
+					Initializer.bFastBuild = true;
+					Initializer.bAllowUpdate = false;
+
+					RayTracingGeometry.SetInitializer(Initializer);
+					RayTracingGeometry.InitResource();
+
+					RayTracingGeometry.Initializer.PositionVertexBuffer = PositionBuffer.VertexBufferRHI;
+					RayTracingGeometry.Initializer.IndexBuffer = IndexBuffer.IndexBufferRHI;
+					RayTracingGeometry.Initializer.TotalPrimitiveCount = IndexBuffer.Num() / 3;
+
+					//#dxr_todo: add support for segments?
+
+					RayTracingGeometry.UpdateRHI();
+				});
+		}
+#endif
+
+
 	}
 }
 

@@ -11,10 +11,15 @@
 #include "UnrealEngine.h"
 #include "SceneManagement.h"
 
+#if RHI_RAYTRACING
+//#include "RayTracingDefinitions.h"
+#endif
+#include "RayTracingInstance.h"
 
 DECLARE_CYCLE_STAT(TEXT("RuntimeMeshComponentSceneProxy - Create Mesh Batch"), STAT_RuntimeMeshComponentSceneProxy_CreateMeshBatch, STATGROUP_RuntimeMesh);
 DECLARE_CYCLE_STAT(TEXT("RuntimeMeshComponentSceneProxy - Get Dynamic Mesh Elements"), STAT_RuntimeMeshComponentSceneProxy_GetDynamicMeshElements, STATGROUP_RuntimeMesh);
 DECLARE_CYCLE_STAT(TEXT("RuntimeMeshComponentSceneProxy - Draw Static Mesh Elements"), STAT_RuntimeMeshComponentSceneProxy_DrawStaticMeshElements, STATGROUP_RuntimeMesh);
+DECLARE_CYCLE_STAT(TEXT("RuntimeMeshComponentSceneProxy - Get Dynamic Ray Tracing Instances"), STAT_RuntimeMeshComponentSceneProxy_GetDynamicRayTracingInstances, STATGROUP_RuntimeMesh);
 
 
 FRuntimeMeshComponentSceneProxy::FRuntimeMeshComponentSceneProxy(URuntimeMeshComponent* Component) 
@@ -134,6 +139,7 @@ void FRuntimeMeshComponentSceneProxy::DrawStaticElements(FStaticPrimitiveDrawInt
 	for (int32 LODIndex = 0; LODIndex < LODs.Num(); LODIndex++)
 	{
 		auto& LOD = LODs[LODIndex];
+		int32 SectionId = 0;
 		for (const auto& SectionEntry : LOD->GetSections())
 		{
 			auto& Section = SectionEntry.Value;
@@ -144,6 +150,8 @@ void FRuntimeMeshComponentSceneProxy::DrawStaticElements(FStaticPrimitiveDrawInt
 				FMaterialRenderProxy* Material = RenderData->Material->GetRenderProxy();
 
 				FMeshBatch MeshBatch;
+				MeshBatch.LODIndex = LODIndex;
+				MeshBatch.SegmentIndex = SectionEntry.Key;
 				CreateMeshBatch(MeshBatch, *Section, LODIndex, *RenderData, Material, nullptr);
 				PDI->DrawMesh(MeshBatch, RuntimeMeshProxy->GetScreenSize(LODIndex));
 
@@ -248,6 +256,56 @@ void FRuntimeMeshComponentSceneProxy::GetDynamicMeshElements(const TArray<const 
  	return FMath::Square(ScreenMultiple * SphereRadius) / FMath::Max(1.0f, DistSqr);
  }
 #endif
+
+
+#if RHI_RAYTRACING
+ void FRuntimeMeshComponentSceneProxy::GetDynamicRayTracingInstances(struct FRayTracingMaterialGatheringContext& Context, TArray<struct FRayTracingInstance>& OutRayTracingInstances)
+ {
+	 SCOPE_CYCLE_COUNTER(STAT_RuntimeMeshComponentSceneProxy_GetDynamicRayTracingInstances);
+	 
+	 // TODO: Should this use any LOD determination logic? Or always use a specific LOD?
+
+	 int32 LODIndex = 0;
+	 auto& LOD = RuntimeMeshProxy->GetLODs()[LODIndex];
+
+	 for (const auto& SectionEntry : LOD->GetSections())
+	 {
+		 auto& Section = SectionEntry.Value;
+		 auto* RenderData = SectionRenderData[LODIndex].Find(SectionEntry.Key);
+		 FMaterialRenderProxy* Material = RenderData->Material->GetRenderProxy();
+
+		 FRayTracingGeometry* SectionRayTracingGeometry = Section->GetRayTracingGeometry();
+		 if (RenderData != nullptr && Section->ShouldRender() && SectionRayTracingGeometry->RayTracingGeometryRHI.IsValid())
+		 {
+			 check(SectionRayTracingGeometry->Initializer.PositionVertexBuffer.IsValid());
+			 check(SectionRayTracingGeometry->Initializer.IndexBuffer.IsValid());
+
+			 FRayTracingInstance RayTracingInstance;
+			 RayTracingInstance.Geometry = SectionRayTracingGeometry;
+			 RayTracingInstance.InstanceTransforms.Add(GetLocalToWorld());
+
+			 uint32 SectionIdx = 0;
+			 FMeshBatch MeshBatch;
+			 MeshBatch.LODIndex = LODIndex;
+			 MeshBatch.SegmentIndex = SectionEntry.Key;
+
+
+			 MeshBatch.MaterialRenderProxy = Material;
+			 MeshBatch.ReverseCulling = IsLocalToWorldDeterminantNegative();
+			 MeshBatch.DepthPriorityGroup = SDPG_World;
+			 MeshBatch.bCanApplyViewModeOverrides = false;
+			 
+			 Section->CreateMeshBatch(MeshBatch, true, false);
+			 
+			 RayTracingInstance.Materials.Add(MeshBatch);
+
+			 RayTracingInstance.BuildInstanceMaskAndFlags();
+			 OutRayTracingInstances.Add(RayTracingInstance);
+
+		 }
+	 }
+ }
+#endif // RHI_RAYTRACING
 
 int8 FRuntimeMeshComponentSceneProxy::ComputeTemporalStaticMeshLOD(const FVector4& Origin, const float SphereRadius, const FSceneView& View, int32 MinLOD, float FactorScale, int32 SampleIndex) const
 {

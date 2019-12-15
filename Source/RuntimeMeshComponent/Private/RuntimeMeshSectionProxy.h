@@ -55,6 +55,10 @@ class FRuntimeMeshSectionProxy
 	/** Index buffer for this section */
 	FRuntimeMeshIndexBuffer AdjacencyIndexBuffer;
 
+#if RHI_RAYTRACING
+	FRayTracingGeometry RayTracingGeometry;
+#endif
+
 public:
 
 	FRuntimeMeshSectionProxy(ERHIFeatureLevel::Type InFeatureLevel, const FRuntimeMeshSectionProperties& SectionProperties)
@@ -86,9 +90,11 @@ public:
 	bool CastsShadow() const { return Properties.bCastsShadow; }
 
 	FRuntimeMeshVertexFactory* GetVertexFactory() { return &VertexFactory; }
+	FRayTracingGeometry* GetRayTracingGeometry() { return &RayTracingGeometry; }
 	void BuildVertexDataType(FLocalVertexFactory::FDataType& DataType);
 
 	void CreateMeshBatch(FMeshBatch& MeshBatch, bool bCastsShadow, bool bWantsAdjacencyInfo) const;
+
 
 	void UpdateProperties_RenderThread(const FRuntimeMeshSectionProperties& SectionProperties);
 	void UpdateSection_RenderThread(const FRuntimeMeshRenderableMeshData& MeshData);
