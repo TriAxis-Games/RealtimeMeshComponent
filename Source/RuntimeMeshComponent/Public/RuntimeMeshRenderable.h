@@ -362,12 +362,13 @@ public:
 		}
 	}
 
-	friend FArchive& operator <<(FArchive& Ar, FRuntimeMeshVertexTexCoordStream& Stream)
-	{
-		Ar << Stream.bIsHighPrecision;
-		Ar << Stream.ChannelCount;
-		Ar << Stream.Data;
-	}
+// 	friend FArchive& operator <<(FArchive& Ar, FRuntimeMeshVertexTexCoordStream& Stream)
+// 	{
+// 		Ar << Stream.bIsHighPrecision;
+// 		Ar << Stream.ChannelCount;
+// 		Ar << Stream.Data;
+// 		return Ar;
+// 	}
 	
 	bool Serialize(FArchive& Ar)
 	{
@@ -701,4 +702,3 @@ public:
 	}
 
 };
-

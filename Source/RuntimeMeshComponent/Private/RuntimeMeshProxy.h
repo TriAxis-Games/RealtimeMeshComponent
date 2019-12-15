@@ -13,7 +13,7 @@ class FRuntimeMeshProxy
 {
 	ERHIFeatureLevel::Type FeatureLevel;
 
-	TArray<TSharedPtr<FRuntimeMeshLODProxy>, TInlineAllocator<RuntimeMesh_MAXLODS>> LODs;
+	TArray<TSharedPtr<FRuntimeMeshLODProxy>, TInlineAllocator<RUNTIMEMESH_MAXLODS>> LODs;
 
 public:
 	FRuntimeMeshProxy(ERHIFeatureLevel::Type InFeatureLevel);
@@ -23,7 +23,7 @@ public:
 
 	int32 GetMaxLOD() 
 	{
-		return RuntimeMesh_MAXLODS;
+		return RUNTIMEMESH_MAXLODS;
 	}
 	float GetScreenSize(int32 LODIndex);
 
@@ -48,7 +48,7 @@ public:
 
 
 
-	TArray<TSharedPtr<FRuntimeMeshLODProxy>, TInlineAllocator<RuntimeMesh_MAXLODS>>& GetLODs() { return LODs; }
+	TArray<TSharedPtr<FRuntimeMeshLODProxy>, TInlineAllocator<RUNTIMEMESH_MAXLODS>>& GetLODs() { return LODs; }
 
 	void CalculateViewRelevance(bool& bHasStaticSections, bool& bHasDynamicSections, bool& bHasShadowableSections)
 	{

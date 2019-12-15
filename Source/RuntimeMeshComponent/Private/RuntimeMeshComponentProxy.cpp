@@ -31,7 +31,7 @@ FRuntimeMeshComponentSceneProxy::FRuntimeMeshComponentSceneProxy(URuntimeMeshCom
 	UMaterialInterface* DefaultMat = UMaterial::GetDefaultMaterial(EMaterialDomain::MD_Surface);
 
 	// Fill the section render data
-	SectionRenderData.SetNum(RuntimeMesh_MAXLODS);
+	SectionRenderData.SetNum(RUNTIMEMESH_MAXLODS);
 	for (int32 LODIndex = 0; LODIndex < RuntimeMeshData->LODs.Num(); LODIndex++)
 	{
 		const FRuntimeMeshLOD& LOD = RuntimeMeshData->LODs[LODIndex];
@@ -251,7 +251,7 @@ void FRuntimeMeshComponentSceneProxy::GetDynamicMeshElements(const TArray<const 
 
 int8 FRuntimeMeshComponentSceneProxy::ComputeTemporalStaticMeshLOD(const FVector4& Origin, const float SphereRadius, const FSceneView& View, int32 MinLOD, float FactorScale, int32 SampleIndex) const
 {
-	const int32 NumLODs = RuntimeMesh_MAXLODS;
+	const int32 NumLODs = RUNTIMEMESH_MAXLODS;
 
 	const float ScreenRadiusSquared = ComputeBoundsScreenRadiusSquared(Origin, SphereRadius, View.GetTemporalLODOrigin(SampleIndex), View.ViewMatrices.GetProjectionMatrix())
 		* FactorScale * FactorScale * View.LODDistanceFactor * View.LODDistanceFactor;
@@ -270,7 +270,7 @@ int8 FRuntimeMeshComponentSceneProxy::ComputeTemporalStaticMeshLOD(const FVector
 
 int8 FRuntimeMeshComponentSceneProxy::ComputeStaticMeshLOD(const FVector4& Origin, const float SphereRadius, const FSceneView& View, int32 MinLOD, float FactorScale) const
 {
-	const int32 NumLODs = RuntimeMesh_MAXLODS;
+	const int32 NumLODs = RUNTIMEMESH_MAXLODS;
 	const FSceneView& LODView = GetLODView(View);
 	const float ScreenRadiusSquared = ComputeBoundsScreenRadiusSquared(Origin, SphereRadius, LODView) * FactorScale * FactorScale * LODView.LODDistanceFactor * LODView.LODDistanceFactor;
 

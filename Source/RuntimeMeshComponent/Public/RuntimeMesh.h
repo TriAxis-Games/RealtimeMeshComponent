@@ -53,10 +53,13 @@ private:
 	/** Collision data */
 	UPROPERTY(Instanced)
 	UBodySetup* BodySetup;
+	TArray<FRuntimeMeshCollisionSourceSectionInfo> CollisionSource;
 
 	/** Queue of pending collision cooks */
 	UPROPERTY(Transient)
-	TArray<UBodySetup*> AsyncBodySetupQueue;
+	TArray<FRuntimeMeshAsyncBodySetupData> AsyncBodySetupQueue;
+
+	TUniquePtr<TArray<FRuntimeMeshCollisionSourceSectionInfo>> PendingSourceInfo;
 public:
 
 	UFUNCTION(BlueprintCallable)
@@ -88,6 +91,10 @@ public:
 	/** Event called when the collision has finished updated, this works both with standard following frame synchronous updates, as well as async updates */
 	UPROPERTY(BlueprintAssignable, Category = "Components|RuntimeMesh")
 	FRuntimeMeshCollisionUpdatedDelegate CollisionUpdated;
+
+
+private:
+	FRuntimeMeshCollisionHitInfo GetHitSource(int32 FaceIndex) const;
 
 private:
 	/** Triggers a rebuild of the collision data on the next tick */

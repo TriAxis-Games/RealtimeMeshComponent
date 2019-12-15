@@ -54,6 +54,21 @@ void URuntimeMeshComponent::SetRuntimeMesh(URuntimeMesh* NewMesh)
 }
 
 
+FRuntimeMeshCollisionHitInfo URuntimeMeshComponent::GetHitSource(int32 FaceIndex) const
+{
+	URuntimeMesh* Mesh = GetRuntimeMesh();
+	if (Mesh)
+	{
+		FRuntimeMeshCollisionHitInfo HitInfo = Mesh->GetHitSource(FaceIndex);
+		if (HitInfo.SectionId >= 0)
+		{
+			HitInfo.Material = GetMaterial(HitInfo.SectionId);
+		}
+		return HitInfo;
+	}
+	return FRuntimeMeshCollisionHitInfo();
+}
+
 void URuntimeMeshComponent::NewCollisionMeshReceived()
 {
 	SCOPE_CYCLE_COUNTER(STAT_RuntimeMeshComponent_NewCollisionMeshReceived);

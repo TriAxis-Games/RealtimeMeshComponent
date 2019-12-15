@@ -109,6 +109,7 @@ bool URuntimeMeshProviderStatic::GetCollisionMesh_Implementation(FRuntimeMeshCol
 			{
 				// Append the mesh data
 				int32 StartIndex = CollisionData.Vertices.Num();
+				int32 StartTriangle = CollisionData.Triangles.Num();
 
 				// Copy vertices
 				for (int32 Index = 0; Index < SectionData.Positions.Num(); Index++)
@@ -125,6 +126,9 @@ bool URuntimeMeshProviderStatic::GetCollisionMesh_Implementation(FRuntimeMeshCol
 						SectionData.Triangles.GetVertexIndex(Index + 2) + StartIndex);
 				}
 
+
+				// Add the collision section
+				CollisionData.CollisionSources.Emplace(StartTriangle, CollisionData.Triangles.Num() - 1, this, Section, ERuntimeMeshCollisionFaceSourceType::Renderable);
 
 				// TODO: Append the UV's First you must fill the UV's if there's existing collision data
 

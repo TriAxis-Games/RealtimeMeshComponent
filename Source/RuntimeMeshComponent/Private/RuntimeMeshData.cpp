@@ -13,8 +13,8 @@ DECLARE_CYCLE_STAT(TEXT("RuntimeMeshData - Recreate All Proxies"), STAT_RuntimeM
 FRuntimeMeshData::FRuntimeMeshData(const FRuntimeMeshProviderProxyRef& InBaseProvider, TWeakObjectPtr<URuntimeMesh> InParentMeshObject)
 	: FRuntimeMeshProviderProxy(nullptr), ParentMeshObject(InParentMeshObject), BaseProvider(InBaseProvider)
 {
-	LODs.SetNum(RuntimeMesh_MAXLODS);
-	for (int32 Index = 1; Index < RuntimeMesh_MAXLODS; Index++)
+	LODs.SetNum(RUNTIMEMESH_MAXLODS);
+	for (int32 Index = 1; Index < RUNTIMEMESH_MAXLODS; Index++)
 	{
 		// All but the first LOD gets defaulted to 0 screen size to not show ever.
 		LODs[Index].Properties.ScreenSize = 0.0f;
@@ -247,7 +247,7 @@ void FRuntimeMeshData::HandleProxySectionUpdate(int32 LODIndex, int32 SectionId,
 		}
 		else
 		{
-			for (int32 Index = 0; Index < RuntimeMesh_MAXLODS; Index++)
+			for (int32 Index = 0; Index < RUNTIMEMESH_MAXLODS; Index++)
 			{
 				UpdateSingleLOD(Index);
 			}

@@ -135,6 +135,34 @@ FBoxSphereBounds URuntimeMesh::GetLocalBounds() const
 	return Data.IsValid() ? Data->GetBounds() : FBoxSphereBounds();
 }
 
+FRuntimeMeshCollisionHitInfo URuntimeMesh::GetHitSource(int32 FaceIndex) const
+{
+	const TArray<FRuntimeMeshCollisionSourceSectionInfo>& TempSections = CollisionSource;
+
+	if (TempSections.Num() > 0)
+	{
+		for (const auto& Section : TempSections)
+		{
+			if (Section.StartIndex <= FaceIndex && Section.EndIndex >= FaceIndex)
+			{
+				FRuntimeMeshCollisionHitInfo HitInfo;
+				HitInfo.SourceProvider = Section.SourceProvider;
+				HitInfo.SourceType = Section.SourceType;
+				HitInfo.SectionId = Section.SectionId;
+				HitInfo.FaceIndex = FaceIndex - Section.StartIndex;
+				return HitInfo;
+			}
+		}
+	}
+
+	FRuntimeMeshCollisionHitInfo HitInfo;
+	HitInfo.SourceProvider = MeshProvider;
+	HitInfo.SourceType = ERuntimeMeshCollisionFaceSourceType::Collision;
+	HitInfo.SectionId = 0;
+	HitInfo.FaceIndex = FaceIndex;
+	return HitInfo;
+}
+
 void URuntimeMesh::MarkCollisionDirty()
 {
 	// Flag the collision as dirty
@@ -218,18 +246,23 @@ void URuntimeMesh::UpdateCollision(bool bForceCookNow)
 		if (bShouldCookAsync)
 		{
 			// Abort all previous ones still standing
-			for (UBodySetup* OldBody : AsyncBodySetupQueue)
+			for (const auto& OldBody : AsyncBodySetupQueue)
 			{
-				OldBody->AbortPhysicsMeshAsyncCreation();
+				OldBody.BodySetup->AbortPhysicsMeshAsyncCreation();
 			}
 
 			UBodySetup* NewBodySetup = CreateNewBodySetup();
-			AsyncBodySetupQueue.Add(NewBodySetup);
-
 			SetupCollisionConfiguration(NewBodySetup);
+
+			// Create pending source info while the mesh updates
+			PendingSourceInfo = MakeUnique<TArray<FRuntimeMeshCollisionSourceSectionInfo>>();
 
 			NewBodySetup->CreatePhysicsMeshesAsync(
 				FOnAsyncPhysicsCookFinished::CreateUObject(this, &URuntimeMesh::FinishPhysicsAsyncCook, NewBodySetup));
+			
+			// Copy source info and reset pending
+			AsyncBodySetupQueue.Add(FRuntimeMeshAsyncBodySetupData(NewBodySetup, MoveTemp(*PendingSourceInfo.Get())));
+			PendingSourceInfo.Reset();
 		}
 		else
 		{
@@ -243,8 +276,16 @@ void URuntimeMesh::UpdateCollision(bool bForceCookNow)
 
 			// Update meshes
 			NewBodySetup->bHasCookedCollisionData = true;
+
+			// Create pending source info while the mesh updates
+			PendingSourceInfo = MakeUnique<TArray<FRuntimeMeshCollisionSourceSectionInfo>>();
+
 			NewBodySetup->InvalidatePhysicsData();
 			NewBodySetup->CreatePhysicsMeshes();
+
+			// Copy source info and reset pending
+			CollisionSource = MoveTemp(*PendingSourceInfo.Get());
+			PendingSourceInfo.Reset();
 
 			BodySetup = NewBodySetup;
 			FinalizeNewCookedData();
@@ -258,19 +299,24 @@ void URuntimeMesh::FinishPhysicsAsyncCook(bool bSuccess, UBodySetup* FinishedBod
 
 	check(IsInGameThread());
 
-	int32 FoundIdx;
-	if (AsyncBodySetupQueue.Find(FinishedBodySetup, FoundIdx))
+	const auto& SearchPredicate = [&](const FRuntimeMeshAsyncBodySetupData& Entry)
+	{ 
+		return Entry.BodySetup == FinishedBodySetup; 
+	};
+	int32 FoundIdx = AsyncBodySetupQueue.IndexOfByPredicate(SearchPredicate);
+
+	if (FoundIdx != INDEX_NONE)
 	{
 		if (bSuccess)
 		{
 			// The new body was found in the array meaning it's newer so use it
 			BodySetup = FinishedBodySetup;
+			CollisionSource = MoveTemp(AsyncBodySetupQueue[FoundIdx].CollisionSources);
 
 			// Shift down all remaining body setups, removing any old setups
 			for (int32 Index = FoundIdx + 1; Index < AsyncBodySetupQueue.Num(); Index++)
 			{
-				AsyncBodySetupQueue[Index - (FoundIdx + 1)] = AsyncBodySetupQueue[Index];
-				AsyncBodySetupQueue[Index] = nullptr;
+				AsyncBodySetupQueue[Index - (FoundIdx + 1)] = MoveTemp(AsyncBodySetupQueue[Index]);
 			}
 			AsyncBodySetupQueue.SetNum(AsyncBodySetupQueue.Num() - (FoundIdx + 1));
 
@@ -325,6 +371,8 @@ bool URuntimeMesh::GetPhysicsTriMeshData(struct FTriMeshCollisionData* Collision
 			CollisionData->bDisableActiveEdgePrecompute = CollisionMesh.bDisableActiveEdgePrecompute;
 			CollisionData->bFastCook = CollisionMesh.bFastCook;
 			CollisionData->bFlipNormals = CollisionMesh.bFlipNormals;
+
+			*PendingSourceInfo = MoveTemp(CollisionMesh.CollisionSources);
 
 			return true;
 		}

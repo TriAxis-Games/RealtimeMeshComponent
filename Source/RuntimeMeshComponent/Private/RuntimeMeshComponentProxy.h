@@ -22,7 +22,7 @@ private:
 
 	FRuntimeMeshProxyPtr RuntimeMeshProxy;
 
-	TArray<TMap<int32, FRuntimeMeshSectionRenderData>, TInlineAllocator<RuntimeMesh_MAXLODS>> SectionRenderData;
+	TArray<TMap<int32, FRuntimeMeshSectionRenderData>, TInlineAllocator<RUNTIMEMESH_MAXLODS>> SectionRenderData;
 
 	// Reference to the body setup for rendering.
 	UBodySetup* BodySetup;

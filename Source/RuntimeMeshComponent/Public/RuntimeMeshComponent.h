@@ -72,6 +72,8 @@ public:
 	}
 
 
+	UFUNCTION(BlueprintCallable)
+	FRuntimeMeshCollisionHitInfo GetHitSource(int32 FaceIndex) const;
 
 
 private:

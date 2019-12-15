@@ -71,6 +71,7 @@ public:
 	virtual void RemoveSection(int32 LODIndex, int32 SectionId) override;
 	virtual void MarkCollisionDirty() override;
 
+	TWeakObjectPtr<URuntimeMeshProvider> GetParent() const { return Parent; }
 private:
 	friend class FRuntimeMeshData;
 	friend class FRuntimeMeshProviderProxyPassThrough;

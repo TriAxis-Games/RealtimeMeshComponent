@@ -31,7 +31,7 @@ class FRuntimeMeshData : public FRuntimeMeshProviderProxy
 	/** This really only tracks basic section configuration. it never stores mesh data. */
 	TArray<FRuntimeMeshMaterialSlot> MaterialSlots;
 	TMap<FName, int32> SlotNameLookup;
-	TArray<FRuntimeMeshLOD, TInlineAllocator<RuntimeMesh_MAXLODS>> LODs;
+	TArray<FRuntimeMeshLOD, TInlineAllocator<RUNTIMEMESH_MAXLODS>> LODs;
 	//TMap<int32, FRuntimeMeshSectionProperties> Sections;
 
 	FCriticalSection SyncRoot;

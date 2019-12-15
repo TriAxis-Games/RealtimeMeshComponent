@@ -153,6 +153,9 @@ bool FRuntimeMeshProviderBoxProxy::HasCollisionMesh()
 
 bool FRuntimeMeshProviderBoxProxy::GetCollisionMesh(FRuntimeMeshCollisionData& CollisionData)
 {
+	// Add the single collision section
+	CollisionData.CollisionSources.Emplace(0, 5, GetParent(), 0, ERuntimeMeshCollisionFaceSourceType::Collision);
+	
 	FRuntimeMeshCollisionVertexStream& CollisionVertices = CollisionData.Vertices;
 	FRuntimeMeshCollisionTriangleStream& CollisionTriangles = CollisionData.Triangles;
 

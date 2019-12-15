@@ -5,7 +5,10 @@
 #include "Engine/Engine.h"
 #include "Components/MeshComponent.h"
 #include "RuntimeMeshCore.h"
+#include "Interface_CollisionDataProviderCore.h"
 #include "RuntimeMeshCollision.generated.h"
+
+class URuntimeMeshProvider;
 
 
 USTRUCT(BlueprintType)
@@ -563,6 +566,84 @@ public:
 	}
 };
 
+
+/* Source of a mesh face, whether it was collision or rendering */
+UENUM(BlueprintType)
+enum class ERuntimeMeshCollisionFaceSourceType : uint8
+{
+	/* Collision face was created by a collision specific source */
+	Collision UMETA(DisplayName = "Collision"),
+	/* Collision face was created by a renderable section */
+	Renderable UMETA(DisplayName = "Renderable"),
+};
+
+USTRUCT(BlueprintType)
+struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshCollisionSourceSectionInfo
+{
+	GENERATED_USTRUCT_BODY()
+
+public:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Collision|CollisionMesh")
+	int32 StartIndex;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Collision|CollisionMesh")
+	int32 EndIndex;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Collision|CollisionMesh")
+	TWeakObjectPtr<URuntimeMeshProvider> SourceProvider;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Collision|CollisionMesh")
+	int32 SectionId;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Collision|CollisionMesh")
+	ERuntimeMeshCollisionFaceSourceType SourceType;
+
+	FRuntimeMeshCollisionSourceSectionInfo()
+		: StartIndex(INDEX_NONE)
+		, EndIndex(INDEX_NONE)
+		, SourceProvider(nullptr)
+		, SectionId(INDEX_NONE)
+		, SourceType(ERuntimeMeshCollisionFaceSourceType::Collision)
+	{
+
+	}
+
+	FRuntimeMeshCollisionSourceSectionInfo(int32 InStartIndex, int32 InEndIndex, TWeakObjectPtr<URuntimeMeshProvider> InSourceProvider, int32 InSectionId, ERuntimeMeshCollisionFaceSourceType InSourceType)
+		: StartIndex(InStartIndex)
+		, EndIndex(InEndIndex)
+		, SourceProvider(InSourceProvider)
+		, SectionId(InSectionId)
+		, SourceType(InSourceType)
+	{
+
+	}
+};
+
+USTRUCT(BlueprintType)
+struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshCollisionHitInfo
+{
+	GENERATED_USTRUCT_BODY()
+
+public:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Collision|CollisionMesh")
+	TWeakObjectPtr<URuntimeMeshProvider> SourceProvider;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Collision|CollisionMesh")
+	ERuntimeMeshCollisionFaceSourceType SourceType;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Collision|CollisionMesh")
+	int32 SectionId;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Collision|CollisionMesh")
+	int32 FaceIndex;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Collision|CollisionMesh")
+	UMaterialInterface* Material;
+
+	FRuntimeMeshCollisionHitInfo()
+		: SourceProvider(nullptr)
+		, SourceType(ERuntimeMeshCollisionFaceSourceType::Collision)
+		, SectionId(0)
+		, FaceIndex(0)
+		, Material(nullptr)
+	{
+
+	}
+};
+
 USTRUCT(BlueprintType)
 struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshCollisionData
 {
@@ -580,6 +661,9 @@ public:
 	FRuntimeMeshCollisionMaterialIndexStream MaterialIndices;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Collision|CollisionMesh")
+	TArray<FRuntimeMeshCollisionSourceSectionInfo> CollisionSources;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Collision|CollisionMesh")
 	bool bFlipNormals;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Collision|CollisionMesh")
 	bool bDeformableMesh;
@@ -595,5 +679,29 @@ public:
 		, bDisableActiveEdgePrecompute(false)
 	{
 
+	}
+};
+
+
+
+USTRUCT()
+struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshAsyncBodySetupData
+{
+	GENERATED_USTRUCT_BODY();
+public:
+	UPROPERTY()
+	UBodySetup* BodySetup;
+
+	UPROPERTY()
+	TArray<FRuntimeMeshCollisionSourceSectionInfo> CollisionSources;
+
+	FRuntimeMeshAsyncBodySetupData()
+		: BodySetup(nullptr)
+	{
+	}
+
+	FRuntimeMeshAsyncBodySetupData(UBodySetup* InBodySetup, TArray<FRuntimeMeshCollisionSourceSectionInfo>&& InCollisionSources)
+		: BodySetup(InBodySetup), CollisionSources(MoveTemp(InCollisionSources))
+	{
 	}
 };

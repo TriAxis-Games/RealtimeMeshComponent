@@ -8,15 +8,16 @@
 #include "Stats/Stats.h"
 #include "Logging//LogMacros.h"
 #include "HAL/CriticalSection.h"
+#include "StaticMeshResources.h"
 #include "RuntimeMeshCore.generated.h"
 
 DECLARE_STATS_GROUP(TEXT("RuntimeMesh"), STATGROUP_RuntimeMesh, STATCAT_Advanced);
 DECLARE_LOG_CATEGORY_EXTERN(LogRuntimeMesh, Log, Warning);
 
-#define RuntimeMesh_MAXTEXCOORDS MAX_STATIC_TEXCOORDS
-#define RuntimeMesh_MAXLODS MAX_STATIC_MESH_LODS
+#define RUNTIMEMESH_MAXTEXCOORDS MAX_STATIC_TEXCOORDS
+#define RUNTIMEMESH_MAXLODS MAX_STATIC_MESH_LODS
 
-#define RuntimeMesh_ENABLE_DEBUG_RENDERING (!(UE_BUILD_SHIPPING || UE_BUILD_TEST) || WITH_EDITOR)
+#define RUNTIMEMESH_ENABLE_DEBUG_RENDERING (!(UE_BUILD_SHIPPING || UE_BUILD_TEST) || WITH_EDITOR)
 
 // Custom version for runtime mesh serialization
 namespace FRuntimeMeshVersion

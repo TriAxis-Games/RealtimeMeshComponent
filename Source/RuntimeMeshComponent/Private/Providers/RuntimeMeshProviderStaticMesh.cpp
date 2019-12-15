@@ -3,10 +3,11 @@
 
 #include "RuntimeMeshProviderStaticMesh.h"
 #include "RuntimeMeshStaticMeshConverter.h"
+#include "Engine/StaticMesh.h"
 
 URuntimeMeshProviderStaticMesh::URuntimeMeshProviderStaticMesh()
 	: StaticMesh(nullptr)
-	, MaxLOD(RuntimeMesh_MAXLODS)
+	, MaxLOD(RUNTIMEMESH_MAXLODS)
 	, ComplexCollisionLOD(0)
 {
 
@@ -89,5 +90,14 @@ bool URuntimeMeshProviderStaticMesh::HasCollisionMesh_Implementation()
 
 bool URuntimeMeshProviderStaticMesh::GetCollisionMesh_Implementation(FRuntimeMeshCollisionData& CollisionData)
 {
-	return URuntimeMeshStaticMeshConverter::CopyStaticMeshLODToCollisionData(StaticMesh, ComplexCollisionLOD, CollisionData);
+	bool bResult = URuntimeMeshStaticMeshConverter::CopyStaticMeshLODToCollisionData(StaticMesh, ComplexCollisionLOD, CollisionData);
+
+	if (bResult)
+	{
+		for (auto& Section : CollisionData.CollisionSources)
+		{
+			Section.SourceProvider = this;
+		}
+	}
+	return bResult;
 }

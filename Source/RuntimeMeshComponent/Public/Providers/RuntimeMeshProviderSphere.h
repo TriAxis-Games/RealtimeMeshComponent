@@ -22,7 +22,7 @@ private:
 			FMath::LogX(LODMultiplier, LatitudeSegmentsLOD0),
 			FMath::LogX(LODMultiplier, LongitudeSegmentsLOD0));
 
-		return FMath::Max(1, FMath::Min<int32>(MaxLODs - 1, RuntimeMesh_MAXLODS));
+		return FMath::Max(1, FMath::Min<int32>(MaxLODs - 1, RUNTIMEMESH_MAXLODS));
 	}
 	float CalculateScreenSize(int32 LODIndex)
 	{

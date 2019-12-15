@@ -89,6 +89,9 @@ bool FRuntimeMeshProviderCollisionFromRenderableProxy::GetCollisionMesh(FRuntime
 					SectionMesh.Triangles.GetVertexIndex(NumIndices * 3 + 1) + FirstVertex, 
 					SectionMesh.Triangles.GetVertexIndex(NumIndices * 3 + 2) + FirstVertex);
 			}
+
+			// Add the collision section
+			CollisionData.CollisionSources.Emplace(FirstTris, CollisionData.Triangles.Num() - 1, GetParent(), SectionIdx, ERuntimeMeshCollisionFaceSourceType::Renderable);
 		}
 	}
 	return true;

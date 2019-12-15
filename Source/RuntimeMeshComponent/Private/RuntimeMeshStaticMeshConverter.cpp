@@ -238,11 +238,14 @@ bool URuntimeMeshStaticMeshConverter::CopyStaticMeshLODToCollisionData(UStaticMe
 
 	int32 TempIndices[3] = { 0, 0, 0 };
 
+	int32 SectionId = 0;
 	for (const FStaticMeshSection& Section : LOD.Sections)
 	{
 		const uint32 OnePastLastIndex = Section.FirstIndex + Section.NumTriangles;
 		FIndexArrayView Indices = LOD.IndexBuffer.GetArrayView();
 		
+		int32 StartTriangle = OutCollisionData.Triangles.Num();
+
 		// Iterate over section index buffer, copying verts as needed
 		for (uint32 TriIndex = Section.FirstIndex; TriIndex < OnePastLastIndex; TriIndex++)
 		{
@@ -260,6 +263,11 @@ bool URuntimeMeshStaticMeshConverter::CopyStaticMeshLODToCollisionData(UStaticMe
 			OutCollisionData.Triangles.Add(TempIndices[0], TempIndices[1], TempIndices[2]);
 			OutCollisionData.MaterialIndices.Add(Section.MaterialIndex);
 		}
+
+		// Add the collision section
+		OutCollisionData.CollisionSources.Emplace(StartTriangle, OutCollisionData.Triangles.Num() - 1, nullptr, SectionId, ERuntimeMeshCollisionFaceSourceType::Renderable);
+
+		SectionId++;
 	}
 
 	return true;

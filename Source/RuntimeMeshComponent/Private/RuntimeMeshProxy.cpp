@@ -17,7 +17,7 @@ FRuntimeMeshProxy::FRuntimeMeshProxy(ERHIFeatureLevel::Type InFeatureLevel)
 	: FeatureLevel(InFeatureLevel)
 {
 	LODs.Empty();
-	for (int32 Index = 0; Index < RuntimeMesh_MAXLODS; Index++)
+	for (int32 Index = 0; Index < RUNTIMEMESH_MAXLODS; Index++)
 	{
 		LODs.Add(MakeShareable(new FRuntimeMeshLODProxy(InFeatureLevel), FRuntimeMeshRenderThreadDeleter<FRuntimeMeshLODProxy>()));
 	}
@@ -32,7 +32,7 @@ FRuntimeMeshProxy::~FRuntimeMeshProxy()
 
 float FRuntimeMeshProxy::GetScreenSize(int32 LODIndex)
 {
-	if (LODIndex >= RuntimeMesh_MAXLODS)
+	if (LODIndex >= RUNTIMEMESH_MAXLODS)
 	{
 		return 0;
 	}
