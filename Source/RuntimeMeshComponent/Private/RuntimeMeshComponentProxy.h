@@ -64,10 +64,11 @@ public:
 
 #endif // RHI_RAYTRACING
 
-
 	int8 ComputeTemporalStaticMeshLOD(const FVector4& Origin, const float SphereRadius, const FSceneView& View, int32 MinLOD, float FactorScale, int32 SampleIndex) const;
 	int8 ComputeStaticMeshLOD(const FVector4& Origin, const float SphereRadius, const FSceneView& View, int32 MinLOD, float FactorScale) const;
 	FLODMask GetLODMask(const FSceneView* View) const;
+
+	virtual int32 GetLOD(const FSceneView* View) const;
 
 	virtual uint32 GetMemoryFootprint(void) const
 	{

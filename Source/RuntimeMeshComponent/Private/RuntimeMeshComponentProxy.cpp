@@ -55,6 +55,17 @@ FRuntimeMeshComponentSceneProxy::FRuntimeMeshComponentSceneProxy(URuntimeMeshCom
 
 			MaterialRelevance |= RenderData.Material->GetRelevance(GetScene().GetFeatureLevel());
 
+//#if RHI_RAYTRACING
+//			if (IsRayTracingEnabled())
+//			{
+//				const auto& ProxyLOD = RuntimeMeshProxy->GetLODs()[LODIndex];
+//				if (ProxyLOD->GetSections().Contains(Section.Key))
+//				{
+//					RayTracingGeometries.Add(ProxyLOD->GetSections()[Section.Key]->GetRayTracingGeometry());
+//				}
+//			}
+//#endif // RHI_RAYTRACING
+			
 		}
 	}   
 
@@ -65,7 +76,6 @@ FRuntimeMeshComponentSceneProxy::FRuntimeMeshComponentSceneProxy(URuntimeMeshCom
 	bStaticElementsAlwaysUseProxyPrimitiveUniformBuffer = true;
 	// We always use local vertex factory, which gets its primitive data from GPUScene, so we can skip expensive primitive uniform buffer updates
 	bVFRequiresPrimitiveUniformBuffer = !UseGPUScene(GMaxRHIShaderPlatform, RuntimeMeshProxy->GetFeatureLevel());
-
 }
 
 FRuntimeMeshComponentSceneProxy::~FRuntimeMeshComponentSceneProxy()
@@ -294,11 +304,10 @@ void FRuntimeMeshComponentSceneProxy::GetDynamicMeshElements(const TArray<const 
 			 MeshBatch.ReverseCulling = IsLocalToWorldDeterminantNegative();
 			 MeshBatch.DepthPriorityGroup = SDPG_World;
 			 MeshBatch.bCanApplyViewModeOverrides = false;
-			 
-			 Section->CreateMeshBatch(MeshBatch, true, false);
-			 
-			 RayTracingInstance.Materials.Add(MeshBatch);
 
+			 Section->CreateMeshBatch(MeshBatch, true, false);
+
+			 RayTracingInstance.Materials.Add(MeshBatch);
 			 RayTracingInstance.BuildInstanceMaskAndFlags();
 			 OutRayTracingInstances.Add(RayTracingInstance);
 
@@ -398,4 +407,12 @@ FLODMask FRuntimeMeshComponentSceneProxy::GetLODMask(const FSceneView* View) con
 	}
 
 	return Result;
+}
+
+int32 FRuntimeMeshComponentSceneProxy::GetLOD(const FSceneView* View) const
+{
+	const FBoxSphereBounds& ProxyBounds = GetBounds();
+	FCachedSystemScalabilityCVars CachedSystemScalabilityCVars = GetCachedScalabilityCVars();
+	float InvScreenSizeScale = (CachedSystemScalabilityCVars.StaticMeshLODDistanceScale != 0.f) ? (1.0f / CachedSystemScalabilityCVars.StaticMeshLODDistanceScale) : 1.0f;
+	return ComputeStaticMeshLOD(ProxyBounds.Origin, ProxyBounds.SphereRadius, *View, 0, InvScreenSizeScale);
 }

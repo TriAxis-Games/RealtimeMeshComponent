@@ -124,23 +124,29 @@ void FRuntimeMeshSectionProxy::UpdateSection_RenderThread(const FRuntimeMeshRend
 				[this](FRHICommandListImmediate& RHICmdList)
 				{
 					FRayTracingGeometryInitializer Initializer;
-					Initializer.PositionVertexBuffer = nullptr;
-					Initializer.IndexBuffer = nullptr;
-					Initializer.BaseVertexIndex = 0;
 					Initializer.VertexBufferStride = 12;
 					Initializer.VertexBufferByteOffset = 0;
-					Initializer.TotalPrimitiveCount = 0;
 					Initializer.VertexBufferElementType = VET_Float3;
 					Initializer.GeometryType = RTGT_Triangles;
 					Initializer.bFastBuild = true;
 					Initializer.bAllowUpdate = false;
 
+					Initializer.PositionVertexBuffer = PositionBuffer.VertexBufferRHI;
+					Initializer.IndexBuffer = IndexBuffer.IndexBufferRHI;
+					Initializer.BaseVertexIndex = 0;
+
+					TArray<FRayTracingGeometrySegment> GeometrySections;
+					FRayTracingGeometrySegment Segment;
+					Segment.FirstPrimitive = 0;
+					Segment.NumPrimitives = IndexBuffer.Num() / 3;
+					GeometrySections.Add(Segment);
+					Initializer.TotalPrimitiveCount = Segment.NumPrimitives;
+					Initializer.Segments = GeometrySections;
+
+
 					RayTracingGeometry.SetInitializer(Initializer);
 					RayTracingGeometry.InitResource();
 
-					RayTracingGeometry.Initializer.PositionVertexBuffer = PositionBuffer.VertexBufferRHI;
-					RayTracingGeometry.Initializer.IndexBuffer = IndexBuffer.IndexBufferRHI;
-					RayTracingGeometry.Initializer.TotalPrimitiveCount = IndexBuffer.Num() / 3;
 
 					//#dxr_todo: add support for segments?
 
