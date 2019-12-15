@@ -90,7 +90,9 @@ public:
 	bool CastsShadow() const { return Properties.bCastsShadow; }
 
 	FRuntimeMeshVertexFactory* GetVertexFactory() { return &VertexFactory; }
+#if RHI_RAYTRACING
 	FRayTracingGeometry* GetRayTracingGeometry() { return &RayTracingGeometry; }
+#endif
 	void BuildVertexDataType(FLocalVertexFactory::FDataType& DataType);
 
 	void CreateMeshBatch(FMeshBatch& MeshBatch, bool bCastsShadow, bool bWantsAdjacencyInfo) const;
