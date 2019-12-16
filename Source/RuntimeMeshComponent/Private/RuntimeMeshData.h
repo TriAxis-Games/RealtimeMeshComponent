@@ -40,14 +40,16 @@ public:
 	FRuntimeMeshData(const FRuntimeMeshProviderProxyRef& InBaseProvider, TWeakObjectPtr<URuntimeMesh> InParentMeshObject);
 	virtual ~FRuntimeMeshData() override;
 
+	FRuntimeMeshProviderProxyRef GetCurrentProviderProxy() { return BaseProvider; }
 
+	TArray<FRuntimeMeshMaterialSlot> GetMaterialSlots() const { return MaterialSlots; }
 	int32 GetNumMaterials() const;
 	UMaterialInterface* GetMaterial(int32 SlotIndex) const;
 	int32 GetMaterialIndex(FName MaterialSlotName) const;
 	TArray<FName> GetMaterialSlotNames() const;
 	bool IsMaterialSlotNameValid(FName MaterialSlotName) const;
 
-
+	TArray<FRuntimeMeshLOD, TInlineAllocator<RUNTIMEMESH_MAXLODS>> GetCopyOfConfiguration() const { return LODs; }
 protected: // IRuntimeMeshProvider signatures
 	virtual void Initialize() override;
 

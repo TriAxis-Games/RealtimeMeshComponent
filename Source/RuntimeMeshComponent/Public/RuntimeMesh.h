@@ -68,6 +68,11 @@ public:
 	UFUNCTION(BlueprintCallable)
 	URuntimeMeshProvider* GetProvider() { return MeshProvider; }
 
+	FRuntimeMeshProviderProxyPtr GetCurrentProviderProxy();
+	
+	UFUNCTION(BlueprintCallable)
+	TArray<FRuntimeMeshMaterialSlot> GetMaterialSlots() const;
+
 	UFUNCTION(BlueprintCallable)
 	int32 GetNumMaterials();
 	
@@ -92,7 +97,8 @@ public:
 	UPROPERTY(BlueprintAssignable, Category = "Components|RuntimeMesh")
 	FRuntimeMeshCollisionUpdatedDelegate CollisionUpdated;
 
-
+	/* This is to get a copy of the current lod/section configuration */
+	TArray<FRuntimeMeshLOD, TInlineAllocator<RUNTIMEMESH_MAXLODS>> GetCopyOfConfiguration() const;
 private:
 	FRuntimeMeshCollisionHitInfo GetHitSource(int32 FaceIndex) const;
 

@@ -105,6 +105,16 @@ void URuntimeMesh::Initialize(URuntimeMeshProvider* Provider)
 	InitializeInternal();
 }
 
+FRuntimeMeshProviderProxyPtr URuntimeMesh::GetCurrentProviderProxy()
+{
+	return Data.IsValid() ? Data->GetCurrentProviderProxy() : FRuntimeMeshProviderProxyPtr();
+}
+
+TArray<FRuntimeMeshMaterialSlot> URuntimeMesh::GetMaterialSlots() const
+{
+	return Data.IsValid() ? Data->GetMaterialSlots() : TArray<FRuntimeMeshMaterialSlot>();
+}
+
 int32 URuntimeMesh::GetNumMaterials()
 {
 	return Data.IsValid() ? Data->GetNumMaterials() : 0;
@@ -133,6 +143,16 @@ bool URuntimeMesh::IsMaterialSlotNameValid(FName MaterialSlotName) const
 FBoxSphereBounds URuntimeMesh::GetLocalBounds() const
 {
 	return Data.IsValid() ? Data->GetBounds() : FBoxSphereBounds();
+}
+
+TArray<FRuntimeMeshLOD, TInlineAllocator<RUNTIMEMESH_MAXLODS>> URuntimeMesh::GetCopyOfConfiguration() const
+{
+
+	if (Data.IsValid())
+	{
+		return Data->GetCopyOfConfiguration();
+	}
+	return TArray<FRuntimeMeshLOD, TInlineAllocator<RUNTIMEMESH_MAXLODS>>();
 }
 
 FRuntimeMeshCollisionHitInfo URuntimeMesh::GetHitSource(int32 FaceIndex) const
