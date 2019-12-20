@@ -36,6 +36,10 @@ public:
 
 
 	// Positions
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|Positions", meta = (Displayname = "Make RuntimeMeshVertexPositionStream (from FVector)"))
+	static FRuntimeMeshVertexPositionStream MakeRuntimeMeshVertexPositionStream_Fvectors(UPARAM(ref) const TArray<FVector>& InPositions);
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|Positions", meta = (Displayname = "Make RuntimeMeshVertexPositionStream (from Triangle)"))
+	static FRuntimeMeshVertexPositionStream MakeRuntimeMeshVertexPositionStream_Triangles(UPARAM(ref) const TArray<FRuntimeMeshRenerableTriangleVertices>& InTriangles);
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|Positions")
 	static void SetNumPositions(UPARAM(ref) FRuntimeMeshVertexPositionStream& Stream, FRuntimeMeshVertexPositionStream& OutStream, int32 NewNum, bool bAllowShrinking = true);
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|Positions")
@@ -45,6 +49,12 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|Positions")
 	static void AddPosition(UPARAM(ref) FRuntimeMeshVertexPositionStream& Stream, FRuntimeMeshVertexPositionStream& OutStream, FVector InPosition, int32& OutIndex);
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|Positions")
+	static void AddPositions(UPARAM(ref) FRuntimeMeshVertexPositionStream& Stream, FRuntimeMeshVertexPositionStream& OutStream, UPARAM(ref) const TArray<FVector>& InPositions);
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|Positions", meta = (Displayname = "Add Triangle"))
+	static void AddPositionTriangle(UPARAM(ref) FRuntimeMeshVertexPositionStream& Stream, FRuntimeMeshVertexPositionStream& OutStream, UPARAM(ref) const FRuntimeMeshRenerableTriangleVertices& InTriangle);
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|Positions")
+	static void AddPositionTriangles(UPARAM(ref) FRuntimeMeshVertexPositionStream& Stream, FRuntimeMeshVertexPositionStream& OutStream, UPARAM(ref) const TArray<FRuntimeMeshRenerableTriangleVertices>& InTriangles);
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|Positions")
 	static void AppendPositions(UPARAM(ref) FRuntimeMeshVertexPositionStream& Stream, FRuntimeMeshVertexPositionStream& OutStream, const FRuntimeMeshVertexPositionStream& InOther);
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|Positions")
 	static void GetPosition(UPARAM(ref) FRuntimeMeshVertexPositionStream& Stream, FRuntimeMeshVertexPositionStream& OutStream, int32 Index, FVector& OutPosition);
@@ -52,9 +62,13 @@ public:
 	static void SetPosition(UPARAM(ref) FRuntimeMeshVertexPositionStream& Stream, FRuntimeMeshVertexPositionStream& OutStream, int32 Index, FVector NewPosition);
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|Positions")
 	static void GetBounds(UPARAM(ref) FRuntimeMeshVertexPositionStream& Stream, FRuntimeMeshVertexPositionStream& OutStream, FBox& OutBounds);
-
+	
 
 	// Tangents
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|Tangents", meta = (Displayname = "Make RuntimeMeshVertexTangentStream (from Normal/Tanget)"))
+	static FRuntimeMeshVertexTangentStream MakeRuntimeMeshVertexTangentStream_NormalsTangets(UPARAM(ref) const TArray<FVector>& InNormals, UPARAM(ref) const TArray<FVector>& InTangents, bool bUseHighPrecision = false);
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|Tangents", meta = (Displayname = "Make RuntimeMeshVertexTangentStream (from Tangent)"))
+	static FRuntimeMeshVertexTangentStream MakeRuntimeMeshVertexTangentStream_Tangents(UPARAM(ref) const TArray<FVector>& InTangentsX, UPARAM(ref) const TArray<FVector>& InTangentsY, UPARAM(ref) const TArray<FVector>& InTangentsZ, bool bUseHighPrecision = false);
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|Tangents")
 	static void SetNumTangents(UPARAM(ref) FRuntimeMeshVertexTangentStream& Stream, FRuntimeMeshVertexTangentStream& OutStream, int32 NewNum, bool bAllowShrinking = true);
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|Tangents")
@@ -65,6 +79,10 @@ public:
 	static void AddNormalAndTangent(UPARAM(ref) FRuntimeMeshVertexTangentStream& Stream, FRuntimeMeshVertexTangentStream& OutStream, FVector InNormal, FVector InTangent, int32& OutIndex);
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|Tangents")
 	static void AddTangents(UPARAM(ref) FRuntimeMeshVertexTangentStream& Stream, FRuntimeMeshVertexTangentStream& OutStream, FVector InTangentX, FVector InTangentY, FVector InTangentZ, int32& OutIndex);
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|Tangents")
+	static void AddNormalsAndTangents(UPARAM(ref) FRuntimeMeshVertexTangentStream& Stream, FRuntimeMeshVertexTangentStream& OutStream, UPARAM(ref) const TArray<FVector>& InNormals, UPARAM(ref) const TArray<FVector>& InTangents);
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|Tangents")
+	static void AddTangentRange(UPARAM(ref) FRuntimeMeshVertexTangentStream& Stream, FRuntimeMeshVertexTangentStream& OutStream, UPARAM(ref) const TArray<FVector>& InTangentsX, UPARAM(ref) const TArray<FVector>& InTangentsY, UPARAM(ref) const TArray<FVector>& InTangentsZ);
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|Tangents")
 	static void AppendTangents(UPARAM(ref) FRuntimeMeshVertexTangentStream& Stream, FRuntimeMeshVertexTangentStream& OutStream, const FRuntimeMeshVertexTangentStream& InOther);
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|Tangents")
@@ -82,6 +100,10 @@ public:
 
 
 	// Texture Coordinates
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|TextureCoordinates", meta = (Displayname = "Make RuntimeMeshVertexTexCoordStream (SingleChannel)"))
+	static FRuntimeMeshVertexTexCoordStream MakeRuntimeMeshVertexTexCoordStream_SingleChannel(UPARAM(ref) const TArray<FVector2D>& InTexCoords);
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|TextureCoordinates", meta = (Displayname = "Make RuntimeMeshVertexTexCoordStream (MultiChannel)"))
+	static FRuntimeMeshVertexTexCoordStream MakeRuntimeMeshVertexTexCoordStream_MultiChannel(int32 ChannelCount, UPARAM(ref) const TArray<FVector2D>& InTexCoords, UPARAM(ref) const TArray<int32> InChannelIds);
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|TextureCoordinates")
 	static void SetNumTexCoords(UPARAM(ref) FRuntimeMeshVertexTexCoordStream& Stream, FRuntimeMeshVertexTexCoordStream& OutStream, int32 NewNum, bool bAllowShrinking = true);
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|TextureCoordinates")
@@ -93,6 +115,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|TextureCoordinates")
 	static void AddTexCoord(UPARAM(ref) FRuntimeMeshVertexTexCoordStream& Stream, FRuntimeMeshVertexTexCoordStream& OutStream, int32& OutIndex, FVector2D InTexCoord, int32 ChannelId = 0);
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|TextureCoordinates")
+	static void AddTexCoords(UPARAM(ref) FRuntimeMeshVertexTexCoordStream& Stream, FRuntimeMeshVertexTexCoordStream& OutStream, UPARAM(ref) const TArray<FVector2D>& InTexCoords, int32 ChannelId = 0);
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|TextureCoordinates")
+	static void AddTexCoordsForChannels(UPARAM(ref) FRuntimeMeshVertexTexCoordStream& Stream, FRuntimeMeshVertexTexCoordStream& OutStream, UPARAM(ref) const TArray<FVector2D>& InTexCoords, UPARAM(ref) const TArray<int32> InChannelIds);
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|TextureCoordinates")
 	static void AppendTexCoords(UPARAM(ref) FRuntimeMeshVertexTexCoordStream& Stream, FRuntimeMeshVertexTexCoordStream& OutStream, const FRuntimeMeshVertexTexCoordStream& InOther);
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|TextureCoordinates")
 	static void GetTexCoord(UPARAM(ref) FRuntimeMeshVertexTexCoordStream& Stream, FRuntimeMeshVertexTexCoordStream& OutStream, int32 Index, FVector2D& OutTexCoord);
@@ -102,6 +128,8 @@ public:
 
 	// Colors
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|Colors")
+	static FRuntimeMeshVertexColorStream MakeRuntimeMeshVertexColorStream(UPARAM(ref) const TArray<FLinearColor> InColors);
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|Colors")
 	static void SetNumColors(UPARAM(ref) FRuntimeMeshVertexColorStream& Stream, FRuntimeMeshVertexColorStream& OutStream, int32 NewNum, bool bAllowShrinking = true);
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|Colors")
 	static void NumColors(UPARAM(ref) FRuntimeMeshVertexColorStream& Stream, FRuntimeMeshVertexColorStream& OutStream, int32& OutNumColors);
@@ -109,6 +137,8 @@ public:
 	static void EmptyColors(UPARAM(ref) FRuntimeMeshVertexColorStream& Stream, FRuntimeMeshVertexColorStream& OutStream, int32 Slack = 0);
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|Colors")
 	static void AddColor(UPARAM(ref) FRuntimeMeshVertexColorStream& Stream, FRuntimeMeshVertexColorStream& OutStream, FLinearColor InColor, int32& OutIndex);
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|Colors")
+	static void AddColors(UPARAM(ref) FRuntimeMeshVertexColorStream& Stream, FRuntimeMeshVertexColorStream& OutStream, UPARAM(ref) const TArray<FLinearColor>& InColors);
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|Colors")
 	static void AppendColors(UPARAM(ref) FRuntimeMeshVertexColorStream& Stream, FRuntimeMeshVertexColorStream& OutStream, const FRuntimeMeshVertexColorStream& InOther);
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|Colors")
@@ -118,6 +148,10 @@ public:
 
 
 	// Triangles
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|Triangles", meta = (Displayname = "Make RuntimeMeshTriangleStream (from Int32)"))
+	static FRuntimeMeshTriangleStream MakeRuntimeMeshTriangleStream_Int32(UPARAM(ref) const TArray<int32>& InIndices, bool bUse32BitIndices = false);
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|Triangles", meta = (Displayname="Make RuntimeMeshTriangleStream (from Triangle)"))
+	static FRuntimeMeshTriangleStream MakeRuntimeMeshTriangleStream_Triangle(UPARAM(ref) const TArray<FRuntimeMeshRenerableTriangleIndices>& InTriangles, bool bUse32BitIndices = false);
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|Triangles")
 	static void SetNumTriangles(UPARAM(ref) FRuntimeMeshTriangleStream& Stream, FRuntimeMeshTriangleStream& OutStream, int32 NewNum, bool bAllowShrinking = true);
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|Triangles")
@@ -129,7 +163,13 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|Triangles")
 	static void AddIndex(UPARAM(ref) FRuntimeMeshTriangleStream& Stream, FRuntimeMeshTriangleStream& OutStream, int32 NewIndex, int32& OutIndex);
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|Triangles")
+	static void AddIndices(UPARAM(ref) FRuntimeMeshTriangleStream& Stream, FRuntimeMeshTriangleStream& OutStream, UPARAM(ref) const TArray<int32>& InIndices);
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|Triangles", meta = (Displayname = "Add Triangles (from Int32)"))
 	static void AddTriangle(UPARAM(ref) FRuntimeMeshTriangleStream& Stream, FRuntimeMeshTriangleStream& OutStream, int32 NewIndexA, int32 NewIndexB, int32 NewIndexC);
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|Triangles", meta = (Displayname="Add Triangles (from Triangle)"))
+	static void AddTriangleFromStructure(UPARAM(ref) FRuntimeMeshTriangleStream& Stream, FRuntimeMeshTriangleStream& OutStream, UPARAM(ref) const FRuntimeMeshRenerableTriangleIndices& InTriangle);
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|Triangles")
+	static void AddTriangles(UPARAM(ref) FRuntimeMeshTriangleStream& Stream, FRuntimeMeshTriangleStream& OutStream, UPARAM(ref) const TArray<FRuntimeMeshRenerableTriangleIndices>& InTriangles);
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|Triangles")
 	static void AppendTriangles(UPARAM(ref) FRuntimeMeshTriangleStream& Stream, FRuntimeMeshTriangleStream& OutStream, const FRuntimeMeshTriangleStream& InOther);
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|Triangles")

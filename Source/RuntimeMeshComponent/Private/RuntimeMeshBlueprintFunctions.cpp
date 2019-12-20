@@ -5,6 +5,7 @@
 
 // MeshData
 
+
 FRuntimeMeshVertexPositionStream& URuntimeMeshBlueprintFunctions::GetPositionStream(FRuntimeMeshRenderableMeshData& MeshData, FRuntimeMeshRenderableMeshData& OutMeshData)
 {
 	OutMeshData = MeshData;
@@ -44,6 +45,20 @@ FRuntimeMeshTriangleStream& URuntimeMeshBlueprintFunctions::GetAdjacencyTriangle
 
 // Positions
 
+FRuntimeMeshVertexPositionStream URuntimeMeshBlueprintFunctions::MakeRuntimeMeshVertexPositionStream_Fvectors(const TArray<FVector>& InPositions)
+{
+	FRuntimeMeshVertexPositionStream out;
+	out.AddRange(InPositions);
+	return out;
+}
+
+FRuntimeMeshVertexPositionStream URuntimeMeshBlueprintFunctions::MakeRuntimeMeshVertexPositionStream_Triangles(const TArray<FRuntimeMeshRenerableTriangleVertices>& InTriangles)
+{
+	FRuntimeMeshVertexPositionStream out;
+	out.AddTriangles(InTriangles);
+	return out;
+}
+
 void URuntimeMeshBlueprintFunctions::SetNumPositions(FRuntimeMeshVertexPositionStream& Stream, FRuntimeMeshVertexPositionStream& OutStream, int32 NewNum, bool bAllowShrinking /*= true*/)
 {
 	OutStream = Stream;
@@ -66,6 +81,24 @@ void URuntimeMeshBlueprintFunctions::AddPosition(FRuntimeMeshVertexPositionStrea
 {
 	OutStream = Stream;
 	OutIndex = Stream.Add(InPosition);
+}
+
+void URuntimeMeshBlueprintFunctions::AddPositions(FRuntimeMeshVertexPositionStream& Stream,	FRuntimeMeshVertexPositionStream& OutStream, const TArray<FVector>& InPositions)
+{
+	OutStream = Stream;
+	Stream.AddRange(InPositions);
+}
+
+void URuntimeMeshBlueprintFunctions::AddPositionTriangle(FRuntimeMeshVertexPositionStream& Stream, FRuntimeMeshVertexPositionStream& OutStream, const FRuntimeMeshRenerableTriangleVertices& InTriangle)
+{
+	OutStream = Stream;
+	Stream.AddTriangle(InTriangle);
+}
+
+void URuntimeMeshBlueprintFunctions::AddPositionTriangles(FRuntimeMeshVertexPositionStream& Stream, FRuntimeMeshVertexPositionStream& OutStream, const TArray<FRuntimeMeshRenerableTriangleVertices>& InTriangles)
+{
+	OutStream = Stream;
+	Stream.AddTriangles(InTriangles);
 }
 
 void URuntimeMeshBlueprintFunctions::AppendPositions(FRuntimeMeshVertexPositionStream& Stream, FRuntimeMeshVertexPositionStream& OutStream, const FRuntimeMeshVertexPositionStream& InOther)
@@ -95,6 +128,20 @@ void URuntimeMeshBlueprintFunctions::GetBounds(FRuntimeMeshVertexPositionStream&
 
 // Tangents
 
+FRuntimeMeshVertexTangentStream URuntimeMeshBlueprintFunctions::MakeRuntimeMeshVertexTangentStream_NormalsTangets(const TArray<FVector>& InNormals, const TArray<FVector>& InTangents, bool bUseHighPrecision)
+{
+	FRuntimeMeshVertexTangentStream out(bUseHighPrecision);
+	out.AddRange(InNormals, InTangents);
+	return out;
+}
+
+FRuntimeMeshVertexTangentStream URuntimeMeshBlueprintFunctions::MakeRuntimeMeshVertexTangentStream_Tangents(const TArray<FVector>& InTangentsX, const TArray<FVector>& InTangentsY, const TArray<FVector>& InTangentsZ, bool bUseHighPrecision)
+{
+	FRuntimeMeshVertexTangentStream out(bUseHighPrecision);
+	out.AddRange(InTangentsX, InTangentsY, InTangentsZ);
+	return out;
+}
+
 void URuntimeMeshBlueprintFunctions::SetNumTangents(FRuntimeMeshVertexTangentStream& Stream, FRuntimeMeshVertexTangentStream& OutStream, int32 NewNum, bool bAllowShrinking /*= true*/)
 {
 	OutStream = Stream;
@@ -123,6 +170,19 @@ void URuntimeMeshBlueprintFunctions::AddTangents(FRuntimeMeshVertexTangentStream
 {
 	OutStream = Stream;
 	OutIndex = Stream.Add(InTangentX, InTangentY, InTangentZ);
+}
+
+void URuntimeMeshBlueprintFunctions::AddNormalsAndTangents(FRuntimeMeshVertexTangentStream& Stream,	FRuntimeMeshVertexTangentStream& OutStream, const TArray<FVector>& InNormals, const TArray<FVector>& InTangents)
+{
+	OutStream = Stream;
+	Stream.AddRange(InNormals, InTangents);
+}
+
+void URuntimeMeshBlueprintFunctions::AddTangentRange(FRuntimeMeshVertexTangentStream& Stream, FRuntimeMeshVertexTangentStream& OutStream, const TArray<FVector>& InTangentsX, const TArray<FVector>& InTangentsY,
+	const TArray<FVector>& InTangentsZ)
+{
+	OutStream = Stream;
+	Stream.AddRange(InTangentsX, InTangentsY, InTangentsZ);
 }
 
 void URuntimeMeshBlueprintFunctions::AppendTangents(FRuntimeMeshVertexTangentStream& Stream, FRuntimeMeshVertexTangentStream& OutStream, const FRuntimeMeshVertexTangentStream& InOther)
@@ -170,6 +230,20 @@ void URuntimeMeshBlueprintFunctions::SetTangents(FRuntimeMeshVertexTangentStream
 
 // Texture Coordinates
 
+FRuntimeMeshVertexTexCoordStream URuntimeMeshBlueprintFunctions::MakeRuntimeMeshVertexTexCoordStream_SingleChannel(const TArray<FVector2D>& InTexCoords)
+{
+	FRuntimeMeshVertexTexCoordStream out;
+	out.AddRange(InTexCoords);
+	return out;
+}
+
+FRuntimeMeshVertexTexCoordStream URuntimeMeshBlueprintFunctions::MakeRuntimeMeshVertexTexCoordStream_MultiChannel(int32 ChannelCount, const TArray<FVector2D>& InTexCoords, const TArray<int32> InChannelIds)
+{
+	FRuntimeMeshVertexTexCoordStream out(ChannelCount);
+	out.AddRange(InTexCoords, InChannelIds);
+	return out;
+}
+
 void URuntimeMeshBlueprintFunctions::SetNumTexCoords(FRuntimeMeshVertexTexCoordStream& Stream, FRuntimeMeshVertexTexCoordStream& OutStream, int32 NewNum, bool bAllowShrinking /*= true*/)
 {
 	OutStream = Stream;
@@ -200,6 +274,18 @@ void URuntimeMeshBlueprintFunctions::AddTexCoord(FRuntimeMeshVertexTexCoordStrea
 	OutIndex = Stream.Add(InTexCoord, ChannelId);
 }
 
+void URuntimeMeshBlueprintFunctions::AddTexCoords(FRuntimeMeshVertexTexCoordStream& Stream,	FRuntimeMeshVertexTexCoordStream& OutStream, const TArray<FVector2D>& InTexCoords, int32 ChannelId)
+{
+	OutStream = Stream;
+	Stream.AddRange(InTexCoords, ChannelId);
+}
+
+void URuntimeMeshBlueprintFunctions::AddTexCoordsForChannels(FRuntimeMeshVertexTexCoordStream& Stream, FRuntimeMeshVertexTexCoordStream& OutStream, const TArray<FVector2D>& InTexCoords, const TArray<int32> InChannelIds)
+{
+	OutStream = Stream;
+	Stream.AddRange(InTexCoords, InChannelIds);
+}
+
 void URuntimeMeshBlueprintFunctions::AppendTexCoords(FRuntimeMeshVertexTexCoordStream& Stream, FRuntimeMeshVertexTexCoordStream& OutStream, const FRuntimeMeshVertexTexCoordStream& InOther)
 {
 	OutStream = Stream;
@@ -220,6 +306,14 @@ void URuntimeMeshBlueprintFunctions::SetTexCoord(FRuntimeMeshVertexTexCoordStrea
 
 
 // Colors
+
+FRuntimeMeshVertexColorStream URuntimeMeshBlueprintFunctions::MakeRuntimeMeshVertexColorStream(const TArray<FLinearColor> InColors)
+{
+	FRuntimeMeshVertexColorStream out;
+	// We call this to avoid reimplementing the color conversion.
+	URuntimeMeshBlueprintFunctions::AddColors(out, out, InColors);
+	return out;
+}
 
 void URuntimeMeshBlueprintFunctions::SetNumColors(FRuntimeMeshVertexColorStream& Stream, FRuntimeMeshVertexColorStream& OutStream, int32 NewNum, bool bAllowShrinking /*= true*/)
 {
@@ -245,6 +339,20 @@ void URuntimeMeshBlueprintFunctions::AddColor(FRuntimeMeshVertexColorStream& Str
 	OutIndex = Stream.Add(InColor.ToFColor(false));
 }
 
+void URuntimeMeshBlueprintFunctions::AddColors(FRuntimeMeshVertexColorStream& Stream, FRuntimeMeshVertexColorStream& OutStream, const TArray<FLinearColor>& InColors)
+{
+	OutStream = Stream;
+	TArray<FColor> colors;
+	colors.SetNumUninitialized(InColors.Num());
+	int idx = 0;
+	for (auto& InColor : InColors)
+	{
+		colors[idx++] = InColor.ToFColor(false);
+	}
+	
+	Stream.AddRange(colors);
+}
+
 void URuntimeMeshBlueprintFunctions::AppendColors(FRuntimeMeshVertexColorStream& Stream, FRuntimeMeshVertexColorStream& OutStream, const FRuntimeMeshVertexColorStream& InOther)
 {
 	OutStream = Stream;
@@ -265,6 +373,20 @@ void URuntimeMeshBlueprintFunctions::SetColor(FRuntimeMeshVertexColorStream& Str
 
 
 // Triangles
+FRuntimeMeshTriangleStream URuntimeMeshBlueprintFunctions::MakeRuntimeMeshTriangleStream_Int32(const TArray<int32>& InIndices, bool bUse32BitIndices)
+{
+	FRuntimeMeshTriangleStream out(bUse32BitIndices);
+	// We call this to avoid reimplementing the color conversion.
+	URuntimeMeshBlueprintFunctions::AddIndices(out, out, InIndices);
+	return out;
+}
+
+FRuntimeMeshTriangleStream URuntimeMeshBlueprintFunctions::MakeRuntimeMeshTriangleStream_Triangle(const TArray<FRuntimeMeshRenerableTriangleIndices>& InTriangles, bool bUse32BitIndices)
+{
+	FRuntimeMeshTriangleStream out(bUse32BitIndices);
+	out.AddTriangles(InTriangles);
+	return out;
+}
 
 void URuntimeMeshBlueprintFunctions::SetNumTriangles(FRuntimeMeshTriangleStream& Stream, FRuntimeMeshTriangleStream& OutStream, int32 NewNum, bool bAllowShrinking /*= true*/)
 {
@@ -296,10 +418,35 @@ void URuntimeMeshBlueprintFunctions::AddIndex(FRuntimeMeshTriangleStream& Stream
 	OutIndex = Stream.Add(NewIndex);
 }
 
+void URuntimeMeshBlueprintFunctions::AddIndices(FRuntimeMeshTriangleStream& Stream,	FRuntimeMeshTriangleStream& OutStream, const TArray<int32>& InIndices)
+{
+	OutStream = Stream;
+	TArray<uint32> indices;
+	indices.SetNumUninitialized(InIndices.Num());
+	int32 idx = 0;
+	for (auto InIndex : InIndices)
+	{
+		indices[idx++] = InIndex;
+	}
+	Stream.AddRange(indices);
+}
+
 void URuntimeMeshBlueprintFunctions::AddTriangle(FRuntimeMeshTriangleStream& Stream, FRuntimeMeshTriangleStream& OutStream, int32 NewIndexA, int32 NewIndexB, int32 NewIndexC)
 {
 	OutStream = Stream;
 	Stream.AddTriangle(NewIndexA, NewIndexB, NewIndexC);
+}
+
+void URuntimeMeshBlueprintFunctions::AddTriangleFromStructure(FRuntimeMeshTriangleStream& Stream, FRuntimeMeshTriangleStream& OutStream, const FRuntimeMeshRenerableTriangleIndices& InTriangle)
+{
+	OutStream = Stream;
+	Stream.AddTriangle(InTriangle);
+}
+
+void URuntimeMeshBlueprintFunctions::AddTriangles(FRuntimeMeshTriangleStream& Stream, FRuntimeMeshTriangleStream& OutStream, const TArray<FRuntimeMeshRenerableTriangleIndices>& InTriangles)
+{
+	OutStream = Stream;
+	Stream.AddTriangles(InTriangles);
 }
 
 void URuntimeMeshBlueprintFunctions::AppendTriangles(FRuntimeMeshTriangleStream& Stream, FRuntimeMeshTriangleStream& OutStream, const FRuntimeMeshTriangleStream& InOther)

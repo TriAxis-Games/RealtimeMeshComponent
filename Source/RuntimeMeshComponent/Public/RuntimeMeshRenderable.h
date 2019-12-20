@@ -8,6 +8,19 @@
 #include "RuntimeMeshRenderable.generated.h"
 
 USTRUCT(BlueprintType)
+struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshRenerableTriangleVertices
+{
+	GENERATED_USTRUCT_BODY();
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FVector VertexA;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FVector VertexB;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FVector VertexC;
+};
+
+USTRUCT(BlueprintType)
 struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshVertexPositionStream
 {
 	GENERATED_USTRUCT_BODY();
@@ -41,6 +54,27 @@ public:
 		Data.AddUninitialized(sizeof(FVector));
 		*((FVector*)&Data[Index]) = InPosition;
 		return Index / sizeof(FVector);
+	}
+
+	void AddRange(const TArray<FVector>& InOther)
+	{
+		int32 Index = Data.Num();
+		Data.AddUninitialized(sizeof(FVector) * InOther.Num());
+		FMemory::Memcpy(&Data[Index], InOther.GetData(), sizeof(FVector) * InOther.Num());
+	}
+
+	void AddTriangle(const FRuntimeMeshRenerableTriangleVertices& InTriangle)
+	{
+		int32 Index = Data.Num();
+		Data.AddUninitialized(sizeof(FRuntimeMeshRenerableTriangleVertices));
+		FMemory::Memcpy(&Data[Index], &InTriangle, sizeof(FRuntimeMeshRenerableTriangleVertices));
+	}
+
+	void AddTriangles(const TArray<FRuntimeMeshRenerableTriangleVertices>& InOther)
+	{
+		int32 Index = Data.Num();
+		Data.AddUninitialized(sizeof(FRuntimeMeshRenerableTriangleVertices) * InOther.Num());
+		FMemory::Memcpy(&Data[Index], InOther.GetData(), sizeof(FRuntimeMeshRenerableTriangleVertices) * InOther.Num());
 	}
 
 	void Append(const FRuntimeMeshVertexPositionStream& InOther)
@@ -158,6 +192,50 @@ public:
 		return Index / Stride;
 	}
 
+	void AddRange(const TArray<FVector>& InNormals, const TArray<FVector>& InTangents)
+	{
+		check(InNormals.Num() == InTangents.Num());
+		int32 Index = Data.Num();
+		int32 Stride = GetStride();
+		Data.AddUninitialized(Stride * InNormals.Num());
+
+		for (int32 i = 0; i < InNormals.Num(); i++, Index += Stride)
+		{
+			if (bIsHighPrecision)
+			{
+				*((FPackedRGBA16N*)&Data[Index]) = FPackedRGBA16N(InTangents[i]);
+				*((FPackedRGBA16N*)&Data[Index + sizeof(FPackedRGBA16N)]) = FPackedRGBA16N(InNormals[i]);
+			}
+			else
+			{
+				*((FPackedNormal*)&Data[Index]) = FPackedNormal(InTangents[i]);
+				*((FPackedNormal*)&Data[Index + sizeof(FPackedNormal)]) = FPackedNormal(InNormals[i]);
+			}
+		}
+	}
+
+	void AddRange(const TArray<FVector>& InTangentsX, const TArray<FVector>& InTangentsY, const TArray<FVector>& InTangentsZ)
+	{
+		check(InTangentsX.Num() == InTangentsY.Num() && InTangentsY.Num() == InTangentsZ.Num());
+		int32 Index = Data.Num();
+		int32 Stride = GetStride();
+		Data.AddUninitialized(Stride * InTangentsX.Num());
+
+		for (int32 i = 0; i < InTangentsX.Num(); i++, Index += Stride)
+		{
+			if (bIsHighPrecision)
+			{
+				*((FPackedRGBA16N*)&Data[Index]) = FPackedRGBA16N(InTangentsX[i]);
+				*((FPackedRGBA16N*)&Data[Index + sizeof(FPackedRGBA16N)]) = FPackedRGBA16N(FVector4(InTangentsZ[i], GetBasisDeterminantSign(InTangentsX[i], InTangentsY[i], InTangentsZ[i])));
+			}
+			else
+			{
+				*((FPackedNormal*)&Data[Index]) = FPackedNormal(InTangentsX[i]);
+				*((FPackedNormal*)&Data[Index + sizeof(FPackedNormal)]) = FPackedNormal(FVector4(InTangentsZ[i], GetBasisDeterminantSign(InTangentsX[i], InTangentsY[i], InTangentsZ[i])));
+			}
+		}
+	}
+	
 	void Append(const FRuntimeMeshVertexTangentStream& InOther)
 	{
 		Data.Append(InOther.Data);
@@ -311,6 +389,7 @@ public:
 
 	int32 Add(const FVector2D& InTexCoord, int32 ChannelId = 0)
 	{
+		check(ChannelId < ChannelCount);
 		int32 Index = Num();
 		int32 Stride = GetStride();
 		Data.AddUninitialized(Stride);
@@ -329,6 +408,49 @@ public:
 		return Index / Stride;
 	}
 
+	void AddRange(const TArray<FVector2D>& InOther, int32 ChannelId = 0)
+	{
+		int32 Index = Num();
+		int32 Stride = GetStride();
+		Data.AddUninitialized(Stride * InOther.Num());
+
+		for (int32 i = 0; i < InOther.Num(); i++, Index += Stride)
+		{
+			if (bIsHighPrecision)
+			{
+				static const int32 ElementSize = sizeof(FVector2D);
+				*((FVector2D*)&Data[(Index * Stride) + (ChannelId * ElementSize)]) = InOther[i];
+			}
+			else
+			{
+				static const int32 ElementSize = sizeof(FVector2DHalf);
+				*((FVector2DHalf*)&Data[(Index * Stride) + (ChannelId * ElementSize)]) = InOther[i];
+			}
+		}
+	}
+
+	void AddRange(const TArray<FVector2D>& InOther, const TArray<int32>& InChannelIds)
+	{
+		check(InOther.Num() == InChannelIds.Num());
+		int32 Index = Num();
+		int32 Stride = GetStride();
+		Data.AddUninitialized(Stride * InOther.Num());
+
+		for (int32 i = 0; i < InOther.Num(); i++, Index += Stride)
+		{
+			if (bIsHighPrecision)
+			{
+				static const int32 ElementSize = sizeof(FVector2D);
+				*((FVector2D*)&Data[(Index * Stride) + (InChannelIds[i] * ElementSize)]) = InOther[i];
+			}
+			else
+			{
+				static const int32 ElementSize = sizeof(FVector2DHalf);
+				*((FVector2DHalf*)&Data[(Index * Stride) + (InChannelIds[i] * ElementSize)]) = InOther[i];
+			}
+		}
+	}
+	
 	void Append(const FRuntimeMeshVertexTexCoordStream& InOther)
 	{
 		Data.Append(InOther.Data);
@@ -423,6 +545,13 @@ public:
 		return Index / sizeof(FColor);
 	}
 
+	void AddRange(const TArray<FColor>& InOther)
+	{
+		int32 Index = Data.Num();
+		Data.AddUninitialized(sizeof(FColor) * InOther.Num());
+		FMemory::Memcpy(&Data[Index], InOther.GetData(), sizeof(FColor) * InOther.Num());
+	}
+	
 	void Append(const FRuntimeMeshVertexColorStream& InOther)
 	{
 		Data.Append(InOther.Data);
@@ -451,6 +580,19 @@ template<> struct TStructOpsTypeTraits<FRuntimeMeshVertexColorStream> : public T
 	{
 		WithSerializer = true
 	};
+};
+
+USTRUCT(BlueprintType)
+struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshRenerableTriangleIndices
+{
+	GENERATED_USTRUCT_BODY();
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	int32 IndexA;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	int32 IndexB;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	int32 IndexC;
 };
 
 USTRUCT(BlueprintType)
@@ -509,6 +651,24 @@ public:
 		return Index / Stride;
 	}
 
+	void AddRange(const TArray<uint32>& InOther)
+	{
+		int32 Index = Data.Num();
+		Data.AddUninitialized(Stride * InOther.Num());
+
+		if (bIsUsing32BitIndices)
+		{
+			FMemory::Memcpy(&Data[Index], InOther.GetData(), sizeof(uint32) * InOther.Num());
+		}
+		else
+		{
+			for (int32 i = 0; i < InOther.Num(); i++, Index += Stride)
+			{
+				*((uint16*)&Data[Index]) = InOther[i];
+			}
+		}
+	}
+
 	int32 AddTriangle(uint32 NewIndexA, uint32 NewIndexB, uint32 NewIndexC)
 	{
 		int32 Index = Data.Num();
@@ -534,6 +694,49 @@ public:
 		return Index / Stride;
 	}
 
+	int32 AddTriangle(const FRuntimeMeshRenerableTriangleIndices& InTriangle)
+	{
+		int32 Index = Data.Num();
+		Data.AddUninitialized(Stride * 3);
+
+		if (bIsUsing32BitIndices)
+		{
+			FMemory::Memcpy(&Data[Index], &InTriangle, sizeof(FRuntimeMeshRenerableTriangleIndices));
+		}
+		else
+		{
+			*((uint16*)&Data[Index]) = InTriangle.IndexA;
+			Index += Stride;
+			*((uint16*)&Data[Index]) = InTriangle.IndexB;
+			Index += Stride;
+			*((uint16*)&Data[Index]) = InTriangle.IndexC;
+		}
+
+		return Index / Stride;
+	}
+
+	void AddTriangles(const TArray<FRuntimeMeshRenerableTriangleIndices>& InOther)
+	{
+		int32 Index = Data.Num();
+		Data.AddUninitialized(Stride * InOther.Num());
+
+		if (bIsUsing32BitIndices)
+		{
+			FMemory::Memcpy(&Data[Index], InOther.GetData(), sizeof(FRuntimeMeshRenerableTriangleIndices) * InOther.Num());
+		}
+		else
+		{
+			for (int32 i = 0; i < InOther.Num(); i++, Index += Stride)
+			{
+				*((uint16*)&Data[Index]) = InOther[i].IndexA;
+				Index += Stride;
+				*((uint16*)&Data[Index]) = InOther[i].IndexB;
+				Index += Stride;
+				*((uint16*)&Data[Index]) = InOther[i].IndexC;
+			}
+		}
+	}
+	
 	void Append(const FRuntimeMeshTriangleStream& InOther)
 	{
 		Data.Append(InOther.Data);
@@ -560,6 +763,20 @@ public:
 		else
 		{
 			*((uint16*)&Data[Index * Stride]) = NewIndex;
+		}
+	}
+
+	void SetTriangleAtIndex(int32 Index, const FRuntimeMeshRenerableTriangleIndices& InTriangle)
+	{
+		if (bIsUsing32BitIndices)
+		{
+			FMemory::Memcpy(&Data[Index * Stride], &InTriangle, sizeof(Stride) * 3);
+		}
+		else
+		{
+			*((uint16*)&Data[Index * Stride]) = InTriangle.IndexA;
+			*((uint16*)&Data[Index * Stride + 1]) = InTriangle.IndexB;
+			*((uint16*)&Data[Index * Stride + 2]) = InTriangle.IndexC;
 		}
 	}
 
@@ -670,18 +887,18 @@ struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshRenderableMeshData
 	GENERATED_USTRUCT_BODY();
 
 public:
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "RuntimeMesh|Rendering|MeshData")
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Rendering|MeshData")
 	FRuntimeMeshVertexPositionStream Positions;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "RuntimeMesh|Rendering|MeshData")
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Rendering|MeshData")
 	FRuntimeMeshVertexTangentStream Tangents;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "RuntimeMesh|Rendering|MeshData")
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Rendering|MeshData")
 	FRuntimeMeshVertexTexCoordStream TexCoords;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "RuntimeMesh|Rendering|MeshData")
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Rendering|MeshData")
 	FRuntimeMeshVertexColorStream Colors;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "RuntimeMesh|Rendering|MeshData")
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Rendering|MeshData")
 	FRuntimeMeshTriangleStream Triangles;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "RuntimeMesh|Rendering|MeshData")
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Rendering|MeshData")
 	FRuntimeMeshTriangleStream AdjacencyTriangles;
 
 	FRuntimeMeshRenderableMeshData()
