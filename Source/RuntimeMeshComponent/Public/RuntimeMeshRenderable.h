@@ -664,7 +664,7 @@ public:
 
 };
 
-USTRUCT(BlueprintType)
+USTRUCT(BlueprintType, Meta=(DontUseGenericSpawnObject))
 struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshRenderableMeshData
 {
 	GENERATED_USTRUCT_BODY();
@@ -696,9 +696,6 @@ public:
 
 	}
 
-	bool HasValidMeshData()
-	{
-		return Positions.Num() > 0 && Positions.Num() == Tangents.Num() && Positions.Num() == TexCoords.Num() && Positions.Num() == Colors.Num() && Triangles.Num() > 0;
-	}
+	bool HasValidMeshData(bool bPrintErrorMessage = false);
 
 };

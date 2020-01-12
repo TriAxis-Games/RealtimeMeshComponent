@@ -18,6 +18,12 @@ public:
 
 	//static URuntimeMeshProvider* ConstructRuntimeMeshProvider(TSubclassOf<URuntimeMeshProvider> Class);
 
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|MeshData")
+	static FRuntimeMeshRenderableMeshData CreateRenderableMeshData(bool bWantsHighPrecisionTangents = false, bool bWantsHighPrecisionTexCoords = false, uint8 NumTexCoords = 1, bool bWants32BitIndices = false)
+	{
+		return FRuntimeMeshRenderableMeshData(bWantsHighPrecisionTangents, bWantsHighPrecisionTexCoords, NumTexCoords, bWants32BitIndices);
+	}
+
 
 
 	// MeshData

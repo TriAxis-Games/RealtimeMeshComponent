@@ -100,9 +100,26 @@ URuntimeMesh::URuntimeMesh(const FObjectInitializer& ObjectInitializer)
 
 void URuntimeMesh::Initialize(URuntimeMeshProvider* Provider)
 {
-	MeshProvider = Provider;
-	MarkChanged();
-	InitializeInternal();
+	if (Provider)
+	{
+		MeshProvider = Provider;
+		MarkChanged();
+		InitializeInternal();
+	}
+	else
+	{
+		MeshProvider = nullptr;
+		Data.Reset();
+		bCollisionIsDirty = false;
+		BodySetup = nullptr;
+		AsyncBodySetupQueue.Empty();
+		RecreateAllComponentProxies();
+		UpdateAllComponentsBounds();
+		DoForAllLinkedComponents([](URuntimeMeshComponent* Comp)
+			{
+				Comp->NewCollisionMeshReceived();
+			});
+	}
 }
 
 FRuntimeMeshProviderProxyPtr URuntimeMesh::GetCurrentProviderProxy()

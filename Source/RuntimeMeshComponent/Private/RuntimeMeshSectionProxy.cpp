@@ -2,6 +2,7 @@
 
 #include "RuntimeMeshSectionProxy.h"
 #include "RuntimeMeshComponentPlugin.h"
+#include "RayTracingInstance.h"
 
 
 
@@ -124,21 +125,28 @@ void FRuntimeMeshSectionProxy::UpdateSection_RenderThread(const FRuntimeMeshRend
 				[this](FRHICommandListImmediate& RHICmdList)
 				{
 					FRayTracingGeometryInitializer Initializer;
+#if ENGINE_MAJOR_VERSION <= 4 && ENGINE_MINOR_VERSION <= 23
 					Initializer.VertexBufferStride = 12;
 					Initializer.VertexBufferByteOffset = 0;
 					Initializer.VertexBufferElementType = VET_Float3;
+#endif
 					Initializer.GeometryType = RTGT_Triangles;
 					Initializer.bFastBuild = true;
 					Initializer.bAllowUpdate = false;
 
-					Initializer.PositionVertexBuffer = PositionBuffer.VertexBufferRHI;
 					Initializer.IndexBuffer = IndexBuffer.IndexBufferRHI;
+#if ENGINE_MAJOR_VERSION <= 4 && ENGINE_MINOR_VERSION <= 23
+					Initializer.PositionVertexBuffer = PositionBuffer.VertexBufferRHI;
 					Initializer.BaseVertexIndex = 0;
+#endif
 
 					TArray<FRayTracingGeometrySegment> GeometrySections;
 					FRayTracingGeometrySegment Segment;
 					Segment.FirstPrimitive = 0;
 					Segment.NumPrimitives = IndexBuffer.Num() / 3;
+#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 24
+					Segment.VertexBuffer = PositionBuffer.VertexBufferRHI;
+#endif
 					GeometrySections.Add(Segment);
 					Initializer.TotalPrimitiveCount = Segment.NumPrimitives;
 					Initializer.Segments = GeometrySections;

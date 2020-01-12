@@ -8,7 +8,6 @@ public class RuntimeMeshComponent : ModuleRules
     public RuntimeMeshComponent(ReadOnlyTargetRules rules) : base(rules)
     {
         PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
-        bFasterWithoutUnity = true;
 
         // This is to access RayTracing Definitions
         PrivateIncludePaths.Add(Path.Combine(EngineDirectory, "Shaders", "Shared"));

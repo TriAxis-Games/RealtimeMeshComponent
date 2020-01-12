@@ -10,10 +10,6 @@
 #include "Materials/Material.h"
 #include "UnrealEngine.h"
 #include "SceneManagement.h"
-
-#if RHI_RAYTRACING
-//#include "RayTracingDefinitions.h"
-#endif
 #include "RayTracingInstance.h"
 
 DECLARE_CYCLE_STAT(TEXT("RuntimeMeshComponentSceneProxy - Create Mesh Batch"), STAT_RuntimeMeshComponentSceneProxy_CreateMeshBatch, STATGROUP_RuntimeMesh);
@@ -287,7 +283,7 @@ void FRuntimeMeshComponentSceneProxy::GetDynamicMeshElements(const TArray<const 
 		 FRayTracingGeometry* SectionRayTracingGeometry = Section->GetRayTracingGeometry();
 		 if (RenderData != nullptr && Section->ShouldRender() && SectionRayTracingGeometry->RayTracingGeometryRHI.IsValid())
 		 {
-			 check(SectionRayTracingGeometry->Initializer.PositionVertexBuffer.IsValid());
+			 check(SectionRayTracingGeometry->Initializer.TotalPrimitiveCount > 0);
 			 check(SectionRayTracingGeometry->Initializer.IndexBuffer.IsValid());
 
 			 FRayTracingInstance RayTracingInstance;

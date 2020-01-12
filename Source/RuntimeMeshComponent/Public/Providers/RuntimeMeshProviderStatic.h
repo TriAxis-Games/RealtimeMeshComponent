@@ -114,6 +114,8 @@ private:
 	}
 	void UpdateSectionInternal(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData&& SectionData, FBoxSphereBounds KnownBounds)
 	{
+		SectionData.HasValidMeshData(true);
+
 		TTuple<FRuntimeMeshRenderableMeshData, FBoxSphereBounds>& NewCache = StoredMeshData.FindOrAdd(GenerateKeyFromLODAndSection(LODIndex, SectionId));
 		NewCache = MakeTuple<FRuntimeMeshRenderableMeshData, FBoxSphereBounds>(MoveTemp(SectionData), MoveTemp(KnownBounds));
 		UpdateBounds();

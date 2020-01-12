@@ -33,6 +33,7 @@ public:
 
 	virtual FBoxSphereBounds GetBounds() { return FBoxSphereBounds(); }
 
+	virtual bool GetAllSectionsMeshForLOD(int32 LODIndex, TMap<int32, FRuntimeMeshCollisionData>& MeshDatas) { return false; }
 	virtual bool GetSectionMeshForLOD(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData) { return false; }
 
 	virtual FRuntimeMeshCollisionSettings GetCollisionSettings() { return FRuntimeMeshCollisionSettings(); }
