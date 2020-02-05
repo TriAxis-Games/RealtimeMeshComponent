@@ -2,7 +2,7 @@
 
 
 #include "Providers/RuntimeMeshProviderStaticMesh.h"
-#include "Providers/RuntimeMeshStaticMeshConverter.h"
+#include "RuntimeMeshStaticMeshConverter.h"
 #include "Engine/StaticMesh.h"
 
 URuntimeMeshProviderStaticMesh::URuntimeMeshProviderStaticMesh()
