@@ -4,7 +4,7 @@
 #include "IDetailCustomization.h"
 #include "DetailLayoutBuilder.h"
 #include "RuntimeMesh.h"
-#include "SlateEnums.h"
+#include "Types/SlateEnums.h"
 
 class FRuntimeMeshComponentDetails : public IDetailCustomization
 {

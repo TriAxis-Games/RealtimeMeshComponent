@@ -1,7 +1,7 @@
 // Copyright 2016-2019 Chris Conway (Koderz). All Rights Reserved.
 
 #include "RuntimeMeshComponentPlugin.h"
-#include "CustomVersion.h"
+#include "Serialization/CustomVersion.h"
 #include "RuntimeMeshCore.h"
 
 // Register the custom version with core
