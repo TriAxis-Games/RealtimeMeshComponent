@@ -1,8 +1,8 @@
 // Copyright 2016-2019 Chris Conway (Koderz). All Rights Reserved.
 
 
-#include "RuntimeMeshProviderStaticMesh.h"
-#include "RuntimeMeshStaticMeshConverter.h"
+#include "Providers/RuntimeMeshProviderStaticMesh.h"
+#include "Providers/RuntimeMeshStaticMeshConverter.h"
 #include "Engine/StaticMesh.h"
 
 URuntimeMeshProviderStaticMesh::URuntimeMeshProviderStaticMesh()
