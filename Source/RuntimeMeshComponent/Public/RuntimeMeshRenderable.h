@@ -96,6 +96,9 @@ private:
 	TArray<uint8> Data;
 	bool bIsHighPrecision;
 
+public:
+	bool IsHighPrecision() const { return bIsHighPrecision; }
+private:
 	int32 GetElementSize() const { return (bIsHighPrecision ? sizeof(FPackedRGBA16N) : sizeof(FPackedNormal)); }
 	int32 GetStride() const { return GetElementSize() * 2; }
 
@@ -220,16 +223,16 @@ public:
 		const int32 EntryIndex = Index * 2;
 		if (bIsHighPrecision)
 		{
-			FPackedRGBA16N TempTangentX = *((FPackedRGBA16N*)&Data[Index * sizeof(FPackedRGBA16N)]);
-			FPackedRGBA16N TempTangentZ = *((FPackedRGBA16N*)&Data[(Index + 1) * sizeof(FPackedRGBA16N)]);
+			FPackedRGBA16N TempTangentX = *((FPackedRGBA16N*)&Data[EntryIndex * sizeof(FPackedRGBA16N)]);
+			FPackedRGBA16N TempTangentZ = *((FPackedRGBA16N*)&Data[(EntryIndex + 1) * sizeof(FPackedRGBA16N)]);
 			OutTangentX = TempTangentX.ToFVector();
 			OutTangentY = GenerateYAxis(TempTangentX, TempTangentZ);
 			OutTangentZ = TempTangentZ.ToFVector();
 		}
 		else
 		{
-			FPackedNormal TempTangentX = *((FPackedNormal*)&Data[Index * sizeof(FPackedNormal)]);
-			FPackedNormal TempTangentZ = *((FPackedNormal*)&Data[(Index + 1) * sizeof(FPackedNormal)]);
+			FPackedNormal TempTangentX = *((FPackedNormal*)&Data[EntryIndex * sizeof(FPackedNormal)]);
+			FPackedNormal TempTangentZ = *((FPackedNormal*)&Data[(EntryIndex + 1) * sizeof(FPackedNormal)]);
 			OutTangentX = TempTangentX.ToFVector();
 			OutTangentY = GenerateYAxis(TempTangentX, TempTangentZ);
 			OutTangentZ = TempTangentZ.ToFVector();
@@ -241,13 +244,13 @@ public:
 		const int32 EntryIndex = Index * 2;
 		if (bIsHighPrecision)
 		{
-			*((FPackedRGBA16N*)&Data[Index * sizeof(FPackedRGBA16N)]) = FPackedRGBA16N(InTangentX);
-			*((FPackedRGBA16N*)&Data[(Index + 1) * sizeof(FPackedRGBA16N)]) = FPackedRGBA16N(FVector4(InTangentZ, GetBasisDeterminantSign(InTangentX, InTangentY, InTangentZ)));
+			*((FPackedRGBA16N*)&Data[EntryIndex * sizeof(FPackedRGBA16N)]) = FPackedRGBA16N(InTangentX);
+			*((FPackedRGBA16N*)&Data[(EntryIndex + 1) * sizeof(FPackedRGBA16N)]) = FPackedRGBA16N(FVector4(InTangentZ, GetBasisDeterminantSign(InTangentX, InTangentY, InTangentZ)));
 		}
 		else
 		{
-			*((FPackedNormal*)&Data[Index * sizeof(FPackedNormal)]) = FPackedNormal(InTangentX);
-			*((FPackedNormal*)&Data[(Index + 1) * sizeof(FPackedNormal)]) = FPackedNormal(FVector4(InTangentZ, GetBasisDeterminantSign(InTangentX, InTangentY, InTangentZ)));
+			*((FPackedNormal*)&Data[EntryIndex * sizeof(FPackedNormal)]) = FPackedNormal(InTangentX);
+			*((FPackedNormal*)&Data[(EntryIndex + 1) * sizeof(FPackedNormal)]) = FPackedNormal(FVector4(InTangentZ, GetBasisDeterminantSign(InTangentX, InTangentY, InTangentZ)));
 		}
 	}
 
@@ -278,6 +281,9 @@ private:
 	int32 ChannelCount;
 	bool bIsHighPrecision;
 
+public:
+	bool IsHighPrecision() const { return bIsHighPrecision; }
+private:
 	int32 GetElementSize() const { return (bIsHighPrecision ? sizeof(FVector2D) : sizeof(FVector2DHalf)); }
 	int32 GetStride() const { return GetElementSize() * ChannelCount; }
 
@@ -313,7 +319,7 @@ public:
 	{
 		int32 Index = Num();
 		int32 Stride = GetStride();
-		Data.AddUninitialized(Stride);
+		Data.AddZeroed(Stride);
 
 		if (bIsHighPrecision)
 		{
@@ -464,6 +470,9 @@ private:
 	uint8 Stride;
 
 public:
+	bool IsHighPrecision() const { return bIsUsing32BitIndices; }
+
+public:
 	FRuntimeMeshTriangleStream(bool bInUse32BitIndices = false)
 		: bIsUsing32BitIndices(bInUse32BitIndices), Stride(bInUse32BitIndices ? sizeof(uint32) : sizeof(uint16))
 	{
@@ -610,6 +619,7 @@ public:
 
 	FRuntimeMeshSectionProperties()
 		: UpdateFrequency(ERuntimeMeshUpdateFrequency::Infrequent)
+		, MaterialSlot(0)
 		, bIsVisible(true)
 		, bCastsShadow(true)
 		, bUseHighPrecisionTangents(false)
@@ -618,6 +628,23 @@ public:
 		, bWants32BitIndices(false)
 	{
 
+	}
+
+	friend FArchive& operator<<(FArchive& Ar, FRuntimeMeshSectionProperties& Properties)
+	{
+		Ar << Properties.UpdateFrequency;
+		Ar << Properties.MaterialSlot;
+
+		Ar << Properties.bIsVisible;
+		Ar << Properties.bCastsShadow;
+
+		Ar << Properties.bUseHighPrecisionTangents;
+		Ar << Properties.bUseHighPrecisionTexCoords;
+		Ar << Properties.NumTexCoords;
+
+		Ar << Properties.bWants32BitIndices;
+
+		return Ar;
 	}
 
 };
@@ -631,10 +658,27 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Rendering|LODProperties")
 	float ScreenSize;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Rendering|LODProperties")
+	bool bCanGetSectionsIndependently;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Rendering|LODProperties")
+	bool bCanGetAllSectionsAtOnce;
+
 	FRuntimeMeshLODProperties()
 		: ScreenSize(1.0f)
+		, bCanGetSectionsIndependently(true)
+		, bCanGetAllSectionsAtOnce(false)
 	{
 
+	}
+
+	friend FArchive& operator<<(FArchive& Ar, FRuntimeMeshLODProperties& Properties)
+	{
+		Ar << Properties.ScreenSize;
+		Ar << Properties.bCanGetSectionsIndependently;
+		Ar << Properties.bCanGetAllSectionsAtOnce;
+
+		return Ar;
 	}
 
 };
@@ -643,7 +687,6 @@ struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshLOD
 {
 	FRuntimeMeshLODProperties Properties;
 	TMap<int32, FRuntimeMeshSectionProperties> Sections;
-
 };
 
 USTRUCT(BlueprintType)
@@ -689,6 +732,12 @@ public:
 	{
 
 	}
+	FRuntimeMeshRenderableMeshData(FRuntimeMeshSectionProperties SectionProps)
+		: Tangents(SectionProps.bUseHighPrecisionTangents), TexCoords(SectionProps.NumTexCoords, SectionProps.bUseHighPrecisionTexCoords)
+		, Triangles(SectionProps.bWants32BitIndices), AdjacencyTriangles(SectionProps.bWants32BitIndices)
+	{
+
+	}
 	FRuntimeMeshRenderableMeshData(bool bWantsHighPrecisionTangents, bool bWantsHighPrecisionTexCoords, uint8 NumTexCoords, bool bWants32BitIndices)
 		: Tangents(bWantsHighPrecisionTangents), TexCoords(NumTexCoords, bWantsHighPrecisionTexCoords)
 		, Triangles(bWants32BitIndices), AdjacencyTriangles(bWants32BitIndices)
@@ -696,6 +745,30 @@ public:
 
 	}
 
-	bool HasValidMeshData(bool bPrintErrorMessage = false);
+	void Reset()
+	{
+		Positions.Empty();
+		Tangents.Empty();
+		TexCoords.Empty();
+		Colors.Empty();
+		Triangles.Empty();
+		AdjacencyTriangles.Empty();
+	}
 
+	bool HasValidMeshData(bool bPrintErrorMessage = false) const;
+
+
+	friend FArchive& operator<<(FArchive& Ar, FRuntimeMeshRenderableMeshData& MeshData)
+	{
+		MeshData.Positions.Serialize(Ar);
+		MeshData.Tangents.Serialize(Ar);
+		MeshData.TexCoords.Serialize(Ar);
+		MeshData.Colors.Serialize(Ar);
+
+		MeshData.Triangles.Serialize(Ar);
+		MeshData.AdjacencyTriangles.Serialize(Ar);
+
+		return Ar;
+	}
 };
+

@@ -42,6 +42,12 @@ void ARuntimeMeshActor::SetRuntimeMeshMobility(ERuntimeMeshMobility NewMobility)
 	}
 }
 
+void ARuntimeMeshActor::PostDuplicate(bool bDuplicateForPIE)
+{
+	Super::PostDuplicate(bDuplicateForPIE);
+	//throw std::logic_error("The method or operation is not implemented.");
+}
+
 void ARuntimeMeshActor::SetMobility(EComponentMobility::Type InMobility)
 {
 	if (RuntimeMeshComponent)
@@ -69,10 +75,10 @@ void ARuntimeMeshActor::OnConstruction(const FTransform& Transform)
 void ARuntimeMeshActor::BeginPlay()
 {
 	Super::BeginPlay();
-	if (!bHasGeneratedThisRun)
-	{
-		GenerateMeshes();
-	}
+// 	if (!bHasGeneratedThisRun)
+// 	{
+// 		GenerateMeshes();
+// 	}
 }
 
 void ARuntimeMeshActor::GenerateMeshes_Implementation()

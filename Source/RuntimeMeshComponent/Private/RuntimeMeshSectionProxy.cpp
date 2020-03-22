@@ -103,11 +103,11 @@ void FRuntimeMeshSectionProxy::UpdateSection_RenderThread(const FRuntimeMeshRend
 
 	// Update all the buffers and recreate the factory if we have valid mesh data to render
 	PositionBuffer.SetData(MeshData.Positions.Num(), MeshData.Positions.GetData());
-	TangentsBuffer.SetData(MeshData.Tangents.Num(), MeshData.Tangents.GetData());
-	UVsBuffer.SetData(MeshData.TexCoords.Num(), MeshData.TexCoords.GetData());
+	TangentsBuffer.SetData(MeshData.Tangents.IsHighPrecision(), MeshData.Tangents.Num(), MeshData.Tangents.GetData());
+	UVsBuffer.SetData(MeshData.TexCoords.IsHighPrecision(), MeshData.TexCoords.NumChannels(), MeshData.TexCoords.Num(), MeshData.TexCoords.GetData());
 	ColorBuffer.SetData(MeshData.Colors.Num(), MeshData.Colors.GetData());
-	IndexBuffer.SetData(MeshData.Triangles.Num(), MeshData.Triangles.GetData());
-	AdjacencyIndexBuffer.SetData(MeshData.AdjacencyTriangles.Num(), MeshData.AdjacencyTriangles.GetData());
+	IndexBuffer.SetData(MeshData.Triangles.IsHighPrecision(), MeshData.Triangles.Num(), MeshData.Triangles.GetData());
+	AdjacencyIndexBuffer.SetData(MeshData.AdjacencyTriangles.IsHighPrecision(), MeshData.AdjacencyTriangles.Num(), MeshData.AdjacencyTriangles.GetData());
 	   
 	if (CanRender())
 	{
@@ -173,8 +173,9 @@ void FRuntimeMeshSectionProxy::ClearSection_RenderThread()
 }
 
 
-FRuntimeMeshLODProxy::FRuntimeMeshLODProxy(ERHIFeatureLevel::Type InFeatureLevel)
-	: FeatureLevel(InFeatureLevel)
+FRuntimeMeshLODProxy::FRuntimeMeshLODProxy(ERHIFeatureLevel::Type InFeatureLevel, const FRuntimeMeshLODProperties& InProperties)
+	: Properties(InProperties)
+	, FeatureLevel(InFeatureLevel)
 {
 }
 
@@ -232,37 +233,29 @@ bool FRuntimeMeshLODProxy::HasAnyShadowCasters() const
 	return false;
 }
 
-void FRuntimeMeshLODProxy::UpdateProperties_RenderThread(const FRuntimeMeshLODProperties& InProperties)
+void FRuntimeMeshLODProxy::Configure_RenderThread(const FRuntimeMeshLODProperties& InProperties)
 {
 	check(IsInRenderingThread());
 	Properties = InProperties;
 }
 
-void FRuntimeMeshLODProxy::Clear_RenderThread()
+void FRuntimeMeshLODProxy::Reset_RenderThread()
 {
-	check(IsInRenderingThread());
 	Sections.Empty();
 }
 
-void FRuntimeMeshLODProxy::CreateSection_RenderThread(int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties)
-{
-	check(IsInRenderingThread());
-	Sections.Remove(SectionId);
-	Sections.Add(SectionId, MakeShareable(new FRuntimeMeshSectionProxy(FeatureLevel, SectionProperties), FRuntimeMeshRenderThreadDeleter<FRuntimeMeshSectionProxy>()));
-}
-
-void FRuntimeMeshLODProxy::RemoveSection_RenderThread(int32 SectionId)
-{
-	check(IsInRenderingThread());
-	Sections.Remove(SectionId);
-}
 
 
-void FRuntimeMeshLODProxy::UpdateSectionProperties_RenderThread(int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties)
+void FRuntimeMeshLODProxy::CreateOrUpdateSection_RenderThread(int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties, bool bShouldReset)
 {
 	check(IsInRenderingThread());
-	FRuntimeMeshSectionProxyPtr* Section = Sections.Find(SectionId);
-	if (Section)
+
+	FRuntimeMeshSectionProxyPtr* Section = nullptr;
+	if (bShouldReset || (Section = Sections.Find(SectionId)) == nullptr)
+	{
+		Sections.Add(SectionId, MakeShareable(new FRuntimeMeshSectionProxy(FeatureLevel, SectionProperties), FRuntimeMeshRenderThreadDeleter<FRuntimeMeshSectionProxy>()));
+	}
+	else
 	{
 		(*Section)->UpdateProperties_RenderThread(SectionProperties);
 	}
@@ -278,23 +271,34 @@ void FRuntimeMeshLODProxy::UpdateSectionMesh_RenderThread(int32 SectionId, const
 	}
 }
 
-void FRuntimeMeshLODProxy::ClearSectionMesh_RenderThread(int32 SectionId)
+void FRuntimeMeshLODProxy::ClearSection_RenderThread(int32 SectionId)
+{
+	check(IsInRenderingThread());
+	FRuntimeMeshSectionProxyPtr* Section = Sections.Find(SectionId);
+	if (Section)
+	{
+		(*Section)->ClearSection_RenderThread();
+	}
+}
+
+void FRuntimeMeshLODProxy::ClearAllSections_RenderThread()
 {
 	check(IsInRenderingThread());
 
-	if (SectionId == INDEX_NONE)
+	for (const auto& Section : Sections)
 	{
-		for (const auto& Section : Sections)
-		{
-			Section.Value->ClearSection_RenderThread();
-		}
+		Section.Value->ClearSection_RenderThread();
 	}
-	else
-	{
-		FRuntimeMeshSectionProxyPtr* Section = Sections.Find(SectionId);
-		if (Section)
-		{
-			(*Section)->ClearSection_RenderThread();
-		}
-	}	
+}
+
+void FRuntimeMeshLODProxy::RemoveAllSections_RenderThread()
+{
+	check(IsInRenderingThread());
+	Sections.Empty();
+}
+
+void FRuntimeMeshLODProxy::RemoveSection_RenderThread(int32 SectionId)
+{
+	check(IsInRenderingThread());
+	Sections.Remove(SectionId);
 }

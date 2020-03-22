@@ -8,6 +8,7 @@
 
 class URuntimeMesh;
 class FRuntimeMeshProxy;
+enum class ESectionUpdateType : uint8;
 
 using FRuntimeMeshProxyPtr = TSharedPtr<FRuntimeMeshProxy, ESPMode::ThreadSafe>;
 
@@ -43,20 +44,24 @@ public:
 	FRuntimeMeshProviderProxyRef GetCurrentProviderProxy() { return BaseProvider; }
 
 	TArray<FRuntimeMeshMaterialSlot> GetMaterialSlots() const { return MaterialSlots; }
-	int32 GetNumMaterials() const;
+	int32 GetNumMaterials() override;
 	UMaterialInterface* GetMaterial(int32 SlotIndex) const;
-	int32 GetMaterialIndex(FName MaterialSlotName) const;
 	TArray<FName> GetMaterialSlotNames() const;
 	bool IsMaterialSlotNameValid(FName MaterialSlotName) const;
 
 	TArray<FRuntimeMeshLOD, TInlineAllocator<RUNTIMEMESH_MAXLODS>> GetCopyOfConfiguration() const { return LODs; }
+
+
 protected: // IRuntimeMeshProvider signatures
 	virtual void Initialize() override;
 
-	virtual void ConfigureLOD(int32 LODIndex, const FRuntimeMeshLODProperties& LODProperties) override;
+	virtual void ConfigureLODs(TArray<FRuntimeMeshLODProperties> LODSettings) override;
 	virtual void CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties) override;
 	virtual bool SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial) override;
+	virtual int32 GetMaterialIndex(FName MaterialSlotName) override;
 	virtual void MarkSectionDirty(int32 LODIndex, int32 SectionId) override;
+	virtual void MarkLODDirty(int32 LODIndex) override;
+	virtual void MarkAllLODsDirty() override;
 	virtual void SetSectionVisibility(int32 LODIndex, int32 SectionId, bool bIsVisible) override;
 	virtual void SetSectionCastsShadow(int32 LODIndex, int32 SectionId, bool bCastsShadow) override;
 	virtual void RemoveSection(int32 LODIndex, int32 SectionId) override;
@@ -74,8 +79,12 @@ protected: // IRuntimeMeshProvider signatures
 	virtual FBoxSphereBounds GetBounds() override { return BaseProvider->GetBounds(); }
 
 private:
-	void HandleProxySectionPropertiesUpdate(int32 LODIndex, int32 SectionId);
-	void HandleProxySectionUpdate(int32 LODIndex, int32 SectionId, bool bForceRecreateProxies = false, bool bSkipRecreateProxies = false);
+
+	TMap<int32, TMap<int32, ESectionUpdateType>> SectionsToUpdate;
+	void MarkForUpdate();
+	void HandleUpdate();
+	void HandleFullLODUpdate(int32 LODId, bool& bRequiresProxyRecreate);
+	void HandleSingleSectionUpdate(int32 LODId, int32 SectionId, bool& bRequiresProxyRecreate);
 
 	void DoOnGameThread(FRuntimeMeshGameThreadTaskDelegate Func)
 	{
@@ -121,10 +130,6 @@ private:
 			{
 				Func.Execute(Comp);
 			}
-			else
-			{
-				check(false);
-			}
 		}
 		else
 		{
@@ -133,15 +138,14 @@ private:
 	}
 	void RecreateAllComponentProxies();
 
-// 	void EnsureReadyToRender(ERHIFeatureLevel::Type InFeatureLevel);
-// 	FRuntimeMeshProxyPtr GetRenderProxy(ERHIFeatureLevel::Type InFeatureLevel) const;
-
 	FRuntimeMeshProxyPtr GetOrCreateRenderProxy(ERHIFeatureLevel::Type InFeatureLevel);
 
 	friend class URuntimeMesh;
 	friend class URuntimeMeshComponent;
 	friend class FRuntimeMeshComponentSceneProxy;
+	friend struct FRuntimeMeshDataDelayedActionTickObject;
 };
 
 using FRuntimeMeshDataRef = TSharedRef<FRuntimeMeshData, ESPMode::ThreadSafe>;
 using FRuntimeMeshDataPtr = TSharedPtr<FRuntimeMeshData, ESPMode::ThreadSafe>;
+using FRuntimeMeshDataWeakPtr = TWeakPtr<FRuntimeMeshData, ESPMode::ThreadSafe>;

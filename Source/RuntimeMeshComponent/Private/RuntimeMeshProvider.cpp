@@ -18,11 +18,11 @@ void FRuntimeMeshProviderProxy::UpdateProxyParameters(URuntimeMeshProvider* Pare
 
 }
 
-void FRuntimeMeshProviderProxy::ConfigureLOD(int32 LODIndex, const FRuntimeMeshLODProperties& LODProperties)
+void FRuntimeMeshProviderProxy::ConfigureLODs(TArray<FRuntimeMeshLODProperties> LODs)
 {
 	if (PreviousProvider.IsValid())
 	{
-		PreviousProvider->ConfigureLOD(LODIndex, LODProperties);
+		PreviousProvider->ConfigureLODs(LODs);
 	}
 }
 
@@ -43,11 +43,45 @@ bool FRuntimeMeshProviderProxy::SetupMaterialSlot(int32 MaterialSlot, FName Slot
 	return false;
 }
 
+int32 FRuntimeMeshProviderProxy::GetMaterialIndex(FName MaterialSlotName)
+{
+	if (PreviousProvider.IsValid())
+	{
+		return PreviousProvider->GetMaterialIndex(MaterialSlotName);
+	}
+	return INDEX_NONE;
+}
+
+int32 FRuntimeMeshProviderProxy::GetNumMaterials()
+{
+	if (PreviousProvider.IsValid())
+	{
+		return PreviousProvider->GetNumMaterials();
+	}
+	return 0;
+}
+
 void FRuntimeMeshProviderProxy::MarkSectionDirty(int32 LODIndex, int32 SectionId)
 {
 	if (PreviousProvider.IsValid())
 	{
 		PreviousProvider->MarkSectionDirty(LODIndex, SectionId);
+	}
+}
+
+void FRuntimeMeshProviderProxy::MarkLODDirty(int32 LODIndex)
+{
+	if (PreviousProvider.IsValid())
+	{
+		PreviousProvider->MarkLODDirty(LODIndex);
+	}
+}
+
+void FRuntimeMeshProviderProxy::MarkAllLODsDirty()
+{
+	if (PreviousProvider.IsValid())
+	{
+		PreviousProvider->MarkAllLODsDirty();
 	}
 }
 
@@ -119,6 +153,16 @@ FBoxSphereBounds FRuntimeMeshProviderProxyPassThrough::GetBounds()
 		return Temp->GetBounds();
 	}
 	return FBoxSphereBounds();
+}
+
+bool FRuntimeMeshProviderProxyPassThrough::GetAllSectionsMeshForLOD(int32 LODIndex, TMap<int32, TTuple<FRuntimeMeshSectionProperties, FRuntimeMeshRenderableMeshData>>& MeshDatas)
+{
+	auto Temp = NextProvider.Pin();
+	if (Temp.IsValid())
+	{
+		return Temp->GetAllSectionsMeshForLOD(LODIndex, MeshDatas);
+	}
+	return false;
 }
 
 bool FRuntimeMeshProviderProxyPassThrough::GetSectionMeshForLOD(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData)
@@ -208,6 +252,16 @@ public:
 		return FRuntimeMeshProviderProxy::GetBounds();
 	}
 
+	virtual bool GetAllSectionsMeshForLOD(int32 LODIndex, TMap<int32, TTuple<FRuntimeMeshSectionProperties, FRuntimeMeshRenderableMeshData>>& MeshDatas) override
+	{
+// 		check(IsInGameThread());
+// 		URuntimeMeshProvider* Temp = Parent.Get();
+// 		if (Temp)
+// 		{
+// 			return Temp->GetAllSectionsMeshForLOD(LODIndex, MeshDatas);
+// 		}
+		return false;
+	}
 	virtual bool GetSectionMeshForLOD(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData) override
 	{
 		check(IsInGameThread());
@@ -295,11 +349,11 @@ void URuntimeMeshProvider::Initialize_Implementation()
 
 }
 
-void URuntimeMeshProvider::ConfigureLOD_Implementation(int32 LODIndex, const FRuntimeMeshLODProperties& LODProperties)
+void URuntimeMeshProvider::ConfigureLODs_Implementation(const TArray<FRuntimeMeshLODProperties>& LODs)
 {
 	if (Proxy.IsValid())
 	{
-		Proxy->ConfigureLOD(LODIndex, LODProperties);
+		Proxy->ConfigureLODs(LODs);
 	}
 }
 
@@ -320,11 +374,45 @@ bool URuntimeMeshProvider::SetupMaterialSlot_Implementation(int32 MaterialSlot, 
 	return false;
 }
 
+int32 URuntimeMeshProvider::GetMaterialIndex_Implementation(FName MaterialSlotName)
+{
+	if (Proxy.IsValid())
+	{
+		return Proxy->GetMaterialIndex(MaterialSlotName);
+	}
+	return INDEX_NONE;
+}
+
+int32 URuntimeMeshProvider::GetNumMaterialSlots_Implementation()
+{
+	if (Proxy.IsValid())
+	{
+		return Proxy->GetNumMaterials();
+	}
+	return 0;
+}
+
 void URuntimeMeshProvider::MarkSectionDirty_Implementation(int32 LODIndex, int32 SectionId)
 {
 	if (Proxy.IsValid())
 	{
 		Proxy->MarkSectionDirty(LODIndex, SectionId);
+	}
+}
+
+void URuntimeMeshProvider::MarkLODDirty_Implementation(int32 LODIndex)
+{
+	if (Proxy.IsValid())
+	{
+		Proxy->MarkSectionDirty(LODIndex, INDEX_NONE);
+	}
+}
+
+void URuntimeMeshProvider::MarkAllLODsDirty_Implementation()
+{
+	if (Proxy.IsValid())
+	{
+		Proxy->MarkAllLODsDirty();
 	}
 }
 
@@ -364,6 +452,11 @@ FBoxSphereBounds URuntimeMeshProvider::GetBounds_Implementation()
 {
 	return FBoxSphereBounds();
 }
+
+// bool URuntimeMeshProvider::GetAllSectionsMeshForLOD_Implementation(int32 LODIndex, TMap<int32, FRuntimeMeshRenderableMeshData>& MeshDatas)
+// {
+// 	return false;
+// }
 
 bool URuntimeMeshProvider::GetSectionMeshForLOD_Implementation(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData)
 {

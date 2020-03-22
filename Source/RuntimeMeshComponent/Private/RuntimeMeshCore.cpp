@@ -6,12 +6,10 @@
 #include "Logging/MessageLog.h"
 
 
-DEFINE_LOG_CATEGORY(LogRuntimeMesh);
-
 #define LOCTEXT_NAMESPACE "RuntimeMeshComponent"
 
 
-bool FRuntimeMeshRenderableMeshData::HasValidMeshData(bool bPrintErrorMessage)
+bool FRuntimeMeshRenderableMeshData::HasValidMeshData(bool bPrintErrorMessage) const
 {
 	bool bStatus = true;
 	if (Positions.Num() <= 3)

@@ -28,6 +28,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshActor", Meta = (DisplayName = "Set Mobility"))
 	void SetRuntimeMeshMobility(ERuntimeMeshMobility NewMobility);
 
+
+	void PostDuplicate(bool bDuplicateForPIE) override;
+
 public:
 
 	/** Function to change mobility type */

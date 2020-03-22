@@ -9,27 +9,17 @@
 class RUNTIMEMESHCOMPONENT_API FRuntimeMeshProviderSphereProxy : public FRuntimeMeshProviderProxy
 {
 	float SphereRadius;
-	int32 LatitudeSegmentsLOD0;
-	int32 LongitudeSegmentsLOD0;
+	int32 MaxLatitudeSegments;
+	int32 MinLatitudeSegments;
+	int32 MaxLongitudeSegments;
+	int32 MinLongitudeSegments;
 	float LODMultiplier;
 	TWeakObjectPtr<UMaterialInterface> Material;
 private:
 	int32 MaxLOD;
 
-	int32 GetMaximumPossibleLOD() 
-	{ 
-		int32 MaxLODs = FMath::Min(
-			FMath::LogX(LODMultiplier, LatitudeSegmentsLOD0),
-			FMath::LogX(LODMultiplier, LongitudeSegmentsLOD0));
-
-		return FMath::Max(1, FMath::Min<int32>(MaxLODs - 1, RUNTIMEMESH_MAXLODS));
-	}
-	float CalculateScreenSize(int32 LODIndex)
-	{
-		float ScreenSize = FMath::Pow(LODMultiplier, LODIndex);
-
-		return ScreenSize;
-	}
+	int32 GetMaxNumberOfLODs();
+	float CalculateScreenSize(int32 LODIndex);
 
 	bool GetSphereMesh(int32 LatitudeSegments, int32 LongitudeSegments, FRuntimeMeshRenderableMeshData& MeshData);
 public:
@@ -59,10 +49,17 @@ class RUNTIMEMESHCOMPONENT_API URuntimeMeshProviderSphere : public URuntimeMeshP
 public:
 	UPROPERTY(Category = "RuntimeMesh|Providers|Sphere", EditAnywhere, BlueprintReadWrite)
 	float SphereRadius;
+
 	UPROPERTY(Category = "RuntimeMesh|Providers|Sphere", EditAnywhere, BlueprintReadWrite)
-	int32 LatitudeSegments;
+	int32 MaxLatitudeSegments;
 	UPROPERTY(Category = "RuntimeMesh|Providers|Sphere", EditAnywhere, BlueprintReadWrite)
-	int32 LongitudeSegments;
+	int32 MinLatitudeSegments;
+	UPROPERTY(Category = "RuntimeMesh|Providers|Sphere", EditAnywhere, BlueprintReadWrite)
+	int32 MaxLongitudeSegments;
+	UPROPERTY(Category = "RuntimeMesh|Providers|Sphere", EditAnywhere, BlueprintReadWrite)
+	int32 MinLongitudeSegments;
+
+
 	UPROPERTY(Category = "RuntimeMesh|Providers|Sphere", EditAnywhere, BlueprintReadWrite)
 	float LODMultiplier;
 

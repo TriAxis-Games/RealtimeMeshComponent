@@ -21,11 +21,16 @@ public:
 	virtual ~IRuntimeMeshProviderProxy() { }
 
 	virtual void Initialize() { };
+	
+	virtual void ConfigureLODs(TArray<FRuntimeMeshLODProperties> LODs) { }
 
-	virtual void ConfigureLOD(int32 LODIndex, const FRuntimeMeshLODProperties& LODProperties) { }
 	virtual void CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties) { }
 	virtual bool SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial) { return false; }
+	virtual int32 GetMaterialIndex(FName MaterialSlotName) { return INDEX_NONE; }
+	virtual int32 GetNumMaterials() { return 0; }
 	virtual void MarkSectionDirty(int32 LODIndex, int32 SectionId) { }
+	virtual void MarkLODDirty(int32 LODIndex) { }
+	virtual void MarkAllLODsDirty() { }
 	virtual void SetSectionVisibility(int32 LODIndex, int32 SectionId, bool bIsVisible) { }
 	virtual void SetSectionCastsShadow(int32 LODIndex, int32 SectionId, bool bCastsShadow) { }
 	virtual void RemoveSection(int32 LODIndex, int32 SectionId) { }
@@ -33,7 +38,7 @@ public:
 
 	virtual FBoxSphereBounds GetBounds() { return FBoxSphereBounds(); }
 
-	virtual bool GetAllSectionsMeshForLOD(int32 LODIndex, TMap<int32, FRuntimeMeshCollisionData>& MeshDatas) { return false; }
+	virtual bool GetAllSectionsMeshForLOD(int32 LODIndex, TMap<int32, TTuple<FRuntimeMeshSectionProperties, FRuntimeMeshRenderableMeshData>>& MeshDatas) { return false; }
 	virtual bool GetSectionMeshForLOD(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData) { return false; }
 
 	virtual FRuntimeMeshCollisionSettings GetCollisionSettings() { return FRuntimeMeshCollisionSettings(); }
@@ -62,17 +67,35 @@ protected:
 	
 public:
 	virtual void UpdateProxyParameters(URuntimeMeshProvider* ParentProvider, bool bIsInitialSetup);
+	
+	virtual void ConfigureLODs(TArray<FRuntimeMeshLODProperties> LODs) override;
 
-	virtual void ConfigureLOD(int32 LODIndex, const FRuntimeMeshLODProperties& LODProperties) override;
 	virtual void CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties) override;
 	virtual bool SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial) override;
+	virtual int32 GetMaterialIndex(FName MaterialSlotName) override;
+	virtual int32 GetNumMaterials() override;
 	virtual void MarkSectionDirty(int32 LODIndex, int32 SectionId) override;
+	virtual void MarkLODDirty(int32 LODIndex) override;
+	virtual void MarkAllLODsDirty() override;
 	virtual void SetSectionVisibility(int32 LODIndex, int32 SectionId, bool bIsVisible) override;
 	virtual void SetSectionCastsShadow(int32 LODIndex, int32 SectionId, bool bCastsShadow) override;
 	virtual void RemoveSection(int32 LODIndex, int32 SectionId) override;
 	virtual void MarkCollisionDirty() override;
 
 	TWeakObjectPtr<URuntimeMeshProvider> GetParent() const { return Parent; }
+
+
+	template<typename T>
+	TSharedRef<const T, ESPMode::ThreadSafe> AsSharedType() const
+	{
+		return StaticCastSharedRef<T>(this->AsShared());
+	}
+
+	template<typename T>
+	TSharedRef<T, ESPMode::ThreadSafe> AsSharedType()
+	{
+		return StaticCastSharedRef<T>(this->AsShared());
+	}
 private:
 	friend class FRuntimeMeshData;
 	friend class FRuntimeMeshProviderProxyPassThrough;
@@ -88,6 +111,8 @@ protected:
 public:
 	FRuntimeMeshProviderProxyPassThrough(TWeakObjectPtr<URuntimeMeshProvider> InParent, const FRuntimeMeshProviderProxyPtr& InNextProvider);
 
+
+
 protected:
 	virtual void BindPreviousProvider(const FRuntimeMeshProviderProxyPtr& InPreviousProvider) override;
 
@@ -96,6 +121,7 @@ public:
 
 	virtual FBoxSphereBounds GetBounds();
 
+	virtual bool GetAllSectionsMeshForLOD(int32 LODIndex, TMap<int32, TTuple<FRuntimeMeshSectionProperties, FRuntimeMeshRenderableMeshData>>& MeshDatas) override;
 	virtual bool GetSectionMeshForLOD(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData) override;
 
 	virtual FRuntimeMeshCollisionSettings GetCollisionSettings();
@@ -128,17 +154,29 @@ public:
 	void Initialize();
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "RuntimeMesh|Providers|Common")
-	void ConfigureLOD(int32 LODIndex, const FRuntimeMeshLODProperties& LODProperties);
-	
+	void ConfigureLODs(const TArray<FRuntimeMeshLODProperties>& LODs);
+
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "RuntimeMesh|Providers|Common")
 	void CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties);
 	
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "RuntimeMesh|Providers|Common")
 	bool SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial);
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "RuntimeMesh|Providers|Common")
+	int32 GetMaterialIndex(FName MaterialSlotName);
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "RuntimeMesh|Providers|Common")
+	int32 GetNumMaterialSlots();
 	
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "RuntimeMesh|Providers|Common")
 	void MarkSectionDirty(int32 LODIndex, int32 SectionId);
-	
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "RuntimeMesh|Providers|Common")
+	void MarkLODDirty(int32 LODIndex);
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "RuntimeMesh|Providers|Common")
+	void MarkAllLODsDirty();
+
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "RuntimeMesh|Providers|Common")
 	void SetSectionVisibility(int32 LODIndex, int32 SectionId, bool bIsVisible);
 	
@@ -155,6 +193,9 @@ public:
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "RuntimeMesh|Providers|Common")
 	FBoxSphereBounds GetBounds();
+
+	//UFUNCTION(BlueprintNativeEvent, Category = "RuntimeMesh|Providers|Common")
+	//bool GetAllSectionsMeshForLOD(int32 LODIndex, TMap<int32, TTuple<FRuntimeMeshSectionProperties, FRuntimeMeshRenderableMeshData>>& MeshDatas);
 
 	UFUNCTION(BlueprintNativeEvent, Category = "RuntimeMesh|Providers|Common")
 	bool GetSectionMeshForLOD(int32 LODIndex, int32 SectionId, UPARAM(Ref) FRuntimeMeshRenderableMeshData& MeshData);

@@ -12,12 +12,15 @@
 #include "RuntimeMeshCore.generated.h"
 
 DECLARE_STATS_GROUP(TEXT("RuntimeMesh"), STATGROUP_RuntimeMesh, STATCAT_Advanced);
-DECLARE_LOG_CATEGORY_EXTERN(LogRuntimeMesh, Log, Warning);
 
 #define RUNTIMEMESH_MAXTEXCOORDS MAX_STATIC_TEXCOORDS
 #define RUNTIMEMESH_MAXLODS MAX_STATIC_MESH_LODS
 
 #define RUNTIMEMESH_ENABLE_DEBUG_RENDERING (!(UE_BUILD_SHIPPING || UE_BUILD_TEST) || WITH_EDITOR)
+
+template<typename InElementType>
+using TInlineLODArray = TArray<InElementType, TInlineAllocator<RUNTIMEMESH_MAXLODS>>;
+
 
 // Custom version for runtime mesh serialization
 namespace FRuntimeMeshVersion
@@ -25,6 +28,7 @@ namespace FRuntimeMeshVersion
 	enum Type
 	{
 		Initial = 0,
+		StaticProviderSupportsSerialization = 1,
 
 		// -----<new versions can be added above this line>-------------------------------------------------
 		VersionPlusOne,

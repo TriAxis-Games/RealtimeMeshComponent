@@ -9,16 +9,28 @@ DECLARE_CYCLE_STAT(TEXT("RuntimeMeshData - Update Section Properties"), STAT_Run
 DECLARE_CYCLE_STAT(TEXT("RuntimeMeshData - Update Section"), STAT_RuntimeMeshData_UpdateSection, STATGROUP_RuntimeMesh);
 DECLARE_CYCLE_STAT(TEXT("RuntimeMeshData - Recreate All Proxies"), STAT_RuntimeMeshData_RecreateProxies, STATGROUP_RuntimeMesh);
 
+enum class ESectionUpdateType : uint8
+{
+	None = 0x0,
+	Properties = 0x1,
+	Mesh = 0x2,
+	Clear = 0x4,
+	Remove = 0x8,
+
+
+	AllData = Properties | Mesh,
+	ClearOrRemove = Clear | Remove,
+};
+
+ENUM_CLASS_FLAGS(ESectionUpdateType);
+
 
 FRuntimeMeshData::FRuntimeMeshData(const FRuntimeMeshProviderProxyRef& InBaseProvider, TWeakObjectPtr<URuntimeMesh> InParentMeshObject)
-	: FRuntimeMeshProviderProxy(nullptr), ParentMeshObject(InParentMeshObject), BaseProvider(InBaseProvider)
+	: FRuntimeMeshProviderProxy(nullptr)
+	, ParentMeshObject(InParentMeshObject)
+	, BaseProvider(InBaseProvider)
 {
-	LODs.SetNum(RUNTIMEMESH_MAXLODS);
-	for (int32 Index = 1; Index < RUNTIMEMESH_MAXLODS; Index++)
-	{
-		// All but the first LOD gets defaulted to 0 screen size to not show ever.
-		LODs[Index].Properties.ScreenSize = 0.0f;
-	}
+	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMD(%d): Created"), FPlatformTLS::GetCurrentThreadId());
 }
 
 FRuntimeMeshData::~FRuntimeMeshData()
@@ -26,7 +38,7 @@ FRuntimeMeshData::~FRuntimeMeshData()
 
 }
 
-int32 FRuntimeMeshData::GetNumMaterials() const
+int32 FRuntimeMeshData::GetNumMaterials()
 {
 	return MaterialSlots.Num();
 }
@@ -42,7 +54,7 @@ UMaterialInterface* FRuntimeMeshData::GetMaterial(int32 SlotIndex) const
 	return Material.Get();
 }
 
-int32 FRuntimeMeshData::GetMaterialIndex(FName MaterialSlotName) const
+int32 FRuntimeMeshData::GetMaterialIndex(FName MaterialSlotName)
 {
 	const int32* SlotIndex = SlotNameLookup.Find(MaterialSlotName);
 	return SlotIndex ? *SlotIndex : INDEX_NONE;
@@ -62,6 +74,8 @@ bool FRuntimeMeshData::IsMaterialSlotNameValid(FName MaterialSlotName) const
 
 void FRuntimeMeshData::Initialize()
 {
+	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMD(%d): Initialized"), FPlatformTLS::GetCurrentThreadId());
+
 	SCOPE_CYCLE_COUNTER(STAT_RuntimeMeshData_Initialize);
 
 	// Make sure the provider chain is bound
@@ -69,37 +83,45 @@ void FRuntimeMeshData::Initialize()
 
 	BaseProvider->Initialize();
 
-	MarkSectionDirty(INDEX_NONE, INDEX_NONE);
-	MarkCollisionDirty();
+	//MarkAllLODsDirty();
+	//MarkCollisionDirty();
 }
 
-void FRuntimeMeshData::ConfigureLOD(int32 LODIndex, const FRuntimeMeshLODProperties& LODProperties)
+void FRuntimeMeshData::ConfigureLODs(TArray<FRuntimeMeshLODProperties> LODSettings)
 {
+	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMD(%d): ConfigureLODs Called"), FPlatformTLS::GetCurrentThreadId());
+
 	{
 		FScopeLock Lock(&SyncRoot);
-		LODs[LODIndex].Properties = LODProperties;
+		LODs.Empty();
+		LODs.SetNum(LODSettings.Num());
+		for (int32 Index = 0; Index < LODSettings.Num(); Index++)
+		{
+			LODs[Index].Properties = LODSettings[Index];
+		}
 	}
 
 	if (RenderProxy.IsValid())
 	{
-		RenderProxy->ConfigureLOD_GameThread(LODIndex, LODProperties);
+		RenderProxy->InitializeLODs_GameThread(LODSettings);
 		RecreateAllComponentProxies();
 	}
 }
 
 void FRuntimeMeshData::CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties)
 {
-	{
-		FScopeLock Lock(&SyncRoot);
+	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMD(%d): CreateSection Called"), FPlatformTLS::GetCurrentThreadId());
 
-		LODs[LODIndex].Sections.FindOrAdd(SectionId) = SectionProperties;
-	}
+	check(LODs.IsValidIndex(LODIndex));
+	check(SectionId >= 0);
+	
+	FScopeLock Lock(&SyncRoot);
 
-	if (RenderProxy.IsValid())
-	{
-		RenderProxy->CreateSection_GameThread(LODIndex, SectionId, SectionProperties);
-		HandleProxySectionUpdate(LODIndex, SectionId, true);
-	}
+	LODs[LODIndex].Sections.FindOrAdd(SectionId) = SectionProperties;
+
+	// Flag for update
+	SectionsToUpdate.FindOrAdd(LODIndex).FindOrAdd(SectionId) = ESectionUpdateType::AllData;
+	MarkForUpdate();
 }
 
 bool FRuntimeMeshData::SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial)
@@ -128,49 +150,97 @@ bool FRuntimeMeshData::SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMa
 
 void FRuntimeMeshData::MarkSectionDirty(int32 LODIndex, int32 SectionId)
 {
-	if (RenderProxy.IsValid())
-	{
-		// TODO: Alter this to not just clear it but instead fire off a full recreate
-		// this keeps around the current rendering mesh until the new mesh is ready
-		RenderProxy->ClearSection_GameThread(LODIndex, SectionId);
+	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMD(%d): MarkSectionDirty Called"), FPlatformTLS::GetCurrentThreadId());
 
-		HandleProxySectionUpdate(LODIndex, SectionId);
-	}	
+	check(LODs.IsValidIndex(LODIndex));
+	check(LODs[LODIndex].Sections.Contains(SectionId));
+
+	FScopeLock Lock(&SyncRoot);
+
+	// Flag for update
+	ESectionUpdateType& UpdateType = SectionsToUpdate.FindOrAdd(LODIndex).FindOrAdd(SectionId);
+	UpdateType |= ESectionUpdateType::Mesh;
+	UpdateType = (UpdateType & ~ESectionUpdateType::ClearOrRemove);
+	MarkForUpdate();
+}
+
+void FRuntimeMeshData::MarkLODDirty(int32 LODIndex)
+{
+	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMD(%d): MarkLODDirty Called"), FPlatformTLS::GetCurrentThreadId());
+
+	check(LODs.IsValidIndex(LODIndex));
+
+	FScopeLock Lock(&SyncRoot);
+
+	// Flag for update
+	SectionsToUpdate.FindOrAdd(LODIndex).FindOrAdd(INDEX_NONE) = ESectionUpdateType::Mesh;
+
+	MarkForUpdate();
+}
+
+void FRuntimeMeshData::MarkAllLODsDirty()
+{
+	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMD(%d): MarkAllLODsDirty Called"), FPlatformTLS::GetCurrentThreadId());
+
+	FScopeLock Lock(&SyncRoot);
+
+	// Flag for update
+	for (int32 LODIdx = 0; LODIdx < LODs.Num(); LODIdx++)
+	{
+		SectionsToUpdate.FindOrAdd(LODIdx).FindOrAdd(INDEX_NONE) = ESectionUpdateType::Mesh;
+	}
+
+	MarkForUpdate();
 }
 
 void FRuntimeMeshData::SetSectionVisibility(int32 LODIndex, int32 SectionId, bool bIsVisible)
 {
+	check(LODs.IsValidIndex(LODIndex));
+	check(LODs[LODIndex].Sections.Contains(SectionId));
+
 	FScopeLock Lock(&SyncRoot);
 
 	FRuntimeMeshSectionProperties* Section = LODs[LODIndex].Sections.Find(SectionId);
 	if (Section)
 	{
 		Section->bIsVisible = bIsVisible;
-		HandleProxySectionPropertiesUpdate(LODIndex, SectionId);
+		ESectionUpdateType& UpdateType = SectionsToUpdate.FindOrAdd(LODIndex).FindOrAdd(SectionId);
+		UpdateType |= ESectionUpdateType::Properties;
+		UpdateType = (UpdateType & ~ESectionUpdateType::ClearOrRemove);
+		MarkForUpdate();
 	}
 }
 
 void FRuntimeMeshData::SetSectionCastsShadow(int32 LODIndex, int32 SectionId, bool bCastsShadow)
 {
+	check(LODs.IsValidIndex(LODIndex));
+	check(LODs[LODIndex].Sections.Contains(SectionId));
+
 	FScopeLock Lock(&SyncRoot);
 
 	FRuntimeMeshSectionProperties* Section = LODs[LODIndex].Sections.Find(SectionId);
 	if (Section)
 	{
 		Section->bCastsShadow = bCastsShadow;
-		HandleProxySectionPropertiesUpdate(LODIndex, SectionId);
+		ESectionUpdateType& UpdateType = SectionsToUpdate.FindOrAdd(LODIndex).FindOrAdd(SectionId);
+		UpdateType |= ESectionUpdateType::Properties;
+		UpdateType = (UpdateType & ~ESectionUpdateType::ClearOrRemove);
+		MarkForUpdate();
 	}
 }
 
 void FRuntimeMeshData::RemoveSection(int32 LODIndex, int32 SectionId)
 {
+	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMD(%d): RemoveSection Called"), FPlatformTLS::GetCurrentThreadId());
+
 	FScopeLock Lock(&SyncRoot);
 
 	LODs[LODIndex].Sections.Remove(SectionId);
 
 	if (RenderProxy.IsValid())
 	{
-		RenderProxy->RemoveSection_GameThread(LODIndex, SectionId);
+		SectionsToUpdate.FindOrAdd(LODIndex).FindOrAdd(SectionId) = ESectionUpdateType::Remove;
+		MarkForUpdate();
 		RecreateAllComponentProxies();
 	}
 }
@@ -185,86 +255,256 @@ void FRuntimeMeshData::MarkCollisionDirty()
 	));
 }
 
-void FRuntimeMeshData::HandleProxySectionPropertiesUpdate(int32 LODIndex, int32 SectionId)
-{
-	SCOPE_CYCLE_COUNTER(STAT_RuntimeMeshData_UpdateSectionProperties);
 
-	if (RenderProxy.IsValid())
+
+
+/*
+*	This tick function is used to offload the mesh updates to the end of frame.
+*	This is meant to only update the mesh a single time per frame as any more would be a waste
+*/
+struct FRuntimeMeshDataDelayedActionTickObject : FTickableGameObject
+{
+private:
+	TQueue<FRuntimeMeshDataWeakPtr, EQueueMode::Mpsc> UpdateList;
+
+public:
+	FRuntimeMeshDataDelayedActionTickObject() {}
+
+	static FRuntimeMeshDataDelayedActionTickObject& GetInstance()
 	{
-		RenderProxy->UpdateSectionProperties_GameThread(LODIndex, SectionId, LODs[LODIndex].Sections[SectionId]);
+		static TUniquePtr<FRuntimeMeshDataDelayedActionTickObject> UpdaterObject;
+		if (!UpdaterObject.IsValid())
+		{
+			UpdaterObject = MakeUnique<FRuntimeMeshDataDelayedActionTickObject>();
+		}
+		return *UpdaterObject.Get();
 	}
+
+	void RegisterForUpdate(FRuntimeMeshDataWeakPtr InMesh)
+	{
+		UpdateList.Enqueue(InMesh);
+	}
+
+	virtual void Tick(float DeltaTime)
+	{
+		//SCOPE_CYCLE_COUNTER(STAT_RuntimeMeshDelayedActions_Tick);
+
+		FRuntimeMeshDataWeakPtr TempMesh;
+		while (UpdateList.Dequeue(TempMesh))
+		{
+			FRuntimeMeshDataPtr Mesh = TempMesh.Pin();
+			if (Mesh.IsValid())
+			{
+				//INC_DWORD_STAT_BY(STAT_RuntimeMeshDelayedActions_UpdatedActors, 1);
+				Mesh->HandleUpdate();
+			}
+		}
+	}
+	virtual bool IsTickable() const { return !UpdateList.IsEmpty(); }
+	virtual bool IsTickableInEditor() const { return true; }
+	virtual TStatId GetStatId() const { return TStatId(); }
+};
+
+
+
+
+
+void FRuntimeMeshData::MarkForUpdate()
+{
+	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMD(%d): MarkForUpdate Called"), FPlatformTLS::GetCurrentThreadId());
+
+	FRuntimeMeshDataDelayedActionTickObject::GetInstance().RegisterForUpdate(this->AsSharedType<FRuntimeMeshData>());
 }
 
-void FRuntimeMeshData::HandleProxySectionUpdate(int32 LODIndex, int32 SectionId, bool bForceRecreateProxies, bool bSkipRecreateProxies)
+void FRuntimeMeshData::HandleUpdate()
 {
-	SCOPE_CYCLE_COUNTER(STAT_RuntimeMeshData_UpdateSection);
+	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMD(%d): HandleUpdate Called"), FPlatformTLS::GetCurrentThreadId());
 
-	if (RenderProxy.IsValid())
+	if (!RenderProxy.IsValid())
 	{
-		// TODO: Here we'd want to interject threading to allow the proxy to be 
-		// called on alternate threads and have the result passed to the render proxy directly
+		return;
+	}
 
-		bool bRequiresProxyRecreate = bForceRecreateProxies;
 
-		const auto UpdateSingleSection = [&](int32 LODIdx, int32 SectionIdx, FRuntimeMeshSectionProperties& Properties) {
-			TSharedPtr<FRuntimeMeshRenderableMeshData> MeshData = MakeShared<FRuntimeMeshRenderableMeshData>(
-				Properties.bUseHighPrecisionTangents,
-				Properties.bUseHighPrecisionTexCoords,
-				Properties.NumTexCoords,
-				Properties.bWants32BitIndices);
-			bool bResult = BaseProvider->GetSectionMeshForLOD(LODIdx, SectionIdx, *MeshData);
+	TMap<int32, TSet<int32>> SectionsToGetMesh;
 
-			if (bResult)
+
+	bool bRequiresProxyRecreate = false;
+
+	{	// Copy the update list so we can only hold the lock for a moment
+		FScopeLock Lock(&SyncRoot);
+
+		for (const auto& LODToUpdate : SectionsToUpdate)
+		{
+			int32 LODId = LODToUpdate.Key;
+
+			for (const auto& SectionToUpdate : LODToUpdate.Value)
 			{
-				RenderProxy->UpdateSection_GameThread(LODIdx, SectionIdx, MeshData);
-			}
-			else
-			{
-				RenderProxy->ClearSection_GameThread(LODIdx, SectionIdx);
-			}
+				int32 SectionId = SectionToUpdate.Key;
+				ESectionUpdateType UpdateType = SectionToUpdate.Value;
 
-			bRequiresProxyRecreate |= Properties.UpdateFrequency == ERuntimeMeshUpdateFrequency::Infrequent;
-		};
-
-		const auto UpdateSingleLOD = [&](int32 LODIdx) {
-			if (SectionId != INDEX_NONE)
-			{
-				FRuntimeMeshSectionProperties Properties = LODs[LODIdx].Sections.FindChecked(SectionId);
-				UpdateSingleSection(LODIdx, SectionId, Properties);
-			}
-			else
-			{
-				for (auto& Entry : LODs[LODIdx].Sections)
+				if (SectionId == INDEX_NONE)
 				{
-					UpdateSingleSection(LODIdx, Entry.Key, Entry.Value);
+					SectionsToGetMesh.FindOrAdd(LODId).Add(INDEX_NONE);
+					continue;
+				}
+
+				if (LODs[LODId].Sections.Contains(SectionId))
+				{
+					if (EnumHasAnyFlags(UpdateType, ESectionUpdateType::AllData))
+					{
+						if (EnumHasAllFlags(UpdateType, ESectionUpdateType::Properties))
+						{
+							const auto& Section = LODs[LODId].Sections[SectionId];
+							RenderProxy->CreateOrUpdateSection_GameThread(LODId, SectionId, Section, false);
+						}
+
+						if (EnumHasAllFlags(UpdateType, ESectionUpdateType::Mesh))
+						{
+							SectionsToGetMesh.FindOrAdd(LODId).Add(SectionId);
+						}
+					}
+					else
+					{
+						if (EnumHasAllFlags(UpdateType, ESectionUpdateType::Remove))
+						{
+							RenderProxy->RemoveSection_GameThread(LODId, SectionId);
+						}
+						else if (EnumHasAllFlags(UpdateType, ESectionUpdateType::Clear))
+						{
+							RenderProxy->ClearSection_GameThread(LODId, SectionId);
+						}
+					}
 				}
 			}
-		};
+		}
 
-		if (LODIndex != INDEX_NONE)
+		SectionsToUpdate.Reset();
+	}
+
+	for (const auto& LODEntry : SectionsToGetMesh)
+	{
+		const auto& LODId = LODEntry.Key;
+		auto& LOD = LODs[LODId];
+		const auto& Sections = LODEntry.Value;
+
+
+		// Update the meshes, use the bulk update path if available and requested
+		if ((LOD.Properties.bCanGetAllSectionsAtOnce || !LOD.Properties.bCanGetSectionsIndependently) && (Sections.Contains(INDEX_NONE) || Sections.Num() == LOD.Sections.Num()))
 		{
-			UpdateSingleLOD(LODIndex);
+			HandleFullLODUpdate(LODId, bRequiresProxyRecreate);
+		}
+		else if (Sections.Contains(INDEX_NONE))
+		{
+			for (const auto& Section : LOD.Sections)
+			{
+				HandleSingleSectionUpdate(LODId, Section.Key, bRequiresProxyRecreate);
+			}
 		}
 		else
 		{
-			for (int32 Index = 0; Index < RUNTIMEMESH_MAXLODS; Index++)
+			for (const auto& Section : Sections)
 			{
-				UpdateSingleLOD(Index);
+				HandleSingleSectionUpdate(LODId, Section, bRequiresProxyRecreate);
 			}
 		}
+	}
 
-		
+	if (bRequiresProxyRecreate)
+	{
+		RecreateAllComponentProxies();
+	}
+}
 
+void FRuntimeMeshData::HandleFullLODUpdate(int32 LODId, bool& bRequiresProxyRecreate)
+{
+	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMD(%d): HandleFullLODUpdate Called"), FPlatformTLS::GetCurrentThreadId());
 
-		if (!bSkipRecreateProxies && bRequiresProxyRecreate && RenderProxy.IsValid())
+	auto& LOD = LODs[LODId];
+
+	TMap<int32, TTuple<FRuntimeMeshSectionProperties, FRuntimeMeshRenderableMeshData>> MeshDatas;
+	TSet<int32> ExistingSections;
+
+	// Setup mesh datas
+	for (auto& Entry : LOD.Sections)
+	{
+		FRuntimeMeshSectionProperties Properties = Entry.Value;
+		MeshDatas.Add(Entry.Key, MakeTuple(Properties, FRuntimeMeshRenderableMeshData(
+			Properties.bUseHighPrecisionTangents,
+			Properties.bUseHighPrecisionTexCoords,
+			Properties.NumTexCoords,
+			Properties.bWants32BitIndices)));
+		ExistingSections.Add(Entry.Key);
+	}
+
+	// Get all meshes
+	bool bResult = BaseProvider->GetAllSectionsMeshForLOD(LODId, MeshDatas);
+
+	// Update all the sections or create new ones
+	for (auto& Entry : MeshDatas)
+	{
+		TTuple<FRuntimeMeshSectionProperties, FRuntimeMeshRenderableMeshData>& Section = Entry.Value;
+
+		if (bResult && Section.Value.HasValidMeshData())
 		{
-			RecreateAllComponentProxies();
+			LOD.Sections.FindOrAdd(Entry.Key) = Section.Key;
+
+			RenderProxy->CreateOrUpdateSection_GameThread(LODId, Entry.Key, Section.Key, true);
+			RenderProxy->UpdateSectionMesh_GameThread(LODId, Entry.Key, MakeShared<FRuntimeMeshRenderableMeshData>(MoveTemp(Section.Value)));
+			bRequiresProxyRecreate = true;
 		}
+		else
+		{
+			// Clear existing section
+			RenderProxy->ClearSection_GameThread(LODId, Entry.Key);
+			bRequiresProxyRecreate = true;
+		}
+
+		// Remove the key from existing sections
+		ExistingSections.Remove(Entry.Key);
+	}
+
+	// Remove all old sections that don't exist now
+	for (auto& Entry : ExistingSections)
+	{
+		LODs[LODId].Sections.Remove(Entry);
+		RenderProxy->RemoveSection_GameThread(LODId, Entry);
+		bRequiresProxyRecreate = true;
+	}
+}
+
+void FRuntimeMeshData::HandleSingleSectionUpdate(int32 LODId, int32 SectionId, bool& bRequiresProxyRecreate)
+{
+	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMD(%d): HandleSingleSectionUpdate Called"), FPlatformTLS::GetCurrentThreadId());
+
+	FRuntimeMeshSectionProperties Properties = LODs[LODId].Sections.FindChecked(SectionId);
+	TSharedPtr<FRuntimeMeshRenderableMeshData> MeshData = MakeShared<FRuntimeMeshRenderableMeshData>(
+		Properties.bUseHighPrecisionTangents,
+		Properties.bUseHighPrecisionTexCoords,
+		Properties.NumTexCoords,
+		Properties.bWants32BitIndices);
+	bool bResult = BaseProvider->GetSectionMeshForLOD(LODId, SectionId, *MeshData);
+
+	if (bResult)
+	{
+		// Update section
+		RenderProxy->UpdateSectionMesh_GameThread(LODId, SectionId, MeshData);
+		bRequiresProxyRecreate |= Properties.UpdateFrequency == ERuntimeMeshUpdateFrequency::Infrequent;
+		bRequiresProxyRecreate = true;
+	}
+	else
+	{
+		// Clear section
+		RenderProxy->ClearSection_GameThread(LODId, SectionId);
+		bRequiresProxyRecreate |= Properties.UpdateFrequency == ERuntimeMeshUpdateFrequency::Infrequent;
+		bRequiresProxyRecreate = true;
 	}
 }
 
 void FRuntimeMeshData::RecreateAllComponentProxies()
 {
+	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMD(%d): RecreateAllComponentProxies Called"), FPlatformTLS::GetCurrentThreadId());
+
 	SCOPE_CYCLE_COUNTER(STAT_RuntimeMeshData_RecreateProxies);
 
 	DoOnGameThread(FRuntimeMeshGameThreadTaskDelegate::CreateLambda(
@@ -288,18 +528,34 @@ FRuntimeMeshProxyPtr FRuntimeMeshData::GetOrCreateRenderProxy(ERHIFeatureLevel::
 
 		RenderProxy = MakeShareable(new FRuntimeMeshProxy(InFeatureLevel), FRuntimeMeshRenderThreadDeleter<FRuntimeMeshProxy>());
 
-		for (int32 LODIndex = 0; LODIndex < LODs.Num(); LODIndex++)
+		if (LODs.Num() > 0)
 		{
-			const FRuntimeMeshLOD& LOD = LODs[LODIndex];
-			RenderProxy->ConfigureLOD_GameThread(LODIndex, LOD.Properties);
-
-			for (const auto& Section : LOD.Sections)
+			TArray<FRuntimeMeshLODProperties> LODProperties;
+			LODProperties.SetNum(LODs.Num());
+			for (int32 Index = 0; Index < LODs.Num(); Index++)
 			{
-				RenderProxy->CreateSection_GameThread(LODIndex, Section.Key, Section.Value);
+				LODProperties[Index] = LODs[Index].Properties;
+			}
+
+			RenderProxy->InitializeLODs_GameThread(LODProperties);
+
+			bool bHadAnyInitialized = false;
+			for (int32 LODIndex = 0; LODIndex < LODs.Num(); LODIndex++)
+			{
+				FRuntimeMeshLOD& LOD = LODs[LODIndex];
+				for (int32 SectionId = 0; SectionId < LOD.Sections.Num(); SectionId++)
+				{
+					RenderProxy->CreateOrUpdateSection_GameThread(LODIndex, SectionId, LOD.Sections[SectionId], true);
+					bHadAnyInitialized = true;
+
+				}
+			}
+
+			if (bHadAnyInitialized)
+			{
+				MarkAllLODsDirty();
 			}
 		}
-
-		HandleProxySectionUpdate(INDEX_NONE, INDEX_NONE, false, true);
 	}
 	return RenderProxy;
 }

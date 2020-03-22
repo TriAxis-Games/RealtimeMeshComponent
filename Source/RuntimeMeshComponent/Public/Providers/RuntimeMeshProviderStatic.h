@@ -12,13 +12,13 @@ class RUNTIMEMESHCOMPONENT_API URuntimeMeshProviderStatic : public URuntimeMeshP
 	GENERATED_BODY()
 
 private:
-	FORCEINLINE int64 GenerateKeyFromLODAndSection(int32 LODIndex, int32 SectionId)
-	{
-		return (((int64)LODIndex) << 32) | ((int64)SectionId);
-	}
+
+	using FSectionDataMapEntry = TTuple<FRuntimeMeshSectionProperties, FRuntimeMeshRenderableMeshData, FBoxSphereBounds>;
+
 private:
-	TMap<int64, TTuple<FRuntimeMeshRenderableMeshData, FBoxSphereBounds>> StoredMeshData;
-	
+	TArray<FRuntimeMeshLODProperties> LODConfigurations;
+	TMap<int32, TMap<int32, FSectionDataMapEntry>> SectionDataMap;
+
 	int32 LODForMeshCollision;
 	TSet<int32> SectionsForMeshCollision;
 
@@ -29,6 +29,7 @@ public:
 
 	URuntimeMeshProviderStatic();
 
+	void Initialize_Implementation() override;
 	
 	// This brings forward the internal CreateSection as there's nothing wrong with using that version
 	using URuntimeMeshProvider::CreateSection;
@@ -81,7 +82,6 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static")
 	void ClearSection(int32 LODIndex, int32 SectionId);
 
-
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static")
 	void SetCollisionSettings(const FRuntimeMeshCollisionSettings& NewCollisionSettings);
 
@@ -92,6 +92,16 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static")
 	void SetRenderableSectionAffectsCollision(int32 SectionId, bool bCollisionEnabled);
+
+
+
+protected:
+
+	virtual void ConfigureLODs_Implementation(const TArray<FRuntimeMeshLODProperties>& LODSettings) override;
+	virtual void CreateSection_Implementation(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties) override;
+	virtual void SetSectionVisibility_Implementation(int32 LODIndex, int32 SectionId, bool bIsVisible) override;
+	virtual void SetSectionCastsShadow_Implementation(int32 LODIndex, int32 SectionId, bool bCastsShadow) override;
+	virtual void RemoveSection_Implementation(int32 LODIndex, int32 SectionId) override;
 
 protected:
 	virtual FBoxSphereBounds GetBounds_Implementation() override { return CombinedBounds; }
@@ -112,13 +122,8 @@ private:
 		FRuntimeMeshRenderableMeshData TempData = SectionData;
 		UpdateSectionInternal(LODIndex, SectionId, MoveTemp(TempData), KnownBounds);
 	}
-	void UpdateSectionInternal(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData&& SectionData, FBoxSphereBounds KnownBounds)
-	{
-		SectionData.HasValidMeshData(true);
+	void UpdateSectionInternal(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData&& SectionData, FBoxSphereBounds KnownBounds);
 
-		TTuple<FRuntimeMeshRenderableMeshData, FBoxSphereBounds>& NewCache = StoredMeshData.FindOrAdd(GenerateKeyFromLODAndSection(LODIndex, SectionId));
-		NewCache = MakeTuple<FRuntimeMeshRenderableMeshData, FBoxSphereBounds>(MoveTemp(SectionData), MoveTemp(KnownBounds));
-		UpdateBounds();
-		MarkSectionDirty(LODIndex, SectionId);
-	}
+protected:
+	void Serialize(FArchive& Ar) override;
 };
