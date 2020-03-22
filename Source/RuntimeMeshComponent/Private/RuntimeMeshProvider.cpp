@@ -61,6 +61,15 @@ int32 FRuntimeMeshProviderProxy::GetNumMaterials()
 	return 0;
 }
 
+TArray<FRuntimeMeshMaterialSlot> FRuntimeMeshProviderProxy::GetMaterialSlots() const
+{
+	if (PreviousProvider.IsValid())
+	{
+		return PreviousProvider->GetMaterialSlots();
+	}
+	return TArray<FRuntimeMeshMaterialSlot>();
+}
+
 void FRuntimeMeshProviderProxy::MarkSectionDirty(int32 LODIndex, int32 SectionId)
 {
 	if (PreviousProvider.IsValid())
@@ -390,6 +399,16 @@ int32 URuntimeMeshProvider::GetNumMaterialSlots_Implementation()
 		return Proxy->GetNumMaterials();
 	}
 	return 0;
+}
+
+TArray<FRuntimeMeshMaterialSlot> URuntimeMeshProvider::GetMaterialSlots_Implementation()
+{
+	if (Proxy.IsValid())
+	{
+		return Proxy->GetMaterialSlots();
+	}
+
+	return TArray<FRuntimeMeshMaterialSlot>();
 }
 
 void URuntimeMeshProvider::MarkSectionDirty_Implementation(int32 LODIndex, int32 SectionId)

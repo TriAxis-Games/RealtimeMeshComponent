@@ -705,6 +705,14 @@ public:
 	FRuntimeMeshMaterialSlot(const FName& InSlotName, const TWeakObjectPtr<UMaterialInterface>& InMaterial)
 		: SlotName(InSlotName), Material(InMaterial) { }
 
+
+	friend FArchive& operator<<(FArchive& Ar, FRuntimeMeshMaterialSlot& Slot)
+	{
+		Ar << Slot.SlotName;
+		Ar << Slot.Material;
+		return Ar;
+	}
+
 };
 
 USTRUCT(BlueprintType, Meta=(DontUseGenericSpawnObject))

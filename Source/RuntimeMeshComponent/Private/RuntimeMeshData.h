@@ -43,7 +43,7 @@ public:
 
 	FRuntimeMeshProviderProxyRef GetCurrentProviderProxy() { return BaseProvider; }
 
-	TArray<FRuntimeMeshMaterialSlot> GetMaterialSlots() const { return MaterialSlots; }
+	TArray<FRuntimeMeshMaterialSlot> GetMaterialSlots() const override { return MaterialSlots; }
 	int32 GetNumMaterials() override;
 	UMaterialInterface* GetMaterial(int32 SlotIndex) const;
 	TArray<FName> GetMaterialSlotNames() const;

@@ -11,6 +11,9 @@ class RUNTIMEMESHCOMPONENT_API URuntimeMeshProviderStatic : public URuntimeMeshP
 {
 	GENERATED_BODY()
 
+protected:
+	UPROPERTY(Category = "RuntimeMeshActor", EditAnywhere, BlueprintReadOnly, Meta = (ExposeFunctionCategories = "Mesh,Rendering,Physics,Components|RuntimeMesh", AllowPrivateAccess = "true"))
+	bool StoreEditorGeneratedDataForGame;
 private:
 
 	using FSectionDataMapEntry = TTuple<FRuntimeMeshSectionProperties, FRuntimeMeshRenderableMeshData, FBoxSphereBounds>;

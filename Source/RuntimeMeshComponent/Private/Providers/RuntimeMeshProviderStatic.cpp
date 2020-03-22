@@ -5,7 +5,8 @@
 
 
 URuntimeMeshProviderStatic::URuntimeMeshProviderStatic()
-	: LODForMeshCollision(0)
+	: StoreEditorGeneratedDataForGame(false)
+	, LODForMeshCollision(0)
 	, CombinedBounds(ForceInit)
 {
 	UE_LOG(RuntimeMeshLog, Verbose, TEXT("StaticProvider(%d): Created"), FPlatformTLS::GetCurrentThreadId());
@@ -17,9 +18,28 @@ void URuntimeMeshProviderStatic::Initialize_Implementation()
 	UE_LOG(RuntimeMeshLog, Verbose, TEXT("StaticProvider(%d): Initialize called"), FPlatformTLS::GetCurrentThreadId());
 
 	// Setup existing LODs
-	if (LODConfigurations.Num() > 0)
+ 	if (LODConfigurations.Num() > 0)
 	{
-		URuntimeMeshProvider::ConfigureLODs(LODConfigurations);
+		//TMap<int32, TMap<int32, FSectionDataMapEntry>> SectionDataMapTemp = MoveTemp(SectionDataMap);
+
+		URuntimeMeshProvider::ConfigureLODs_Implementation(LODConfigurations);
+
+		// Setup existing sections
+		for (const auto& LOD : SectionDataMap)
+		{
+			for (const auto& Section : LOD.Value)
+			{
+				// Create the section
+				URuntimeMeshProvider::CreateSection_Implementation(LOD.Key, Section.Key, Section.Value.Get<0>());
+				if (Section.Value.Get<1>().HasValidMeshData())
+				{
+					URuntimeMeshProvider::MarkSectionDirty(LOD.Key, Section.Key);
+				}
+			}
+		}
+
+		UpdateBounds();
+		MarkCollisionDirty();
 	}
 	else
 	{
@@ -29,26 +49,7 @@ void URuntimeMeshProviderStatic::Initialize_Implementation()
 				FRuntimeMeshLODProperties(),
 			});
 	}
-
-	// Setup existing sections
-	for (const auto& LOD : SectionDataMap)
-	{
-		for (const auto& Section : LOD.Value)
-		{
-			// Create the section
-			URuntimeMeshProvider::CreateSection(LOD.Key, Section.Key, Section.Value.Get<0>());
-			if (Section.Value.Get<1>().HasValidMeshData())
-			{
-				URuntimeMeshProvider::MarkSectionDirty(LOD.Key, Section.Key);
-			}
-		}
-	}
 }
-
-
-
-
-
 
 
 
@@ -323,21 +324,44 @@ void URuntimeMeshProviderStatic::Serialize(FArchive& Ar)
 
 	Super::Serialize(Ar);
 
+	if (Ar.CustomVer(FRuntimeMeshVersion::GUID) >= FRuntimeMeshVersion::StaticProviderSupportsSerializationV2)
+	{
+		Ar << StoreEditorGeneratedDataForGame;
+	}
+	else
+	{
+		StoreEditorGeneratedDataForGame = true;
+	}
 
 	if (Ar.CustomVer(FRuntimeMeshVersion::GUID) >= FRuntimeMeshVersion::StaticProviderSupportsSerialization)
 	{
-		// Serialize mesh data
-		Ar << LODConfigurations;
-		Ar << SectionDataMap;
-		//Ar << NumMaterialSlots;
+		if (StoreEditorGeneratedDataForGame)
+		{
+			// Serialize mesh data
+			Ar << LODConfigurations;
+			Ar << SectionDataMap;
 
-		// Serialize collision data
-		Ar << LODForMeshCollision;
-		Ar << SectionsForMeshCollision;
+			// Serialize collision data
+			Ar << LODForMeshCollision;
+			Ar << SectionsForMeshCollision;
 
-		Ar << CollisionSettings;
-		Ar << CollisionMesh;
+			Ar << CollisionSettings;
+			Ar << CollisionMesh;
 
-		UpdateBounds();
+			if (Ar.CustomVer(FRuntimeMeshVersion::GUID) >= FRuntimeMeshVersion::StaticProviderSupportsSerializationV2)
+			{
+				TArray<FRuntimeMeshMaterialSlot> MaterialSlots = GetMaterialSlots();
+				Ar << MaterialSlots;
+
+				if (Ar.IsLoading())
+				{
+					for (int32 Index = 0; Index < MaterialSlots.Num(); Index++)
+					{
+						UMaterialInterface* Mat = MaterialSlots[Index].Material.Get(false);
+						SetupMaterialSlot(Index, MaterialSlots[Index].SlotName, Mat);
+					}
+				}
+			}{}
+		}
 	}
 }

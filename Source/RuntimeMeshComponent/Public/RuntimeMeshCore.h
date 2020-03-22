@@ -29,6 +29,7 @@ namespace FRuntimeMeshVersion
 	{
 		Initial = 0,
 		StaticProviderSupportsSerialization = 1,
+		StaticProviderSupportsSerializationV2 = 2,
 
 		// -----<new versions can be added above this line>-------------------------------------------------
 		VersionPlusOne,

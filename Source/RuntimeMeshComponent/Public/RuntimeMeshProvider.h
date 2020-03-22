@@ -28,6 +28,7 @@ public:
 	virtual bool SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial) { return false; }
 	virtual int32 GetMaterialIndex(FName MaterialSlotName) { return INDEX_NONE; }
 	virtual int32 GetNumMaterials() { return 0; }
+	virtual TArray<FRuntimeMeshMaterialSlot> GetMaterialSlots() const { return TArray<FRuntimeMeshMaterialSlot>(); }
 	virtual void MarkSectionDirty(int32 LODIndex, int32 SectionId) { }
 	virtual void MarkLODDirty(int32 LODIndex) { }
 	virtual void MarkAllLODsDirty() { }
@@ -74,6 +75,7 @@ public:
 	virtual bool SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial) override;
 	virtual int32 GetMaterialIndex(FName MaterialSlotName) override;
 	virtual int32 GetNumMaterials() override;
+	virtual TArray<FRuntimeMeshMaterialSlot> GetMaterialSlots() const override;
 	virtual void MarkSectionDirty(int32 LODIndex, int32 SectionId) override;
 	virtual void MarkLODDirty(int32 LODIndex) override;
 	virtual void MarkAllLODsDirty() override;
@@ -167,6 +169,9 @@ public:
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "RuntimeMesh|Providers|Common")
 	int32 GetNumMaterialSlots();
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "RuntimeMesh|Providers|Common")
+	TArray<FRuntimeMeshMaterialSlot> GetMaterialSlots();
 	
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "RuntimeMesh|Providers|Common")
 	void MarkSectionDirty(int32 LODIndex, int32 SectionId);
