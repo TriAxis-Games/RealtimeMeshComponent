@@ -29,7 +29,7 @@ void FRuntimeMeshProviderSphereProxy::UpdateProxyParameters(URuntimeMeshProvider
 	Material = SphereProvider->Material;
 	int32 MaxLODBefore = MaxLOD;
 	MaxLOD = GetMaximumPossibleLOD();
-	if (bIsInitialSetup)
+	if (!bIsInitialSetup)
 	{
 		for (int32 LODIndex = 0; LODIndex <= MaxLOD; LODIndex++)
 		{
