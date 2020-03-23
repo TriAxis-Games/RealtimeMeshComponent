@@ -2,7 +2,7 @@
 
 #include "RuntimeMeshComponentDetails.h"
 #include "RuntimeMeshComponent.h"
-#include "DlgPickAssetPath.h"
+#include "Dialogs/DlgPickAssetPath.h"
 #include "IAssetTools.h"
 #include "AssetToolsModule.h"
 #include "AssetRegistryModule.h"
@@ -13,8 +13,8 @@
 #include "DetailWidgetRow.h"
 #include "RawMesh.h"
 #include "Engine/StaticMesh.h"
-#include "Input/SCheckBox.h"
-#include "Input/SComboBox.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "Widgets/Input/SComboBox.h"
 #include "RuntimeMeshProvider.h"
 #include "RuntimeMeshActor.h"
 
@@ -284,14 +284,16 @@ FReply FRuntimeMeshComponentDetails::ClickedOnConvertToStaticMesh()
 					for (int32 SectionIdx = 0; SectionIdx < NumMaterials; SectionIdx++)
 					{
 #if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 23
-						FMeshSectionInfo Info = StaticMesh->GetSectionInfoMap().Get(LODIndex, SectionIdx);
+						FMeshSectionInfoMap& SectionInfoMap = StaticMesh->GetSectionInfoMap();
 #else
-						FMeshSectionInfo Info = StaticMesh->SectionInfoMap.Get(LODIndex, SectionIdx);
+						FMeshSectionInfoMap& SectionInfoMap = StaticMesh->SectionInfoMap;
 #endif
+
+						FMeshSectionInfo Info = SectionInfoMap.Get(LODIndex, SectionIdx);
 						Info.MaterialIndex = SectionIdx;
 						// TODO: Is this the correct way to handle this by just turning on collision in the top level LOD?
 						Info.bEnableCollision = LODIndex == 0; 
-						StaticMesh->SectionInfoMap.Set(LODIndex, SectionIdx, Info);
+						SectionInfoMap.Set(LODIndex, SectionIdx, Info);
 					}
 				}
 			}

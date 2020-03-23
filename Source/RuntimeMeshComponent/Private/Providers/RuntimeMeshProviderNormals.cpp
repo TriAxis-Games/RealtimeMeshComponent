@@ -1,7 +1,7 @@
 // Copyright 2016-2019 Chris Conway (Koderz). All Rights Reserved.
 
 
-#include "RuntimeMeshProviderNormals.h"
+#include "Providers/RuntimeMeshProviderNormals.h"
 
 FRuntimeMeshProviderNormalsProxy::FRuntimeMeshProviderNormalsProxy(TWeakObjectPtr<URuntimeMeshProvider> InParent, const FRuntimeMeshProviderProxyPtr& InNextProvider, bool InComputeNormals, bool InComputeTangents)
 	: FRuntimeMeshProviderProxyPassThrough(InParent, InNextProvider), 

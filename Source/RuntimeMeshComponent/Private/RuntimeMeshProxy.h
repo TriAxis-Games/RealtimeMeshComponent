@@ -4,8 +4,8 @@
 
 #include "CoreMinimal.h"
 #include "RuntimeMeshSectionProxy.h"
-#include "ThreadSafeBool.h"
-#include "Queue.h"
+#include "HAL/ThreadSafeBool.h"
+#include "Containers/Queue.h"
 
 
 /**
