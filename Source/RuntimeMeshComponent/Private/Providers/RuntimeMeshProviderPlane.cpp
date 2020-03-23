@@ -61,6 +61,8 @@ void FRuntimeMeshProviderPlaneProxy::UpdateProxyParameters(URuntimeMeshProvider*
 				Properties.bIsVisible = true;
 				Properties.MaterialSlot = 0;
 				Properties.UpdateFrequency = ERuntimeMeshUpdateFrequency::Infrequent;
+				Properties.bWants32BitIndices = VertsAB[LODIndex] * VertsAC[LODIndex] >= 1 << 16; //Use 32 bit indices if more than 2^16 verts are needed
+
 				CreateSection(LODIndex, 0, Properties);
 			}
 			else if(VertsAB[LODIndex] != VertsABBefore[LODIndex] || VertsAC[LODIndex] != VertsACBefore[LODIndex])
