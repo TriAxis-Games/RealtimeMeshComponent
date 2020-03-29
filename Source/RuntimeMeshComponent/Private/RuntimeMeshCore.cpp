@@ -1,141 +1,132 @@
-// Copyright 2016-2018 Chris Conway (Koderz). All Rights Reserved.
+// Copyright 2016-2019 Chris Conway (Koderz). All Rights Reserved.
 
 #include "RuntimeMeshCore.h"
 #include "RuntimeMeshComponentPlugin.h"
+#include "RuntimeMeshRenderable.h"
+#include "Logging/MessageLog.h"
 
 
-//////////////////////////////////////////////////////////////////////////
-//	FRuntimeMeshVertexStreamStructureElement
+#define LOCTEXT_NAMESPACE "RuntimeMeshComponent"
 
-bool FRuntimeMeshVertexStreamStructureElement::operator==(const FRuntimeMeshVertexStreamStructureElement& Other) const
+
+bool FRuntimeMeshRenderableMeshData::HasValidMeshData(bool bPrintErrorMessage) const
 {
-	return Offset == Other.Offset && Stride == Other.Stride && Type == Other.Type;
-}
-
-bool FRuntimeMeshVertexStreamStructureElement::operator!=(const FRuntimeMeshVertexStreamStructureElement& Other) const
-{
-	return !(*this == Other);
-}
-
-
-//////////////////////////////////////////////////////////////////////////
-//	FRuntimeMeshVertexStreamStructure
-
-bool FRuntimeMeshVertexStreamStructure::operator==(const FRuntimeMeshVertexStreamStructure& Other) const
-{
-	// First check the UVs
-	if (UVs.Num() != Other.UVs.Num())
+	bool bStatus = true;
+	if (Positions.Num() <= 3)
 	{
-		return false;
-	}
+		bStatus = false;
 
-	for (int32 Index = 0; Index < UVs.Num(); Index++)
-	{
-		if (UVs[Index] != Other.UVs[Index])
+		if (bPrintErrorMessage)
 		{
-			return false;
+			FFormatNamedArguments Arguments;
+			Arguments.Add(TEXT("NumVerts"), Positions.Num());
+			FText Message = FText::Format(LOCTEXT("InvalidMeshData_Positions", "Supplied mesh data doesn't contain enough vertices. Supplied vertices: {NumVerts}, Must be at least 3."), Arguments);
+			FMessageLog("RuntimeMesh").Error(Message);
 		}
 	}
 
-	// Then check the other components
-	return Position == Other.Position &&
-		Normal == Other.Normal &&
-		Tangent == Other.Tangent &&
-		Color == Other.Color;
-}
-
-bool FRuntimeMeshVertexStreamStructure::operator!=(const FRuntimeMeshVertexStreamStructure& Other) const
-{
-	return !(*this == Other);
-}
-
-bool FRuntimeMeshVertexStreamStructure::HasAnyElements() const
-{
-	static const auto IsElementValid = [](const FRuntimeMeshVertexStreamStructureElement& Element) -> bool
+	if (Tangents.Num() < Positions.Num())
 	{
-		return Element.Type != EVertexElementType::VET_None;
-	};
+		bStatus = false;
 
-	for (const auto& Elem : UVs)
-	{
-		if (IsElementValid(Elem))
+		if (bPrintErrorMessage)
 		{
-			return true;
+			FFormatNamedArguments Arguments;
+			Arguments.Add(TEXT("NumVerts"), Positions.Num());
+			Arguments.Add(TEXT("NumTangents"), Tangents.Num());
+			FText Message = FText::Format(LOCTEXT("InvalidMeshData_TooFewTangents", "Supplied mesh data doesn't contain enough tangents. Tangent count should match vertex count. Supplied vertices: {NumVerts}, Supplied tangents: {NumTangents}"), Arguments);
+			FMessageLog("RuntimeMesh").Error(Message);
 		}
 	}
 
-	return IsElementValid(Position) || IsElementValid(Normal) || IsElementValid(Tangent) || IsElementValid(Color);
-}
-
-bool FRuntimeMeshVertexStreamStructure::HasUVs() const
-{
-	return UVs.Num() > 0;
-}
-
-uint8 FRuntimeMeshVertexStreamStructure::CalculateStride() const
-{
-	uint8 MaxStride = 0;
-	const auto AddElement = [&MaxStride](const FRuntimeMeshVertexStreamStructureElement& Element)
+	if (Tangents.Num() > Positions.Num())
 	{
-		if (Element.Type != EVertexElementType::VET_None)
+		// Not really an error but, we'll ignore the extra data
+
+		if (bPrintErrorMessage)
 		{
-			check(MaxStride == 0 || Element.Stride == MaxStride || Element.Stride == 0);
-			MaxStride = FMath::Max(MaxStride, Element.Stride);
-		}
-	};
-
-	AddElement(Position);
-	AddElement(Normal);
-	AddElement(Tangent);
-	for (const auto& Elem : UVs)
-	{
-		AddElement(Elem);
-	}
-	AddElement(Color);
-
-
-	return MaxStride;
-}
-
-bool FRuntimeMeshVertexStreamStructure::IsValid() const
-{
-	static const auto IsElementValid = [](const FRuntimeMeshVertexStreamStructureElement& Element) -> bool
-	{
-		return Element.Type == EVertexElementType::VET_None || Element.Stride > 0;
-	};
-
-	for (const auto& Elem : UVs)
-	{
-		if (!IsElementValid(Elem))
-		{
-			return false;
+			FFormatNamedArguments Arguments;
+			Arguments.Add(TEXT("NumVerts"), Positions.Num());
+			Arguments.Add(TEXT("NumTangents"), Tangents.Num());
+			FText Message = FText::Format(LOCTEXT("InvalidMeshData_TooManyTangents", "Supplied mesh data contains too many tangents. Tangent count should match vertex count. Extras will be ignored. Supplied vertices: {NumVerts}, Supplied tangents: {NumTangents}"), Arguments);
+			FMessageLog("RuntimeMesh").Warning(Message);
 		}
 	}
 
-	return IsElementValid(Position) && IsElementValid(Normal) && IsElementValid(Tangent) && IsElementValid(Color);
-}
-
-bool FRuntimeMeshVertexStreamStructure::HasNoOverlap(const FRuntimeMeshVertexStreamStructure& Other) const
-{
-	static const auto HasNoOverlap = [](const FRuntimeMeshVertexStreamStructureElement& Left, const FRuntimeMeshVertexStreamStructureElement& Right) -> bool
+	if (TexCoords.Num() < Positions.Num())
 	{
-		return Left.Type == EVertexElementType::VET_None || Right.Type == EVertexElementType::VET_None;
-	};
+		bStatus = false;
 
-	// two streams can't have UVs
-	if (UVs.Num() > 0 && Other.UVs.Num() > 0)
-	{
-		return false;
+		if (bPrintErrorMessage)
+		{
+			FFormatNamedArguments Arguments;
+			Arguments.Add(TEXT("NumVerts"), Positions.Num());
+			Arguments.Add(TEXT("NumTexCoords"), TexCoords.Num());
+			FText Message = FText::Format(LOCTEXT("InvalidMeshData_TooFewTexCoords", "Supplied mesh data doesn't contain enough texture coordinates. Texture coordinate count should match vertex count. Supplied vertices: {NumVerts}, Supplied texture coordinates: {NumTexCoords}"), Arguments);
+			FMessageLog("RuntimeMesh").Error(Message);
+		}
 	}
 
-	// Now check overlap of the other components
-	return HasNoOverlap(Position, Other.Position) && HasNoOverlap(Normal, Other.Normal) && HasNoOverlap(Tangent, Other.Tangent) && HasNoOverlap(Color, Other.Color);
+	if (TexCoords.Num() > Positions.Num())
+	{
+		// Not really an error but, we'll ignore the extra data		
+
+		if (bPrintErrorMessage)
+		{
+			FFormatNamedArguments Arguments;
+			Arguments.Add(TEXT("NumVerts"), Positions.Num());
+			Arguments.Add(TEXT("NumTexCoords"), TexCoords.Num());
+			FText Message = FText::Format(LOCTEXT("InvalidMeshData_TooManyTexCoords", "Supplied mesh data contains too many texture coordinates. Texture coordinate count should match vertex count. Extras will be ignored. Supplied vertices: {NumVerts}, Supplied texture coordinates: {NumTexCoords}"), Arguments);
+			FMessageLog("RuntimeMesh").Warning(Message);
+		}
+	}
+
+	if (Colors.Num() < Positions.Num())
+	{
+		bStatus = false;
+
+		if (bPrintErrorMessage)
+		{
+			FFormatNamedArguments Arguments;
+			Arguments.Add(TEXT("NumVerts"), Positions.Num());
+			Arguments.Add(TEXT("NumColors"), Colors.Num());
+			FText Message = FText::Format(LOCTEXT("InvalidMeshData_TooFewColors", "Supplied mesh data doesn't contain enough colors. Color count should match vertex count. Supplied vertices: {NumVerts}, Supplied colors: {NumColors}"), Arguments);
+			FMessageLog("RuntimeMesh").Error(Message);
+		}
+	}
+
+	if (Colors.Num() > Positions.Num())
+	{
+		// Not really an error but, we'll ignore the extra data	
+
+		if (bPrintErrorMessage)
+		{
+			FFormatNamedArguments Arguments;
+			Arguments.Add(TEXT("NumVerts"), Positions.Num());
+			Arguments.Add(TEXT("NumColors"), Colors.Num());
+			FText Message = FText::Format(LOCTEXT("InvalidMeshData_TooManyColors", "Supplied mesh data contains too many colors. Color count should match vertex count. Supplied vertices: {NumVerts}, Supplied colors: {NumColors}"), Arguments);
+			FMessageLog("RuntimeMesh").Warning(Message);
+		}
+	}
+
+	if (Triangles.Num() < 3 || Triangles.Num() % 3 != 0)
+	{
+		bStatus = false;
+
+		if (bPrintErrorMessage)
+		{
+			FFormatNamedArguments Arguments;
+			Arguments.Add(TEXT("NumVerts"), Positions.Num());
+			Arguments.Add(TEXT("NumTriangles"), Colors.Num());
+			FText Message = FText::Format(LOCTEXT("InvalidMeshData_InvalidTriangles", "Supplied mesh data doesn't contain a valid number of triangles. Must be a multiple of 3. Supplied triangles: {NumTriangles}"), Arguments);
+			FMessageLog("RuntimeMesh").Error(Message);
+		}
+	}
+
+	return bStatus;
 }
 
-bool FRuntimeMeshVertexStreamStructure::ValidTripleStream(const FRuntimeMeshVertexStreamStructure& Stream1, const FRuntimeMeshVertexStreamStructure& Stream2, const FRuntimeMeshVertexStreamStructure& Stream3)
-{
-	return Stream1.IsValid() && Stream2.IsValid() && Stream3.IsValid() &&
-		Stream1.HasNoOverlap(Stream2) && Stream1.HasNoOverlap(Stream3) && Stream2.HasNoOverlap(Stream3) &&
-		Stream1.HasAnyElements() && Stream1.Position.IsValid() &&
-		(!Stream3.HasAnyElements() || Stream2.HasAnyElements());
-}
+
+
+
+#undef LOCTEXT_NAMESPACE

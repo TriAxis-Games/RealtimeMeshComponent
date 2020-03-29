@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Chris Conway (Koderz). All Rights Reserved.
+// Copyright 2016-2019 Chris Conway (Koderz). All Rights Reserved.
 
 using System.IO;
 using UnrealBuildTool;
@@ -8,31 +8,15 @@ public class RuntimeMeshComponent : ModuleRules
     public RuntimeMeshComponent(ReadOnlyTargetRules rules) : base(rules)
     {
         PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
-        bFasterWithoutUnity = true;
 
-        // HORU: this was throwing warnings
-        //     PublicIncludePaths.AddRange(
-        //         new string[] {
-        //             "RuntimeMeshComponent/Public"
-        //	// ... add public include paths required here ...
-        //}
-        //         );
-
-        // HORU: this was throwing warnings
-        //     PrivateIncludePaths.AddRange(
-        //         new string[] {
-        //             "RuntimeMeshComponent/Private",
-        //	// ... add other private include paths required here ...
-        //}
-        //         );
-
+        // This is to access RayTracing Definitions
+        PrivateIncludePaths.Add(Path.Combine(EngineDirectory, "Shaders", "Shared"));
 
         PublicDependencyModuleNames.AddRange(
             new string[]
             {
                 "Core",
-				// ... add other public dependencies that you statically link with here ...
-			}
+            }
             );
 
 
@@ -41,19 +25,11 @@ public class RuntimeMeshComponent : ModuleRules
             {
                 "CoreUObject",
                 "Engine",
-				// ... add private dependencies that you statically link with here ...	
                 "RenderCore",
                 "RHI",
-                "NavigationSystem"
+                "NavigationSystem",
+                "PhysicsCore"
             }
-            );
-
-
-        DynamicallyLoadedModuleNames.AddRange(
-            new string[]
-            {
-				// ... add any modules that your module loads dynamically here ...
-			}
             );
     }
 }

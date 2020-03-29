@@ -1,7 +1,7 @@
 {
   "FileVersion": 3,
-  "Version": 32,
-  "VersionName": "3.2",
+  "Version": 40,
+  "VersionName": "4.0",
   "FriendlyName": "Runtime Mesh Component",
   "Description": "A component allowing for rendering and interacting with runtime generated geometry.",
   "Category": "Rendering",
@@ -12,7 +12,7 @@
   "SupportURL": "https://github.com/Koderz/UE4RuntimeMeshComponent/issues",
   "EnabledByDefault": true,
   "CanContainContent": false,
-  "IsBetaVersion": true,
+  "IsBetaVersion": false,
   "Installed": false,
   "Modules": [
     {

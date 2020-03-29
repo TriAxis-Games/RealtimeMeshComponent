@@ -1,11 +1,13 @@
-// Copyright 2016-2018 Chris Conway (Koderz). All Rights Reserved.
+// Copyright 2016-2019 Chris Conway (Koderz). All Rights Reserved.
 
 #pragma once
 
 #include "Engine/Engine.h"
 #include "Components/MeshComponent.h"
 #include "RuntimeMeshRendering.h"
-#include "RuntimeMeshUpdateCommands.h"
+#include "RuntimeMeshRenderable.h"
+
+class FRuntimeMeshSectionProxy;
 
 
 struct FRuntimeMeshSectionNullBufferElement
@@ -24,10 +26,13 @@ struct FRuntimeMeshSectionNullBufferElement
 };
 
 
-class FRuntimeMeshSectionProxy : public TSharedFromThis<FRuntimeMeshSectionProxy, ESPMode::NotThreadSafe>
+class FRuntimeMeshSectionProxy
 {
-	/** Update frequency of this section */
-	EUpdateFrequency UpdateFrequency;
+	/** This stores all this sections config*/
+	FRuntimeMeshSectionProperties Properties;
+
+	/** Feature level in use, needed for recreating LODs vertex factories */
+	ERHIFeatureLevel::Type FeatureLevel;
 
 	/** Vertex factory for this section */
 	FRuntimeMeshVertexFactory VertexFactory;
@@ -50,33 +55,90 @@ class FRuntimeMeshSectionProxy : public TSharedFromThis<FRuntimeMeshSectionProxy
 	/** Index buffer for this section */
 	FRuntimeMeshIndexBuffer AdjacencyIndexBuffer;
 
-	/** Whether this section is currently visible */
-	bool bIsVisible;
-
-	/** Should this section cast a shadow */
-	bool bCastsShadow;
+#if RHI_RAYTRACING
+	FRayTracingGeometry RayTracingGeometry;
+#endif
 
 public:
-	FRuntimeMeshSectionProxy(ERHIFeatureLevel::Type InFeatureLevel, FRuntimeMeshSectionCreationParamsPtr CreationData);
 
-	~FRuntimeMeshSectionProxy();
+	FRuntimeMeshSectionProxy(ERHIFeatureLevel::Type InFeatureLevel, const FRuntimeMeshSectionProperties& SectionProperties)
+		: Properties(SectionProperties)
+		, FeatureLevel(InFeatureLevel)
+		, VertexFactory(InFeatureLevel, this)
+		, PositionBuffer(SectionProperties.UpdateFrequency)
+		, TangentsBuffer(SectionProperties.UpdateFrequency, SectionProperties.bUseHighPrecisionTangents)
+		, UVsBuffer(SectionProperties.UpdateFrequency, SectionProperties.bUseHighPrecisionTexCoords, SectionProperties.NumTexCoords)
+		, ColorBuffer(SectionProperties.UpdateFrequency)
+		, IndexBuffer(SectionProperties.UpdateFrequency, SectionProperties.bWants32BitIndices)
+		, AdjacencyIndexBuffer(SectionProperties.UpdateFrequency, SectionProperties.bWants32BitIndices)
+	{
 
-	bool ShouldRender();
-	bool CanRender();
+	}
 
-	bool WantsToRenderInStaticPath() const;
+	~FRuntimeMeshSectionProxy()
+	{
+		check(IsInRenderingThread());
 
-	bool CastsShadow() const;
+		Reset();
+	}
+	
+	void Reset();
+
+	bool CanRender() const;
+	bool ShouldRender() const { return Properties.bIsVisible && CanRender(); }
+	bool WantsToRenderInStaticPath() const { return Properties.UpdateFrequency == ERuntimeMeshUpdateFrequency::Infrequent; }
+	bool CastsShadow() const { return Properties.bCastsShadow; }
 
 	FRuntimeMeshVertexFactory* GetVertexFactory() { return &VertexFactory; }
-
-	void CreateMeshBatch(FMeshBatch& MeshBatch, bool bWantsAdjacencyInfo);
-
+#if RHI_RAYTRACING
+	FRayTracingGeometry* GetRayTracingGeometry() { return &RayTracingGeometry; }
+#endif
 	void BuildVertexDataType(FLocalVertexFactory::FDataType& DataType);
 
-	void FinishUpdate_RenderThread(FRuntimeMeshSectionUpdateParamsPtr UpdateData);
+	void CreateMeshBatch(FMeshBatch& MeshBatch, bool bCastsShadow, bool bWantsAdjacencyInfo) const;
 
-	void FinishPropertyUpdate_RenderThread(FRuntimeMeshSectionPropertyUpdateParamsPtr UpdateData);
+
+	void UpdateProperties_RenderThread(const FRuntimeMeshSectionProperties& SectionProperties);
+	void UpdateSection_RenderThread(const FRuntimeMeshRenderableMeshData& MeshData);
+	void ClearSection_RenderThread();
+};
+
+
+
+
+class FRuntimeMeshLODProxy : public TSharedFromThis<FRuntimeMeshLODProxy>
+{
+	/** Sections for this LOD, these do not have to be configured the same as sections in other LODs */
+	TMap<int32, FRuntimeMeshSectionProxyPtr> Sections;
+
+	FRuntimeMeshLODProperties Properties;
+
+	ERHIFeatureLevel::Type FeatureLevel;
+
+public:
+	FRuntimeMeshLODProxy(ERHIFeatureLevel::Type InFeatureLevel, const FRuntimeMeshLODProperties& InProperties);
+	~FRuntimeMeshLODProxy();
+
+	TMap<int32, FRuntimeMeshSectionProxyPtr>& GetSections() { return Sections; }
+	const TMap<int32, FRuntimeMeshSectionProxyPtr>& GetSections() const { return Sections; }
+
+	bool CanRender() const;
+	bool HasAnyStaticPath() const;
+	bool HasAnyDynamicPath() const;
+	bool HasAnyShadowCasters() const;
+
+	float GetMaxScreenSize() const { return Properties.ScreenSize; }
+
+	void Configure_RenderThread(const FRuntimeMeshLODProperties& InProperties);
+	void Reset_RenderThread();
+
+	void CreateOrUpdateSection_RenderThread(int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties, bool bShouldReset);
+	void UpdateSectionMesh_RenderThread(int32 SectionId, const FRuntimeMeshRenderableMeshData& MeshData);
+	void ClearSection_RenderThread(int32 SectionId);
+	void ClearAllSections_RenderThread();
+	void RemoveAllSections_RenderThread();
+	void RemoveSection_RenderThread(int32 SectionId);
+
 };
 
 

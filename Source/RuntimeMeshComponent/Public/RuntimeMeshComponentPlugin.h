@@ -1,9 +1,9 @@
-// Copyright 2016-2018 Chris Conway (Koderz). All Rights Reserved.
+// Copyright 2016-2019 Chris Conway (Koderz). All Rights Reserved.
 
 #pragma once
 
 #include "CoreMinimal.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 
 /**
 * The public interface to this module
@@ -35,4 +35,4 @@ public:
 	}
 };
 
-DECLARE_LOG_CATEGORY_EXTERN(RuntimeMeshLog, Log, All);
+DECLARE_LOG_CATEGORY_EXTERN(RuntimeMeshLog, Warning, All);
