@@ -126,7 +126,7 @@ FPrimitiveSceneProxy* URuntimeMeshComponent::CreateSceneProxy()
 {
 	SCOPE_CYCLE_COUNTER(STAT_RuntimeMeshComponent_CreateSceneProxy);
 
-	if (RuntimeMeshReference == nullptr || RuntimeMeshReference->GetRenderProxy(GetScene()->GetFeatureLevel()) == nullptr)
+	if (RuntimeMeshReference == nullptr || !RuntimeMeshReference->GetRenderProxy(GetScene()->GetFeatureLevel()).IsValid())
 	{
 		return nullptr;
 	}

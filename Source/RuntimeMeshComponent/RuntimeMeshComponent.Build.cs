@@ -28,7 +28,9 @@ public class RuntimeMeshComponent : ModuleRules
                 "RenderCore",
                 "RHI",
                 "NavigationSystem",
+#if UE_4_23_OR_LATER
                 "PhysicsCore"
+#endif
             }
             );
     }

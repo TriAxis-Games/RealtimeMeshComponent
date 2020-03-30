@@ -5,7 +5,14 @@
 #include "Engine/Engine.h"
 #include "Components/MeshComponent.h"
 #include "RuntimeMeshCore.h"
+
+#include "Runtime/Launch/Resources/Version.h"
+#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 23
 #include "Interface_CollisionDataProviderCore.h"
+#else
+#include "Interfaces/Interface_CollisionDataProvider.h"
+#endif
+
 #include "RuntimeMeshCollision.generated.h"
 
 class URuntimeMeshProvider;

@@ -129,8 +129,11 @@ void FRuntimeMeshSectionProxy::UpdateSection_RenderThread(const FRuntimeMeshRend
 					Initializer.VertexBufferStride = 12;
 					Initializer.VertexBufferByteOffset = 0;
 					Initializer.VertexBufferElementType = VET_Float3;
-#endif
+					Initializer.PrimitiveType = PT_TriangleList;
+#else
 					Initializer.GeometryType = RTGT_Triangles;
+#endif
+
 					Initializer.bFastBuild = true;
 					Initializer.bAllowUpdate = false;
 
