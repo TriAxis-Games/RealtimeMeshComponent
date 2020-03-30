@@ -2,8 +2,11 @@
 
 #include "RuntimeMeshSectionProxy.h"
 #include "RuntimeMeshComponentPlugin.h"
-#include "RayTracingInstance.h"
 
+
+#if RHI_RAYTRACING
+#include "RayTracingInstance.h"
+#endif
 
 
 DECLARE_DWORD_COUNTER_STAT(TEXT("RuntimeMeshSectionProxy - Num Triangles"), STAT_RuntimeMeshSectionProxy_NumTriangles, STATGROUP_RuntimeMesh);

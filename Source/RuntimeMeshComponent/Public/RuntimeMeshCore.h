@@ -13,6 +13,11 @@
 
 DECLARE_STATS_GROUP(TEXT("RuntimeMesh"), STATGROUP_RuntimeMesh, STATCAT_Advanced);
 
+// Define RHI_RAYTRACING to 0 for engine versions earlier than this was introduced
+#if !defined(RHI_RAYTRACING)
+#define RHI_RAYTRACING 0
+#endif
+
 #define RUNTIMEMESH_MAXTEXCOORDS MAX_STATIC_TEXCOORDS
 #define RUNTIMEMESH_MAXLODS MAX_STATIC_MESH_LODS
 
