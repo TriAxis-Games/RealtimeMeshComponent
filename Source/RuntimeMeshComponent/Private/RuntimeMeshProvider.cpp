@@ -15,7 +15,6 @@ void FRuntimeMeshProviderProxy::BindPreviousProvider(const FRuntimeMeshProviderP
 
 void FRuntimeMeshProviderProxy::UpdateProxyParameters(URuntimeMeshProvider* ParentProvider, bool bIsInitialSetup)
 {
-
 }
 
 void FRuntimeMeshProviderProxy::ConfigureLODs(TArray<FRuntimeMeshLODProperties> LODs)
@@ -34,13 +33,12 @@ void FRuntimeMeshProviderProxy::CreateSection(int32 LODIndex, int32 SectionId, c
 	}
 }
 
-bool FRuntimeMeshProviderProxy::SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial)
+void FRuntimeMeshProviderProxy::SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial)
 {
 	if (PreviousProvider.IsValid())
 	{
-		return PreviousProvider->SetupMaterialSlot(MaterialSlot, SlotName, InMaterial);
+		PreviousProvider->SetupMaterialSlot(MaterialSlot, SlotName, InMaterial);
 	}
-	return false;
 }
 
 int32 FRuntimeMeshProviderProxy::GetMaterialIndex(FName MaterialSlotName)
@@ -126,6 +124,13 @@ void FRuntimeMeshProviderProxy::MarkCollisionDirty()
 	}
 }
 
+void FRuntimeMeshProviderProxy::DoOnGameThreadAndBlockThreads(FRuntimeMeshProviderThreadExclusiveFunction Func)
+{
+	if (PreviousProvider.IsValid())
+	{
+		PreviousProvider->DoOnGameThreadAndBlockThreads(Func);
+	}
+}
 
 
 
@@ -349,7 +354,15 @@ void URuntimeMeshProvider::MarkProxyParametersDirty()
 
 	if (Proxy.IsValid())
 	{
-		Proxy->UpdateProxyParameters(this, false);
+		TWeakObjectPtr<URuntimeMeshProvider> ProviderRef(this);
+		FRuntimeMeshProviderProxyPtr ProxyPtr = Proxy;
+		Proxy->DoOnGameThreadAndBlockThreads(FRuntimeMeshProviderThreadExclusiveFunction::CreateLambda([ProviderRef, ProxyPtr]()
+			{
+				if (ProviderRef.IsValid())
+				{
+					ProxyPtr->UpdateProxyParameters(ProviderRef.Get(), false);
+				}
+			}));
 	}
 }
 
@@ -374,13 +387,12 @@ void URuntimeMeshProvider::CreateSection_Implementation(int32 LODIndex, int32 Se
 	}
 }
 
-bool URuntimeMeshProvider::SetupMaterialSlot_Implementation(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial)
+void URuntimeMeshProvider::SetupMaterialSlot_Implementation(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial)
 {
 	if (Proxy.IsValid())
 	{
-		return Proxy->SetupMaterialSlot(MaterialSlot, SlotName, InMaterial);
+		Proxy->SetupMaterialSlot(MaterialSlot, SlotName, InMaterial);
 	}
-	return false;
 }
 
 int32 URuntimeMeshProvider::GetMaterialIndex_Implementation(FName MaterialSlotName)

@@ -69,6 +69,16 @@ FRuntimeMeshCollisionHitInfo URuntimeMeshComponent::GetHitSource(int32 FaceIndex
 	return FRuntimeMeshCollisionHitInfo();
 }
 
+void URuntimeMeshComponent::InitializeMultiThreading(int32 NumThreads, int32 StackSize /*= 0*/, EThreadPriority ThreadPriority /*= TPri_BelowNormal*/)
+{
+	URuntimeMesh::InitializeMultiThreading(NumThreads, StackSize, ThreadPriority);
+}
+
+FRuntimeMeshBackgroundWorkDelegate URuntimeMeshComponent::InitializeUserSuppliedThreading()
+{
+	return URuntimeMesh::InitializeUserSuppliedThreading();
+}
+
 void URuntimeMeshComponent::NewCollisionMeshReceived()
 {
 	SCOPE_CYCLE_COUNTER(STAT_RuntimeMeshComponent_NewCollisionMeshReceived);

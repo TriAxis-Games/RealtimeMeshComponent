@@ -3,6 +3,9 @@
 #include "RuntimeMeshData.h"
 #include "RuntimeMeshProxy.h"
 #include "RuntimeMesh.h"
+#include "Runnable.h"
+#include "RunnableThread.h"
+#include "RuntimeMeshCore.h"
 
 DECLARE_CYCLE_STAT(TEXT("RuntimeMeshData - Initialize"), STAT_RuntimeMeshData_Initialize, STATGROUP_RuntimeMesh);
 DECLARE_CYCLE_STAT(TEXT("RuntimeMeshData - Update Section Properties"), STAT_RuntimeMeshData_UpdateSectionProperties, STATGROUP_RuntimeMesh);
@@ -29,6 +32,9 @@ FRuntimeMeshData::FRuntimeMeshData(const FRuntimeMeshProviderProxyRef& InBasePro
 	: FRuntimeMeshProviderProxy(nullptr)
 	, ParentMeshObject(InParentMeshObject)
 	, BaseProvider(InBaseProvider)
+	, bQueuedForUpdate(0)
+	, bHasWaitingGameThreadTask(0)
+	, bUpdateLock(0)
 {
 	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMD(%d): Created"), FPlatformTLS::GetCurrentThreadId());
 }
@@ -89,8 +95,7 @@ void FRuntimeMeshData::Initialize()
 
 void FRuntimeMeshData::ConfigureLODs(TArray<FRuntimeMeshLODProperties> LODSettings)
 {
-	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMD(%d): ConfigureLODs Called"), FPlatformTLS::GetCurrentThreadId());
-
+	check(IsInGameThread());
 	{
 		FScopeLock Lock(&SyncRoot);
 		LODs.Empty();
@@ -110,8 +115,7 @@ void FRuntimeMeshData::ConfigureLODs(TArray<FRuntimeMeshLODProperties> LODSettin
 
 void FRuntimeMeshData::CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties)
 {
-	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMD(%d): CreateSection Called"), FPlatformTLS::GetCurrentThreadId());
-
+	check(IsInGameThread());
 	check(LODs.IsValidIndex(LODIndex));
 	check(SectionId >= 0);
 	
@@ -124,38 +128,42 @@ void FRuntimeMeshData::CreateSection(int32 LODIndex, int32 SectionId, const FRun
 	MarkForUpdate();
 }
 
-bool FRuntimeMeshData::SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial)
+void FRuntimeMeshData::SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial)
 {
-	// Does this slot already exist?
-	if (SlotNameLookup.Contains(SlotName))
-	{
-		// If the indices match then just go with it
-		if (SlotNameLookup[SlotName] == MaterialSlot)
-		{
-			MaterialSlots[SlotNameLookup[SlotName]].Material = InMaterial;
-			return true;
-		}
-		return false;
-	}
-	
-	if (!MaterialSlots.IsValidIndex(MaterialSlot))
-	{
-		MaterialSlots.SetNum(MaterialSlot + 1);
-	}
-	MaterialSlots[MaterialSlot] = FRuntimeMeshMaterialSlot(SlotName, InMaterial);
-	SlotNameLookup.Add(SlotName, MaterialSlots.Num() - 1);
+	DoOnGameThread(FRuntimeMeshGameThreadTaskDelegate::CreateLambda([this, MaterialSlot, SlotName, InMaterial](URuntimeMesh*) {
+		check(IsInGameThread());
 
-	return true;
+		// Does this slot already exist?
+		if (SlotNameLookup.Contains(SlotName))
+		{
+			// If the indices match then just go with it
+			if (SlotNameLookup[SlotName] == MaterialSlot)
+			{
+				MaterialSlots[SlotNameLookup[SlotName]].Material = InMaterial;
+			}
+			else
+			{
+				MaterialSlots[SlotNameLookup[SlotName]].SlotName = NAME_None;
+			}
+		}
+
+		if (!MaterialSlots.IsValidIndex(MaterialSlot))
+		{
+			MaterialSlots.SetNum(MaterialSlot + 1);
+		}
+		MaterialSlots[MaterialSlot] = FRuntimeMeshMaterialSlot(SlotName, InMaterial);
+		SlotNameLookup.Add(SlotName, MaterialSlots.Num() - 1);
+
+		RecreateAllComponentProxies();
+	}));
 }
 
 void FRuntimeMeshData::MarkSectionDirty(int32 LODIndex, int32 SectionId)
 {
-	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMD(%d): MarkSectionDirty Called"), FPlatformTLS::GetCurrentThreadId());
+	FScopeLock Lock(&SyncRoot);
 
 	check(LODs.IsValidIndex(LODIndex));
 	check(LODs[LODIndex].Sections.Contains(SectionId));
-
-	FScopeLock Lock(&SyncRoot);
 
 	// Flag for update
 	ESectionUpdateType& UpdateType = SectionsToUpdate.FindOrAdd(LODIndex).FindOrAdd(SectionId);
@@ -166,11 +174,9 @@ void FRuntimeMeshData::MarkSectionDirty(int32 LODIndex, int32 SectionId)
 
 void FRuntimeMeshData::MarkLODDirty(int32 LODIndex)
 {
-	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMD(%d): MarkLODDirty Called"), FPlatformTLS::GetCurrentThreadId());
+	FScopeLock Lock(&SyncRoot);
 
 	check(LODs.IsValidIndex(LODIndex));
-
-	FScopeLock Lock(&SyncRoot);
 
 	// Flag for update
 	SectionsToUpdate.FindOrAdd(LODIndex).FindOrAdd(INDEX_NONE) = ESectionUpdateType::Mesh;
@@ -180,8 +186,6 @@ void FRuntimeMeshData::MarkLODDirty(int32 LODIndex)
 
 void FRuntimeMeshData::MarkAllLODsDirty()
 {
-	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMD(%d): MarkAllLODsDirty Called"), FPlatformTLS::GetCurrentThreadId());
-
 	FScopeLock Lock(&SyncRoot);
 
 	// Flag for update
@@ -195,10 +199,10 @@ void FRuntimeMeshData::MarkAllLODsDirty()
 
 void FRuntimeMeshData::SetSectionVisibility(int32 LODIndex, int32 SectionId, bool bIsVisible)
 {
+	FScopeLock Lock(&SyncRoot);
+
 	check(LODs.IsValidIndex(LODIndex));
 	check(LODs[LODIndex].Sections.Contains(SectionId));
-
-	FScopeLock Lock(&SyncRoot);
 
 	FRuntimeMeshSectionProperties* Section = LODs[LODIndex].Sections.Find(SectionId);
 	if (Section)
@@ -213,10 +217,10 @@ void FRuntimeMeshData::SetSectionVisibility(int32 LODIndex, int32 SectionId, boo
 
 void FRuntimeMeshData::SetSectionCastsShadow(int32 LODIndex, int32 SectionId, bool bCastsShadow)
 {
+	FScopeLock Lock(&SyncRoot);
+
 	check(LODs.IsValidIndex(LODIndex));
 	check(LODs[LODIndex].Sections.Contains(SectionId));
-
-	FScopeLock Lock(&SyncRoot);
 
 	FRuntimeMeshSectionProperties* Section = LODs[LODIndex].Sections.Find(SectionId);
 	if (Section)
@@ -231,8 +235,6 @@ void FRuntimeMeshData::SetSectionCastsShadow(int32 LODIndex, int32 SectionId, bo
 
 void FRuntimeMeshData::RemoveSection(int32 LODIndex, int32 SectionId)
 {
-	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMD(%d): RemoveSection Called"), FPlatformTLS::GetCurrentThreadId());
-
 	FScopeLock Lock(&SyncRoot);
 
 	LODs[LODIndex].Sections.Remove(SectionId);
@@ -258,6 +260,8 @@ void FRuntimeMeshData::MarkCollisionDirty()
 
 
 
+
+
 /*
 *	This tick function is used to offload the mesh updates to the end of frame.
 *	This is meant to only update the mesh a single time per frame as any more would be a waste
@@ -265,10 +269,68 @@ void FRuntimeMeshData::MarkCollisionDirty()
 struct FRuntimeMeshDataDelayedActionTickObject : FTickableGameObject
 {
 private:
+	TQueue<TTuple<FRuntimeMeshDataWeakPtr, FRuntimeMeshProviderThreadExclusiveFunction>, EQueueMode::Mpsc> ProxyParamsUpdateList;
 	TQueue<FRuntimeMeshDataWeakPtr, EQueueMode::Mpsc> UpdateList;
 
+
+	class FRuntimeMeshDataBackgroundWorker : public FRunnable
+	{
+		FRuntimeMeshDataDelayedActionTickObject* Parent;
+		FThreadSafeBool ShouldRun;
+	public:
+
+		FRuntimeMeshDataBackgroundWorker(FRuntimeMeshDataDelayedActionTickObject* InParent)
+			: Parent(InParent)
+			, ShouldRun(true)
+		{
+
+		}
+
+		uint32 Run() override
+		{
+			static const double TimeSlice = 1.0f;
+			while (ShouldRun)
+			{
+				bool bHasMoreWork = Parent->DoThreadedWork(TimeSlice);
+
+				if (!bHasMoreWork)
+				{
+					FPlatformProcess::Sleep(1.0 / 60);
+				}
+			}
+			return 0;
+		}
+
+
+		void Stop() override
+		{
+			ShouldRun = false;
+		}
+
+	};
+
+	enum class ECurrentThreadingType
+	{
+		None,
+		Internal,
+		UserSupplied,
+	};
+
+	ECurrentThreadingType CurrentThreadingType;
+	TArray<TUniquePtr<FRuntimeMeshDataBackgroundWorker>> Workers;
+	TArray<TUniquePtr<FRunnableThread>> WorkerThreads;
+
 public:
-	FRuntimeMeshDataDelayedActionTickObject() {}
+	FRuntimeMeshDataDelayedActionTickObject()
+		: CurrentThreadingType(ECurrentThreadingType::None)
+	{}
+
+	~FRuntimeMeshDataDelayedActionTickObject()
+	{
+		RemoveThreadsToMaxCount(0);
+
+		check(Workers.Num() == 0 && WorkerThreads.Num() == 0);
+	}
 
 	static FRuntimeMeshDataDelayedActionTickObject& GetInstance()
 	{
@@ -280,46 +342,231 @@ public:
 		return *UpdaterObject.Get();
 	}
 
+	void RegisterForProxyParamsUpdate(FRuntimeMeshDataWeakPtr InMesh, FRuntimeMeshProviderThreadExclusiveFunction Func)
+	{
+		FRuntimeMeshDataPtr Mesh = InMesh.Pin();
+
+		if (Mesh)
+		{
+			int32 OldValue = FPlatformAtomics::InterlockedCompareExchange(&Mesh->bHasWaitingGameThreadTask, 1, 0);
+
+			// Are we already queued?
+			if (OldValue == 0)
+			{
+				ProxyParamsUpdateList.Enqueue(MakeTuple(InMesh, Func));
+			}
+		}
+	}
+
 	void RegisterForUpdate(FRuntimeMeshDataWeakPtr InMesh)
 	{
-		UpdateList.Enqueue(InMesh);
+		FRuntimeMeshDataPtr Mesh = InMesh.Pin();
+
+		if (Mesh)
+		{
+			int32 OldValue = FPlatformAtomics::InterlockedCompareExchange(&Mesh->bQueuedForUpdate, 1, 0);
+
+			// Are we already queued?
+			if (OldValue == 0)
+			{
+				UpdateList.Enqueue(InMesh);
+			}
+		}
 	}
 
 	virtual void Tick(float DeltaTime)
 	{
 		//SCOPE_CYCLE_COUNTER(STAT_RuntimeMeshDelayedActions_Tick);
 
-		FRuntimeMeshDataWeakPtr TempMesh;
-		while (UpdateList.Dequeue(TempMesh))
+		UpdateGameThreadTasks();
+		
+		if (CurrentThreadingType == ECurrentThreadingType::None)
 		{
-			FRuntimeMeshDataPtr Mesh = TempMesh.Pin();
-			if (Mesh.IsValid())
-			{
-				//INC_DWORD_STAT_BY(STAT_RuntimeMeshDelayedActions_UpdatedActors, 1);
-				Mesh->HandleUpdate();
-			}
+			DoThreadedWork(1000 / 60);
 		}
 	}
 	virtual bool IsTickable() const { return !UpdateList.IsEmpty(); }
 	virtual bool IsTickableInEditor() const { return true; }
 	virtual TStatId GetStatId() const { return TStatId(); }
+
+	void RemoveThreadsToMaxCount(int32 NewNumThreads)
+	{
+		// Remove excessive threads
+		for (int32 Index = Workers.Num() - 1; Index > (NewNumThreads - 1); Index--)
+		{
+			Workers[Index - 1]->Stop();
+		}
+
+		for (int32 Index = Workers.Num() - 1; Index > (NewNumThreads - 1); Index--)
+		{
+			WorkerThreads[Index]->WaitForCompletion();
+			WorkerThreads[Index]->Kill();
+
+			WorkerThreads.RemoveAt(Index);
+			Workers.RemoveAt(Index);
+		}
+	}
+
+
+	void InitializeMultiThreading(int32 NumThreads, int32 StackSize = 0, EThreadPriority ThreadPriority = TPri_BelowNormal)
+	{
+		CurrentThreadingType = ECurrentThreadingType::Internal;
+
+		// Add new threads			
+		for (int32 Index = Workers.Num(); Index < NumThreads; Index++)
+		{
+			Workers.Add(MakeUnique<FRuntimeMeshDataBackgroundWorker>(this));
+
+			WorkerThreads.Add(TUniquePtr<FRunnableThread>(FRunnableThread::Create(Workers[Index].Get(),
+				*FString::Printf(TEXT("RuntimeMeshBackgroundThread: %d"), Index), StackSize, ThreadPriority)));
+		}
+
+		RemoveThreadsToMaxCount(NumThreads);
+	}
+
+	FRuntimeMeshBackgroundWorkDelegate InitializeUserSuppliedThreading()
+	{
+		CurrentThreadingType = ECurrentThreadingType::UserSupplied;
+
+		RemoveThreadsToMaxCount(0);
+
+		return FRuntimeMeshBackgroundWorkDelegate::CreateLambda([](double MaxAllowedTime)
+			{
+				FRuntimeMeshDataDelayedActionTickObject::GetInstance().DoThreadedWork(MaxAllowedTime);
+			});
+	}
+
+	void UpdateGameThreadTasks()
+	{
+		TQueue<TTuple<FRuntimeMeshDataWeakPtr, FRuntimeMeshProviderThreadExclusiveFunction>> RemainingList;
+
+
+		// Here we handle the game thread only tasks, Each tick we try to handle every tasks
+		// If a task is currently doing background work we add it back to the queue for next tick
+		TTuple<FRuntimeMeshDataWeakPtr, FRuntimeMeshProviderThreadExclusiveFunction> TempData;
+		while (ProxyParamsUpdateList.Dequeue(TempData))
+		{
+			int32 CurrentLockValue = INDEX_NONE;
+
+			FRuntimeMeshDataPtr Mesh = TempData.Key.Pin();
+			if (Mesh.IsValid())
+			{
+				// Can we get the exclusive lock?
+				CurrentLockValue = FPlatformAtomics::InterlockedCompareExchange(&Mesh->bUpdateLock, 2, 0);
+
+				if (CurrentLockValue == 0)
+				{
+					// Clear the waiting game thread task flag
+					CurrentLockValue = FPlatformAtomics::InterlockedExchange(&Mesh->bHasWaitingGameThreadTask, 0);
+					// This checks that we did clear the flag, if it wasn't set something isn't right
+					check(CurrentLockValue == 1);
+
+					TempData.Value.Execute();
+
+					// Release the lock
+					CurrentLockValue = FPlatformAtomics::InterlockedCompareExchange(&Mesh->bUpdateLock, 0, 2);
+					// This is to check that we unlocked correctly, if this wasn't 2, then somehow we have a thread issue
+					check(CurrentLockValue == 2);
+				}
+				else
+				{
+					// Since we couldn't lock it on this round. Add it back to the queue for the next tick
+					RemainingList.Enqueue(TempData);
+				}
+			}
+		}
+
+		// Add the remaining list back to the queue for next tick
+		while (RemainingList.Dequeue(TempData))
+		{
+			ProxyParamsUpdateList.Enqueue(TempData);
+		}
+	}
+
+	bool DoThreadedWork(double MaxAllowedTime)
+	{
+		// Convert time to sections
+		MaxAllowedTime /= 60.0;
+
+		double StartTime = FPlatformTime::Seconds();
+
+		FRuntimeMeshDataWeakPtr TempMesh;
+		while ((FPlatformTime::Seconds() - StartTime) < MaxAllowedTime && UpdateList.Dequeue(TempMesh))
+		{
+			int32 CurrentLockValue = INDEX_NONE;
+			bool bHandled = false;
+			
+			FRuntimeMeshDataPtr Mesh = TempMesh.IsValid() ? TempMesh.Pin() : nullptr;
+			if (!Mesh.IsValid())
+			{
+				continue;
+			}
+
+			CurrentLockValue = FPlatformAtomics::AtomicRead(&Mesh->bHasWaitingGameThreadTask);
+
+			if (CurrentLockValue == 0)
+			{
+				// Can we get the exclusive lock?
+				CurrentLockValue = FPlatformAtomics::InterlockedCompareExchange(&Mesh->bUpdateLock, 1, 0);
+
+				if (CurrentLockValue == 0)
+				{
+					// Clear the queued flag, we can potentially be requeued by another thread after this point
+					// which is fine since it's possible for that data to change after we've used it where it would need 
+					// to update again
+					CurrentLockValue = FPlatformAtomics::InterlockedExchange(&Mesh->bQueuedForUpdate, 0);
+					// This checks that we did clear the flag, if it wasn't set something isn't right
+					//check(CurrentLockValue == 1);
+
+					// Handle the update
+					Mesh->HandleUpdate();
+
+					// Release the lock
+					CurrentLockValue = FPlatformAtomics::InterlockedCompareExchange(&Mesh->bUpdateLock, 0, 1);
+					// This is to check that we unlocked correctly, if this wasn't 1, then somehow we have a thread issue
+					check(CurrentLockValue == 1);
+
+					bHandled = true;
+				}
+			}
+
+			if (!bHandled)
+			{
+				// Since we couldn't lock it on this round. Add it back to the queue for the next tick
+				UpdateList.Enqueue(TempMesh);
+			}
+		}
+
+		// Is there still more work to do?
+		return !UpdateList.IsEmpty();
+	}
 };
 
 
 
+void FRuntimeMeshData::InitializeMultiThreading(int32 NumThreads, int32 StackSize /*= 0*/, EThreadPriority ThreadPriority /*= TPri_BelowNormal*/)
+{
+	FRuntimeMeshDataDelayedActionTickObject::GetInstance().InitializeMultiThreading(NumThreads, StackSize, ThreadPriority);
+}
 
+FRuntimeMeshBackgroundWorkDelegate FRuntimeMeshData::InitializeUserSuppliedThreading()
+{
+	return FRuntimeMeshDataDelayedActionTickObject::GetInstance().InitializeUserSuppliedThreading();
+}
+
+
+void FRuntimeMeshData::DoOnGameThreadAndBlockThreads(FRuntimeMeshProviderThreadExclusiveFunction Func)
+{
+	FRuntimeMeshDataDelayedActionTickObject::GetInstance().RegisterForProxyParamsUpdate(this->AsSharedType<FRuntimeMeshData>(), Func);
+}
 
 void FRuntimeMeshData::MarkForUpdate()
 {
-	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMD(%d): MarkForUpdate Called"), FPlatformTLS::GetCurrentThreadId());
-
 	FRuntimeMeshDataDelayedActionTickObject::GetInstance().RegisterForUpdate(this->AsSharedType<FRuntimeMeshData>());
 }
 
 void FRuntimeMeshData::HandleUpdate()
 {
-	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMD(%d): HandleUpdate Called"), FPlatformTLS::GetCurrentThreadId());
-
 	if (!RenderProxy.IsValid())
 	{
 		return;

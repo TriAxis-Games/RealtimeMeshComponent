@@ -2,6 +2,42 @@
 
 
 #include "RuntimeMeshBlueprintFunctions.h"
+#include "RuntimeMesh.h"
+
+
+void URuntimeMeshBlueprintFunctions::RuntimeMeshInitializeMultiThreading(int32 NumThreads, int32 StackSize /*= 0*/, ERuntimeMeshThreadingPriority ThreadPriority /*= ERuntimeMeshThreadingPriority::BelowNormal*/)
+{
+	EThreadPriority InternalThreadPriority = TPri_BelowNormal;
+
+	switch (ThreadPriority)
+	{
+	case ERuntimeMeshThreadingPriority::Normal:
+		InternalThreadPriority = TPri_Normal;
+		break;
+	case ERuntimeMeshThreadingPriority::AboveNormal:
+		InternalThreadPriority = TPri_AboveNormal;
+		break;
+	case ERuntimeMeshThreadingPriority::BelowNormal:
+		InternalThreadPriority = TPri_BelowNormal;
+		break;
+	case ERuntimeMeshThreadingPriority::Highest:
+		InternalThreadPriority = TPri_Highest;
+		break;
+	case ERuntimeMeshThreadingPriority::Lowest:
+		InternalThreadPriority = TPri_Lowest;
+		break;
+	case ERuntimeMeshThreadingPriority::SlightlyBelowNormal:
+		InternalThreadPriority = TPri_SlightlyBelowNormal;
+		break;
+	case ERuntimeMeshThreadingPriority::TimeCritical:
+		InternalThreadPriority = TPri_TimeCritical;
+		break;
+	default:
+		break;	
+	}
+
+	URuntimeMesh::InitializeMultiThreading(NumThreads, StackSize, InternalThreadPriority);
+}
 
 // MeshData
 

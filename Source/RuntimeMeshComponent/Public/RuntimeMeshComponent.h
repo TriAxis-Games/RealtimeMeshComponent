@@ -76,6 +76,10 @@ public:
 	FRuntimeMeshCollisionHitInfo GetHitSource(int32 FaceIndex) const;
 
 
+	static void InitializeMultiThreading(int32 NumThreads, int32 StackSize = 0, EThreadPriority ThreadPriority = TPri_BelowNormal);
+
+	static FRuntimeMeshBackgroundWorkDelegate InitializeUserSuppliedThreading();
+
 private:
 
 	//~ Begin USceneComponent Interface.

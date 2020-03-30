@@ -99,6 +99,11 @@ public:
 
 	/* This is to get a copy of the current lod/section configuration */
 	TArray<FRuntimeMeshLOD, TInlineAllocator<RUNTIMEMESH_MAXLODS>> GetCopyOfConfiguration() const;
+
+	static void InitializeMultiThreading(int32 NumThreads, int32 StackSize = 0, EThreadPriority ThreadPriority = TPri_BelowNormal);
+
+	static FRuntimeMeshBackgroundWorkDelegate InitializeUserSuppliedThreading();
+
 private:
 	FRuntimeMeshCollisionHitInfo GetHitSource(int32 FaceIndex) const;
 

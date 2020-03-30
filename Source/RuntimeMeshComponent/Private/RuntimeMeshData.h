@@ -15,6 +15,7 @@ using FRuntimeMeshProxyPtr = TSharedPtr<FRuntimeMeshProxy, ESPMode::ThreadSafe>;
 DECLARE_DELEGATE_OneParam(FRuntimeMeshGameThreadTaskDelegate, URuntimeMesh*);
 
 
+
 /**
  * 
  */
@@ -37,6 +38,18 @@ class FRuntimeMeshData : public FRuntimeMeshProviderProxy
 
 	FCriticalSection SyncRoot;
 
+
+	// Tracks if we're already queued for an update. This is cleared when an updates starts but before doing the actual update.
+	// So if another update request comes in after this one starts we let it through since it might change data after this is completed
+	volatile int32 bQueuedForUpdate;
+
+	// Tracks if we have a task waiting for us on the game thread, if so we wait until the background threads are done, and
+	// then get an exclusive lock
+	volatile int32 bHasWaitingGameThreadTask;
+
+	// Lock object for controlling thread update access
+	volatile int32 bUpdateLock;
+
 public:
 	FRuntimeMeshData(const FRuntimeMeshProviderProxyRef& InBaseProvider, TWeakObjectPtr<URuntimeMesh> InParentMeshObject);
 	virtual ~FRuntimeMeshData() override;
@@ -51,13 +64,17 @@ public:
 
 	TArray<FRuntimeMeshLOD, TInlineAllocator<RUNTIMEMESH_MAXLODS>> GetCopyOfConfiguration() const { return LODs; }
 
+	static void InitializeMultiThreading(int32 NumThreads, int32 StackSize = 0, EThreadPriority ThreadPriority = TPri_BelowNormal);
+
+	static FRuntimeMeshBackgroundWorkDelegate InitializeUserSuppliedThreading();
+
 
 protected: // IRuntimeMeshProvider signatures
 	virtual void Initialize() override;
 
 	virtual void ConfigureLODs(TArray<FRuntimeMeshLODProperties> LODSettings) override;
 	virtual void CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties) override;
-	virtual bool SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial) override;
+	virtual void SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial) override;
 	virtual int32 GetMaterialIndex(FName MaterialSlotName) override;
 	virtual void MarkSectionDirty(int32 LODIndex, int32 SectionId) override;
 	virtual void MarkLODDirty(int32 LODIndex) override;
@@ -78,6 +95,7 @@ protected: // IRuntimeMeshProvider signatures
 
 	virtual FBoxSphereBounds GetBounds() override { return BaseProvider->GetBounds(); }
 
+	virtual void DoOnGameThreadAndBlockThreads(FRuntimeMeshProviderThreadExclusiveFunction Func);
 private:
 
 	TMap<int32, TMap<int32, ESectionUpdateType>> SectionsToUpdate;

@@ -83,3 +83,7 @@ enum class ERuntimeMeshCollisionCookingMode : uint8
 	*/
 	CookingPerformance UMETA(DisplayName = "Cooking Performance"),
 };
+
+
+
+DECLARE_DELEGATE_OneParam(FRuntimeMeshBackgroundWorkDelegate, double);

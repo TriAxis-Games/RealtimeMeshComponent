@@ -177,6 +177,16 @@ TArray<FRuntimeMeshLOD, TInlineAllocator<RUNTIMEMESH_MAXLODS>> URuntimeMesh::Get
 	return TArray<FRuntimeMeshLOD, TInlineAllocator<RUNTIMEMESH_MAXLODS>>();
 }
 
+void URuntimeMesh::InitializeMultiThreading(int32 NumThreads, int32 StackSize /*= 0*/, EThreadPriority ThreadPriority /*= TPri_BelowNormal*/)
+{
+	FRuntimeMeshData::InitializeMultiThreading(NumThreads, StackSize, ThreadPriority);
+}
+
+FRuntimeMeshBackgroundWorkDelegate URuntimeMesh::InitializeUserSuppliedThreading()
+{
+	return FRuntimeMeshData::InitializeUserSuppliedThreading();
+}
+
 FRuntimeMeshCollisionHitInfo URuntimeMesh::GetHitSource(int32 FaceIndex) const
 {
 	const TArray<FRuntimeMeshCollisionSourceSectionInfo>& TempSections = CollisionSource;
