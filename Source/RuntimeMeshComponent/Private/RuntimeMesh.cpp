@@ -482,6 +482,12 @@ void URuntimeMesh::InitializeInternal()
 void URuntimeMesh::RegisterLinkedComponent(URuntimeMeshComponent* NewComponent)
 {
 	LinkedComponents.AddUnique(NewComponent);
+
+	if (BodySetup)
+	{
+		// Alert collision if we already have it
+		NewComponent->NewCollisionMeshReceived();
+	}
 }
 
 void URuntimeMesh::UnRegisterLinkedComponent(URuntimeMeshComponent* ComponentToRemove)

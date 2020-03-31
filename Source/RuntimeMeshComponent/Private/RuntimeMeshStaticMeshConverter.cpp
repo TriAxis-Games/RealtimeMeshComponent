@@ -146,7 +146,7 @@ bool URuntimeMeshStaticMeshConverter::CopyStaticMeshSectionToRenderableMeshData(
 
 		for (uint32 Index = 0; Index < NumIndices; Index++)
 		{
-			OutMeshData.AdjacencyTriangles.Add(MeshToSectionVertMap[AdjacencyIndices[Index]]);
+			OutMeshData.AdjacencyTriangles.Add(MeshToSectionVertMap[AdjacencyIndices[StartIndex + Index]]);
 		}
 	}
 
