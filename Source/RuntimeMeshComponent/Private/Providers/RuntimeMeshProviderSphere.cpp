@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Chris Conway (Koderz). All Rights Reserved.
+// Copyright 2016-2020 Chris Conway (Koderz). All Rights Reserved.
 
 
 #include "Providers/RuntimeMeshProviderSphere.h"
@@ -36,15 +36,8 @@ void FRuntimeMeshProviderSphereProxy::UpdateProxyParameters(URuntimeMeshProvider
 
 	LODMultiplier = SphereProvider->LODMultiplier;
 	Material = SphereProvider->Material;
-<<<<<<< HEAD
 	MaxLOD = GetMaxNumberOfLODs() - 1;
-
-	if (bIsInitialSetup)
-=======
-	int32 MaxLODBefore = MaxLOD;
-	MaxLOD = GetMaximumPossibleLOD();
 	if (!bIsInitialSetup)
->>>>>>> v4dev
 	{
 		Initialize();
 	}

@@ -46,55 +46,41 @@ void FRuntimeMeshProviderPlaneProxy::UpdateProxyParameters(URuntimeMeshProvider*
 	Material = PlaneProvider->Material;
 	int32 MaxLODBefore = MaxLOD;
 	MaxLOD = GetMaximumPossibleLOD();
+
+
 	if (!bIsInitialSetup && bHasParameterChanged)
 	{
-		for (int32 LODIndex = 0; LODIndex <= MaxLOD; LODIndex++)
-		{
-			FRuntimeMeshLODProperties LODProperties;
-			LODProperties.ScreenSize = LODIndex >= ScreenSize.Num() ? 0.0 : ScreenSize[LODIndex];
-			ConfigureLOD(LODIndex, LODProperties);
-
-			if (LODIndex >= MaxLODBefore) //Section is new
-			{
-				FRuntimeMeshSectionProperties Properties;
-				Properties.bCastsShadow = true;
-				Properties.bIsVisible = true;
-				Properties.MaterialSlot = 0;
-				Properties.UpdateFrequency = ERuntimeMeshUpdateFrequency::Infrequent;
-				Properties.bWants32BitIndices = VertsAB[LODIndex] * VertsAC[LODIndex] > 1 << 16; //Use 32 bit indices if more than 2^16 verts are needed
-
-				CreateSection(LODIndex, 0, Properties);
-			}
-			else if(VertsAB[LODIndex] != VertsABBefore[LODIndex] || VertsAC[LODIndex] != VertsACBefore[LODIndex])
-			{
-				MarkSectionDirty(LODIndex, 0);
-			}
-		}
-		for (int32 LODIndex = MaxLOD; LODIndex < MaxLODBefore; LODIndex++)
-		{
-			RemoveSection(LODIndex, 0);
-		}
+		Initialize();
 	}
 	
 }
 
 void FRuntimeMeshProviderPlaneProxy::Initialize()
 {
+	SetupMaterialSlot(0, FName("Plane Base"), Material.Get());
+
+
+	TArray<FRuntimeMeshLODProperties> NewLODs;
 	for (int32 LODIndex = 0; LODIndex <= MaxLOD; LODIndex++)
 	{
 		FRuntimeMeshLODProperties LODProperties;
 		LODProperties.ScreenSize = LODIndex >= ScreenSize.Num() ? 0.0 : ScreenSize[LODIndex];
-		ConfigureLOD(LODIndex, LODProperties);
-		
+		NewLODs.Add(LODProperties);
+	}
+	ConfigureLODs(NewLODs);
+
+
+	for (int32 LODIndex = 0; LODIndex <= MaxLOD; LODIndex++)
+	{
 		FRuntimeMeshSectionProperties Properties;
 		Properties.bCastsShadow = true;
 		Properties.bIsVisible = true;
 		Properties.MaterialSlot = 0;
 		Properties.UpdateFrequency = ERuntimeMeshUpdateFrequency::Infrequent;
-		CreateSection(LODIndex, 0, Properties);
+		Properties.bWants32BitIndices = VertsAB[LODIndex] * VertsAC[LODIndex] > 1 << 16; //Use 32 bit indices if more than 2^16 verts are needed
 
+		CreateSection(LODIndex, 0, Properties);
 	}
-	SetupMaterialSlot(0, FName("Plane Base"), Material.Get());
 }
 
 

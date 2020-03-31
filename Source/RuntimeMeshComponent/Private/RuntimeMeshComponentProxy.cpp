@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Chris Conway (Koderz). All Rights Reserved.
+// Copyright 2016-2020 Chris Conway (Koderz). All Rights Reserved.
 
 #include "RuntimeMeshComponentProxy.h"
 #include "RuntimeMeshComponentPlugin.h"
@@ -142,7 +142,10 @@ void FRuntimeMeshComponentSceneProxy::CreateMeshBatch(FMeshBatch& MeshBatch, con
 
 
 	FMeshBatchElement& BatchElement = MeshBatch.Elements[0];
-	//BatchElement.PrimitiveUniformBufferResource = GetUniformBuffer();
+
+#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION <= 21
+	BatchElement.PrimitiveUniformBufferResource = &GetUniformBuffer();
+#endif
 
 	BatchElement.MaxScreenSize = RuntimeMeshProxy->GetScreenSize(LODIndex);
 	BatchElement.MinScreenSize = RuntimeMeshProxy->GetScreenSize(LODIndex + 1);
