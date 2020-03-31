@@ -100,8 +100,13 @@ URuntimeMesh::URuntimeMesh(const FObjectInitializer& ObjectInitializer)
 
 void URuntimeMesh::Initialize(URuntimeMeshProvider* Provider)
 {
+	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RM(%d): Initialize called"), FPlatformTLS::GetCurrentThreadId());
+
 	if (Provider)
 	{
+		// Flag initialized
+		bNeedsInitialization = false;
+
 		MeshProvider = Provider;
 		MarkChanged();
 		InitializeInternal();

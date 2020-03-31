@@ -2,6 +2,7 @@
 
 
 #include "Providers/RuntimeMeshProviderSphere.h"
+#include "RuntimeMeshComponentPlugin.h"
 
 
 FRuntimeMeshProviderSphereProxy::FRuntimeMeshProviderSphereProxy(TWeakObjectPtr<URuntimeMeshProvider> InParent)
@@ -23,59 +24,88 @@ void FRuntimeMeshProviderSphereProxy::UpdateProxyParameters(URuntimeMeshProvider
 		MarkCollisionDirty();
 	}
 	SphereRadius = SphereProvider->SphereRadius;
-	LatitudeSegmentsLOD0 = SphereProvider->LatitudeSegments;
-	LongitudeSegmentsLOD0 = SphereProvider->LongitudeSegments;
+
+	MaxLatitudeSegments = SphereProvider->MaxLatitudeSegments;
+	MinLatitudeSegments = SphereProvider->MinLatitudeSegments;
+	MaxLongitudeSegments = SphereProvider->MaxLongitudeSegments;
+	MinLongitudeSegments = SphereProvider->MinLongitudeSegments;
+
+	MinLatitudeSegments = FMath::Clamp(MinLatitudeSegments, 1, MaxLatitudeSegments);
+	MinLongitudeSegments = FMath::Clamp(MinLongitudeSegments, 1, MaxLongitudeSegments);
+
+
 	LODMultiplier = SphereProvider->LODMultiplier;
 	Material = SphereProvider->Material;
-	int32 MaxLODBefore = MaxLOD;
-	MaxLOD = GetMaximumPossibleLOD();
+	MaxLOD = GetMaxNumberOfLODs() - 1;
+
 	if (bIsInitialSetup)
 	{
-		for (int32 LODIndex = 0; LODIndex <= MaxLOD; LODIndex++)
-		{
-			FRuntimeMeshLODProperties LODProperties;
-			LODProperties.ScreenSize = CalculateScreenSize(LODIndex);
-			ConfigureLOD(LODIndex, LODProperties);
-
-			if (LODIndex >= MaxLODBefore)
-			{
-				FRuntimeMeshSectionProperties Properties;
-				Properties.bCastsShadow = true;
-				Properties.bIsVisible = true;
-				Properties.MaterialSlot = 0;
-				Properties.UpdateFrequency = ERuntimeMeshUpdateFrequency::Infrequent;
-				CreateSection(LODIndex, 0, Properties);
-			}
-			else
-			{
-				MarkSectionDirty(LODIndex, 0);
-			}
-		}
-		for (int32 LODIndex = MaxLOD; LODIndex < MaxLODBefore; LODIndex++)
-		{
-			RemoveSection(LODIndex, 0);
-		}
+		Initialize();
 	}
-	
 }
 
 void FRuntimeMeshProviderSphereProxy::Initialize()
 {
+	SetupMaterialSlot(0, FName("Sphere Base"), Material.Get());
+
+	// Setup LODs
+	TArray<FRuntimeMeshLODProperties> LODs;
 	for (int32 LODIndex = 0; LODIndex <= MaxLOD; LODIndex++)
 	{
 		FRuntimeMeshLODProperties LODProperties;
 		LODProperties.ScreenSize = CalculateScreenSize(LODIndex);
-		ConfigureLOD(LODIndex, LODProperties);
-		
+		LODs.Add(LODProperties);
+	}
+	ConfigureLODs(LODs);
+
+	// Setup sections
+	for (int32 LODIndex = 0; LODIndex <= MaxLOD; LODIndex++)
+	{
 		FRuntimeMeshSectionProperties Properties;
 		Properties.bCastsShadow = true;
 		Properties.bIsVisible = true;
 		Properties.MaterialSlot = 0;
 		Properties.UpdateFrequency = ERuntimeMeshUpdateFrequency::Infrequent;
 		CreateSection(LODIndex, 0, Properties);
-
 	}
-	SetupMaterialSlot(0, FName("Sphere Base"), Material.Get());
+}
+
+int32 FRuntimeMeshProviderSphereProxy::GetMaxNumberOfLODs()
+{
+	int32 MaxLODs = 1;
+	float CurrentLatitudeSegments = MaxLatitudeSegments;
+	float CurrentLongitudeSegments = MaxLongitudeSegments;
+
+	while (MaxLODs < RUNTIMEMESH_MAXLODS)
+	{
+		CurrentLatitudeSegments *= LODMultiplier;
+		CurrentLongitudeSegments *= LODMultiplier;
+
+		// Have we gone far enough?
+		if (CurrentLatitudeSegments < MinLatitudeSegments || CurrentLongitudeSegments < MinLongitudeSegments)
+		{
+			break;
+		}
+
+		MaxLODs++;
+	}
+
+	return MaxLODs;
+
+
+
+// 	int32 MaxLODs = FMath::Min(
+// 		FMath::LogX(LODMultiplier, LatitudeSegmentsLOD0),
+// 		FMath::LogX(LODMultiplier, LongitudeSegmentsLOD0));
+// 
+// 	return FMath::Max(1, FMath::Min<int32>(MaxLODs - 1, RUNTIMEMESH_MAXLODS));
+}
+
+float FRuntimeMeshProviderSphereProxy::CalculateScreenSize(int32 LODIndex)
+{
+	float ScreenSize = FMath::Pow(LODMultiplier, LODIndex);
+
+	return ScreenSize;
 }
 
 bool FRuntimeMeshProviderSphereProxy::GetSphereMesh(int32 LatitudeSegments, int32 LongitudeSegments, FRuntimeMeshRenderableMeshData & MeshData)
@@ -126,11 +156,13 @@ bool FRuntimeMeshProviderSphereProxy::GetSphereMesh(int32 LatitudeSegments, int3
 
 bool FRuntimeMeshProviderSphereProxy::GetSectionMeshForLOD(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData)
 {
+	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMC Sphere Provider(%d): Getting LOD:%d Section:%d"), FPlatformTLS::GetCurrentThreadId(), LODIndex, SectionId);
+
 	// We should only ever be queried for section 0 and lod 0
 	check(SectionId == 0 && LODIndex <= MaxLOD);
 
-	int32 LatSegments = FMath::Max(FMath::RoundToInt(LatitudeSegmentsLOD0 * FMath::Pow(LODMultiplier, LODIndex)), 1);
-	int32 LonSegments = FMath::Max(FMath::RoundToInt(LongitudeSegmentsLOD0 * FMath::Pow(LODMultiplier, LODIndex)), 1);
+	int32 LatSegments = FMath::Max(FMath::RoundToInt(MaxLatitudeSegments * FMath::Pow(LODMultiplier, LODIndex)), MinLatitudeSegments);
+	int32 LonSegments = FMath::Max(FMath::RoundToInt(MaxLongitudeSegments * FMath::Pow(LODMultiplier, LODIndex)), MinLongitudeSegments);
 
 	return GetSphereMesh(LatSegments, LonSegments, MeshData);
 }
@@ -159,7 +191,12 @@ bool FRuntimeMeshProviderSphereProxy::GetCollisionMesh(FRuntimeMeshCollisionData
 URuntimeMeshProviderSphere::URuntimeMeshProviderSphere()
 {
 	SphereRadius = 100.f;
-	LatitudeSegments = 32;
-	LongitudeSegments = 16;
-	LODMultiplier = 0.5;
+
+	MaxLatitudeSegments = 32;
+	MinLatitudeSegments = 8;
+
+	MaxLongitudeSegments = 16;
+	MinLongitudeSegments = 5;
+
+	LODMultiplier = 0.75;
 }

@@ -20,6 +20,10 @@ private:
 	UPROPERTY(Category = "RuntimeMeshActor", VisibleAnywhere, BlueprintReadOnly, Meta = (ExposeFunctionCategories = "Mesh,Rendering,Physics,Components|RuntimeMesh", AllowPrivateAccess = "true"))
 	class URuntimeMeshComponent* RuntimeMeshComponent;
 
+protected:
+	UPROPERTY(Category = "RuntimeMeshActor", EditAnywhere, BlueprintReadOnly, Meta = (ExposeFunctionCategories = "Mesh,Rendering,Physics,Components|RuntimeMesh", AllowPrivateAccess = "true"))
+	bool GenerateOnBeginPlayInGame;
+
 public:
 
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshActor", Meta = (DisplayName = "Get Mobility"))

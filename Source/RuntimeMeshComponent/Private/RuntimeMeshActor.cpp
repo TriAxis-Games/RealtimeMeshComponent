@@ -10,6 +10,7 @@
 ARuntimeMeshActor::ARuntimeMeshActor(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 	, bHasGeneratedThisRun(false)
+	, GenerateOnBeginPlayInGame(true)
 {
 #if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 24
 	SetCanBeDamaged(false);
@@ -69,10 +70,11 @@ void ARuntimeMeshActor::OnConstruction(const FTransform& Transform)
 void ARuntimeMeshActor::BeginPlay()
 {
 	Super::BeginPlay();
-	if (!bHasGeneratedThisRun)
-	{
-		GenerateMeshes();
-	}
+ 	if (GenerateOnBeginPlayInGame && !bHasGeneratedThisRun)
+ 	{
+ 		GenerateMeshes();
+		bHasGeneratedThisRun = true;
+ 	}
 }
 
 void ARuntimeMeshActor::GenerateMeshes_Implementation()

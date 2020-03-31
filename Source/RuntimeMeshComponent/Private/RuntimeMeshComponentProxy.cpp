@@ -23,6 +23,7 @@ FRuntimeMeshComponentSceneProxy::FRuntimeMeshComponentSceneProxy(URuntimeMeshCom
 	, BodySetup(Component->GetBodySetup())
 {
 	check(Component->GetRuntimeMesh() != nullptr);
+	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMCSP(%d): Created"), FPlatformTLS::GetCurrentThreadId());
 
 
 	FRuntimeMeshDataPtr RuntimeMeshData = Component->GetRuntimeMesh()->Data;
@@ -81,6 +82,9 @@ FRuntimeMeshComponentSceneProxy::~FRuntimeMeshComponentSceneProxy()
 
 void FRuntimeMeshComponentSceneProxy::CreateRenderThreadResources()
 {
+	// Make sure the proxy has been updated. It's possible for this happen before the normal render thread tasks
+	RuntimeMeshProxy->FlushPendingUpdates();
+
 	RuntimeMeshProxy->CalculateViewRelevance(bHasStaticSections, bHasDynamicSections, bHasShadowableSections);
 	FPrimitiveSceneProxy::CreateRenderThreadResources();
 }
@@ -140,28 +144,33 @@ void FRuntimeMeshComponentSceneProxy::CreateMeshBatch(FMeshBatch& MeshBatch, con
 void FRuntimeMeshComponentSceneProxy::DrawStaticElements(FStaticPrimitiveDrawInterface* PDI)
 {
 	SCOPE_CYCLE_COUNTER(STAT_RuntimeMeshComponentSceneProxy_DrawStaticMeshElements);
+	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMCSP(%d): DrawStaticElements Called"), FPlatformTLS::GetCurrentThreadId());
 
 	auto& LODs = RuntimeMeshProxy->GetLODs();
 	for (int32 LODIndex = 0; LODIndex < LODs.Num(); LODIndex++)
 	{
 		auto& LOD = LODs[LODIndex];
-		int32 SectionId = 0;
-		for (const auto& SectionEntry : LOD->GetSections())
+
+		if (LOD.IsValid())
 		{
-			auto& Section = SectionEntry.Value;
-			auto* RenderData = SectionRenderData[LODIndex].Find(SectionEntry.Key);
-
-			if (RenderData != nullptr && Section->ShouldRender() && Section->WantsToRenderInStaticPath())
+			int32 SectionId = 0;
+			for (const auto& SectionEntry : LOD->GetSections())
 			{
-				FMaterialRenderProxy* Material = RenderData->Material->GetRenderProxy();
+				auto& Section = SectionEntry.Value;
+				auto* RenderData = SectionRenderData[LODIndex].Find(SectionEntry.Key);
 
-				FMeshBatch MeshBatch;
-				MeshBatch.LODIndex = LODIndex;
-				MeshBatch.SegmentIndex = SectionEntry.Key;
-				CreateMeshBatch(MeshBatch, *Section, LODIndex, *RenderData, Material, nullptr);
-				PDI->DrawMesh(MeshBatch, RuntimeMeshProxy->GetScreenSize(LODIndex));
+				if (RenderData != nullptr && Section->ShouldRender() && Section->WantsToRenderInStaticPath())
+				{
+					FMaterialRenderProxy* Material = RenderData->Material->GetRenderProxy();
 
-				//UE_LOG(LogRuntimeMesh, Warning, TEXT("Section Screen Size Max: %f"), RuntimeMeshProxy->GetScreenSize(LODIndex));
+					FMeshBatch MeshBatch;
+					MeshBatch.LODIndex = LODIndex;
+					MeshBatch.SegmentIndex = SectionEntry.Key;
+					CreateMeshBatch(MeshBatch, *Section, LODIndex, *RenderData, Material, nullptr);
+					PDI->DrawMesh(MeshBatch, RuntimeMeshProxy->GetScreenSize(LODIndex));
+
+					//UE_LOG(LogRuntimeMesh, Warning, TEXT("Section Screen Size Max: %f"), RuntimeMeshProxy->GetScreenSize(LODIndex));
+				}
 			}
 		}
 	}
@@ -170,6 +179,7 @@ void FRuntimeMeshComponentSceneProxy::DrawStaticElements(FStaticPrimitiveDrawInt
 void FRuntimeMeshComponentSceneProxy::GetDynamicMeshElements(const TArray<const FSceneView*>& Views, const FSceneViewFamily& ViewFamily, uint32 VisibilityMap, FMeshElementCollector& Collector) const
 {
 	SCOPE_CYCLE_COUNTER(STAT_RuntimeMeshComponentSceneProxy_GetDynamicMeshElements);
+	//UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMCSP(%d): GetDynamicMeshElements Called"), FPlatformTLS::GetCurrentThreadId());
 
 	// Set up wireframe material (if needed)
 	const bool bWireframe = AllowDebugViewmodes() && ViewFamily.EngineShowFlags.Wireframe;
@@ -312,6 +322,11 @@ void FRuntimeMeshComponentSceneProxy::GetDynamicMeshElements(const TArray<const 
  }
 #endif // RHI_RAYTRACING
 
+ int8 FRuntimeMeshComponentSceneProxy::GetCurrentFirstLOD() const
+ {
+	 return RuntimeMeshProxy->GetLODs().Num() - 1;
+ }
+
 int8 FRuntimeMeshComponentSceneProxy::ComputeTemporalStaticMeshLOD(const FVector4& Origin, const float SphereRadius, const FSceneView& View, int32 MinLOD, float FactorScale, int32 SampleIndex) const
 {
 	const int32 NumLODs = RUNTIMEMESH_MAXLODS;
@@ -355,51 +370,61 @@ FLODMask FRuntimeMeshComponentSceneProxy::GetLODMask(const FSceneView* View) con
 {
 	FLODMask Result;
 
-// 	if (View->DrawDynamicFlags & EDrawDynamicFlags::ForceLowestLOD)
-// 	{
-// 		// Pin the LOD
-// 	}
-// 	else if (View->Family && View->Family->EngineShowFlags.LOD == 0)
-// 	{
-// 		// 
-// 	}
-
-	const FBoxSphereBounds& ProxyBounds = GetBounds();
-	bool bUseDithered = false;
-	if (RuntimeMeshProxy->GetMaxLOD() > 0)
+	if (!RuntimeMeshProxy.IsValid())
 	{
-		// only dither if at least one section in LOD0 is dithered. Mixed dithering on sections won't work very well, but it makes an attempt
-		const ERHIFeatureLevel::Type FeatureLevel = GetScene().GetFeatureLevel();
-
-		TSharedPtr<FRuntimeMeshLODProxy> LOD = RuntimeMeshProxy->GetLODs()[0];
-
-		const auto& LOD0Sections = SectionRenderData[0];
-
-		for (const auto& Section : LOD0Sections)
-		{
-			if (Section.Value.Material->IsDitheredLODTransition())
-			{
-				bUseDithered = true;
-				break;
-			}
-		}
-	}
-
-	FCachedSystemScalabilityCVars CachedSystemScalabilityCVars = GetCachedScalabilityCVars();
-	float InvScreenSizeScale = (CachedSystemScalabilityCVars.StaticMeshLODDistanceScale != 0.f) ? (1.0f / CachedSystemScalabilityCVars.StaticMeshLODDistanceScale) : 1.0f;
-
-	int32 ClampedMinLOD = 0;
-
-	if (bUseDithered)
-	{
-		for (int32 Sample = 0; Sample < 2; Sample++)
-		{
-			Result.SetLODSample(ComputeTemporalStaticMeshLOD(ProxyBounds.Origin, ProxyBounds.SphereRadius, *View, ClampedMinLOD, InvScreenSizeScale, Sample), Sample);
-		}
+		UE_LOG(RuntimeMeshLog, Warning, TEXT("RMCP(%d): GetLODMask failed! No bound proxy."), FPlatformTLS::GetCurrentThreadId());
+		Result.SetLOD(0);
 	}
 	else
 	{
-		Result.SetLOD(ComputeStaticMeshLOD(ProxyBounds.Origin, ProxyBounds.SphereRadius, *View, ClampedMinLOD, InvScreenSizeScale));
+		if (View->DrawDynamicFlags & EDrawDynamicFlags::ForceLowestLOD)
+		{
+			Result.SetLOD(RuntimeMeshProxy->GetMaxLOD());
+		}
+#if WITH_EDITOR
+		else if (View->Family && View->Family->EngineShowFlags.LOD == 0)
+		{
+			Result.SetLOD(0);
+		}
+#endif
+		else
+		{
+			TInlineLODArray<TSharedPtr<FRuntimeMeshLODProxy>>& LODs = RuntimeMeshProxy->GetLODs();
+
+			const FBoxSphereBounds& ProxyBounds = GetBounds();
+			bool bUseDithered = false;
+			if (LODs.Num() && LODs[0].IsValid())
+			{
+				// only dither if at least one section in LOD0 is dithered. Mixed dithering on sections won't work very well, but it makes an attempt
+				const auto& LOD0Sections = SectionRenderData[0];
+				for (const auto& Section : LOD0Sections)
+				{
+					if (Section.Value.Material->IsDitheredLODTransition())
+					{
+						bUseDithered = true;
+						break;
+					}
+				}
+			}
+
+			FCachedSystemScalabilityCVars CachedSystemScalabilityCVars = GetCachedScalabilityCVars();
+
+			float InvScreenSizeScale = (CachedSystemScalabilityCVars.StaticMeshLODDistanceScale != 0.f) ? (1.0f / CachedSystemScalabilityCVars.StaticMeshLODDistanceScale) : 1.0f;
+
+			int32 ClampedMinLOD = 0;
+
+			if (bUseDithered)
+			{
+				for (int32 Sample = 0; Sample < 2; Sample++)
+				{
+					Result.SetLODSample(ComputeTemporalStaticMeshLOD(ProxyBounds.Origin, ProxyBounds.SphereRadius, *View, ClampedMinLOD, InvScreenSizeScale, Sample), Sample);
+				}
+			}
+			else
+			{
+				Result.SetLOD(ComputeStaticMeshLOD(ProxyBounds.Origin, ProxyBounds.SphereRadius, *View, ClampedMinLOD, InvScreenSizeScale));
+			}
+		}
 	}
 
 	return Result;

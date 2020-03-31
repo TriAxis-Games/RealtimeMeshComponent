@@ -564,6 +564,19 @@ public:
 	{
 
 	}
+
+	friend FArchive& operator <<(FArchive& Ar, FRuntimeMeshCollisionSettings& Settings)
+	{
+		Ar << Settings.bUseComplexAsSimple;
+		Ar << Settings.bUseAsyncCooking;
+		Ar << Settings.CookingMode;
+
+		Ar << Settings.ConvexElements;
+		Ar << Settings.Spheres;
+		Ar << Settings.Boxes;
+		Ar << Settings.Capsules;
+		return Ar;
+	}
 };
 
 
@@ -613,6 +626,17 @@ public:
 		, SourceType(InSourceType)
 	{
 
+	}
+
+	friend FArchive& operator <<(FArchive& Ar, FRuntimeMeshCollisionSourceSectionInfo& Data)
+	{
+		Ar << Data.StartIndex;
+		Ar << Data.EndIndex;
+
+		Ar << Data.SourceProvider;
+		Ar << Data.SectionId;
+		Ar << Data.SourceType;
+		return Ar;
 	}
 };
 
@@ -679,6 +703,22 @@ public:
 		, bDisableActiveEdgePrecompute(false)
 	{
 
+	}
+
+	friend FArchive& operator <<(FArchive& Ar, FRuntimeMeshCollisionData& Data)
+	{
+		Data.Vertices.Serialize(Ar);
+		Data.Triangles.Serialize(Ar);
+		Data.TexCoords.Serialize(Ar);
+		Data.MaterialIndices.Serialize(Ar);
+
+		Ar << Data.CollisionSources;
+
+		Ar << Data.bFlipNormals;
+		Ar << Data.bDeformableMesh;
+		Ar << Data.bFastCook;
+		Ar << Data.bDisableActiveEdgePrecompute;
+		return Ar;
 	}
 };
 

@@ -43,7 +43,10 @@ public:
 	int32 GetBufferSize() const { return NumVertices * VertexSize; }
 
 	/* Set the size of the vertex buffer */
+protected:
 	void SetData(int32 NewVertexCount, const uint8* InData);
+
+public:
 
 	virtual void Bind(FLocalVertexFactory::FDataType& DataType) = 0;
 
@@ -59,6 +62,11 @@ public:
 		: FRuntimeMeshVertexBuffer(InUpdateFrequency, sizeof(FVector))
 	{
 
+	}
+
+	void SetData(int32 NewVertexCount, const uint8* InData)
+	{
+		FRuntimeMeshVertexBuffer::SetData(NewVertexCount, InData);
 	}
 
 	virtual void Bind(FLocalVertexFactory::FDataType& DataType) override 
@@ -85,6 +93,12 @@ public:
 		, bUseHighPrecision(bInUseHighPrecision)
 	{
 
+	}
+
+	void SetData(bool bInUseHighPrecision, int32 NewVertexCount, const uint8* InData)
+	{
+		bUseHighPrecision = bInUseHighPrecision;
+		FRuntimeMeshVertexBuffer::SetData(NewVertexCount, InData);
 	}
 
 	virtual void Bind(FLocalVertexFactory::FDataType& DataType) override
@@ -135,6 +149,13 @@ public:
 		, bUseHighPrecision(bInUseHighPrecision), NumUVs(InNumUVs)
 	{
 
+	}
+
+	void SetData(bool bInUseHighPrecision, int32 InNumUVs, int32 NewVertexCount, const uint8* InData)
+	{
+		bUseHighPrecision = bInUseHighPrecision;
+		NumUVs = InNumUVs;
+		FRuntimeMeshVertexBuffer::SetData(NewVertexCount, InData);
 	}
 
 	virtual void Bind(FLocalVertexFactory::FDataType& DataType) override
@@ -192,6 +213,11 @@ public:
 
 	}
 
+	void SetData(int32 NewVertexCount, const uint8* InData)
+	{
+		FRuntimeMeshVertexBuffer::SetData(NewVertexCount, InData);
+	}
+
 	virtual void Bind(FLocalVertexFactory::FDataType& DataType) override
 	{
 		DataType.ColorComponent = FVertexStreamComponent(this, 0, 4, EVertexElementType::VET_Color, EVertexStreamUsage::ManualFetch);
@@ -239,7 +265,7 @@ public:
 	int32 GetBufferSize() const { return NumIndices * IndexSize; }
 	
 	/* Set the data for the index buffer */
-	void SetData(int32 NewIndexCount, const uint8* InData);
+	void SetData(int32 bInUse32BitIndices, int32 NewIndexCount, const uint8* InData);
 };
 
 /** Vertex Factory */

@@ -89,12 +89,15 @@ void FRuntimeMeshIndexBuffer::InitRHI()
 }
 
 /* Set the data for the index buffer */
-void FRuntimeMeshIndexBuffer::SetData(int32 NewIndexCount, const uint8* InData)
+void FRuntimeMeshIndexBuffer::SetData(int32 bInUse32BitIndices, int32 NewIndexCount, const uint8* InData)
 {
+	int32 NewIndexSize = bInUse32BitIndices ? sizeof(uint32) : sizeof(uint16);
+
 	// Make sure we're not already the right size
-	if (NewIndexCount != NumIndices)
+	if (NewIndexCount != NumIndices || NewIndexSize != IndexSize)
 	{
 		NumIndices = NewIndexCount;
+		IndexSize = NewIndexSize;
 
 		// Rebuild resource
 		ReleaseResource();

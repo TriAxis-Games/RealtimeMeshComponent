@@ -30,7 +30,8 @@ void FRuntimeMeshProviderBoxProxy::Initialize()
 {
 	FRuntimeMeshLODProperties LODProperties;
 	LODProperties.ScreenSize = 0.0f;
-	ConfigureLOD(0, LODProperties);
+
+	ConfigureLODs({ LODProperties });
 
 	SetupMaterialSlot(0, FName("Cube Base"), Material.Get());
 

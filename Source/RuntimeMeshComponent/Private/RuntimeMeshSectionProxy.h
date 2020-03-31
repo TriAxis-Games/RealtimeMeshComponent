@@ -116,10 +116,11 @@ class FRuntimeMeshLODProxy : public TSharedFromThis<FRuntimeMeshLODProxy>
 	ERHIFeatureLevel::Type FeatureLevel;
 
 public:
-	FRuntimeMeshLODProxy(ERHIFeatureLevel::Type InFeatureLevel);
+	FRuntimeMeshLODProxy(ERHIFeatureLevel::Type InFeatureLevel, const FRuntimeMeshLODProperties& InProperties);
 	~FRuntimeMeshLODProxy();
 
 	TMap<int32, FRuntimeMeshSectionProxyPtr>& GetSections() { return Sections; }
+	const TMap<int32, FRuntimeMeshSectionProxyPtr>& GetSections() const { return Sections; }
 
 	bool CanRender() const;
 	bool HasAnyStaticPath() const;
@@ -128,15 +129,16 @@ public:
 
 	float GetMaxScreenSize() const { return Properties.ScreenSize; }
 
-	void UpdateProperties_RenderThread(const FRuntimeMeshLODProperties& InProperties);
-	void Clear_RenderThread();
+	void Configure_RenderThread(const FRuntimeMeshLODProperties& InProperties);
+	void Reset_RenderThread();
 
-	void CreateSection_RenderThread(int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties);
+	void CreateOrUpdateSection_RenderThread(int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties, bool bShouldReset);
+	void UpdateSectionMesh_RenderThread(int32 SectionId, const FRuntimeMeshRenderableMeshData& MeshData);
+	void ClearSection_RenderThread(int32 SectionId);
+	void ClearAllSections_RenderThread();
+	void RemoveAllSections_RenderThread();
 	void RemoveSection_RenderThread(int32 SectionId);
 
-	void UpdateSectionProperties_RenderThread(int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties);
-	void UpdateSectionMesh_RenderThread(int32 SectionId, const FRuntimeMeshRenderableMeshData& MeshData);
-	void ClearSectionMesh_RenderThread(int32 SectionId);
 };
 
 

@@ -168,7 +168,7 @@ FReply FRuntimeMeshComponentDetails::ClickedOnConvertToStaticMesh()
 			Materials.SetNum(RMCMaterialSlots.Num());
 			for (int32 Index = 0; Index < RMCMaterialSlots.Num(); Index++)
 			{
-				UMaterialInterface* Mat = RuntimeMeshComp->OverrideMaterials[Index];
+				UMaterialInterface* Mat = RuntimeMeshComp->OverrideMaterials.Num() > Index ? RuntimeMeshComp->OverrideMaterials[Index] : nullptr;
 				Mat = Mat ? Mat : RMCMaterialSlots[Index].Material.Get();
 				Materials[Index] = FStaticMaterial(Mat, RMCMaterialSlots[Index].SlotName);
 			}
@@ -260,10 +260,14 @@ FReply FRuntimeMeshComponentDetails::ClickedOnConvertToStaticMesh()
 				if (RawMesh.IsValid())
 				{
 					// Add source to new StaticMesh
+#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 23
+					FStaticMeshSourceModel* SrcModel = new (StaticMesh->GetSourceModels()) FStaticMeshSourceModel();
+#else
 					FStaticMeshSourceModel* SrcModel = new (StaticMesh->SourceModels) FStaticMeshSourceModel();
+#endif
 					SrcModel->BuildSettings.bRecomputeNormals = false;
 					SrcModel->BuildSettings.bRecomputeTangents = false;
-					SrcModel->BuildSettings.bRemoveDegenerates = false;
+					SrcModel->BuildSettings.bRemoveDegenerates = true;
 					SrcModel->BuildSettings.bUseHighPrecisionTangentBasis = bUseHighPrecisionTangents;
 					SrcModel->BuildSettings.bUseFullPrecisionUVs = bUseFullPrecisionUVs;
 					SrcModel->BuildSettings.bGenerateLightmapUVs = true;
@@ -279,11 +283,17 @@ FReply FRuntimeMeshComponentDetails::ClickedOnConvertToStaticMesh()
 					// Set up the SectionInfoMap to enable collision
 					for (int32 SectionIdx = 0; SectionIdx < NumMaterials; SectionIdx++)
 					{
-						FMeshSectionInfo Info = StaticMesh->SectionInfoMap.Get(LODIndex, SectionIdx);
+#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 23
+						FMeshSectionInfoMap& SectionInfoMap = StaticMesh->GetSectionInfoMap();
+#else
+						FMeshSectionInfoMap& SectionInfoMap = StaticMesh->SectionInfoMap;
+#endif
+
+						FMeshSectionInfo Info = SectionInfoMap.Get(LODIndex, SectionIdx);
 						Info.MaterialIndex = SectionIdx;
 						// TODO: Is this the correct way to handle this by just turning on collision in the top level LOD?
 						Info.bEnableCollision = LODIndex == 0; 
-						StaticMesh->SectionInfoMap.Set(LODIndex, SectionIdx, Info);
+						SectionInfoMap.Set(LODIndex, SectionIdx, Info);
 					}
 				}
 			}
