@@ -23,6 +23,31 @@ DECLARE_STATS_GROUP(TEXT("RuntimeMesh"), STATGROUP_RuntimeMesh, STATCAT_Advanced
 
 #define RUNTIMEMESH_ENABLE_DEBUG_RENDERING (!(UE_BUILD_SHIPPING || UE_BUILD_TEST) || WITH_EDITOR)
 
+
+// This was added to RenderUtils in 4.21 so we replicate it here for backward compatibility.
+#if ENGINE_MAJOR_VERSION <= 4 && ENGINE_MINOR_VERSION <= 20
+
+/**
+* Given 2 axes of a basis stored as a packed type, regenerates the y-axis tangent vector and scales by z.W
+* @param XAxis - x axis (tangent)
+* @param ZAxis - z axis (normal), the sign of the determinant is stored in ZAxis.W
+* @return y axis (binormal)
+*/
+template<typename VectorType>
+FORCEINLINE FVector GenerateYAxis(const VectorType& XAxis, const VectorType& ZAxis)
+{
+	static_assert(	ARE_TYPES_EQUAL(VectorType, FPackedNormal) ||
+		ARE_TYPES_EQUAL(VectorType, FPackedRGBA16N), "ERROR: Must be FPackedNormal or FPackedRGBA16N");
+	FVector  x = XAxis.ToFVector();
+	FVector4 z = ZAxis.ToFVector4();
+	return (FVector(z) ^ x) * z.W;
+}
+
+#endif
+
+
+
+
 template<typename InElementType>
 using TInlineLODArray = TArray<InElementType, TInlineAllocator<RUNTIMEMESH_MAXLODS>>;
 

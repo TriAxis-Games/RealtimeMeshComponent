@@ -297,11 +297,13 @@ void URuntimeMesh::UpdateCollision(bool bForceCookNow)
 
 		if (bShouldCookAsync)
 		{
+#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 21
 			// Abort all previous ones still standing
 			for (const auto& OldBody : AsyncBodySetupQueue)
 			{
 				OldBody.BodySetup->AbortPhysicsMeshAsyncCreation();
 			}
+#endif
 
 			UBodySetup* NewBodySetup = CreateNewBodySetup();
 			SetupCollisionConfiguration(NewBodySetup);
@@ -345,8 +347,14 @@ void URuntimeMesh::UpdateCollision(bool bForceCookNow)
 	}
 }
 
+#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 21
 void URuntimeMesh::FinishPhysicsAsyncCook(bool bSuccess, UBodySetup* FinishedBodySetup)
 {
+#else
+void URuntimeMesh::FinishPhysicsAsyncCook(UBodySetup * FinishedBodySetup)
+{
+	bool bSuccess = true;
+#endif
 	SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_FinishCollisionAsyncCook);
 
 	check(IsInGameThread());
@@ -420,7 +428,9 @@ bool URuntimeMesh::GetPhysicsTriMeshData(struct FTriMeshCollisionData* Collision
 			CollisionData->MaterialIndices = CollisionMesh.MaterialIndices.TakeContents();
 
 			CollisionData->bDeformableMesh = CollisionMesh.bDeformableMesh;
+#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 21
 			CollisionData->bDisableActiveEdgePrecompute = CollisionMesh.bDisableActiveEdgePrecompute;
+#endif
 			CollisionData->bFastCook = CollisionMesh.bFastCook;
 			CollisionData->bFlipNormals = CollisionMesh.bFlipNormals;
 

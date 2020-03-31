@@ -432,7 +432,11 @@ FLODMask FRuntimeMeshComponentSceneProxy::GetLODMask(const FSceneView* View) con
 
 			FCachedSystemScalabilityCVars CachedSystemScalabilityCVars = GetCachedScalabilityCVars();
 
+#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 21
 			float InvScreenSizeScale = (CachedSystemScalabilityCVars.StaticMeshLODDistanceScale != 0.f) ? (1.0f / CachedSystemScalabilityCVars.StaticMeshLODDistanceScale) : 1.0f;
+#else
+			float InvScreenSizeScale = 1.0f;
+#endif
 
 			int32 ClampedMinLOD = 0;
 
@@ -457,6 +461,12 @@ int32 FRuntimeMeshComponentSceneProxy::GetLOD(const FSceneView* View) const
 {
 	const FBoxSphereBounds& ProxyBounds = GetBounds();
 	FCachedSystemScalabilityCVars CachedSystemScalabilityCVars = GetCachedScalabilityCVars();
+
+#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 21
 	float InvScreenSizeScale = (CachedSystemScalabilityCVars.StaticMeshLODDistanceScale != 0.f) ? (1.0f / CachedSystemScalabilityCVars.StaticMeshLODDistanceScale) : 1.0f;
+#else
+	float InvScreenSizeScale = 1.0f;
+#endif
+
 	return ComputeStaticMeshLOD(ProxyBounds.Origin, ProxyBounds.SphereRadius, *View, 0, InvScreenSizeScale);
 }

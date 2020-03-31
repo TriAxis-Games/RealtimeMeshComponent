@@ -116,7 +116,12 @@ private:
 	/** Mark collision data as dirty, and re-create on instance if necessary */
 	void UpdateCollision(bool bForceCookNow = false);
 	/** Once async physics cook is done, create needed state, and then call the user event */
+
+#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 21
 	void FinishPhysicsAsyncCook(bool bSuccess, UBodySetup* FinishedBodySetup);
+#else
+	void FinishPhysicsAsyncCook(UBodySetup* FinishedBodySetup);
+#endif
 	/** Runs all post cook tasks like alerting the user event and alerting linked components */
 	void FinalizeNewCookedData();
 
