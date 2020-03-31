@@ -36,9 +36,15 @@ void FRuntimeMeshProviderSphereProxy::UpdateProxyParameters(URuntimeMeshProvider
 
 	LODMultiplier = SphereProvider->LODMultiplier;
 	Material = SphereProvider->Material;
+<<<<<<< HEAD
 	MaxLOD = GetMaxNumberOfLODs() - 1;
 
 	if (bIsInitialSetup)
+=======
+	int32 MaxLODBefore = MaxLOD;
+	MaxLOD = GetMaximumPossibleLOD();
+	if (!bIsInitialSetup)
+>>>>>>> v4dev
 	{
 		Initialize();
 	}
