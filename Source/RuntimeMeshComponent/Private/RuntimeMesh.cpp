@@ -8,7 +8,7 @@
 #include "RuntimeMeshComponent.h"
 #include "RuntimeMeshProxy.h"
 #include "RuntimeMeshData.h"
-#include "RuntimeMeshProviderStatic.h"
+#include "Providers/RuntimeMeshProviderStatic.h"
 
 
 DECLARE_DWORD_COUNTER_STAT(TEXT("RuntimeMeshDelayedActions - Updated Actors"), STAT_RuntimeMeshDelayedActions_UpdatedActors, STATGROUP_RuntimeMesh);
