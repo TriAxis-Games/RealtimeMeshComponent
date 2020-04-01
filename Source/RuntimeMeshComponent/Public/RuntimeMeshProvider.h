@@ -199,6 +199,7 @@ public:
 	void MarkCollisionDirty();
 
 
+protected:
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "RuntimeMesh|Providers|Common")
 	FBoxSphereBounds GetBounds();
@@ -218,5 +219,6 @@ public:
 	UFUNCTION(BlueprintNativeEvent, Category = "RuntimeMesh|Providers|Common")
 	bool GetCollisionMesh(UPARAM(Ref) FRuntimeMeshCollisionData& CollisionData);
 
+	friend class FRuntimeMeshProviderProxyUObjectProviderConnector;
 }; 
 

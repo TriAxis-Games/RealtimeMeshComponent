@@ -33,6 +33,13 @@ public:
 	void Initialize(URuntimeMeshProvider* Provider)
 	{
 		GetOrCreateRuntimeMesh()->Initialize(Provider);
+	}	
+	
+	/** Creates a static provider replacing whatever provider exists. */
+	UFUNCTION(BlueprintCallable)
+	URuntimeMeshProviderStatic* InitializeStaticProvider()
+	{
+		return GetOrCreateRuntimeMesh()->InitializeStaticProvider();
 	}
 
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
@@ -70,6 +77,28 @@ public:
 			NewMobility == ERuntimeMeshMobility::Movable ? EComponentMobility::Movable :
 			NewMobility == ERuntimeMeshMobility::Stationary ? EComponentMobility::Stationary : EComponentMobility::Static);
 	}
+	
+
+
+
+	UFUNCTION(BlueprintCallable)
+	URuntimeMeshProvider* GetProvider() { return GetRuntimeMesh()? GetRuntimeMesh()->GetProvider() : nullptr; }
+
+	FRuntimeMeshProviderProxyPtr GetCurrentProviderProxy() { return GetRuntimeMesh()? GetRuntimeMesh()->GetCurrentProviderProxy() : nullptr; }
+
+	UFUNCTION(BlueprintCallable)
+	TArray<FRuntimeMeshMaterialSlot> GetMaterialSlots() const { return GetRuntimeMesh()? GetRuntimeMesh()->GetMaterialSlots() : TArray<FRuntimeMeshMaterialSlot>(); }
+	
+	UFUNCTION(BlueprintCallable)
+	void SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial)
+	{
+		URuntimeMesh* Mesh = GetRuntimeMesh();
+		if (Mesh)
+		{
+			Mesh->SetupMaterialSlot(MaterialSlot, SlotName, InMaterial);
+		}
+	}
+
 
 
 	UFUNCTION(BlueprintCallable)

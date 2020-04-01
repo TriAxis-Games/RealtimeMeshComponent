@@ -31,7 +31,6 @@ public class RuntimeMeshComponent : ModuleRules
                 "RHI",
                 "NavigationSystem",
 #if !UE_4_22_OR_LATER
-                // This goes away in 4.22
                 "ShaderCore",
 #endif
 #if UE_4_23_OR_LATER

@@ -16,6 +16,7 @@ using FRuntimeMeshDataPtr = TSharedPtr<FRuntimeMeshData, ESPMode::ThreadSafe>;
 class FRuntimeMeshProxy;
 using FRuntimeMeshProxyPtr = TSharedPtr<FRuntimeMeshProxy, ESPMode::ThreadSafe>;
 
+class URuntimeMeshProviderStatic;
 
 /**
 *	Delegate for when the collision was updated.
@@ -65,6 +66,10 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void Initialize(URuntimeMeshProvider* Provider);
 
+	/** Creates a static provider replacing whatever provider exists. */
+	UFUNCTION(BlueprintCallable)
+	URuntimeMeshProviderStatic* InitializeStaticProvider();
+
 	UFUNCTION(BlueprintCallable)
 	URuntimeMeshProvider* GetProvider() { return MeshProvider; }
 
@@ -78,6 +83,9 @@ public:
 	
 	UFUNCTION(BlueprintCallable)
 	UMaterialInterface* GetMaterial(int32 SlotIndex);
+
+	UFUNCTION(BlueprintCallable)
+	void SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial);
 
 	UFUNCTION(BlueprintCallable)
 	int32 GetMaterialIndex(FName MaterialSlotName) const;

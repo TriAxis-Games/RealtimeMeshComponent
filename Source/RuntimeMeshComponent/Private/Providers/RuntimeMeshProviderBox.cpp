@@ -18,11 +18,17 @@ void FRuntimeMeshProviderBoxProxy::UpdateProxyParameters(URuntimeMeshProvider* P
 	URuntimeMeshProviderBox* BoxProvider = Cast<URuntimeMeshProviderBox>(ParentProvider);
 	if (BoxRadius != BoxProvider->BoxRadius)
 	{
+		BoxRadius = BoxProvider->BoxRadius;
+
 		MarkCollisionDirty();
+		MarkSectionDirty(0, 0);
 	}
-	BoxRadius = BoxProvider->BoxRadius;
-	Material = BoxProvider->Material;
-	MarkSectionDirty(0, 0);
+
+	if (Material != BoxProvider->Material)
+	{
+		Material = BoxProvider->Material;
+		SetupMaterialSlot(0, FName("Cube Base"), Material.Get());
+	}
 }
 
 void FRuntimeMeshProviderBoxProxy::Initialize()
@@ -40,6 +46,8 @@ void FRuntimeMeshProviderBoxProxy::Initialize()
 	Properties.MaterialSlot = 0;
 	Properties.UpdateFrequency = ERuntimeMeshUpdateFrequency::Infrequent;
 	CreateSection(0, 0, Properties);
+
+	MarkCollisionDirty();
 }
 
 bool FRuntimeMeshProviderBoxProxy::GetSectionMeshForLOD(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData)

@@ -177,7 +177,7 @@ void FRuntimeMeshComponentSceneProxy::DrawStaticElements(FStaticPrimitiveDrawInt
 #if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 22
 					FMaterialRenderProxy* Material = RenderData->Material->GetRenderProxy();
 #else
-					FMaterialRenderProxy* Material = RenderData->Material->GetRenderProxy(IsSelected());
+					FMaterialRenderProxy* Material = RenderData->Material->GetRenderProxy(false);
 #endif
 
 					FMeshBatch MeshBatch;

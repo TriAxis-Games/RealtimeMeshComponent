@@ -116,4 +116,41 @@ enum class ERuntimeMeshCollisionCookingMode : uint8
 
 
 
+/**
+*	Struct used to specify a tangent vector for a vertex
+*	The Y tangent is computed from the cross product of the vertex normal (Tangent Z) and the TangentX member.
+*/
+USTRUCT(BlueprintType)
+struct FRuntimeMeshTangent
+{
+	GENERATED_USTRUCT_BODY()
+
+public:
+
+	/** Direction of X tangent for this vertex */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Tangent)
+	FVector TangentX;
+
+	/** Bool that indicates whether we should flip the Y tangent when we compute it using cross product */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Tangent)
+	bool bFlipTangentY;
+
+	FRuntimeMeshTangent()
+		: TangentX(1.f, 0.f, 0.f)
+		, bFlipTangentY(false)
+	{}
+
+	FRuntimeMeshTangent(float X, float Y, float Z, bool bInFlipTangentY = false)
+		: TangentX(X, Y, Z)
+		, bFlipTangentY(bInFlipTangentY)
+	{}
+
+	FRuntimeMeshTangent(FVector InTangentX, bool bInFlipTangentY = false)
+		: TangentX(InTangentX)
+		, bFlipTangentY(bInFlipTangentY)
+	{}
+};
+
+
+
 DECLARE_DELEGATE_OneParam(FRuntimeMeshBackgroundWorkDelegate, double);

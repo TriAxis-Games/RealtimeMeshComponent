@@ -27,7 +27,4 @@ public:
 	/** Cached array of selected objects */
 	TArray<TWeakObjectPtr<UObject>> SelectedObjectsList;
 	TArray<URuntimeMesh*> RuntimeMeshesReferenced;
-
-	
-
 };
