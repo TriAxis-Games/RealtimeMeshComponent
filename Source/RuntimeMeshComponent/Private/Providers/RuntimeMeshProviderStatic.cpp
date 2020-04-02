@@ -33,7 +33,12 @@ void URuntimeMeshProviderStatic::CreateSectionFromComponents(int32 LODIndex, int
 	SectionData.Tangents.Append(Normals, Tangents);
 	if (SectionData.Tangents.Num() < SectionData.Positions.Num())
 	{
+		int32 Count = SectionData.Tangents.Num();
 		SectionData.Tangents.SetNum(SectionData.Positions.Num());
+		for (int32 Index = Count; Index < SectionData.Tangents.Num(); Index++)
+		{
+			SectionData.Tangents.SetTangents(Index, FVector(1, 0, 0), FVector(0, 1, 0), FVector(0, 0, 1));
+		}
 	}
 	SectionData.Colors.Append(VertexColors);
 	if (SectionData.Colors.Num() < SectionData.Positions.Num())
@@ -76,7 +81,12 @@ void URuntimeMeshProviderStatic::CreateSectionFromComponents(int32 LODIndex, int
 	SectionData.Tangents.Append(Normals, Tangents);
 	if (SectionData.Tangents.Num() < SectionData.Positions.Num())
 	{
+		int32 Count = SectionData.Tangents.Num();
 		SectionData.Tangents.SetNum(SectionData.Positions.Num());
+		for (int32 Index = Count; Index < SectionData.Tangents.Num(); Index++)
+		{
+			SectionData.Tangents.SetTangents(Index, FVector(1, 0, 0), FVector(0, 1, 0), FVector(0, 0, 1));
+		}
 	}
 	SectionData.Colors.Append(VertexColors);
 	if (SectionData.Colors.Num() < SectionData.Positions.Num())
@@ -115,7 +125,12 @@ void  URuntimeMeshProviderStatic::CreateSectionFromComponents(int32 LODIndex, in
 	SectionData.Tangents.Append(Normals, Tangents);
 	if (SectionData.Tangents.Num() < SectionData.Positions.Num())
 	{
+		int32 Count = SectionData.Tangents.Num();
 		SectionData.Tangents.SetNum(SectionData.Positions.Num());
+		for (int32 Index = Count; Index < SectionData.Tangents.Num(); Index++)
+		{
+			SectionData.Tangents.SetTangents(Index, FVector(1, 0, 0), FVector(0, 1, 0), FVector(0, 0, 1));
+		}
 	}
 	SectionData.Colors.Append(VertexColors);
 	if (SectionData.Colors.Num() < SectionData.Positions.Num())
@@ -150,7 +165,12 @@ void URuntimeMeshProviderStatic::CreateSectionFromComponents(int32 LODIndex, int
 	SectionData.Tangents.Append(Normals, Tangents);
 	if (SectionData.Tangents.Num() < SectionData.Positions.Num())
 	{
+		int32 Count = SectionData.Tangents.Num();
 		SectionData.Tangents.SetNum(SectionData.Positions.Num());
+		for (int32 Index = Count; Index < SectionData.Tangents.Num(); Index++)
+		{
+			SectionData.Tangents.SetTangents(Index, FVector(1, 0, 0), FVector(0, 1, 0), FVector(0, 0, 1));
+		}
 	}
 	SectionData.Colors.Append(VertexColors);
 	if (SectionData.Colors.Num() < SectionData.Positions.Num())
@@ -183,7 +203,12 @@ void URuntimeMeshProviderStatic::UpdateSectionFromComponents(int32 LODIndex, int
 	SectionData.Tangents.Append(Normals, Tangents);
 	if (SectionData.Tangents.Num() < SectionData.Positions.Num())
 	{
+		int32 Count = SectionData.Tangents.Num();
 		SectionData.Tangents.SetNum(SectionData.Positions.Num());
+		for (int32 Index = Count; Index < SectionData.Tangents.Num(); Index++)
+		{
+			SectionData.Tangents.SetTangents(Index, FVector(1, 0, 0), FVector(0, 1, 0), FVector(0, 0, 1));
+		}
 	}
 	SectionData.Colors.Append(VertexColors);
 	if (SectionData.Colors.Num() < SectionData.Positions.Num())
@@ -219,7 +244,12 @@ void URuntimeMeshProviderStatic::UpdateSectionFromComponents(int32 LODIndex, int
 	SectionData.Tangents.Append(Normals, Tangents);
 	if (SectionData.Tangents.Num() < SectionData.Positions.Num())
 	{
+		int32 Count = SectionData.Tangents.Num();
 		SectionData.Tangents.SetNum(SectionData.Positions.Num());
+		for (int32 Index = Count; Index < SectionData.Tangents.Num(); Index++)
+		{
+			SectionData.Tangents.SetTangents(Index, FVector(1, 0, 0), FVector(0, 1, 0), FVector(0, 0, 1));
+		}
 	}
 	SectionData.Colors.Append(VertexColors);
 	if (SectionData.Colors.Num() < SectionData.Positions.Num())
@@ -252,7 +282,12 @@ void URuntimeMeshProviderStatic::UpdateSectionFromComponents(int32 LODIndex, int
 	SectionData.Tangents.Append(Normals, Tangents);
 	if (SectionData.Tangents.Num() < SectionData.Positions.Num())
 	{
+		int32 Count = SectionData.Tangents.Num();
 		SectionData.Tangents.SetNum(SectionData.Positions.Num());
+		for (int32 Index = Count; Index < SectionData.Tangents.Num(); Index++)
+		{
+			SectionData.Tangents.SetTangents(Index, FVector(1, 0, 0), FVector(0, 1, 0), FVector(0, 0, 1));
+		}
 	}
 	SectionData.Colors.Append(VertexColors);
 	if (SectionData.Colors.Num() < SectionData.Positions.Num())
@@ -282,7 +317,12 @@ void URuntimeMeshProviderStatic::UpdateSectionFromComponents(int32 LODIndex, int
 	SectionData.Tangents.Append(Normals, Tangents);
 	if (SectionData.Tangents.Num() < SectionData.Positions.Num())
 	{
+		int32 Count = SectionData.Tangents.Num();
 		SectionData.Tangents.SetNum(SectionData.Positions.Num());
+		for (int32 Index = Count; Index < SectionData.Tangents.Num(); Index++)
+		{
+			SectionData.Tangents.SetTangents(Index, FVector(1, 0, 0), FVector(0, 1, 0), FVector(0, 0, 1));
+		}
 	}
 	SectionData.Colors.Append(VertexColors);
 	if (SectionData.Colors.Num() < SectionData.Positions.Num())
