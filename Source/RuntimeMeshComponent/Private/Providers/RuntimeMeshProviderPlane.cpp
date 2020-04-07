@@ -93,7 +93,7 @@ bool FRuntimeMeshProviderPlaneProxy::GetSectionMeshForLOD(int32 LODIndex, int32 
 	int32 NumVertsAB = VertsAB[LODIndex], NumVertsAC = VertsAC[LODIndex];
 	FVector ABDirection = (LocationB - LocationA) / (NumVertsAB - 1);
 	FVector ACDirection = (LocationC - LocationA) / (NumVertsAB - 1);
-	FVector Normal = (ACDirection ^ ABDirection).GetUnsafeNormal();
+	FVector Normal = (ABDirection ^ ACDirection).GetUnsafeNormal();
 	FVector Tangent = ABDirection.GetUnsafeNormal();
 	FColor Color = FColor::White;
 	for (int32 ACIndex = 0; ACIndex < NumVertsAC; ACIndex++)
@@ -101,7 +101,8 @@ bool FRuntimeMeshProviderPlaneProxy::GetSectionMeshForLOD(int32 LODIndex, int32 
 		for (int32 ABIndex = 0; ABIndex < NumVertsAB; ABIndex++)
 		{
 			FVector Location = LocationA + ABDirection * ABIndex + ACDirection * ACIndex;
-			FVector2D TexCoord = FVector2D(ABIndex / NumVertsAB, ACIndex / NumVertsAC);
+			FVector2D TexCoord = FVector2D((float)ABIndex / (float)(NumVertsAB-1), (float)ACIndex / (float)(NumVertsAC-1));
+			//UE_LOG(LogTemp, Log, TEXT("TexCoord for vertex %i:%i : %s"), ABIndex, ACIndex, *TexCoord.ToString());
 			MeshData.Positions.Add(Location);
 			MeshData.Tangents.Add(Normal, Tangent);
 			MeshData.Colors.Add(Color);
@@ -142,9 +143,9 @@ bool FRuntimeMeshProviderPlaneProxy::GetCollisionMesh(FRuntimeMeshCollisionData&
 
 URuntimeMeshProviderPlane::URuntimeMeshProviderPlane()
 {
-	LocationA = FVector(100, -100, 0);
-	LocationB = FVector(100, 100, 0);
-	LocationC = FVector(-100, -100, 0);
+	LocationA = FVector(100, 100, 0);
+	LocationB = FVector(-100, 100, 0);
+	LocationC = FVector(100, -100, 0);
 	VertsAB = TArray<int32>({100,10,1});
 	VertsAC = TArray<int32>({100,10,1});
 	ScreenSize = TArray<float>({ 0.1,0.01 });
