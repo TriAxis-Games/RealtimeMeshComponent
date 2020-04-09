@@ -5,7 +5,7 @@
 
 
 URuntimeMeshProviderStatic::URuntimeMeshProviderStatic()
-	: StoreEditorGeneratedDataForGame(false)
+	: StoreEditorGeneratedDataForGame(true)
 	, LODForMeshCollision(0)
 	, CombinedBounds(ForceInit)
 {
@@ -348,6 +348,16 @@ void URuntimeMeshProviderStatic::Initialize_Implementation()
 {
 	UE_LOG(RuntimeMeshLog, Verbose, TEXT("StaticProvider(%d): Initialize called"), FPlatformTLS::GetCurrentThreadId());
 
+	// Setup loaded materials
+	for (int32 Index = 0; Index < LoadedMaterialSlots.Num(); Index++)
+	{
+		FName SlotName = LoadedMaterialSlots[Index].SlotName;
+		UMaterialInterface* Material = LoadedMaterialSlots[Index].Material.Get();
+
+		SetupMaterialSlot(Index, SlotName, Material);
+	}
+	LoadedMaterialSlots.Empty();
+
 	// Setup existing LODs
  	if (LODConfigurations.Num() > 0)
 	{
@@ -687,11 +697,7 @@ void URuntimeMeshProviderStatic::Serialize(FArchive& Ar)
 
 				if (Ar.IsLoading())
 				{
-					for (int32 Index = 0; Index < MaterialSlots.Num(); Index++)
-					{
-						UMaterialInterface* Mat = MaterialSlots[Index].Material.Get(false);
-						SetupMaterialSlot(Index, MaterialSlots[Index].SlotName, Mat);
-					}
+					LoadedMaterialSlots = MaterialSlots;
 				}
 			}{}
 		}

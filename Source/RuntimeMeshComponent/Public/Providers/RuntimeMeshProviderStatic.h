@@ -28,6 +28,8 @@ private:
 	FRuntimeMeshCollisionSettings CollisionSettings;
 	TOptional<FRuntimeMeshCollisionData> CollisionMesh;
 	FBoxSphereBounds CombinedBounds;
+
+	TArray<FRuntimeMeshMaterialSlot> LoadedMaterialSlots;
 public:
 
 	URuntimeMeshProviderStatic();

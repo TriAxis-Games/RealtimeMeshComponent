@@ -88,9 +88,6 @@ void FRuntimeMeshData::Initialize()
 	BaseProvider->BindPreviousProvider(this->AsShared());
 
 	BaseProvider->Initialize();
-
-	//MarkAllLODsDirty();
-	//MarkCollisionDirty();
 }
 
 void FRuntimeMeshData::ConfigureLODs(TArray<FRuntimeMeshLODProperties> LODSettings)

@@ -173,6 +173,26 @@ bool URuntimeMeshComponent::IsMaterialSlotNameValid(FName MaterialSlotName) cons
 	return false;
 }
 
+void URuntimeMeshComponent::GetUsedMaterials(TArray<UMaterialInterface*>& OutMaterials, bool bGetDebugMaterials /*= false*/) const
+{
+	TArray<FRuntimeMeshMaterialSlot> Slots = GetMaterialSlots();
+
+	for (int32 Index = 0; Index < Slots.Num(); Index++)
+	{
+		UMaterialInterface* Mat = Super::GetMaterial(Index);
+
+		if (Mat == nullptr)
+		{
+			Mat = Slots[Index].Material.Get();
+		}
+
+		if (Mat)
+		{
+			OutMaterials.Add(Mat);
+		}
+	}
+}
+
 int32 URuntimeMeshComponent::GetNumMaterials() const
 {
 	int32 RuntimeMeshSections = GetRuntimeMesh() != nullptr ? GetRuntimeMesh()->GetNumMaterials() : 0;

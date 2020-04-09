@@ -25,6 +25,8 @@ private:
 
 	void EnsureHasRuntimeMesh();
 
+
+
 public:
 
 	URuntimeMeshComponent(const FObjectInitializer& ObjectInitializer);
@@ -129,6 +131,7 @@ public:
 	virtual int32 GetMaterialIndex(FName MaterialSlotName) const;
 	virtual TArray<FName> GetMaterialSlotNames() const;
 	virtual bool IsMaterialSlotNameValid(FName MaterialSlotName) const;
+	virtual void GetUsedMaterials(TArray<UMaterialInterface*>& OutMaterials, bool bGetDebugMaterials = false) const override;
 	//~ End UMeshComponent Interface
 
 	//~ Being UPrimitiveComponent Interface
