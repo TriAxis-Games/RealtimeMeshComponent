@@ -94,6 +94,8 @@ public:
 	FRuntimeMeshData(const FRuntimeMeshProviderProxyRef& InBaseProvider, TWeakObjectPtr<URuntimeMesh> InParentMeshObject);
 	virtual ~FRuntimeMeshData() override;
 
+	void Reset();
+
 	FRuntimeMeshProviderProxyRef GetCurrentProviderProxy() { return BaseProvider; }
 
 	TArray<FRuntimeMeshMaterialSlot> GetMaterialSlots() const override { return MaterialSlots; }

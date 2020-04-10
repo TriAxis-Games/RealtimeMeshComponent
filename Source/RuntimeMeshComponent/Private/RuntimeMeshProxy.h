@@ -34,10 +34,8 @@ public:
 	void QueueForUpdate();
 	void FlushPendingUpdates();
 
+	void ResetProxy_GameThread();
 	void InitializeLODs_GameThread(const TArray<FRuntimeMeshLODProperties>& InProperties);
-	void ClearAllSectionsForLOD_GameThread(int32 LODIndex);
-	void RemoveAllSectionsForLOD_GameThread(int32 LODIndex);
-
 	void CreateOrUpdateSection_GameThread(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& InProperties, bool bShouldReset);
 	void UpdateSectionMesh_GameThread(int32 LODIndex, int32 SectionId, const TSharedPtr<FRuntimeMeshRenderableMeshData>& MeshData);
 	void ClearAllSections_GameThread(int32 LODIndex);
@@ -45,10 +43,8 @@ public:
 	void RemoveAllSections_GameThread(int32 LODIndex);
 	void RemoveSection_GameThread(int32 LODIndex, int32 SectionId);
 
+	void ResetProxy_RenderThread();
 	void InitializeLODs_RenderThread(const TArray<FRuntimeMeshLODProperties>& InProperties);
-	void ClearAllSectionsForLOD_RenderThread(int32 LODIndex);
-	void RemoveAllSectionsForLOD_RenderThread(int32 LODIndex);
-
 	void CreateOrUpdateSection_RenderThread(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& InProperties, bool bShouldReset);
 	void UpdateSectionMesh_RenderThread(int32 LODIndex, int32 SectionId, const TSharedPtr<FRuntimeMeshRenderableMeshData>& MeshData);
 	void ClearAllSections_RenderThread(int32 LODIndex);

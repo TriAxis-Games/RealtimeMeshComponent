@@ -41,6 +41,18 @@ FRuntimeMeshData::~FRuntimeMeshData()
 
 }
 
+void FRuntimeMeshData::Reset()
+{
+	ParentMeshObject = nullptr;
+
+	RenderProxy->ResetProxy_GameThread();
+	RenderProxy.Reset();
+
+	MaterialSlots.Empty();
+	SlotNameLookup.Empty();
+	LODs.Empty();
+}
+
 int32 FRuntimeMeshData::GetNumMaterials()
 {
 	return MaterialSlots.Num();
