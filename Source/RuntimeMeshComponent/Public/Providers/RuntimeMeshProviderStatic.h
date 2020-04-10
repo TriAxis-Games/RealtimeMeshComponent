@@ -36,9 +36,6 @@ public:
 
 	void Initialize_Implementation() override;
 	
-	// This brings forward the internal CreateSection as there's nothing wrong with using that version
-	using URuntimeMeshProvider::CreateSection;
-
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static", Meta=(DisplayName = "Create Section"))
 	void CreateSection_Blueprint(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties, const FRuntimeMeshRenderableMeshData& SectionData)
 	{
@@ -206,27 +203,35 @@ public:
 
 
 
+	void CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties, bool bCreateCollision = true)
+	{
+		URuntimeMeshProvider::CreateSection(LODIndex, SectionId, SectionProperties);
+		UpdateSectionAffectsCollision(LODIndex, SectionId, bCreateCollision);
+	}
 
-
-	void CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties, const FRuntimeMeshRenderableMeshData& SectionData)
+	void CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties, const FRuntimeMeshRenderableMeshData& SectionData, bool bCreateCollision = true)
 	{
 		URuntimeMeshProvider::CreateSection(LODIndex, SectionId, SectionProperties);
 		UpdateSectionInternal(LODIndex, SectionId, SectionData, GetBoundsFromMeshData(SectionData));
+		UpdateSectionAffectsCollision(LODIndex, SectionId, bCreateCollision);
 	}
-	void CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties, FRuntimeMeshRenderableMeshData&& SectionData)
+	void CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties, FRuntimeMeshRenderableMeshData&& SectionData, bool bCreateCollision = true)
 	{
 		URuntimeMeshProvider::CreateSection(LODIndex, SectionId, SectionProperties);
 		UpdateSectionInternal(LODIndex, SectionId, MoveTemp(SectionData), GetBoundsFromMeshData(SectionData));
+		UpdateSectionAffectsCollision(LODIndex, SectionId, bCreateCollision);
 	}
-	void CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties, const FRuntimeMeshRenderableMeshData& SectionData, FBoxSphereBounds KnownBounds)
+	void CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties, const FRuntimeMeshRenderableMeshData& SectionData, FBoxSphereBounds KnownBounds, bool bCreateCollision = true)
 	{
 		URuntimeMeshProvider::CreateSection(LODIndex, SectionId, SectionProperties);
 		UpdateSectionInternal(LODIndex, SectionId, SectionData, GetBoundsFromMeshData(SectionData));
+		UpdateSectionAffectsCollision(LODIndex, SectionId, bCreateCollision);
 	}
-	void CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties, FRuntimeMeshRenderableMeshData&& SectionData, FBoxSphereBounds KnownBounds)
+	void CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties, FRuntimeMeshRenderableMeshData&& SectionData, FBoxSphereBounds KnownBounds, bool bCreateCollision = true)
 	{
 		URuntimeMeshProvider::CreateSection(LODIndex, SectionId, SectionProperties);
 		UpdateSectionInternal(LODIndex, SectionId, MoveTemp(SectionData), GetBoundsFromMeshData(SectionData));
+		UpdateSectionAffectsCollision(LODIndex, SectionId, bCreateCollision);
 	}
 
 	void UpdateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshRenderableMeshData& SectionData)
@@ -280,6 +285,8 @@ protected:
 	virtual bool GetCollisionMesh_Implementation(FRuntimeMeshCollisionData& CollisionData) override;
 
 private:
+	void UpdateSectionAffectsCollision(int32 LODIndex, int32 SectionId, bool bAffectsCollision);
+
 	void UpdateBounds();
 	FBoxSphereBounds GetBoundsFromMeshData(const FRuntimeMeshRenderableMeshData& MeshData);
 

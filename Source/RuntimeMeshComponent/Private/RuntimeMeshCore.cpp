@@ -12,7 +12,7 @@
 bool FRuntimeMeshRenderableMeshData::HasValidMeshData(bool bPrintErrorMessage) const
 {
 	bool bStatus = true;
-	if (Positions.Num() <= 3)
+	if (Positions.Num() < 3)
 	{
 		bStatus = false;
 
