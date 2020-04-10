@@ -578,31 +578,42 @@ bool URuntimeMeshProviderStatic::GetCollisionMesh_Implementation(FRuntimeMeshCol
 				FRuntimeMeshRenderableMeshData& SectionData = Section->Get<1>();
 				if (SectionData.HasValidMeshData())
 				{
-					// Append the mesh data
-					int32 StartIndex = CollisionData.Vertices.Num();
-					int32 StartTriangle = CollisionData.Triangles.Num();
-
-					// Copy vertices
-					for (int32 Index = 0; Index < SectionData.Positions.Num(); Index++)
+					int32 FirstVertex = CollisionData.Vertices.Num();
+					int32 NumVertex = SectionData.Positions.Num();
+					int32 NumTexCoords = SectionData.TexCoords.Num();
+					int32 NumChannels = SectionData.TexCoords.NumChannels();
+					CollisionData.Vertices.SetNum(FirstVertex + NumVertex, false);
+					CollisionData.TexCoords.SetNum(NumChannels, FirstVertex + NumVertex, false);
+					for (int32 VertIdx = 0; VertIdx < NumVertex; VertIdx++)
 					{
-						CollisionData.Vertices.Add(SectionData.Positions.GetPosition(Index));
+						CollisionData.Vertices.SetPosition(FirstVertex + VertIdx, SectionData.Positions.GetPosition(VertIdx));
+						if (VertIdx >= NumTexCoords)
+						{
+							continue;
+						}
+						for (int32 ChannelIdx = 0; ChannelIdx < NumChannels; ChannelIdx++)
+						{
+							CollisionData.TexCoords.SetTexCoord(ChannelIdx, FirstVertex + VertIdx, SectionData.TexCoords.GetTexCoord(VertIdx, ChannelIdx));
+						}
 					}
 
-					// Copy indices offsetting for vertex move
-					for (int32 Index = 0; Index < SectionData.Triangles.Num(); Index += 3)
+					int32 FirstTris = CollisionData.Triangles.Num();
+					int32 NumTriangles = SectionData.Triangles.NumTriangles();
+					CollisionData.Triangles.SetNum(FirstTris + NumTriangles, false);
+					CollisionData.MaterialIndices.SetNum(FirstTris + NumTriangles, false);
+					for (int32 TrisIdx = 0; TrisIdx < NumTriangles; TrisIdx++)
 					{
-						CollisionData.Triangles.Add(
-							SectionData.Triangles.GetVertexIndex(Index + 0) + StartIndex,
-							SectionData.Triangles.GetVertexIndex(Index + 1) + StartIndex,
-							SectionData.Triangles.GetVertexIndex(Index + 2) + StartIndex);
+						int32 Index0 = SectionData.Triangles.GetVertexIndex(TrisIdx * 3) + FirstVertex;
+						int32 Index1 = SectionData.Triangles.GetVertexIndex(TrisIdx * 3 + 1) + FirstVertex;
+						int32 Index2 = SectionData.Triangles.GetVertexIndex(TrisIdx * 3 + 2) + FirstVertex;
+
+
+						CollisionData.Triangles.SetTriangleIndices(TrisIdx + FirstTris, Index0, Index1, Index2);
+						CollisionData.MaterialIndices.SetMaterialIndex(TrisIdx + FirstTris, Section->Get<0>().MaterialSlot);
 					}
 
 
-					// Add the collision section
-					CollisionData.CollisionSources.Emplace(StartTriangle, CollisionData.Triangles.Num() - 1, this, SectionId, ERuntimeMeshCollisionFaceSourceType::Renderable);
-
-					// TODO: Append the UV's First you must fill the UV's if there's existing collision data
-
+					CollisionData.CollisionSources.Emplace(FirstTris, CollisionData.Triangles.Num() - 1, this, SectionId, ERuntimeMeshCollisionFaceSourceType::Renderable);
 					bHadMeshData = true;
 				}
 			}
