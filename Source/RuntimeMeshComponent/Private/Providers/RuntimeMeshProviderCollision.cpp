@@ -53,12 +53,11 @@ bool FRuntimeMeshProviderCollisionFromRenderableProxy::GetCollisionMesh(FRuntime
 	{
 		return false;
 	}
-	auto Temp = NextProvider.Pin();
 	for (int32 SectionIdx : SectionsForMeshCollision)
 	{
 		//Todo : This doesn't use material indices
 		FRuntimeMeshRenderableMeshData SectionMesh;
-		if (Temp->GetSectionMeshForLOD(LODForMeshCollision, SectionIdx, SectionMesh))
+		if (NextProvider->GetSectionMeshForLOD(LODForMeshCollision, SectionIdx, SectionMesh))
 		{
 			int32 FirstVertex = CollisionData.Vertices.Num();
 			int32 NumVertex = SectionMesh.Positions.Num();

@@ -111,6 +111,8 @@ public:
 
 	static FRuntimeMeshBackgroundWorkDelegate InitializeUserSuppliedThreading();
 
+
+
 private:
 
 	//~ Begin USceneComponent Interface.
@@ -139,16 +141,12 @@ public:
 	virtual UMaterialInterface* GetMaterial(int32 ElementIndex) const override;
 	//~ End UPrimitiveComponent Interface
 
-
-public:
-	//~ Begin UMeshComponent Interface.
-	//~ End UMeshComponent Interface.
-
-private:
-
-	/* Does post load fixups */
+protected:
 	virtual void PostLoad() override;
 
+	virtual void BeginDestroy() override;
+
+private:
 
 
 	/** Called by URuntimeMesh any time it has new collision data that we should use */

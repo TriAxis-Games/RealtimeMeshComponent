@@ -58,10 +58,9 @@ bool FRuntimeMeshProviderMemoryCacheProxy::GetSectionMeshForLOD(int32 LODIndex, 
 		return CachedData->IsSet();
 	}
 
-	auto Temp = NextProvider.Pin();
-	if (Temp.IsValid())
+	if (NextProvider.IsValid())
 	{
-		bool bHasData = Temp->GetSectionMeshForLOD(LODIndex, SectionId, MeshData);
+		bool bHasData = NextProvider->GetSectionMeshForLOD(LODIndex, SectionId, MeshData);
 		TOptional<FRuntimeMeshRenderableMeshData>& NewCache = CachedMeshData.FindOrAdd(GenerateKeyFromLODAndSection(LODIndex, SectionId));
 		if (bHasData)
 		{
@@ -79,10 +78,9 @@ FRuntimeMeshCollisionSettings FRuntimeMeshProviderMemoryCacheProxy::GetCollision
 		return CachedCollisionSettings.Get(FRuntimeMeshCollisionSettings());
 	}
 
-	auto Temp = NextProvider.Pin();
-	if (Temp.IsValid())
+	if (NextProvider.IsValid())
 	{
-		FRuntimeMeshCollisionSettings NewSettings = Temp->GetCollisionSettings();
+		FRuntimeMeshCollisionSettings NewSettings = NextProvider->GetCollisionSettings();
 		CachedCollisionSettings = NewSettings;
 		return NewSettings;
 	}
@@ -96,10 +94,9 @@ bool FRuntimeMeshProviderMemoryCacheProxy::HasCollisionMesh()
 		return CachedHasCollisionMesh.Get(false);
 	}
 
-	auto Temp = NextProvider.Pin();
-	if (Temp.IsValid())
+	if (NextProvider.IsValid())
 	{
-		bool bHasData = Temp->HasCollisionMesh();
+		bool bHasData = NextProvider->HasCollisionMesh();
 		CachedHasCollisionMesh = bHasData;
 		return bHasData;
 	}
@@ -114,10 +111,9 @@ bool FRuntimeMeshProviderMemoryCacheProxy::GetCollisionMesh(FRuntimeMeshCollisio
 		return CachedCollisionData->Key;
 	}
 
-	auto Temp = NextProvider.Pin();
-	if (Temp.IsValid())
+	if (NextProvider.IsValid())
 	{
-		bool bHasData = Temp->GetCollisionMesh(CollisionData);
+		bool bHasData = NextProvider->GetCollisionMesh(CollisionData);
 		CachedCollisionData = TPair<bool, FRuntimeMeshCollisionData>(bHasData, CollisionData);
 		return bHasData;
 	}

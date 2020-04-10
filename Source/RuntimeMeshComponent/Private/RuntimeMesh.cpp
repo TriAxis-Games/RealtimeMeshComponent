@@ -114,18 +114,36 @@ void URuntimeMesh::Initialize(URuntimeMeshProvider* Provider)
 	}
 	else
 	{
-		MeshProvider = nullptr;
-		Data.Reset();
-		bCollisionIsDirty = false;
-		BodySetup = nullptr;
-		AsyncBodySetupQueue.Empty();
-		RecreateAllComponentProxies();
-		UpdateAllComponentsBounds();
-		DoForAllLinkedComponents([](URuntimeMeshComponent* Comp)
-			{
-				Comp->NewCollisionMeshReceived();
-			});
+		Reset();
 	}
+}
+
+void URuntimeMesh::Reset()
+{
+	check(IsInGameThread());
+
+	bNeedsInitialization = false;
+
+	Data.Reset();	
+	MeshProvider = nullptr;
+	BodySetup = nullptr;
+	CollisionSource.Empty();
+	AsyncBodySetupQueue.Empty();
+	PendingSourceInfo.Reset();
+
+	// Shouldn't this actually be empty by now?
+	for (const auto& LinkedComponent : LinkedComponents)
+	{
+		URuntimeMeshComponent* Comp = LinkedComponent.Get();
+
+		if (Comp && Comp->IsValidLowLevel())
+		{
+			Comp->ForceProxyRecreate();
+			Comp->NewBoundsReceived();
+			Comp->NewCollisionMeshReceived();
+		}
+	}
+	LinkedComponents.Empty();
 }
 
 URuntimeMeshProviderStatic* URuntimeMesh::InitializeStaticProvider()
@@ -203,6 +221,13 @@ void URuntimeMesh::InitializeMultiThreading(int32 NumThreads, int32 StackSize /*
 FRuntimeMeshBackgroundWorkDelegate URuntimeMesh::InitializeUserSuppliedThreading()
 {
 	return FRuntimeMeshData::InitializeUserSuppliedThreading();
+}
+
+void URuntimeMesh::BeginDestroy()
+{
+	Reset();
+
+	Super::BeginDestroy();
 }
 
 FRuntimeMeshCollisionHitInfo URuntimeMesh::GetHitSource(int32 FaceIndex) const
@@ -510,8 +535,6 @@ void URuntimeMesh::RegisterLinkedComponent(URuntimeMeshComponent* NewComponent)
 
 void URuntimeMesh::UnRegisterLinkedComponent(URuntimeMeshComponent* ComponentToRemove)
 {
-	check(LinkedComponents.Contains(ComponentToRemove));
-
 	LinkedComponents.RemoveSingleSwap(ComponentToRemove, true);
 }
 

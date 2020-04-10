@@ -232,3 +232,14 @@ void URuntimeMeshComponent::PostLoad()
 		RuntimeMeshReference->RegisterLinkedComponent(this);
 	}
 }
+
+void URuntimeMeshComponent::BeginDestroy()
+{
+	if (RuntimeMeshReference)
+	{
+		RuntimeMeshReference->UnRegisterLinkedComponent(this);
+		RuntimeMeshReference = nullptr;
+	}
+
+	Super::BeginDestroy();
+}

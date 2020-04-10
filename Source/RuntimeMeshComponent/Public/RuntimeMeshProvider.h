@@ -61,7 +61,7 @@ private:
 	TWeakObjectPtr<URuntimeMeshProvider> Parent;
 
 protected:
-	FRuntimeMeshProviderProxyPtr PreviousProvider;
+	FRuntimeMeshProviderProxyWeakPtr PreviousProvider;
 
 public:
 	FRuntimeMeshProviderProxy(TWeakObjectPtr<URuntimeMeshProvider> InParent);
@@ -112,7 +112,7 @@ private:
 class RUNTIMEMESHCOMPONENT_API FRuntimeMeshProviderProxyPassThrough : public FRuntimeMeshProviderProxy
 {
 protected:
-	FRuntimeMeshProviderProxyWeakPtr NextProvider;
+	FRuntimeMeshProviderProxyPtr NextProvider;
 
 public:
 	FRuntimeMeshProviderProxyPassThrough(TWeakObjectPtr<URuntimeMeshProvider> InParent, const FRuntimeMeshProviderProxyPtr& InNextProvider);

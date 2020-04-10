@@ -15,12 +15,11 @@ FRuntimeMeshProviderNormalsProxy::~FRuntimeMeshProviderNormalsProxy()
 
 bool FRuntimeMeshProviderNormalsProxy::GetSectionMeshForLOD(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData)
 {
-	auto Temp = NextProvider.Pin();
-	if (!Temp.IsValid())
+	if (!NextProvider.IsValid())
 	{
 		return false;
 	}
-	bool returnvalue = Temp->GetSectionMeshForLOD(LODIndex, SectionId, MeshData);
+	bool bResult = NextProvider->GetSectionMeshForLOD(LODIndex, SectionId, MeshData);
 	int32 NumVertices = MeshData.Positions.Num();
 	int32 NumIndices = MeshData.Triangles.Num();
 	int32 NumUVs = MeshData.TexCoords.Num();
@@ -206,5 +205,5 @@ bool FRuntimeMeshProviderNormalsProxy::GetSectionMeshForLOD(int32 LODIndex, int3
 			MeshData.Tangents.SetTangent(VertxIdx, TangentX);
 		}
 	}
-	return returnvalue;
+	return bResult;
 }

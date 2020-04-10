@@ -66,6 +66,9 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void Initialize(URuntimeMeshProvider* Provider);
 
+	UFUNCTION(BlueprintCallable)
+	void Reset();
+
 	/** Creates a static provider replacing whatever provider exists. */
 	UFUNCTION(BlueprintCallable)
 	URuntimeMeshProviderStatic* InitializeStaticProvider();
@@ -111,6 +114,9 @@ public:
 	static void InitializeMultiThreading(int32 NumThreads, int32 StackSize = 0, EThreadPriority ThreadPriority = TPri_BelowNormal);
 
 	static FRuntimeMeshBackgroundWorkDelegate InitializeUserSuppliedThreading();
+
+
+	void BeginDestroy() override;
 
 private:
 	FRuntimeMeshCollisionHitInfo GetHitSource(int32 FaceIndex) const;

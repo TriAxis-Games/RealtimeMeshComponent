@@ -19,116 +19,130 @@ void FRuntimeMeshProviderProxy::UpdateProxyParameters(URuntimeMeshProvider* Pare
 
 void FRuntimeMeshProviderProxy::ConfigureLODs(TArray<FRuntimeMeshLODProperties> LODs)
 {
-	if (PreviousProvider.IsValid())
+	FRuntimeMeshProviderProxyPtr Pinned = PreviousProvider.Pin();
+	if (Pinned.IsValid())
 	{
-		PreviousProvider->ConfigureLODs(LODs);
+		Pinned->ConfigureLODs(LODs);
 	}
 }
 
 void FRuntimeMeshProviderProxy::CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties)
 {
-	if (PreviousProvider.IsValid())
+	FRuntimeMeshProviderProxyPtr Pinned = PreviousProvider.Pin();
+	if (Pinned.IsValid())
 	{
-		PreviousProvider->CreateSection(LODIndex, SectionId, SectionProperties);
+		Pinned->CreateSection(LODIndex, SectionId, SectionProperties);
 	}
 }
 
 void FRuntimeMeshProviderProxy::SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial)
 {
-	if (PreviousProvider.IsValid())
+	FRuntimeMeshProviderProxyPtr Pinned = PreviousProvider.Pin();
+	if (Pinned.IsValid())
 	{
-		PreviousProvider->SetupMaterialSlot(MaterialSlot, SlotName, InMaterial);
+		Pinned->SetupMaterialSlot(MaterialSlot, SlotName, InMaterial);
 	}
 }
 
 int32 FRuntimeMeshProviderProxy::GetMaterialIndex(FName MaterialSlotName)
 {
-	if (PreviousProvider.IsValid())
+	FRuntimeMeshProviderProxyPtr Pinned = PreviousProvider.Pin();
+	if (Pinned.IsValid())
 	{
-		return PreviousProvider->GetMaterialIndex(MaterialSlotName);
+		return Pinned->GetMaterialIndex(MaterialSlotName);
 	}
 	return INDEX_NONE;
 }
 
 int32 FRuntimeMeshProviderProxy::GetNumMaterials()
 {
-	if (PreviousProvider.IsValid())
+	FRuntimeMeshProviderProxyPtr Pinned = PreviousProvider.Pin();
+	if (Pinned.IsValid())
 	{
-		return PreviousProvider->GetNumMaterials();
+		return Pinned->GetNumMaterials();
 	}
 	return 0;
 }
 
 TArray<FRuntimeMeshMaterialSlot> FRuntimeMeshProviderProxy::GetMaterialSlots() const
 {
-	if (PreviousProvider.IsValid())
+	FRuntimeMeshProviderProxyPtr Pinned = PreviousProvider.Pin();
+	if (Pinned.IsValid())
 	{
-		return PreviousProvider->GetMaterialSlots();
+		return Pinned->GetMaterialSlots();
 	}
 	return TArray<FRuntimeMeshMaterialSlot>();
 }
 
 void FRuntimeMeshProviderProxy::MarkSectionDirty(int32 LODIndex, int32 SectionId)
 {
-	if (PreviousProvider.IsValid())
+	FRuntimeMeshProviderProxyPtr Pinned = PreviousProvider.Pin();
+	if (Pinned.IsValid())
 	{
-		PreviousProvider->MarkSectionDirty(LODIndex, SectionId);
+		Pinned->MarkSectionDirty(LODIndex, SectionId);
 	}
 }
 
 void FRuntimeMeshProviderProxy::MarkLODDirty(int32 LODIndex)
 {
-	if (PreviousProvider.IsValid())
+	FRuntimeMeshProviderProxyPtr Pinned = PreviousProvider.Pin();
+	if (Pinned.IsValid())
 	{
-		PreviousProvider->MarkLODDirty(LODIndex);
+		Pinned->MarkLODDirty(LODIndex);
 	}
 }
 
 void FRuntimeMeshProviderProxy::MarkAllLODsDirty()
 {
-	if (PreviousProvider.IsValid())
+	FRuntimeMeshProviderProxyPtr Pinned = PreviousProvider.Pin();
+	if (Pinned.IsValid())
 	{
-		PreviousProvider->MarkAllLODsDirty();
+		Pinned->MarkAllLODsDirty();
 	}
 }
 
 void FRuntimeMeshProviderProxy::SetSectionVisibility(int32 LODIndex, int32 SectionId, bool bIsVisible)
 {
-	if (PreviousProvider.IsValid())
+	FRuntimeMeshProviderProxyPtr Pinned = PreviousProvider.Pin();
+	if (Pinned.IsValid())
 	{
-		PreviousProvider->SetSectionVisibility(LODIndex, SectionId, bIsVisible);
+		Pinned->SetSectionVisibility(LODIndex, SectionId, bIsVisible);
 	}
 }
 
 void FRuntimeMeshProviderProxy::SetSectionCastsShadow(int32 LODIndex, int32 SectionId, bool bCastsShadow)
 {
-	if (PreviousProvider.IsValid())
+	FRuntimeMeshProviderProxyPtr Pinned = PreviousProvider.Pin();
+	if (Pinned.IsValid())
 	{
-		PreviousProvider->SetSectionCastsShadow(LODIndex, SectionId, bCastsShadow);
+		Pinned->SetSectionCastsShadow(LODIndex, SectionId, bCastsShadow);
 	}
 }
 
 void FRuntimeMeshProviderProxy::RemoveSection(int32 LODIndex, int32 SectionId)
 {
-	if (PreviousProvider.IsValid())
+	FRuntimeMeshProviderProxyPtr Pinned = PreviousProvider.Pin();
+	if (Pinned.IsValid())
 	{
-		PreviousProvider->RemoveSection(LODIndex, SectionId);
+		Pinned->RemoveSection(LODIndex, SectionId);
 	}
 }
 
 void FRuntimeMeshProviderProxy::MarkCollisionDirty()
 {
-	if (PreviousProvider.IsValid())
+	FRuntimeMeshProviderProxyPtr Pinned = PreviousProvider.Pin();
+	if (Pinned.IsValid())
 	{
-		PreviousProvider->MarkCollisionDirty();
+		Pinned->MarkCollisionDirty();
 	}
 }
 
 void FRuntimeMeshProviderProxy::DoOnGameThreadAndBlockThreads(FRuntimeMeshProviderThreadExclusiveFunction Func)
 {
-	if (PreviousProvider.IsValid())
+	FRuntimeMeshProviderProxyPtr Pinned = PreviousProvider.Pin();
+	if (Pinned.IsValid())
 	{
-		PreviousProvider->DoOnGameThreadAndBlockThreads(Func);
+		Pinned->DoOnGameThreadAndBlockThreads(Func);
 	}
 }
 
@@ -141,10 +155,9 @@ FRuntimeMeshProviderProxyPassThrough::FRuntimeMeshProviderProxyPassThrough(TWeak
 
 void FRuntimeMeshProviderProxyPassThrough::BindPreviousProvider(const FRuntimeMeshProviderProxyPtr& InPreviousProvider)
 {
-	auto Next = NextProvider.Pin();
-	if (Next.IsValid())
+	if (NextProvider.IsValid())
 	{
-		Next->BindPreviousProvider(this->AsShared());
+		NextProvider->BindPreviousProvider(this->AsShared());
 	}
 
 	FRuntimeMeshProviderProxy::BindPreviousProvider(InPreviousProvider);
@@ -152,79 +165,71 @@ void FRuntimeMeshProviderProxyPassThrough::BindPreviousProvider(const FRuntimeMe
 
 void FRuntimeMeshProviderProxyPassThrough::Initialize()
 {
-	auto Next = NextProvider.Pin();
-	if (Next.IsValid())
+	if (NextProvider.IsValid())
 	{
-		Next->Initialize();
+		NextProvider->Initialize();
 	}
 }
 
 FBoxSphereBounds FRuntimeMeshProviderProxyPassThrough::GetBounds()
 {
-	auto Temp = NextProvider.Pin();
-	if (Temp.IsValid())
+	if (NextProvider.IsValid())
 	{
-		return Temp->GetBounds();
+		return NextProvider->GetBounds();
 	}
 	return FBoxSphereBounds();
 }
 
 bool FRuntimeMeshProviderProxyPassThrough::GetAllSectionsMeshForLOD(int32 LODIndex, TMap<int32, TTuple<FRuntimeMeshSectionProperties, FRuntimeMeshRenderableMeshData>>& MeshDatas)
 {
-	auto Temp = NextProvider.Pin();
-	if (Temp.IsValid())
+	if (NextProvider.IsValid())
 	{
-		return Temp->GetAllSectionsMeshForLOD(LODIndex, MeshDatas);
+		return NextProvider->GetAllSectionsMeshForLOD(LODIndex, MeshDatas);
 	}
 	return false;
 }
 
 bool FRuntimeMeshProviderProxyPassThrough::GetSectionMeshForLOD(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData)
 {
-	auto Temp = NextProvider.Pin();
-	if (Temp.IsValid())
+	if (NextProvider.IsValid())
 	{
-		return Temp->GetSectionMeshForLOD(LODIndex, SectionId, MeshData);
+		return NextProvider->GetSectionMeshForLOD(LODIndex, SectionId, MeshData);
 	}
 	return false;
 }
 
 FRuntimeMeshCollisionSettings FRuntimeMeshProviderProxyPassThrough::GetCollisionSettings()
 {
-	auto Temp = NextProvider.Pin();
-	if (Temp.IsValid())
+	if (NextProvider.IsValid())
 	{
-		return Temp->GetCollisionSettings();
+		return NextProvider->GetCollisionSettings();
 	}
 	return FRuntimeMeshCollisionSettings();
 }
 
 bool FRuntimeMeshProviderProxyPassThrough::HasCollisionMesh()
 {
-	auto Temp = NextProvider.Pin();
-	if (Temp.IsValid())
+	if (NextProvider.IsValid())
 	{
-		return Temp->HasCollisionMesh();
+		return NextProvider->HasCollisionMesh();
 	}
 	return false;
 }
 
 bool FRuntimeMeshProviderProxyPassThrough::GetCollisionMesh(FRuntimeMeshCollisionData& CollisionData)
 {
-	auto Temp = NextProvider.Pin();
-	if (Temp.IsValid())
+	if (NextProvider.IsValid())
 	{
-		return Temp->GetCollisionMesh(CollisionData);
+		return NextProvider->GetCollisionMesh(CollisionData);
 	}
 	return false;
 }
 
 bool FRuntimeMeshProviderProxyPassThrough::IsThreadSafe() const
 {
-	auto Temp = NextProvider.Pin();
-	if (Temp.IsValid())
+	if (NextProvider.IsValid())
 	{
-		return Temp->IsThreadSafe();
+		return NextProvider->IsThreadSafe();
 
 	}
 	return false;
