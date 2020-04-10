@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "RuntimeMeshProvider.h"
+#include "ThreadSafeBool.h"
 
 
 class URuntimeMesh;
@@ -13,6 +14,54 @@ enum class ESectionUpdateType : uint8;
 using FRuntimeMeshProxyPtr = TSharedPtr<FRuntimeMeshProxy, ESPMode::ThreadSafe>;
 
 DECLARE_DELEGATE_OneParam(FRuntimeMeshGameThreadTaskDelegate, URuntimeMesh*);
+
+
+struct FRuntimeMeshDataAsyncWorkSyncObject
+{
+private:
+	FThreadSafeBool bHadGameThreadWork;
+	FThreadSafeBool bHasAsyncWork;
+	FCriticalSection LockObject;
+
+public:
+	bool HasGameThreadWork() const { return bHadGameThreadWork; }
+	bool SetHasGameThreadWork() { return bHadGameThreadWork.AtomicSet(true); }
+	bool ClearHasGameThreadWork() { return bHadGameThreadWork.AtomicSet(false); }
+
+	bool HasAsyncWork() const { return bHasAsyncWork; }
+	bool SetHasAsyncWork() { return bHasAsyncWork.AtomicSet(true); }
+	bool ClearHasAsyncWork() { return bHasAsyncWork.AtomicSet(false); }
+
+	bool TryLockForGameThread()
+	{
+		bool bStatus = LockObject.TryLock();
+		if (bStatus)
+		{
+			ClearHasGameThreadWork();
+		}
+		return bStatus;
+	}
+
+	bool TryLockForAsyncThread()
+	{
+		bool bStatus = LockObject.TryLock();
+		if (bStatus)
+		{
+			// We don't let the async tasks run if there's game thread tasks waiting.
+			if (HasGameThreadWork())
+			{
+				LockObject.Unlock();
+				return false;
+			}
+
+			ClearHasAsyncWork();
+		}
+		return bStatus;
+	}
+
+	void Unlock() { LockObject.Unlock(); }
+
+};
 
 
 
@@ -38,17 +87,8 @@ class FRuntimeMeshData : public FRuntimeMeshProviderProxy
 
 	FCriticalSection SyncRoot;
 
-
-	// Tracks if we're already queued for an update. This is cleared when an updates starts but before doing the actual update.
-	// So if another update request comes in after this one starts we let it through since it might change data after this is completed
-	volatile int32 bQueuedForUpdate;
-
-	// Tracks if we have a task waiting for us on the game thread, if so we wait until the background threads are done, and
-	// then get an exclusive lock
-	volatile int32 bHasWaitingGameThreadTask;
-
-	// Lock object for controlling thread update access
-	volatile int32 bUpdateLock;
+	// State tracking for async thread synchronization
+	FRuntimeMeshDataAsyncWorkSyncObject AsyncWorkState;
 
 public:
 	FRuntimeMeshData(const FRuntimeMeshProviderProxyRef& InBaseProvider, TWeakObjectPtr<URuntimeMesh> InParentMeshObject);

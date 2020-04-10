@@ -32,9 +32,6 @@ FRuntimeMeshData::FRuntimeMeshData(const FRuntimeMeshProviderProxyRef& InBasePro
 	: FRuntimeMeshProviderProxy(nullptr)
 	, ParentMeshObject(InParentMeshObject)
 	, BaseProvider(InBaseProvider)
-	, bQueuedForUpdate(0)
-	, bHasWaitingGameThreadTask(0)
-	, bUpdateLock(0)
 {
 	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMD(%d): Created"), FPlatformTLS::GetCurrentThreadId());
 }
@@ -266,8 +263,36 @@ void FRuntimeMeshData::MarkCollisionDirty()
 struct FRuntimeMeshDataDelayedActionTickObject : FTickableGameObject
 {
 private:
-	TQueue<TTuple<FRuntimeMeshDataWeakPtr, FRuntimeMeshProviderThreadExclusiveFunction>, EQueueMode::Mpsc> ProxyParamsUpdateList;
-	TQueue<FRuntimeMeshDataWeakPtr, EQueueMode::Mpsc> UpdateList;
+	TQueue<TTuple<FRuntimeMeshDataWeakPtr, FRuntimeMeshProviderThreadExclusiveFunction>> ProxyParamsUpdateList;
+	mutable FCriticalSection ProxyParamsUpdateLock;
+	TQueue<FRuntimeMeshDataWeakPtr> UpdateList;
+	mutable FCriticalSection UpdateListLock;
+
+	bool DequeueProxyParamsUpdate(TTuple<FRuntimeMeshDataWeakPtr, FRuntimeMeshProviderThreadExclusiveFunction>& Entry)
+	{
+		FScopeLock Lock(&ProxyParamsUpdateLock);
+		return ProxyParamsUpdateList.Dequeue(Entry);
+	}
+
+	void EnqueueProxyParamsUpdate(const TTuple<FRuntimeMeshDataWeakPtr, FRuntimeMeshProviderThreadExclusiveFunction>& Entry)
+	{
+		FScopeLock Lock(&ProxyParamsUpdateLock);
+		ProxyParamsUpdateList.Enqueue(Entry);
+	}
+
+	bool DequeueAsyncTask(FRuntimeMeshDataWeakPtr& Entry)
+	{
+		FScopeLock Lock(&UpdateListLock);
+		return UpdateList.Dequeue(Entry);
+	}
+
+	void EnqueueAsyncTask(const FRuntimeMeshDataWeakPtr& Entry)
+	{
+		FScopeLock Lock(&UpdateListLock);
+		UpdateList.Enqueue(Entry);
+	}
+
+
 
 
 	class FRuntimeMeshDataBackgroundWorker : public FRunnable
@@ -345,12 +370,12 @@ public:
 
 		if (Mesh)
 		{
-			int32 OldValue = FPlatformAtomics::InterlockedCompareExchange(&Mesh->bHasWaitingGameThreadTask, 1, 0);
+			bool bIsRegistered = Mesh->AsyncWorkState.SetHasGameThreadWork();
 
 			// Are we already queued?
-			if (OldValue == 0)
+			if (!bIsRegistered)
 			{
-				ProxyParamsUpdateList.Enqueue(MakeTuple(InMesh, Func));
+				EnqueueProxyParamsUpdate(MakeTuple(InMesh, Func));
 			}
 		}
 	}
@@ -361,12 +386,12 @@ public:
 
 		if (Mesh)
 		{
-			int32 OldValue = FPlatformAtomics::InterlockedCompareExchange(&Mesh->bQueuedForUpdate, 1, 0);
+			bool bIsRegistered = Mesh->AsyncWorkState.SetHasAsyncWork();
 
 			// Are we already queued?
-			if (OldValue == 0)
+			if (!bIsRegistered)
 			{
-				UpdateList.Enqueue(InMesh);
+				EnqueueAsyncTask(InMesh);
 			}
 		}
 	}
@@ -382,7 +407,23 @@ public:
 			DoThreadedWork(1000 / 60);
 		}
 	}
-	virtual bool IsTickable() const { return !UpdateList.IsEmpty(); }
+	virtual bool IsTickable() const 
+	{
+		{
+			FScopeLock Lock(&ProxyParamsUpdateLock);
+			if (!ProxyParamsUpdateList.IsEmpty())
+			{
+				return true;
+			}
+		}
+		if (CurrentThreadingType == ECurrentThreadingType::None)
+		{
+			FScopeLock Lock(&UpdateListLock);
+			return !UpdateList.IsEmpty();
+		}
+
+		return false;
+	}
 	virtual bool IsTickableInEditor() const { return true; }
 	virtual TStatId GetStatId() const { return TStatId(); }
 
@@ -441,42 +482,28 @@ public:
 		// Here we handle the game thread only tasks, Each tick we try to handle every tasks
 		// If a task is currently doing background work we add it back to the queue for next tick
 		TTuple<FRuntimeMeshDataWeakPtr, FRuntimeMeshProviderThreadExclusiveFunction> TempData;
-		while (ProxyParamsUpdateList.Dequeue(TempData))
+		while (DequeueProxyParamsUpdate(TempData))
 		{
-			int32 CurrentLockValue = INDEX_NONE;
-
 			FRuntimeMeshDataPtr Mesh = TempData.Key.Pin();
-			if (Mesh.IsValid())
+			if (!Mesh.IsValid())
 			{
-				// Can we get the exclusive lock?
-				CurrentLockValue = FPlatformAtomics::InterlockedCompareExchange(&Mesh->bUpdateLock, 2, 0);
+				continue;
+			}
 
-				if (CurrentLockValue == 0)
-				{
-					// Clear the waiting game thread task flag
-					CurrentLockValue = FPlatformAtomics::InterlockedExchange(&Mesh->bHasWaitingGameThreadTask, 0);
-					// This checks that we did clear the flag, if it wasn't set something isn't right
-					check(CurrentLockValue == 1);
-
-					TempData.Value.Execute();
-
-					// Release the lock
-					CurrentLockValue = FPlatformAtomics::InterlockedCompareExchange(&Mesh->bUpdateLock, 0, 2);
-					// This is to check that we unlocked correctly, if this wasn't 2, then somehow we have a thread issue
-					check(CurrentLockValue == 2);
-				}
-				else
-				{
-					// Since we couldn't lock it on this round. Add it back to the queue for the next tick
-					RemainingList.Enqueue(TempData);
-				}
+			if (Mesh->AsyncWorkState.TryLockForGameThread())
+			{
+				TempData.Value.Execute();
+			}
+			else
+			{
+				RemainingList.Enqueue(TempData);
 			}
 		}
 
 		// Add the remaining list back to the queue for next tick
 		while (RemainingList.Dequeue(TempData))
 		{
-			ProxyParamsUpdateList.Enqueue(TempData);
+			EnqueueProxyParamsUpdate(TempData);
 		}
 	}
 
@@ -487,10 +514,10 @@ public:
 
 		double StartTime = FPlatformTime::Seconds();
 
+		FRuntimeMeshDataWeakPtr FirstSkippedMesh;
 		FRuntimeMeshDataWeakPtr TempMesh;
-		while ((FPlatformTime::Seconds() - StartTime) < MaxAllowedTime && UpdateList.Dequeue(TempMesh))
+		while ((FPlatformTime::Seconds() - StartTime) < MaxAllowedTime && DequeueAsyncTask(TempMesh))
 		{
-			int32 CurrentLockValue = INDEX_NONE;
 			bool bHandled = false;
 			
 			FRuntimeMeshDataPtr Mesh = TempMesh.IsValid() ? TempMesh.Pin() : nullptr;
@@ -499,39 +526,22 @@ public:
 				continue;
 			}
 
-			CurrentLockValue = FPlatformAtomics::AtomicRead(&Mesh->bHasWaitingGameThreadTask);
-
-			if (CurrentLockValue == 0)
+			// This stops the loop when we come full circle. So if we skip any due to inability to lock
+			// we don't just keep tight looping to retry 
+			if (FirstSkippedMesh.IsValid() && FirstSkippedMesh == TempMesh)
 			{
-				// Can we get the exclusive lock?
-				CurrentLockValue = FPlatformAtomics::InterlockedCompareExchange(&Mesh->bUpdateLock, 1, 0);
-
-				if (CurrentLockValue == 0)
-				{
-					// Clear the queued flag, we can potentially be requeued by another thread after this point
-					// which is fine since it's possible for that data to change after we've used it where it would need 
-					// to update again
-					CurrentLockValue = FPlatformAtomics::InterlockedExchange(&Mesh->bQueuedForUpdate, 0);
-					// This checks that we did clear the flag, if it wasn't set something isn't right
-					//check(CurrentLockValue == 1);
-
-					// Handle the update
-					Mesh->HandleUpdate();
-
-					// Release the lock
-					CurrentLockValue = FPlatformAtomics::InterlockedCompareExchange(&Mesh->bUpdateLock, 0, 1);
-					// This is to check that we unlocked correctly, if this wasn't 1, then somehow we have a thread issue
-					check(CurrentLockValue == 1);
-
-					bHandled = true;
-				}
+				break;
 			}
 
-			if (!bHandled)
+			if (Mesh->AsyncWorkState.TryLockForAsyncThread())
 			{
-				// Since we couldn't lock it on this round. Add it back to the queue for the next tick
-				UpdateList.Enqueue(TempMesh);
+				Mesh->HandleUpdate();
 			}
+			else
+			{
+				EnqueueAsyncTask(TempMesh);
+			}
+
 		}
 
 		// Is there still more work to do?
