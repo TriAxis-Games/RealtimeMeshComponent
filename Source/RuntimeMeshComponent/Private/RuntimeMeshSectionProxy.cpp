@@ -1,9 +1,12 @@
-// Copyright 2016-2019 Chris Conway (Koderz). All Rights Reserved.
+// Copyright 2016-2020 Chris Conway (Koderz). All Rights Reserved.
 
 #include "RuntimeMeshSectionProxy.h"
 #include "RuntimeMeshComponentPlugin.h"
-#include "RayTracingInstance.h"
 
+
+#if RHI_RAYTRACING
+#include "RayTracingInstance.h"
+#endif
 
 
 DECLARE_DWORD_COUNTER_STAT(TEXT("RuntimeMeshSectionProxy - Num Triangles"), STAT_RuntimeMeshSectionProxy_NumTriangles, STATGROUP_RuntimeMesh);
@@ -130,7 +133,13 @@ void FRuntimeMeshSectionProxy::UpdateSection_RenderThread(const FRuntimeMeshRend
 					Initializer.VertexBufferByteOffset = 0;
 					Initializer.VertexBufferElementType = VET_Float3;
 #endif
+
+#if ENGINE_MAJOR_VERSION <= 4 && ENGINE_MINOR_VERSION <= 22
+					Initializer.PrimitiveType = PT_TriangleList;
+#else
 					Initializer.GeometryType = RTGT_Triangles;
+#endif
+
 					Initializer.bFastBuild = true;
 					Initializer.bAllowUpdate = false;
 

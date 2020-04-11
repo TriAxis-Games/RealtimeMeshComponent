@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Chris Conway (Koderz). All Rights Reserved.
+// Copyright 2016-2020 Chris Conway (Koderz). All Rights Reserved.
 
 #pragma once
 
@@ -46,6 +46,13 @@ public:
 	void Append(const FRuntimeMeshVertexPositionStream& InOther)
 	{
 		Data.Append(InOther.Data);
+	}
+
+	void Append(const TArray<FVector>& InPositions)
+	{
+		int32 StartIndex = Data.Num();
+		Data.SetNum(StartIndex + sizeof(FVector) * InPositions.Num());
+		FMemory::Memcpy(Data.GetData() + StartIndex, InPositions.GetData(), InPositions.Num() * sizeof(FVector));
 	}
 
 	const FVector& GetPosition(int32 Index) const
@@ -108,7 +115,7 @@ public:
 	{
 	}
 
-	void SetNum(int32 NewNum, bool bAllowShrinking)
+	void SetNum(int32 NewNum, bool bAllowShrinking = true)
 	{
 		Data.SetNum(NewNum * GetStride(), bAllowShrinking);
 	}
@@ -126,6 +133,24 @@ public:
 	}
 
 	int32 Add(const FVector& InNormal, const FVector& InTangent)
+	{
+		int32 Index = Data.Num();
+		int32 Stride = GetStride();
+		Data.AddUninitialized(Stride);
+		if (bIsHighPrecision)
+		{
+			*((FPackedRGBA16N*)&Data[Index]) = FPackedRGBA16N(InTangent);
+			*((FPackedRGBA16N*)&Data[Index + sizeof(FPackedRGBA16N)]) = FPackedRGBA16N(InNormal);
+		}
+		else
+		{
+			*((FPackedNormal*)&Data[Index]) = FPackedNormal(InTangent);
+			*((FPackedNormal*)&Data[Index + sizeof(FPackedNormal)]) = FPackedNormal(InNormal);
+		}
+		return Index / Stride;
+	}
+
+	int32 Add(const FVector4& InNormal, const FVector& InTangent)
 	{
 		int32 Index = Data.Num();
 		int32 Stride = GetStride();
@@ -164,6 +189,42 @@ public:
 	void Append(const FRuntimeMeshVertexTangentStream& InOther)
 	{
 		Data.Append(InOther.Data);
+	}
+
+	void Append(const TArray<FVector>& InNormals, const TArray<FRuntimeMeshTangent>& InTangents)
+	{
+		int32 MaxCount = FMath::Max(InNormals.Num(), InTangents.Num());
+
+		for (int32 Index = 0; Index < MaxCount; Index++)
+		{
+			const int32 NormalIndex = FMath::Min(Index, InNormals.Num());
+			const int32 TangentIndex = FMath::Min(Index, InTangents.Num());
+
+			FVector4 Normal;
+			FVector Tangent;
+
+			if (InNormals.IsValidIndex(NormalIndex))
+			{
+				Normal = InNormals[NormalIndex];
+			}
+			else
+			{
+				Normal = FVector(0, 0, 1);
+			}
+
+			if (InTangents.IsValidIndex(TangentIndex))
+			{
+				Tangent = InTangents[TangentIndex].TangentX;
+				Normal.W = InTangents[TangentIndex].bFlipTangentY ? -1 : 1;
+			}
+			else
+			{
+				Tangent = FVector(1, 0, 0);
+				Normal.W = 1.0f;
+			}
+			
+			Add(Normal, Tangent);
+		}
 	}
 
 	FVector GetNormal(int32 Index) const
@@ -293,7 +354,7 @@ public:
 	{
 	}
 
-	void SetNum(int32 NewNum, bool bAllowShrinking)
+	void SetNum(int32 NewNum, bool bAllowShrinking = true)
 	{
 		Data.SetNum(NewNum * GetStride(), bAllowShrinking);
 	}
@@ -338,6 +399,19 @@ public:
 	void Append(const FRuntimeMeshVertexTexCoordStream& InOther)
 	{
 		Data.Append(InOther.Data);
+	}
+
+	void FillIn(int32 StartIndex, const TArray<FVector2D>& InChannelData, int32 ChannelId = 0)
+	{
+		if (Num() < (StartIndex + InChannelData.Num()))
+		{
+			SetNum(StartIndex + InChannelData.Num());
+		}
+
+		for (int32 Index = 0; Index < InChannelData.Num(); Index++)
+		{
+			SetTexCoord(StartIndex + Index, InChannelData[Index], ChannelId);
+		}
 	}
 
 	const FVector2D GetTexCoord(int32 Index, int32 ChannelId = 0) const
@@ -404,7 +478,7 @@ private:
 public:
 	FRuntimeMeshVertexColorStream() { }
 
-	void SetNum(int32 NewNum, bool bAllowShrinking)
+	void SetNum(int32 NewNum, bool bAllowShrinking = true)
 	{
 		Data.SetNum(NewNum * sizeof(FColor), bAllowShrinking);
 	}
@@ -432,6 +506,23 @@ public:
 	void Append(const FRuntimeMeshVertexColorStream& InOther)
 	{
 		Data.Append(InOther.Data);
+	}
+
+	void Append(const TArray<FColor>& InColors)
+	{
+		int32 StartIndex = Data.Num();
+		Data.SetNum(StartIndex + sizeof(FColor) * InColors.Num());
+		FMemory::Memcpy(Data.GetData() + StartIndex, InColors.GetData(), InColors.Num() * sizeof(FColor));
+	}
+
+	void Append(const TArray<FLinearColor>& InColors)
+	{
+		int32 StartIndex = Num();
+		SetNum(Num() + InColors.Num());
+		for (int32 Index = 0; Index < InColors.Num(); Index++)
+		{
+			SetColor(StartIndex + Index, InColors[Index].ToFColor(true));
+		}
 	}
 
 	const FColor& GetColor(int32 Index) const
@@ -479,7 +570,7 @@ public:
 
 	}
 
-	void SetNum(int32 NewNum, bool bAllowShrinking)
+	void SetNum(int32 NewNum, bool bAllowShrinking = true)
 	{
 		Data.SetNum(NewNum * Stride, bAllowShrinking);
 	}
@@ -546,6 +637,44 @@ public:
 	void Append(const FRuntimeMeshTriangleStream& InOther)
 	{
 		Data.Append(InOther.Data);
+	}
+
+	void Append(const TArray<int32>& InTriangles)
+	{
+		int32 StartIndex = Num();
+
+		if (bIsUsing32BitIndices)
+		{
+			Data.SetNum(StartIndex + sizeof(int32) * InTriangles.Num());
+			FMemory::Memcpy(Data.GetData() + StartIndex, InTriangles.GetData(), InTriangles.Num() * sizeof(int32));
+		}
+		else
+		{
+			SetNum(Num() + InTriangles.Num());
+			for (int32 Index = 0; Index < InTriangles.Num(); Index++)
+			{
+				SetVertexIndex(StartIndex + Index, InTriangles[Index]);
+			}
+		}
+	}
+
+	void Append(const TArray<uint16>& InTriangles)
+	{
+		int32 StartIndex = Num();
+
+		if (!bIsUsing32BitIndices)
+		{
+			Data.SetNum(StartIndex + sizeof(uint16) * InTriangles.Num());
+			FMemory::Memcpy(Data.GetData() + StartIndex, InTriangles.GetData(), InTriangles.Num() * sizeof(uint16));
+		}
+		else
+		{
+			SetNum(Num() + InTriangles.Num());
+			for (int32 Index = 0; Index < InTriangles.Num(); Index++)
+			{
+				SetVertexIndex(StartIndex + Index, InTriangles[Index]);
+			}
+		}
 	}
 
 	uint32 GetVertexIndex(int32 Index) const

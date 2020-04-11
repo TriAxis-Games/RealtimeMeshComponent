@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Chris Conway (Koderz). All Rights Reserved.
+// Copyright 2016-2020 Chris Conway (Koderz). All Rights Reserved.
 
 
 #include "Providers/RuntimeMeshProviderCollision.h"
@@ -53,19 +53,17 @@ bool FRuntimeMeshProviderCollisionFromRenderableProxy::GetCollisionMesh(FRuntime
 	{
 		return false;
 	}
-	auto Temp = NextProvider.Pin();
 	for (int32 SectionIdx : SectionsForMeshCollision)
 	{
 		//Todo : This doesn't use material indices
 		FRuntimeMeshRenderableMeshData SectionMesh;
-		if (Temp->GetSectionMeshForLOD(LODForMeshCollision, SectionIdx, SectionMesh))
+		if (NextProvider->GetSectionMeshForLOD(LODForMeshCollision, SectionIdx, SectionMesh))
 		{
 			int32 FirstVertex = CollisionData.Vertices.Num();
 			int32 NumVertex = SectionMesh.Positions.Num();
 			int32 NumTexCoords = SectionMesh.TexCoords.Num();
 			int32 NumChannels = SectionMesh.TexCoords.NumChannels();
 			CollisionData.Vertices.SetNum(FirstVertex + NumVertex, false);
-			CollisionData.MaterialIndices.SetNum(FirstVertex + NumVertex, false);
 			CollisionData.TexCoords.SetNum(NumChannels, FirstVertex + NumVertex, false);
 			for (int32 VertIdx = 0; VertIdx < NumVertex; VertIdx++)
 			{
@@ -81,16 +79,21 @@ bool FRuntimeMeshProviderCollisionFromRenderableProxy::GetCollisionMesh(FRuntime
 			}
 
 			int32 FirstTris = CollisionData.Triangles.Num();
-			int32 NumIndices = SectionMesh.Triangles.Num();
-			for (int32 TrisIdx = 0; TrisIdx < NumIndices/3; TrisIdx++)
+			int32 NumTriangles = SectionMesh.Triangles.NumTriangles();
+			CollisionData.Triangles.SetNum(FirstTris + NumTriangles, false);
+			CollisionData.MaterialIndices.SetNum(FirstTris + NumTriangles, false);
+			for (int32 TrisIdx = 0; TrisIdx < NumTriangles; TrisIdx++)
 			{
-				CollisionData.Triangles.SetTriangleIndices(TrisIdx + FirstTris, 
-					SectionMesh.Triangles.GetVertexIndex(NumIndices * 3) + FirstVertex, 
-					SectionMesh.Triangles.GetVertexIndex(NumIndices * 3 + 1) + FirstVertex, 
-					SectionMesh.Triangles.GetVertexIndex(NumIndices * 3 + 2) + FirstVertex);
+				int32 Index0 = SectionMesh.Triangles.GetVertexIndex(TrisIdx * 3) + FirstVertex;
+				int32 Index1 = SectionMesh.Triangles.GetVertexIndex(TrisIdx * 3 + 1) + FirstVertex;
+				int32 Index2 = SectionMesh.Triangles.GetVertexIndex(TrisIdx * 3 + 2) + FirstVertex;
+
+
+				CollisionData.Triangles.SetTriangleIndices(TrisIdx + FirstTris, Index0, Index1, Index2);
+				CollisionData.MaterialIndices.SetMaterialIndex(TrisIdx + FirstTris, 0 /* TODO: Get section material index */);
 			}
 
-			// Add the collision section
+
 			CollisionData.CollisionSources.Emplace(FirstTris, CollisionData.Triangles.Num() - 1, GetParent(), SectionIdx, ERuntimeMeshCollisionFaceSourceType::Renderable);
 		}
 	}

@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Chris Conway (Koderz). All Rights Reserved.
+// Copyright 2016-2020 Chris Conway (Koderz). All Rights Reserved.
 
 
 #include "Providers/RuntimeMeshProviderStaticMesh.h"
@@ -36,8 +36,21 @@ void URuntimeMeshProviderStaticMesh::Initialize_Implementation()
 		SetupMaterialSlot(SlotIndex, MaterialSlots[SlotIndex].MaterialSlotName, MaterialSlots[SlotIndex].MaterialInterface);
 	}
 
-	// Copy LODs
 	const auto& LODResources = StaticMesh->RenderData->LODResources;
+
+	// Setup LODs
+	TArray<FRuntimeMeshLODProperties> LODs;
+	for (int32 LODIndex = 0; LODIndex < LODResources.Num() && LODIndex <= MaxLOD; LODIndex++)
+	{
+		FRuntimeMeshLODProperties LODProperties;
+		LODProperties.ScreenSize = StaticMesh->RenderData->ScreenSize[LODIndex].Default;
+
+		LODs.Add(LODProperties);
+	}
+	ConfigureLODs(LODs);
+
+
+	// Copy LODs
 	for (int32 LODIndex = 0; LODIndex < LODResources.Num() && LODIndex <= MaxLOD; LODIndex++)
 	{
 		const auto& LOD = LODResources[LODIndex];

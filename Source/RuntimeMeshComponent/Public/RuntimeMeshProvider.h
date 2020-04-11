@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Chris Conway (Koderz). All Rights Reserved.
+// Copyright 2016-2020 Chris Conway (Koderz). All Rights Reserved.
 
 #pragma once
 
@@ -14,6 +14,8 @@ using FRuntimeMeshProviderProxyPtr = TSharedPtr<FRuntimeMeshProviderProxy, ESPMo
 using FRuntimeMeshProviderProxyWeakPtr = TWeakPtr<FRuntimeMeshProviderProxy, ESPMode::ThreadSafe>;
 
 
+DECLARE_DELEGATE(FRuntimeMeshProviderThreadExclusiveFunction);
+
 class RUNTIMEMESHCOMPONENT_API IRuntimeMeshProviderProxy
 {
 public:
@@ -25,7 +27,7 @@ public:
 	virtual void ConfigureLODs(TArray<FRuntimeMeshLODProperties> LODs) { }
 
 	virtual void CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties) { }
-	virtual bool SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial) { return false; }
+	virtual void SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial) { }
 	virtual int32 GetMaterialIndex(FName MaterialSlotName) { return INDEX_NONE; }
 	virtual int32 GetNumMaterials() { return 0; }
 	virtual TArray<FRuntimeMeshMaterialSlot> GetMaterialSlots() const { return TArray<FRuntimeMeshMaterialSlot>(); }
@@ -47,6 +49,7 @@ public:
 	virtual bool GetCollisionMesh(FRuntimeMeshCollisionData& CollisionData) { return false; }
 
 	virtual bool IsThreadSafe() const { return false; }
+	virtual void DoOnGameThreadAndBlockThreads(FRuntimeMeshProviderThreadExclusiveFunction Func) { }
 };
 
 /**
@@ -58,7 +61,7 @@ private:
 	TWeakObjectPtr<URuntimeMeshProvider> Parent;
 
 protected:
-	FRuntimeMeshProviderProxyPtr PreviousProvider;
+	FRuntimeMeshProviderProxyWeakPtr PreviousProvider;
 
 public:
 	FRuntimeMeshProviderProxy(TWeakObjectPtr<URuntimeMeshProvider> InParent);
@@ -72,7 +75,7 @@ public:
 	virtual void ConfigureLODs(TArray<FRuntimeMeshLODProperties> LODs) override;
 
 	virtual void CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties) override;
-	virtual bool SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial) override;
+	virtual void SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial) override;
 	virtual int32 GetMaterialIndex(FName MaterialSlotName) override;
 	virtual int32 GetNumMaterials() override;
 	virtual TArray<FRuntimeMeshMaterialSlot> GetMaterialSlots() const override;
@@ -86,6 +89,7 @@ public:
 
 	TWeakObjectPtr<URuntimeMeshProvider> GetParent() const { return Parent; }
 
+	virtual void DoOnGameThreadAndBlockThreads(FRuntimeMeshProviderThreadExclusiveFunction Func) override;
 
 	template<typename T>
 	TSharedRef<const T, ESPMode::ThreadSafe> AsSharedType() const
@@ -108,7 +112,7 @@ private:
 class RUNTIMEMESHCOMPONENT_API FRuntimeMeshProviderProxyPassThrough : public FRuntimeMeshProviderProxy
 {
 protected:
-	FRuntimeMeshProviderProxyWeakPtr NextProvider;
+	FRuntimeMeshProviderProxyPtr NextProvider;
 
 public:
 	FRuntimeMeshProviderProxyPassThrough(TWeakObjectPtr<URuntimeMeshProvider> InParent, const FRuntimeMeshProviderProxyPtr& InNextProvider);
@@ -162,7 +166,7 @@ public:
 	void CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties);
 	
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "RuntimeMesh|Providers|Common")
-	bool SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial);
+	void SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial);
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "RuntimeMesh|Providers|Common")
 	int32 GetMaterialIndex(FName MaterialSlotName);
@@ -195,6 +199,7 @@ public:
 	void MarkCollisionDirty();
 
 
+protected:
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "RuntimeMesh|Providers|Common")
 	FBoxSphereBounds GetBounds();
@@ -214,5 +219,6 @@ public:
 	UFUNCTION(BlueprintNativeEvent, Category = "RuntimeMesh|Providers|Common")
 	bool GetCollisionMesh(UPARAM(Ref) FRuntimeMeshCollisionData& CollisionData);
 
+	friend class FRuntimeMeshProviderProxyUObjectProviderConnector;
 }; 
 

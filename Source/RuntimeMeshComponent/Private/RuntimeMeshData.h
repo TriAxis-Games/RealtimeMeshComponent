@@ -1,9 +1,10 @@
-// Copyright 2016-2019 Chris Conway (Koderz). All Rights Reserved.
+// Copyright 2016-2020 Chris Conway (Koderz). All Rights Reserved.
 
 #pragma once
 
 #include "CoreMinimal.h"
 #include "RuntimeMeshProvider.h"
+#include "ThreadSafeBool.h"
 
 
 class URuntimeMesh;
@@ -13,6 +14,55 @@ enum class ESectionUpdateType : uint8;
 using FRuntimeMeshProxyPtr = TSharedPtr<FRuntimeMeshProxy, ESPMode::ThreadSafe>;
 
 DECLARE_DELEGATE_OneParam(FRuntimeMeshGameThreadTaskDelegate, URuntimeMesh*);
+
+
+struct FRuntimeMeshDataAsyncWorkSyncObject
+{
+private:
+	FThreadSafeBool bHadGameThreadWork;
+	FThreadSafeBool bHasAsyncWork;
+	FCriticalSection LockObject;
+
+public:
+	bool HasGameThreadWork() const { return bHadGameThreadWork; }
+	bool SetHasGameThreadWork() { return bHadGameThreadWork.AtomicSet(true); }
+	bool ClearHasGameThreadWork() { return bHadGameThreadWork.AtomicSet(false); }
+
+	bool HasAsyncWork() const { return bHasAsyncWork; }
+	bool SetHasAsyncWork() { return bHasAsyncWork.AtomicSet(true); }
+	bool ClearHasAsyncWork() { return bHasAsyncWork.AtomicSet(false); }
+
+	bool TryLockForGameThread()
+	{
+		bool bStatus = LockObject.TryLock();
+		if (bStatus)
+		{
+			ClearHasGameThreadWork();
+		}
+		return bStatus;
+	}
+
+	bool TryLockForAsyncThread()
+	{
+		bool bStatus = LockObject.TryLock();
+		if (bStatus)
+		{
+			// We don't let the async tasks run if there's game thread tasks waiting.
+			if (HasGameThreadWork())
+			{
+				LockObject.Unlock();
+				return false;
+			}
+
+			ClearHasAsyncWork();
+		}
+		return bStatus;
+	}
+
+	void Unlock() { LockObject.Unlock(); }
+
+};
+
 
 
 /**
@@ -37,9 +87,14 @@ class FRuntimeMeshData : public FRuntimeMeshProviderProxy
 
 	FCriticalSection SyncRoot;
 
+	// State tracking for async thread synchronization
+	FRuntimeMeshDataAsyncWorkSyncObject AsyncWorkState;
+
 public:
 	FRuntimeMeshData(const FRuntimeMeshProviderProxyRef& InBaseProvider, TWeakObjectPtr<URuntimeMesh> InParentMeshObject);
 	virtual ~FRuntimeMeshData() override;
+
+	void Reset();
 
 	FRuntimeMeshProviderProxyRef GetCurrentProviderProxy() { return BaseProvider; }
 
@@ -51,13 +106,17 @@ public:
 
 	TArray<FRuntimeMeshLOD, TInlineAllocator<RUNTIMEMESH_MAXLODS>> GetCopyOfConfiguration() const { return LODs; }
 
+	static void InitializeMultiThreading(int32 NumThreads, int32 StackSize = 0, EThreadPriority ThreadPriority = TPri_BelowNormal);
+
+	static FRuntimeMeshBackgroundWorkDelegate InitializeUserSuppliedThreading();
+
 
 protected: // IRuntimeMeshProvider signatures
 	virtual void Initialize() override;
 
 	virtual void ConfigureLODs(TArray<FRuntimeMeshLODProperties> LODSettings) override;
 	virtual void CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties) override;
-	virtual bool SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial) override;
+	virtual void SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial) override;
 	virtual int32 GetMaterialIndex(FName MaterialSlotName) override;
 	virtual void MarkSectionDirty(int32 LODIndex, int32 SectionId) override;
 	virtual void MarkLODDirty(int32 LODIndex) override;
@@ -78,6 +137,7 @@ protected: // IRuntimeMeshProvider signatures
 
 	virtual FBoxSphereBounds GetBounds() override { return BaseProvider->GetBounds(); }
 
+	virtual void DoOnGameThreadAndBlockThreads(FRuntimeMeshProviderThreadExclusiveFunction Func);
 private:
 
 	TMap<int32, TMap<int32, ESectionUpdateType>> SectionsToUpdate;

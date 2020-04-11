@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Chris Conway (Koderz). All Rights Reserved.
+// Copyright 2016-2020 Chris Conway (Koderz). All Rights Reserved.
 
 #pragma once
 
@@ -11,19 +11,11 @@ UCLASS(HideCategories = (Input), ShowCategories = ("Input|MouseInput", "Input|To
 class RUNTIMEMESHCOMPONENT_API ARuntimeMeshActor : public AActor
 {
 	GENERATED_UCLASS_BODY()
-
-private:
-	// This is purposefully not a UPROPERTY as we want it to not store across sessions
-	bool bHasGeneratedThisRun;
-
+		
 private:
 	UPROPERTY(Category = "RuntimeMeshActor", VisibleAnywhere, BlueprintReadOnly, Meta = (ExposeFunctionCategories = "Mesh,Rendering,Physics,Components|RuntimeMesh", AllowPrivateAccess = "true"))
 	class URuntimeMeshComponent* RuntimeMeshComponent;
-
-protected:
-	UPROPERTY(Category = "RuntimeMeshActor", EditAnywhere, BlueprintReadOnly, Meta = (ExposeFunctionCategories = "Mesh,Rendering,Physics,Components|RuntimeMesh", AllowPrivateAccess = "true"))
-	bool GenerateOnBeginPlayInGame;
-
+	
 public:
 
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshActor", Meta = (DisplayName = "Get Mobility"))
@@ -42,12 +34,5 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshActor", Meta = (DisplayName = "Get Runtime Mesh Component"))
 	class URuntimeMeshComponent* GetRuntimeMeshComponent() const { return RuntimeMeshComponent; }
 
-
-	virtual void OnConstruction(const FTransform& Transform) override;
-
-	virtual void BeginPlay() override;
-
-	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "RuntimeMeshActor")
-	void GenerateMeshes();
 
 };

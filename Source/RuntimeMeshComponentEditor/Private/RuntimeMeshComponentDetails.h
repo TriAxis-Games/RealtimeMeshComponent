@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Chris Conway (Koderz). All Rights Reserved.
+// Copyright 2016-2020 Chris Conway (Koderz). All Rights Reserved.
 
 #pragma once
 #include "IDetailCustomization.h"
@@ -27,7 +27,4 @@ public:
 	/** Cached array of selected objects */
 	TArray<TWeakObjectPtr<UObject>> SelectedObjectsList;
 	TArray<URuntimeMesh*> RuntimeMeshesReferenced;
-
-	
-
 };

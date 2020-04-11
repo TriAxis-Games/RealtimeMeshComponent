@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Chris Conway (Koderz). All Rights Reserved.
+// Copyright 2016-2020 Chris Conway (Koderz). All Rights Reserved.
 
 #include "RuntimeMeshComponent.h"
 #include "RuntimeMeshComponentPlugin.h"
@@ -69,6 +69,16 @@ FRuntimeMeshCollisionHitInfo URuntimeMeshComponent::GetHitSource(int32 FaceIndex
 	return FRuntimeMeshCollisionHitInfo();
 }
 
+void URuntimeMeshComponent::InitializeMultiThreading(int32 NumThreads, int32 StackSize /*= 0*/, EThreadPriority ThreadPriority /*= TPri_BelowNormal*/)
+{
+	URuntimeMesh::InitializeMultiThreading(NumThreads, StackSize, ThreadPriority);
+}
+
+FRuntimeMeshBackgroundWorkDelegate URuntimeMeshComponent::InitializeUserSuppliedThreading()
+{
+	return URuntimeMesh::InitializeUserSuppliedThreading();
+}
+
 void URuntimeMeshComponent::NewCollisionMeshReceived()
 {
 	SCOPE_CYCLE_COUNTER(STAT_RuntimeMeshComponent_NewCollisionMeshReceived);
@@ -116,7 +126,7 @@ FPrimitiveSceneProxy* URuntimeMeshComponent::CreateSceneProxy()
 {
 	SCOPE_CYCLE_COUNTER(STAT_RuntimeMeshComponent_CreateSceneProxy);
 
-	if (RuntimeMeshReference == nullptr || RuntimeMeshReference->GetRenderProxy(GetScene()->GetFeatureLevel()) == nullptr)
+	if (RuntimeMeshReference == nullptr || !RuntimeMeshReference->GetRenderProxy(GetScene()->GetFeatureLevel()).IsValid())
 	{
 		return nullptr;
 	}
@@ -163,6 +173,26 @@ bool URuntimeMeshComponent::IsMaterialSlotNameValid(FName MaterialSlotName) cons
 	return false;
 }
 
+void URuntimeMeshComponent::GetUsedMaterials(TArray<UMaterialInterface*>& OutMaterials, bool bGetDebugMaterials /*= false*/) const
+{
+	TArray<FRuntimeMeshMaterialSlot> Slots = GetMaterialSlots();
+
+	for (int32 Index = 0; Index < Slots.Num(); Index++)
+	{
+		UMaterialInterface* Mat = Super::GetMaterial(Index);
+
+		if (Mat == nullptr)
+		{
+			Mat = Slots[Index].Material.Get();
+		}
+
+		if (Mat)
+		{
+			OutMaterials.Add(Mat);
+		}
+	}
+}
+
 int32 URuntimeMeshComponent::GetNumMaterials() const
 {
 	int32 RuntimeMeshSections = GetRuntimeMesh() != nullptr ? GetRuntimeMesh()->GetNumMaterials() : 0;
@@ -201,4 +231,15 @@ void URuntimeMeshComponent::PostLoad()
 	{
 		RuntimeMeshReference->RegisterLinkedComponent(this);
 	}
+}
+
+void URuntimeMeshComponent::BeginDestroy()
+{
+	if (RuntimeMeshReference)
+	{
+		RuntimeMeshReference->UnRegisterLinkedComponent(this);
+		RuntimeMeshReference = nullptr;
+	}
+
+	Super::BeginDestroy();
 }

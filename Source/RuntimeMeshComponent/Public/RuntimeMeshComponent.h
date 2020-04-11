@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Chris Conway (Koderz). All Rights Reserved.
+// Copyright 2016-2020 Chris Conway (Koderz). All Rights Reserved.
 
 #pragma once
 
@@ -25,6 +25,8 @@ private:
 
 	void EnsureHasRuntimeMesh();
 
+
+
 public:
 
 	URuntimeMeshComponent(const FObjectInitializer& ObjectInitializer);
@@ -33,6 +35,13 @@ public:
 	void Initialize(URuntimeMeshProvider* Provider)
 	{
 		GetOrCreateRuntimeMesh()->Initialize(Provider);
+	}	
+	
+	/** Creates a static provider replacing whatever provider exists. */
+	UFUNCTION(BlueprintCallable)
+	URuntimeMeshProviderStatic* InitializeStaticProvider()
+	{
+		return GetOrCreateRuntimeMesh()->InitializeStaticProvider();
 	}
 
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
@@ -70,10 +79,38 @@ public:
 			NewMobility == ERuntimeMeshMobility::Movable ? EComponentMobility::Movable :
 			NewMobility == ERuntimeMeshMobility::Stationary ? EComponentMobility::Stationary : EComponentMobility::Static);
 	}
+	
+
+
+
+	UFUNCTION(BlueprintCallable)
+	URuntimeMeshProvider* GetProvider() { return GetRuntimeMesh()? GetRuntimeMesh()->GetProvider() : nullptr; }
+
+	FRuntimeMeshProviderProxyPtr GetCurrentProviderProxy() { return GetRuntimeMesh()? GetRuntimeMesh()->GetCurrentProviderProxy() : nullptr; }
+
+	UFUNCTION(BlueprintCallable)
+	TArray<FRuntimeMeshMaterialSlot> GetMaterialSlots() const { return GetRuntimeMesh()? GetRuntimeMesh()->GetMaterialSlots() : TArray<FRuntimeMeshMaterialSlot>(); }
+	
+	UFUNCTION(BlueprintCallable)
+	void SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial)
+	{
+		URuntimeMesh* Mesh = GetRuntimeMesh();
+		if (Mesh)
+		{
+			Mesh->SetupMaterialSlot(MaterialSlot, SlotName, InMaterial);
+		}
+	}
+
 
 
 	UFUNCTION(BlueprintCallable)
 	FRuntimeMeshCollisionHitInfo GetHitSource(int32 FaceIndex) const;
+
+
+	static void InitializeMultiThreading(int32 NumThreads, int32 StackSize = 0, EThreadPriority ThreadPriority = TPri_BelowNormal);
+
+	static FRuntimeMeshBackgroundWorkDelegate InitializeUserSuppliedThreading();
+
 
 
 private:
@@ -96,6 +133,7 @@ public:
 	virtual int32 GetMaterialIndex(FName MaterialSlotName) const;
 	virtual TArray<FName> GetMaterialSlotNames() const;
 	virtual bool IsMaterialSlotNameValid(FName MaterialSlotName) const;
+	virtual void GetUsedMaterials(TArray<UMaterialInterface*>& OutMaterials, bool bGetDebugMaterials = false) const override;
 	//~ End UMeshComponent Interface
 
 	//~ Being UPrimitiveComponent Interface
@@ -103,16 +141,12 @@ public:
 	virtual UMaterialInterface* GetMaterial(int32 ElementIndex) const override;
 	//~ End UPrimitiveComponent Interface
 
-
-public:
-	//~ Begin UMeshComponent Interface.
-	//~ End UMeshComponent Interface.
-
-private:
-
-	/* Does post load fixups */
+protected:
 	virtual void PostLoad() override;
 
+	virtual void BeginDestroy() override;
+
+private:
 
 
 	/** Called by URuntimeMesh any time it has new collision data that we should use */

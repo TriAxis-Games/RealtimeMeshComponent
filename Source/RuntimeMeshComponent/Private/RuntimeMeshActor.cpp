@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Chris Conway (Koderz). All Rights Reserved.
+// Copyright 2016-2020 Chris Conway (Koderz). All Rights Reserved.
 
 #include "RuntimeMeshActor.h"
 #include "RuntimeMeshComponent.h"
@@ -9,8 +9,6 @@
 
 ARuntimeMeshActor::ARuntimeMeshActor(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
-	, bHasGeneratedThisRun(false)
-	, GenerateOnBeginPlayInGame(true)
 {
 #if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 24
 	SetCanBeDamaged(false);
@@ -58,27 +56,5 @@ EComponentMobility::Type ARuntimeMeshActor::GetMobility()
 		return RuntimeMeshComponent->Mobility;
 	}
 	return EComponentMobility::Static;
-}
-
-void ARuntimeMeshActor::OnConstruction(const FTransform& Transform)
-{
-	Super::OnConstruction(Transform);
-	GenerateMeshes();
-	bHasGeneratedThisRun = true;
-}
-
-void ARuntimeMeshActor::BeginPlay()
-{
-	Super::BeginPlay();
- 	if (GenerateOnBeginPlayInGame && !bHasGeneratedThisRun)
- 	{
- 		GenerateMeshes();
-		bHasGeneratedThisRun = true;
- 	}
-}
-
-void ARuntimeMeshActor::GenerateMeshes_Implementation()
-{
-
 }
 

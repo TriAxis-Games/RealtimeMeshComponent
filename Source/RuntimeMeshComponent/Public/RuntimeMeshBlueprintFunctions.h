@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Chris Conway (Koderz). All Rights Reserved.
+// Copyright 2016-2020 Chris Conway (Koderz). All Rights Reserved.
 
 #pragma once
 
@@ -6,6 +6,21 @@
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "RuntimeMeshProvider.h"
 #include "RuntimeMeshBlueprintFunctions.generated.h"
+
+
+
+UENUM(BlueprintType)
+enum class ERuntimeMeshThreadingPriority : uint8
+{
+	Normal,
+	AboveNormal,
+	BelowNormal,
+	Highest,
+	Lowest,
+	SlightlyBelowNormal,
+	TimeCritical,
+};
+
 
 /**
  * 
@@ -15,6 +30,11 @@ class RUNTIMEMESHCOMPONENT_API URuntimeMeshBlueprintFunctions : public UBlueprin
 {
 	GENERATED_BODY()
 public:
+
+
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Threading")
+	static void RuntimeMeshInitializeMultiThreading(int32 NumThreads, int32 StackSize = 0, ERuntimeMeshThreadingPriority ThreadPriority = ERuntimeMeshThreadingPriority::BelowNormal);
+
 
 	//static URuntimeMeshProvider* ConstructRuntimeMeshProvider(TSubclassOf<URuntimeMeshProvider> Class);
 

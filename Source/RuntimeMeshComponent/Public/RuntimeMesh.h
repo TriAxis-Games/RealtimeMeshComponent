@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Chris Conway (Koderz). All Rights Reserved.
+// Copyright 2016-2020 Chris Conway (Koderz). All Rights Reserved.
 
 #pragma once
 
@@ -16,6 +16,7 @@ using FRuntimeMeshDataPtr = TSharedPtr<FRuntimeMeshData, ESPMode::ThreadSafe>;
 class FRuntimeMeshProxy;
 using FRuntimeMeshProxyPtr = TSharedPtr<FRuntimeMeshProxy, ESPMode::ThreadSafe>;
 
+class URuntimeMeshProviderStatic;
 
 /**
 *	Delegate for when the collision was updated.
@@ -66,6 +67,13 @@ public:
 	void Initialize(URuntimeMeshProvider* Provider);
 
 	UFUNCTION(BlueprintCallable)
+	void Reset();
+
+	/** Creates a static provider replacing whatever provider exists. */
+	UFUNCTION(BlueprintCallable)
+	URuntimeMeshProviderStatic* InitializeStaticProvider();
+
+	UFUNCTION(BlueprintCallable)
 	URuntimeMeshProvider* GetProvider() { return MeshProvider; }
 
 	FRuntimeMeshProviderProxyPtr GetCurrentProviderProxy();
@@ -78,6 +86,9 @@ public:
 	
 	UFUNCTION(BlueprintCallable)
 	UMaterialInterface* GetMaterial(int32 SlotIndex);
+
+	UFUNCTION(BlueprintCallable)
+	void SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial);
 
 	UFUNCTION(BlueprintCallable)
 	int32 GetMaterialIndex(FName MaterialSlotName) const;
@@ -99,6 +110,14 @@ public:
 
 	/* This is to get a copy of the current lod/section configuration */
 	TArray<FRuntimeMeshLOD, TInlineAllocator<RUNTIMEMESH_MAXLODS>> GetCopyOfConfiguration() const;
+
+	static void InitializeMultiThreading(int32 NumThreads, int32 StackSize = 0, EThreadPriority ThreadPriority = TPri_BelowNormal);
+
+	static FRuntimeMeshBackgroundWorkDelegate InitializeUserSuppliedThreading();
+
+
+	void BeginDestroy() override;
+
 private:
 	FRuntimeMeshCollisionHitInfo GetHitSource(int32 FaceIndex) const;
 
@@ -111,7 +130,12 @@ private:
 	/** Mark collision data as dirty, and re-create on instance if necessary */
 	void UpdateCollision(bool bForceCookNow = false);
 	/** Once async physics cook is done, create needed state, and then call the user event */
+
+#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 21
 	void FinishPhysicsAsyncCook(bool bSuccess, UBodySetup* FinishedBodySetup);
+#else
+	void FinishPhysicsAsyncCook(UBodySetup* FinishedBodySetup);
+#endif
 	/** Runs all post cook tasks like alerting the user event and alerting linked components */
 	void FinalizeNewCookedData();
 

@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Chris Conway (Koderz). All Rights Reserved.
+// Copyright 2016-2020 Chris Conway (Koderz). All Rights Reserved.
 
 #include "RuntimeMeshCore.h"
 #include "RuntimeMeshComponentPlugin.h"
@@ -12,7 +12,7 @@
 bool FRuntimeMeshRenderableMeshData::HasValidMeshData(bool bPrintErrorMessage) const
 {
 	bool bStatus = true;
-	if (Positions.Num() <= 3)
+	if (Positions.Num() < 3)
 	{
 		bStatus = false;
 

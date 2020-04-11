@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Chris Conway (Koderz). All Rights Reserved.
+// Copyright 2016-2020 Chris Conway (Koderz). All Rights Reserved.
 
 #include "RuntimeMesh.h"
 #include "RuntimeMeshComponentPlugin.h"
@@ -8,6 +8,7 @@
 #include "RuntimeMeshComponent.h"
 #include "RuntimeMeshProxy.h"
 #include "RuntimeMeshData.h"
+#include "Providers/RuntimeMeshProviderStatic.h"
 
 
 DECLARE_DWORD_COUNTER_STAT(TEXT("RuntimeMeshDelayedActions - Updated Actors"), STAT_RuntimeMeshDelayedActions_UpdatedActors, STATGROUP_RuntimeMesh);
@@ -113,18 +114,45 @@ void URuntimeMesh::Initialize(URuntimeMeshProvider* Provider)
 	}
 	else
 	{
-		MeshProvider = nullptr;
-		Data.Reset();
-		bCollisionIsDirty = false;
-		BodySetup = nullptr;
-		AsyncBodySetupQueue.Empty();
-		RecreateAllComponentProxies();
-		UpdateAllComponentsBounds();
-		DoForAllLinkedComponents([](URuntimeMeshComponent* Comp)
-			{
-				Comp->NewCollisionMeshReceived();
-			});
+		Reset();
 	}
+}
+
+void URuntimeMesh::Reset()
+{
+	check(IsInGameThread());
+
+	bNeedsInitialization = false;
+
+	Data.Reset();	
+	MeshProvider = nullptr;
+	BodySetup = nullptr;
+	CollisionSource.Empty();
+	AsyncBodySetupQueue.Empty();
+	PendingSourceInfo.Reset();
+
+	// Shouldn't this actually be empty by now?
+	for (const auto& LinkedComponent : LinkedComponents)
+	{
+		URuntimeMeshComponent* Comp = LinkedComponent.Get();
+
+		if (Comp && Comp->IsValidLowLevel())
+		{
+			Comp->ForceProxyRecreate();
+			Comp->NewBoundsReceived();
+			Comp->NewCollisionMeshReceived();
+		}
+	}
+	LinkedComponents.Empty();
+}
+
+URuntimeMeshProviderStatic* URuntimeMesh::InitializeStaticProvider()
+{
+	URuntimeMeshProviderStatic* StaticProvider = NewObject<URuntimeMeshProviderStatic>(this, TEXT("RuntimeMesh-StaticProvider"));
+
+	Initialize(StaticProvider);
+
+	return StaticProvider;
 }
 
 FRuntimeMeshProviderProxyPtr URuntimeMesh::GetCurrentProviderProxy()
@@ -162,6 +190,14 @@ bool URuntimeMesh::IsMaterialSlotNameValid(FName MaterialSlotName) const
 	return Data.IsValid() ? Data->IsMaterialSlotNameValid(MaterialSlotName) : false;
 }
 
+void URuntimeMesh::SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial)
+{
+	if (Data.IsValid())
+	{
+		Data->SetupMaterialSlot(MaterialSlot, SlotName, InMaterial);
+	}
+}
+
 FBoxSphereBounds URuntimeMesh::GetLocalBounds() const
 {
 	return Data.IsValid() ? Data->GetBounds() : FBoxSphereBounds();
@@ -175,6 +211,23 @@ TArray<FRuntimeMeshLOD, TInlineAllocator<RUNTIMEMESH_MAXLODS>> URuntimeMesh::Get
 		return Data->GetCopyOfConfiguration();
 	}
 	return TArray<FRuntimeMeshLOD, TInlineAllocator<RUNTIMEMESH_MAXLODS>>();
+}
+
+void URuntimeMesh::InitializeMultiThreading(int32 NumThreads, int32 StackSize /*= 0*/, EThreadPriority ThreadPriority /*= TPri_BelowNormal*/)
+{
+	FRuntimeMeshData::InitializeMultiThreading(NumThreads, StackSize, ThreadPriority);
+}
+
+FRuntimeMeshBackgroundWorkDelegate URuntimeMesh::InitializeUserSuppliedThreading()
+{
+	return FRuntimeMeshData::InitializeUserSuppliedThreading();
+}
+
+void URuntimeMesh::BeginDestroy()
+{
+	Reset();
+
+	Super::BeginDestroy();
 }
 
 FRuntimeMeshCollisionHitInfo URuntimeMesh::GetHitSource(int32 FaceIndex) const
@@ -287,11 +340,13 @@ void URuntimeMesh::UpdateCollision(bool bForceCookNow)
 
 		if (bShouldCookAsync)
 		{
+#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 21
 			// Abort all previous ones still standing
 			for (const auto& OldBody : AsyncBodySetupQueue)
 			{
 				OldBody.BodySetup->AbortPhysicsMeshAsyncCreation();
 			}
+#endif
 
 			UBodySetup* NewBodySetup = CreateNewBodySetup();
 			SetupCollisionConfiguration(NewBodySetup);
@@ -335,8 +390,14 @@ void URuntimeMesh::UpdateCollision(bool bForceCookNow)
 	}
 }
 
+#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 21
 void URuntimeMesh::FinishPhysicsAsyncCook(bool bSuccess, UBodySetup* FinishedBodySetup)
 {
+#else
+void URuntimeMesh::FinishPhysicsAsyncCook(UBodySetup * FinishedBodySetup)
+{
+	bool bSuccess = true;
+#endif
 	SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_FinishCollisionAsyncCook);
 
 	check(IsInGameThread());
@@ -410,7 +471,9 @@ bool URuntimeMesh::GetPhysicsTriMeshData(struct FTriMeshCollisionData* Collision
 			CollisionData->MaterialIndices = CollisionMesh.MaterialIndices.TakeContents();
 
 			CollisionData->bDeformableMesh = CollisionMesh.bDeformableMesh;
+#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 21
 			CollisionData->bDisableActiveEdgePrecompute = CollisionMesh.bDisableActiveEdgePrecompute;
+#endif
 			CollisionData->bFastCook = CollisionMesh.bFastCook;
 			CollisionData->bFlipNormals = CollisionMesh.bFlipNormals;
 
@@ -462,12 +525,16 @@ void URuntimeMesh::InitializeInternal()
 void URuntimeMesh::RegisterLinkedComponent(URuntimeMeshComponent* NewComponent)
 {
 	LinkedComponents.AddUnique(NewComponent);
+
+	if (BodySetup)
+	{
+		// Alert collision if we already have it
+		NewComponent->NewCollisionMeshReceived();
+	}
 }
 
 void URuntimeMesh::UnRegisterLinkedComponent(URuntimeMeshComponent* ComponentToRemove)
 {
-	check(LinkedComponents.Contains(ComponentToRemove));
-
 	LinkedComponents.RemoveSingleSwap(ComponentToRemove, true);
 }
 

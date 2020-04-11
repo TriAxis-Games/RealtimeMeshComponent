@@ -1,11 +1,18 @@
-// Copyright 2016-2019 Chris Conway (Koderz). All Rights Reserved.
+// Copyright 2016-2020 Chris Conway (Koderz). All Rights Reserved.
 
 #pragma once
 
 #include "Engine/Engine.h"
 #include "Components/MeshComponent.h"
 #include "RuntimeMeshCore.h"
+
+#include "Runtime/Launch/Resources/Version.h"
+#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 23
 #include "Interface_CollisionDataProviderCore.h"
+#else
+#include "Interfaces/Interface_CollisionDataProvider.h"
+#endif
+
 #include "RuntimeMeshCollision.generated.h"
 
 class URuntimeMeshProvider;

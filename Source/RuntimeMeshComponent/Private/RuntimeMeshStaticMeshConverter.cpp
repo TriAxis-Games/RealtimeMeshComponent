@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Chris Conway (Koderz). All Rights Reserved.
+// Copyright 2016-2020 Chris Conway (Koderz). All Rights Reserved.
 
 
 #include "RuntimeMeshStaticMeshConverter.h"
@@ -33,8 +33,15 @@ int32 URuntimeMeshStaticMeshConverter::CopyVertexOrGetIndex(const FStaticMeshLOD
 			NewMeshData.TexCoords.Add(LOD.VertexBuffers.StaticMeshVertexBuffer.GetVertexUV(VertexIndex, UVIndex), UVIndex);
 		}
 
+		
+
 		// Copy Color
+
+#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 23
 		if (LOD.bHasColorVertexData)
+#else
+		if (LOD.VertexBuffers.ColorVertexBuffer.GetNumVertices() > 0)
+#endif
 		{
 			NewMeshData.Colors.Add(LOD.VertexBuffers.ColorVertexBuffer.VertexColor(VertexIndex));
 		}
@@ -122,9 +129,16 @@ bool URuntimeMeshStaticMeshConverter::CopyStaticMeshSectionToRenderableMeshData(
 
 	// Lets copy the adjacency information too for tessellation 
 	// At this point all vertices should be copied so it should work to just copy/convert the indices.
-	if (LOD.bHasAdjacencyInfo && LOD.AdditionalIndexBuffers->AdjacencyIndexBuffer.GetNumIndices() > 0)
+
+#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 23
+	const auto& LODAdjacencyIndexBuffer = LOD.AdditionalIndexBuffers->AdjacencyIndexBuffer;
+#else
+	const auto& LODAdjacencyIndexBuffer = LOD.AdjacencyIndexBuffer;
+#endif
+
+	if (LOD.bHasAdjacencyInfo && LODAdjacencyIndexBuffer.GetNumIndices() > 0)
 	{
-		FIndexArrayView AdjacencyIndices = LOD.AdditionalIndexBuffers->AdjacencyIndexBuffer.GetArrayView();
+		FIndexArrayView AdjacencyIndices = LODAdjacencyIndexBuffer.GetArrayView();
 
 		// We multiply these by 4 as the adjacency data is 12 indices per triangle instead of the normal 3
 		uint32 StartIndex = Section.FirstIndex * 4;
@@ -132,7 +146,7 @@ bool URuntimeMeshStaticMeshConverter::CopyStaticMeshSectionToRenderableMeshData(
 
 		for (uint32 Index = 0; Index < NumIndices; Index++)
 		{
-			OutMeshData.AdjacencyTriangles.Add(MeshToSectionVertMap[AdjacencyIndices[Index]]);
+			OutMeshData.AdjacencyTriangles.Add(MeshToSectionVertMap[AdjacencyIndices[StartIndex + Index]]);
 		}
 	}
 
