@@ -3,15 +3,40 @@
 #include "RuntimeMeshCore.h"
 #include "RuntimeMeshComponentPlugin.h"
 #include "RuntimeMeshRenderable.h"
+#include "RuntimeMeshCollision.h"
 #include "Logging/MessageLog.h"
+#include "RuntimeMeshComponentSettings.h"
 
 
 #define LOCTEXT_NAMESPACE "RuntimeMeshComponent"
+
+FRuntimeMeshSectionProperties::FRuntimeMeshSectionProperties()
+	: UpdateFrequency(ERuntimeMeshUpdateFrequency::Infrequent)
+	, MaterialSlot(0)
+	, bIsVisible(true)
+	, bCastsShadow(true)
+	, bUseHighPrecisionTangents(false)
+	, bUseHighPrecisionTexCoords(false)
+	, NumTexCoords(1)
+	, bWants32BitIndices(false)
+{
+	const URuntimeMeshComponentSettings* Settings = GetDefault<URuntimeMeshComponentSettings>();
+	
+	if (Settings)
+	{
+		UpdateFrequency = Settings->DefaultUpdateFrequency;
+		bWants32BitIndices = Settings->bUse32BitIndicesByDefault;
+		bUseHighPrecisionTangents = Settings->bUseHighPrecisionTangentsByDefault;
+		bUseHighPrecisionTexCoords = Settings->bUseHighPrecisionTexCoordsByDefault;
+	}
+}
 
 
 bool FRuntimeMeshRenderableMeshData::HasValidMeshData(bool bPrintErrorMessage) const
 {
 	bool bStatus = true;
+
+	// Check that we have a full triangle at least worth of positions
 	if (Positions.Num() < 3)
 	{
 		bStatus = false;
@@ -25,6 +50,7 @@ bool FRuntimeMeshRenderableMeshData::HasValidMeshData(bool bPrintErrorMessage) c
 		}
 	}
 
+	// Make sure we have all the tangents for the positions
 	if (Tangents.Num() < Positions.Num())
 	{
 		bStatus = false;
@@ -39,9 +65,10 @@ bool FRuntimeMeshRenderableMeshData::HasValidMeshData(bool bPrintErrorMessage) c
 		}
 	}
 
+	// Make sure we don't have too many tangents
 	if (Tangents.Num() > Positions.Num())
 	{
-		// Not really an error but, we'll ignore the extra data
+		// Not really an error but we'll ignore the extra data
 
 		if (bPrintErrorMessage)
 		{
@@ -53,6 +80,7 @@ bool FRuntimeMeshRenderableMeshData::HasValidMeshData(bool bPrintErrorMessage) c
 		}
 	}
 
+	// Make sure we have enough tex coords
 	if (TexCoords.Num() < Positions.Num())
 	{
 		bStatus = false;
@@ -67,6 +95,7 @@ bool FRuntimeMeshRenderableMeshData::HasValidMeshData(bool bPrintErrorMessage) c
 		}
 	}
 
+	// Make sure we don't have too many tex coords
 	if (TexCoords.Num() > Positions.Num())
 	{
 		// Not really an error but, we'll ignore the extra data		
@@ -81,6 +110,7 @@ bool FRuntimeMeshRenderableMeshData::HasValidMeshData(bool bPrintErrorMessage) c
 		}
 	}
 
+	// Make sure we have enough colors
 	if (Colors.Num() < Positions.Num())
 	{
 		bStatus = false;
@@ -95,6 +125,7 @@ bool FRuntimeMeshRenderableMeshData::HasValidMeshData(bool bPrintErrorMessage) c
 		}
 	}
 
+	// Make sure we don't have too many colors
 	if (Colors.Num() > Positions.Num())
 	{
 		// Not really an error but, we'll ignore the extra data	
@@ -109,6 +140,7 @@ bool FRuntimeMeshRenderableMeshData::HasValidMeshData(bool bPrintErrorMessage) c
 		}
 	}
 
+	// Make sure we have enough indices to form at valid number of triangles
 	if (Triangles.Num() < 3 || Triangles.Num() % 3 != 0)
 	{
 		bStatus = false;
@@ -116,9 +148,23 @@ bool FRuntimeMeshRenderableMeshData::HasValidMeshData(bool bPrintErrorMessage) c
 		if (bPrintErrorMessage)
 		{
 			FFormatNamedArguments Arguments;
-			Arguments.Add(TEXT("NumVerts"), Positions.Num());
 			Arguments.Add(TEXT("NumTriangles"), Colors.Num());
 			FText Message = FText::Format(LOCTEXT("InvalidMeshData_InvalidTriangles", "Supplied mesh data doesn't contain a valid number of triangles. Must be a multiple of 3. Supplied triangles: {NumTriangles}"), Arguments);
+			FMessageLog("RuntimeMesh").Error(Message);
+		}
+	}
+
+	// Make sure we're using 32 bit indices if there's more than 2^16-1 vertices in this mesh
+	if (!Triangles.IsHighPrecision() && Positions.Num() > MAX_uint16)
+	{
+		bStatus = false;
+
+		if (bPrintErrorMessage)
+		{
+			FFormatNamedArguments Arguments;
+			Arguments.Add(TEXT("NumVerts"), Positions.Num());
+			Arguments.Add(TEXT("MaxVerts"), MAX_uint16);
+			FText Message = FText::Format(LOCTEXT("InvalidMeshData_InvalidTrianglesPrecision", "Supplied mesh uses 16 bit indices, but has more vertices than can be indexed. Must use 32 bit indices for this mesh. Supplied Vertices: {NumVerts}  Max Vertices on 16 bit indices: {MaxVerts}"), Arguments);
 			FMessageLog("RuntimeMesh").Error(Message);
 		}
 	}
@@ -127,6 +173,18 @@ bool FRuntimeMeshRenderableMeshData::HasValidMeshData(bool bPrintErrorMessage) c
 }
 
 
+FRuntimeMeshCollisionSettings::FRuntimeMeshCollisionSettings()
+	: bUseComplexAsSimple(true)
+	, bUseAsyncCooking(false)
+	, CookingMode(ERuntimeMeshCollisionCookingMode::CollisionPerformance)
+{
+	const URuntimeMeshComponentSettings* Settings = GetDefault<URuntimeMeshComponentSettings>();
 
+	if (Settings)
+	{
+		bUseAsyncCooking = Settings->bCookCollisionAsync;
+		CookingMode = Settings->DefaultCookingMode;
+	}
+}
 
 #undef LOCTEXT_NAMESPACE

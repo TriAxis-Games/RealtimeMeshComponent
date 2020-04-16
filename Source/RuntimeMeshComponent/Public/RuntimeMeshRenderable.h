@@ -746,18 +746,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Rendering|SectionProperties")
 	bool bWants32BitIndices;
 
-	FRuntimeMeshSectionProperties()
-		: UpdateFrequency(ERuntimeMeshUpdateFrequency::Infrequent)
-		, MaterialSlot(0)
-		, bIsVisible(true)
-		, bCastsShadow(true)
-		, bUseHighPrecisionTangents(false)
-		, bUseHighPrecisionTexCoords(false)
-		, NumTexCoords(1)
-		, bWants32BitIndices(false)
-	{
-
-	}
+	FRuntimeMeshSectionProperties();
 
 	friend FArchive& operator<<(FArchive& Ar, FRuntimeMeshSectionProperties& Properties)
 	{

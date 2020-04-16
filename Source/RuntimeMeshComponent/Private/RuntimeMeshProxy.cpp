@@ -3,6 +3,7 @@
 #include "RuntimeMeshProxy.h"
 #include "RuntimeMeshComponentPlugin.h"
 #include "RuntimeMesh.h"
+#include "RuntimeMeshData.h"
 
 DECLARE_CYCLE_STAT(TEXT("RuntimeMeshProxy - Initialize LDOs - RenderThread"), STAT_RuntimeMeshProxy_InitializeLODs_RT, STATGROUP_RuntimeMesh);
 DECLARE_CYCLE_STAT(TEXT("RuntimeMeshProxy - Clear LOD - RenderThread"), STAT_RuntimeMeshProxy_ClearLOD_RT, STATGROUP_RuntimeMesh);
@@ -47,22 +48,83 @@ void FRuntimeMeshProxy::ResetProxy_GameThread()
 	QueueForUpdate();
 }
 
+DECLARE_DELEGATE(FRuntimeMeshProxyGameThreadTaskDelegate);
+
 void FRuntimeMeshProxy::QueueForUpdate()
 {
-	if (!IsQueuedForUpdate.AtomicSet(true))
+	class FRuntimeMeshProxyGameThreadTask
 	{
- 		ENQUEUE_RENDER_COMMAND(FRuntimeMeshProxy_Update)(
-  		[this](FRHICommandListImmediate& RHICmdList)
+		FRuntimeMeshProxyGameThreadTaskDelegate Delegate;
+	public:
+
+		FRuntimeMeshProxyGameThreadTask(FRuntimeMeshProxyGameThreadTaskDelegate InDelegate)
+			: Delegate(InDelegate)
 		{
-			FlushPendingUpdates();
 		}
-		);
+
+		FORCEINLINE TStatId GetStatId() const
+		{
+			RETURN_QUICK_DECLARE_CYCLE_STAT(FRuntimeMeshProxyGameThreadTask, STATGROUP_TaskGraphTasks);
+		}
+
+		static ENamedThreads::Type GetDesiredThread()
+		{
+			return ENamedThreads::GameThread;
+		}
+
+		static ESubsequentsMode::Type GetSubsequentsMode()
+		{
+			return ESubsequentsMode::FireAndForget;
+		}
+
+		void DoTask(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
+		{
+			Delegate.Execute();
+		}
+	};
+
+
+	// TODO: Is this really necessary. Enqueuing render commands fails sometimes when not called from game thread
+
+	if (!IsQueuedForUpdate.AtomicSet(true))
+	{		
+		if (GWorld && !GWorld->bIsTearingDown)
+		{
+			ENQUEUE_RENDER_COMMAND(FRuntimeMeshProxy_Update)([this](FRHICommandListImmediate& RHICmdList)
+				{
+					FlushPendingUpdates();
+				});
+		}
+		else
+		{
+			UE_LOG(LogTemp, Warning, TEXT("World tearing down: %s"), *GWorld->GetFullName());
+		}
 	}
+
+
+// 	if (IsInGameThread())
+// 	{
+// 	}
+// 	else
+// 	{
+// 		TGraphTask<FRuntimeMeshProxyGameThreadTask>::CreateTask().ConstructAndDispatchWhenReady(FRuntimeMeshProxyGameThreadTaskDelegate::CreateLambda([this]() {
+// 			ENQUEUE_RENDER_COMMAND(FRuntimeMeshProxy_Update)([this](FRHICommandListImmediate& RHICmdList)
+// 				{
+// 					check(IsInRenderingThread());
+// 					this->FlushPendingUpdates();
+// 				});
+// 			}));
+// 	}
 }
 
 void FRuntimeMeshProxy::FlushPendingUpdates()
 {
 	IsQueuedForUpdate.AtomicSet(false);
+
+	if (!GWorld || GWorld->bIsTearingDown || !GRenderingThread)
+	{
+		return;
+	}
 
 	TFunction<void()> Cmd;
 	while (PendingUpdates.Dequeue(Cmd))

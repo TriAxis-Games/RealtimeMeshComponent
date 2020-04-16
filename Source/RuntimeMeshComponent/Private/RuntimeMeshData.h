@@ -106,11 +106,6 @@ public:
 
 	TArray<FRuntimeMeshLOD, TInlineAllocator<RUNTIMEMESH_MAXLODS>> GetCopyOfConfiguration() const { return LODs; }
 
-	static void InitializeMultiThreading(int32 NumThreads, int32 StackSize = 0, EThreadPriority ThreadPriority = TPri_BelowNormal);
-
-	static FRuntimeMeshBackgroundWorkDelegate InitializeUserSuppliedThreading();
-
-
 protected: // IRuntimeMeshProvider signatures
 	virtual void Initialize() override;
 
@@ -136,6 +131,7 @@ protected: // IRuntimeMeshProvider signatures
 	}
 
 	virtual FBoxSphereBounds GetBounds() override { return BaseProvider->GetBounds(); }
+	virtual bool IsThreadSafe() const override { return BaseProvider->IsThreadSafe(); }
 
 	virtual void DoOnGameThreadAndBlockThreads(FRuntimeMeshProviderThreadExclusiveFunction Func);
 private:
@@ -203,9 +199,6 @@ private:
 	friend class URuntimeMesh;
 	friend class URuntimeMeshComponent;
 	friend class FRuntimeMeshComponentSceneProxy;
-	friend struct FRuntimeMeshDataDelayedActionTickObject;
+	friend class URuntimeMeshComponentEngineSubsystem;
 };
 
-using FRuntimeMeshDataRef = TSharedRef<FRuntimeMeshData, ESPMode::ThreadSafe>;
-using FRuntimeMeshDataPtr = TSharedPtr<FRuntimeMeshData, ESPMode::ThreadSafe>;
-using FRuntimeMeshDataWeakPtr = TWeakPtr<FRuntimeMeshData, ESPMode::ThreadSafe>;

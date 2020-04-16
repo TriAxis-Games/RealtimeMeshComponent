@@ -564,13 +564,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Collision|Settings")
 	TArray<FRuntimeMeshCollisionCapsule> Capsules;
 
-	FRuntimeMeshCollisionSettings()
-		: bUseComplexAsSimple(true)
-		, bUseAsyncCooking(false)
-		, CookingMode(ERuntimeMeshCollisionCookingMode::CollisionPerformance)
-	{
-
-	}
+	FRuntimeMeshCollisionSettings();
 
 	friend FArchive& operator <<(FArchive& Ar, FRuntimeMeshCollisionSettings& Settings)
 	{

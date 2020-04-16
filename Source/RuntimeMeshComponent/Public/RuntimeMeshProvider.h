@@ -13,9 +13,6 @@ using FRuntimeMeshProviderProxyRef = TSharedRef<FRuntimeMeshProviderProxy, ESPMo
 using FRuntimeMeshProviderProxyPtr = TSharedPtr<FRuntimeMeshProviderProxy, ESPMode::ThreadSafe>;
 using FRuntimeMeshProviderProxyWeakPtr = TWeakPtr<FRuntimeMeshProviderProxy, ESPMode::ThreadSafe>;
 
-
-DECLARE_DELEGATE(FRuntimeMeshProviderThreadExclusiveFunction);
-
 class RUNTIMEMESHCOMPONENT_API IRuntimeMeshProviderProxy
 {
 public:

@@ -115,6 +115,37 @@ enum class ERuntimeMeshCollisionCookingMode : uint8
 };
 
 
+UENUM(BlueprintType)
+enum class ERuntimeMeshThreadingType : uint8
+{
+	/* 
+	*	Runs all mesh updates on the game thread, once per tick. 
+	*/
+	Synchronous = 0,
+	/*
+	*	Runs all mesh updates in an internal thread pool, unblocking the game thread.
+	*/
+	ThreadPool = 1,
+	/*
+	*	Allows you to handle the queued work on your own threads. Will not block the game
+	*	thread, similar to ThreadPool, but requires you to call HandleWork() on the 
+	*	URuntimeMeshComponentEngineSubsystem
+	*/
+	UserSupplied = 2,
+};
+
+UENUM(BlueprintType)
+enum class ERuntimeMeshThreadingPriority : uint8
+{
+	Normal,
+	AboveNormal,
+	BelowNormal,
+	Highest,
+	Lowest,
+	SlightlyBelowNormal,
+	TimeCritical,
+};
+
 
 /**
 *	Struct used to specify a tangent vector for a vertex
@@ -154,3 +185,14 @@ public:
 
 
 DECLARE_DELEGATE_OneParam(FRuntimeMeshBackgroundWorkDelegate, double);
+
+
+
+class FRuntimeMeshData;
+using FRuntimeMeshDataRef = TSharedRef<FRuntimeMeshData, ESPMode::ThreadSafe>;
+using FRuntimeMeshDataPtr = TSharedPtr<FRuntimeMeshData, ESPMode::ThreadSafe>;
+using FRuntimeMeshDataWeakPtr = TWeakPtr<FRuntimeMeshData, ESPMode::ThreadSafe>;
+
+
+DECLARE_DELEGATE(FRuntimeMeshProviderThreadExclusiveFunction);
+
