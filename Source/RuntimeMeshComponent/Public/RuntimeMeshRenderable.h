@@ -30,6 +30,14 @@ public:
 
 	const uint8* GetData() const { return reinterpret_cast<const uint8*>(Data.GetData()); }
 
+	const TArray<FVector> GetCopy() const
+	{
+		TArray<FVector> OutData;
+		OutData.SetNum(Num());
+		FMemory::Memcpy(OutData.GetData(), Data.GetData(), Data.Num());
+		return OutData;
+	}
+
 	void Empty(int32 Slack = 0)
 	{
 		Data.Empty(Slack * sizeof(FVector));
@@ -816,11 +824,11 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Rendering|MaterialSlot")
 	FName SlotName;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Rendering|MaterialSlot")
-	TWeakObjectPtr<UMaterialInterface> Material;
+	UMaterialInterface* Material;
 
 	FRuntimeMeshMaterialSlot() { }
 
-	FRuntimeMeshMaterialSlot(const FName& InSlotName, const TWeakObjectPtr<UMaterialInterface>& InMaterial)
+	FRuntimeMeshMaterialSlot(const FName& InSlotName, UMaterialInterface* InMaterial)
 		: SlotName(InSlotName), Material(InMaterial) { }
 
 

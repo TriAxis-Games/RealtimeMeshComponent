@@ -35,13 +35,6 @@ public:
 	void Initialize(URuntimeMeshProvider* Provider)
 	{
 		GetOrCreateRuntimeMesh()->Initialize(Provider);
-	}	
-	
-	/** Creates a static provider replacing whatever provider exists. */
-	UFUNCTION(BlueprintCallable)
-	URuntimeMeshProviderStatic* InitializeStaticProvider()
-	{
-		return GetOrCreateRuntimeMesh()->InitializeStaticProvider();
 	}
 
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
@@ -86,10 +79,11 @@ public:
 	UFUNCTION(BlueprintCallable)
 	URuntimeMeshProvider* GetProvider() { return GetRuntimeMesh()? GetRuntimeMesh()->GetProvider() : nullptr; }
 
-	FRuntimeMeshProviderProxyPtr GetCurrentProviderProxy() { return GetRuntimeMesh()? GetRuntimeMesh()->GetCurrentProviderProxy() : nullptr; }
-
 	UFUNCTION(BlueprintCallable)
-	TArray<FRuntimeMeshMaterialSlot> GetMaterialSlots() const { return GetRuntimeMesh()? GetRuntimeMesh()->GetMaterialSlots() : TArray<FRuntimeMeshMaterialSlot>(); }
+	TArray<FRuntimeMeshMaterialSlot> GetMaterialSlots() const 
+	{ 
+		return GetRuntimeMesh()? GetRuntimeMesh()->GetMaterialSlots() : TArray<FRuntimeMeshMaterialSlot>(); 
+	}
 	
 	UFUNCTION(BlueprintCallable)
 	void SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial)

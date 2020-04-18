@@ -114,26 +114,6 @@ enum class ERuntimeMeshCollisionCookingMode : uint8
 	CookingPerformance UMETA(DisplayName = "Cooking Performance"),
 };
 
-
-UENUM(BlueprintType)
-enum class ERuntimeMeshThreadingType : uint8
-{
-	/* 
-	*	Runs all mesh updates on the game thread, once per tick. 
-	*/
-	Synchronous = 0,
-	/*
-	*	Runs all mesh updates in an internal thread pool, unblocking the game thread.
-	*/
-	ThreadPool = 1,
-	/*
-	*	Allows you to handle the queued work on your own threads. Will not block the game
-	*	thread, similar to ThreadPool, but requires you to call HandleWork() on the 
-	*	URuntimeMeshComponentEngineSubsystem
-	*/
-	UserSupplied = 2,
-};
-
 UENUM(BlueprintType)
 enum class ERuntimeMeshThreadingPriority : uint8
 {
@@ -187,12 +167,23 @@ public:
 DECLARE_DELEGATE_OneParam(FRuntimeMeshBackgroundWorkDelegate, double);
 
 
+struct FRuntimeMeshMisc
+{
+	template<typename LambdaType>
+	static void DoOnGameThread(LambdaType&& InFunction)
+	{
+		if (IsInGameThread())
+		{
+			InFunction();
+		}
+		else
+		{
+			FFunctionGraphTask::CreateAndDispatchWhenReady([InFunction]()
+				{
+					InFunction();
+				}, TStatId(), nullptr, ENamedThreads::GameThread);
+		}
+	}
+};
 
-class FRuntimeMeshData;
-using FRuntimeMeshDataRef = TSharedRef<FRuntimeMeshData, ESPMode::ThreadSafe>;
-using FRuntimeMeshDataPtr = TSharedPtr<FRuntimeMeshData, ESPMode::ThreadSafe>;
-using FRuntimeMeshDataWeakPtr = TWeakPtr<FRuntimeMeshData, ESPMode::ThreadSafe>;
-
-
-DECLARE_DELEGATE(FRuntimeMeshProviderThreadExclusiveFunction);
 

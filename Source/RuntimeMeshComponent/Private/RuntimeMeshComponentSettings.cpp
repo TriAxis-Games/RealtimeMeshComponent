@@ -10,7 +10,6 @@ URuntimeMeshComponentSettings::URuntimeMeshComponentSettings(const FObjectInitia
 	, bUseHighPrecisionTangentsByDefault(false)
 	, bCookCollisionAsync(false)
 	, DefaultCookingMode(ERuntimeMeshCollisionCookingMode::CookingPerformance)
-	, DefaultThreadingModel(ERuntimeMeshThreadingType::Synchronous)
 	, MinMaxThreadPoolThreads(1, 4)
 	, SystemThreadDivisor(2)
 	, ThreadPriority(ERuntimeMeshThreadingPriority::BelowNormal)

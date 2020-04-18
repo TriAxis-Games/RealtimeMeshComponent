@@ -29,7 +29,7 @@ FRuntimeMeshComponentSceneProxy::FRuntimeMeshComponentSceneProxy(URuntimeMeshCom
 	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMCSP(%d): Created"), FPlatformTLS::GetCurrentThreadId());
 
 
-	FRuntimeMeshDataPtr RuntimeMeshData = Component->GetRuntimeMesh()->Data;
+	URuntimeMesh* Mesh = Component->GetRuntimeMesh();
 
 	RuntimeMeshProxy = Component->GetRuntimeMesh()->GetRenderProxy(GetScene().GetFeatureLevel());
 
@@ -37,9 +37,9 @@ FRuntimeMeshComponentSceneProxy::FRuntimeMeshComponentSceneProxy(URuntimeMeshCom
 
 	// Fill the section render data
 	SectionRenderData.SetNum(RUNTIMEMESH_MAXLODS);
-	for (int32 LODIndex = 0; LODIndex < RuntimeMeshData->LODs.Num(); LODIndex++)
+	for (int32 LODIndex = 0; LODIndex < Mesh->LODs.Num(); LODIndex++)
 	{
-		const FRuntimeMeshLOD& LOD = RuntimeMeshData->LODs[LODIndex];
+		const FRuntimeMeshLOD& LOD = Mesh->LODs[LODIndex];
 
 		for (const auto& Section : LOD.Sections)
 		{

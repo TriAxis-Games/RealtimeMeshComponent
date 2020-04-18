@@ -173,7 +173,7 @@ void URuntimeMeshComponent::GetUsedMaterials(TArray<UMaterialInterface*>& OutMat
 
 		if (Mat == nullptr)
 		{
-			Mat = Slots[Index].Material.Get();
+			Mat = Slots[Index].Material;
 		}
 
 		if (Mat)

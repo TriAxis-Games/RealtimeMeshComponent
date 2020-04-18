@@ -39,9 +39,6 @@ public:
 
 
 
-	UPROPERTY(Config, EditAnywhere, Category = Threading)
-	ERuntimeMeshThreadingType DefaultThreadingModel;
-
 	UPROPERTY(Config, EditAnywhere, Category = Threading, Meta = (ClampMin=1, ClampMax = 32))
 	FInt32Range MinMaxThreadPoolThreads;
 

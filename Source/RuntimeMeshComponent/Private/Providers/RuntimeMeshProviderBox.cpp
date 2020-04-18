@@ -2,43 +2,46 @@
 
 #include "Providers/RuntimeMeshProviderBox.h"
 
-FRuntimeMeshProviderBoxProxy::FRuntimeMeshProviderBoxProxy(TWeakObjectPtr<URuntimeMeshProvider> InParent)
-	: FRuntimeMeshProviderProxy(InParent)
-{
 
+
+FVector URuntimeMeshProviderBox::GetBoxRadius() const
+{
+	FScopeLock Lock(&PropertySyncRoot);
+	return BoxRadius;
 }
 
-FRuntimeMeshProviderBoxProxy::~FRuntimeMeshProviderBoxProxy()
+void URuntimeMeshProviderBox::SetBoxRadius(const FVector& InRadius)
 {
+	FScopeLock Lock(&PropertySyncRoot);
+	BoxRadius = InRadius;
 
+	LocalBounds = FBoxSphereBounds(FBox(-BoxRadius, BoxRadius));
+	MarkAllLODsDirty();
 }
 
-void FRuntimeMeshProviderBoxProxy::UpdateProxyParameters(URuntimeMeshProvider* ParentProvider, bool bIsInitialSetup)
+UMaterialInterface* URuntimeMeshProviderBox::GetBoxMaterial() const
 {
-	URuntimeMeshProviderBox* BoxProvider = Cast<URuntimeMeshProviderBox>(ParentProvider);
-	if (BoxRadius != BoxProvider->BoxRadius)
-	{
-		BoxRadius = BoxProvider->BoxRadius;
-
-		MarkCollisionDirty();
-		MarkSectionDirty(0, 0);
-	}
-
-	if (Material != BoxProvider->Material)
-	{
-		Material = BoxProvider->Material;
-		SetupMaterialSlot(0, FName("Cube Base"), Material.Get());
-	}
+	FScopeLock Lock(&PropertySyncRoot);
+	return Material;
 }
 
-void FRuntimeMeshProviderBoxProxy::Initialize()
+void URuntimeMeshProviderBox::SetBoxMaterial(UMaterialInterface* InMaterial)
+{
+	FScopeLock Lock(&PropertySyncRoot);
+	Material = InMaterial;
+	SetupMaterialSlot(0, FName("Cube Base"), Material);
+}
+
+
+
+void URuntimeMeshProviderBox::Initialize_Implementation()
 {
 	FRuntimeMeshLODProperties LODProperties;
 	LODProperties.ScreenSize = 0.0f;
 
 	ConfigureLODs({ LODProperties });
 
-	SetupMaterialSlot(0, FName("Cube Base"), Material.Get());
+	SetupMaterialSlot(0, FName("Cube Base"), GetBoxMaterial());
 
 	FRuntimeMeshSectionProperties Properties;
 	Properties.bCastsShadow = true;
@@ -50,22 +53,28 @@ void FRuntimeMeshProviderBoxProxy::Initialize()
 	MarkCollisionDirty();
 }
 
-bool FRuntimeMeshProviderBoxProxy::GetSectionMeshForLOD(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData)
+FBoxSphereBounds URuntimeMeshProviderBox::GetBounds_Implementation()
 {
-	// We should only ever be queried for section 0 and lod 0
+	return LocalBounds;
+}
+
+bool URuntimeMeshProviderBox::GetSectionMeshForLOD_Implementation(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData)
+{	// We should only ever be queried for section 0 and lod 0
 	check(SectionId == 0 && LODIndex == 0);
+
+	FVector BoxRadiusTemp = BoxRadius;
 
 	// Generate verts
 	FVector BoxVerts[8];
-	BoxVerts[0] = FVector(-BoxRadius.X, BoxRadius.Y, BoxRadius.Z);
-	BoxVerts[1] = FVector(BoxRadius.X, BoxRadius.Y, BoxRadius.Z);
-	BoxVerts[2] = FVector(BoxRadius.X, -BoxRadius.Y, BoxRadius.Z);
-	BoxVerts[3] = FVector(-BoxRadius.X, -BoxRadius.Y, BoxRadius.Z);
+	BoxVerts[0] = FVector(-BoxRadiusTemp.X, BoxRadiusTemp.Y, BoxRadiusTemp.Z);
+	BoxVerts[1] = FVector(BoxRadiusTemp.X, BoxRadiusTemp.Y, BoxRadiusTemp.Z);
+	BoxVerts[2] = FVector(BoxRadiusTemp.X, -BoxRadiusTemp.Y, BoxRadiusTemp.Z);
+	BoxVerts[3] = FVector(-BoxRadiusTemp.X, -BoxRadiusTemp.Y, BoxRadiusTemp.Z);
 
-	BoxVerts[4] = FVector(-BoxRadius.X, BoxRadius.Y, -BoxRadius.Z);
-	BoxVerts[5] = FVector(BoxRadius.X, BoxRadius.Y, -BoxRadius.Z);
-	BoxVerts[6] = FVector(BoxRadius.X, -BoxRadius.Y, -BoxRadius.Z);
-	BoxVerts[7] = FVector(-BoxRadius.X, -BoxRadius.Y, -BoxRadius.Z);
+	BoxVerts[4] = FVector(-BoxRadiusTemp.X, BoxRadiusTemp.Y, -BoxRadiusTemp.Z);
+	BoxVerts[5] = FVector(BoxRadiusTemp.X, BoxRadiusTemp.Y, -BoxRadiusTemp.Z);
+	BoxVerts[6] = FVector(BoxRadiusTemp.X, -BoxRadiusTemp.Y, -BoxRadiusTemp.Z);
+	BoxVerts[7] = FVector(-BoxRadiusTemp.X, -BoxRadiusTemp.Y, -BoxRadiusTemp.Z);
 
 	FVector TangentX, TangentY, TangentZ;
 
@@ -143,40 +152,43 @@ bool FRuntimeMeshProviderBoxProxy::GetSectionMeshForLOD(int32 LODIndex, int32 Se
 	return true;
 }
 
-FRuntimeMeshCollisionSettings FRuntimeMeshProviderBoxProxy::GetCollisionSettings()
+FRuntimeMeshCollisionSettings URuntimeMeshProviderBox::GetCollisionSettings_Implementation()
 {
 	FRuntimeMeshCollisionSettings Settings;
 	Settings.bUseAsyncCooking = true;
 	Settings.bUseComplexAsSimple = false;
 
-	Settings.Boxes.Emplace(BoxRadius.X * 2, BoxRadius.Y * 2, BoxRadius.Z * 2);
-	   	 
+	FVector BoxRadiusTemp = BoxRadius;
+	Settings.Boxes.Emplace(BoxRadiusTemp.X * 2, BoxRadiusTemp.Y * 2, BoxRadiusTemp.Z * 2);
+
 	return Settings;
 }
 
-bool FRuntimeMeshProviderBoxProxy::HasCollisionMesh()
+bool URuntimeMeshProviderBox::HasCollisionMesh_Implementation()
 {
 	return true;
 }
 
-bool FRuntimeMeshProviderBoxProxy::GetCollisionMesh(FRuntimeMeshCollisionData& CollisionData)
+bool URuntimeMeshProviderBox::GetCollisionMesh_Implementation(FRuntimeMeshCollisionData& CollisionData)
 {
 	// Add the single collision section
-	CollisionData.CollisionSources.Emplace(0, 5, GetParent(), 0, ERuntimeMeshCollisionFaceSourceType::Collision);
-	
+	CollisionData.CollisionSources.Emplace(0, 5, this, 0, ERuntimeMeshCollisionFaceSourceType::Collision);
+
 	FRuntimeMeshCollisionVertexStream& CollisionVertices = CollisionData.Vertices;
 	FRuntimeMeshCollisionTriangleStream& CollisionTriangles = CollisionData.Triangles;
 
-	// Generate verts
-	CollisionVertices.Add(FVector(-BoxRadius.X, BoxRadius.Y, BoxRadius.Z));
-	CollisionVertices.Add(FVector(BoxRadius.X, BoxRadius.Y, BoxRadius.Z));
-	CollisionVertices.Add(FVector(BoxRadius.X, -BoxRadius.Y, BoxRadius.Z));
-	CollisionVertices.Add(FVector(-BoxRadius.X, -BoxRadius.Y, BoxRadius.Z));
+	FVector BoxRadiusTemp = BoxRadius;
 
-	CollisionVertices.Add(FVector(-BoxRadius.X, BoxRadius.Y, -BoxRadius.Z));
-	CollisionVertices.Add(FVector(BoxRadius.X, BoxRadius.Y, -BoxRadius.Z));
-	CollisionVertices.Add(FVector(BoxRadius.X, -BoxRadius.Y, -BoxRadius.Z));
-	CollisionVertices.Add(FVector(-BoxRadius.X, -BoxRadius.Y, -BoxRadius.Z));
+	// Generate verts
+	CollisionVertices.Add(FVector(-BoxRadiusTemp.X, BoxRadiusTemp.Y, BoxRadiusTemp.Z));
+	CollisionVertices.Add(FVector(BoxRadiusTemp.X, BoxRadiusTemp.Y, BoxRadiusTemp.Z));
+	CollisionVertices.Add(FVector(BoxRadiusTemp.X, -BoxRadiusTemp.Y, BoxRadiusTemp.Z));
+	CollisionVertices.Add(FVector(-BoxRadiusTemp.X, -BoxRadiusTemp.Y, BoxRadiusTemp.Z));
+
+	CollisionVertices.Add(FVector(-BoxRadiusTemp.X, BoxRadiusTemp.Y, -BoxRadiusTemp.Z));
+	CollisionVertices.Add(FVector(BoxRadiusTemp.X, BoxRadiusTemp.Y, -BoxRadiusTemp.Z));
+	CollisionVertices.Add(FVector(BoxRadiusTemp.X, -BoxRadiusTemp.Y, -BoxRadiusTemp.Z));
+	CollisionVertices.Add(FVector(-BoxRadiusTemp.X, -BoxRadiusTemp.Y, -BoxRadiusTemp.Z));
 
 	// Pos Z
 	CollisionTriangles.Add(0, 1, 3);
@@ -200,7 +212,9 @@ bool FRuntimeMeshProviderBoxProxy::GetCollisionMesh(FRuntimeMeshCollisionData& C
 	return true;
 }
 
-bool FRuntimeMeshProviderBoxProxy::IsThreadSafe() const
+bool URuntimeMeshProviderBox::IsThreadSafe_Implementation()
 {
 	return true;
 }
+
+

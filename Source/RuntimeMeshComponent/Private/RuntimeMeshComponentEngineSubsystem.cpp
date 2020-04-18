@@ -4,6 +4,7 @@
 #include "RuntimeMeshComponentEngineSubsystem.h"
 #include "RuntimeMeshComponentSettings.h"
 #include "RuntimeMeshCore.h"
+#include "RuntimeMesh.h"
 
 void URuntimeMeshComponentEngineSubsystem::FRuntimeMeshComponentDelayedActionTickObject::Tick(float DeltaTime)
 {
@@ -14,32 +15,10 @@ bool URuntimeMeshComponentEngineSubsystem::FRuntimeMeshComponentDelayedActionTic
 	return ParentSubsystem->IsTickable();
 }
 
-uint32 URuntimeMeshComponentEngineSubsystem::FRuntimeMeshDataBackgroundWorker::Run()
-{
-	while (ShouldRun)
-	{
-		bool bHasMoreWork = ParentSubsystem->RunUpdateTasks(0, true);
-
-		if (!bHasMoreWork)
-		{
-			FPlatformProcess::Sleep(1.0 / 60);
-		}
-	}
-	return 0;
-}
-void URuntimeMeshComponentEngineSubsystem::FRuntimeMeshDataBackgroundWorker::Stop()
-{
-	ShouldRun = false;
-}
-
-
 
 void URuntimeMeshComponentEngineSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
 	Super::Initialize(Collection);
-	
-	CurrentThreadingType = ERuntimeMeshThreadingType::Synchronous;
-	MaxAllowedTimePerTick = 1000 / 60;
 
 	// Create the tick object
 	TickObject = MakeUnique<FRuntimeMeshComponentDelayedActionTickObject>(this);
@@ -47,135 +26,62 @@ void URuntimeMeshComponentEngineSubsystem::Initialize(FSubsystemCollectionBase& 
 	const URuntimeMeshComponentSettings* Settings = GetDefault<URuntimeMeshComponentSettings>();
 	check(Settings);
 
-	UpdateSettings(TEXT(""), Settings);
+	InitializeThreads(CalculateNumThreads(Settings), Settings->ThreadStackSize, ConvertThreadPriority(Settings->ThreadPriority));
 
-
-#if WITH_EDITOR
-	Settings->OnSettingsChanged().AddUObject(this, &URuntimeMeshComponentEngineSubsystem::UpdateSettings);
-#endif
 }
 
 void URuntimeMeshComponentEngineSubsystem::Deinitialize()
 {
 	Super::Deinitialize();
 
-	RemoveThreadsToMaxCount(0);
+	if (ThreadPool)
+	{
+		ThreadPool->Destroy();
+		delete ThreadPool;
+		ThreadPool = nullptr;
+	}
 }
 
-void URuntimeMeshComponentEngineSubsystem::RegisterForProxyParamsUpdate(FRuntimeMeshDataWeakPtr InMesh, FRuntimeMeshProviderThreadExclusiveFunction Func)
+void URuntimeMeshComponentEngineSubsystem::QueueMeshForUpdate(const FRuntimeMeshWeakRef& InMesh)
 {
-	FRuntimeMeshDataPtr Mesh = InMesh.Pin();
+	MeshesToUpdate.Enqueue(InMesh);
+}
 
-	if (Mesh)
+int32 URuntimeMeshComponentEngineSubsystem::CalculateNumThreads(const URuntimeMeshComponentSettings* Settings)
+{
+	int32 MinThreads = Settings->MinMaxThreadPoolThreads.GetLowerBoundValue();
+	int32 MaxThreads = Settings->MinMaxThreadPoolThreads.GetUpperBoundValue();
+	int32 ThreadDivisor = Settings->SystemThreadDivisor;
+
+	MaxThreads = FMath::Clamp(MaxThreads, 1, 64);
+	MinThreads = FMath::Clamp(MinThreads, 1, MaxThreads);
+	ThreadDivisor = FMath::Clamp(ThreadDivisor, 1, MaxThreads);
+
+	int32 CoresWithHyperthreads = FGenericPlatformMisc::NumberOfCoresIncludingHyperthreads();
+
+	return FMath::Clamp(
+		FMath::RoundToInt(CoresWithHyperthreads / (float)ThreadDivisor),
+		MinThreads, MaxThreads);
+}
+
+
+void URuntimeMeshComponentEngineSubsystem::InitializeThreads(int32 NumThreads, int32 StackSize /*= 0*/, EThreadPriority ThreadPriority /*= TPri_BelowNormal*/)
+{
+	if (ThreadPool == nullptr)
 	{
-		bool bIsRegistered = Mesh->AsyncWorkState.SetHasGameThreadWork();
-
-		// Are we already queued?
-		if (!bIsRegistered)
+		if (FPlatformProcess::SupportsMultithreading())
 		{
-			ProxyParamsUpdateList.Enqueue(MakeTuple(InMesh, Func));
+			ThreadPool = FQueuedThreadPool::Allocate();
+
+			int32 NumThreadsInThreadPool = NumThreads;
+
+			if (FPlatformProperties::IsServerOnly())
+			{
+				NumThreadsInThreadPool = 1;
+			}
+
+			verify(ThreadPool->Create(NumThreadsInThreadPool, StackSize, ThreadPriority));
 		}
-	}
-}
-
-void URuntimeMeshComponentEngineSubsystem::RegisterForUpdate(FRuntimeMeshDataWeakPtr InMesh)
-{
-	FRuntimeMeshDataPtr Mesh = InMesh.Pin();
-
-	if (Mesh)
-	{
-		bool bIsRegistered = Mesh->AsyncWorkState.SetHasAsyncWork();
-
-		// Are we already queued?
-		if (!bIsRegistered)
-		{
-			if (Mesh->IsThreadSafe())
-			{
-				AsyncUpdateList.Enqueue(Mesh);
-			}
-			else
-			{
-				GameThreadUpdateList.Enqueue(Mesh);
-			}
-		}
-	}
-}
-
-FRuntimeMeshBackgroundWorkDelegate URuntimeMeshComponentEngineSubsystem::GetUserSuppliedThreadingWorkHandle()
-{
-	CurrentThreadingType = ERuntimeMeshThreadingType::UserSupplied;
-
-	RemoveThreadsToMaxCount(0);
-
-	TWeakObjectPtr<URuntimeMeshComponentEngineSubsystem> SubsystemWeakPtr = this;
-
-	return FRuntimeMeshBackgroundWorkDelegate::CreateLambda([SubsystemWeakPtr](double MaxAllowedTime)
-		{
-			if (SubsystemWeakPtr.IsValid())
-			{
-				SubsystemWeakPtr.Get()->RunUpdateTasks(MaxAllowedTime, true);
-			}
-		});
-}
-
-void URuntimeMeshComponentEngineSubsystem::UpdateSettings(const FString& InPropertyName, const URuntimeMeshComponentSettings* InSettings)
-{
-	check(InSettings);
-	CurrentThreadingType = InSettings->DefaultThreadingModel;
-	MaxAllowedTimePerTick = InSettings->MaxAllowedTimePerTick;
-
-	if (CurrentThreadingType == ERuntimeMeshThreadingType::ThreadPool)
-	{
-		int32 MinThreads = InSettings->MinMaxThreadPoolThreads.GetLowerBoundValue();
-		int32 MaxThreads = InSettings->MinMaxThreadPoolThreads.GetUpperBoundValue();
-		int32 ThreadDivisor = InSettings->SystemThreadDivisor;
-
-		MaxThreads = FMath::Clamp(MaxThreads, 1, 64);
-		MinThreads = FMath::Clamp(MinThreads, 1, MaxThreads);
-		ThreadDivisor = FMath::Clamp(ThreadDivisor, 1, MaxThreads);
-
-		int32 CoresWithHyperthreads = FGenericPlatformMisc::NumberOfCoresIncludingHyperthreads();
-
-		int32 NumThreads = FMath::Clamp(
-			FMath::RoundToInt(CoresWithHyperthreads / (float)ThreadDivisor),
-			MinThreads, MaxThreads);
-
-		InitializeThreadsToCount(NumThreads, InSettings->ThreadStackSize, ConvertThreadPriority(InSettings->ThreadPriority));
-		RemoveThreadsToMaxCount(NumThreads);
-	}
-	else
-	{
-		RemoveThreadsToMaxCount(0);
-	}
-}
-
-void URuntimeMeshComponentEngineSubsystem::RemoveThreadsToMaxCount(int32 NewNumThreads)
-{
-	// Remove excessive threads
-	for (int32 Index = Workers.Num() - 1; Index > (NewNumThreads - 1); Index--)
-	{
-		Workers[Index]->Stop();
-	}
-
-	for (int32 Index = Workers.Num() - 1; Index > (NewNumThreads - 1); Index--)
-	{
-		WorkerThreads[Index]->WaitForCompletion();
-		WorkerThreads[Index]->Kill();
-
-		WorkerThreads.RemoveAt(Index);
-		Workers.RemoveAt(Index);
-	}
-}
-
-void URuntimeMeshComponentEngineSubsystem::InitializeThreadsToCount(int32 NumThreads, int32 StackSize /*= 0*/, EThreadPriority ThreadPriority /*= TPri_BelowNormal*/)
-{
-	// Add new threads			
-	for (int32 Index = Workers.Num(); Index < NumThreads; Index++)
-	{
-		Workers.Add(MakeUnique<FRuntimeMeshDataBackgroundWorker>(this));
-
-		WorkerThreads.Add(TUniquePtr<FRunnableThread>(FRunnableThread::Create(Workers[Index].Get(),
-			*FString::Printf(TEXT("RuntimeMeshBackgroundThread: %d"), Index), StackSize, ThreadPriority)));
 	}
 }
 
@@ -204,113 +110,41 @@ EThreadPriority URuntimeMeshComponentEngineSubsystem::ConvertThreadPriority(ERun
 
 bool URuntimeMeshComponentEngineSubsystem::IsTickable() const
 {
-	return (!ProxyParamsUpdateList.IsEmpty()) ||
-		(!GameThreadUpdateList.IsEmpty()) ||
-		(CurrentThreadingType == ERuntimeMeshThreadingType::Synchronous && !AsyncUpdateList.IsEmpty());
+	return !MeshesToUpdate.IsEmpty();
 }
 
 void URuntimeMeshComponentEngineSubsystem::Tick(float DeltaTime)
 {
-	//SCOPE_CYCLE_COUNTER(STAT_RuntimeMeshDelayedActions_Tick);
-
-	UpdateGameThreadTasks();
-	RunUpdateTasks(MaxAllowedTimePerTick, false);
-
-	if (CurrentThreadingType == ERuntimeMeshThreadingType::Synchronous)
+	FRuntimeMeshWeakRef WeakMeshRef;
+	while (MeshesToUpdate.Dequeue(WeakMeshRef))
 	{
-		RunUpdateTasks(MaxAllowedTimePerTick, true);
-	}
-}
+		FRuntimeMeshSharedRef MeshRef = WeakMeshRef.Pin();
 
-void URuntimeMeshComponentEngineSubsystem::UpdateGameThreadTasks()
-{
-	TQueue<TTuple<FRuntimeMeshDataWeakPtr, FRuntimeMeshProviderThreadExclusiveFunction>> RemainingList;
-
-
-	// Here we handle the game thread only tasks, Each tick we try to handle every tasks
-	// If a task is currently doing background work we add it back to the queue for next tick
-	TTuple<FRuntimeMeshDataWeakPtr, FRuntimeMeshProviderThreadExclusiveFunction> TempData;
-	while (ProxyParamsUpdateList.Dequeue(TempData))
-	{
-		FRuntimeMeshDataPtr Mesh = TempData.Key.Pin();
-		if (!Mesh.IsValid())
+		if (MeshRef.IsValid())
 		{
-			continue;
-		}
-
-		if (Mesh->AsyncWorkState.TryLockForGameThread())
-		{
-			TempData.Value.Execute();
-			Mesh->AsyncWorkState.Unlock();
-		}
-		else
-		{
-			RemainingList.Enqueue(TempData);
-		}
-	}
-
-	// Add the remaining list back to the queue for next tick
-	while (RemainingList.Dequeue(TempData))
-	{
-		ProxyParamsUpdateList.Enqueue(TempData);
-	}
-}
-
-bool URuntimeMeshComponentEngineSubsystem::RunUpdateTasks(double MaxAllowedTime, bool bRunAsyncTaskList)
-{
-	if (MaxAllowedTime == 0.0f)
-	{
-		MaxAllowedTime = MaxAllowedTimePerTick;
-	}
-
-	// Convert time to seconds
-	MaxAllowedTime /= 60.0;
-
-	double StartTime = FPlatformTime::Seconds();
-
-	TThreadSafeQueue<FRuntimeMeshDataWeakPtr>& CurrentTaskList = bRunAsyncTaskList ? AsyncUpdateList : GameThreadUpdateList;
-
-
-	FRuntimeMeshDataWeakPtr FirstSkippedMesh;
-	FRuntimeMeshDataWeakPtr TempMesh;
-	while ((FPlatformTime::Seconds() - StartTime) < MaxAllowedTime && CurrentTaskList.Dequeue(TempMesh))
-	{
-		bool bHandled = false;
-
-		FRuntimeMeshDataPtr Mesh = TempMesh.IsValid() ? TempMesh.Pin() : nullptr;
-		if (!Mesh.IsValid())
-		{
-			continue;
-		}
-
-		// This stops the loop when we come full circle. So if we skip any due to inability to lock
-		// we don't just keep tight looping to retry 
-		if (FirstSkippedMesh.IsValid() && FirstSkippedMesh == TempMesh)
-		{
-			CurrentTaskList.Enqueue(TempMesh);
-			break;
-		}
-
-		if (Mesh->AsyncWorkState.TryLockForAsyncThread())
-		{
-			UE_LOG(LogTemp, Warning, TEXT("Updating RMC In Thread: %d IsGameThread: %d"), FPlatformTLS::GetCurrentThreadId(), IsInGameThread());
-
-			Mesh->HandleUpdate();
-			Mesh->AsyncWorkState.Unlock();
-		}
-		else
-		{
-			CurrentTaskList.Enqueue(TempMesh);
-
-			if (!FirstSkippedMesh.IsValid())
+			if (MeshRef->MeshProvider)
 			{
-				FirstSkippedMesh = TempMesh;
+				if (MeshRef->bNeedsInitialization)
+				{
+					MeshRef->InitializeInternal();
+					MeshRef->bNeedsInitialization = false;
+				}
+
+				if (MeshRef->bCollisionIsDirty)
+				{
+					MeshRef->UpdateCollision();
+					MeshRef->bCollisionIsDirty = false;
+				}
+
+				if (MeshRef->bQueuedForMeshUpdate && !MeshRef->MeshProvider->IsThreadSafe())
+				{
+					// we check again when we actually set it just to make sure it hasn't changed
+					if (MeshRef->bQueuedForMeshUpdate.AtomicSet(false) == true)
+					{
+						MeshRef->HandleUpdate();
+					}
+				}
 			}
 		}
-
 	}
-
-	// Is there still more work to do?
-	return !CurrentTaskList.IsEmpty();
 }
-
