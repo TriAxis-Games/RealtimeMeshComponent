@@ -224,13 +224,13 @@ public:
 	void CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties, const FRuntimeMeshRenderableMeshData& SectionData, FBoxSphereBounds KnownBounds, bool bCreateCollision = true)
 	{
 		URuntimeMeshProvider::CreateSection(LODIndex, SectionId, SectionProperties);
-		UpdateSectionInternal(LODIndex, SectionId, SectionData, GetBoundsFromMeshData(SectionData));
+		UpdateSectionInternal(LODIndex, SectionId, SectionData, KnownBounds);
 		UpdateSectionAffectsCollision(LODIndex, SectionId, bCreateCollision);
 	}
 	void CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties, FRuntimeMeshRenderableMeshData&& SectionData, FBoxSphereBounds KnownBounds, bool bCreateCollision = true)
 	{
 		URuntimeMeshProvider::CreateSection(LODIndex, SectionId, SectionProperties);
-		UpdateSectionInternal(LODIndex, SectionId, MoveTemp(SectionData), GetBoundsFromMeshData(SectionData));
+		UpdateSectionInternal(LODIndex, SectionId, MoveTemp(SectionData), KnownBounds);
 		UpdateSectionAffectsCollision(LODIndex, SectionId, bCreateCollision);
 	}
 
