@@ -14,28 +14,36 @@ void URuntimeMeshComponentStatic::OnRegister()
 {
 	Super::OnRegister();
 
-	URuntimeMeshProvider* RootProvider;
-
-	StaticProvider = NewObject<URuntimeMeshProviderStatic>(this, TEXT("RuntimeMeshProvider-Static"));
-	StaticProvider->SetRenderableLODForCollision(LODForMeshCollision);
-	for (auto& elem : SectionsForMeshCollision)
+	if (RuntimeMesh)
 	{
-		StaticProvider->SetRenderableSectionAffectsCollision(elem, true);
+		SetRuntimeMesh(RuntimeMesh);
 	}
-	StaticProvider->SetCollisionSettings(CollisionSettings);
-	StaticProvider->SetCollisionMesh(CollisionMesh);
-	RootProvider = StaticProvider;
-
-	if (bWantsNormals || bWantsTangents)
+	else
 	{
-		NormalsProvider = NewObject<URuntimeMeshProviderNormals>(this, TEXT("RuntimeMeshProvider-Normals"));
-		NormalsProvider->SourceProvider = RootProvider;
-		NormalsProvider->ComputeNormals = bWantsNormals;
-		NormalsProvider->ComputeTangents = bWantsNormals || bWantsTangents;
-		RootProvider = NormalsProvider;
-	}
+		URuntimeMeshProvider* RootProvider;
 
-	Initialize(RootProvider);
+		StaticProvider = NewObject<URuntimeMeshProviderStatic>(this, TEXT("RuntimeMeshProvider-Static"));
+		StaticProvider->SetRenderableLODForCollision(LODForMeshCollision);
+		for (auto& elem : SectionsForMeshCollision)
+		{
+			StaticProvider->SetRenderableSectionAffectsCollision(elem, true);
+		}
+		StaticProvider->SetCollisionSettings(CollisionSettings);
+		StaticProvider->SetCollisionMesh(CollisionMesh);
+		RootProvider = StaticProvider;
+
+		if (bWantsNormals || bWantsTangents)
+		{
+			NormalsProvider = NewObject<URuntimeMeshProviderNormals>(this, TEXT("RuntimeMeshProvider-Normals"));
+			NormalsProvider->SourceProvider = RootProvider;
+			NormalsProvider->ComputeNormals = bWantsNormals;
+			NormalsProvider->ComputeTangents = bWantsNormals || bWantsTangents;
+			RootProvider = NormalsProvider;
+		}
+
+		Initialize(RootProvider);
+	}
+	
 }
 
 void URuntimeMeshComponentStatic::CreateSection_Blueprint(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties & SectionProperties, const FRuntimeMeshRenderableMeshData & SectionData)
@@ -117,33 +125,41 @@ void URuntimeMeshComponentStatic::ClearSection(int32 LODIndex, int32 SectionId)
 
 void URuntimeMeshComponentStatic::SetCollisionSettings(const FRuntimeMeshCollisionSettings & NewCollisionSettings)
 {
-	CollisionSettings = NewCollisionSettings;
 	StaticProvider->SetCollisionSettings(NewCollisionSettings);
 }
 
 void URuntimeMeshComponentStatic::SetCollisionMesh(const FRuntimeMeshCollisionData & NewCollisionMesh)
 {
-	CollisionMesh = NewCollisionMesh;
 	StaticProvider->SetCollisionMesh(NewCollisionMesh);
 }
 
 void URuntimeMeshComponentStatic::SetRenderableLODForCollision(int32 LODIndex)
 {
-	LODForMeshCollision = LODIndex;
 	StaticProvider->SetRenderableLODForCollision(LODIndex);
 }
 
 void URuntimeMeshComponentStatic::SetRenderableSectionAffectsCollision(int32 SectionId, bool bCollisionEnabled)
 {
-	if (bCollisionEnabled)
+	StaticProvider->SetRenderableSectionAffectsCollision(SectionId, bCollisionEnabled);
+}
+
+URuntimeMeshProviderStatic * URuntimeMeshComponentStatic::GetStaticProvider()
+{
+	if (GetNormalsProvider())
 	{
-		SectionsForMeshCollision.Add(SectionId);
+		StaticProvider = (URuntimeMeshProviderStatic*)NormalsProvider->SourceProvider;
 	}
 	else
 	{
-		SectionsForMeshCollision.Remove(SectionId);
+		StaticProvider = (URuntimeMeshProviderStatic*)GetProvider();
 	}
-	StaticProvider->SetRenderableSectionAffectsCollision(SectionId, bCollisionEnabled);
+	return StaticProvider;
+}
+
+URuntimeMeshProviderNormals* URuntimeMeshComponentStatic::GetNormalsProvider()
+{
+	NormalsProvider = (URuntimeMeshProviderNormals*)GetProvider();;
+	return NormalsProvider;
 }
 
 void URuntimeMeshComponentStatic::GetOrCreateNormalsProvider()
@@ -173,7 +189,6 @@ void URuntimeMeshComponentStatic::EnsureNormalsProviderIsWanted()
 
 void URuntimeMeshComponentStatic::SetbWantsNormals(bool InbWantsNormals, bool bDeleteNormalsProviderIfUseless)
 {
-	bWantsNormals = InbWantsNormals;
 	if (InbWantsNormals)
 	{
 		GetOrCreateNormalsProvider();
@@ -196,7 +211,6 @@ void URuntimeMeshComponentStatic::SetbWantsNormals(bool InbWantsNormals, bool bD
 
 void URuntimeMeshComponentStatic::SetbWantsTangents(bool InbWantsTangents, bool bDeleteNormalsProviderIfUseless)
 {
-	bWantsTangents = InbWantsTangents;
 	if (InbWantsTangents)
 	{
 		GetOrCreateNormalsProvider();
@@ -215,4 +229,58 @@ void URuntimeMeshComponentStatic::SetbWantsTangents(bool InbWantsTangents, bool 
 			}
 		}
 	}
+}
+
+bool URuntimeMeshComponentStatic::GetbWantsNormals()
+{
+	if (GetNormalsProvider())
+	{
+		return NormalsProvider->ComputeNormals;
+	}
+	return false;
+}
+
+bool URuntimeMeshComponentStatic::GetbWantsTangents()
+{
+	if (GetNormalsProvider())
+	{
+		return NormalsProvider->ComputeTangents;
+	}
+	return false;
+}
+
+int32 URuntimeMeshComponentStatic::GetLODForMeshCollision()
+{
+	if (GetStaticProvider())
+	{
+		return StaticProvider->GetRenderableLODForCollision();
+	}
+	return int32();
+}
+
+TSet<int32> URuntimeMeshComponentStatic::GetSectionsForMeshCollision()
+{
+	if (GetStaticProvider())
+	{
+		return StaticProvider->GetRenderableSectionAffectingCollision();
+	}
+	return TSet<int32>();
+}
+
+FRuntimeMeshCollisionSettings URuntimeMeshComponentStatic::GetCollisionSettings()
+{
+	if (GetStaticProvider())
+	{
+		return StaticProvider->GetCollisionSettingsStored();
+	}
+	return FRuntimeMeshCollisionSettings();
+}
+
+FRuntimeMeshCollisionData URuntimeMeshComponentStatic::GetCollisionMesh()
+{
+	if (GetStaticProvider())
+	{
+		return StaticProvider->GetCollisionMeshWithoutVisible();
+	}
+	return FRuntimeMeshCollisionData();
 }

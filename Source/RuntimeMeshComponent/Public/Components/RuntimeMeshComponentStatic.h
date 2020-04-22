@@ -15,30 +15,37 @@ class RUNTIMEMESHCOMPONENT_API URuntimeMeshComponentStatic : public URuntimeMesh
 {
 	GENERATED_BODY()
 
-public:
+private:
 	//These are only for defaults when spawning, unused at runtime (after OnRegister)
 
+	//Sets the runtime mesh used. Leaving this null will create a new one and use the settings below.
+	//Beware : This meant to be used only with other RMCs if you want control from both components
+	UPROPERTY(BlueprintReadOnly, EditAnywhere, Category = "Mesh Sharing", Meta = (ExposeOnSpawn = "true", AllowPrivateAccess = "true"), BlueprintGetter = GetRuntimeMesh)
+	URuntimeMesh* RuntimeMesh;
+
 	//Sets if normals and tangents should be generated (Will add another provider)
-	UPROPERTY(BlueprintReadOnly, EditAnywhere, Category="Post Processing", Meta = (ExposeOnSpawn = "true"))
+	UPROPERTY(BlueprintReadOnly, EditAnywhere, Category="Post Processing", Meta = (ExposeOnSpawn = "true", AllowPrivateAccess = "true"), BlueprintGetter = GetbWantsNormals)
 	bool bWantsNormals;
 	//Set if normals should be generated (Will add another provider)
-	UPROPERTY(BlueprintReadOnly, EditAnywhere, Category = "Post Processing", Meta = (EditCondition = "!bWantsNormals", ExposeOnSpawn = "true"))
+	UPROPERTY(BlueprintReadOnly, EditAnywhere, Category = "Post Processing", Meta = (EditCondition = "!bWantsNormals", ExposeOnSpawn = "true", AllowPrivateAccess = "true"), BlueprintGetter = GetbWantsTangents)
 	bool bWantsTangents;
 	//LOD to use for complex collision
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Post Processing", Meta = (ExposeOnSpawn = "true"), BlueprintSetter = SetRenderableLODForCollision)
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Post Processing", Meta = (ExposeOnSpawn = "true", AllowPrivateAccess = "true"), BlueprintSetter = SetRenderableLODForCollision, BlueprintGetter = GetLODForMeshCollision)
 	int32 LODForMeshCollision;
 	//Sections to use to gather complex collision data
-	UPROPERTY(BlueprintReadOnly, EditAnywhere, Category = "Post Processing", Meta = (ExposeOnSpawn = "true"))
+	UPROPERTY(BlueprintReadOnly, EditAnywhere, Category = "Post Processing", Meta = (ExposeOnSpawn = "true", AllowPrivateAccess = "true"), BlueprintGetter = GetSectionsForMeshCollision)
 	TSet<int32> SectionsForMeshCollision;
 	//Collision settings
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Post Processing", Meta = (ExposeOnSpawn = "true"), BlueprintSetter = SetCollisionSettings)
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Post Processing", Meta = (ExposeOnSpawn = "true", AllowPrivateAccess = "true"), BlueprintSetter = SetCollisionSettings, BlueprintGetter = GetCollisionSettings)
 	FRuntimeMeshCollisionSettings CollisionSettings;
 	//Collision mesh to add before section-gathered complex collision. Independant from bWantsCollision
-	UPROPERTY(BlueprintReadWrite, Category = "Post Processing", Meta = (ExposeOnSpawn = "true"), BlueprintSetter = SetCollisionMesh)
+	UPROPERTY(BlueprintReadWrite, Category = "Post Processing", Meta = (ExposeOnSpawn = "true", AllowPrivateAccess = "true"), BlueprintSetter = SetCollisionMesh, BlueprintGetter = GetCollisionMesh)
 	FRuntimeMeshCollisionData CollisionMesh;
 
 	URuntimeMeshProviderStatic* StaticProvider;
 	URuntimeMeshProviderNormals* NormalsProvider;
+
+public:
 
 	URuntimeMeshComponentStatic(const FObjectInitializer& ObjectInitializer);
 
@@ -210,6 +217,9 @@ public:
 	void SetRenderableSectionAffectsCollision(int32 SectionId, bool bCollisionEnabled);
 
 private:
+	URuntimeMeshProviderStatic* GetStaticProvider();
+
+	URuntimeMeshProviderNormals* GetNormalsProvider();
 	void GetOrCreateNormalsProvider();
 
 	//Only to be called when the reference to the Normals provider is valid, in order to remove it if it computes nothing
@@ -224,4 +234,19 @@ public:
 	//Avoid calling at runtime, as this will re-run initialization. Prefer using defaults
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshStatic|Normals", Meta = (DisplayName = "Set Wants Tangents"))
 	void SetbWantsTangents(bool InbWantsTangents, bool bDeleteNormalsProviderIfUseless = false);
+
+	//Getters for BP
+
+	UFUNCTION(BlueprintPure, Category = "RuntimeMeshStatic|Normals", Meta = (DisplayName = "Set Wants Normals"))
+	bool GetbWantsNormals();
+	UFUNCTION(BlueprintPure, Category = "RuntimeMeshStatic|Normals", Meta = (DisplayName = "Set Wants Tangents"))
+	bool GetbWantsTangents();
+	UFUNCTION(BlueprintPure, Category = "RuntimeMeshStatic|Collision")
+	int32 GetLODForMeshCollision();
+	UFUNCTION(BlueprintPure, Category = "RuntimeMeshStatic|Collision")
+	TSet<int32> GetSectionsForMeshCollision();
+	UFUNCTION(BlueprintPure, Category = "RuntimeMeshStatic|Collision")
+	FRuntimeMeshCollisionSettings GetCollisionSettings();
+	UFUNCTION(BlueprintPure, Category = "RuntimeMeshStatic|Collision")
+	FRuntimeMeshCollisionData GetCollisionMesh();
 };

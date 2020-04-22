@@ -254,14 +254,21 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static")
 	void ClearSection(int32 LODIndex, int32 SectionId);
 
+	UFUNCTION(BlueprintPure, Category = "RuntimeMesh|Providers|Static")
+	FRuntimeMeshCollisionSettings GetCollisionSettingsStored() { return CollisionSettings; }
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static")
 	void SetCollisionSettings(const FRuntimeMeshCollisionSettings& NewCollisionSettings);
 
+	FRuntimeMeshCollisionData GetCollisionMeshWithoutVisible() { return CollisionMesh.Get(FRuntimeMeshCollisionData()); }
 	void SetCollisionMesh(const FRuntimeMeshCollisionData& NewCollisionMesh);
 
+	UFUNCTION(BlueprintPure, Category = "RuntimeMesh|Providers|Static")
+	int32 GetRenderableLODForCollision() { return LODForMeshCollision; }
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static")
 	void SetRenderableLODForCollision(int32 LODIndex);
 
+	UFUNCTION(BlueprintPure, Category = "RuntimeMesh|Providers|Static")
+	TSet<int32> GetRenderableSectionAffectingCollision() { return SectionsForMeshCollision; }
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static")
 	void SetRenderableSectionAffectsCollision(int32 SectionId, bool bCollisionEnabled);
 
