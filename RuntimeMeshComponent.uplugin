@@ -1,7 +1,7 @@
 {
   "FileVersion": 3,
-  "Version": 40,
-  "VersionName": "4.0",
+  "Version": 41,
+  "VersionName": "4.1",
   "FriendlyName": "Runtime Mesh Component",
   "Description": "A component allowing for rendering and interacting with runtime generated geometry.",
   "Category": "Rendering",
