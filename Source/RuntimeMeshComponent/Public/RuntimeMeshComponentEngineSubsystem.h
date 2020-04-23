@@ -9,7 +9,7 @@
 #include "HAL/RunnableThread.h"
 #include "HAL/ThreadSafeBool.h"
 #include "Tickable.h"
-#include "RuntimeMeshGCSharedPointer.h"
+#include "RuntimeMeshReference.h"
 #include "RuntimeMeshComponentEngineSubsystem.generated.h"
 
 class URuntimeMeshComponentSettings;

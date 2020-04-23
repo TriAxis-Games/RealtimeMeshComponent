@@ -6,7 +6,7 @@
 #include "RuntimeMeshCore.h"
 #include "RuntimeMeshCollision.h"
 #include "RuntimeMeshProvider.h"
-#include "RuntimeMeshGCSharedPointer.h"
+#include "RuntimeMeshReference.h"
 #include "RuntimeMesh.generated.h"
 
 class URuntimeMesh;

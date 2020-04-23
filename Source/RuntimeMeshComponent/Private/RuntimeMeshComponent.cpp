@@ -105,7 +105,8 @@ FBoxSphereBounds URuntimeMeshComponent::CalcBounds(const FTransform& LocalToWorl
 {
 	if (GetRuntimeMesh())
 	{
-		return GetRuntimeMesh()->GetLocalBounds().TransformBy(LocalToWorld);
+		FBoxSphereBounds TempBounds = GetRuntimeMesh()->GetLocalBounds();
+		return TempBounds.TransformBy(LocalToWorld);
 	}
 
 	return FBoxSphereBounds(FSphere(FVector::ZeroVector, 1));

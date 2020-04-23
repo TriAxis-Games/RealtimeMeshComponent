@@ -38,6 +38,11 @@ void FRuntimeMeshVertexBuffer::InitRHI()
 /* Set the size of the vertex buffer */
 void FRuntimeMeshVertexBuffer::SetData(int32 NewVertexCount, const uint8* InData)
 {
+	bool bRenderingThread = IsInRenderingThread();
+	bool bParallelRenderingThread = IsInParallelRenderingThread();
+	UE_LOG(RuntimeMeshLog, Warning, TEXT("Update is in render thread: %d parellel thread: %d"), bRenderingThread, bParallelRenderingThread);
+
+
 	// Don't reallocate the buffer if it's already the right size
 	if (NewVertexCount != NumVertices)
 	{

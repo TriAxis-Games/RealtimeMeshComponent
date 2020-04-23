@@ -66,10 +66,11 @@ public:
 					OldRefs.RemoveAtSwap(Index);
 				}
 			}
+
+			SharedRef = MakeShared<FReferencer, ESPMode::ThreadSafe>();
+			WeakRef = SharedRef;
 		}
 
-		SharedRef = MakeShared<FReferencer, ESPMode::ThreadSafe>();
-		WeakRef = SharedRef;
 	}
 
 	FRuntimeMeshObjectSharedRef<ObjectType> GetReference(bool bEvenIfMarked = false)

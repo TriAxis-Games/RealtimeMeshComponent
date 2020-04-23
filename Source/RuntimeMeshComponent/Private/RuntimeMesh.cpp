@@ -7,7 +7,6 @@
 #include "IPhysXCookingModule.h"
 #include "RuntimeMeshComponent.h"
 #include "RuntimeMeshProxy.h"
-#include "RuntimeMeshData.h"
 #include "Providers/RuntimeMeshProviderStatic.h"
 #include "RuntimeMeshComponentEngineSubsystem.h"
 #include "AsyncWork.h"
@@ -77,7 +76,10 @@ void URuntimeMesh::Reset()
 
 	if (MeshProvider)
 	{
-		MeshProvider->Unlink();
+		if (!MeshProvider->IsUnreachable())
+		{
+			MeshProvider->Unlink();
+		}
 		MeshProvider = nullptr;
 	}
 
@@ -388,12 +390,7 @@ void URuntimeMesh::BeginDestroy()
 
 bool URuntimeMesh::IsReadyForFinishDestroy()
 {
-	bool bResult = Super::IsReadyForFinishDestroy() && ReferenceAnchor.IsFree();
-	if (bResult)
-	{
-		check(true);
-	}
-	return bResult;
+	return Super::IsReadyForFinishDestroy() && ReferenceAnchor.IsFree();
 }
 
 void URuntimeMesh::PostLoad()

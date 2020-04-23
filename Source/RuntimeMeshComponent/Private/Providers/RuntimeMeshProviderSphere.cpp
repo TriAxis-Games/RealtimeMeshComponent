@@ -16,6 +16,7 @@ URuntimeMeshProviderSphere::URuntimeMeshProviderSphere()
 	, SphereMaterial(nullptr)
 {
 	MaxLOD = GetMaxNumberOfLODs() - 1;
+	LocalBounds = FBoxSphereBounds(FSphere(FVector::ZeroVector, SphereRadius));
 }
 
 float URuntimeMeshProviderSphere::GetSphereRadius() const

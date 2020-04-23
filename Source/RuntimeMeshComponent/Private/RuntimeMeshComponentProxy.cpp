@@ -75,12 +75,8 @@ FRuntimeMeshComponentSceneProxy::FRuntimeMeshComponentSceneProxy(URuntimeMeshCom
 
 	bStaticElementsAlwaysUseProxyPrimitiveUniformBuffer = true;
 
-#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 22
 	// We always use local vertex factory, which gets its primitive data from GPUScene, so we can skip expensive primitive uniform buffer updates
 	bVFRequiresPrimitiveUniformBuffer = !UseGPUScene(GMaxRHIShaderPlatform, RuntimeMeshProxy->GetFeatureLevel());
-#else
-	bStaticElementsAlwaysUseProxyPrimitiveUniformBuffer = true;
-#endif
 }
 
 FRuntimeMeshComponentSceneProxy::~FRuntimeMeshComponentSceneProxy()
@@ -111,10 +107,8 @@ FPrimitiveViewRelevance FRuntimeMeshComponentSceneProxy::GetViewRelevance(const 
 	Result.bUsesLightingChannels = GetLightingChannelMask() != GetDefaultLightingChannelMask();
 	Result.bRenderCustomDepth = ShouldRenderCustomDepth();
 	MaterialRelevance.SetPrimitiveViewRelevance(Result);
-#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 22
 	Result.bTranslucentSelfShadow = bCastVolumetricTranslucentShadow;
 	Result.bVelocityRelevance = IsMovable() && Result.bOpaqueRelevance && Result.bRenderInMainPass;
-#endif
 	return Result;
 }
 
@@ -143,10 +137,6 @@ void FRuntimeMeshComponentSceneProxy::CreateMeshBatch(FMeshBatch& MeshBatch, con
 
 	FMeshBatchElement& BatchElement = MeshBatch.Elements[0];
 
-#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION <= 21
-	BatchElement.PrimitiveUniformBufferResource = &GetUniformBuffer();
-#endif
-
 	BatchElement.MaxScreenSize = RuntimeMeshProxy->GetScreenSize(LODIndex);
 	BatchElement.MinScreenSize = RuntimeMeshProxy->GetScreenSize(LODIndex + 1);
 
@@ -174,18 +164,11 @@ void FRuntimeMeshComponentSceneProxy::DrawStaticElements(FStaticPrimitiveDrawInt
 
 				if (RenderData != nullptr && Section->ShouldRender() && Section->WantsToRenderInStaticPath())
 				{
-#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 22
 					FMaterialRenderProxy* Material = RenderData->Material->GetRenderProxy();
-#else
-					FMaterialRenderProxy* Material = RenderData->Material->GetRenderProxy(false);
-#endif
 
 					FMeshBatch MeshBatch;
 					MeshBatch.LODIndex = LODIndex;
-
-#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 22
 					MeshBatch.SegmentIndex = SectionEntry.Key;
-#endif
 
 					CreateMeshBatch(MeshBatch, *Section, LODIndex, *RenderData, Material, nullptr);
 					PDI->DrawMesh(MeshBatch, RuntimeMeshProxy->GetScreenSize(LODIndex));
@@ -208,11 +191,7 @@ void FRuntimeMeshComponentSceneProxy::GetDynamicMeshElements(const TArray<const 
 	FColoredMaterialRenderProxy* WireframeMaterialInstance = nullptr;
 	if (bWireframe)
 	{
-#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 22
 		WireframeMaterialInstance = new FColoredMaterialRenderProxy(GEngine->WireframeMaterial ? GEngine->WireframeMaterial->GetRenderProxy() : nullptr, FLinearColor(0, 0.5f, 1.f));
-#else
-		WireframeMaterialInstance = new FColoredMaterialRenderProxy(GEngine->WireframeMaterial ? GEngine->WireframeMaterial->GetRenderProxy(IsSelected()) : nullptr, FLinearColor(0, 0.5f, 1.f));
-#endif
 
 		Collector.RegisterOneFrameMaterialProxy(WireframeMaterialInstance);
 	}
@@ -245,11 +224,7 @@ void FRuntimeMeshComponentSceneProxy::GetDynamicMeshElements(const TArray<const 
 
 							if (bForceDynamicPath || !Section->WantsToRenderInStaticPath())
 							{
-#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 22
 								FMaterialRenderProxy* Material = RenderData->Material->GetRenderProxy();
-#else
-								FMaterialRenderProxy* Material = RenderData->Material->GetRenderProxy(IsSelected());
-#endif
 
 								FMeshBatch& MeshBatch = Collector.AllocateMesh();
 								CreateMeshBatch(MeshBatch, *Section, LODIndex, *RenderData, Material, WireframeMaterialInstance);

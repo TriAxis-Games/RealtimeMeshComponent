@@ -3,7 +3,6 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "RuntimeMeshData.h"
 #include "RuntimeMeshSectionProxy.h"
 
 class UBodySetup;

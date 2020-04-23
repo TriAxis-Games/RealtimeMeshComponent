@@ -6,7 +6,7 @@
 #include "UObject/Interface.h"
 #include "RuntimeMeshRenderable.h"
 #include "RuntimeMeshCollision.h"
-#include "RuntimeMeshGCSharedPointer.h"
+#include "RuntimeMeshReference.h"
 #include "RuntimeMeshProviderTargetInterface.generated.h"
 
 class URuntimeMesh;

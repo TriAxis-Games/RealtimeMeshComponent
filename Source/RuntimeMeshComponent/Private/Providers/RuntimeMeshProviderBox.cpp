@@ -50,6 +50,8 @@ void URuntimeMeshProviderBox::Initialize_Implementation()
 	Properties.UpdateFrequency = ERuntimeMeshUpdateFrequency::Infrequent;
 	CreateSection(0, 0, Properties);
 
+	LocalBounds = FBoxSphereBounds(FBox(-BoxRadius, BoxRadius));
+
 	MarkCollisionDirty();
 }
 

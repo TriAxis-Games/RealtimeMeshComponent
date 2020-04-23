@@ -3,9 +3,8 @@
 #pragma once
 
 #include "CoreMinimal.h"
-//#include "RuntimeMeshProviderSourceInterface.h"
 #include "RuntimeMeshProviderTargetInterface.h"
-#include "RuntimeMeshGCSharedPointer.h"
+#include "RuntimeMeshReference.h"
 #include "RuntimeMeshProvider.generated.h"
 
 USTRUCT(BlueprintType)
