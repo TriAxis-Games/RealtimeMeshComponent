@@ -374,7 +374,11 @@ TArray<FRuntimeMeshMaterialSlot> URuntimeMesh::GetMaterialSlots_Implementation()
 UMaterialInterface* URuntimeMesh::GetMaterial_Implementation(int32 SlotIndex)
 {
 	FScopeLock Lock(&SyncRoot);
-	return MaterialSlots[SlotIndex].Material;
+	if (MaterialSlots.IsValidIndex(SlotIndex))
+	{
+		return MaterialSlots[SlotIndex].Material;
+	}
+	return nullptr;
 }
 
 

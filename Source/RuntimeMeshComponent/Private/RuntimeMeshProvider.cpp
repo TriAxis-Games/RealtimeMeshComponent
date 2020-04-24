@@ -285,7 +285,7 @@ void URuntimeMeshProvider::BeginDestroy()
 
 bool URuntimeMeshProvider::IsReadyForFinishDestroy()
 {
-	return Super::IsReadyForFinishDestroy() && ReferenceAnchor.IsFree();
+	return (Super::IsReadyForFinishDestroy() && ReferenceAnchor.IsFree()) || (GIsEditor && GIsReconstructingBlueprintInstances);
 }
 
 
@@ -293,3 +293,127 @@ bool URuntimeMeshProvider::IsReadyForFinishDestroy()
 
 
 
+void URuntimeMeshProviderPassthrough::BindTargetProvider_Implementation(const TScriptInterface<IRuntimeMeshProviderTargetInterface>& InTarget)
+{
+	URuntimeMeshProvider::BindTargetProvider_Implementation(InTarget);
+
+	if (ChildProvider)
+	{
+		ChildProvider->BindTargetProvider(this);
+	}
+}
+
+void URuntimeMeshProviderPassthrough::Unlink_Implementation()
+{
+	URuntimeMeshProvider::Unlink_Implementation();
+	if (ChildProvider)
+	{
+		ChildProvider->Unlink();
+	}
+}
+
+URuntimeMeshProviderPassthrough::URuntimeMeshProviderPassthrough()
+	: ChildProvider(nullptr)
+{
+}
+
+URuntimeMeshProvider* URuntimeMeshProviderPassthrough::GetChildProvider() const
+{
+	return ChildProvider;
+}
+
+void URuntimeMeshProviderPassthrough::SetChildProvider(URuntimeMeshProvider* InProvider)
+{
+	if (!HasBeenBound())
+	{
+		ChildProvider = InProvider;
+	}
+}
+
+void URuntimeMeshProviderPassthrough::Initialize_Implementation()
+{
+	URuntimeMeshProvider* ChildProviderTemp = GetChildProvider();
+	if (ChildProviderTemp)
+	{
+		ChildProviderTemp->Unlink();
+	}
+}
+
+FBoxSphereBounds URuntimeMeshProviderPassthrough::GetBounds_Implementation()
+{
+	URuntimeMeshProvider* ChildProviderTemp = GetChildProvider();
+	if (ChildProviderTemp)
+	{
+		return ChildProviderTemp->GetBounds_Implementation();
+	}
+	return FBoxSphereBounds(FSphere(FVector::ZeroVector, 1.0f));
+}
+
+bool URuntimeMeshProviderPassthrough::GetSectionMeshForLOD_Implementation(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData)
+{
+	URuntimeMeshProvider* ChildProviderTemp = GetChildProvider();
+	if (ChildProviderTemp)
+	{
+		return ChildProviderTemp->GetSectionMeshForLOD_Implementation(LODIndex, SectionId, MeshData);
+	}
+	return false;
+}
+
+bool URuntimeMeshProviderPassthrough::GetAllSectionsMeshForLOD_Implementation(int32 LODIndex, TMap<int32, FRuntimeMeshSectionData>& MeshDatas)
+{
+	URuntimeMeshProvider* ChildProviderTemp = GetChildProvider();
+	if (ChildProviderTemp)
+	{
+		return ChildProviderTemp->GetAllSectionsMeshForLOD_Implementation(LODIndex, MeshDatas);
+	}
+	return false;
+}
+
+FRuntimeMeshCollisionSettings URuntimeMeshProviderPassthrough::GetCollisionSettings_Implementation()
+{
+	URuntimeMeshProvider* ChildProviderTemp = GetChildProvider();
+	if (ChildProviderTemp)
+	{
+		return ChildProviderTemp->GetCollisionSettings_Implementation();
+	}
+	return FRuntimeMeshCollisionSettings();
+}
+
+bool URuntimeMeshProviderPassthrough::HasCollisionMesh_Implementation()
+{
+	URuntimeMeshProvider* ChildProviderTemp = GetChildProvider();
+	if (ChildProviderTemp)
+	{
+		return ChildProviderTemp->HasCollisionMesh_Implementation();
+	}
+	return false;
+}
+
+bool URuntimeMeshProviderPassthrough::GetCollisionMesh_Implementation(FRuntimeMeshCollisionData& CollisionData)
+{
+	URuntimeMeshProvider* ChildProviderTemp = GetChildProvider();
+	if (ChildProviderTemp)
+	{
+		return ChildProviderTemp->GetCollisionMesh_Implementation(CollisionData);
+	}
+	return false;
+}
+
+void URuntimeMeshProviderPassthrough::CollisionUpdateCompleted_Implementation()
+{
+	URuntimeMeshProvider* ChildProviderTemp = GetChildProvider();
+	if (ChildProviderTemp)
+	{
+		ChildProviderTemp->CollisionUpdateCompleted_Implementation();
+	}
+}
+
+bool URuntimeMeshProviderPassthrough::IsThreadSafe_Implementation()
+{
+	URuntimeMeshProvider* ChildProviderTemp = GetChildProvider();
+	if (ChildProviderTemp)
+	{
+		return ChildProviderTemp->IsThreadSafe_Implementation();
+	}
+	return false;
+}

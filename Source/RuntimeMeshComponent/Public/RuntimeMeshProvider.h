@@ -162,3 +162,36 @@ protected:
     friend class URuntimeMesh;
 };
 
+UCLASS(HideCategories = Object, BlueprintType, Blueprintable, Meta = (ShortTooltip = "A RuntimeMeshProviderPassthrough is a class containing logic to modify the mesh data from a linked provider before passing it onto the RuntimeMeshComponent."))
+class RUNTIMEMESHCOMPONENT_API URuntimeMeshProviderPassthrough
+    : public URuntimeMeshProvider
+{
+    GENERATED_BODY()
+private:
+    UPROPERTY(VisibleAnywhere, BlueprintGetter = GetChildProvider, BlueprintSetter = SetChildProvider)
+    URuntimeMeshProvider* ChildProvider;
+public:
+
+    void BindTargetProvider_Implementation(const TScriptInterface<IRuntimeMeshProviderTargetInterface>& InTarget);
+    void Unlink_Implementation();
+
+public:
+    URuntimeMeshProviderPassthrough();
+
+    UFUNCTION(BlueprintCallable)
+	URuntimeMeshProvider* GetChildProvider() const;
+
+	UFUNCTION(BlueprintCallable)
+    void SetChildProvider(URuntimeMeshProvider* InProvider);
+
+    void Initialize_Implementation();
+    FBoxSphereBounds GetBounds_Implementation();
+    bool GetSectionMeshForLOD_Implementation(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData);
+    bool GetAllSectionsMeshForLOD_Implementation(int32 LODIndex, TMap<int32, FRuntimeMeshSectionData>& MeshDatas);
+    FRuntimeMeshCollisionSettings GetCollisionSettings_Implementation();
+    bool HasCollisionMesh_Implementation();
+    bool GetCollisionMesh_Implementation(FRuntimeMeshCollisionData& CollisionData);
+    void CollisionUpdateCompleted_Implementation();
+    bool IsThreadSafe_Implementation();
+
+};

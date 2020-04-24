@@ -13,7 +13,8 @@ class RUNTIMEMESHCOMPONENT_API URuntimeMeshProviderSphere : public URuntimeMeshP
 
 private:
 	mutable FCriticalSection PropertySyncRoot;
-	FBoxSphereBounds LocalBounds;
+
+	UPROPERTY()
 	int32 MaxLOD;
 
 	UPROPERTY(Category = "RuntimeMesh|Providers|Sphere", VisibleAnywhere, BlueprintGetter=GetSphereRadius, BlueprintSetter=SetSphereRadius)
@@ -21,14 +22,16 @@ private:
 
 	UPROPERTY(Category = "RuntimeMesh|Providers|Sphere", VisibleAnywhere, BlueprintGetter=GetMaxLatitudeSegments, BlueprintSetter=SetMaxLatitudeSegments)
 	int32 MaxLatitudeSegments;
+	
 	UPROPERTY(Category = "RuntimeMesh|Providers|Sphere", VisibleAnywhere, BlueprintGetter=GetMinLatitudeSegments, BlueprintSetter=SetMinLatitudeSegments)
 	int32 MinLatitudeSegments;
+	
 	UPROPERTY(Category = "RuntimeMesh|Providers|Sphere", VisibleAnywhere, BlueprintGetter=GetMaxLongitudeSegments, BlueprintSetter=SetMaxLongitudeSegments)
 	int32 MaxLongitudeSegments;
+	
 	UPROPERTY(Category = "RuntimeMesh|Providers|Sphere", VisibleAnywhere, BlueprintGetter=GetMinLongitudeSegments, BlueprintSetter=SetMinLongitudeSegments)
 	int32 MinLongitudeSegments;
-
-
+	
 	UPROPERTY(Category = "RuntimeMesh|Providers|Sphere", VisibleAnywhere, BlueprintGetter=GetLODMultiplier, BlueprintSetter=SetLODMultiplier)
 	float LODMultiplier;
 
@@ -39,50 +42,47 @@ public:
 
 	URuntimeMeshProviderSphere();
 
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(Category = "RuntimeMesh|Providers|Sphere", BlueprintCallable)
 	float GetSphereRadius() const;
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(Category = "RuntimeMesh|Providers|Sphere", BlueprintCallable)
 	void SetSphereRadius(float InSphereRadius);
 
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(Category = "RuntimeMesh|Providers|Sphere", BlueprintCallable)
 	int32 GetMaxLatitudeSegments() const;
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(Category = "RuntimeMesh|Providers|Sphere", BlueprintCallable)
 	void SetMaxLatitudeSegments(int32 InMaxLatitudeSegments);
 
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(Category = "RuntimeMesh|Providers|Sphere", BlueprintCallable)
 	int32 GetMinLatitudeSegments() const;
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(Category = "RuntimeMesh|Providers|Sphere", BlueprintCallable)
 	void SetMinLatitudeSegments(int32 InMinLatitudeSegments);
 
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(Category = "RuntimeMesh|Providers|Sphere", BlueprintCallable)
 	int32 GetMaxLongitudeSegments() const;
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(Category = "RuntimeMesh|Providers|Sphere", BlueprintCallable)
 	void SetMaxLongitudeSegments(int32 InMaxLongitudeSegments);
 
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(Category = "RuntimeMesh|Providers|Sphere", BlueprintCallable)
 	int32 GetMinLongitudeSegments() const;
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(Category = "RuntimeMesh|Providers|Sphere", BlueprintCallable)
 	void SetMinLongitudeSegments(int32 InMinLongitudeSegments);
 
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(Category = "RuntimeMesh|Providers|Sphere", BlueprintCallable)
 	float GetLODMultiplier() const;
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(Category = "RuntimeMesh|Providers|Sphere", BlueprintCallable)
 	void SetLODMultiplier(float InLODMultiplier);
 
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(Category = "RuntimeMesh|Providers|Sphere", BlueprintCallable)
 	UMaterialInterface* GetSphereMaterial() const;
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(Category = "RuntimeMesh|Providers|Sphere", BlueprintCallable)
 	void SetSphereMaterial(UMaterialInterface* InSphereMaterial);
 
 
 
 protected:
 	virtual void Initialize_Implementation() override;
-
 	virtual bool GetSectionMeshForLOD_Implementation(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData) override;
-
 	virtual FRuntimeMeshCollisionSettings GetCollisionSettings_Implementation() override;
-
 	virtual FBoxSphereBounds GetBounds_Implementation() override;
 	virtual bool IsThreadSafe_Implementation() override;
 

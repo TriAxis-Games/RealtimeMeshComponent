@@ -12,7 +12,6 @@ class RUNTIMEMESHCOMPONENT_API URuntimeMeshProviderBox : public URuntimeMeshProv
 	GENERATED_BODY()
 private:
 	mutable FCriticalSection PropertySyncRoot;
-	FBoxSphereBounds LocalBounds;
 
 	UPROPERTY(Category = "RuntimeMesh|Providers|Box", VisibleAnywhere, BlueprintGetter=GetBoxRadius, BlueprintSetter=SetBoxRadius)
 	FVector BoxRadius;
@@ -20,14 +19,14 @@ private:
 	UPROPERTY(Category = "RuntimeMesh|Providers|Box", VisibleAnywhere, BlueprintGetter=GetBoxMaterial, BlueprintSetter=SetBoxMaterial)
 	UMaterialInterface* Material;
 public:
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(Category = "RuntimeMesh|Providers|Box", BlueprintCallable)
 	FVector GetBoxRadius() const;
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(Category = "RuntimeMesh|Providers|Box", BlueprintCallable)
 	void SetBoxRadius(const FVector& InRadius);
 
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(Category = "RuntimeMesh|Providers|Box", BlueprintCallable)
 	UMaterialInterface* GetBoxMaterial() const;
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(Category = "RuntimeMesh|Providers|Box", BlueprintCallable)
 	void SetBoxMaterial(UMaterialInterface* InMaterial);
 
 

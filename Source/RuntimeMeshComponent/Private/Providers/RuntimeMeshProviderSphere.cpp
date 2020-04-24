@@ -16,7 +16,6 @@ URuntimeMeshProviderSphere::URuntimeMeshProviderSphere()
 	, SphereMaterial(nullptr)
 {
 	MaxLOD = GetMaxNumberOfLODs() - 1;
-	LocalBounds = FBoxSphereBounds(FSphere(FVector::ZeroVector, SphereRadius));
 }
 
 float URuntimeMeshProviderSphere::GetSphereRadius() const
@@ -170,7 +169,7 @@ FRuntimeMeshCollisionSettings URuntimeMeshProviderSphere::GetCollisionSettings_I
 
 FBoxSphereBounds URuntimeMeshProviderSphere::GetBounds_Implementation()
 {
-	return LocalBounds;
+	return FBoxSphereBounds(FSphere(FVector::ZeroVector, SphereRadius));
 }
 
 bool URuntimeMeshProviderSphere::IsThreadSafe_Implementation()
@@ -271,7 +270,7 @@ bool URuntimeMeshProviderSphere::GetSphereMesh(int32 SphereRadius, int32 Latitud
 void URuntimeMeshProviderSphere::UpdateMeshParameters(bool bAffectsCollision)
 {
 	MaxLOD = GetMaxNumberOfLODs() - 1;
-	LocalBounds = FBoxSphereBounds(FSphere(FVector::ZeroVector, SphereRadius));
+
 	MarkAllLODsDirty();
 	if (bAffectsCollision)
 	{

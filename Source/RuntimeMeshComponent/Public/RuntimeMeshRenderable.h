@@ -891,7 +891,6 @@ public:
 
 	bool HasValidMeshData(bool bPrintErrorMessage = false) const;
 
-
 	friend FArchive& operator<<(FArchive& Ar, FRuntimeMeshRenderableMeshData& MeshData)
 	{
 		MeshData.Positions.Serialize(Ar);
@@ -906,3 +905,176 @@ public:
 	}
 };
 
+
+#if WITH_EDITOR
+
+namespace __RuntimeMeshNatVisRenderableTypes
+{
+	//
+	//	These types are here specifically for .natvis as they align 
+	//	with the structure of the data used within the stream types.
+	//
+
+	struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshTriangleIndicesHighPrecision
+	{
+		int32 Index0;
+		int32 Index1;
+		int32 Index2;
+	};
+	struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshTriangleIndicesLowPrecision
+	{
+		uint16 Index0;
+		uint16 Index1;
+		uint16 Index2;
+	};
+
+	struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshTangentHighPrecision
+	{
+		FPackedRGBA16N Tangent;
+		FPackedRGBA16N Normal;
+	};
+	struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshTangentLowPrecision
+	{
+		FPackedNormal Tangent;
+		FPackedNormal Normal;
+	};
+
+	struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshTexCoordLowPrecision1
+	{
+		FVector2DHalf UV0;
+	};
+
+	struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshTexCoordLowPrecision2
+	{
+		FVector2DHalf UV0;
+		FVector2DHalf UV1;
+	};
+
+	struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshTexCoordLowPrecision3
+	{
+		FVector2DHalf UV0;
+		FVector2DHalf UV1;
+		FVector2DHalf UV2;
+	};
+
+	struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshTexCoordLowPrecision4
+	{
+		FVector2DHalf UV0;
+		FVector2DHalf UV1;
+		FVector2DHalf UV2;
+		FVector2DHalf UV3;
+	};
+
+	struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshTexCoordLowPrecision5
+	{
+		FVector2DHalf UV0;
+		FVector2DHalf UV1;
+		FVector2DHalf UV2;
+		FVector2DHalf UV3;
+		FVector2DHalf UV4;
+	};
+
+	struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshTexCoordLowPrecision6
+	{
+		FVector2DHalf UV0;
+		FVector2DHalf UV1;
+		FVector2DHalf UV2;
+		FVector2DHalf UV3;
+		FVector2DHalf UV4;
+		FVector2DHalf UV5;
+	};
+
+	struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshTexCoordLowPrecision7
+	{
+		FVector2DHalf UV0;
+		FVector2DHalf UV1;
+		FVector2DHalf UV2;
+		FVector2DHalf UV3;
+		FVector2DHalf UV4;
+		FVector2DHalf UV5;
+		FVector2DHalf UV6;
+	};
+
+	struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshTexCoordLowPrecision8
+	{
+		FVector2DHalf UV0;
+		FVector2DHalf UV1;
+		FVector2DHalf UV2;
+		FVector2DHalf UV3;
+		FVector2DHalf UV4;
+		FVector2DHalf UV5;
+		FVector2DHalf UV6;
+		FVector2DHalf UV7;
+	};
+
+	struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshTexCoordHighPrecision1
+	{
+		FVector2D UV0;
+	};
+
+	struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshTexCoordHighPrecision2
+	{
+		FVector2D UV0;
+		FVector2D UV1;
+	};
+
+	struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshTexCoordHighPrecision3
+	{
+		FVector2D UV0;
+		FVector2D UV1;
+		FVector2D UV2;
+	};
+
+	struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshTexCoordHighPrecision4
+	{
+		FVector2D UV0;
+		FVector2D UV1;
+		FVector2D UV2;
+		FVector2D UV3;
+	};
+
+	struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshTexCoordHighPrecision5
+	{
+		FVector2D UV0;
+		FVector2D UV1;
+		FVector2D UV2;
+		FVector2D UV3;
+		FVector2D UV4;
+	};
+
+	struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshTexCoordHighPrecision6
+	{
+		FVector2D UV0;
+		FVector2D UV1;
+		FVector2D UV2;
+		FVector2D UV3;
+		FVector2D UV4;
+		FVector2D UV5;
+	};
+
+	struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshTexCoordHighPrecision7
+	{
+		FVector2D UV0;
+		FVector2D UV1;
+		FVector2D UV2;
+		FVector2D UV3;
+		FVector2D UV4;
+		FVector2D UV5;
+		FVector2D UV6;
+	};
+
+	struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshTexCoordHighPrecision8
+	{
+		FVector2D UV0;
+		FVector2D UV1;
+		FVector2D UV2;
+		FVector2D UV3;
+		FVector2D UV4;
+		FVector2D UV5;
+		FVector2D UV6;
+		FVector2D UV7;
+	};
+
+}
+
+#endif

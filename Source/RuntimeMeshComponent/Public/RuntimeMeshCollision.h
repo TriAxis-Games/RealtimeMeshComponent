@@ -229,7 +229,7 @@ private:
 public:
 	FRuntimeMeshCollisionVertexStream() { }
 
-	void SetNum(int32 NewNum, bool bAllowShrinking)
+	void SetNum(int32 NewNum, bool bAllowShrinking = true)
 	{
 		Data.SetNum(NewNum, bAllowShrinking);
 	}
@@ -306,7 +306,7 @@ public:
 
 	}
 
-	void SetNum(int32 NewNum, bool bAllowShrinking)
+	void SetNum(int32 NewNum, bool bAllowShrinking = true)
 	{
 		Data.SetNum(NewNum, bAllowShrinking);
 	}
@@ -331,9 +331,9 @@ public:
 		return Data.Add(NewTri);
 	}
 
-	FORCEINLINE void GetTriangleIndices(int32 TriangleIndex, int32& OutIndexA, int32& OutIndexB, int32& OutIndexC)
+	FORCEINLINE void GetTriangleIndices(int32 TriangleIndex, int32& OutIndexA, int32& OutIndexB, int32& OutIndexC) const
 	{
-		FTriIndices& Tri = Data[TriangleIndex];
+		const FTriIndices& Tri = Data[TriangleIndex];
 		OutIndexA = Tri.v0;
 		OutIndexB = Tri.v1;
 		OutIndexC = Tri.v2;
@@ -397,7 +397,7 @@ public:
 		Data[ChannelId].SetNum(NewNumCoords, bAllowShrinking);
 	}
 
-	void SetNum(int32 NewNumChannels, int32 NewNumCoords, bool bAllowShrinking)
+	void SetNum(int32 NewNumChannels, int32 NewNumCoords, bool bAllowShrinking = true)
 	{
 		Data.SetNum(NewNumChannels, bAllowShrinking);
 		for (int32 Index = 0; Index < Data.Num(); Index++)
@@ -411,7 +411,7 @@ public:
 		return Data.Num();
 	}
 
-	int32 NumTexCoords(int32 ChannelId)
+	int32 NumTexCoords(int32 ChannelId) const
 	{
 		return Data[ChannelId].Num();
 	}
@@ -434,7 +434,7 @@ public:
 		return Data[ChannelId].Add(NewTexCoord);
 	}
 
-	FORCEINLINE FVector2D GetTexCoord(int32 ChannelId, int32 TexCoordIndex)
+	FORCEINLINE FVector2D GetTexCoord(int32 ChannelId, int32 TexCoordIndex) const
 	{
 		return Data[ChannelId][TexCoordIndex];
 	}
@@ -478,7 +478,7 @@ private:
 public:
 	FRuntimeMeshCollisionMaterialIndexStream() { }
 
-	void SetNum(int32 NewNum, bool bAllowShrinking)
+	void SetNum(int32 NewNum, bool bAllowShrinking = true)
 	{
 		Data.SetNum(NewNum, bAllowShrinking);
 	}
@@ -700,6 +700,12 @@ public:
 
 	}
 
+	bool HasValidMeshData()
+	{
+		return Vertices.Num() >= 3 && Triangles.Num() >= 3;
+	}
+
+
 	friend FArchive& operator <<(FArchive& Ar, FRuntimeMeshCollisionData& Data)
 	{
 		Data.Vertices.Serialize(Ar);
@@ -722,7 +728,7 @@ public:
 USTRUCT()
 struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshAsyncBodySetupData
 {
-	GENERATED_USTRUCT_BODY();
+	GENERATED_USTRUCT_BODY()
 public:
 	UPROPERTY()
 	UBodySetup* BodySetup;
@@ -739,4 +745,22 @@ public:
 		: BodySetup(InBodySetup), CollisionSources(MoveTemp(InCollisionSources))
 	{
 	}
+};
+
+
+USTRUCT(BlueprintType)
+struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshRenderableCollisionData
+{
+	GENERATED_USTRUCT_BODY()
+
+public:
+	FRuntimeMeshRenderableCollisionData() { }
+	FRuntimeMeshRenderableCollisionData(const struct FRuntimeMeshRenderableMeshData& InRenderable);
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Collision|CollisionMesh")
+	FRuntimeMeshCollisionVertexStream Vertices;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Collision|CollisionMesh")
+	FRuntimeMeshCollisionTriangleStream Triangles;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Collision|CollisionMesh")
+	FRuntimeMeshCollisionTexCoordStream TexCoords;
 };

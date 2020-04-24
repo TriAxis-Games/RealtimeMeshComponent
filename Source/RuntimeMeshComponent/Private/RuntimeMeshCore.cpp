@@ -187,4 +187,54 @@ FRuntimeMeshCollisionSettings::FRuntimeMeshCollisionSettings()
 	}
 }
 
+
+
+
+FRuntimeMeshRenderableCollisionData::FRuntimeMeshRenderableCollisionData(const FRuntimeMeshRenderableMeshData& InRenderable)
+{
+	// Copy vertices
+	int32 NumVertices = InRenderable.Positions.Num();
+	Vertices.SetNum(NumVertices);
+	for (int32 Index = 0; Index < NumVertices; Index++)
+	{
+		Vertices.SetPosition(Index, InRenderable.Positions.GetPosition(Index));
+	}
+
+	// Copy UVs
+	int32 NumTexCoords = InRenderable.TexCoords.Num();
+	int32 NumChannels = InRenderable.TexCoords.NumChannels();
+	TexCoords.SetNum(NumChannels, NumTexCoords);
+	for (int32 Index = 0; Index < NumTexCoords; Index++)
+	{
+		for (int32 ChannelId = 0; ChannelId < NumChannels; ChannelId++)
+		{
+			TexCoords.SetTexCoord(ChannelId, Index, InRenderable.TexCoords.GetTexCoord(Index, ChannelId));
+		}
+	}
+
+	// Copy Triangles
+	int32 NumTriangles = InRenderable.Triangles.NumTriangles();
+	for (int32 Index = 0; Index < NumTriangles; Index++)
+	{
+		Triangles.SetTriangleIndices(Index,
+			InRenderable.Triangles.GetVertexIndex(Index * 3 + 0),
+			InRenderable.Triangles.GetVertexIndex(Index * 3 + 1),
+			InRenderable.Triangles.GetVertexIndex(Index * 3 + 2));
+	}
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 #undef LOCTEXT_NAMESPACE

@@ -15,7 +15,6 @@ void URuntimeMeshProviderBox::SetBoxRadius(const FVector& InRadius)
 	FScopeLock Lock(&PropertySyncRoot);
 	BoxRadius = InRadius;
 
-	LocalBounds = FBoxSphereBounds(FBox(-BoxRadius, BoxRadius));
 	MarkAllLODsDirty();
 }
 
@@ -50,14 +49,12 @@ void URuntimeMeshProviderBox::Initialize_Implementation()
 	Properties.UpdateFrequency = ERuntimeMeshUpdateFrequency::Infrequent;
 	CreateSection(0, 0, Properties);
 
-	LocalBounds = FBoxSphereBounds(FBox(-BoxRadius, BoxRadius));
-
 	MarkCollisionDirty();
 }
 
 FBoxSphereBounds URuntimeMeshProviderBox::GetBounds_Implementation()
 {
-	return LocalBounds;
+	return FBoxSphereBounds(FBox(-BoxRadius, BoxRadius));
 }
 
 bool URuntimeMeshProviderBox::GetSectionMeshForLOD_Implementation(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData)
