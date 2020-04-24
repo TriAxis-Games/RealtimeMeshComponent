@@ -1,8 +1,8 @@
 // Copyright 2016-2020 Chris Conway (Koderz). All Rights Reserved.
 
 
-#include "RuntimeMeshModifierAdjacency.h"
-#include "MessageLog.h"
+#include "Modifiers/RuntimeMeshModifierAdjacency.h"
+#include "Logging/MessageLog.h"
 
 const uint32 EdgesPerTriangle = 3;
 const uint32 IndicesPerTriangle = 3;
