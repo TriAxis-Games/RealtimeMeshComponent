@@ -105,7 +105,7 @@ UMaterialInterface* URuntimeMeshProviderSphere::GetSphereMaterial() const
 void URuntimeMeshProviderSphere::SetSphereMaterial(UMaterialInterface* InSphereMaterial)
 {
 	FScopeLock Lock(&PropertySyncRoot);
-	SphereMaterial = SphereMaterial;
+	SphereMaterial = InSphereMaterial;
 	this->SetupMaterialSlot(0, FName("Sphere Base"), SphereMaterial);
 }
 
