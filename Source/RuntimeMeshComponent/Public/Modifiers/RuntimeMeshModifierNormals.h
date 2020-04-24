@@ -10,20 +10,21 @@ UCLASS(HideCategories = Object, BlueprintType, Blueprintable, Meta = (ShortToolt
 class RUNTIMEMESHCOMPONENT_API URuntimeMeshModifierNormals : public URuntimeMeshModifier
 {
 	GENERATED_BODY()
-private:
+public:
+
+	UPROPERTY(Category = "RuntimeMesh|Modifiers|Normals", VisibleAnywhere, BlueprintReadWrite)
 	bool bComputeSmoothNormals;
-	bool bComputeNormals;
-	bool bComputeTangents;
 
 public:
 	URuntimeMeshModifierNormals();
 
 	virtual void ApplyToMesh_Implementation(FRuntimeMeshRenderableMeshData& MeshData) override;
-	virtual void ApplyToCollisionMesh_Implementation(FRuntimeMeshCollisionData& MeshData) override;
+
+	static void CalculateNormalsTangents(FRuntimeMeshRenderableMeshData& MeshData, bool bInComputeSmoothNormals = false);
 
 private:
 
-	TMultiMap<uint32, uint32> FindDuplicateVerticesMap(const FRuntimeMeshVertexPositionStream& PositionStream, float Tollerance = 0.0);
+	static TMultiMap<uint32, uint32> FindDuplicateVerticesMap(const FRuntimeMeshVertexPositionStream& PositionStream, float Tollerance = 0.0);
 
 	struct FRuntimeMeshVertexSortingElement
 	{

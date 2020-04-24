@@ -3,6 +3,18 @@
 
 #include "Providers/RuntimeMeshProviderModifiers.h"
 
+
+
+void URuntimeMeshProviderModifiers::AddModifier(URuntimeMeshModifier* NewModifier)
+{
+	Modifiers.Add(NewModifier);
+}
+
+void URuntimeMeshProviderModifiers::RemoveModifier(URuntimeMeshModifier* ModifierToRemove)
+{
+	Modifiers.Remove(ModifierToRemove);
+}
+
 bool URuntimeMeshProviderModifiers::GetSectionMeshForLOD_Implementation(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData)
 {
 	URuntimeMeshProvider* ChildProviderTemp = GetChildProvider();

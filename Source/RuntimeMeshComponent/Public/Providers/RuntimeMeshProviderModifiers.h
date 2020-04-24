@@ -18,7 +18,10 @@ private:
 
 public:
 
+	UFUNCTION(Category = "RuntimeMesh|Providers|Modifiers", BlueprintCallable)
 	void AddModifier(URuntimeMeshModifier* NewModifier);
+
+	UFUNCTION(Category = "RuntimeMesh|Providers|Modifiers", BlueprintCallable)
 	void RemoveModifier(URuntimeMeshModifier* ModifierToRemove);
 
 

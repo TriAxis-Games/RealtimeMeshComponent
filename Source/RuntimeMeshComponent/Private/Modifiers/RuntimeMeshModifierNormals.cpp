@@ -14,13 +14,18 @@ URuntimeMeshModifierNormals::URuntimeMeshModifierNormals()
 
 void URuntimeMeshModifierNormals::ApplyToMesh_Implementation(FRuntimeMeshRenderableMeshData& MeshData)
 {
+	CalculateNormalsTangents(MeshData, bComputeSmoothNormals);	
+}
+
+void URuntimeMeshModifierNormals::CalculateNormalsTangents(FRuntimeMeshRenderableMeshData& MeshData, bool bInComputeSmoothNormals)
+{
 	int32 NumVertices = MeshData.Positions.Num();
 	int32 NumIndices = MeshData.Triangles.Num();
 	int32 NumUVs = MeshData.TexCoords.Num();
 
 	// Calculate the duplicate vertices map if we're wanting smooth normals.  Don't find duplicates if we don't want smooth normals
 	// that will cause it to only smooth across faces sharing a common vertex, not across faces with vertices of common position
-	const TMultiMap<uint32, uint32> DuplicateVertexMap = /*bCreateSmoothNormals ? FRuntimeMeshInternalUtilities::FindDuplicateVerticesMap(VertexAccessor, NumVertices) :*/ TMultiMap<uint32, uint32>();
+	const TMultiMap<uint32, uint32> DuplicateVertexMap = bInComputeSmoothNormals ? FindDuplicateVerticesMap(MeshData.Positions, NumVertices) : TMultiMap<uint32, uint32>();
 
 
 	// Number of triangles
@@ -199,11 +204,6 @@ void URuntimeMeshModifierNormals::ApplyToMesh_Implementation(FRuntimeMeshRendera
 			MeshData.Tangents.SetTangent(VertxIdx, TangentX);
 		}
 	}
-}
-
-void URuntimeMeshModifierNormals::ApplyToCollisionMesh_Implementation(FRuntimeMeshCollisionData& MeshData)
-{
-
 }
 
 
