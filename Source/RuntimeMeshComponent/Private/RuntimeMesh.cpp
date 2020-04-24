@@ -143,18 +143,6 @@ FRuntimeMeshCollisionHitInfo URuntimeMesh::GetHitSource(int32 FaceIndex) const
 
 
 
-//TArray<FRuntimeMeshLOD, TInlineAllocator<RUNTIMEMESH_MAXLODS>> URuntimeMesh::GetCopyOfConfiguration() const
-//{
-//
-//	if (Data.IsValid())
-//	{
-//		return Data->GetCopyOfConfiguration();
-//	}
-//	return TArray<FRuntimeMeshLOD, TInlineAllocator<RUNTIMEMESH_MAXLODS>>();
-//}
-
-
-
 void URuntimeMesh::ShutdownInternal()
 {
 	Reset();
@@ -175,7 +163,7 @@ void URuntimeMesh::ConfigureLODs_Implementation(const TArray<FRuntimeMeshLODProp
 	if (RenderProxy.IsValid())
 	{
 		RenderProxy->InitializeLODs_GameThread(InLODs);
-		Z_RecreateAllComponentSceneProxies();
+		RecreateAllComponentSceneProxies();
 	}
 }
 
@@ -193,7 +181,7 @@ void URuntimeMesh::MarkLODDirty_Implementation(int32 LODIndex)
 	// Flag for update
 	SectionsToUpdate.FindOrAdd(LODIndex).FindOrAdd(INDEX_NONE) = ESectionUpdateType::Mesh;
 
-	Z_QueueForMeshUpdate();
+	QueueForMeshUpdate();
 }
 
 void URuntimeMesh::MarkAllLODsDirty_Implementation()
@@ -206,7 +194,7 @@ void URuntimeMesh::MarkAllLODsDirty_Implementation()
 		SectionsToUpdate.FindOrAdd(LODIdx).FindOrAdd(INDEX_NONE) = ESectionUpdateType::Mesh;
 	}
 
-	Z_QueueForMeshUpdate();
+	QueueForMeshUpdate();
 }
 
 
@@ -222,7 +210,7 @@ void URuntimeMesh::CreateSection_Implementation(int32 LODIndex, int32 SectionId,
 
 	// Flag for update
 	SectionsToUpdate.FindOrAdd(LODIndex).FindOrAdd(SectionId) = ESectionUpdateType::AllData;
-	Z_QueueForMeshUpdate();
+	QueueForMeshUpdate();
 }
 
 void URuntimeMesh::SetSectionVisibility_Implementation(int32 LODIndex, int32 SectionId, bool bIsVisible)
@@ -239,7 +227,7 @@ void URuntimeMesh::SetSectionVisibility_Implementation(int32 LODIndex, int32 Sec
 		ESectionUpdateType& UpdateType = SectionsToUpdate.FindOrAdd(LODIndex).FindOrAdd(SectionId);
 		UpdateType |= ESectionUpdateType::Properties;
 		UpdateType = (UpdateType & ~ESectionUpdateType::ClearOrRemove);
-		Z_QueueForMeshUpdate();
+		QueueForMeshUpdate();
 	}
 }
 
@@ -257,7 +245,7 @@ void URuntimeMesh::SetSectionCastsShadow_Implementation(int32 LODIndex, int32 Se
 		ESectionUpdateType& UpdateType = SectionsToUpdate.FindOrAdd(LODIndex).FindOrAdd(SectionId);
 		UpdateType |= ESectionUpdateType::Properties;
 		UpdateType = (UpdateType & ~ESectionUpdateType::ClearOrRemove);
-		Z_QueueForMeshUpdate();
+		QueueForMeshUpdate();
 	}
 }
 
@@ -272,7 +260,7 @@ void URuntimeMesh::MarkSectionDirty_Implementation(int32 LODIndex, int32 Section
 	ESectionUpdateType& UpdateType = SectionsToUpdate.FindOrAdd(LODIndex).FindOrAdd(SectionId);
 	UpdateType |= ESectionUpdateType::Mesh;
 	UpdateType = (UpdateType & ~ESectionUpdateType::ClearOrRemove);
-	Z_QueueForMeshUpdate();
+	QueueForMeshUpdate();
 }
 
 void URuntimeMesh::ClearSection_Implementation(int32 LODIndex, int32 SectionId)
@@ -292,14 +280,14 @@ void URuntimeMesh::RemoveSection_Implementation(int32 LODIndex, int32 SectionId)
 	if (RenderProxy.IsValid())
 	{
 		SectionsToUpdate.FindOrAdd(LODIndex).FindOrAdd(SectionId) = ESectionUpdateType::Remove;
-		Z_QueueForMeshUpdate();
-		Z_RecreateAllComponentSceneProxies();
+		QueueForMeshUpdate();
+		RecreateAllComponentSceneProxies();
 	}
 }
 
 void URuntimeMesh::MarkCollisionDirty_Implementation()
 {
-	Z_QueueForCollisionUpdate();
+	QueueForCollisionUpdate();
 }
 
 
@@ -329,7 +317,7 @@ void URuntimeMesh::SetupMaterialSlot_Implementation(int32 MaterialSlot, FName Sl
 		SlotNameLookup.Add(SlotName, MaterialSlots.Num() - 1);
 	}
 
-	Z_RecreateAllComponentSceneProxies();
+	RecreateAllComponentSceneProxies();
 }
 
 int32 URuntimeMesh::GetMaterialIndex_Implementation(FName MaterialSlotName)
@@ -401,8 +389,8 @@ void URuntimeMesh::PostLoad()
 {
 	Super::PostLoad();
 
-	Z_QueueForDelayedInitialize();
-	Z_QueueForCollisionUpdate();
+	QueueForDelayedInitialize();
+	QueueForCollisionUpdate();
 }
 
 
@@ -479,7 +467,7 @@ void URuntimeMesh::InitializeInternal()
 
 
 
-void URuntimeMesh::Z_QueueForDelayedInitialize()
+void URuntimeMesh::QueueForDelayedInitialize()
 {
 	FRuntimeMeshMisc::DoOnGameThread([this]()
 		{
@@ -522,7 +510,7 @@ class FRuntimeMeshUpdateTask : public FNonAbandonableTask
 	}
 };
 
-void URuntimeMesh::Z_QueueForUpdate()
+void URuntimeMesh::QueueForUpdate()
 {
 	FRuntimeMeshMisc::DoOnGameThread([this]()
 		{
@@ -534,7 +522,7 @@ void URuntimeMesh::Z_QueueForUpdate()
 		});
 }
 
-void URuntimeMesh::Z_QueueForMeshUpdate()
+void URuntimeMesh::QueueForMeshUpdate()
 {
 	FRuntimeMeshMisc::DoOnGameThread([this]()
 		{
@@ -555,7 +543,7 @@ void URuntimeMesh::Z_QueueForMeshUpdate()
 		});
 }
 
-void URuntimeMesh::Z_QueueForCollisionUpdate()
+void URuntimeMesh::QueueForCollisionUpdate()
 {
 	FRuntimeMeshMisc::DoOnGameThread([this]()
 		{
@@ -568,7 +556,7 @@ void URuntimeMesh::Z_QueueForCollisionUpdate()
 }
 
 
-void URuntimeMesh::Z_UpdateAllComponentBounds()
+void URuntimeMesh::UpdateAllComponentBounds()
 {
 	FRuntimeMeshMisc::DoOnGameThread([this]()
 		{
@@ -579,7 +567,7 @@ void URuntimeMesh::Z_UpdateAllComponentBounds()
 		});
 }
 
-void URuntimeMesh::Z_RecreateAllComponentSceneProxies()
+void URuntimeMesh::RecreateAllComponentSceneProxies()
 {
 	FRuntimeMeshMisc::DoOnGameThread([this]()
 		{
@@ -682,10 +670,10 @@ void URuntimeMesh::HandleUpdate()
 		}
 	}
 
-	Z_UpdateAllComponentBounds();
+	UpdateAllComponentBounds();
 	if (bRequiresProxyRecreate)
 	{
-		Z_RecreateAllComponentSceneProxies();
+		RecreateAllComponentSceneProxies();
 	}
 }
 

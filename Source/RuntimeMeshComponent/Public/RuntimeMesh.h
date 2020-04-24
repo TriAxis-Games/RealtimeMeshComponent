@@ -192,6 +192,8 @@ public:
 
 	//	End IRuntimeMeshProviderTargetInterface interface
 
+	TArray<FRuntimeMeshLOD, TInlineAllocator<RUNTIMEMESH_MAXLODS>> GetCopyOfConfiguration() const { return LODs; }
+
 public:
 
 	//	Begin UObject interface
@@ -212,13 +214,13 @@ public:
 private:
 	void InitializeInternal();
 
-	void Z_QueueForDelayedInitialize();
-	void Z_QueueForUpdate();
-	void Z_QueueForMeshUpdate();
-	void Z_QueueForCollisionUpdate();
+	void QueueForDelayedInitialize();
+	void QueueForUpdate();
+	void QueueForMeshUpdate();
+	void QueueForCollisionUpdate();
 
-	void Z_UpdateAllComponentBounds();
-	void Z_RecreateAllComponentSceneProxies();
+	void UpdateAllComponentBounds();
+	void RecreateAllComponentSceneProxies();
 
 	void HandleUpdate();
 	void HandleFullLODUpdate(int32 LODId, bool& bRequiresProxyRecreate);
