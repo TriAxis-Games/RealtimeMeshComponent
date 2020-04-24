@@ -1,7 +1,7 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+// Copyright 2016-2020 Chris Conway (Koderz). All Rights Reserved.
 
 
-#include "RuntimeMeshModifierAdacency.h"
+#include "RuntimeMeshModifierAdjacency.h"
 #include "MessageLog.h"
 
 const uint32 EdgesPerTriangle = 3;
@@ -12,6 +12,11 @@ const uint32 DuplicateIndexCount = 3;
 const uint32 PnAenDomCorner_IndicesPerPatch = 12;
 
 DECLARE_CYCLE_STAT(TEXT("RML - Calculate Tessellation Indices"), STAT_RuntimeMeshLibrary_CalculateTessellationIndices, STATGROUP_RuntimeMesh);
+
+URuntimeMeshModifierAdjacency::URuntimeMeshModifierAdjacency()
+{
+
+}
 
 void URuntimeMeshModifierAdjacency::ApplyToMesh_Implementation(FRuntimeMeshRenderableMeshData& MeshData)
 {

@@ -6,8 +6,6 @@
 
 URuntimeMeshModifierNormals::URuntimeMeshModifierNormals()
 	: bComputeSmoothNormals(false)
-	, bComputeNormals(true)
-	, bComputeTangents(true)
 {
 
 }
@@ -193,16 +191,8 @@ void URuntimeMeshModifierNormals::CalculateNormalsTangents(FRuntimeMeshRenderabl
 		TangentX.Normalize();
 		TangentY.Normalize();
 
-
-		//TangentSetter(VertxIdx, TangentX, TangentY, TangentZ);
-		if (bComputeNormals)
-		{
-			MeshData.Tangents.SetNormal(VertxIdx, TangentZ);
-		}
-		if (bComputeTangents)
-		{
-			MeshData.Tangents.SetTangent(VertxIdx, TangentX);
-		}
+		MeshData.Tangents.SetNormal(VertxIdx, TangentZ);
+		MeshData.Tangents.SetTangent(VertxIdx, TangentX);
 	}
 }
 

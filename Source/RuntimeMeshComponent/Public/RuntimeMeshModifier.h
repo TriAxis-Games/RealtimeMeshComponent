@@ -14,9 +14,6 @@ UCLASS(HideCategories = Object, BlueprintType, Blueprintable, Meta = (ShortToolt
 class RUNTIMEMESHCOMPONENT_API URuntimeMeshModifier : public UObject
 {
 	GENERATED_BODY()
-private:
-	FRuntimeMeshReferenceAliasAnchor<URuntimeMeshModifier> ReferenceAnchor;
-
 public:
 	URuntimeMeshModifier();
 

@@ -1,16 +1,16 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+// Copyright 2016-2020 Chris Conway (Koderz). All Rights Reserved.
 
 #pragma once
 
 #include "CoreMinimal.h"
 #include "RuntimeMeshModifier.h"
-#include "RuntimeMeshModifierAdacency.generated.h"
+#include "RuntimeMeshModifierAdjacency.generated.h"
 
 /**
  * 
  */
 UCLASS()
-class RUNTIMEMESHSANDBOX_API URuntimeMeshModifierAdjacency : public URuntimeMeshModifier
+class RUNTIMEMESHCOMPONENT_API URuntimeMeshModifierAdjacency : public URuntimeMeshModifier
 {
 	GENERATED_BODY()
 	
@@ -156,7 +156,7 @@ private:
 		{ }
 	};
 
-	class Triangle
+	struct Triangle
 	{
 		Edge Edge0;
 		Edge Edge1;
