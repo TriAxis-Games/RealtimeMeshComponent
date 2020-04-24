@@ -2,6 +2,7 @@
 
 #include "Providers/RuntimeMeshProviderStatic.h"
 #include "RuntimeMeshComponentPlugin.h"
+#include "RuntimeMeshModifier.h"
 
 
 URuntimeMeshProviderStatic::URuntimeMeshProviderStatic()
@@ -11,6 +12,18 @@ URuntimeMeshProviderStatic::URuntimeMeshProviderStatic()
 {
 	UE_LOG(RuntimeMeshLog, Verbose, TEXT("StaticProvider(%d): Created"), FPlatformTLS::GetCurrentThreadId());
 
+}
+
+void URuntimeMeshProviderStatic::RegisterModifier(URuntimeMeshModifier* Modifier)
+{
+	FScopeLock Lock(&ModifierSyncRoot);
+	CurrentMeshModifiers.Add(Modifier);
+}
+
+void URuntimeMeshProviderStatic::UnRegisterModifier(URuntimeMeshModifier* Modifier)
+{
+	FScopeLock Lock(&ModifierSyncRoot);
+	CurrentMeshModifiers.Remove(Modifier);
 }
 
 void URuntimeMeshProviderStatic::CreateSectionFromComponents(int32 LODIndex, int32 SectionIndex, int32 MaterialSlot, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals, 
@@ -113,6 +126,12 @@ void URuntimeMeshProviderStatic::UpdateSectionFromComponents(int32 LODIndex, int
 
 
 
+FRuntimeMeshCollisionSettings URuntimeMeshProviderStatic::GetCollisionSettingsStatic() const
+{
+	FScopeLock Lock(&CollisionSyncRoot);
+	return CollisionSettings;
+}
+
 void URuntimeMeshProviderStatic::SetCollisionSettings(const FRuntimeMeshCollisionSettings& NewCollisionSettings)
 {
 	{
@@ -120,6 +139,16 @@ void URuntimeMeshProviderStatic::SetCollisionSettings(const FRuntimeMeshCollisio
 		CollisionSettings = NewCollisionSettings;
 	}
 	MarkCollisionDirty();
+}
+
+FRuntimeMeshCollisionData URuntimeMeshProviderStatic::GetCollisionMeshStatic() const
+{
+	FScopeLock Lock(&CollisionSyncRoot);
+	if (CollisionMesh.IsSet())
+	{
+		return CollisionMesh.GetValue();
+	}
+	return FRuntimeMeshCollisionData();
 }
 
 void URuntimeMeshProviderStatic::SetCollisionMesh(const FRuntimeMeshCollisionData& NewCollisionMesh)
@@ -131,6 +160,12 @@ void URuntimeMeshProviderStatic::SetCollisionMesh(const FRuntimeMeshCollisionDat
 	MarkCollisionDirty();
 }
 
+int32 URuntimeMeshProviderStatic::GetLODForMeshCollision() const
+{
+	FScopeLock Lock(&CollisionSyncRoot);
+	return LODForMeshCollision;
+}
+
 void URuntimeMeshProviderStatic::SetRenderableLODForCollision(int32 LODIndex)
 {
 	{
@@ -138,6 +173,12 @@ void URuntimeMeshProviderStatic::SetRenderableLODForCollision(int32 LODIndex)
 		LODForMeshCollision = LODIndex;
 	}
 	MarkCollisionDirty();
+}
+
+TSet<int32> URuntimeMeshProviderStatic::GetSectionsForMeshCollision() const
+{
+	FScopeLock Lock(&CollisionSyncRoot);
+	return SectionsForMeshCollision;
 }
 
 void URuntimeMeshProviderStatic::SetRenderableSectionAffectsCollision(int32 SectionId, bool bCollisionEnabled)
@@ -555,16 +596,42 @@ void URuntimeMeshProviderStatic::UpdateSectionInternal(int32 LODIndex, int32 Sec
 	// This is just to alert the user of invalid mesh data
 	SectionData.HasValidMeshData(true);
 
-	TMap<int32, FSectionDataMapEntry>* LODSections = SectionDataMap.Find(LODIndex);
-	if (LODSections)
+	TArray<URuntimeMeshModifier*> TempModifiers;
 	{
-		FSectionDataMapEntry* Section = LODSections->Find(SectionId);
-		if (Section)
-		{
-			(*Section) = MakeTuple(Section->Get<0>(), SectionData, KnownBounds);
+		FScopeLock Lock(&ModifierSyncRoot);
+		TempModifiers = CurrentMeshModifiers;
+	}
 
-			UpdateBounds();
-			MarkSectionDirty(LODIndex, SectionId);
+	for (URuntimeMeshModifier* Modifier : TempModifiers)
+	{
+		check(Modifier->IsValidLowLevel());
+
+		Modifier->ApplyToMesh(SectionData);
+	}
+
+
+	{
+		FScopeLock Lock(&MeshSyncRoot);
+		TMap<int32, FSectionDataMapEntry>* LODSections = SectionDataMap.Find(LODIndex);
+		if (LODSections)
+		{
+			FSectionDataMapEntry* Section = LODSections->Find(SectionId);
+			if (Section)
+			{
+				(*Section) = MakeTuple(Section->Get<0>(), SectionData, KnownBounds);
+
+				UpdateBounds();
+				MarkSectionDirty(LODIndex, SectionId);
+			}
 		}
 	}
+}
+
+void URuntimeMeshProviderStatic::BeginDestroy()
+{
+	{
+		FScopeLock Lock(&ModifierSyncRoot);
+		CurrentMeshModifiers.Empty();
+	}
+	Super::BeginDestroy();
 }

@@ -6,14 +6,17 @@
 #include "RuntimeMeshProvider.h"
 #include "RuntimeMeshProviderStatic.generated.h"
 
+class URuntimeMeshModifier;
+
 UCLASS(HideCategories = Object, BlueprintType)
 class RUNTIMEMESHCOMPONENT_API URuntimeMeshProviderStatic : public URuntimeMeshProvider
 {
 	GENERATED_BODY()
 
 protected:
-	UPROPERTY(Category = "RuntimeMeshActor", EditAnywhere, BlueprintReadOnly, Meta = (ExposeFunctionCategories = "Mesh,Rendering,Physics,Components|RuntimeMesh", AllowPrivateAccess = "true"))
+	UPROPERTY(Category = "RuntimeMeshActor", EditAnywhere, BlueprintReadOnly, Meta = (AllowPrivateAccess = "true"))
 	bool StoreEditorGeneratedDataForGame;
+
 private:
 
 	using FSectionDataMapEntry = TTuple<FRuntimeMeshSectionProperties, FRuntimeMeshRenderableMeshData, FBoxSphereBounds>;
@@ -21,6 +24,7 @@ private:
 private:
 	mutable FCriticalSection MeshSyncRoot;
 	mutable FCriticalSection CollisionSyncRoot;
+	mutable FCriticalSection ModifierSyncRoot;
 
 	TArray<FRuntimeMeshLODProperties> LODConfigurations;
 	TMap<int32, TMap<int32, FSectionDataMapEntry>> SectionDataMap;
@@ -33,9 +37,20 @@ private:
 	FBoxSphereBounds CombinedBounds;
 
 	TArray<FRuntimeMeshMaterialSlot> LoadedMaterialSlots;
+
+	UPROPERTY(VisibleAnywhere)
+	TArray<URuntimeMeshModifier*> CurrentMeshModifiers;
 public:
 
 	URuntimeMeshProviderStatic();
+
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static")
+	void RegisterModifier(URuntimeMeshModifier* Modifier);
+
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static")
+	void UnRegisterModifier(URuntimeMeshModifier* Modifier);
+
+
 	
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static", Meta=(DisplayName = "Create Section"))
 	void CreateSection_Blueprint(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties, const FRuntimeMeshRenderableMeshData& SectionData)
@@ -253,14 +268,26 @@ public:
 	}
 
 
+	UFUNCTION(BlueprintPure, Category = "RuntimeMesh|Providers|Static")
+	FRuntimeMeshCollisionSettings GetCollisionSettingsStatic() const;
+
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static")
 	void SetCollisionSettings(const FRuntimeMeshCollisionSettings& NewCollisionSettings);
+
+	UFUNCTION(BlueprintPure, Category = "RuntimeMesh|Providers|Static")
+	FRuntimeMeshCollisionData GetCollisionMeshStatic() const;
 
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static")
 	void SetCollisionMesh(const FRuntimeMeshCollisionData& NewCollisionMesh);
 
+	UFUNCTION(BlueprintPure, Category = "RuntimeMesh|Providers|Static")
+	int32 GetLODForMeshCollision() const;
+
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static")
 	void SetRenderableLODForCollision(int32 LODIndex);
+
+	UFUNCTION(BlueprintPure, Category = "RuntimeMesh|Providers|Static")
+	TSet<int32> GetSectionsForMeshCollision() const;
 
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static")
 	void SetRenderableSectionAffectsCollision(int32 SectionId, bool bCollisionEnabled);
@@ -286,6 +313,7 @@ protected:
 
 
 	virtual void Serialize(FArchive& Ar) override;
+	virtual void BeginDestroy() override;
 private:
 	static const TArray<FVector2D> EmptyUVs;
 
@@ -348,5 +376,5 @@ private:
 	}
 	void UpdateSectionInternal(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData&& SectionData, FBoxSphereBounds KnownBounds);
 
-protected:
+
 };
