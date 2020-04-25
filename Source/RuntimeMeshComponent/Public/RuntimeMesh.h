@@ -87,7 +87,9 @@ private:
 	TArray<TWeakObjectPtr<URuntimeMeshComponent>> LinkedComponents;
 
 	// We track all registered material slots and a lookup table to quickly index them
+	UPROPERTY()
 	TArray<FRuntimeMeshMaterialSlot> MaterialSlots;
+	UPROPERTY()
 	TMap<FName, int32> SlotNameLookup;
 
 	// Thread synchronization for the LOD/Material data

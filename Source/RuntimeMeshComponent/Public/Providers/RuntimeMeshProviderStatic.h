@@ -35,7 +35,7 @@ private:
 	FRuntimeMeshCollisionSettings CollisionSettings;
 	TOptional<FRuntimeMeshCollisionData> CollisionMesh;
 	FBoxSphereBounds CombinedBounds;
-
+	
 	TArray<FRuntimeMeshMaterialSlot> LoadedMaterialSlots;
 
 	UPROPERTY(VisibleAnywhere)
