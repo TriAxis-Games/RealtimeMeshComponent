@@ -9,7 +9,7 @@
 #include "RuntimeMeshProxy.h"
 #include "Providers/RuntimeMeshProviderStatic.h"
 #include "RuntimeMeshComponentEngineSubsystem.h"
-#include "AsyncWork.h"
+#include "Async/AsyncWork.h"
 #include "UObjectThreadContext.h"
 
 
