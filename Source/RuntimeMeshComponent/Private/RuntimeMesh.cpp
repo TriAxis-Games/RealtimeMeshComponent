@@ -10,7 +10,7 @@
 #include "Providers/RuntimeMeshProviderStatic.h"
 #include "RuntimeMeshComponentEngineSubsystem.h"
 #include "Async/AsyncWork.h"
-#include "UObjectThreadContext.h"
+#include "UObject/UObjectThreadContext.h"
 
 
 DECLARE_DWORD_COUNTER_STAT(TEXT("RuntimeMeshDelayedActions - Updated Actors"), STAT_RuntimeMeshDelayedActions_UpdatedActors, STATGROUP_RuntimeMesh);
