@@ -53,7 +53,7 @@ void FRuntimeMeshProxy::QueueForUpdate()
 {
 	// TODO: Is this really necessary. Enqueuing render commands fails sometimes when not called from game thread
 
-	if (!IsQueuedForUpdate.AtomicSet(true))
+	if (!IsQueuedForUpdate.AtomicSet(true) && GRenderingThread && !GIsRenderingThreadSuspended.Load(EMemoryOrder::Relaxed))
 	{
 		ENQUEUE_RENDER_COMMAND(FRuntimeMeshProxy_Update)([this](FRHICommandListImmediate& RHICmdList)
 			{

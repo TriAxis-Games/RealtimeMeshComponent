@@ -7,23 +7,6 @@
 #include "RuntimeMeshReference.h"
 #include "RuntimeMeshProvider.generated.h"
 
-USTRUCT(BlueprintType)
-struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshSectionData
-{
-	GENERATED_BODY()
-public:
-	FRuntimeMeshSectionProperties Properties;
-	FRuntimeMeshRenderableMeshData MeshData;
-
-	FRuntimeMeshSectionData()
-		: MeshData(Properties)
-	{}
-
-	FRuntimeMeshSectionData(const FRuntimeMeshSectionProperties& InProperties)
-        : Properties(InProperties)
-		, MeshData(Properties)
-	{}
-};
 
 
 UCLASS(HideCategories = Object, BlueprintType, Blueprintable, Meta = (ShortTooltip = "A RuntimeMeshProvider is a class containing the logic to create the mesh data and related information to be used by a RuntimeMeshComponent for rendering."))

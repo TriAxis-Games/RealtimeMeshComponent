@@ -182,7 +182,6 @@ private:
 	{ 
 		Id = Counter.Increment();
 		int32 active = ActivePointers.Increment();
-		UE_LOG(LogTemp, Error, TEXT("Creating shared ref: %d  Active: %d"), Id, active);
 	}
 
 public:
@@ -192,7 +191,6 @@ public:
 		if (IsValid())
 		{
 			int32 active = ActivePointers.Decrement();
-			UE_LOG(LogTemp, Error, TEXT("Destroying shared ref: %d  Active: %d"), Id, active);
 		}
 	}
 
@@ -201,7 +199,6 @@ public:
 	{
 		Id = Counter.Increment();
 		int32 active = ActivePointers.Increment();
-		UE_LOG(LogTemp, Error, TEXT("Creating shared ref: %d  Active: %d"), Id, active);
 	}
 
 	FORCEINLINE FRuntimeMeshObjectSharedRef(FRuntimeMeshObjectSharedRef<ObjectType>&& InRef)
@@ -216,7 +213,6 @@ public:
 		Object = InRef.Object;
 		Id = Counter.Increment();
 		int32 active = ActivePointers.Increment();
-		UE_LOG(LogTemp, Error, TEXT("Creating shared ref: %d  Active: %d"), Id, active);
 		return *this;
 	}
 

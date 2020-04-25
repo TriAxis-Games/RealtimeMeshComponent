@@ -906,6 +906,26 @@ public:
 };
 
 
+
+USTRUCT(BlueprintType)
+struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshSectionData
+{
+	GENERATED_BODY()
+public:
+	FRuntimeMeshSectionProperties Properties;
+	FRuntimeMeshRenderableMeshData MeshData;
+
+	FRuntimeMeshSectionData()
+		: MeshData(Properties)
+	{}
+
+	FRuntimeMeshSectionData(const FRuntimeMeshSectionProperties& InProperties)
+		: Properties(InProperties)
+		, MeshData(Properties)
+	{}
+};
+
+
 #if WITH_EDITOR
 
 namespace __RuntimeMeshNatVisRenderableTypes
