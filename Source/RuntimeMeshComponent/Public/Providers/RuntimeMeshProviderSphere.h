@@ -91,6 +91,14 @@ private:
 	void GetShapeParams(float& OutRadius, int32& OutMinLatitudeSegments, int32& OutMaxLatitudeSegments, int32& OutMinLongitudeSegments, int32& OutMaxLongitudeSegments, float& OutLODMultiplier);
 	int32 GetMaxNumberOfLODs();
 	float CalculateScreenSize(int32 LODIndex);
+	void GetSegmentsForLOD(int32& LODIndex, int32& LatitudeSegments, int32& LongitudeSegments)
+	{
+		GetSegmentsForLOD(LODIndex, LODMultiplier, MaxLatitudeSegments, MinLatitudeSegments, MaxLongitudeSegments, MinLongitudeSegments, LatitudeSegments, LongitudeSegments);
+	}
+	static void GetSegmentsForLOD(int32& LODIndex, float& LODMul, int32& MaxLat, int32& MinLat, int32& MaxLon, int32& MinLon, int32& LatitudeSegments, int32& LongitudeSegments){
+		LatitudeSegments = FMath::Max(FMath::RoundToInt(MaxLat * FMath::Pow(LODMul, LODIndex)), MinLat);
+		LongitudeSegments = FMath::Max(FMath::RoundToInt(MaxLon * FMath::Pow(LODMul, LODIndex)), MinLon);
+	}
 	static bool GetSphereMesh(int32 SphereRadius, int32 LatitudeSegments, int32 LongitudeSegments, FRuntimeMeshRenderableMeshData& MeshData);
 	void UpdateMeshParameters(bool bAffectsCollision);
 };

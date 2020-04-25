@@ -92,6 +92,12 @@ float URuntimeMeshProviderSphere::GetLODMultiplier() const
 void URuntimeMeshProviderSphere::SetLODMultiplier(float InLODMultiplier)
 {
 	FScopeLock Lock(&PropertySyncRoot);
+	if (LODMultiplier >= 1)
+	{
+		//If the LODMultiplier is greater than one, there'd be infinite LODs as it would diverge. (It's a geometric series)
+		UE_LOG(RuntimeMeshLog, Error, TEXT("RMC Sphere Provider(%d): LODMultiplier was set greater than or equal to 1 ! Aborting ! Value : %f"), FPlatformTLS::GetCurrentThreadId(), InLODMultiplier);
+		return;
+	}
 	LODMultiplier = InLODMultiplier; 
 	UpdateMeshParameters(false);
 }
@@ -131,6 +137,9 @@ void URuntimeMeshProviderSphere::Initialize_Implementation()
 		Properties.bIsVisible = true;
 		Properties.MaterialSlot = 0;
 		Properties.UpdateFrequency = ERuntimeMeshUpdateFrequency::Infrequent;
+		int32 LatSegments, LonSegments;
+		GetSegmentsForLOD(LODIndex, LatSegments, LonSegments);
+		Properties.bWants32BitIndices = (LatSegments + 1)*(LonSegments + 1) >= 1 << 16; //1<<16 is the 16 bit integer limit (2^16), so if we have more verts than that then we switch
 		CreateSection(LODIndex, 0, Properties);
 	}
 }
@@ -139,7 +148,7 @@ bool URuntimeMeshProviderSphere::GetSectionMeshForLOD_Implementation(int32 LODIn
 {
 	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMC Sphere Provider(%d): Getting LOD:%d Section:%d"), FPlatformTLS::GetCurrentThreadId(), LODIndex, SectionId);
 
-	// We should only ever be queried for section 0 and lod 0
+	// We should only ever be queried for section 0
 	check(SectionId == 0 && LODIndex <= MaxLOD);
 
 	float TempRadius;
@@ -149,9 +158,8 @@ bool URuntimeMeshProviderSphere::GetSectionMeshForLOD_Implementation(int32 LODIn
 
 	GetShapeParams(TempRadius, TempMinLat, TempMaxLat, TempMinLong, TempMaxLong, TempLODMultiplier);
 
-
-	int32 LatSegments = FMath::Max(FMath::RoundToInt(TempMaxLat * FMath::Pow(TempLODMultiplier, LODIndex)), TempMinLat);
-	int32 LonSegments = FMath::Max(FMath::RoundToInt(TempMaxLong * FMath::Pow(TempLODMultiplier, LODIndex)), TempMinLong);
+	int32 LatSegments, LonSegments;
+	GetSegmentsForLOD(LODIndex, TempLODMultiplier, TempMaxLat, TempMinLat, TempMaxLong, TempMinLong, LatSegments, LonSegments);
 
 	return GetSphereMesh(TempRadius, LatSegments, LonSegments, MeshData);
 }
@@ -203,8 +211,9 @@ int32 URuntimeMeshProviderSphere::GetMaxNumberOfLODs()
 		CurrentLongitudeSegments *= LODMultiplier;
 
 		// Have we gone far enough?
-		if (CurrentLatitudeSegments < MinLatitudeSegments || CurrentLongitudeSegments < MinLongitudeSegments)
+		if (CurrentLatitudeSegments <= MinLatitudeSegments && CurrentLongitudeSegments <= MinLongitudeSegments)
 		{
+			MaxLODs++;
 			break;
 		}
 
@@ -227,6 +236,7 @@ bool URuntimeMeshProviderSphere::GetSphereMesh(int32 SphereRadius, int32 Latitud
 	TArray<FVector> LatitudeVerts;
 	TArray<FVector> TangentVerts;
 	int32 TrisOrder[6] = { 0, 1, LatitudeSegments + 1, 1, LatitudeSegments + 2, LatitudeSegments + 1 };
+	//Baked trigonometric data to avoid computing it too much (sin and cos are expensive !)
 	LatitudeVerts.SetNumUninitialized(LatitudeSegments + 1);
 	TangentVerts.SetNumUninitialized(LatitudeSegments + 1);
 	for (int32 LatitudeIndex = 0; LatitudeIndex < LatitudeSegments + 1; LatitudeIndex++)
@@ -238,12 +248,13 @@ bool URuntimeMeshProviderSphere::GetSphereMesh(int32 SphereRadius, int32 Latitud
 		FMath::SinCos(&y, &x, angle + PI / 2.f);
 		TangentVerts[LatitudeIndex] = FVector(x, y, 0);
 	}
-	for (int32 LongitudeIndex = 0; LongitudeIndex < LongitudeSegments + 1; LongitudeIndex++)
+	//Making the verts
+	for (int32 LongitudeIndex = 0; LongitudeIndex < LongitudeSegments + 1; LongitudeIndex++) //This is one more vert than geometrically needed but this avoid having to make wrap-around code
 	{
 		float angle = LongitudeIndex * PI / LongitudeSegments;
 		float z, r;
 		FMath::SinCos(&r, &z, angle);
-		for (int32 LatitudeIndex = 0; LatitudeIndex < LatitudeSegments + 1; LatitudeIndex++)
+		for (int32 LatitudeIndex = 0; LatitudeIndex < LatitudeSegments + 1; LatitudeIndex++) //In total, we only waste (2*LatitudeSegments + LongitudeSegments - 2) vertices but save LatitudeSegments*LongitudeSegments operations
 		{
 			FVector Normal = LatitudeVerts[LatitudeIndex] * r + FVector(0, 0, z);
 			FVector Position = Normal * SphereRadius;
@@ -253,6 +264,7 @@ bool URuntimeMeshProviderSphere::GetSphereMesh(int32 SphereRadius, int32 Latitud
 			MeshData.Colors.Add(FColor::White);
 		}
 	}
+	//Creating the tris
 	for (int32 LongitudeIndex = 0; LongitudeIndex < LongitudeSegments; LongitudeIndex++)
 	{
 		for (int32 LatitudeIndex = 0; LatitudeIndex < LatitudeSegments; LatitudeIndex++)
