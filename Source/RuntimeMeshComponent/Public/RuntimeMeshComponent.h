@@ -44,7 +44,11 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
 	FORCEINLINE URuntimeMesh* GetRuntimeMesh() const
 	{
-		return RuntimeMeshReference;
+		if (RuntimeMeshReference->IsValidLowLevel() && !RuntimeMeshReference->IsUnreachable())
+		{
+			return RuntimeMeshReference;
+		}
+		return nullptr;
 	}
 
 	/** Clears the geometry for ALL collision only sections */
