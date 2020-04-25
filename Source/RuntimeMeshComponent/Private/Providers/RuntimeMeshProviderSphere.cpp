@@ -65,6 +65,9 @@ void FRuntimeMeshProviderSphereProxy::Initialize()
 		Properties.bIsVisible = true;
 		Properties.MaterialSlot = 0;
 		Properties.UpdateFrequency = ERuntimeMeshUpdateFrequency::Infrequent;
+		int32 LatSegments, LonSegments;
+		GetSegmentsForLOD(LODIndex, LatSegments, LonSegments);
+		Properties.bWants32BitIndices = (LatSegments + 1)*(LonSegments + 1) >= 1 << 16;
 		CreateSection(LODIndex, 0, Properties);
 	}
 }
@@ -123,7 +126,7 @@ bool FRuntimeMeshProviderSphereProxy::GetSphereMesh(int32 LatitudeSegments, int3
 		FMath::SinCos(&y, &x, angle + PI / 2.f);
 		TangentVerts[LatitudeIndex] = FVector(x, y, 0);
 	}
-	for (int32 LongitudeIndex = 0; LongitudeIndex < LongitudeSegments + 1; LongitudeIndex++)
+	for (int32 LongitudeIndex = 0; LongitudeIndex < LongitudeSegments + 1; LongitudeIndex++) //There is one more vertex than technically needed but that allows to not have special wrap-around code.
 	{
 		float angle = LongitudeIndex * PI / LongitudeSegments;
 		float z, r;
@@ -160,8 +163,8 @@ bool FRuntimeMeshProviderSphereProxy::GetSectionMeshForLOD(int32 LODIndex, int32
 	// We should only ever be queried for section 0 and lod 0
 	check(SectionId == 0 && LODIndex <= MaxLOD);
 
-	int32 LatSegments = FMath::Max(FMath::RoundToInt(MaxLatitudeSegments * FMath::Pow(LODMultiplier, LODIndex)), MinLatitudeSegments);
-	int32 LonSegments = FMath::Max(FMath::RoundToInt(MaxLongitudeSegments * FMath::Pow(LODMultiplier, LODIndex)), MinLongitudeSegments);
+	int32 LatSegments, LonSegments;
+	GetSegmentsForLOD(LODIndex, LatSegments, LonSegments);
 
 	return GetSphereMesh(LatSegments, LonSegments, MeshData);
 }
