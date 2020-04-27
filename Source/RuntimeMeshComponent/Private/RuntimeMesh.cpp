@@ -221,7 +221,7 @@ void URuntimeMesh::SetSectionVisibility_Implementation(int32 LODIndex, int32 Sec
 	FScopeLock Lock(&SyncRoot);
 
 	FRuntimeMeshSectionProperties* Section = LODs[LODIndex].Sections.Find(SectionId);
-	if (Section)
+	if (Section && Section->bIsVisible != bIsVisible)
 	{
 		Section->bIsVisible = bIsVisible;
 		ESectionUpdateType& UpdateType = SectionsToUpdate.FindOrAdd(LODIndex).FindOrAdd(SectionId);
@@ -239,7 +239,7 @@ void URuntimeMesh::SetSectionCastsShadow_Implementation(int32 LODIndex, int32 Se
 	FScopeLock Lock(&SyncRoot);
 
 	FRuntimeMeshSectionProperties* Section = LODs[LODIndex].Sections.Find(SectionId);
-	if (Section)
+	if (Section && Section->bCastsShadow != bCastsShadow)
 	{
 		Section->bCastsShadow = bCastsShadow;
 		ESectionUpdateType& UpdateType = SectionsToUpdate.FindOrAdd(LODIndex).FindOrAdd(SectionId);
