@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "RuntimeMeshProvider.h"
-#include "ThreadSafeBool.h"
+#include "HAL/ThreadSafeBool.h"
 
 
 class URuntimeMesh;

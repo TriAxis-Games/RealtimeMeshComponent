@@ -2,52 +2,57 @@
 
 #pragma once
 
-#include "CoreMinimal.h"
-#include "RuntimeMeshProvider.h"
-#include "RuntimeMeshProviderStatic.generated.h"
+#include "RuntimeMeshComponent.h"
+#include "RuntimeMeshComponentStatic.generated.h"
 
-UCLASS(HideCategories = Object, BlueprintType)
-class RUNTIMEMESHCOMPONENT_API URuntimeMeshProviderStatic : public URuntimeMeshProvider
+class URuntimeMeshProviderStatic;
+class URuntimeMeshProviderNormals;
+/**
+*	RMC but with backed-in providers for PMC-like operation
+*/
+UCLASS(ClassGroup=(Rendering, Common), HideCategories=(Object, Activation, "Components|Activation"), ShowCategories=(Mobility), Meta = (BlueprintSpawnableComponent))
+class RUNTIMEMESHCOMPONENT_API URuntimeMeshComponentStatic : public URuntimeMeshComponent
 {
 	GENERATED_BODY()
 
-protected:
-	UPROPERTY(Category = "RuntimeMeshActor", EditAnywhere, BlueprintReadOnly, Meta = (ExposeFunctionCategories = "Mesh,Rendering,Physics,Components|RuntimeMesh", AllowPrivateAccess = "true"))
-	bool StoreEditorGeneratedDataForGame;
 private:
+	//These are only for defaults when spawning, unused at runtime (after OnRegister)
 
-	using FSectionDataMapEntry = TTuple<FRuntimeMeshSectionProperties, FRuntimeMeshRenderableMeshData, FBoxSphereBounds>;
+	//Sets the runtime mesh used. Leaving this null will create a new one and use the settings below.
+	//Beware : This meant to be used only with other RMCs if you want control from both components
+	UPROPERTY(BlueprintReadOnly, EditAnywhere, Category = "Mesh Sharing", Meta = (ExposeOnSpawn = "true", AllowPrivateAccess = "true"), BlueprintGetter = GetRuntimeMesh)
+	URuntimeMesh* RuntimeMesh;
 
-private:
-	TArray<FRuntimeMeshLODProperties> LODConfigurations;
-	TMap<int32, TMap<int32, FSectionDataMapEntry>> SectionDataMap;
-
+	//Sets if normals and tangents should be generated (Will add another provider)
+	UPROPERTY(BlueprintReadOnly, EditAnywhere, Category="Post Processing", Meta = (ExposeOnSpawn = "true", AllowPrivateAccess = "true"), BlueprintGetter = GetbWantsNormals)
+	bool bWantsNormals;
+	//Set if normals should be generated (Will add another provider)
+	UPROPERTY(BlueprintReadOnly, EditAnywhere, Category = "Post Processing", Meta = (EditCondition = "!bWantsNormals", ExposeOnSpawn = "true", AllowPrivateAccess = "true"), BlueprintGetter = GetbWantsTangents)
+	bool bWantsTangents;
+	//LOD to use for complex collision
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Post Processing", Meta = (ExposeOnSpawn = "true", AllowPrivateAccess = "true"), BlueprintSetter = SetRenderableLODForCollision, BlueprintGetter = GetLODForMeshCollision)
 	int32 LODForMeshCollision;
+	//Sections to use to gather complex collision data
+	UPROPERTY(BlueprintReadOnly, EditAnywhere, Category = "Post Processing", Meta = (ExposeOnSpawn = "true", AllowPrivateAccess = "true"), BlueprintGetter = GetSectionsForMeshCollision)
 	TSet<int32> SectionsForMeshCollision;
-
+	//Collision settings
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Post Processing", Meta = (ExposeOnSpawn = "true", AllowPrivateAccess = "true"), BlueprintSetter = SetCollisionSettings, BlueprintGetter = GetCollisionSettings)
 	FRuntimeMeshCollisionSettings CollisionSettings;
-	TOptional<FRuntimeMeshCollisionData> CollisionMesh;
-	FBoxSphereBounds CombinedBounds;
+	//Collision mesh to add before section-gathered complex collision. Independant from bWantsCollision
+	UPROPERTY(BlueprintReadWrite, Category = "Post Processing", Meta = (ExposeOnSpawn = "true", AllowPrivateAccess = "true"), BlueprintSetter = SetCollisionMesh, BlueprintGetter = GetCollisionMesh)
+	FRuntimeMeshCollisionData CollisionMesh;
 
-	TArray<FRuntimeMeshMaterialSlot> LoadedMaterialSlots;
+	URuntimeMeshProviderStatic* StaticProvider;
+	URuntimeMeshProviderNormals* NormalsProvider;
+
 public:
 
-	URuntimeMeshProviderStatic();
+	URuntimeMeshComponentStatic(const FObjectInitializer& ObjectInitializer);
 
-	void Initialize_Implementation() override;
-	
-	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static", Meta=(DisplayName = "Create Section"))
-	void CreateSection_Blueprint(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties, const FRuntimeMeshRenderableMeshData& SectionData)
-	{
-		URuntimeMeshProvider::CreateSection(LODIndex, SectionId, SectionProperties);
-		UpdateSectionInternal(LODIndex, SectionId, SectionData, GetBoundsFromMeshData(SectionData));
-	}
+	void OnRegister() override;
 
-	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static", Meta = (DisplayName = "Update Section"))
-	void UpdateSection_Blueprint(int32 LODIndex, int32 SectionId, const FRuntimeMeshRenderableMeshData& SectionData)
-	{
-		UpdateSectionInternal(LODIndex, SectionId, SectionData, GetBoundsFromMeshData(SectionData));
-	}
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshStatic|Mesh", Meta = (DisplayName = "Create Section"))
+	void CreateSection_Blueprint(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties, const FRuntimeMeshRenderableMeshData& SectionData);
 
 	/**
 	*	Create/replace a section for this runtime mesh.
@@ -66,11 +71,10 @@ public:
 	*	@param	UpdateFrequency		How frequently this section is expected to be updated, Infrequent draws faster than Average/Frequent but updates slower
 	*	@param	bCreateCollision	Indicates whether collision should be created for this section. This adds significant cost.
 	*/
-	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static", Meta = (DisplayName = "Create Section From Components", AutoCreateRefTerm = "Normals,UV0,UV1,UV2,UV3,VertexColors,Tangents", AdvancedDisplay = "UV1,UV2,UV3"))
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshStatic|Mesh", Meta = (DisplayName = "Create Section From Components", AutoCreateRefTerm = "Normals,UV0,UV1,UV2,UV3,VertexColors,Tangents", AdvancedDisplay = "UV1,UV2,UV3"))
 	void CreateSectionFromComponents(int32 LODIndex, int32 SectionIndex, int32 MaterialSlot, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals,
-		const TArray<FVector2D>& UV0, const TArray<FVector2D>& UV1, const TArray<FVector2D>& UV2, const TArray<FVector2D>& UV3, const TArray<FLinearColor>& VertexColors, 
+		const TArray<FVector2D>& UV0, const TArray<FVector2D>& UV1, const TArray<FVector2D>& UV2, const TArray<FVector2D>& UV3, const TArray<FLinearColor>& VertexColors,
 		const TArray<FRuntimeMeshTangent>& Tangents, ERuntimeMeshUpdateFrequency UpdateFrequency = ERuntimeMeshUpdateFrequency::Infrequent, bool bCreateCollision = true);
-	
 
 	/**
 	*	Create/replace a section for this runtime mesh.
@@ -90,7 +94,7 @@ public:
 	*	@param	bCreateCollision	Indicates whether collision should be created for this section. This adds significant cost.
 	*/
 	void CreateSectionFromComponents(int32 LODIndex, int32 SectionIndex, int32 MaterialSlot, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals,
-		const TArray<FVector2D>& UV0, const TArray<FVector2D>& UV1, const TArray<FVector2D>& UV2, const TArray<FVector2D>& UV3, const TArray<FColor>& VertexColors, 
+		const TArray<FVector2D>& UV0, const TArray<FVector2D>& UV1, const TArray<FVector2D>& UV2, const TArray<FVector2D>& UV3, const TArray<FColor>& VertexColors,
 		const TArray<FRuntimeMeshTangent>& Tangents, ERuntimeMeshUpdateFrequency UpdateFrequency = ERuntimeMeshUpdateFrequency::Infrequent, bool bCreateCollision = true);
 
 	/**
@@ -130,8 +134,8 @@ public:
 		const TArray<FVector2D>& UV0, const TArray<FColor>& VertexColors, const TArray<FRuntimeMeshTangent>& Tangents,
 		ERuntimeMeshUpdateFrequency UpdateFrequency = ERuntimeMeshUpdateFrequency::Infrequent, bool bCreateCollision = true);
 
-
-
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshStatic|Mesh", Meta = (DisplayName = "Update Section"))
+	void UpdateSection_Blueprint(int32 LODIndex, int32 SectionId, const FRuntimeMeshRenderableMeshData& SectionData);
 
 	/**
 	*	Update the mesh data of a section.
@@ -147,11 +151,10 @@ public:
 	*	@param	VertexColors		Optional array of colors for each vertex. If supplied, must be same length as Vertices array.
 	*	@param	Tangents			Optional array of tangent vector for each vertex. If supplied, must be same length as Vertices array.
 	*/
-	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static", Meta = (DisplayName = "Update Section From Components", AutoCreateRefTerm = "Normals,UV0,UV1,UV2,UV3,VertexColors,Tangents", AdvancedDisplay = "UV1,UV2,UV3"))
-	void UpdateSectionFromComponents(int32 LODIndex, int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals, const TArray<FVector2D>& UV0, 
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshStatic|Mesh", Meta = (DisplayName = "Update Section From Components", AutoCreateRefTerm = "Normals,UV0,UV1,UV2,UV3,VertexColors,Tangents", AdvancedDisplay = "UV1,UV2,UV3"))
+	void UpdateSectionFromComponents(int32 LODIndex, int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals, const TArray<FVector2D>& UV0,
 		const TArray<FVector2D>& UV1, const TArray<FVector2D>& UV2, const TArray<FVector2D>& UV3, const TArray<FLinearColor>& VertexColors, const TArray<FRuntimeMeshTangent>& Tangents);
 
-
 	/**
 	*	Update the mesh data of a section.
 	*	@param	LODIndex			Index of the LOD to create the section in.
@@ -166,7 +169,7 @@ public:
 	*	@param	VertexColors		Optional array of colors for each vertex. If supplied, must be same length as Vertices array.
 	*	@param	Tangents			Optional array of tangent vector for each vertex. If supplied, must be same length as Vertices array.
 	*/
-	void UpdateSectionFromComponents(int32 LODIndex, int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals, const TArray<FVector2D>& UV0, 
+	void UpdateSectionFromComponents(int32 LODIndex, int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals, const TArray<FVector2D>& UV0,
 		const TArray<FVector2D>& UV1, const TArray<FVector2D>& UV2, const TArray<FVector2D>& UV3, const TArray<FColor>& VertexColors, const TArray<FRuntimeMeshTangent>& Tangents);
 
 	/**
@@ -198,113 +201,52 @@ public:
 	void UpdateSectionFromComponents(int32 LODIndex, int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals,
 		const TArray<FVector2D>& UV0, const TArray<FColor>& VertexColors, const TArray<FRuntimeMeshTangent>& Tangents);
 
-
-
-
-
-
-	void CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties, bool bCreateCollision = true)
-	{
-		URuntimeMeshProvider::CreateSection(LODIndex, SectionId, SectionProperties);
-		UpdateSectionAffectsCollision(LODIndex, SectionId, bCreateCollision);
-	}
-
-	void CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties, const FRuntimeMeshRenderableMeshData& SectionData, bool bCreateCollision = true)
-	{
-		URuntimeMeshProvider::CreateSection(LODIndex, SectionId, SectionProperties);
-		UpdateSectionInternal(LODIndex, SectionId, SectionData, GetBoundsFromMeshData(SectionData));
-		UpdateSectionAffectsCollision(LODIndex, SectionId, bCreateCollision);
-	}
-	void CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties, FRuntimeMeshRenderableMeshData&& SectionData, bool bCreateCollision = true)
-	{
-		URuntimeMeshProvider::CreateSection(LODIndex, SectionId, SectionProperties);
-		UpdateSectionInternal(LODIndex, SectionId, MoveTemp(SectionData), GetBoundsFromMeshData(SectionData));
-		UpdateSectionAffectsCollision(LODIndex, SectionId, bCreateCollision);
-	}
-	void CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties, const FRuntimeMeshRenderableMeshData& SectionData, FBoxSphereBounds KnownBounds, bool bCreateCollision = true)
-	{
-		URuntimeMeshProvider::CreateSection(LODIndex, SectionId, SectionProperties);
-		UpdateSectionInternal(LODIndex, SectionId, SectionData, KnownBounds);
-		UpdateSectionAffectsCollision(LODIndex, SectionId, bCreateCollision);
-	}
-	void CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties, FRuntimeMeshRenderableMeshData&& SectionData, FBoxSphereBounds KnownBounds, bool bCreateCollision = true)
-	{
-		URuntimeMeshProvider::CreateSection(LODIndex, SectionId, SectionProperties);
-		UpdateSectionInternal(LODIndex, SectionId, MoveTemp(SectionData), KnownBounds);
-		UpdateSectionAffectsCollision(LODIndex, SectionId, bCreateCollision);
-	}
-
-	void UpdateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshRenderableMeshData& SectionData)
-	{
-		UpdateSectionInternal(LODIndex, SectionId, SectionData, GetBoundsFromMeshData(SectionData));
-	}
-	void UpdateSection(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData&& SectionData)
-	{
-		UpdateSectionInternal(LODIndex, SectionId, MoveTemp(SectionData), GetBoundsFromMeshData(SectionData));
-	}
-	void UpdateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshRenderableMeshData& SectionData, FBoxSphereBounds KnownBounds)
-	{
-		UpdateSectionInternal(LODIndex, SectionId, SectionData, KnownBounds);
-	}
-	void UpdateSection(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData&& SectionData, FBoxSphereBounds KnownBounds)
-	{
-		UpdateSectionInternal(LODIndex, SectionId, MoveTemp(SectionData), KnownBounds);
-	}
-
-	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static")
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshStatic|Mesh", Meta = (DisplayName = "Clear Section"))
 	void ClearSection(int32 LODIndex, int32 SectionId);
 
-	UFUNCTION(BlueprintPure, Category = "RuntimeMesh|Providers|Static")
-	FRuntimeMeshCollisionSettings GetCollisionSettingsStored() { return CollisionSettings; }
-	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static")
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshStatic|Collision")
 	void SetCollisionSettings(const FRuntimeMeshCollisionSettings& NewCollisionSettings);
 
-	FRuntimeMeshCollisionData GetCollisionMeshWithoutVisible() { return CollisionMesh.Get(FRuntimeMeshCollisionData()); }
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshStatic|Collision")
 	void SetCollisionMesh(const FRuntimeMeshCollisionData& NewCollisionMesh);
 
-	UFUNCTION(BlueprintPure, Category = "RuntimeMesh|Providers|Static")
-	int32 GetRenderableLODForCollision() { return LODForMeshCollision; }
-	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static")
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshStatic|Collision")
 	void SetRenderableLODForCollision(int32 LODIndex);
 
-	UFUNCTION(BlueprintPure, Category = "RuntimeMesh|Providers|Static")
-	TSet<int32> GetRenderableSectionAffectingCollision() { return SectionsForMeshCollision; }
-	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static")
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshStatic|Collision")
 	void SetRenderableSectionAffectsCollision(int32 SectionId, bool bCollisionEnabled);
 
-
-
-protected:
-
-	virtual void ConfigureLODs_Implementation(const TArray<FRuntimeMeshLODProperties>& LODSettings) override;
-	virtual void CreateSection_Implementation(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties) override;
-	virtual void SetSectionVisibility_Implementation(int32 LODIndex, int32 SectionId, bool bIsVisible) override;
-	virtual void SetSectionCastsShadow_Implementation(int32 LODIndex, int32 SectionId, bool bCastsShadow) override;
-	virtual void RemoveSection_Implementation(int32 LODIndex, int32 SectionId) override;
-
-protected:
-	virtual FBoxSphereBounds GetBounds_Implementation() override { return CombinedBounds; }
-
-	virtual bool GetSectionMeshForLOD_Implementation(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData) override;
-
-	virtual FRuntimeMeshCollisionSettings GetCollisionSettings_Implementation() override;
-	virtual bool HasCollisionMesh_Implementation() override;
-	virtual bool GetCollisionMesh_Implementation(FRuntimeMeshCollisionData& CollisionData) override;
-
 private:
-	void UpdateSectionAffectsCollision(int32 LODIndex, int32 SectionId, bool bAffectsCollision);
+	URuntimeMeshProviderStatic* GetStaticProvider();
 
-	void UpdateBounds();
-	FBoxSphereBounds GetBoundsFromMeshData(const FRuntimeMeshRenderableMeshData& MeshData);
+	URuntimeMeshProviderNormals* GetNormalsProvider();
+	void GetOrCreateNormalsProvider();
 
+	//Only to be called when the reference to the Normals provider is valid, in order to remove it if it computes nothing
+	void EnsureNormalsProviderIsWanted();
 
-	void UpdateSectionInternal(int32 LODIndex, int32 SectionId, const FRuntimeMeshRenderableMeshData& SectionData, FBoxSphereBounds KnownBounds)
-	{
-		FRuntimeMeshRenderableMeshData TempData = SectionData;
-		UpdateSectionInternal(LODIndex, SectionId, MoveTemp(TempData), KnownBounds);
-	}
-	void UpdateSectionInternal(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData&& SectionData, FBoxSphereBounds KnownBounds);
+public:
 
-protected:
-	void Serialize(FArchive& Ar) override;
+	//Avoid calling at runtime, as this will re-run initialization. Prefer using defaults
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshStatic|Normals", Meta = (DisplayName = "Set Wants Normals"))
+	void SetbWantsNormals(bool InbWantsNormals, bool bDeleteNormalsProviderIfUseless = false);
+
+	//Avoid calling at runtime, as this will re-run initialization. Prefer using defaults
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshStatic|Normals", Meta = (DisplayName = "Set Wants Tangents"))
+	void SetbWantsTangents(bool InbWantsTangents, bool bDeleteNormalsProviderIfUseless = false);
+
+	//Getters for BP
+
+	UFUNCTION(BlueprintPure, Category = "RuntimeMeshStatic|Normals", Meta = (DisplayName = "Set Wants Normals"))
+	bool GetbWantsNormals();
+	UFUNCTION(BlueprintPure, Category = "RuntimeMeshStatic|Normals", Meta = (DisplayName = "Set Wants Tangents"))
+	bool GetbWantsTangents();
+	UFUNCTION(BlueprintPure, Category = "RuntimeMeshStatic|Collision")
+	int32 GetLODForMeshCollision();
+	UFUNCTION(BlueprintPure, Category = "RuntimeMeshStatic|Collision")
+	TSet<int32> GetSectionsForMeshCollision();
+	UFUNCTION(BlueprintPure, Category = "RuntimeMeshStatic|Collision")
+	FRuntimeMeshCollisionSettings GetCollisionSettings();
+	UFUNCTION(BlueprintPure, Category = "RuntimeMeshStatic|Collision")
+	FRuntimeMeshCollisionData GetCollisionMesh();
 };

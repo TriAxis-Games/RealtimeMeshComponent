@@ -20,6 +20,10 @@ private:
 
 	int32 GetMaxNumberOfLODs();
 	float CalculateScreenSize(int32 LODIndex);
+	void GetSegmentsForLOD(int32 LODIndex, int32& LatitudeSegments, int32& LongitudeSegments) {
+		LatitudeSegments = FMath::Max(FMath::RoundToInt(MaxLatitudeSegments * FMath::Pow(LODMultiplier, LODIndex)), MinLatitudeSegments);
+		LongitudeSegments = FMath::Max(FMath::RoundToInt(MaxLongitudeSegments * FMath::Pow(LODMultiplier, LODIndex)), MinLongitudeSegments);
+	}
 
 	bool GetSphereMesh(int32 LatitudeSegments, int32 LongitudeSegments, FRuntimeMeshRenderableMeshData& MeshData);
 public:

@@ -22,7 +22,7 @@ public:
 	IRuntimeMeshProviderProxy() { }
 	virtual ~IRuntimeMeshProviderProxy() { }
 
-	virtual void Initialize() { };
+	virtual void Initialize() { }
 	
 	virtual void ConfigureLODs(TArray<FRuntimeMeshLODProperties> LODs) { }
 

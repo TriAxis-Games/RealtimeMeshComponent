@@ -704,7 +704,7 @@ public:
 	bool bDisableActiveEdgePrecompute;
 
 	FRuntimeMeshCollisionData()
-		: bFlipNormals(false)
+		: bFlipNormals(true)
 		, bDeformableMesh(false)
 		, bFastCook(false)
 		, bDisableActiveEdgePrecompute(false)
