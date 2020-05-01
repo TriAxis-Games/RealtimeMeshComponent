@@ -70,12 +70,11 @@ public:
 			SharedRef = MakeShared<FReferencer, ESPMode::ThreadSafe>();
 			WeakRef = SharedRef;
 		}
-
 	}
 
-	FRuntimeMeshObjectSharedRef<ObjectType> GetReference(bool bEvenIfMarked = false)
+	FRuntimeMeshObjectWeakRef<ObjectType> GetReference()
 	{
-		return FRuntimeMeshObjectSharedRef<ObjectType>(bEvenIfMarked ? WeakRef.Pin() : SharedRef, Object);
+		return FRuntimeMeshObjectWeakRef<ObjectType>(WeakRef, Object);
 	}
 
 	void BeginDestroy()
@@ -145,9 +144,9 @@ public:
 		}
 	}
 
-	FRuntimeMeshObjectSharedRef<ObjectType> GetReference()
+	FRuntimeMeshObjectWeakRef<ObjectType> GetReference()
 	{
-		return FRuntimeMeshObjectSharedRef<ObjectType>(WeakRef.Pin(), Object);
+		return FRuntimeMeshObjectWeakRef<ObjectType>(WeakRef, Object);
 	}
 
 	bool IsFree()
@@ -173,15 +172,14 @@ struct FRuntimeMeshObjectSharedRef
 private:
 	TSharedPtr<FReferencer, ESPMode::ThreadSafe> Ref;
 	ObjectType* Object;
-	int32 Id;
-	static FThreadSafeCounter Counter;
-	static FThreadSafeCounter ActivePointers;
 
 	FORCEINLINE FRuntimeMeshObjectSharedRef(const TSharedPtr<FReferencer, ESPMode::ThreadSafe>& InRef, ObjectType* InObject)
 		: Ref(InRef), Object(InObject) 
 	{ 
-		Id = Counter.Increment();
-		int32 active = ActivePointers.Increment();
+		if (!Ref.IsValid())
+		{
+			Object = nullptr;
+		}
 	}
 
 public:
@@ -190,20 +188,23 @@ public:
 	{
 		if (IsValid())
 		{
-			int32 active = ActivePointers.Decrement();
+			Ref.Reset();
 		}
 	}
 
 	FORCEINLINE FRuntimeMeshObjectSharedRef(const FRuntimeMeshObjectSharedRef<ObjectType>& InRef)
 		: Ref(InRef.Ref), Object(InRef.Object)
 	{
-		Id = Counter.Increment();
-		int32 active = ActivePointers.Increment();
+		if (!Ref.IsValid())
+		{
+			Object = nullptr;
+		}
 	}
 
 	FORCEINLINE FRuntimeMeshObjectSharedRef(FRuntimeMeshObjectSharedRef<ObjectType>&& InRef)
-		: Ref(MoveTemp(InRef.Ref)), Object(MoveTemp(InRef.Object)), Id(InRef.Id)
+		: Ref(MoveTemp(InRef.Ref)), Object(MoveTemp(InRef.Object))
 	{
+		
 	}
 
 
@@ -211,8 +212,11 @@ public:
 	{
 		Ref = InRef.Ref;
 		Object = InRef.Object;
-		Id = Counter.Increment();
-		int32 active = ActivePointers.Increment();
+
+		if (!Ref.IsValid())
+		{
+			Object = nullptr;
+		}
 		return *this;
 	}
 
@@ -220,7 +224,6 @@ public:
 	{
 		Ref = MoveTemp(InRef.Ref);
 		Object = MoveTemp(InRef.Object);
-		Id = InRef.Id;
 		return *this;
 	}
 
@@ -282,7 +285,10 @@ public:
 	*/
 	FORCEINLINE void Reset()
 	{
-		Ref.Reset();
+		if (Ref.IsValid())
+		{
+			Ref.Reset();
+		}
 	}
 
 	friend struct FRuntimeMeshObjectWeakRef<ObjectType>;
@@ -294,12 +300,6 @@ public:
 };
 
 template<typename ObjectType>
-__declspec(selectany) FThreadSafeCounter FRuntimeMeshObjectSharedRef<ObjectType>::ActivePointers;
-
-template<typename ObjectType>
-__declspec(selectany) FThreadSafeCounter FRuntimeMeshObjectSharedRef<ObjectType>::Counter;
-
-template<typename ObjectType>
 struct FRuntimeMeshObjectWeakRef
 {
 	using FReferencer = FRuntimeMeshReferencer;
@@ -307,7 +307,7 @@ private:
 	TWeakPtr<FReferencer, ESPMode::ThreadSafe> Ref;	
 	ObjectType* Object;
 	
-	FORCEINLINE FRuntimeMeshObjectWeakRef(const TSharedPtr<FReferencer, ESPMode::ThreadSafe>& InRef, ObjectType* InObject)
+	FORCEINLINE FRuntimeMeshObjectWeakRef(const TWeakPtr<FReferencer, ESPMode::ThreadSafe>& InRef, ObjectType* InObject)
 		: Ref(InRef), Object(InObject) { }
 
 public:
@@ -371,6 +371,13 @@ public:
 	{
 		Ref.Reset();
 	}
+
+	friend struct FRuntimeMeshObjectSharedRef<ObjectType>;
+
+	template<typename OtherObjectType>
+	friend struct FRuntimeMeshReferenceAnchor;
+	template<typename OtherObjectType>
+	friend struct FRuntimeMeshReferenceAliasAnchor;
 };
 
 

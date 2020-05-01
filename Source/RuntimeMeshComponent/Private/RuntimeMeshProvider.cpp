@@ -5,18 +5,16 @@
 
 void URuntimeMeshProvider::ShutdownInternal()
 {
-	auto Target = GetTarget();
+	URuntimeMeshProviderTargetInterface* Target = GetTarget();
 	if (Target)
 	{
 		return Target->ShutdownInternal();
 	}
 }
 
-void URuntimeMeshProvider::BindTargetProvider_Implementation(const TScriptInterface<IRuntimeMeshProviderTargetInterface>& InTarget)
+void URuntimeMeshProvider::BindTargetProvider_Implementation(URuntimeMeshProviderTargetInterface* InTarget)
 {
 	FScopeLock Lock(&TargetSyncRoot);
-	check(!bHasBeenBound);
-	bHasBeenBound = true;
 	InternalTarget = InTarget;
 	ReferenceAnchor.BindToAssociated(InTarget->GetMeshReference());
 }
@@ -31,7 +29,6 @@ void URuntimeMeshProvider::Unlink_Implementation()
 
 URuntimeMeshProvider::URuntimeMeshProvider()
 	: ReferenceAnchor(this)
-	, bHasBeenBound(false)
 {
 
 }
@@ -103,7 +100,7 @@ void URuntimeMeshProvider::ConfigureLODs_Implementation(const TArray<FRuntimeMes
 	auto Target = GetTarget();
 	if (Target)
 	{
-		IRuntimeMeshProviderTargetInterface::Execute_ConfigureLODs(Target.GetObject(), InLODs);
+		Target->ConfigureLODs(InLODs);
 	}
 }
 
@@ -112,7 +109,7 @@ void URuntimeMeshProvider::SetLODScreenSize_Implementation(int32 LODIndex, float
 	auto Target = GetTarget();
 	if (Target)
 	{
-		IRuntimeMeshProviderTargetInterface::Execute_SetLODScreenSize(Target.GetObject(), LODIndex, ScreenSize);
+		Target->SetLODScreenSize(LODIndex, ScreenSize);
 	}
 }
 
@@ -121,7 +118,7 @@ void URuntimeMeshProvider::MarkLODDirty_Implementation(int32 LODIndex)
 	auto Target = GetTarget();
 	if (Target)
 	{
-		IRuntimeMeshProviderTargetInterface::Execute_MarkLODDirty(Target.GetObject(), LODIndex);
+		Target->MarkLODDirty(LODIndex);
 	}
 }
 
@@ -130,7 +127,7 @@ void URuntimeMeshProvider::MarkAllLODsDirty_Implementation()
 	auto Target = GetTarget();
 	if (Target)
 	{
-		IRuntimeMeshProviderTargetInterface::Execute_MarkAllLODsDirty(Target.GetObject());
+		Target->MarkAllLODsDirty();
 	}
 }
 
@@ -139,7 +136,7 @@ void URuntimeMeshProvider::CreateSection_Implementation(int32 LODIndex, int32 Se
 	auto Target = GetTarget();
 	if (Target)
 	{
-		IRuntimeMeshProviderTargetInterface::Execute_CreateSection(Target.GetObject(), LODIndex, SectionId, SectionProperties);
+		Target->CreateSection(LODIndex, SectionId, SectionProperties);
 	}
 }
 
@@ -148,7 +145,7 @@ void URuntimeMeshProvider::SetSectionVisibility_Implementation(int32 LODIndex, i
 	auto Target = GetTarget();
 	if (Target)
 	{
-		IRuntimeMeshProviderTargetInterface::Execute_SetSectionVisibility(Target.GetObject(), LODIndex, SectionId, bIsVisible);
+		Target->SetSectionVisibility(LODIndex, SectionId, bIsVisible);
 	}
 }
 
@@ -157,7 +154,7 @@ void URuntimeMeshProvider::SetSectionCastsShadow_Implementation(int32 LODIndex, 
 	auto Target = GetTarget();
 	if (Target)
 	{
-		IRuntimeMeshProviderTargetInterface::Execute_SetSectionCastsShadow(Target.GetObject(), LODIndex, SectionId, bCastsShadow);
+		Target->SetSectionCastsShadow(LODIndex, SectionId, bCastsShadow);
 	}
 }
 
@@ -166,7 +163,7 @@ void URuntimeMeshProvider::MarkSectionDirty_Implementation(int32 LODIndex, int32
 	auto Target = GetTarget();
 	if (Target)
 	{
-		IRuntimeMeshProviderTargetInterface::Execute_MarkSectionDirty(Target.GetObject(), LODIndex, SectionId);
+		Target->MarkSectionDirty(LODIndex, SectionId);
 	}
 }
 
@@ -175,7 +172,7 @@ void URuntimeMeshProvider::ClearSection_Implementation(int32 LODIndex, int32 Sec
 	auto Target = GetTarget();
 	if (Target)
 	{
-		IRuntimeMeshProviderTargetInterface::Execute_ClearSection(Target.GetObject(), LODIndex, SectionId);
+		Target->ClearSection(LODIndex, SectionId);
 	}
 }
 
@@ -184,7 +181,7 @@ void URuntimeMeshProvider::RemoveSection_Implementation(int32 LODIndex, int32 Se
 	auto Target = GetTarget();
 	if (Target)
 	{
-		IRuntimeMeshProviderTargetInterface::Execute_RemoveSection(Target.GetObject(), LODIndex, SectionId);
+		Target->RemoveSection(LODIndex, SectionId);
 	}
 }
 
@@ -193,7 +190,7 @@ void URuntimeMeshProvider::MarkCollisionDirty_Implementation()
 	auto Target = GetTarget();
 	if (Target)
 	{
-		IRuntimeMeshProviderTargetInterface::Execute_MarkCollisionDirty(Target.GetObject());
+		Target->MarkCollisionDirty();
 	}
 }
 
@@ -202,7 +199,7 @@ void URuntimeMeshProvider::SetupMaterialSlot_Implementation(int32 MaterialSlot, 
 	auto Target = GetTarget();
 	if (Target)
 	{
-		IRuntimeMeshProviderTargetInterface::Execute_SetupMaterialSlot(Target.GetObject(), MaterialSlot, SlotName, InMaterial);
+		Target->SetupMaterialSlot(MaterialSlot, SlotName, InMaterial);
 	}
 }
 
@@ -211,7 +208,7 @@ int32 URuntimeMeshProvider::GetMaterialIndex_Implementation(FName MaterialSlotNa
 	auto Target = GetTarget();
 	if (Target)
 	{
-		return IRuntimeMeshProviderTargetInterface::Execute_GetMaterialIndex(Target.GetObject(), MaterialSlotName);
+		return Target->GetMaterialIndex(MaterialSlotName);
 	}
 	return INDEX_NONE;
 }
@@ -221,7 +218,7 @@ bool URuntimeMeshProvider::IsMaterialSlotNameValid_Implementation(FName Material
 	auto Target = GetTarget();
 	if (Target)
 	{
-		return IRuntimeMeshProviderTargetInterface::Execute_IsMaterialSlotNameValid(Target.GetObject(), MaterialSlotName);
+		return Target->IsMaterialSlotNameValid(MaterialSlotName);
 	}
 	return false;
 }
@@ -231,7 +228,7 @@ FRuntimeMeshMaterialSlot URuntimeMeshProvider::GetMaterialSlot_Implementation(in
 	auto Target = GetTarget();
 	if (Target)
 	{
-		return IRuntimeMeshProviderTargetInterface::Execute_GetMaterialSlot(Target.GetObject(), SlotIndex);
+		return Target->GetMaterialSlot(SlotIndex);
 	}
 	return FRuntimeMeshMaterialSlot();
 }
@@ -241,7 +238,7 @@ int32 URuntimeMeshProvider::GetNumMaterials_Implementation()
 	auto Target = GetTarget();
 	if (Target)
 	{
-		return IRuntimeMeshProviderTargetInterface::Execute_GetNumMaterials(Target.GetObject());
+		return Target->GetNumMaterials();
 	}
 	return 0;
 }
@@ -251,7 +248,7 @@ TArray<FName> URuntimeMeshProvider::GetMaterialSlotNames_Implementation()
 	auto Target = GetTarget();
 	if (Target)
 	{
-		return IRuntimeMeshProviderTargetInterface::Execute_GetMaterialSlotNames(Target.GetObject());
+		return Target->GetMaterialSlotNames();
 	}
 	return TArray<FName>();
 }
@@ -261,7 +258,7 @@ TArray<FRuntimeMeshMaterialSlot> URuntimeMeshProvider::GetMaterialSlots_Implemen
 	auto Target = GetTarget();
 	if (Target)
 	{
-		return IRuntimeMeshProviderTargetInterface::Execute_GetMaterialSlots(Target.GetObject());
+		return Target->GetMaterialSlots();
 	}
 	return TArray<FRuntimeMeshMaterialSlot>();
 }
@@ -271,7 +268,7 @@ UMaterialInterface* URuntimeMeshProvider::GetMaterial_Implementation(int32 SlotI
 	auto Target = GetTarget();
 	if (Target)
 	{
-		return IRuntimeMeshProviderTargetInterface::Execute_GetMaterial(Target.GetObject(), SlotIndex);
+		return Target->GetMaterial(SlotIndex);
 	}
 	return nullptr;
 }
@@ -285,7 +282,7 @@ void URuntimeMeshProvider::BeginDestroy()
 
 bool URuntimeMeshProvider::IsReadyForFinishDestroy()
 {
-	return (Super::IsReadyForFinishDestroy() && ReferenceAnchor.IsFree()) || (GIsEditor && GIsReconstructingBlueprintInstances);
+	return (Super::IsReadyForFinishDestroy() && ReferenceAnchor.IsFree());// || (GIsEditor && GIsReconstructingBlueprintInstances);
 }
 
 
@@ -293,7 +290,7 @@ bool URuntimeMeshProvider::IsReadyForFinishDestroy()
 
 
 
-void URuntimeMeshProviderPassthrough::BindTargetProvider_Implementation(const TScriptInterface<IRuntimeMeshProviderTargetInterface>& InTarget)
+void URuntimeMeshProviderPassthrough::BindTargetProvider_Implementation(URuntimeMeshProviderTargetInterface* InTarget)
 {
 	URuntimeMeshProvider::BindTargetProvider_Implementation(InTarget);
 

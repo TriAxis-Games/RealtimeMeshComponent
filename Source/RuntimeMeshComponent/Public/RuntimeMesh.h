@@ -42,8 +42,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE(FRuntimeMeshCollisionUpdatedDelegate);
 
 UCLASS(HideCategories = Object, BlueprintType)
 class RUNTIMEMESHCOMPONENT_API URuntimeMesh 
-	: public UObject
-	, public IRuntimeMeshProviderTargetInterface
+	: public URuntimeMeshProviderTargetInterface
 	, public IInterface_CollisionDataProvider
 {
 	GENERATED_UCLASS_BODY()
@@ -130,68 +129,30 @@ public:
 
 
 	//	Begin IRuntimeMeshProviderTargetInterface interface
-	virtual FRuntimeMeshWeakRef GetMeshReference() override { return ReferenceAnchor.GetReference(false); }
+	virtual FRuntimeMeshWeakRef GetMeshReference() override { return ReferenceAnchor.GetReference(); }
 	virtual void ShutdownInternal() override;
 
-	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-	void ConfigureLODs(const TArray<FRuntimeMeshLODProperties>& InLODs);
+	virtual void ConfigureLODs_Implementation(const TArray<FRuntimeMeshLODProperties>& InLODs) override;
+	virtual void SetLODScreenSize_Implementation(int32 LODIndex, float ScreenSize) override;
+	virtual void MarkLODDirty_Implementation(int32 LODIndex) override;
+	virtual void MarkAllLODsDirty_Implementation() override;
 
-	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-	void SetLODScreenSize(int32 LODIndex, float ScreenSize);
+	virtual void CreateSection_Implementation(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties) override;
+	virtual void SetSectionVisibility_Implementation(int32 LODIndex, int32 SectionId, bool bIsVisible) override;
+	virtual void SetSectionCastsShadow_Implementation(int32 LODIndex, int32 SectionId, bool bCastsShadow) override;
+	virtual void MarkSectionDirty_Implementation(int32 LODIndex, int32 SectionId) override;
+	virtual void ClearSection_Implementation(int32 LODIndex, int32 SectionId) override;
+	virtual void RemoveSection_Implementation(int32 LODIndex, int32 SectionId) override;
+	virtual void MarkCollisionDirty_Implementation() override;
 
-	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-	void MarkLODDirty(int32 LODIndex);
-
-	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-	void MarkAllLODsDirty();
-
-
-	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-	void CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties);
-
-	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-	void SetSectionVisibility(int32 LODIndex, int32 SectionId, bool bIsVisible);
-
-	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-	void SetSectionCastsShadow(int32 LODIndex, int32 SectionId, bool bCastsShadow);
-
-	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-	void MarkSectionDirty(int32 LODIndex, int32 SectionId);
-
-	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-	void ClearSection(int32 LODIndex, int32 SectionId);
-
-	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-	void RemoveSection(int32 LODIndex, int32 SectionId);
-
-	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-	void MarkCollisionDirty();
-
-
-	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-	void SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial);
-
-	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-	int32 GetMaterialIndex(FName MaterialSlotName);
-
-	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-	bool IsMaterialSlotNameValid(FName MaterialSlotName) const;
-
-	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-	FRuntimeMeshMaterialSlot GetMaterialSlot(int32 SlotIndex);
-
-	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-	int32 GetNumMaterials();
-
-	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-	TArray<FName> GetMaterialSlotNames();
-
-	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-	TArray<FRuntimeMeshMaterialSlot> GetMaterialSlots();
-
-	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-	UMaterialInterface* GetMaterial(int32 SlotIndex);
-
+	virtual void SetupMaterialSlot_Implementation(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial) override;
+	virtual int32 GetMaterialIndex_Implementation(FName MaterialSlotName) override;
+	virtual bool IsMaterialSlotNameValid_Implementation(FName MaterialSlotName) const override;
+	virtual FRuntimeMeshMaterialSlot GetMaterialSlot_Implementation(int32 SlotIndex) override;
+	virtual int32 GetNumMaterials_Implementation() override;
+	virtual TArray<FName> GetMaterialSlotNames_Implementation() override;
+	virtual TArray<FRuntimeMeshMaterialSlot> GetMaterialSlots_Implementation() override;
+	virtual UMaterialInterface* GetMaterial_Implementation(int32 SlotIndex) override;
 	//	End IRuntimeMeshProviderTargetInterface interface
 
 	TArray<FRuntimeMeshLOD, TInlineAllocator<RUNTIMEMESH_MAXLODS>> GetCopyOfConfiguration() const { return LODs; }

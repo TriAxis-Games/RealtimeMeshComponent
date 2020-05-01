@@ -29,7 +29,7 @@ DECLARE_CYCLE_STAT(TEXT("RuntimeMeshDelayedActions - Finalize Collision Cooked D
 //	URuntimeMesh
 
 URuntimeMesh::URuntimeMesh(const FObjectInitializer& ObjectInitializer)
-	: UObject(ObjectInitializer)
+	: URuntimeMeshProviderTargetInterface(ObjectInitializer)
 	, bQueuedForMeshUpdate(false)
 	, bNeedsInitialization(false)
 	, bCollisionIsDirty(false)

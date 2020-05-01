@@ -11,18 +11,13 @@
 
 class URuntimeMesh;
 
-UINTERFACE(BlueprintType, Blueprintable)
-class URuntimeMeshProviderTargetInterface : public UInterface
-{
-	GENERATED_BODY()
-};
-
-class RUNTIMEMESHCOMPONENT_API IRuntimeMeshProviderTargetInterface
+UCLASS(BlueprintType, Blueprintable)
+class RUNTIMEMESHCOMPONENT_API URuntimeMeshProviderTargetInterface : public UObject
 {
 	GENERATED_BODY()
 public:
-	virtual FRuntimeMeshWeakRef GetMeshReference() = 0;
-	virtual void ShutdownInternal() = 0;
+	virtual FRuntimeMeshWeakRef GetMeshReference() { return FRuntimeMeshWeakRef(); };
+	virtual void ShutdownInternal() { };
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 	void Shutdown();

@@ -92,7 +92,7 @@ float URuntimeMeshProviderSphere::GetLODMultiplier() const
 void URuntimeMeshProviderSphere::SetLODMultiplier(float InLODMultiplier)
 {
 	FScopeLock Lock(&PropertySyncRoot);
-	if (LODMultiplier >= 1)
+	if (InLODMultiplier >= 1)
 	{
 		//If the LODMultiplier is greater than one, there'd be infinite LODs as it would diverge. (It's a geometric series)
 		UE_LOG(RuntimeMeshLog, Error, TEXT("RMC Sphere Provider(%d): LODMultiplier was set greater than or equal to 1 ! Aborting ! Value : %f"), FPlatformTLS::GetCurrentThreadId(), InLODMultiplier);
