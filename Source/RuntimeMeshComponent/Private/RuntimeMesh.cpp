@@ -581,7 +581,11 @@ void URuntimeMesh::RecreateAllComponentSceneProxies()
 
 void URuntimeMesh::HandleUpdate()
 {
-	if (!RenderProxy.IsValid())
+	// TODO: this really shouldn't be necessary
+	// but editor can sometimes force a delete
+	FRuntimeMeshProxyPtr RenderProxyRef = RenderProxy;
+
+	if (!RenderProxyRef.IsValid())
 	{
 		return;
 	}
@@ -616,7 +620,7 @@ void URuntimeMesh::HandleUpdate()
 						if (EnumHasAllFlags(UpdateType, ESectionUpdateType::Properties))
 						{
 							const auto& Section = LODs[LODId].Sections[SectionId];
-							RenderProxy->CreateOrUpdateSection_GameThread(LODId, SectionId, Section, false);
+							RenderProxyRef->CreateOrUpdateSection_GameThread(LODId, SectionId, Section, false);
 						}
 
 						if (EnumHasAllFlags(UpdateType, ESectionUpdateType::Mesh))
@@ -628,11 +632,11 @@ void URuntimeMesh::HandleUpdate()
 					{
 						if (EnumHasAllFlags(UpdateType, ESectionUpdateType::Remove))
 						{
-							RenderProxy->RemoveSection_GameThread(LODId, SectionId);
+							RenderProxyRef->RemoveSection_GameThread(LODId, SectionId);
 						}
 						else if (EnumHasAllFlags(UpdateType, ESectionUpdateType::Clear))
 						{
-							RenderProxy->ClearSection_GameThread(LODId, SectionId);
+							RenderProxyRef->ClearSection_GameThread(LODId, SectionId);
 						}
 					}
 				}
@@ -652,20 +656,20 @@ void URuntimeMesh::HandleUpdate()
 		// Update the meshes, use the bulk update path if available and requested
 		if ((LOD.Properties.bCanGetAllSectionsAtOnce || !LOD.Properties.bCanGetSectionsIndependently) && (Sections.Contains(INDEX_NONE) || Sections.Num() == LOD.Sections.Num()))
 		{
-			HandleFullLODUpdate(LODId, bRequiresProxyRecreate);
+			HandleFullLODUpdate(RenderProxyRef, LODId, bRequiresProxyRecreate);
 		}
 		else if (Sections.Contains(INDEX_NONE))
 		{
 			for (const auto& Section : LOD.Sections)
 			{
-				HandleSingleSectionUpdate(LODId, Section.Key, bRequiresProxyRecreate);
+				HandleSingleSectionUpdate(RenderProxyRef, LODId, Section.Key, bRequiresProxyRecreate);
 			}
 		}
 		else
 		{
 			for (const auto& Section : Sections)
 			{
-				HandleSingleSectionUpdate(LODId, Section, bRequiresProxyRecreate);
+				HandleSingleSectionUpdate(RenderProxyRef, LODId, Section, bRequiresProxyRecreate);
 			}
 		}
 	}
@@ -678,7 +682,7 @@ void URuntimeMesh::HandleUpdate()
 }
 
 
-void URuntimeMesh::HandleFullLODUpdate(int32 LODId, bool& bRequiresProxyRecreate)
+void URuntimeMesh::HandleFullLODUpdate(const FRuntimeMeshProxyPtr& RenderProxyRef, int32 LODId, bool& bRequiresProxyRecreate)
 {
 	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMD(%d): HandleFullLODUpdate Called"), FPlatformTLS::GetCurrentThreadId());
 
@@ -707,14 +711,14 @@ void URuntimeMesh::HandleFullLODUpdate(int32 LODId, bool& bRequiresProxyRecreate
 		{
 			LOD.Sections.FindOrAdd(Entry.Key) = Section.Properties;
 
-			RenderProxy->CreateOrUpdateSection_GameThread(LODId, Entry.Key, Section.Properties, true);
-			RenderProxy->UpdateSectionMesh_GameThread(LODId, Entry.Key, MakeShared<FRuntimeMeshRenderableMeshData>(MoveTemp(Section.MeshData)));
+			RenderProxyRef->CreateOrUpdateSection_GameThread(LODId, Entry.Key, Section.Properties, true);
+			RenderProxyRef->UpdateSectionMesh_GameThread(LODId, Entry.Key, MakeShared<FRuntimeMeshRenderableMeshData>(MoveTemp(Section.MeshData)));
 			bRequiresProxyRecreate = true;
 		}
 		else
 		{
 			// Clear existing section
-			RenderProxy->ClearSection_GameThread(LODId, Entry.Key);
+			RenderProxyRef->ClearSection_GameThread(LODId, Entry.Key);
 			bRequiresProxyRecreate = true;
 		}
 
@@ -726,12 +730,12 @@ void URuntimeMesh::HandleFullLODUpdate(int32 LODId, bool& bRequiresProxyRecreate
 	for (auto& Entry : ExistingSections)
 	{
 		LODs[LODId].Sections.Remove(Entry);
-		RenderProxy->RemoveSection_GameThread(LODId, Entry);
+		RenderProxyRef->RemoveSection_GameThread(LODId, Entry);
 		bRequiresProxyRecreate = true;
 	}
 }
 
-void URuntimeMesh::HandleSingleSectionUpdate(int32 LODId, int32 SectionId, bool& bRequiresProxyRecreate)
+void URuntimeMesh::HandleSingleSectionUpdate(const FRuntimeMeshProxyPtr& RenderProxyRef, int32 LODId, int32 SectionId, bool& bRequiresProxyRecreate)
 {
 	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMD(%d): HandleSingleSectionUpdate Called"), FPlatformTLS::GetCurrentThreadId());
 
@@ -746,14 +750,14 @@ void URuntimeMesh::HandleSingleSectionUpdate(int32 LODId, int32 SectionId, bool&
 	if (bResult)
 	{
 		// Update section
-		RenderProxy->UpdateSectionMesh_GameThread(LODId, SectionId, MeshData);
+		RenderProxyRef->UpdateSectionMesh_GameThread(LODId, SectionId, MeshData);
 		bRequiresProxyRecreate |= Properties.UpdateFrequency == ERuntimeMeshUpdateFrequency::Infrequent;
 		bRequiresProxyRecreate = true;
 	}
 	else
 	{
 		// Clear section
-		RenderProxy->ClearSection_GameThread(LODId, SectionId);
+		RenderProxyRef->ClearSection_GameThread(LODId, SectionId);
 		bRequiresProxyRecreate |= Properties.UpdateFrequency == ERuntimeMeshUpdateFrequency::Infrequent;
 		bRequiresProxyRecreate = true;
 	}

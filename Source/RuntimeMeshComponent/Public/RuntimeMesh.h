@@ -225,8 +225,8 @@ private:
 	void RecreateAllComponentSceneProxies();
 
 	void HandleUpdate();
-	void HandleFullLODUpdate(int32 LODId, bool& bRequiresProxyRecreate);
-	void HandleSingleSectionUpdate(int32 LODId, int32 SectionId, bool& bRequiresProxyRecreate);
+	void HandleFullLODUpdate(const FRuntimeMeshProxyPtr& RenderProxyRef, int32 LODId, bool& bRequiresProxyRecreate);
+	void HandleSingleSectionUpdate(const FRuntimeMeshProxyPtr& RenderProxyRef, int32 LODId, int32 SectionId, bool& bRequiresProxyRecreate);
 
 	static URuntimeMeshComponentEngineSubsystem* GetEngineSubsystem();
 
