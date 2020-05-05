@@ -948,10 +948,10 @@ void qh__build_hull(qh_context_t* context, float epsilon)
 		// Push new face to stack
 		{
 			for (i = 0; i < context->scratch.size; ++i) {
-				qh_face_t* face = context->faces + context->scratch.begin[i];
+				qh_face_t* face2 = context->faces + context->scratch.begin[i];
 
-				if (face->iset.size > 0) {
-					qh__push_stack(&context->facestack, face->face);
+				if (face2->iset.size > 0) {
+					qh__push_stack(&context->facestack, face2->face);
 				}
 			}
 
@@ -965,6 +965,7 @@ void qh__build_hull(qh_context_t* context, float epsilon)
 	}
 }
 
+#if 0
 void qh_mesh_export(qh_mesh_t const* mesh, char const* filename)
 {
 	FILE* objfile = fopen(filename, "wt");
@@ -989,6 +990,7 @@ void qh_mesh_export(qh_mesh_t const* mesh, char const* filename)
 
 	fclose(objfile);
 }
+#endif
 
 qh_face_t* qh__build_tetrahedron(qh_context_t* context, float epsilon)
 {
@@ -1103,8 +1105,8 @@ qh_face_t* qh__build_tetrahedron(qh_context_t* context, float epsilon)
 			if (dface) {
 				int valid = 1;
 
-				for (int j = 0; j < 3; ++j) {
-					qh_half_edge_t* e = context->edges + dface->edges[j];
+				for (int a = 0; a < 3; ++a) {
+					qh_half_edge_t* e = context->edges + dface->edges[a];
 					if (i == e->to_vertex) {
 						valid = 0;
 						break;

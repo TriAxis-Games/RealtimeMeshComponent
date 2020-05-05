@@ -528,8 +528,6 @@ void URuntimeMeshSlicer::SliceRuntimeMesh(URuntimeMeshComponent* InRuntimeMesh, 
 			TArray<float> VertDistance;
 			VertDistance.AddUninitialized(NumBaseVerts);
 
-			bool bSlicedAny = false;
-
 			// Build vertex buffer 
 			for (int32 BaseVertIndex = 0; BaseVertIndex < NumBaseVerts; BaseVertIndex++)
 			{
