@@ -889,6 +889,14 @@ public:
 		AdjacencyTriangles.Empty();
 	}
 
+	FRuntimeMeshRenderableMeshData CopyStructure() const
+	{
+		return FRuntimeMeshRenderableMeshData(Tangents.IsHighPrecision(),
+			TexCoords.IsHighPrecision(),
+			TexCoords.NumChannels(),
+			Triangles.IsHighPrecision());
+	}
+
 	bool HasValidMeshData(bool bPrintErrorMessage = false) const;
 
 	friend FArchive& operator<<(FArchive& Ar, FRuntimeMeshRenderableMeshData& MeshData)

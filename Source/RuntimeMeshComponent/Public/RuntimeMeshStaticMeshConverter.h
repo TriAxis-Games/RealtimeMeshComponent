@@ -31,4 +31,10 @@ public:
 	
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|StaticMeshConversion")
 	static bool CopyStaticMeshLODToCollisionData(UStaticMesh* StaticMesh, int32 LODIndex, FRuntimeMeshCollisionData& OutCollisionData);
+
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|StaticMeshConversion")
+	static bool CopyStaticMeshToRuntimeMesh(UStaticMesh* StaticMesh, URuntimeMeshComponent* RuntimeMeshComponent, int32 CollisionLODIndex = -1, int32 MaxLODToCopy = 8);
+
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|StaticMeshConversion")
+	static bool CopyStaticMeshComponentToRuntimeMesh(UStaticMeshComponent* StaticMeshComponent, URuntimeMeshComponent* RuntimeMeshComponent, int32 CollisionLODIndex = -1, int32 MaxLODToCopy = 8);
 };

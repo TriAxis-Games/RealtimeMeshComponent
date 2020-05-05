@@ -27,7 +27,6 @@ void URuntimeMeshComponentEngineSubsystem::Initialize(FSubsystemCollectionBase& 
 	check(Settings);
 
 	InitializeThreads(CalculateNumThreads(Settings), Settings->ThreadStackSize, ConvertThreadPriority(Settings->ThreadPriority));
-
 }
 
 void URuntimeMeshComponentEngineSubsystem::Deinitialize()

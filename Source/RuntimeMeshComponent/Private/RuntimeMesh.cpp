@@ -461,6 +461,7 @@ void URuntimeMesh::InitializeInternal()
 	MeshProvider->BindTargetProvider(this);
 	MeshProvider->Initialize();
 
+	bNeedsInitialization = false;
 }
 
 

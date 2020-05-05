@@ -7,6 +7,7 @@
 #include "EngineGlobals.h"
 #include "Engine/StaticMesh.h"
 #include "PhysicsEngine/BodySetup.h"
+#include "../Public/RuntimeMeshRenderable.h"
 
 
 int32 URuntimeMeshStaticMeshConverter::CopyVertexOrGetIndex(const FStaticMeshLODResources& LOD, const FStaticMeshSection& Section, TMap<int32, int32>& MeshToSectionVertexMap, int32 VertexIndex, FRuntimeMeshRenderableMeshData& NewMeshData)
@@ -173,10 +174,13 @@ bool URuntimeMeshStaticMeshConverter::CopyStaticMeshCollisionToCollisionSettings
 		return false;
 	}
 
+	bool bHadSimple = false;
+
 	// Copy convex elements
 	const auto& SourceConvexElems = StaticMesh->BodySetup->AggGeom.ConvexElems;
 	for (int32 ConvexIndex = 0; ConvexIndex < SourceConvexElems.Num(); ConvexIndex++)
 	{
+		bHadSimple = true;
 		OutCollisionSettings.ConvexElements.Emplace(
 			SourceConvexElems[ConvexIndex].VertexData, 
 			SourceConvexElems[ConvexIndex].ElemBox);
@@ -186,6 +190,7 @@ bool URuntimeMeshStaticMeshConverter::CopyStaticMeshCollisionToCollisionSettings
 	const auto& SourceBoxes = StaticMesh->BodySetup->AggGeom.BoxElems;
 	for (int32 BoxIndex = 0; BoxIndex < SourceBoxes.Num(); BoxIndex++)
 	{
+		bHadSimple = true;
 		OutCollisionSettings.Boxes.Emplace(
 			SourceBoxes[BoxIndex].Center,
 			SourceBoxes[BoxIndex].Rotation,
@@ -198,6 +203,7 @@ bool URuntimeMeshStaticMeshConverter::CopyStaticMeshCollisionToCollisionSettings
 	const auto& SourceSpheres = StaticMesh->BodySetup->AggGeom.SphereElems;
 	for (int32 SphereIndex = 0; SphereIndex < SourceSpheres.Num(); SphereIndex++)
 	{
+		bHadSimple = true;
 		OutCollisionSettings.Spheres.Emplace(
 			SourceSpheres[SphereIndex].Center, 
 			SourceSpheres[SphereIndex].Radius);
@@ -207,11 +213,17 @@ bool URuntimeMeshStaticMeshConverter::CopyStaticMeshCollisionToCollisionSettings
 	const auto& SourceCapsules = StaticMesh->BodySetup->AggGeom.SphylElems;
 	for (int32 CapsuleIndex = 0; CapsuleIndex < SourceCapsules.Num(); CapsuleIndex++)
 	{
+		bHadSimple = true;
 		OutCollisionSettings.Capsules.Emplace(
 			SourceCapsules[CapsuleIndex].Center,
 			SourceCapsules[CapsuleIndex].Rotation,
 			SourceCapsules[CapsuleIndex].Radius,
 			SourceCapsules[CapsuleIndex].Length);
+	}
+
+	if (bHadSimple)
+	{
+		OutCollisionSettings.bUseComplexAsSimple = false;
 	}
 
 	return true;
@@ -287,5 +299,95 @@ bool URuntimeMeshStaticMeshConverter::CopyStaticMeshLODToCollisionData(UStaticMe
 	return true;
 }
 
+bool URuntimeMeshStaticMeshConverter::CopyStaticMeshToRuntimeMesh(UStaticMesh* StaticMesh, URuntimeMeshComponent* RuntimeMeshComponent, int32 CollisionLODIndex, int32 MaxLODToCopy)
+{
+	URuntimeMeshProviderStatic* StaticProvider = Cast<URuntimeMeshProviderStatic>(RuntimeMeshComponent->GetProvider());
 
+	// Not able to convert to RMC without a static provider
+	if (StaticProvider == nullptr)
+	{
+		return false;
+	}
+
+
+	// Check valid static mesh
+	if (StaticMesh == nullptr || StaticMesh->IsPendingKill())
+	{
+		StaticProvider->ConfigureLODs({ FRuntimeMeshLODProperties() });
+		StaticProvider->SetCollisionMesh(FRuntimeMeshCollisionData());
+		StaticProvider->SetCollisionSettings(FRuntimeMeshCollisionSettings());
+		return false;
+	}
+
+	// Check mesh data is accessible
+	if (!((GIsEditor || StaticMesh->bAllowCPUAccess) && StaticMesh->RenderData != nullptr))
+	{
+		StaticProvider->ConfigureLODs({ FRuntimeMeshLODProperties() });
+		StaticProvider->SetCollisionMesh(FRuntimeMeshCollisionData());
+		StaticProvider->SetCollisionSettings(FRuntimeMeshCollisionSettings());
+		return false;
+	}
+
+	// Copy materials
+	const TArray<FStaticMaterial>& MaterialSlots = StaticMesh->StaticMaterials;
+	for (int32 SlotIndex = 0; SlotIndex < MaterialSlots.Num(); SlotIndex++)
+	{
+		StaticProvider->SetupMaterialSlot(SlotIndex, MaterialSlots[SlotIndex].MaterialSlotName, MaterialSlots[SlotIndex].MaterialInterface);
+	}
+
+	const auto& LODResources = StaticMesh->RenderData->LODResources;
+
+	// Setup LODs
+	TArray<FRuntimeMeshLODProperties> LODs;
+	for (int32 LODIndex = 0; LODIndex < LODResources.Num() && LODIndex <= MaxLODToCopy; LODIndex++)
+	{
+		FRuntimeMeshLODProperties LODProperties;
+		LODProperties.ScreenSize = StaticMesh->RenderData->ScreenSize[LODIndex].Default;
+
+		LODs.Add(LODProperties);
+	}
+	StaticProvider->ConfigureLODs(LODs);
+
+
+	// Create all sections for all LODs
+	for (int32 LODIndex = 0; LODIndex < LODResources.Num() && LODIndex <= MaxLODToCopy; LODIndex++)
+	{
+		const auto& LOD = LODResources[LODIndex];
+
+		for (int32 SectionId = 0; SectionId < LOD.Sections.Num(); SectionId++)
+		{
+			const auto& Section = LOD.Sections[SectionId];
+
+			FRuntimeMeshSectionProperties SectionProperties;
+
+			FRuntimeMeshRenderableMeshData MeshData;
+			CopyStaticMeshSectionToRenderableMeshData(StaticMesh, LODIndex, SectionId, MeshData);
+
+			StaticProvider->CreateSection(LODIndex, SectionId, SectionProperties, MeshData);
+		}
+	}
+
+	FRuntimeMeshCollisionSettings CollisionSettings;
+	if (CopyStaticMeshCollisionToCollisionSettings(StaticMesh, CollisionSettings))
+	{
+		StaticProvider->SetCollisionSettings(CollisionSettings);
+	}
+
+	FRuntimeMeshCollisionData CollisionData;
+	if (CollisionLODIndex != INDEX_NONE && CopyStaticMeshLODToCollisionData(StaticMesh, CollisionLODIndex, CollisionData))
+	{
+		StaticProvider->SetCollisionMesh(CollisionData);
+	}
+
+	return true;
+}
+
+bool URuntimeMeshStaticMeshConverter::CopyStaticMeshComponentToRuntimeMesh(UStaticMeshComponent* StaticMeshComponent, URuntimeMeshComponent* RuntimeMeshComponent, int32 CollisionLODIndex, int32 MaxLODToCopy)
+{
+	if (StaticMeshComponent)
+	{
+		return CopyStaticMeshToRuntimeMesh(StaticMeshComponent->GetStaticMesh(), RuntimeMeshComponent, CollisionLODIndex, MaxLODToCopy);
+	}
+	return false;
+}
 

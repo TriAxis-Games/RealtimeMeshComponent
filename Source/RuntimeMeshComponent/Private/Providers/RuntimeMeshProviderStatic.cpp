@@ -186,8 +186,98 @@ void URuntimeMeshProviderStatic::SetRenderableSectionAffectsCollision(int32 Sect
 	UpdateSectionAffectsCollision(LODForMeshCollision, SectionId, bCollisionEnabled);
 }
 
+TArray<int32> URuntimeMeshProviderStatic::GetSectionIds(int32 LODIndex) const
+{
+	FScopeLock Lock(&MeshSyncRoot);
+	TArray<int32> SectionIds;
 
+	const auto* FoundLOD = SectionDataMap.Find(LODIndex);
+	if (FoundLOD)
+	{
+		FoundLOD->GetKeys(SectionIds);
+	}
 
+	return SectionIds;
+}
+
+int32 URuntimeMeshProviderStatic::GetLastSectionId(int32 LODIndex) const
+{
+	TArray<int32> SectionIds;
+	{
+		FScopeLock Lock(&MeshSyncRoot);
+
+		const auto* FoundLOD = SectionDataMap.Find(LODIndex);
+		if (FoundLOD)
+		{
+			FoundLOD->GetKeys(SectionIds);
+		}
+	}
+
+	int32 MaxIndex = INDEX_NONE;
+
+	for (int32 Index = 0; Index < SectionIds.Num(); Index++)
+	{
+		MaxIndex = FMath::Max(MaxIndex, SectionIds[Index]);
+	}
+
+	return MaxIndex;
+}
+
+bool URuntimeMeshProviderStatic::DoesSectionHaveValidMeshData(int32 LODIndex, int32 SectionId) const
+{
+	FScopeLock Lock(&MeshSyncRoot);
+
+	check(SectionDataMap.Contains(LODIndex));
+	check(SectionDataMap[LODIndex].Contains(SectionId));
+
+	return SectionDataMap.FindChecked(LODIndex).FindChecked(SectionId).Get<1>().HasValidMeshData();
+}
+
+FBoxSphereBounds URuntimeMeshProviderStatic::GetSectionBounds(int32 LODIndex, int32 SectionId) const
+{
+	FScopeLock Lock(&MeshSyncRoot);
+
+	check(SectionDataMap.Contains(LODIndex));
+	check(SectionDataMap[LODIndex].Contains(SectionId));
+
+	return SectionDataMap.FindChecked(LODIndex).FindChecked(SectionId).Get<2>();
+}
+
+FRuntimeMeshSectionProperties URuntimeMeshProviderStatic::GetSectionProperties(int32 LODIndex, int32 SectionId) const
+{
+	FScopeLock Lock(&MeshSyncRoot);
+
+	check(SectionDataMap.Contains(LODIndex));
+	check(SectionDataMap[LODIndex].Contains(SectionId));
+
+	return SectionDataMap.FindChecked(LODIndex).FindChecked(SectionId).Get<0>();
+}
+
+FRuntimeMeshRenderableMeshData URuntimeMeshProviderStatic::GetSectionRenderData(int32 LODIndex, int32 SectionId) const
+{
+	FScopeLock Lock(&MeshSyncRoot);
+
+	check(SectionDataMap.Contains(LODIndex));
+	check(SectionDataMap[LODIndex].Contains(SectionId));
+
+	return SectionDataMap.FindChecked(LODIndex).FindChecked(SectionId).Get<1>();
+}
+
+FRuntimeMeshRenderableMeshData URuntimeMeshProviderStatic::GetSectionRenderDataAndClear(int32 LODIndex, int32 SectionId)
+{
+	FRuntimeMeshRenderableMeshData MeshData;
+	{
+		FScopeLock Lock(&MeshSyncRoot);
+
+		check(SectionDataMap.Contains(LODIndex));
+		check(SectionDataMap[LODIndex].Contains(SectionId));
+
+		MeshData = MoveTemp(SectionDataMap.FindChecked(LODIndex).FindChecked(SectionId).Get<1>());
+	}
+	ClearSection(LODIndex, SectionId);
+
+	return MeshData;
+}
 
 void URuntimeMeshProviderStatic::Initialize_Implementation()
 {

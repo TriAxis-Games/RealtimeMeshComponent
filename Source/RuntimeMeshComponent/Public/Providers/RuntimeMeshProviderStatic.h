@@ -268,30 +268,51 @@ public:
 	}
 
 
-	UFUNCTION(BlueprintPure, Category = "RuntimeMesh|Providers|Static")
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static")
 	FRuntimeMeshCollisionSettings GetCollisionSettingsStatic() const;
 
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static")
 	void SetCollisionSettings(const FRuntimeMeshCollisionSettings& NewCollisionSettings);
 
-	UFUNCTION(BlueprintPure, Category = "RuntimeMesh|Providers|Static")
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static")
 	FRuntimeMeshCollisionData GetCollisionMeshStatic() const;
 
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static")
 	void SetCollisionMesh(const FRuntimeMeshCollisionData& NewCollisionMesh);
 
-	UFUNCTION(BlueprintPure, Category = "RuntimeMesh|Providers|Static")
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static")
 	int32 GetLODForMeshCollision() const;
 
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static")
 	void SetRenderableLODForCollision(int32 LODIndex);
 
-	UFUNCTION(BlueprintPure, Category = "RuntimeMesh|Providers|Static")
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static")
 	TSet<int32> GetSectionsForMeshCollision() const;
 
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static")
 	void SetRenderableSectionAffectsCollision(int32 SectionId, bool bCollisionEnabled);
 
+
+	UFUNCTION(BlueprintCallable, Category="RuntimeMesh|Providers|Static")
+	TArray<int32> GetSectionIds(int32 LODIndex) const;
+
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static")
+	int32 GetLastSectionId(int32 LODIndex) const;
+
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static")
+	bool DoesSectionHaveValidMeshData(int32 LODIndex, int32 SectionId) const;
+
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static")
+	FBoxSphereBounds GetSectionBounds(int32 LODIndex, int32 SectionId) const;
+
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static")
+	FRuntimeMeshSectionProperties GetSectionProperties(int32 LODIndex, int32 SectionId) const;
+
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static")
+	FRuntimeMeshRenderableMeshData GetSectionRenderData(int32 LODIndex, int32 SectionId) const;
+
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static")
+	FRuntimeMeshRenderableMeshData GetSectionRenderDataAndClear(int32 LODIndex, int32 SectionId);
 
 
 protected:
