@@ -123,11 +123,11 @@ void URuntimeMeshComponentEngineSubsystem::Tick(float DeltaTime)
 		{
 			if (MeshRef->MeshProvider)
 			{
-				if (MeshRef->bNeedsInitialization)
-				{
-					MeshRef->InitializeInternal();
-					MeshRef->bNeedsInitialization = false;
-				}
+// 				if (MeshRef->bNeedsInitialization)
+// 				{
+// 					MeshRef->InitializeInternal();
+// 					MeshRef->bNeedsInitialization = false;
+// 				}
 
 				if (MeshRef->bCollisionIsDirty)
 				{

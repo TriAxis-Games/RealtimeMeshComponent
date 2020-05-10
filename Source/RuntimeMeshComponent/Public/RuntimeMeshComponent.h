@@ -20,7 +20,7 @@ class RUNTIMEMESHCOMPONENT_API URuntimeMeshComponent : public UMeshComponent, pu
 
 private:
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = RuntimeMesh, Meta = (AllowPrivateAccess = "true", DisplayName = "Runtime Mesh"))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = RuntimeMesh, DuplicateTransient, Meta = (AllowPrivateAccess = "true", DisplayName = "Runtime Mesh"))
 	URuntimeMesh* RuntimeMeshReference;
 
 	void EnsureHasRuntimeMesh();
@@ -105,6 +105,7 @@ public:
 	FRuntimeMeshCollisionHitInfo GetHitSource(int32 FaceIndex) const;
 
 
+
 private:
 
 	//~ Begin USceneComponent Interface.
@@ -137,6 +138,9 @@ protected:
 	virtual void PostLoad() override;
 
 	virtual void BeginDestroy() override;
+
+	virtual void OnRegister() override;
+	virtual void OnUnregister() override;
 
 private:
 

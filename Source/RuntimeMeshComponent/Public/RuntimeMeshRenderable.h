@@ -14,6 +14,8 @@ struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshVertexPositionStream
 
 private:
 	TArray<uint8> Data;
+public:
+	int32 GetStride() const { return sizeof(FVector); }
 
 public:
 	FRuntimeMeshVertexPositionStream() { }
@@ -113,7 +115,7 @@ private:
 
 public:
 	bool IsHighPrecision() const { return bIsHighPrecision; }
-private:
+public:
 	int32 GetElementSize() const { return (bIsHighPrecision ? sizeof(FPackedRGBA16N) : sizeof(FPackedNormal)); }
 	int32 GetStride() const { return GetElementSize() * 2; }
 
@@ -352,7 +354,7 @@ private:
 
 public:
 	bool IsHighPrecision() const { return bIsHighPrecision; }
-private:
+public:
 	int32 GetElementSize() const { return (bIsHighPrecision ? sizeof(FVector2D) : sizeof(FVector2DHalf)); }
 	int32 GetStride() const { return GetElementSize() * ChannelCount; }
 
@@ -482,7 +484,8 @@ struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshVertexColorStream
 
 private:
 	TArray<uint8> Data;
-
+public:
+	int32 GetStride() const { return sizeof(FColor); }
 public:
 	FRuntimeMeshVertexColorStream() { }
 

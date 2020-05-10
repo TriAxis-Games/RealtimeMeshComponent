@@ -31,7 +31,7 @@ DECLARE_CYCLE_STAT(TEXT("RuntimeMeshDelayedActions - Finalize Collision Cooked D
 URuntimeMesh::URuntimeMesh(const FObjectInitializer& ObjectInitializer)
 	: URuntimeMeshProviderTargetInterface(ObjectInitializer)
 	, bQueuedForMeshUpdate(false)
-	, bNeedsInitialization(false)
+	//, bIsInitialized(false)
 	, bCollisionIsDirty(false)
 	, MeshProvider(nullptr)
 	, BodySetup(nullptr)
@@ -51,7 +51,7 @@ void URuntimeMesh::Initialize(URuntimeMeshProvider* Provider)
 		}
 
 		// Flag initialized
-		bNeedsInitialization = false;
+		//bNeedsInitialization = false;
 
 		MeshProvider = Provider;
 
@@ -60,7 +60,8 @@ void URuntimeMesh::Initialize(URuntimeMeshProvider* Provider)
 		PostEditChange();
 #endif
 
-		InitializeInternal();
+		MeshProvider->BindTargetProvider(this);
+		MeshProvider->Initialize();
 	}
 	else if (MeshProvider != Provider)
 	{
@@ -93,7 +94,7 @@ void URuntimeMesh::Reset()
 	LODs.Empty();
 	RenderProxy.Reset();
 
-	bNeedsInitialization = false;
+	//bNeedsInitialization = false;
 
 	MaterialSlots.Empty();
 	SlotNameLookup.Empty();
@@ -389,8 +390,13 @@ void URuntimeMesh::PostLoad()
 {
 	Super::PostLoad();
 
-	QueueForDelayedInitialize();
-	QueueForCollisionUpdate();
+	//QueueForDelayedInitialize();
+	//QueueForCollisionUpdate();
+}
+
+void URuntimeMesh::PostDuplicate(EDuplicateMode::Type DuplicateMode)
+{
+	Super::PostDuplicate(DuplicateMode);
 }
 
 
@@ -447,22 +453,6 @@ void URuntimeMesh::GetMeshId(FString& OutMeshId)
 }
 
 
-void URuntimeMesh::InitializeInternal()
-{
-	SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_Initialize);
-
-	// Create the render proxy
-	ERHIFeatureLevel::Type FeatureLevel;
-	if (GetSceneFeatureLevel(FeatureLevel))
-	{
-		GetRenderProxy(FeatureLevel);
-	}
-
-	MeshProvider->BindTargetProvider(this);
-	MeshProvider->Initialize();
-
-	bNeedsInitialization = false;
-}
 
 
 
@@ -470,15 +460,15 @@ void URuntimeMesh::InitializeInternal()
 
 void URuntimeMesh::QueueForDelayedInitialize()
 {
-	FRuntimeMeshMisc::DoOnGameThread([this]()
-		{
-			if (this->IsValidLowLevel())
-			{
-				bNeedsInitialization = true;
-
-				GetEngineSubsystem()->QueueMeshForUpdate(GetMeshReference());
-			}
-		});
+// 	FRuntimeMeshMisc::DoOnGameThread([this]()
+// 		{
+// 			if (this->IsValidLowLevel())
+// 			{
+// 				bNeedsInitialization = true;
+// 
+// 				GetEngineSubsystem()->QueueMeshForUpdate(GetMeshReference());
+// 			}
+// 		});
 }
 
 class FRuntimeMeshUpdateTask : public FNonAbandonableTask
@@ -960,6 +950,8 @@ void URuntimeMesh::RegisterLinkedComponent(URuntimeMeshComponent* NewComponent)
 {
 	LinkedComponents.AddUnique(NewComponent);
 
+	EnsureRenderProxyReady();
+
 	if (BodySetup)
 	{
 		// Alert collision if we already have it
@@ -973,6 +965,14 @@ void URuntimeMesh::UnRegisterLinkedComponent(URuntimeMeshComponent* ComponentToR
 }
 
 
+
+void URuntimeMesh::EnsureRenderProxyReady()
+{
+// 	if ()
+// 	MeshProvider->BindTargetProvider(this);
+// 	MeshProvider->Initialize();	
+}
+
 FRuntimeMeshProxyPtr URuntimeMesh::GetRenderProxy(ERHIFeatureLevel::Type InFeatureLevel)
 {
 	if (RenderProxy.IsValid())
@@ -981,40 +981,40 @@ FRuntimeMeshProxyPtr URuntimeMesh::GetRenderProxy(ERHIFeatureLevel::Type InFeatu
 		return RenderProxy;
 	}
 
+	SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_Initialize);
+
+	RenderProxy = MakeShareable(new FRuntimeMeshProxy(InFeatureLevel), FRuntimeMeshRenderThreadDeleter<FRuntimeMeshProxy>());
+
+	FScopeLock Lock(&SyncRoot);
+	if (LODs.Num() > 0)
 	{
-		FScopeLock Lock(&SyncRoot);
-
-		RenderProxy = MakeShareable(new FRuntimeMeshProxy(InFeatureLevel), FRuntimeMeshRenderThreadDeleter<FRuntimeMeshProxy>());
-
-		if (LODs.Num() > 0)
+		TArray<FRuntimeMeshLODProperties> LODProperties;
+		LODProperties.SetNum(LODs.Num());
+		for (int32 Index = 0; Index < LODs.Num(); Index++)
 		{
-			TArray<FRuntimeMeshLODProperties> LODProperties;
-			LODProperties.SetNum(LODs.Num());
-			for (int32 Index = 0; Index < LODs.Num(); Index++)
+			LODProperties[Index] = LODs[Index].Properties;
+		}
+
+		RenderProxy->InitializeLODs_GameThread(LODProperties);
+
+		bool bHadAnyInitialized = false;
+		for (int32 LODIndex = 0; LODIndex < LODs.Num(); LODIndex++)
+		{
+			FRuntimeMeshLOD& LOD = LODs[LODIndex];
+			for (int32 SectionId = 0; SectionId < LOD.Sections.Num(); SectionId++)
 			{
-				LODProperties[Index] = LODs[Index].Properties;
-			}
+				RenderProxy->CreateOrUpdateSection_GameThread(LODIndex, SectionId, LOD.Sections[SectionId], true);
+				bHadAnyInitialized = true;
 
-			RenderProxy->InitializeLODs_GameThread(LODProperties);
-
-			bool bHadAnyInitialized = false;
-			for (int32 LODIndex = 0; LODIndex < LODs.Num(); LODIndex++)
-			{
-				FRuntimeMeshLOD& LOD = LODs[LODIndex];
-				for (int32 SectionId = 0; SectionId < LOD.Sections.Num(); SectionId++)
-				{
-					RenderProxy->CreateOrUpdateSection_GameThread(LODIndex, SectionId, LOD.Sections[SectionId], true);
-					bHadAnyInitialized = true;
-
-				}
-			}
-
-			if (bHadAnyInitialized)
-			{
-				MarkAllLODsDirty();
 			}
 		}
+
+		if (bHadAnyInitialized)
+		{
+			MarkAllLODsDirty();
+		}
 	}
+
 	return RenderProxy;
 }
 

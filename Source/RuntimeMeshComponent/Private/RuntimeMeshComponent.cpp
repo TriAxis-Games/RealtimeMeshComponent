@@ -217,6 +217,16 @@ UMaterialInterface* URuntimeMeshComponent::GetMaterial(int32 ElementIndex) const
 void URuntimeMeshComponent::PostLoad()
 {
 	Super::PostLoad();
+}
+
+void URuntimeMeshComponent::BeginDestroy()
+{
+	Super::BeginDestroy();
+}
+
+void URuntimeMeshComponent::OnRegister()
+{
+	Super::OnRegister();
 
 	if (RuntimeMeshReference)
 	{
@@ -224,7 +234,7 @@ void URuntimeMeshComponent::PostLoad()
 	}
 }
 
-void URuntimeMeshComponent::BeginDestroy()
+void URuntimeMeshComponent::OnUnregister()
 {
 	if (RuntimeMeshReference)
 	{
@@ -232,5 +242,5 @@ void URuntimeMeshComponent::BeginDestroy()
 		RuntimeMeshReference = nullptr;
 	}
 
-	Super::BeginDestroy();
+	Super::OnUnregister();
 }

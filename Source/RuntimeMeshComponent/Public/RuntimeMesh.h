@@ -55,7 +55,7 @@ private:
 	// Whether this mesh needs to be initialized by the tick object. 
 	// This is to get away from postload so BP calls in the 
 	// provider are safe 
-	bool bNeedsInitialization;
+	//bool bIsInitialized;
 
 	// Do we need to update our collision?
 	bool bCollisionIsDirty;
@@ -108,6 +108,9 @@ public:
 	void Initialize(URuntimeMeshProvider* Provider);
 
 	UFUNCTION(BlueprintCallable)
+	bool IsInitialized() const { return LinkedComponents.Num() > 0; }
+
+	UFUNCTION(BlueprintCallable)
 	URuntimeMeshProvider* GetProvider() { return MeshProvider; }
 
 	UFUNCTION(BlueprintCallable)
@@ -115,6 +118,7 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	FRuntimeMeshCollisionHitInfo GetHitSource(int32 FaceIndex) const;
+
 public:
 
 	/** Event called when the collision has finished updated, this works both with standard following frame synchronous updates, as well as async updates */
@@ -163,6 +167,7 @@ public:
 	virtual void BeginDestroy() override;
 	virtual bool IsReadyForFinishDestroy() override;
 	virtual void PostLoad() override;
+	virtual void PostDuplicate(EDuplicateMode::Type DuplicateMode) override;
 	//	End UObject interface
 
 	//	Begin IInterface_CollisionDataProvider interface
@@ -175,7 +180,7 @@ public:
 
 
 private:
-	void InitializeInternal();
+	void EnsureRenderProxyReady();
 
 	void QueueForDelayedInitialize();
 	void QueueForUpdate();
