@@ -15,7 +15,7 @@
 #include "RuntimeMeshQuickHull.h"
 
 /** Util that returns 1 if on positive side of plane, -1 if negative, or 0 if split by plane */
-int32 BoxPlaneCompare(FBox InBox, const FPlane& InPlane)
+int32 RMCBoxPlaneCompare(FBox InBox, const FPlane& InPlane)
 {
 	FVector BoxCenter, BoxExtents;
 	InBox.GetCenterAndExtents(BoxCenter, BoxExtents);
@@ -479,7 +479,7 @@ void URuntimeMeshSlicer::SliceRuntimeMesh(URuntimeMeshComponent* InRuntimeMesh, 
 
 		FBoxSphereBounds Bounds = SourceProvider->GetSectionBounds(LODIndex, SectionId);
 
-		int32 BoxCompare = BoxPlaneCompare(Bounds.GetBox(), SlicePlane);
+		int32 BoxCompare = RMCBoxPlaneCompare(Bounds.GetBox(), SlicePlane);
 
 		// Box not affected, leave alone
 		if (BoxCompare == 1)
