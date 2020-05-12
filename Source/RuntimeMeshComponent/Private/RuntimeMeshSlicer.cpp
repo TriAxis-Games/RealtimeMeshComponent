@@ -243,28 +243,6 @@ bool TriangulatePoly(FRuntimeMeshRenderableMeshData& MeshData, int32 VertBase, c
 	return true;
 }
 
-/** Util to slice a convex hull with a plane */
-void SliceConvexElem(const FKConvexElem& InConvex, const FPlane& SlicePlane, TArray<FVector>& OutConvexVerts)
-{
-	// Get set of planes that make up hull
-	TArray<FPlane> ConvexPlanes;
-	InConvex.GetPlanes(ConvexPlanes);
-
-	if (ConvexPlanes.Num() >= 4)
-	{
-		// Add on the slicing plane (need to flip as it culls geom in the opposite sense to our geom culling code)
-		ConvexPlanes.Add(SlicePlane.Flip());
-
-		// Create output convex based on new set of planes
-		FKConvexElem SlicedElem;
-		bool bSuccess = SlicedElem.HullFromPlanes(ConvexPlanes, InConvex.VertexData);
-		if (bSuccess)
-		{
-			OutConvexVerts = SlicedElem.VertexData;
-		}
-	}
-}
-
 void SliceConvexShape(const FRuntimeMeshCollisionConvexMesh& InConvex, const FPlane& SlicePlane, FRuntimeMeshCollisionConvexMesh& OutConvex, FRuntimeMeshCollisionConvexMesh& OutOtherConvex)
 {
 	OutConvex.VertexBuffer.Empty();
