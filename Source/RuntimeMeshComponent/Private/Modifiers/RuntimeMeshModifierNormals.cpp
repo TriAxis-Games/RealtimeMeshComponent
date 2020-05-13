@@ -191,6 +191,7 @@ void URuntimeMeshModifierNormals::CalculateNormalsTangents(FRuntimeMeshRenderabl
 		TangentX.Normalize();
 		TangentY.Normalize();
 
+		MeshData.Tangents.SetNum(NumVertices, true);
 		MeshData.Tangents.SetNormal(VertxIdx, TangentZ);
 		MeshData.Tangents.SetTangent(VertxIdx, TangentX);
 	}
