@@ -27,21 +27,21 @@ public:
 	void ClearCache();
 
 protected:
-	virtual bool GetSectionMeshForLOD_Implementation(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData) override;
-	virtual bool GetAllSectionsMeshForLOD_Implementation(int32 LODIndex, TMap<int32, FRuntimeMeshSectionData>& MeshDatas) override;
-	virtual FRuntimeMeshCollisionSettings GetCollisionSettings_Implementation() override;
-	virtual bool HasCollisionMesh_Implementation() override;
-	virtual bool GetCollisionMesh_Implementation(FRuntimeMeshCollisionData& CollisionData) override;
-	virtual bool IsThreadSafe_Implementation() override;
+	virtual bool GetSectionMeshForLOD(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData) override;
+	virtual bool GetAllSectionsMeshForLOD(int32 LODIndex, TMap<int32, FRuntimeMeshSectionData>& MeshDatas) override;
+	virtual FRuntimeMeshCollisionSettings GetCollisionSettings() override;
+	virtual bool HasCollisionMesh() override;
+	virtual bool GetCollisionMesh(FRuntimeMeshCollisionData& CollisionData) override;
+	virtual bool IsThreadSafe() override;
 
-	virtual void ConfigureLODs_Implementation(const TArray<FRuntimeMeshLODProperties>& InLODs) override;
-	virtual void MarkLODDirty_Implementation(int32 LODIndex) override;
-	virtual void MarkAllLODsDirty_Implementation() override;
-	virtual void CreateSection_Implementation(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties) override;
-	virtual void MarkSectionDirty_Implementation(int32 LODIndex, int32 SectionId) override;
-	virtual void ClearSection_Implementation(int32 LODIndex, int32 SectionId) override;
-	virtual void RemoveSection_Implementation(int32 LODIndex, int32 SectionId) override;
-	virtual void MarkCollisionDirty_Implementation() override;
+	virtual void ConfigureLODs(const TArray<FRuntimeMeshLODProperties>& InLODs) override;
+	virtual void MarkLODDirty(int32 LODIndex) override;
+	virtual void MarkAllLODsDirty() override;
+	virtual void CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties) override;
+	virtual void MarkSectionDirty(int32 LODIndex, int32 SectionId) override;
+	virtual void ClearSection(int32 LODIndex, int32 SectionId) override;
+	virtual void RemoveSection(int32 LODIndex, int32 SectionId) override;
+	virtual void MarkCollisionDirty() override;
 
 	virtual void BeginDestroy() override;
 

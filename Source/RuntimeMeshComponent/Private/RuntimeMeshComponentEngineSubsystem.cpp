@@ -121,7 +121,7 @@ void URuntimeMeshComponentEngineSubsystem::Tick(float DeltaTime)
 
 		if (MeshRef.IsValid())
 		{
-			if (MeshRef->MeshProvider)
+			if (MeshRef->MeshProviderPtr)
 			{
 // 				if (MeshRef->bNeedsInitialization)
 // 				{
@@ -135,7 +135,8 @@ void URuntimeMeshComponentEngineSubsystem::Tick(float DeltaTime)
 					MeshRef->bCollisionIsDirty = false;
 				}
 
-				if (MeshRef->bQueuedForMeshUpdate && !MeshRef->MeshProvider->IsThreadSafe())
+				FReadScopeLock Lock(MeshRef->MeshProviderLock);
+				if (MeshRef->bQueuedForMeshUpdate && !MeshRef->MeshProviderPtr->IsThreadSafe())
 				{
 					// we check again when we actually set it just to make sure it hasn't changed
 					if (MeshRef->bQueuedForMeshUpdate.AtomicSet(false) == true)

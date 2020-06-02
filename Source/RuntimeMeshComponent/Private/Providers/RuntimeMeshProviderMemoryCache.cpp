@@ -20,7 +20,7 @@ void URuntimeMeshProviderMemoryCache::ClearCache()
 
 
 
-bool URuntimeMeshProviderMemoryCache::GetSectionMeshForLOD_Implementation(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData)
+bool URuntimeMeshProviderMemoryCache::GetSectionMeshForLOD(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData)
 {
 	FScopeLock Lock(&MeshSyncRoot);
 
@@ -53,7 +53,7 @@ bool URuntimeMeshProviderMemoryCache::GetSectionMeshForLOD_Implementation(int32 
 	return false;
 }
 
-bool URuntimeMeshProviderMemoryCache::GetAllSectionsMeshForLOD_Implementation(int32 LODIndex, TMap<int32, FRuntimeMeshSectionData>& MeshDatas)
+bool URuntimeMeshProviderMemoryCache::GetAllSectionsMeshForLOD(int32 LODIndex, TMap<int32, FRuntimeMeshSectionData>& MeshDatas)
 {
 	FScopeLock Lock(&MeshSyncRoot);
 
@@ -104,7 +104,7 @@ bool URuntimeMeshProviderMemoryCache::GetAllSectionsMeshForLOD_Implementation(in
 	return false;
 }
 
-FRuntimeMeshCollisionSettings URuntimeMeshProviderMemoryCache::GetCollisionSettings_Implementation()
+FRuntimeMeshCollisionSettings URuntimeMeshProviderMemoryCache::GetCollisionSettings()
 {
 	FScopeLock Lock(&CollisionSyncRoot);
 
@@ -122,7 +122,7 @@ FRuntimeMeshCollisionSettings URuntimeMeshProviderMemoryCache::GetCollisionSetti
 	return FRuntimeMeshCollisionSettings();
 }
 
-bool URuntimeMeshProviderMemoryCache::HasCollisionMesh_Implementation()
+bool URuntimeMeshProviderMemoryCache::HasCollisionMesh()
 {
 	FScopeLock Lock(&CollisionSyncRoot);
 
@@ -140,7 +140,7 @@ bool URuntimeMeshProviderMemoryCache::HasCollisionMesh_Implementation()
 	return false;
 }
 
-bool URuntimeMeshProviderMemoryCache::GetCollisionMesh_Implementation(FRuntimeMeshCollisionData& CollisionData)
+bool URuntimeMeshProviderMemoryCache::GetCollisionMesh(FRuntimeMeshCollisionData& CollisionData)
 {
 	FScopeLock Lock(&CollisionSyncRoot);
 
@@ -159,77 +159,77 @@ bool URuntimeMeshProviderMemoryCache::GetCollisionMesh_Implementation(FRuntimeMe
 	return false;
 }
 
-bool URuntimeMeshProviderMemoryCache::IsThreadSafe_Implementation()
+bool URuntimeMeshProviderMemoryCache::IsThreadSafe()
 {
 	// We ourselves are threadsafe, so our thread safety depends on the child provider
-	return GetChildProvider()->IsThreadSafe_Implementation();
+	return GetChildProvider()->IsThreadSafe();
 }
 
 
 
 
-void URuntimeMeshProviderMemoryCache::ConfigureLODs_Implementation(const TArray<FRuntimeMeshLODProperties>& InLODs)
+void URuntimeMeshProviderMemoryCache::ConfigureLODs(const TArray<FRuntimeMeshLODProperties>& InLODs)
 {
 	{
 		FScopeLock Lock(&MeshSyncRoot);
 		CacheSectionConfig.Empty();
 	}
 	ClearCacheLOD(INDEX_NONE);
-	URuntimeMeshProviderPassthrough::ConfigureLODs_Implementation(InLODs);
+	URuntimeMeshProviderPassthrough::ConfigureLODs(InLODs);
 }
 
-void URuntimeMeshProviderMemoryCache::MarkLODDirty_Implementation(int32 LODIndex)
+void URuntimeMeshProviderMemoryCache::MarkLODDirty(int32 LODIndex)
 {
 	ClearCacheLOD(LODIndex);
-	URuntimeMeshProviderPassthrough::MarkLODDirty_Implementation(LODIndex);
+	URuntimeMeshProviderPassthrough::MarkLODDirty(LODIndex);
 }
 
-void URuntimeMeshProviderMemoryCache::MarkAllLODsDirty_Implementation()
+void URuntimeMeshProviderMemoryCache::MarkAllLODsDirty()
 {
 	ClearCacheLOD(INDEX_NONE);
-	URuntimeMeshProviderPassthrough::MarkAllLODsDirty_Implementation();
+	URuntimeMeshProviderPassthrough::MarkAllLODsDirty();
 }
 
-void URuntimeMeshProviderMemoryCache::CreateSection_Implementation(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties)
+void URuntimeMeshProviderMemoryCache::CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties)
 {
 	{
 		FScopeLock Lock(&MeshSyncRoot);
 		CacheSectionConfig.FindOrAdd(LODIndex).FindOrAdd(SectionId) = SectionProperties;
 	}
 	ClearCacheSection(LODIndex, SectionId);
-	URuntimeMeshProviderPassthrough::CreateSection_Implementation(LODIndex, SectionId, SectionProperties);
+	URuntimeMeshProviderPassthrough::CreateSection(LODIndex, SectionId, SectionProperties);
 }
 
-void URuntimeMeshProviderMemoryCache::MarkSectionDirty_Implementation(int32 LODIndex, int32 SectionId)
+void URuntimeMeshProviderMemoryCache::MarkSectionDirty(int32 LODIndex, int32 SectionId)
 {
 	ClearCacheSection(LODIndex, SectionId);
-	URuntimeMeshProviderPassthrough::MarkSectionDirty_Implementation(LODIndex, SectionId);
+	URuntimeMeshProviderPassthrough::MarkSectionDirty(LODIndex, SectionId);
 }
 
-void URuntimeMeshProviderMemoryCache::ClearSection_Implementation(int32 LODIndex, int32 SectionId)
+void URuntimeMeshProviderMemoryCache::ClearSection(int32 LODIndex, int32 SectionId)
 {
 	ClearCacheSection(LODIndex, SectionId);
-	URuntimeMeshProviderPassthrough::ClearSection_Implementation(LODIndex, SectionId);
+	URuntimeMeshProviderPassthrough::ClearSection(LODIndex, SectionId);
 }
 
-void URuntimeMeshProviderMemoryCache::RemoveSection_Implementation(int32 LODIndex, int32 SectionId)
+void URuntimeMeshProviderMemoryCache::RemoveSection(int32 LODIndex, int32 SectionId)
 {
 	{
 		FScopeLock Lock(&MeshSyncRoot);
 		CacheSectionConfig.FindOrAdd(LODIndex).Remove(SectionId);
 	}
 	ClearCacheSection(LODIndex, SectionId);
-	URuntimeMeshProviderPassthrough::RemoveSection_Implementation(LODIndex, SectionId);
+	URuntimeMeshProviderPassthrough::RemoveSection(LODIndex, SectionId);
 }
 
-void URuntimeMeshProviderMemoryCache::MarkCollisionDirty_Implementation()
+void URuntimeMeshProviderMemoryCache::MarkCollisionDirty()
 {
 	FScopeLock Lock(&CollisionSyncRoot);
 
 	CachedCollisionSettings.Reset();
 	CachedHasCollisionMesh.Reset();
 	CachedCollisionData.Reset();
-	URuntimeMeshProviderPassthrough::MarkCollisionDirty_Implementation();
+	URuntimeMeshProviderPassthrough::MarkCollisionDirty();
 }
 
 

@@ -14,7 +14,7 @@ URuntimeMeshProviderPlane::URuntimeMeshProviderPlane()
 {
 }
 
-void URuntimeMeshProviderPlane::Initialize_Implementation()
+void URuntimeMeshProviderPlane::Initialize()
 {
 	MaxLOD = GetMaximumPossibleLOD();
 	
@@ -44,7 +44,7 @@ void URuntimeMeshProviderPlane::Initialize_Implementation()
 	}
 }
 
-bool URuntimeMeshProviderPlane::GetSectionMeshForLOD_Implementation(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData)
+bool URuntimeMeshProviderPlane::GetSectionMeshForLOD(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData)
 {
 	FScopeLock Lock(&PropertySyncRoot);
 
@@ -84,7 +84,7 @@ bool URuntimeMeshProviderPlane::GetSectionMeshForLOD_Implementation(int32 LODInd
 	return true;
 }
 
-FRuntimeMeshCollisionSettings URuntimeMeshProviderPlane::GetCollisionSettings_Implementation()
+FRuntimeMeshCollisionSettings URuntimeMeshProviderPlane::GetCollisionSettings()
 {
 	FRuntimeMeshCollisionSettings Settings;
 	Settings.bUseAsyncCooking = false;
@@ -93,7 +93,7 @@ FRuntimeMeshCollisionSettings URuntimeMeshProviderPlane::GetCollisionSettings_Im
 	return Settings;
 }
 
-FBoxSphereBounds URuntimeMeshProviderPlane::GetBounds_Implementation()
+FBoxSphereBounds URuntimeMeshProviderPlane::GetBounds()
 {
 	FScopeLock Lock(&PropertySyncRoot);
 	FVector LocationD = LocationB - LocationA + LocationC; // C + BA
@@ -102,7 +102,7 @@ FBoxSphereBounds URuntimeMeshProviderPlane::GetBounds_Implementation()
 	return FBoxSphereBounds(BoundingBox);
 }
 
-bool URuntimeMeshProviderPlane::IsThreadSafe_Implementation()
+bool URuntimeMeshProviderPlane::IsThreadSafe()
 {
 	return true;
 }

@@ -745,7 +745,11 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Rendering|SectionProperties")
 	bool bIsVisible;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Rendering|SectionProperties")
+	bool bIsMainPassRenderable;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Rendering|SectionProperties")
 	bool bCastsShadow;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Rendering|SectionProperties")
+	bool bForceOpaque;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Rendering|SectionProperties")
 	bool bUseHighPrecisionTangents;
@@ -793,10 +797,14 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Rendering|LODProperties")
 	bool bCanGetAllSectionsAtOnce;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Rendering|LODProperties")
+	bool bShouldMergeStaticSectionBuffers;
+
 	FRuntimeMeshLODProperties()
 		: ScreenSize(1.0f)
 		, bCanGetSectionsIndependently(true)
 		, bCanGetAllSectionsAtOnce(false)
+		, bShouldMergeStaticSectionBuffers(false)
 	{
 
 	}

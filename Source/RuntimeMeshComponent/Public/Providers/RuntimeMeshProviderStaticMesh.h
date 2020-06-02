@@ -48,12 +48,12 @@ public:
 
 
 protected:
-	virtual void Initialize_Implementation() override;
-	virtual FBoxSphereBounds GetBounds_Implementation() override;
-	virtual bool GetSectionMeshForLOD_Implementation(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData) override;
-	virtual FRuntimeMeshCollisionSettings GetCollisionSettings_Implementation() override;
-	virtual bool HasCollisionMesh_Implementation() override;
-	virtual bool GetCollisionMesh_Implementation(FRuntimeMeshCollisionData& CollisionData) override;
+	virtual void Initialize() override;
+	virtual FBoxSphereBounds GetBounds() override;
+	virtual bool GetSectionMeshForLOD(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData) override;
+	virtual FRuntimeMeshCollisionSettings GetCollisionSettings() override;
+	virtual bool HasCollisionMesh() override;
+	virtual bool GetCollisionMesh(FRuntimeMeshCollisionData& CollisionData) override;
 
 	void UpdateCollisionFromStaticMesh();
 	void UpdateRenderingFromStaticMesh();

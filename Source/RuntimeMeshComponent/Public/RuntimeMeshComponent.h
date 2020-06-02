@@ -20,7 +20,7 @@ class RUNTIMEMESHCOMPONENT_API URuntimeMeshComponent : public UMeshComponent, pu
 
 private:
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = RuntimeMesh, DuplicateTransient, Meta = (AllowPrivateAccess = "true", DisplayName = "Runtime Mesh"))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = RuntimeMesh, Meta = (AllowPrivateAccess = "true", DisplayName = "Runtime Mesh"))
 	URuntimeMesh* RuntimeMeshReference;
 
 	void EnsureHasRuntimeMesh();
@@ -44,7 +44,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
 	FORCEINLINE URuntimeMesh* GetRuntimeMesh() const
 	{
-		if (RuntimeMeshReference->IsValidLowLevel() && !RuntimeMeshReference->IsUnreachable())
+		if (RuntimeMeshReference && RuntimeMeshReference->IsValidLowLevel())
 		{
 			return RuntimeMeshReference;
 		}
@@ -81,7 +81,7 @@ public:
 
 
 	UFUNCTION(BlueprintCallable)
-	URuntimeMeshProvider* GetProvider() { return GetRuntimeMesh()? GetRuntimeMesh()->GetProvider() : nullptr; }
+	URuntimeMeshProvider* GetProvider() { return GetRuntimeMesh()? GetRuntimeMesh()->GetProviderPtr() : nullptr; }
 
 	UFUNCTION(BlueprintCallable)
 	TArray<FRuntimeMeshMaterialSlot> GetMaterialSlots() const 

@@ -19,7 +19,7 @@ void URuntimeMeshComponentStatic::OnRegister()
 
 	if (RuntimeMesh)
 	{
-		StaticProvider = CastChecked<URuntimeMeshProviderStatic>(RuntimeMesh->GetProvider());
+		StaticProvider = CastChecked<URuntimeMeshProviderStatic>(RuntimeMesh->GetProviderPtr());
 		SetRuntimeMesh(RuntimeMesh);
 	}
 	else

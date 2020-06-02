@@ -123,7 +123,7 @@ FReply FRuntimeMeshComponentDetails::ClickedOnConvertToStaticMesh()
 	// Find first selected RuntimeMeshComp
 	URuntimeMeshComponent* RuntimeMeshComp = GetFirstSelectedRuntimeMeshComp();
 	URuntimeMesh* RuntimeMesh = RuntimeMeshComp->GetRuntimeMesh();
-	URuntimeMeshProvider* MeshProvider = RuntimeMesh->GetProvider();
+	URuntimeMeshProvider* MeshProvider = RuntimeMesh->GetProviderPtr();
 	if (RuntimeMeshComp != nullptr && RuntimeMesh != nullptr && MeshProvider != nullptr)
 	{
 		FString NewNameSuggestion = FString(TEXT("RuntimeMeshComp"));

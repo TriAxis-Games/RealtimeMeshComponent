@@ -61,11 +61,11 @@ public:
 
 
 protected:	
-	virtual void Initialize_Implementation() override;
-	virtual bool GetSectionMeshForLOD_Implementation(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData) override;
-	virtual FRuntimeMeshCollisionSettings GetCollisionSettings_Implementation() override;
-	virtual FBoxSphereBounds GetBounds_Implementation() override;
-	virtual bool IsThreadSafe_Implementation() override;
+	virtual void Initialize() override;
+	virtual bool GetSectionMeshForLOD(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData) override;
+	virtual FRuntimeMeshCollisionSettings GetCollisionSettings() override;
+	virtual FBoxSphereBounds GetBounds() override;
+	virtual bool IsThreadSafe() override;
 
 private:
 

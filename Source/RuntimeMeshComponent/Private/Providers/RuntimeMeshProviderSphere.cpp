@@ -115,7 +115,7 @@ void URuntimeMeshProviderSphere::SetSphereMaterial(UMaterialInterface* InSphereM
 	this->SetupMaterialSlot(0, FName("Sphere Base"), SphereMaterial);
 }
 
-void URuntimeMeshProviderSphere::Initialize_Implementation()
+void URuntimeMeshProviderSphere::Initialize()
 {
 	SetupMaterialSlot(0, FName("Sphere Base"), SphereMaterial);
 
@@ -144,7 +144,7 @@ void URuntimeMeshProviderSphere::Initialize_Implementation()
 	}
 }
 
-bool URuntimeMeshProviderSphere::GetSectionMeshForLOD_Implementation(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData)
+bool URuntimeMeshProviderSphere::GetSectionMeshForLOD(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData)
 {
 	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMC Sphere Provider(%d): Getting LOD:%d Section:%d"), FPlatformTLS::GetCurrentThreadId(), LODIndex, SectionId);
 
@@ -164,7 +164,7 @@ bool URuntimeMeshProviderSphere::GetSectionMeshForLOD_Implementation(int32 LODIn
 	return GetSphereMesh(TempRadius, LatSegments, LonSegments, MeshData);
 }
 
-FRuntimeMeshCollisionSettings URuntimeMeshProviderSphere::GetCollisionSettings_Implementation()
+FRuntimeMeshCollisionSettings URuntimeMeshProviderSphere::GetCollisionSettings()
 {
 	FRuntimeMeshCollisionSettings Settings;
 	Settings.bUseAsyncCooking = false;
@@ -175,12 +175,12 @@ FRuntimeMeshCollisionSettings URuntimeMeshProviderSphere::GetCollisionSettings_I
 	return Settings;
 }
 
-FBoxSphereBounds URuntimeMeshProviderSphere::GetBounds_Implementation()
+FBoxSphereBounds URuntimeMeshProviderSphere::GetBounds()
 {
 	return FBoxSphereBounds(FSphere(FVector::ZeroVector, SphereRadius));
 }
 
-bool URuntimeMeshProviderSphere::IsThreadSafe_Implementation()
+bool URuntimeMeshProviderSphere::IsThreadSafe()
 {
 	return true;
 }

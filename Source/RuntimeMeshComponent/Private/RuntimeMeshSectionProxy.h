@@ -7,9 +7,6 @@
 #include "RuntimeMeshRendering.h"
 #include "RuntimeMeshRenderable.h"
 
-class FRuntimeMeshSectionProxy;
-
-
 struct FRuntimeMeshSectionNullBufferElement
 {
 	FPackedNormal Normal;
@@ -26,14 +23,8 @@ struct FRuntimeMeshSectionNullBufferElement
 };
 
 
-class FRuntimeMeshSectionProxy
+struct FRuntimeMeshSectionProxyBuffers
 {
-	/** This stores all this sections config*/
-	FRuntimeMeshSectionProperties Properties;
-
-	/** Feature level in use, needed for recreating LODs vertex factories */
-	ERHIFeatureLevel::Type FeatureLevel;
-
 	/** Vertex factory for this section */
 	FRuntimeMeshVertexFactory VertexFactory;
 
@@ -44,100 +35,234 @@ class FRuntimeMeshSectionProxy
 	FRuntimeMeshTangentsVertexBuffer TangentsBuffer;
 
 	/** Vertex buffer containing the UVs for this section */
-	FRuntimeMeshUVsVertexBuffer UVsBuffer;
+	FRuntimeMeshTexCoordsVertexBuffer UVsBuffer;
 
 	/** Vertex buffer containing the colors for this section */
 	FRuntimeMeshColorVertexBuffer ColorBuffer;
 
+
 	/** Index buffer for this section */
 	FRuntimeMeshIndexBuffer IndexBuffer;
 
+	/** Reversed index buffer, used to prevent changing culling state between drawcalls. */
+	FRuntimeMeshIndexBuffer ReversedIndexBuffer;
+
+	/** Index buffer resource for rendering in depth only passes. */
+	FRuntimeMeshIndexBuffer DepthOnlyIndexBuffer;
+
+	/** Reversed depth only index buffer, used to prevent changing culling state between drawcalls. */
+	FRuntimeMeshIndexBuffer ReversedDepthOnlyIndexBuffer;
+
 	/** Index buffer for this section */
 	FRuntimeMeshIndexBuffer AdjacencyIndexBuffer;
+
 
 #if RHI_RAYTRACING
 	FRayTracingGeometry RayTracingGeometry;
 #endif
 
-public:
+	uint32 bIsShared : 1;
 
-	FRuntimeMeshSectionProxy(ERHIFeatureLevel::Type InFeatureLevel, const FRuntimeMeshSectionProperties& SectionProperties)
-		: Properties(SectionProperties)
-		, FeatureLevel(InFeatureLevel)
-		, VertexFactory(InFeatureLevel, this)
-		, PositionBuffer(SectionProperties.UpdateFrequency)
-		, TangentsBuffer(SectionProperties.UpdateFrequency, SectionProperties.bUseHighPrecisionTangents)
-		, UVsBuffer(SectionProperties.UpdateFrequency, SectionProperties.bUseHighPrecisionTexCoords, SectionProperties.NumTexCoords)
-		, ColorBuffer(SectionProperties.UpdateFrequency)
-		, IndexBuffer(SectionProperties.UpdateFrequency, SectionProperties.bWants32BitIndices)
-		, AdjacencyIndexBuffer(SectionProperties.UpdateFrequency, SectionProperties.bWants32BitIndices)
+
+// 
+// 	FRuntimeMeshSectionBuffers()
+// 	{
+// 
+// 	}
+
+	FRuntimeMeshSectionProxyBuffers(ERuntimeMeshUpdateFrequency InUpdateFrequency, bool bInIsShared)
+		: VertexFactory(GMaxRHIFeatureLevel)
+		, PositionBuffer(InUpdateFrequency)
+		, TangentsBuffer(InUpdateFrequency)
+		, UVsBuffer(InUpdateFrequency)
+		, ColorBuffer(InUpdateFrequency)
+		, IndexBuffer(InUpdateFrequency)
+		, ReversedIndexBuffer(InUpdateFrequency)
+		, DepthOnlyIndexBuffer(InUpdateFrequency)
+		, ReversedDepthOnlyIndexBuffer(InUpdateFrequency)
+		, AdjacencyIndexBuffer(InUpdateFrequency)
+		, bIsShared(bInIsShared)
 	{
 
 	}
 
-	~FRuntimeMeshSectionProxy()
+	~FRuntimeMeshSectionProxyBuffers()
 	{
 		check(IsInRenderingThread());
 
 		Reset();
 	}
-	
+
 	void Reset();
-
-	bool CanRender() const;
-	bool ShouldRender() const { return Properties.bIsVisible && CanRender(); }
-	bool WantsToRenderInStaticPath() const { return Properties.UpdateFrequency == ERuntimeMeshUpdateFrequency::Infrequent; }
-	bool CastsShadow() const { return Properties.bCastsShadow; }
-
-	FRuntimeMeshVertexFactory* GetVertexFactory() { return &VertexFactory; }
-#if RHI_RAYTRACING
-	FRayTracingGeometry* GetRayTracingGeometry() { return &RayTracingGeometry; }
-#endif
-	void BuildVertexDataType(FLocalVertexFactory::FDataType& DataType);
-
-	void CreateMeshBatch(FMeshBatch& MeshBatch, bool bCastsShadow, bool bWantsAdjacencyInfo) const;
+};
 
 
-	void UpdateProperties_RenderThread(const FRuntimeMeshSectionProperties& SectionProperties);
-	void UpdateSection_RenderThread(const FRuntimeMeshRenderableMeshData& MeshData);
-	void ClearSection_RenderThread();
+
+struct FRuntimeMeshSectionProxy
+{
+	TSharedPtr<FRuntimeMeshSectionProxyBuffers> Buffers;
+
+	uint32 FirstIndex;
+	uint32 NumTriangles;
+	uint32 MinVertexIndex;
+	uint32 MaxVertexIndex;
+
+	ERuntimeMeshUpdateFrequency UpdateFrequency;
+	int32 MaterialSlot;
+
+	uint32 bIsValid : 1;
+	uint32 bIsVisible : 1;
+	uint32 bIsMainPassRenderable : 1;
+	uint32 bCastsShadow : 1;
+	// Should this section be considered opaque in ray tracing
+	uint32 bForceOpaque : 1;
+
+	uint32 bHasAdjacencyInfo : 1;
+	uint32 bHasDepthOnlyIndices : 1;
+	uint32 bHasReversedIndices : 1;
+	uint32 bHasReversedDepthOnlyIndices : 1;
+	uint32 bHasRayTracingGeometry : 1;
+
+
+	FRuntimeMeshSectionProxy()
+		: FirstIndex(0)
+		, NumTriangles(0)
+		, MinVertexIndex(0)
+		, MaxVertexIndex(0)
+		, UpdateFrequency(ERuntimeMeshUpdateFrequency::Infrequent)
+		, MaterialSlot(0)
+		, bIsValid(false)
+		, bIsVisible(false)
+		, bIsMainPassRenderable(false)
+		, bCastsShadow(false)
+		, bForceOpaque(false)
+		, bHasAdjacencyInfo(false)
+		, bHasDepthOnlyIndices(false)
+		, bHasReversedIndices(false)
+		, bHasReversedDepthOnlyIndices(false)
+		, bHasRayTracingGeometry(false)
+	{
+
+	}
+
+	FORCEINLINE bool CanRender() const 
+	{
+		check(!bIsValid || (Buffers.IsValid() && NumTriangles > 0 && MaxVertexIndex > 0));
+		return bIsValid;
+	}
+
+	FORCEINLINE bool ShouldRenderMainPass() const { return bIsMainPassRenderable; }
+	FORCEINLINE bool IsStaticSection() const { return UpdateFrequency == ERuntimeMeshUpdateFrequency::Infrequent; }
+
+	FORCEINLINE bool ShouldRender() const { return CanRender() && bIsVisible; }
+	FORCEINLINE bool ShouldRenderStaticPath() const { return ShouldRender() && ShouldRenderMainPass() && IsStaticSection(); }
+	FORCEINLINE bool ShouldRenderDynamicPath() const { return ShouldRender() && ShouldRenderMainPass() && !IsStaticSection(); }
+	FORCEINLINE bool ShouldRenderShadow() const { return ShouldRender() && bCastsShadow; }
+
+
+	void UpdateState()
+	{
+		bool bHasInvalidData = false;
+
+		if (Buffers.IsValid())
+		{
+			bHasInvalidData |= Buffers->PositionBuffer.Num() < 3;
+			bHasInvalidData |= Buffers->TangentsBuffer.Num() < Buffers->PositionBuffer.Num();
+			bHasInvalidData |= Buffers->UVsBuffer.Num() < Buffers->PositionBuffer.Num();
+			bHasInvalidData |= Buffers->ColorBuffer.Num() < Buffers->ColorBuffer.Num();
+			bHasInvalidData |= Buffers->IndexBuffer.Num() < 3;
+
+
+			bHasAdjacencyInfo = Buffers->AdjacencyIndexBuffer.Num() > 3;
+			bHasDepthOnlyIndices = Buffers->DepthOnlyIndexBuffer.Num() == Buffers->IndexBuffer.Num();
+			bHasReversedIndices = Buffers->ReversedIndexBuffer.Num() == Buffers->IndexBuffer.Num();
+			bHasReversedDepthOnlyIndices = Buffers->ReversedDepthOnlyIndexBuffer.Num() == Buffers->IndexBuffer.Num();
+		}
+		else
+		{
+			bHasInvalidData = true;
+		}
+
+		bIsValid = !bHasInvalidData;
+	}
+
+	void CreateMeshBatch(FMeshBatch& MeshBatch, bool bShouldCastShadow, bool bWantsAdjacencyInfo) const
+	{
+		MeshBatch.VertexFactory = &Buffers->VertexFactory;
+		MeshBatch.Type = bWantsAdjacencyInfo ? PT_12_ControlPointPatchList : PT_TriangleList;
+		
+		MeshBatch.CastShadow = bShouldCastShadow;
+	
+		// Make sure that if the material wants adjacency information, that you supply it
+		check(!bWantsAdjacencyInfo || bHasAdjacencyInfo);
+	
+		const FRuntimeMeshIndexBuffer* CurrentIndexBuffer = bWantsAdjacencyInfo ? &Buffers->AdjacencyIndexBuffer : &Buffers->IndexBuffer;
+	
+		int32 NumIndicesPerTriangle = bWantsAdjacencyInfo ? 12 : 3;
+		int32 NumPrimitives = CurrentIndexBuffer->Num() / NumIndicesPerTriangle;
+	
+		FMeshBatchElement& BatchElement = MeshBatch.Elements[0];
+		BatchElement.IndexBuffer = CurrentIndexBuffer;
+		BatchElement.FirstIndex = 0;
+		BatchElement.NumPrimitives = NumPrimitives;
+		BatchElement.MinVertexIndex = 0;
+		BatchElement.MaxVertexIndex = Buffers->PositionBuffer.Num() - 1;
+	
+	
+		//INC_DWORD_STAT_BY(STAT_RuntimeMeshSectionProxy_NumTriangles, NumPrimitives);
+	}
 };
 
 
 
 
-class FRuntimeMeshLODProxy : public TSharedFromThis<FRuntimeMeshLODProxy>
+struct FRuntimeMeshLODData
 {
 	/** Sections for this LOD, these do not have to be configured the same as sections in other LODs */
-	TMap<int32, FRuntimeMeshSectionProxyPtr> Sections;
+	TMap<int32, FRuntimeMeshSectionProxy> Sections;
 
-	FRuntimeMeshLODProperties Properties;
+	float ScreenSize;
 
-	ERHIFeatureLevel::Type FeatureLevel;
+	uint32 bShouldRender : 1;
+	uint32 bShouldRenderStatic : 1;
+	uint32 bShouldRenderDynamic : 1;
+	uint32 bShouldRenderShadow : 1;
 
-public:
-	FRuntimeMeshLODProxy(ERHIFeatureLevel::Type InFeatureLevel, const FRuntimeMeshLODProperties& InProperties);
-	~FRuntimeMeshLODProxy();
+	uint32 bShouldMergeStaticSections : 1;
 
-	TMap<int32, FRuntimeMeshSectionProxyPtr>& GetSections() { return Sections; }
-	const TMap<int32, FRuntimeMeshSectionProxyPtr>& GetSections() const { return Sections; }
 
-	bool CanRender() const;
-	bool HasAnyStaticPath() const;
-	bool HasAnyDynamicPath() const;
-	bool HasAnyShadowCasters() const;
+	FRuntimeMeshLODData()
+		: ScreenSize(0.0f)
+		, bShouldRender(false)
+		, bShouldRenderStatic(false)
+		, bShouldRenderDynamic(false)
+		, bShouldRenderShadow(false)
+		, bShouldMergeStaticSections(false)
+	{
 
-	float GetMaxScreenSize() const { return Properties.ScreenSize; }
+	}
 
-	void Configure_RenderThread(const FRuntimeMeshLODProperties& InProperties);
-	void Reset_RenderThread();
 
-	void CreateOrUpdateSection_RenderThread(int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties, bool bShouldReset);
-	void UpdateSectionMesh_RenderThread(int32 SectionId, const FRuntimeMeshRenderableMeshData& MeshData);
-	void ClearSection_RenderThread(int32 SectionId);
-	void ClearAllSections_RenderThread();
-	void RemoveAllSections_RenderThread();
-	void RemoveSection_RenderThread(int32 SectionId);
+	void UpdateState()
+	{
+		bShouldRender = false;
+		bShouldRenderStatic = false;
+		bShouldRenderDynamic = false;
+		bShouldRenderShadow = false;
+		
+		for (auto& SectionEntry : Sections)
+		{
+			FRuntimeMeshSectionProxy& Section = SectionEntry.Value;
+
+			Section.UpdateState();
+
+			bShouldRender |= Section.CanRender();
+			bShouldRenderStatic |= Section.ShouldRenderStaticPath();
+			bShouldRenderDynamic |= Section.ShouldRenderDynamicPath();		
+			bShouldRenderShadow |= Section.ShouldRenderShadow();
+		}
+	}
+
 
 };
 

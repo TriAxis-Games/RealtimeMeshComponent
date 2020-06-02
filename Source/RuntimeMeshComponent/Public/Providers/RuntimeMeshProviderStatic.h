@@ -24,7 +24,8 @@ private:
 private:
 	mutable FCriticalSection MeshSyncRoot;
 	mutable FCriticalSection CollisionSyncRoot;
-	mutable FCriticalSection ModifierSyncRoot;
+
+	mutable FRWLock ModifierRWLock;
 
 	TArray<FRuntimeMeshLODProperties> LODConfigurations;
 	TMap<int32, TMap<int32, FSectionDataMapEntry>> SectionDataMap;
@@ -55,7 +56,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static", Meta=(DisplayName = "Create Section"))
 	void CreateSection_Blueprint(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties, const FRuntimeMeshRenderableMeshData& SectionData)
 	{
-		URuntimeMeshProvider::CreateSection(LODIndex, SectionId, SectionProperties);
+		CreateSection(LODIndex, SectionId, SectionProperties);
 		UpdateSectionInternal(LODIndex, SectionId, SectionData, GetBoundsFromMeshData(SectionData));
 	}
 
@@ -219,33 +220,33 @@ public:
 
 
 
-	void CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties, bool bCreateCollision = true)
+	void CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties, bool bCreateCollision)
 	{
-		URuntimeMeshProvider::CreateSection(LODIndex, SectionId, SectionProperties);
+		CreateSection(LODIndex, SectionId, SectionProperties);
 		UpdateSectionAffectsCollision(LODIndex, SectionId, bCreateCollision);
 	}
 
 	void CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties, const FRuntimeMeshRenderableMeshData& SectionData, bool bCreateCollision = true)
 	{
-		URuntimeMeshProvider::CreateSection(LODIndex, SectionId, SectionProperties);
+		CreateSection(LODIndex, SectionId, SectionProperties);
 		UpdateSectionInternal(LODIndex, SectionId, SectionData, GetBoundsFromMeshData(SectionData));
 		UpdateSectionAffectsCollision(LODIndex, SectionId, bCreateCollision);
 	}
 	void CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties, FRuntimeMeshRenderableMeshData&& SectionData, bool bCreateCollision = true)
 	{
-		URuntimeMeshProvider::CreateSection(LODIndex, SectionId, SectionProperties);
+		CreateSection(LODIndex, SectionId, SectionProperties);
 		UpdateSectionInternal(LODIndex, SectionId, MoveTemp(SectionData), GetBoundsFromMeshData(SectionData));
 		UpdateSectionAffectsCollision(LODIndex, SectionId, bCreateCollision);
 	}
 	void CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties, const FRuntimeMeshRenderableMeshData& SectionData, FBoxSphereBounds KnownBounds, bool bCreateCollision = true)
 	{
-		URuntimeMeshProvider::CreateSection(LODIndex, SectionId, SectionProperties);
+		CreateSection(LODIndex, SectionId, SectionProperties);
 		UpdateSectionInternal(LODIndex, SectionId, SectionData, GetBoundsFromMeshData(SectionData));
 		UpdateSectionAffectsCollision(LODIndex, SectionId, bCreateCollision);
 	}
 	void CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties, FRuntimeMeshRenderableMeshData&& SectionData, FBoxSphereBounds KnownBounds, bool bCreateCollision = true)
 	{
-		URuntimeMeshProvider::CreateSection(LODIndex, SectionId, SectionProperties);
+		CreateSection(LODIndex, SectionId, SectionProperties);
 		UpdateSectionInternal(LODIndex, SectionId, MoveTemp(SectionData), GetBoundsFromMeshData(SectionData));
 		UpdateSectionAffectsCollision(LODIndex, SectionId, bCreateCollision);
 	}
@@ -315,22 +316,23 @@ public:
 	FRuntimeMeshRenderableMeshData GetSectionRenderDataAndClear(int32 LODIndex, int32 SectionId);
 
 
-protected:
+public:
 
-	virtual void Initialize_Implementation() override;
-	virtual FBoxSphereBounds GetBounds_Implementation() override { return CombinedBounds; }
-	virtual bool GetSectionMeshForLOD_Implementation(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData) override;
-	virtual FRuntimeMeshCollisionSettings GetCollisionSettings_Implementation() override;
-	virtual bool HasCollisionMesh_Implementation() override;
-	virtual bool GetCollisionMesh_Implementation(FRuntimeMeshCollisionData& CollisionData) override;
+	virtual void Initialize() override;
+	virtual FBoxSphereBounds GetBounds() override { return CombinedBounds; }
+	virtual bool GetSectionMeshForLOD(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData) override;
+	virtual FRuntimeMeshCollisionSettings GetCollisionSettings() override;
+	virtual bool HasCollisionMesh() override;
+	virtual bool GetCollisionMesh(FRuntimeMeshCollisionData& CollisionData) override;
 
-	virtual void ConfigureLODs_Implementation(const TArray<FRuntimeMeshLODProperties>& LODSettings) override;
-	virtual void SetLODScreenSize_Implementation(int32 LODIndex, float ScreenSize) override;
-	virtual void CreateSection_Implementation(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties) override;
-	virtual void SetSectionVisibility_Implementation(int32 LODIndex, int32 SectionId, bool bIsVisible) override;
-	virtual void SetSectionCastsShadow_Implementation(int32 LODIndex, int32 SectionId, bool bCastsShadow) override;
-	virtual void ClearSection_Implementation(int32 LODIndex, int32 SectionId) override;
-	virtual void RemoveSection_Implementation(int32 LODIndex, int32 SectionId) override;
+public:
+	virtual void ConfigureLODs(const TArray<FRuntimeMeshLODProperties>& LODSettings) override;
+	virtual void SetLODScreenSize(int32 LODIndex, float ScreenSize) override;
+	virtual void CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties) override;
+	virtual void SetSectionVisibility(int32 LODIndex, int32 SectionId, bool bIsVisible) override;
+	virtual void SetSectionCastsShadow(int32 LODIndex, int32 SectionId, bool bCastsShadow) override;
+	virtual void ClearSection(int32 LODIndex, int32 SectionId) override;
+	virtual void RemoveSection(int32 LODIndex, int32 SectionId) override;
 
 
 	virtual void Serialize(FArchive& Ar) override;

@@ -5,20 +5,14 @@
 #include "RuntimeMeshSectionProxy.h"
 
 
-FRuntimeMeshVertexBuffer::FRuntimeMeshVertexBuffer(ERuntimeMeshUpdateFrequency InUpdateFrequency, int32 InVertexSize)
+FRuntimeMeshVertexBuffer::FRuntimeMeshVertexBuffer(ERuntimeMeshUpdateFrequency InUpdateFrequency)
 	: UsageFlags(InUpdateFrequency == ERuntimeMeshUpdateFrequency::Frequent? BUF_Dynamic : BUF_Static)
-	, VertexSize(InVertexSize)
+	, VertexSize(0)
 	, NumVertices(0)
 	, ShaderResourceView(nullptr)
 {
 }
 
-void FRuntimeMeshVertexBuffer::Reset(int32 InNumVertices)
-{
-	NumVertices = InNumVertices;
-	ReleaseResource();
-	InitResource();
-}
 
 void FRuntimeMeshVertexBuffer::InitRHI()
 {
@@ -27,7 +21,7 @@ void FRuntimeMeshVertexBuffer::InitRHI()
 		// Create the vertex buffer
 		FRHIResourceCreateInfo CreateInfo;
 		VertexBufferRHI = RHICreateVertexBuffer(GetBufferSize(), UsageFlags | BUF_ShaderResource, CreateInfo);
-		
+
 		if (RHISupportsManualVertexFetch(GMaxRHIShaderPlatform))
 		{
 			CreateSRV();
@@ -35,12 +29,15 @@ void FRuntimeMeshVertexBuffer::InitRHI()
 	}
 }
 
+
+
 /* Set the size of the vertex buffer */
-void FRuntimeMeshVertexBuffer::SetData(int32 NewVertexCount, const uint8* InData)
+void FRuntimeMeshVertexBuffer::SetData(int32 NewStride, int32 NewVertexCount, const uint8* InData)
 {
 	// Don't reallocate the buffer if it's already the right size
-	if (NewVertexCount != NumVertices)
+	if (NewVertexCount != NumVertices || NewStride != VertexSize)
 	{
+		VertexSize = NewStride;
 		NumVertices = NewVertexCount;
 
 		// Rebuild resource
@@ -48,7 +45,7 @@ void FRuntimeMeshVertexBuffer::SetData(int32 NewVertexCount, const uint8* InData
 	}
 
 	// Now copy the new data
-	if (NewVertexCount > 0)
+	if (VertexSize > 0 && NewVertexCount > 0)
 	{
 		InitResource();
 		check(VertexBufferRHI.IsValid());
@@ -65,17 +62,13 @@ void FRuntimeMeshVertexBuffer::SetData(int32 NewVertexCount, const uint8* InData
 }
 
 
-FRuntimeMeshIndexBuffer::FRuntimeMeshIndexBuffer(ERuntimeMeshUpdateFrequency InUpdateFrequency, bool bUse32BitIndices)
-	: UsageFlags(InUpdateFrequency == ERuntimeMeshUpdateFrequency::Frequent ? BUF_Dynamic : BUF_Static), IndexSize(bUse32BitIndices? sizeof(uint32) : sizeof(uint16)), NumIndices(0)
-{
-	check(IndexSize != 0);
-}
 
-void FRuntimeMeshIndexBuffer::Reset(int32 InNumIndices)
+
+FRuntimeMeshIndexBuffer::FRuntimeMeshIndexBuffer(ERuntimeMeshUpdateFrequency InUpdateFrequency)
+	: UsageFlags(InUpdateFrequency == ERuntimeMeshUpdateFrequency::Frequent ? BUF_Dynamic : BUF_Static)
+	, IndexSize(0)
+	, NumIndices(0)
 {
-	NumIndices = InNumIndices;
-	ReleaseResource();
-	InitResource();
 }
 
 void FRuntimeMeshIndexBuffer::InitRHI()
@@ -89,9 +82,9 @@ void FRuntimeMeshIndexBuffer::InitRHI()
 }
 
 /* Set the data for the index buffer */
-void FRuntimeMeshIndexBuffer::SetData(int32 bInUse32BitIndices, int32 NewIndexCount, const uint8* InData)
+void FRuntimeMeshIndexBuffer::SetData(bool bInUse32BitIndices, int32 NewIndexCount, const uint8* InData)
 {
-	int32 NewIndexSize = bInUse32BitIndices ? sizeof(uint32) : sizeof(uint16);
+	int32 NewIndexSize = CalculateStride(bInUse32BitIndices);
 
 	// Make sure we're not already the right size
 	if (NewIndexCount != NumIndices || NewIndexSize != IndexSize)
@@ -122,9 +115,8 @@ void FRuntimeMeshIndexBuffer::SetData(int32 bInUse32BitIndices, int32 NewIndexCo
 
 
 
-FRuntimeMeshVertexFactory::FRuntimeMeshVertexFactory(ERHIFeatureLevel::Type InFeatureLevel, FRuntimeMeshSectionProxy* InSectionParent)
+FRuntimeMeshVertexFactory::FRuntimeMeshVertexFactory(ERHIFeatureLevel::Type InFeatureLevel)
 	: FLocalVertexFactory(InFeatureLevel, "FRuntimeMeshVertexFactory")
-	, SectionParent(InSectionParent)
 {
 }
 
@@ -148,8 +140,8 @@ void FRuntimeMeshVertexFactory::Init(FLocalVertexFactory::FDataType VertexStruct
 	}
 }
 
-/* Gets the section visibility for static sections */
-uint64 FRuntimeMeshVertexFactory::GetStaticBatchElementVisibility(const class FSceneView& View, const struct FMeshBatch* Batch, const void* InViewCustomData) const
-{
-	return SectionParent->ShouldRender();
-}
+///* Gets the section visibility for static sections */
+//uint64 FRuntimeMeshVertexFactory::GetStaticBatchElementVisibility(const class FSceneView& View, const struct FMeshBatch* Batch, const void* InViewCustomData) const
+//{
+//	return SectionParent->ShouldRender();
+//}

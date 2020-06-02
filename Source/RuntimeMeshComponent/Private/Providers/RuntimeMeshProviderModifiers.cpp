@@ -15,12 +15,12 @@ void URuntimeMeshProviderModifiers::RemoveModifier(URuntimeMeshModifier* Modifie
 	Modifiers.Remove(ModifierToRemove);
 }
 
-bool URuntimeMeshProviderModifiers::GetSectionMeshForLOD_Implementation(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData)
+bool URuntimeMeshProviderModifiers::GetSectionMeshForLOD(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData)
 {
 	URuntimeMeshProvider* ChildProviderTemp = GetChildProvider();
 	if (ChildProviderTemp)
 	{
-		if (ChildProviderTemp->GetSectionMeshForLOD_Implementation(LODIndex, SectionId, MeshData))
+		if (ChildProviderTemp->GetSectionMeshForLOD(LODIndex, SectionId, MeshData))
 		{
 			ApplyModifiers(MeshData);
 			return true;
@@ -29,12 +29,12 @@ bool URuntimeMeshProviderModifiers::GetSectionMeshForLOD_Implementation(int32 LO
 	return false;
 }
 
-bool URuntimeMeshProviderModifiers::GetAllSectionsMeshForLOD_Implementation(int32 LODIndex, TMap<int32, FRuntimeMeshSectionData>& MeshDatas)
+bool URuntimeMeshProviderModifiers::GetAllSectionsMeshForLOD(int32 LODIndex, TMap<int32, FRuntimeMeshSectionData>& MeshDatas)
 {
 	URuntimeMeshProvider* ChildProviderTemp = GetChildProvider();
 	if (ChildProviderTemp)
 	{
-		if (ChildProviderTemp->GetAllSectionsMeshForLOD_Implementation(LODIndex, MeshDatas))
+		if (ChildProviderTemp->GetAllSectionsMeshForLOD(LODIndex, MeshDatas))
 		{
 			for (auto& Entry : MeshDatas)
 			{
@@ -46,12 +46,12 @@ bool URuntimeMeshProviderModifiers::GetAllSectionsMeshForLOD_Implementation(int3
 	return false;
 }
 
-bool URuntimeMeshProviderModifiers::GetCollisionMesh_Implementation(FRuntimeMeshCollisionData& CollisionData)
+bool URuntimeMeshProviderModifiers::GetCollisionMesh(FRuntimeMeshCollisionData& CollisionData)
 {
 	URuntimeMeshProvider* ChildProviderTemp = GetChildProvider();
 	if (ChildProviderTemp)
 	{
-		if (ChildProviderTemp->GetCollisionMesh_Implementation(CollisionData))
+		if (ChildProviderTemp->GetCollisionMesh(CollisionData))
 		{
 			ApplyModifiers(CollisionData);
 			return true;

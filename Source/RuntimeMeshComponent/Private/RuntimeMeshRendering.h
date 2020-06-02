@@ -5,10 +5,6 @@
 #include "Engine/Engine.h"
 #include "RuntimeMeshCore.h"
 
-class FRuntimeMeshSectionProxy;
-using FRuntimeMeshSectionProxyPtr = TSharedPtr<FRuntimeMeshSectionProxy, ESPMode::NotThreadSafe>;
-using FRuntimeMeshSectionProxyWeakPtr = TWeakPtr<FRuntimeMeshSectionProxy, ESPMode::NotThreadSafe>;
-
 
 /** Single vertex buffer to hold one vertex stream within a section */
 class FRuntimeMeshVertexBuffer : public FVertexBuffer
@@ -18,7 +14,7 @@ protected:
 	const EBufferUsageFlags UsageFlags;
 
 	/** Size of a single vertex */
-	const int32 VertexSize;
+	int32 VertexSize;
 
 	/** The number of vertices this buffer is currently allocated to hold */
 	int32 NumVertices;
@@ -28,13 +24,14 @@ protected:
 
 public:
 
-	FRuntimeMeshVertexBuffer(ERuntimeMeshUpdateFrequency InUpdateFrequency, int32 InVertexSize);
+	FRuntimeMeshVertexBuffer(ERuntimeMeshUpdateFrequency InUpdateFrequency);
 
 	~FRuntimeMeshVertexBuffer() {}
 
-	void Reset(int32 InNumVertices);
-
 	virtual void InitRHI() override;
+
+	/** Gets the size of the vertex */
+	int32 Stride() const { return VertexSize; }
 
 	/** Get the size of the vertex buffer */
 	int32 Num() const { return NumVertices; }
@@ -42,15 +39,13 @@ public:
 	/** Gets the full allocated size of the buffer (Equal to VertexSize * NumVertices) */
 	int32 GetBufferSize() const { return NumVertices * VertexSize; }
 
-	/* Set the size of the vertex buffer */
-protected:
-	void SetData(int32 NewVertexCount, const uint8* InData);
-
-public:
-
+	/** Binds the vertex buffer to the factory data type */
 	virtual void Bind(FLocalVertexFactory::FDataType& DataType) = 0;
 
+
 protected:
+	void SetData(int32 NewStride, int32 NewVertexCount, const uint8* InData);
+
 	virtual void CreateSRV() = 0;
 };
 
@@ -59,14 +54,16 @@ class FRuntimeMeshPositionVertexBuffer : public FRuntimeMeshVertexBuffer
 {
 public:
 	FRuntimeMeshPositionVertexBuffer(ERuntimeMeshUpdateFrequency InUpdateFrequency)
-		: FRuntimeMeshVertexBuffer(InUpdateFrequency, sizeof(FVector))
+		: FRuntimeMeshVertexBuffer(InUpdateFrequency)
 	{
 
 	}
 
+	virtual FString GetFriendlyName() const override { return TEXT("FRuntimeMeshPositionVertexBuffer"); }
+
 	void SetData(int32 NewVertexCount, const uint8* InData)
 	{
-		FRuntimeMeshVertexBuffer::SetData(NewVertexCount, InData);
+		FRuntimeMeshVertexBuffer::SetData(sizeof(FVector), NewVertexCount, InData);
 	}
 
 	virtual void Bind(FLocalVertexFactory::FDataType& DataType) override 
@@ -84,21 +81,30 @@ protected:
 
 class FRuntimeMeshTangentsVertexBuffer : public FRuntimeMeshVertexBuffer
 {
+	static constexpr int32 CalculateStride(bool bShouldUseHighPrecision)
+	{
+		return (bShouldUseHighPrecision ? sizeof(FPackedRGBA16N) : sizeof(FPackedNormal)) * 2;
+	}
+
+private:
+
 	/** Whether this tangent buffer is using high precision tangents */
 	bool bUseHighPrecision;
 
 public:
-	FRuntimeMeshTangentsVertexBuffer(ERuntimeMeshUpdateFrequency InUpdateFrequency, bool bInUseHighPrecision)
-		: FRuntimeMeshVertexBuffer(InUpdateFrequency, (bInUseHighPrecision ? sizeof(FPackedRGBA16N) : sizeof(FPackedNormal)) * 2)
-		, bUseHighPrecision(bInUseHighPrecision)
+	FRuntimeMeshTangentsVertexBuffer(ERuntimeMeshUpdateFrequency InUpdateFrequency)
+		: FRuntimeMeshVertexBuffer(InUpdateFrequency)
+		, bUseHighPrecision(false)
 	{
 
 	}
 
+	virtual FString GetFriendlyName() const override { return TEXT("FRuntimeMeshTangentsVertexBuffer"); }
+
 	void SetData(bool bInUseHighPrecision, int32 NewVertexCount, const uint8* InData)
 	{
 		bUseHighPrecision = bInUseHighPrecision;
-		FRuntimeMeshVertexBuffer::SetData(NewVertexCount, InData);
+		FRuntimeMeshVertexBuffer::SetData(CalculateStride(bInUseHighPrecision), NewVertexCount, InData);
 	}
 
 	virtual void Bind(FLocalVertexFactory::FDataType& DataType) override
@@ -135,8 +141,14 @@ protected:
 	}
 };
 
-class FRuntimeMeshUVsVertexBuffer : public FRuntimeMeshVertexBuffer
+class FRuntimeMeshTexCoordsVertexBuffer : public FRuntimeMeshVertexBuffer
 {
+	static constexpr int32 CalculateStride(bool bShouldUseHighPrecision, int32 InNumUVs)
+	{
+		return (bShouldUseHighPrecision ? sizeof(FVector2D) : sizeof(FVector2DHalf)) * InNumUVs;
+	}
+
+private:
 	/** Whether this uv buffer is using high precision uvs */
 	bool bUseHighPrecision;
 
@@ -144,18 +156,21 @@ class FRuntimeMeshUVsVertexBuffer : public FRuntimeMeshVertexBuffer
 	int32 NumUVs;
 
 public:
-	FRuntimeMeshUVsVertexBuffer(ERuntimeMeshUpdateFrequency InUpdateFrequency, bool bInUseHighPrecision, int32 InNumUVs)
-		: FRuntimeMeshVertexBuffer(InUpdateFrequency, (bInUseHighPrecision ? sizeof(FVector2D) : sizeof(FVector2DHalf)) * InNumUVs)
-		, bUseHighPrecision(bInUseHighPrecision), NumUVs(InNumUVs)
+	FRuntimeMeshTexCoordsVertexBuffer(ERuntimeMeshUpdateFrequency InUpdateFrequency)
+		: FRuntimeMeshVertexBuffer(InUpdateFrequency)
+		, bUseHighPrecision(false)
+		, NumUVs(0)
 	{
 
 	}
+
+	virtual FString GetFriendlyName() const override { return TEXT("FRuntimeMeshUVsVertexBuffer"); }
 
 	void SetData(bool bInUseHighPrecision, int32 InNumUVs, int32 NewVertexCount, const uint8* InData)
 	{
 		bUseHighPrecision = bInUseHighPrecision;
 		NumUVs = InNumUVs;
-		FRuntimeMeshVertexBuffer::SetData(NewVertexCount, InData);
+		FRuntimeMeshVertexBuffer::SetData(CalculateStride(bInUseHighPrecision, InNumUVs), NewVertexCount, InData);
 	}
 
 	virtual void Bind(FLocalVertexFactory::FDataType& DataType) override
@@ -208,14 +223,16 @@ class FRuntimeMeshColorVertexBuffer : public FRuntimeMeshVertexBuffer
 {
 public:
 	FRuntimeMeshColorVertexBuffer(ERuntimeMeshUpdateFrequency InUpdateFrequency)
-		: FRuntimeMeshVertexBuffer(InUpdateFrequency, sizeof(FColor))
+		: FRuntimeMeshVertexBuffer(InUpdateFrequency)
 	{
 
 	}
 
+	virtual FString GetFriendlyName() const override { return TEXT("FRuntimeMeshColorVertexBuffer"); }
+
 	void SetData(int32 NewVertexCount, const uint8* InData)
 	{
-		FRuntimeMeshVertexBuffer::SetData(NewVertexCount, InData);
+		FRuntimeMeshVertexBuffer::SetData(sizeof(FColor), NewVertexCount, InData);
 	}
 
 	virtual void Bind(FLocalVertexFactory::FDataType& DataType) override
@@ -238,6 +255,11 @@ protected:
 /** Index Buffer */
 class FRuntimeMeshIndexBuffer : public FIndexBuffer
 {
+	static constexpr int32 CalculateStride(bool bShouldUseHighPrecision)
+	{
+		return bShouldUseHighPrecision ? sizeof(int32) : sizeof(uint16);
+	}
+
 private:	
 	/* The buffer configuration to use */
 	EBufferUsageFlags UsageFlags;
@@ -250,11 +272,9 @@ private:
 
 public:
 
-	FRuntimeMeshIndexBuffer(ERuntimeMeshUpdateFrequency InUpdateFrequency, bool bUse32BitIndices);
+	FRuntimeMeshIndexBuffer(ERuntimeMeshUpdateFrequency InUpdateFrequency);
 
-	~FRuntimeMeshIndexBuffer() {}
-
-	void Reset(int32 InNumIndices);
+	virtual FString GetFriendlyName() const override { return TEXT("FRuntimeMeshIndexBuffer"); }
 
 	virtual void InitRHI() override;
 
@@ -265,7 +285,7 @@ public:
 	int32 GetBufferSize() const { return NumIndices * IndexSize; }
 	
 	/* Set the data for the index buffer */
-	void SetData(int32 bInUse32BitIndices, int32 NewIndexCount, const uint8* InData);
+	void SetData(bool bInUse32BitIndices, int32 NewIndexCount, const uint8* InData);
 };
 
 /** Vertex Factory */
@@ -273,17 +293,17 @@ class FRuntimeMeshVertexFactory : public FLocalVertexFactory
 {
 public:
 
-	FRuntimeMeshVertexFactory(ERHIFeatureLevel::Type InFeatureLevel, FRuntimeMeshSectionProxy* InSectionParent);
+	FRuntimeMeshVertexFactory(ERHIFeatureLevel::Type InFeatureLevel);
 
 	/** Init function that can be called on any thread, and will do the right thing (enqueue command if called on main thread) */
 	void Init(FLocalVertexFactory::FDataType VertexStructure);
 
 	/* Gets the section visibility for static sections */	
-	virtual uint64 GetStaticBatchElementVisibility(const class FSceneView& View, const struct FMeshBatch* Batch, const void* InViewCustomData = nullptr) const override;
+	//virtual uint64 GetStaticBatchElementVisibility(const class FSceneView& View, const struct FMeshBatch* Batch, const void* InViewCustomData = nullptr) const override;
 
 private:
 	/* Interface to the parent section for checking visibility.*/
-	FRuntimeMeshSectionProxy * SectionParent;
+	//FRuntimeMeshSectionProxy* SectionParent;
 };
 
 

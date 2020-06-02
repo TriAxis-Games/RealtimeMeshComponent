@@ -28,10 +28,6 @@ private:
 
 	FMaterialRelevance MaterialRelevance;
 
-	bool bHasStaticSections;
-	bool bHasDynamicSections;
-	bool bHasShadowableSections;
-
 public:
 
 	/*Constructor, copies the whole mesh data to feed to UE */
@@ -55,11 +51,11 @@ public:
 	virtual void GetDynamicMeshElements(const TArray<const FSceneView*>& Views, const FSceneViewFamily& ViewFamily, uint32 VisibilityMap, FMeshElementCollector& Collector) const override;
 
 #if RHI_RAYTRACING
-	virtual bool IsRayTracingRelevant() const { return true; }
+	virtual bool IsRayTracingRelevant() const { return false; }
 	virtual bool IsRayTracingStaticRelevant() const { return false; }
 
 	/** Gathers dynamic ray tracing instances from this proxy. */
-	virtual void GetDynamicRayTracingInstances(struct FRayTracingMaterialGatheringContext& Context, TArray<struct FRayTracingInstance>& OutRayTracingInstances);
+	//virtual void GetDynamicRayTracingInstances(struct FRayTracingMaterialGatheringContext& Context, TArray<struct FRayTracingInstance>& OutRayTracingInstances);
 
 #endif // RHI_RAYTRACING
 

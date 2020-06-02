@@ -61,7 +61,9 @@ private:
 	bool bCollisionIsDirty;
 
 	UPROPERTY()
-	URuntimeMeshProvider* MeshProvider;
+	URuntimeMeshProvider* MeshProviderPtr;
+
+	mutable FRWLock MeshProviderLock;
 
 	UPROPERTY(Transient)
 	UBodySetup* BodySetup;
@@ -100,7 +102,7 @@ private:
 	// This is a GC safety construct that allows threaded referencing of this object
 	// We block the GC if shared references exist
 	// and stop new shared references from being created if it's been marked for collection
-	FRuntimeMeshReferenceAnchor<URuntimeMesh> ReferenceAnchor;
+	FRuntimeMeshReferenceAnchor3<URuntimeMesh> GCAnchor;
 
 public:
 
@@ -111,7 +113,7 @@ public:
 	bool IsInitialized() const { return LinkedComponents.Num() > 0; }
 
 	UFUNCTION(BlueprintCallable)
-	URuntimeMeshProvider* GetProvider() { return MeshProvider; }
+	URuntimeMeshProvider* GetProviderPtr() { return MeshProviderPtr; }
 
 	UFUNCTION(BlueprintCallable)
 	void Reset();
@@ -126,37 +128,37 @@ public:
 	FRuntimeMeshCollisionUpdatedDelegate CollisionUpdated;
 
 	UFUNCTION(BlueprintCallable)
-	FBoxSphereBounds GetLocalBounds() const { return MeshProvider ? MeshProvider->GetBounds() : FBoxSphereBounds(FSphere(FVector::ZeroVector, 1.0f)); }
+	FBoxSphereBounds GetLocalBounds() const;
 
 	UFUNCTION(BlueprintCallable)
 	UBodySetup* GetBodySetup() { return BodySetup; }
 
 
 	//	Begin IRuntimeMeshProviderTargetInterface interface
-	virtual FRuntimeMeshWeakRef GetMeshReference() override { return ReferenceAnchor.GetReference(); }
-	virtual void ShutdownInternal() override;
+	virtual FRuntimeMeshWeakRef GetMeshReference() override { return GCAnchor.GetReference(); }
+	//virtual void ShutdownInternal() override;
 
-	virtual void ConfigureLODs_Implementation(const TArray<FRuntimeMeshLODProperties>& InLODs) override;
-	virtual void SetLODScreenSize_Implementation(int32 LODIndex, float ScreenSize) override;
-	virtual void MarkLODDirty_Implementation(int32 LODIndex) override;
-	virtual void MarkAllLODsDirty_Implementation() override;
+	virtual void ConfigureLODs(const TArray<FRuntimeMeshLODProperties>& InLODs) override;
+	virtual void SetLODScreenSize(int32 LODIndex, float ScreenSize) override;
+	virtual void MarkLODDirty(int32 LODIndex) override;
+	virtual void MarkAllLODsDirty() override;
 
-	virtual void CreateSection_Implementation(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties) override;
-	virtual void SetSectionVisibility_Implementation(int32 LODIndex, int32 SectionId, bool bIsVisible) override;
-	virtual void SetSectionCastsShadow_Implementation(int32 LODIndex, int32 SectionId, bool bCastsShadow) override;
-	virtual void MarkSectionDirty_Implementation(int32 LODIndex, int32 SectionId) override;
-	virtual void ClearSection_Implementation(int32 LODIndex, int32 SectionId) override;
-	virtual void RemoveSection_Implementation(int32 LODIndex, int32 SectionId) override;
-	virtual void MarkCollisionDirty_Implementation() override;
+	virtual void CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties) override;
+	virtual void SetSectionVisibility(int32 LODIndex, int32 SectionId, bool bIsVisible) override;
+	virtual void SetSectionCastsShadow(int32 LODIndex, int32 SectionId, bool bCastsShadow) override;
+	virtual void MarkSectionDirty(int32 LODIndex, int32 SectionId) override;
+	virtual void ClearSection(int32 LODIndex, int32 SectionId) override;
+	virtual void RemoveSection(int32 LODIndex, int32 SectionId) override;
+	virtual void MarkCollisionDirty() override;
 
-	virtual void SetupMaterialSlot_Implementation(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial) override;
-	virtual int32 GetMaterialIndex_Implementation(FName MaterialSlotName) override;
-	virtual bool IsMaterialSlotNameValid_Implementation(FName MaterialSlotName) const override;
-	virtual FRuntimeMeshMaterialSlot GetMaterialSlot_Implementation(int32 SlotIndex) override;
-	virtual int32 GetNumMaterials_Implementation() override;
-	virtual TArray<FName> GetMaterialSlotNames_Implementation() override;
-	virtual TArray<FRuntimeMeshMaterialSlot> GetMaterialSlots_Implementation() override;
-	virtual UMaterialInterface* GetMaterial_Implementation(int32 SlotIndex) override;
+	virtual void SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial) override;
+	virtual int32 GetMaterialIndex(FName MaterialSlotName) override;
+	virtual bool IsMaterialSlotNameValid(FName MaterialSlotName) const override;
+	virtual FRuntimeMeshMaterialSlot GetMaterialSlot(int32 SlotIndex) override;
+	virtual int32 GetNumMaterials() override;
+	virtual TArray<FName> GetMaterialSlotNames() override;
+	virtual TArray<FRuntimeMeshMaterialSlot> GetMaterialSlots() override;
+	virtual UMaterialInterface* GetMaterial(int32 SlotIndex) override;
 	//	End IRuntimeMeshProviderTargetInterface interface
 
 	TArray<FRuntimeMeshLOD, TInlineAllocator<RUNTIMEMESH_MAXLODS>> GetCopyOfConfiguration() const { return LODs; }
@@ -167,6 +169,7 @@ public:
 	virtual void BeginDestroy() override;
 	virtual bool IsReadyForFinishDestroy() override;
 	virtual void PostLoad() override;
+	virtual void PostEditImport() override;
 	virtual void PostDuplicate(EDuplicateMode::Type DuplicateMode) override;
 	//	End UObject interface
 

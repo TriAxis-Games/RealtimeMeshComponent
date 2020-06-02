@@ -9,88 +9,84 @@
 
 
 
-UCLASS(HideCategories = Object, BlueprintType, Blueprintable, Meta = (ShortTooltip = "A RuntimeMeshProvider is a class containing the logic to create the mesh data and related information to be used by a RuntimeMeshComponent for rendering."))
+UCLASS(HideCategories = Object, BlueprintType, Meta = (ShortTooltip = "A RuntimeMeshProvider is a class containing the logic to create the mesh data and related information to be used by a RuntimeMeshComponent for rendering."))
 class RUNTIMEMESHCOMPONENT_API URuntimeMeshProvider : public URuntimeMeshProviderTargetInterface
 {
 	GENERATED_BODY()
-private:
-    FRuntimeMeshReferenceAliasAnchor<URuntimeMeshProvider> ReferenceAnchor;
+protected:
 
-    URuntimeMeshProviderTargetInterface* InternalTarget;
-    mutable FCriticalSection TargetSyncRoot;
+	FRuntimeMeshReferenceAnchor3<URuntimeMeshProvider> GCAnchor;
 
-    URuntimeMeshProviderTargetInterface* GetTarget() const
-	{
-		FScopeLock Lock(&TargetSyncRoot);
-		return InternalTarget;
-	}
-	virtual void ShutdownInternal() override;
+	URuntimeMeshProviderTargetInterface* Target;
+	mutable FRWLock TargetLock;
+	FThreadSafeBool bIsBound;
 
 public:
-    UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-	void BindTargetProvider(URuntimeMeshProviderTargetInterface* InTarget);
-
-	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-	void Unlink();
+	UFUNCTION(BlueprintCallable)
+	bool IsBound() const { check(bIsBound == (Target != nullptr)); return bIsBound; }
 
 	UFUNCTION(BlueprintCallable)
-	bool HasBeenBound() const { return InternalTarget != nullptr; }
+	void Shutdown();
+
+	virtual void BindTargetProvider(URuntimeMeshProviderTargetInterface* InTarget);
+	virtual void UnlinkProviders() override;
+
 
 public:
     URuntimeMeshProvider();
 
-	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-	void Initialize();
+	UFUNCTION(BlueprintCallable)
+	virtual void Initialize() { }
 
-	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-	FBoxSphereBounds GetBounds();
+	UFUNCTION(BlueprintCallable)
+	virtual FBoxSphereBounds GetBounds() { return FBoxSphereBounds(FSphere(FVector::ZeroVector, 1.0f)); }
 
-	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-	bool GetSectionMeshForLOD(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData);
+	UFUNCTION(BlueprintCallable)
+	virtual bool GetSectionMeshForLOD(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData) { return false; }
 
-	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-	bool GetAllSectionsMeshForLOD(int32 LODIndex, TMap<int32, FRuntimeMeshSectionData>& MeshDatas);
+	UFUNCTION(BlueprintCallable)
+	virtual bool GetAllSectionsMeshForLOD(int32 LODIndex, TMap<int32, FRuntimeMeshSectionData>& MeshDatas) { return false; }
 
-	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-	FRuntimeMeshCollisionSettings GetCollisionSettings();
+	UFUNCTION(BlueprintCallable)
+	virtual FRuntimeMeshCollisionSettings GetCollisionSettings() { return FRuntimeMeshCollisionSettings(); }
 
-	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-	bool HasCollisionMesh();
+	UFUNCTION(BlueprintCallable)
+	virtual bool HasCollisionMesh() { return false; }
 
-	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-	bool GetCollisionMesh(FRuntimeMeshCollisionData& CollisionData);
+	UFUNCTION(BlueprintCallable)
+	virtual bool GetCollisionMesh(FRuntimeMeshCollisionData& CollisionData) { return false; }
 
-	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-	void CollisionUpdateCompleted();
+	UFUNCTION(BlueprintCallable)
+	virtual void CollisionUpdateCompleted() { }
 
-	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-	bool IsThreadSafe();
+	UFUNCTION(BlueprintCallable)
+	virtual bool IsThreadSafe() { return false; }
 
 	FRuntimeMeshProviderWeakRef GetReference();
 
 	//	Begin IRuntimeMeshProviderTargetInterface interface
 	virtual FRuntimeMeshWeakRef GetMeshReference() override;
-	virtual void ConfigureLODs_Implementation(const TArray<FRuntimeMeshLODProperties>& InLODs) override;
-	virtual void SetLODScreenSize_Implementation(int32 LODIndex, float ScreenSize) override;
-	virtual void MarkLODDirty_Implementation(int32 LODIndex) override;
-	virtual void MarkAllLODsDirty_Implementation() override;
+	virtual void ConfigureLODs(const TArray<FRuntimeMeshLODProperties>& InLODs) override;
+	virtual void SetLODScreenSize(int32 LODIndex, float ScreenSize) override;
+	virtual void MarkLODDirty(int32 LODIndex) override;
+	virtual void MarkAllLODsDirty() override;
 
-	virtual void CreateSection_Implementation(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties) override;
-	virtual void SetSectionVisibility_Implementation(int32 LODIndex, int32 SectionId, bool bIsVisible) override;
-	virtual void SetSectionCastsShadow_Implementation(int32 LODIndex, int32 SectionId, bool bCastsShadow) override;
-	virtual void MarkSectionDirty_Implementation(int32 LODIndex, int32 SectionId) override;
-	virtual void ClearSection_Implementation(int32 LODIndex, int32 SectionId) override;
-	virtual void RemoveSection_Implementation(int32 LODIndex, int32 SectionId) override;
-	virtual void MarkCollisionDirty_Implementation() override;
+	virtual void CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties) override;
+	virtual void SetSectionVisibility(int32 LODIndex, int32 SectionId, bool bIsVisible) override;
+	virtual void SetSectionCastsShadow(int32 LODIndex, int32 SectionId, bool bCastsShadow) override;
+	virtual void MarkSectionDirty(int32 LODIndex, int32 SectionId) override;
+	virtual void ClearSection(int32 LODIndex, int32 SectionId) override;
+	virtual void RemoveSection(int32 LODIndex, int32 SectionId) override;
+	virtual void MarkCollisionDirty() override;
 
-	virtual void SetupMaterialSlot_Implementation(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial) override;
-	virtual int32 GetMaterialIndex_Implementation(FName MaterialSlotName) override;
-	virtual bool IsMaterialSlotNameValid_Implementation(FName MaterialSlotName) const override;
-	virtual FRuntimeMeshMaterialSlot GetMaterialSlot_Implementation(int32 SlotIndex) override;
-	virtual int32 GetNumMaterials_Implementation() override;
-	virtual TArray<FName> GetMaterialSlotNames_Implementation() override;
-	virtual TArray<FRuntimeMeshMaterialSlot> GetMaterialSlots_Implementation() override;
-	virtual UMaterialInterface* GetMaterial_Implementation(int32 SlotIndex) override;
+	virtual void SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial) override;
+	virtual int32 GetMaterialIndex(FName MaterialSlotName) override;
+	virtual bool IsMaterialSlotNameValid(FName MaterialSlotName) const override;
+	virtual FRuntimeMeshMaterialSlot GetMaterialSlot(int32 SlotIndex) override;
+	virtual int32 GetNumMaterials() override;
+	virtual TArray<FName> GetMaterialSlotNames() override;
+	virtual TArray<FRuntimeMeshMaterialSlot> GetMaterialSlots() override;
+	virtual UMaterialInterface* GetMaterial(int32 SlotIndex) override;
 	//	End IRuntimeMeshProviderTargetInterface interface
 
     // Begin UObject interface
@@ -102,7 +98,10 @@ protected:
     friend class URuntimeMesh;
 };
 
-UCLASS(HideCategories = Object, BlueprintType, Blueprintable, Meta = (ShortTooltip = "A RuntimeMeshProviderPassthrough is a class containing logic to modify the mesh data from a linked provider before passing it onto the RuntimeMeshComponent."))
+
+
+
+UCLASS(HideCategories = Object, BlueprintType, Meta = (ShortTooltip = "A RuntimeMeshProviderPassthrough is a class containing logic to modify the mesh data from a linked provider before passing it onto the RuntimeMeshComponent."))
 class RUNTIMEMESHCOMPONENT_API URuntimeMeshProviderPassthrough
     : public URuntimeMeshProvider
 {
@@ -110,28 +109,34 @@ class RUNTIMEMESHCOMPONENT_API URuntimeMeshProviderPassthrough
 private:
     UPROPERTY(VisibleAnywhere, BlueprintGetter = GetChildProvider, BlueprintSetter = SetChildProvider)
     URuntimeMeshProvider* ChildProvider;
+
+	mutable FRWLock ChildLock;
 public:
 
-	virtual void BindTargetProvider_Implementation(URuntimeMeshProviderTargetInterface* InTarget) override;
-	virtual void Unlink_Implementation() override;
+	virtual void BindTargetProvider(URuntimeMeshProviderTargetInterface* InTarget) override;
+	virtual void UnlinkProviders() override;
 
 public:
     URuntimeMeshProviderPassthrough();
 
     UFUNCTION(BlueprintCallable)
-	URuntimeMeshProvider* GetChildProvider() const;
+	URuntimeMeshProvider* GetChildProvider() const
+	{
+		FReadScopeLock Lock(ChildLock);
+		return ChildProvider;
+	}
 
 	UFUNCTION(BlueprintCallable)
     void SetChildProvider(URuntimeMeshProvider* InProvider);
 
-	virtual void Initialize_Implementation() override;
-	virtual FBoxSphereBounds GetBounds_Implementation() override;
-	virtual bool GetSectionMeshForLOD_Implementation(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData) override;
-	virtual bool GetAllSectionsMeshForLOD_Implementation(int32 LODIndex, TMap<int32, FRuntimeMeshSectionData>& MeshDatas) override;
-	virtual FRuntimeMeshCollisionSettings GetCollisionSettings_Implementation() override;
-	virtual bool HasCollisionMesh_Implementation() override;
-	virtual bool GetCollisionMesh_Implementation(FRuntimeMeshCollisionData& CollisionData) override;
-	virtual void CollisionUpdateCompleted_Implementation() override;
-	virtual bool IsThreadSafe_Implementation() override;
+	virtual void Initialize() override;
+	virtual FBoxSphereBounds GetBounds() override;
+	virtual bool GetSectionMeshForLOD(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData) override;
+	virtual bool GetAllSectionsMeshForLOD(int32 LODIndex, TMap<int32, FRuntimeMeshSectionData>& MeshDatas) override;
+	virtual FRuntimeMeshCollisionSettings GetCollisionSettings() override;
+	virtual bool HasCollisionMesh() override;
+	virtual bool GetCollisionMesh(FRuntimeMeshCollisionData& CollisionData) override;
+	virtual void CollisionUpdateCompleted() override;
+	virtual bool IsThreadSafe() override;
 
 };

@@ -75,9 +75,9 @@ void URuntimeMeshProviderCollision::SetRenderableSectionAffectsCollision(int32 S
 
 
 
-bool URuntimeMeshProviderCollision::GetSectionMeshForLOD_Implementation(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData)
+bool URuntimeMeshProviderCollision::GetSectionMeshForLOD(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData)
 {
-	bool bResult = Super::GetSectionMeshForLOD_Implementation(LODIndex, SectionId, MeshData);
+	bool bResult = Super::GetSectionMeshForLOD(LODIndex, SectionId, MeshData);
 
 	FScopeLock Lock(&SyncRoot);
 	if (bResult && LODIndex == LODForMeshCollision && SectionsAffectingCollision.Contains(SectionId))
@@ -89,9 +89,9 @@ bool URuntimeMeshProviderCollision::GetSectionMeshForLOD_Implementation(int32 LO
 	return bResult;
 }
 
-bool URuntimeMeshProviderCollision::GetAllSectionsMeshForLOD_Implementation(int32 LODIndex, TMap<int32, FRuntimeMeshSectionData>& MeshDatas)
+bool URuntimeMeshProviderCollision::GetAllSectionsMeshForLOD(int32 LODIndex, TMap<int32, FRuntimeMeshSectionData>& MeshDatas)
 {
-	bool bResult = Super::GetAllSectionsMeshForLOD_Implementation(LODIndex, MeshDatas);
+	bool bResult = Super::GetAllSectionsMeshForLOD(LODIndex, MeshDatas);
 
 	FScopeLock Lock(&SyncRoot);
 	if (bResult && LODIndex == LODForMeshCollision)
@@ -110,20 +110,20 @@ bool URuntimeMeshProviderCollision::GetAllSectionsMeshForLOD_Implementation(int3
 	return bResult;
 }
 
-FRuntimeMeshCollisionSettings URuntimeMeshProviderCollision::GetCollisionSettings_Implementation()
+FRuntimeMeshCollisionSettings URuntimeMeshProviderCollision::GetCollisionSettings()
 {
 	FScopeLock Lock(&SyncRoot);
 	return CollisionSettings;
 }
 
-bool URuntimeMeshProviderCollision::HasCollisionMesh_Implementation()
+bool URuntimeMeshProviderCollision::HasCollisionMesh()
 {
 	FScopeLock Lock(&SyncRoot);
 	return (CollisionMesh.Vertices.Num() > 0 && CollisionMesh.Triangles.Num() > 0) ||
 		RenderableCollisionData.Num() > 0;
 }
 
-bool URuntimeMeshProviderCollision::GetCollisionMesh_Implementation(FRuntimeMeshCollisionData& CollisionData)
+bool URuntimeMeshProviderCollision::GetCollisionMesh(FRuntimeMeshCollisionData& CollisionData)
 {
 	FScopeLock Lock(&SyncRoot);
 
@@ -191,40 +191,40 @@ bool URuntimeMeshProviderCollision::GetCollisionMesh_Implementation(FRuntimeMesh
 	return true;
 }
 
-bool URuntimeMeshProviderCollision::IsThreadSafe_Implementation()
+bool URuntimeMeshProviderCollision::IsThreadSafe()
 {
-	return Super::IsThreadSafe_Implementation();
+	return Super::IsThreadSafe();
 }
 
 
 
 
-void URuntimeMeshProviderCollision::ConfigureLODs_Implementation(const TArray<FRuntimeMeshLODProperties>& InLODs)
+void URuntimeMeshProviderCollision::ConfigureLODs(const TArray<FRuntimeMeshLODProperties>& InLODs)
 {
 	ClearCachedData();
 
-	Super::ConfigureLODs_Implementation(InLODs);
+	Super::ConfigureLODs(InLODs);
 }
 
-void URuntimeMeshProviderCollision::CreateSection_Implementation(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties)
+void URuntimeMeshProviderCollision::CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties)
 {
-	ClearSection(LODIndex, SectionId);
+	ClearSectionData(LODIndex, SectionId);
 
-	Super::CreateSection_Implementation(LODIndex, SectionId, SectionProperties);
+	Super::CreateSection(LODIndex, SectionId, SectionProperties);
 }
 
-void URuntimeMeshProviderCollision::ClearSection_Implementation(int32 LODIndex, int32 SectionId)
+void URuntimeMeshProviderCollision::ClearSection(int32 LODIndex, int32 SectionId)
 {
-	ClearSection(LODIndex, SectionId);
+	ClearSectionData(LODIndex, SectionId);
 
-	Super::ClearSection_Implementation(LODIndex, SectionId);
+	Super::ClearSection(LODIndex, SectionId);
 }
 
-void URuntimeMeshProviderCollision::RemoveSection_Implementation(int32 LODIndex, int32 SectionId)
+void URuntimeMeshProviderCollision::RemoveSection(int32 LODIndex, int32 SectionId)
 {
-	ClearSection(LODIndex, SectionId);
+	ClearSectionData(LODIndex, SectionId);
 
-	URuntimeMeshProvider::RemoveSection_Implementation(LODIndex, SectionId);
+	URuntimeMeshProvider::RemoveSection(LODIndex, SectionId);
 }
 
 void URuntimeMeshProviderCollision::ClearCachedData()
@@ -233,7 +233,7 @@ void URuntimeMeshProviderCollision::ClearCachedData()
 	RenderableCollisionData.Empty();
 }
 
-void URuntimeMeshProviderCollision::ClearSection(int32 LODIndex, int32 SectionId)
+void URuntimeMeshProviderCollision::ClearSectionData(int32 LODIndex, int32 SectionId)
 {
 	FScopeLock Lock(&SyncRoot);
 	if (LODIndex == LODForMeshCollision)

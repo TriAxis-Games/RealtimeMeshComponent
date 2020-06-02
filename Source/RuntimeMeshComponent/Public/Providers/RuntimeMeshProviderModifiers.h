@@ -26,9 +26,9 @@ public:
 
 
 protected:
-	bool GetSectionMeshForLOD_Implementation(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData) override;
-	bool GetAllSectionsMeshForLOD_Implementation(int32 LODIndex, TMap<int32, FRuntimeMeshSectionData>& MeshDatas) override;
-	bool GetCollisionMesh_Implementation(FRuntimeMeshCollisionData& CollisionData) override;
+	bool GetSectionMeshForLOD(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData) override;
+	bool GetAllSectionsMeshForLOD(int32 LODIndex, TMap<int32, FRuntimeMeshSectionData>& MeshDatas) override;
+	bool GetCollisionMesh(FRuntimeMeshCollisionData& CollisionData) override;
 
 private:
 	void ApplyModifiers(FRuntimeMeshRenderableMeshData& MeshData);

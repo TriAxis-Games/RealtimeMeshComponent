@@ -53,19 +53,7 @@ FRuntimeMeshComponentSceneProxy::FRuntimeMeshComponentSceneProxy(URuntimeMeshCom
 			}
 			RenderData.bWantsAdjacencyInfo = RequiresAdjacencyInformation(RenderData.Material, nullptr, GetScene().GetFeatureLevel());
 
-			MaterialRelevance |= RenderData.Material->GetRelevance(GetScene().GetFeatureLevel());
-
-//#if RHI_RAYTRACING
-//			if (IsRayTracingEnabled())
-//			{
-//				const auto& ProxyLOD = RuntimeMeshProxy->GetLODs()[LODIndex];
-//				if (ProxyLOD->GetSections().Contains(Section.Key))
-//				{
-//					RayTracingGeometries.Add(ProxyLOD->GetSections()[Section.Key]->GetRayTracingGeometry());
-//				}
-//			}
-//#endif // RHI_RAYTRACING
-			
+			MaterialRelevance |= RenderData.Material->GetRelevance(GetScene().GetFeatureLevel());			
 		}
 	}   
 
@@ -75,8 +63,10 @@ FRuntimeMeshComponentSceneProxy::FRuntimeMeshComponentSceneProxy(URuntimeMeshCom
 
 	bStaticElementsAlwaysUseProxyPrimitiveUniformBuffer = true;
 
+	const auto FeatureLevel = GetScene().GetFeatureLevel();
+
 	// We always use local vertex factory, which gets its primitive data from GPUScene, so we can skip expensive primitive uniform buffer updates
-	bVFRequiresPrimitiveUniformBuffer = !UseGPUScene(GMaxRHIShaderPlatform, RuntimeMeshProxy->GetFeatureLevel());
+	bVFRequiresPrimitiveUniformBuffer = !UseGPUScene(GMaxRHIShaderPlatform, FeatureLevel);
 }
 
 FRuntimeMeshComponentSceneProxy::~FRuntimeMeshComponentSceneProxy()
@@ -86,10 +76,9 @@ FRuntimeMeshComponentSceneProxy::~FRuntimeMeshComponentSceneProxy()
 
 void FRuntimeMeshComponentSceneProxy::CreateRenderThreadResources()
 {
-	// Make sure the proxy has been updated. It's possible for this happen before the normal render thread tasks
+	// Make sure the proxy has been updated.
 	RuntimeMeshProxy->FlushPendingUpdates();
 
-	RuntimeMeshProxy->CalculateViewRelevance(bHasStaticSections, bHasDynamicSections, bHasShadowableSections);
 	FPrimitiveSceneProxy::CreateRenderThreadResources();
 }
 
@@ -100,8 +89,8 @@ FPrimitiveViewRelevance FRuntimeMeshComponentSceneProxy::GetViewRelevance(const 
 	Result.bShadowRelevance = IsShadowCast(View);
 
 	bool bForceDynamicPath = !IsStaticPathAvailable() || IsRichView(*View->Family) || IsSelected() || View->Family->EngineShowFlags.Wireframe;
-	Result.bStaticRelevance = !bForceDynamicPath && bHasStaticSections;
-	Result.bDynamicRelevance = bForceDynamicPath || bHasDynamicSections;
+	Result.bStaticRelevance = !bForceDynamicPath && RuntimeMeshProxy->ShouldRenderStatic();
+	Result.bDynamicRelevance = bForceDynamicPath || RuntimeMeshProxy->ShouldRenderDynamic();
 
 	Result.bRenderInMainPass = ShouldRenderInMainPass();
 	Result.bUsesLightingChannels = GetLightingChannelMask() != GetDefaultLightingChannelMask();
@@ -123,7 +112,7 @@ void FRuntimeMeshComponentSceneProxy::CreateMeshBatch(FMeshBatch& MeshBatch, con
 	bool bRenderWireframe = WireframeMaterial != nullptr;
 	bool bWantsAdjacency = !bRenderWireframe && RenderData.bWantsAdjacencyInfo;
 
-	Section.CreateMeshBatch(MeshBatch, Section.CastsShadow(), bWantsAdjacency);
+	Section.CreateMeshBatch(MeshBatch, Section.bCastsShadow, bWantsAdjacency);
 
 	MeshBatch.LODIndex = LODIndex;
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
@@ -153,31 +142,33 @@ void FRuntimeMeshComponentSceneProxy::DrawStaticElements(FStaticPrimitiveDrawInt
 	SCOPE_CYCLE_COUNTER(STAT_RuntimeMeshComponentSceneProxy_DrawStaticMeshElements);
 	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMCSP(%d): DrawStaticElements Called"), FPlatformTLS::GetCurrentThreadId());
 
-	auto& LODs = RuntimeMeshProxy->GetLODs();
-	for (int32 LODIndex = 0; LODIndex < LODs.Num(); LODIndex++)
+	if (RuntimeMeshProxy->HasValidLODs())
 	{
-		auto& LOD = LODs[LODIndex];
-
-		if (LOD.IsValid())
+		for (int32 LODIndex = RuntimeMeshProxy->GetMinLOD(); LODIndex <= RuntimeMeshProxy->GetMaxLOD(); LODIndex++)
 		{
-			int32 SectionId = 0;
-			for (const auto& SectionEntry : LOD->GetSections())
+			FRuntimeMeshLODData& LOD = RuntimeMeshProxy->GetLOD(LODIndex);
+
+			if (LOD.bShouldRenderStatic)
 			{
-				auto& Section = SectionEntry.Value;
-				auto* RenderData = SectionRenderData[LODIndex].Find(SectionEntry.Key);
-
-				if (RenderData != nullptr && Section->ShouldRender() && Section->WantsToRenderInStaticPath())
+				int32 SectionId = 0;
+				for (const auto& SectionEntry : LOD.Sections)
 				{
-					FMaterialRenderProxy* Material = RenderData->Material->GetRenderProxy();
+					auto& Section = SectionEntry.Value;
+					auto* RenderData = SectionRenderData[LODIndex].Find(SectionEntry.Key);
 
-					FMeshBatch MeshBatch;
-					MeshBatch.LODIndex = LODIndex;
-					MeshBatch.SegmentIndex = SectionEntry.Key;
+					if (RenderData != nullptr && Section.ShouldRenderStaticPath())
+					{
+						FMaterialRenderProxy* Material = RenderData->Material->GetRenderProxy();
 
-					CreateMeshBatch(MeshBatch, *Section, LODIndex, *RenderData, Material, nullptr);
-					PDI->DrawMesh(MeshBatch, RuntimeMeshProxy->GetScreenSize(LODIndex));
+						FMeshBatch MeshBatch;
+						MeshBatch.LODIndex = LODIndex;
+						MeshBatch.SegmentIndex = SectionEntry.Key;
 
-					//UE_LOG(LogRuntimeMesh, Warning, TEXT("Section Screen Size Max: %f"), RuntimeMeshProxy->GetScreenSize(LODIndex));
+						CreateMeshBatch(MeshBatch, Section, LODIndex, *RenderData, Material, nullptr);
+						PDI->DrawMesh(MeshBatch, RuntimeMeshProxy->GetScreenSize(LODIndex));
+
+						//UE_LOG(LogRuntimeMesh, Warning, TEXT("Section Screen Size Max: %f"), RuntimeMeshProxy->GetScreenSize(LODIndex));
+					}
 				}
 			}
 		}
@@ -200,38 +191,36 @@ void FRuntimeMeshComponentSceneProxy::GetDynamicMeshElements(const TArray<const 
 		Collector.RegisterOneFrameMaterialProxy(WireframeMaterialInstance);
 	}
 
-
-	for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
+	if (RuntimeMeshProxy->HasValidLODs())
 	{
-		const FSceneView* View = Views[ViewIndex];
-
-		if (IsShown(View) && (VisibilityMap & (1 << ViewIndex)))
+		for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
 		{
-			FFrozenSceneViewMatricesGuard FrozenMatricesGuard(*const_cast<FSceneView*>(Views[ViewIndex]));
+			const FSceneView* View = Views[ViewIndex];
+			bool bForceDynamicPath = IsRichView(*Views[ViewIndex]->Family) || Views[ViewIndex]->Family->EngineShowFlags.Wireframe || IsSelected() || !IsStaticPathAvailable();
 
-			FLODMask LODMask = GetLODMask(View);
-
-			auto& LODs = RuntimeMeshProxy->GetLODs();
-			for (int32 LODIndex = 0; LODIndex < LODs.Num(); LODIndex++)
+			if (IsShown(View) && (VisibilityMap & (1 << ViewIndex)))
 			{
-				if (LODMask.ContainsLOD(LODIndex))
+				FFrozenSceneViewMatricesGuard FrozenMatricesGuard(*const_cast<FSceneView*>(Views[ViewIndex]));
+
+				FLODMask LODMask = GetLODMask(View);
+
+				for (int32 LODIndex = RuntimeMeshProxy->GetMinLOD(); LODIndex <= RuntimeMeshProxy->GetMaxLOD(); LODIndex++)
 				{
-					auto& LOD = LODs[LODIndex];
-					for (const auto& SectionEntry : LOD->GetSections())
+					FRuntimeMeshLODData& LOD = RuntimeMeshProxy->GetLOD(LODIndex);
+
+					if (LODMask.ContainsLOD(LODIndex) && (LOD.bShouldRenderDynamic || bForceDynamicPath))
 					{
-						auto& Section = SectionEntry.Value;
-						auto* RenderData = SectionRenderData[LODIndex].Find(SectionEntry.Key);
-
-						if (RenderData != nullptr && Section->ShouldRender())
+						for (const auto& SectionEntry : LOD.Sections)
 						{
-							bool bForceDynamicPath = IsRichView(*Views[ViewIndex]->Family) || Views[ViewIndex]->Family->EngineShowFlags.Wireframe || IsSelected() || !IsStaticPathAvailable();
+							auto& Section = SectionEntry.Value;
+							auto* RenderData = SectionRenderData[LODIndex].Find(SectionEntry.Key);
 
-							if (bForceDynamicPath || !Section->WantsToRenderInStaticPath())
+							if (RenderData != nullptr && Section.ShouldRender() && (Section.ShouldRenderDynamicPath() || bForceDynamicPath))
 							{
 								FMaterialRenderProxy* Material = RenderData->Material->GetRenderProxy();
 
 								FMeshBatch& MeshBatch = Collector.AllocateMesh();
-								CreateMeshBatch(MeshBatch, *Section, LODIndex, *RenderData, Material, WireframeMaterialInstance);
+								CreateMeshBatch(MeshBatch, Section, LODIndex, *RenderData, Material, WireframeMaterialInstance);
 								MeshBatch.bDitheredLODTransition = LODMask.IsDithered();
 
 								Collector.AddMesh(ViewIndex, MeshBatch);
@@ -241,25 +230,25 @@ void FRuntimeMeshComponentSceneProxy::GetDynamicMeshElements(const TArray<const 
 				}
 			}
 		}
-	}
-	// Draw bounds
+		// Draw bounds
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-	for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
-	{
-		if (VisibilityMap & (1 << ViewIndex))
+		for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
 		{
-			// Draw simple collision as wireframe if 'show collision', and collision is enabled, and we are not using the complex as the simple
-			if (ViewFamily.EngineShowFlags.Collision && IsCollisionEnabled() && BodySetup && BodySetup->GetCollisionTraceFlag() != ECollisionTraceFlag::CTF_UseComplexAsSimple)
+			if (VisibilityMap & (1 << ViewIndex))
 			{
-				FTransform GeomTransform(GetLocalToWorld());
-				//BodySetup->AggGeom.GetAggGeom(GeomTransform, GetSelectionColor(FColor(157, 149, 223, 255), IsSelected(), IsHovered()).ToFColor(true), NULL, false, false, UseEditorDepthTest(), ViewIndex, Collector);
-			}
+				// Draw simple collision as wireframe if 'show collision', and collision is enabled, and we are not using the complex as the simple
+				if (ViewFamily.EngineShowFlags.Collision && IsCollisionEnabled() && BodySetup && BodySetup->GetCollisionTraceFlag() != ECollisionTraceFlag::CTF_UseComplexAsSimple)
+				{
+					FTransform GeomTransform(GetLocalToWorld());
+					//BodySetup->AggGeom.GetAggGeom(GeomTransform, GetSelectionColor(FColor(157, 149, 223, 255), IsSelected(), IsHovered()).ToFColor(true), NULL, false, false, UseEditorDepthTest(), ViewIndex, Collector);
+				}
 
-			// Render bounds
-			RenderBounds(Collector.GetPDI(ViewIndex), ViewFamily.EngineShowFlags, GetBounds(), IsSelected());
+				// Render bounds
+				RenderBounds(Collector.GetPDI(ViewIndex), ViewFamily.EngineShowFlags, GetBounds(), IsSelected());
+			}
 		}
-	}
 #endif
+	}
 }
 
 
@@ -279,57 +268,57 @@ void FRuntimeMeshComponentSceneProxy::GetDynamicMeshElements(const TArray<const 
 #endif
 
 
-#if RHI_RAYTRACING
- void FRuntimeMeshComponentSceneProxy::GetDynamicRayTracingInstances(struct FRayTracingMaterialGatheringContext& Context, TArray<struct FRayTracingInstance>& OutRayTracingInstances)
- {
-	 SCOPE_CYCLE_COUNTER(STAT_RuntimeMeshComponentSceneProxy_GetDynamicRayTracingInstances);
-	 
-	 // TODO: Should this use any LOD determination logic? Or always use a specific LOD?
-
-	 int32 LODIndex = 0;
-	 auto& LOD = RuntimeMeshProxy->GetLODs()[LODIndex];
-
-	 for (const auto& SectionEntry : LOD->GetSections())
-	 {
-		 auto& Section = SectionEntry.Value;
-		 auto* RenderData = SectionRenderData[LODIndex].Find(SectionEntry.Key);
-		 FMaterialRenderProxy* Material = RenderData->Material->GetRenderProxy();
-
-		 FRayTracingGeometry* SectionRayTracingGeometry = Section->GetRayTracingGeometry();
-		 if (RenderData != nullptr && Section->ShouldRender() && SectionRayTracingGeometry->RayTracingGeometryRHI.IsValid())
-		 {
-			 check(SectionRayTracingGeometry->Initializer.TotalPrimitiveCount > 0);
-			 check(SectionRayTracingGeometry->Initializer.IndexBuffer.IsValid());
-
-			 FRayTracingInstance RayTracingInstance;
-			 RayTracingInstance.Geometry = SectionRayTracingGeometry;
-			 RayTracingInstance.InstanceTransforms.Add(GetLocalToWorld());
-
-			 uint32 SectionIdx = 0;
-			 FMeshBatch MeshBatch;
-			 MeshBatch.LODIndex = LODIndex;
-			 MeshBatch.SegmentIndex = SectionEntry.Key;
-
-
-			 MeshBatch.MaterialRenderProxy = Material;
-			 MeshBatch.ReverseCulling = IsLocalToWorldDeterminantNegative();
-			 MeshBatch.DepthPriorityGroup = SDPG_World;
-			 MeshBatch.bCanApplyViewModeOverrides = false;
-
-			 Section->CreateMeshBatch(MeshBatch, true, false);
-
-			 RayTracingInstance.Materials.Add(MeshBatch);
-			 RayTracingInstance.BuildInstanceMaskAndFlags();
-			 OutRayTracingInstances.Add(RayTracingInstance);
-
-		 }
-	 }
- }
-#endif // RHI_RAYTRACING
+// #if RHI_RAYTRACING
+//  void FRuntimeMeshComponentSceneProxy::GetDynamicRayTracingInstances(struct FRayTracingMaterialGatheringContext& Context, TArray<struct FRayTracingInstance>& OutRayTracingInstances)
+//  {
+// 	 SCOPE_CYCLE_COUNTER(STAT_RuntimeMeshComponentSceneProxy_GetDynamicRayTracingInstances);
+// 	 
+// 	 // TODO: Should this use any LOD determination logic? Or always use a specific LOD?
+// 
+// 	 int32 LODIndex = 0;
+// 	 auto& LOD = RuntimeMeshProxy->GetLODs()[LODIndex];
+// 
+// 	 for (const auto& SectionEntry : LOD->GetSections())
+// 	 {
+// 		 auto& Section = SectionEntry.Value;
+// 		 auto* RenderData = SectionRenderData[LODIndex].Find(SectionEntry.Key);
+// 		 FMaterialRenderProxy* Material = RenderData->Material->GetRenderProxy();
+// 
+// 		 FRayTracingGeometry* SectionRayTracingGeometry = Section->GetRayTracingGeometry();
+// 		 if (RenderData != nullptr && Section->ShouldRender() && SectionRayTracingGeometry->RayTracingGeometryRHI.IsValid())
+// 		 {
+// 			 check(SectionRayTracingGeometry->Initializer.TotalPrimitiveCount > 0);
+// 			 check(SectionRayTracingGeometry->Initializer.IndexBuffer.IsValid());
+// 
+// 			 FRayTracingInstance RayTracingInstance;
+// 			 RayTracingInstance.Geometry = SectionRayTracingGeometry;
+// 			 RayTracingInstance.InstanceTransforms.Add(GetLocalToWorld());
+// 
+// 			 uint32 SectionIdx = 0;
+// 			 FMeshBatch MeshBatch;
+// 			 MeshBatch.LODIndex = LODIndex;
+// 			 MeshBatch.SegmentIndex = SectionEntry.Key;
+// 
+// 
+// 			 MeshBatch.MaterialRenderProxy = Material;
+// 			 MeshBatch.ReverseCulling = IsLocalToWorldDeterminantNegative();
+// 			 MeshBatch.DepthPriorityGroup = SDPG_World;
+// 			 MeshBatch.bCanApplyViewModeOverrides = false;
+// 
+// 			 Section->CreateMeshBatch(MeshBatch, true, false);
+// 
+// 			 RayTracingInstance.Materials.Add(MeshBatch);
+// 			 RayTracingInstance.BuildInstanceMaskAndFlags();
+// 			 OutRayTracingInstances.Add(RayTracingInstance);
+// 
+// 		 }
+// 	 }
+//  }
+// #endif // RHI_RAYTRACING
 
  int8 FRuntimeMeshComponentSceneProxy::GetCurrentFirstLOD() const
  {
-	 return RuntimeMeshProxy->GetLODs().Num() - 1;
+	 return RuntimeMeshProxy->GetMaxLOD();
  }
 
 int8 FRuntimeMeshComponentSceneProxy::ComputeTemporalStaticMeshLOD(const FVector4& Origin, const float SphereRadius, const FSceneView& View, int32 MinLOD, float FactorScale, int32 SampleIndex) const
@@ -394,11 +383,10 @@ FLODMask FRuntimeMeshComponentSceneProxy::GetLODMask(const FSceneView* View) con
 #endif
 		else
 		{
-			TInlineLODArray<TSharedPtr<FRuntimeMeshLODProxy>>& LODs = RuntimeMeshProxy->GetLODs();
-
 			const FBoxSphereBounds& ProxyBounds = GetBounds();
 			bool bUseDithered = false;
-			if (LODs.Num() && LODs[0].IsValid())
+			int32 MaxLOD = RuntimeMeshProxy->GetMaxLOD();
+			if (MaxLOD != INDEX_NONE)
 			{
 				// only dither if at least one section in LOD0 is dithered. Mixed dithering on sections won't work very well, but it makes an attempt
 				const auto& LOD0Sections = SectionRenderData[0];
@@ -414,11 +402,7 @@ FLODMask FRuntimeMeshComponentSceneProxy::GetLODMask(const FSceneView* View) con
 
 			FCachedSystemScalabilityCVars CachedSystemScalabilityCVars = GetCachedScalabilityCVars();
 
-#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 21
 			float InvScreenSizeScale = (CachedSystemScalabilityCVars.StaticMeshLODDistanceScale != 0.f) ? (1.0f / CachedSystemScalabilityCVars.StaticMeshLODDistanceScale) : 1.0f;
-#else
-			float InvScreenSizeScale = 1.0f;
-#endif
 
 			int32 ClampedMinLOD = 0;
 
@@ -444,11 +428,7 @@ int32 FRuntimeMeshComponentSceneProxy::GetLOD(const FSceneView* View) const
 	const FBoxSphereBounds& ProxyBounds = GetBounds();
 	FCachedSystemScalabilityCVars CachedSystemScalabilityCVars = GetCachedScalabilityCVars();
 
-#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 21
 	float InvScreenSizeScale = (CachedSystemScalabilityCVars.StaticMeshLODDistanceScale != 0.f) ? (1.0f / CachedSystemScalabilityCVars.StaticMeshLODDistanceScale) : 1.0f;
-#else
-	float InvScreenSizeScale = 1.0f;
-#endif
 
 	return ComputeStaticMeshLOD(ProxyBounds.Origin, ProxyBounds.SphereRadius, *View, 0, InvScreenSizeScale);
 }

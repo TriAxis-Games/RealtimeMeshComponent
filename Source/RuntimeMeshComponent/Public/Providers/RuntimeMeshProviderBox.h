@@ -31,12 +31,12 @@ public:
 
 
 protected:
-	void Initialize_Implementation() override;
-	FBoxSphereBounds GetBounds_Implementation() override;
-	bool GetSectionMeshForLOD_Implementation(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData) override;
-	FRuntimeMeshCollisionSettings GetCollisionSettings_Implementation() override;
-	bool HasCollisionMesh_Implementation() override;
-	bool GetCollisionMesh_Implementation(FRuntimeMeshCollisionData& CollisionData) override;
-	bool IsThreadSafe_Implementation() override;
+	void Initialize() override;
+	FBoxSphereBounds GetBounds() override;
+	bool GetSectionMeshForLOD(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData) override;
+	FRuntimeMeshCollisionSettings GetCollisionSettings() override;
+	bool HasCollisionMesh() override;
+	bool GetCollisionMesh(FRuntimeMeshCollisionData& CollisionData) override;
+	bool IsThreadSafe() override;
 
 };

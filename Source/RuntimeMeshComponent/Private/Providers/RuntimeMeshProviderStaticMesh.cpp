@@ -47,13 +47,13 @@ void URuntimeMeshProviderStaticMesh::SetComplexCollisionLOD(int32 InLOD)
 	UpdateCollisionFromStaticMesh();
 }
 
-void URuntimeMeshProviderStaticMesh::Initialize_Implementation()
+void URuntimeMeshProviderStaticMesh::Initialize()
 {
 	UpdateRenderingFromStaticMesh();
 	UpdateCollisionFromStaticMesh();
 }
 
-FBoxSphereBounds URuntimeMeshProviderStaticMesh::GetBounds_Implementation()
+FBoxSphereBounds URuntimeMeshProviderStaticMesh::GetBounds()
 {
 	if (StaticMesh)
 	{
@@ -62,12 +62,12 @@ FBoxSphereBounds URuntimeMeshProviderStaticMesh::GetBounds_Implementation()
 	return FBoxSphereBounds(ForceInit);
 }
 
-bool URuntimeMeshProviderStaticMesh::GetSectionMeshForLOD_Implementation(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData)
+bool URuntimeMeshProviderStaticMesh::GetSectionMeshForLOD(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData)
 { 
 	return URuntimeMeshStaticMeshConverter::CopyStaticMeshSectionToRenderableMeshData(StaticMesh, LODIndex, SectionId, MeshData);
 }
 
-FRuntimeMeshCollisionSettings URuntimeMeshProviderStaticMesh::GetCollisionSettings_Implementation()
+FRuntimeMeshCollisionSettings URuntimeMeshProviderStaticMesh::GetCollisionSettings()
 {
 	FRuntimeMeshCollisionSettings NewSettings;
 	NewSettings.bUseAsyncCooking = true;
@@ -79,12 +79,12 @@ FRuntimeMeshCollisionSettings URuntimeMeshProviderStaticMesh::GetCollisionSettin
 	return NewSettings;
 }
 
-bool URuntimeMeshProviderStaticMesh::HasCollisionMesh_Implementation()
+bool URuntimeMeshProviderStaticMesh::HasCollisionMesh()
 {
 	return ComplexCollisionLOD >= 0;
 }
 
-bool URuntimeMeshProviderStaticMesh::GetCollisionMesh_Implementation(FRuntimeMeshCollisionData& CollisionData)
+bool URuntimeMeshProviderStaticMesh::GetCollisionMesh(FRuntimeMeshCollisionData& CollisionData)
 {
 	bool bResult = URuntimeMeshStaticMeshConverter::CopyStaticMeshLODToCollisionData(StaticMesh, ComplexCollisionLOD, CollisionData);
 

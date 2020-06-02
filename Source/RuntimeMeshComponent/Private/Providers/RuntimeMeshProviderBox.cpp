@@ -33,7 +33,7 @@ void URuntimeMeshProviderBox::SetBoxMaterial(UMaterialInterface* InMaterial)
 
 
 
-void URuntimeMeshProviderBox::Initialize_Implementation()
+void URuntimeMeshProviderBox::Initialize()
 {
 	FRuntimeMeshLODProperties LODProperties;
 	LODProperties.ScreenSize = 0.0f;
@@ -52,12 +52,12 @@ void URuntimeMeshProviderBox::Initialize_Implementation()
 	MarkCollisionDirty();
 }
 
-FBoxSphereBounds URuntimeMeshProviderBox::GetBounds_Implementation()
+FBoxSphereBounds URuntimeMeshProviderBox::GetBounds()
 {
 	return FBoxSphereBounds(FBox(-BoxRadius, BoxRadius));
 }
 
-bool URuntimeMeshProviderBox::GetSectionMeshForLOD_Implementation(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData)
+bool URuntimeMeshProviderBox::GetSectionMeshForLOD(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData)
 {	// We should only ever be queried for section 0 and lod 0
 	check(SectionId == 0 && LODIndex == 0);
 
@@ -151,7 +151,7 @@ bool URuntimeMeshProviderBox::GetSectionMeshForLOD_Implementation(int32 LODIndex
 	return true;
 }
 
-FRuntimeMeshCollisionSettings URuntimeMeshProviderBox::GetCollisionSettings_Implementation()
+FRuntimeMeshCollisionSettings URuntimeMeshProviderBox::GetCollisionSettings()
 {
 	FRuntimeMeshCollisionSettings Settings;
 	Settings.bUseAsyncCooking = true;
@@ -163,12 +163,12 @@ FRuntimeMeshCollisionSettings URuntimeMeshProviderBox::GetCollisionSettings_Impl
 	return Settings;
 }
 
-bool URuntimeMeshProviderBox::HasCollisionMesh_Implementation()
+bool URuntimeMeshProviderBox::HasCollisionMesh()
 {
 	return true;
 }
 
-bool URuntimeMeshProviderBox::GetCollisionMesh_Implementation(FRuntimeMeshCollisionData& CollisionData)
+bool URuntimeMeshProviderBox::GetCollisionMesh(FRuntimeMeshCollisionData& CollisionData)
 {
 	// Add the single collision section
 	CollisionData.CollisionSources.Emplace(0, 5, this, 0, ERuntimeMeshCollisionFaceSourceType::Collision);
@@ -211,7 +211,7 @@ bool URuntimeMeshProviderBox::GetCollisionMesh_Implementation(FRuntimeMeshCollis
 	return true;
 }
 
-bool URuntimeMeshProviderBox::IsThreadSafe_Implementation()
+bool URuntimeMeshProviderBox::IsThreadSafe()
 {
 	return true;
 }

@@ -16,13 +16,13 @@ URuntimeMeshProviderStatic::URuntimeMeshProviderStatic()
 
 void URuntimeMeshProviderStatic::RegisterModifier(URuntimeMeshModifier* Modifier)
 {
-	FScopeLock Lock(&ModifierSyncRoot);
+	FWriteScopeLock Lock(ModifierRWLock);
 	CurrentMeshModifiers.Add(Modifier);
 }
 
 void URuntimeMeshProviderStatic::UnRegisterModifier(URuntimeMeshModifier* Modifier)
 {
-	FScopeLock Lock(&ModifierSyncRoot);
+	FWriteScopeLock Lock(ModifierRWLock);
 	CurrentMeshModifiers.Remove(Modifier);
 }
 
@@ -279,7 +279,7 @@ FRuntimeMeshRenderableMeshData URuntimeMeshProviderStatic::GetSectionRenderDataA
 	return MeshData;
 }
 
-void URuntimeMeshProviderStatic::Initialize_Implementation()
+void URuntimeMeshProviderStatic::Initialize()
 {
 	UE_LOG(RuntimeMeshLog, Verbose, TEXT("StaticProvider(%d): Initialize called"), FPlatformTLS::GetCurrentThreadId());
 
@@ -298,7 +298,7 @@ void URuntimeMeshProviderStatic::Initialize_Implementation()
 	{
 		//TMap<int32, TMap<int32, FSectionDataMapEntry>> SectionDataMapTemp = MoveTemp(SectionDataMap);
 
-		URuntimeMeshProvider::ConfigureLODs_Implementation(LODConfigurations);
+		URuntimeMeshProvider::ConfigureLODs(LODConfigurations);
 
 		// Setup existing sections
 		for (const auto& LOD : SectionDataMap)
@@ -306,7 +306,7 @@ void URuntimeMeshProviderStatic::Initialize_Implementation()
 			for (const auto& Section : LOD.Value)
 			{
 				// Create the section
-				URuntimeMeshProvider::CreateSection_Implementation(LOD.Key, Section.Key, Section.Value.Get<0>());
+				URuntimeMeshProvider::CreateSection(LOD.Key, Section.Key, Section.Value.Get<0>());
 				if (Section.Value.Get<1>().HasValidMeshData())
 				{
 					URuntimeMeshProvider::MarkSectionDirty(LOD.Key, Section.Key);
@@ -320,14 +320,14 @@ void URuntimeMeshProviderStatic::Initialize_Implementation()
 	else
 	{
 		// Default LOD 0
-		URuntimeMeshProvider::ConfigureLODs(
+		ConfigureLODs(
 			{
 				FRuntimeMeshLODProperties(),
 			});
 	}
 }
 
-bool URuntimeMeshProviderStatic::GetSectionMeshForLOD_Implementation(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData)
+bool URuntimeMeshProviderStatic::GetSectionMeshForLOD(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData)
 {
 	FScopeLock Lock(&MeshSyncRoot);
 	TMap<int32, FSectionDataMapEntry>* LODSections = SectionDataMap.Find(LODIndex);
@@ -343,13 +343,13 @@ bool URuntimeMeshProviderStatic::GetSectionMeshForLOD_Implementation(int32 LODIn
 	return false;
 }
 
-FRuntimeMeshCollisionSettings URuntimeMeshProviderStatic::GetCollisionSettings_Implementation()
+FRuntimeMeshCollisionSettings URuntimeMeshProviderStatic::GetCollisionSettings()
 {
 	FScopeLock Lock(&CollisionSyncRoot);
 	return CollisionSettings;
 }
 
-bool URuntimeMeshProviderStatic::HasCollisionMesh_Implementation()
+bool URuntimeMeshProviderStatic::HasCollisionMesh()
 {
 	int32 LODForMeshCollisionTemp = INDEX_NONE;
 	TSet<int32> SectionsForMeshCollisionTemp;
@@ -386,7 +386,7 @@ bool URuntimeMeshProviderStatic::HasCollisionMesh_Implementation()
 	return false;
 }
 
-bool URuntimeMeshProviderStatic::GetCollisionMesh_Implementation(FRuntimeMeshCollisionData& CollisionData)
+bool URuntimeMeshProviderStatic::GetCollisionMesh(FRuntimeMeshCollisionData& CollisionData)
 {
 	int32 LODForMeshCollisionTemp = INDEX_NONE;
 	TSet<int32> SectionsForMeshCollisionTemp;
@@ -464,7 +464,7 @@ bool URuntimeMeshProviderStatic::GetCollisionMesh_Implementation(FRuntimeMeshCol
 
 
 
-void URuntimeMeshProviderStatic::ConfigureLODs_Implementation(const TArray<FRuntimeMeshLODProperties>& LODSettings)
+void URuntimeMeshProviderStatic::ConfigureLODs(const TArray<FRuntimeMeshLODProperties>& LODSettings)
 {
 	check(LODSettings.Num() > 0 && LODSettings.Num() <= RUNTIMEMESH_MAXLODS);
 
@@ -479,10 +479,10 @@ void URuntimeMeshProviderStatic::ConfigureLODs_Implementation(const TArray<FRunt
 		LODForMeshCollision = FMath::Min(LODSettings.Num(), LODForMeshCollision);
 	}
 
-	Super::ConfigureLODs_Implementation(LODSettings);
+	Super::ConfigureLODs(LODSettings);
 }
 
-void URuntimeMeshProviderStatic::SetLODScreenSize_Implementation(int32 LODIndex, float ScreenSize)
+void URuntimeMeshProviderStatic::SetLODScreenSize(int32 LODIndex, float ScreenSize)
 {
 	check(LODConfigurations.IsValidIndex(LODIndex));
 
@@ -491,19 +491,19 @@ void URuntimeMeshProviderStatic::SetLODScreenSize_Implementation(int32 LODIndex,
 		LODConfigurations[LODIndex].ScreenSize = ScreenSize;
 	}
 
-	Super::SetLODScreenSize_Implementation(LODIndex, ScreenSize);
+	Super::SetLODScreenSize(LODIndex, ScreenSize);
 }
 
-void URuntimeMeshProviderStatic::CreateSection_Implementation(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties)
+void URuntimeMeshProviderStatic::CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties)
 {
 	{
 		FScopeLock Lock(&MeshSyncRoot);
 		SectionDataMap.FindOrAdd(LODIndex).FindOrAdd(SectionId) = MakeTuple(SectionProperties, FRuntimeMeshRenderableMeshData(), FBoxSphereBounds(FVector::ZeroVector, FVector::ZeroVector, 0));
 	}
-	URuntimeMeshProvider::CreateSection_Implementation(LODIndex, SectionId, SectionProperties);
+	URuntimeMeshProvider::CreateSection(LODIndex, SectionId, SectionProperties);
 }
 
-void URuntimeMeshProviderStatic::SetSectionVisibility_Implementation(int32 LODIndex, int32 SectionId, bool bIsVisible)
+void URuntimeMeshProviderStatic::SetSectionVisibility(int32 LODIndex, int32 SectionId, bool bIsVisible)
 {
 	{
 		FScopeLock Lock(&MeshSyncRoot);
@@ -517,10 +517,10 @@ void URuntimeMeshProviderStatic::SetSectionVisibility_Implementation(int32 LODIn
 			}
 		}
 	}
-	URuntimeMeshProvider::SetSectionVisibility_Implementation(LODIndex, SectionId, bIsVisible);
+	URuntimeMeshProvider::SetSectionVisibility(LODIndex, SectionId, bIsVisible);
 }
 
-void URuntimeMeshProviderStatic::SetSectionCastsShadow_Implementation(int32 LODIndex, int32 SectionId, bool bCastsShadow)
+void URuntimeMeshProviderStatic::SetSectionCastsShadow(int32 LODIndex, int32 SectionId, bool bCastsShadow)
 {
 	{
 		FScopeLock Lock(&MeshSyncRoot);
@@ -534,10 +534,10 @@ void URuntimeMeshProviderStatic::SetSectionCastsShadow_Implementation(int32 LODI
 			}
 		}
 	}
-	URuntimeMeshProvider::SetSectionCastsShadow_Implementation(LODIndex, SectionId, bCastsShadow);
+	URuntimeMeshProvider::SetSectionCastsShadow(LODIndex, SectionId, bCastsShadow);
 }
 
-void URuntimeMeshProviderStatic::ClearSection_Implementation(int32 LODIndex, int32 SectionId)
+void URuntimeMeshProviderStatic::ClearSection(int32 LODIndex, int32 SectionId)
 {
 	{
 		FScopeLock Lock(&MeshSyncRoot);
@@ -552,10 +552,10 @@ void URuntimeMeshProviderStatic::ClearSection_Implementation(int32 LODIndex, int
 			}
 		}
 	}
-	URuntimeMeshProvider::ClearSection_Implementation(LODIndex, SectionId);
+	URuntimeMeshProvider::ClearSection(LODIndex, SectionId);
 }
 
-void URuntimeMeshProviderStatic::RemoveSection_Implementation(int32 LODIndex, int32 SectionId)
+void URuntimeMeshProviderStatic::RemoveSection(int32 LODIndex, int32 SectionId)
 {
 	{
 		FScopeLock Lock(&MeshSyncRoot);
@@ -573,7 +573,7 @@ void URuntimeMeshProviderStatic::RemoveSection_Implementation(int32 LODIndex, in
 			}
 		}
 	}
-	URuntimeMeshProvider::RemoveSection_Implementation(LODIndex, SectionId);
+	URuntimeMeshProvider::RemoveSection(LODIndex, SectionId);
 }
 
 
@@ -686,18 +686,18 @@ void URuntimeMeshProviderStatic::UpdateSectionInternal(int32 LODIndex, int32 Sec
 	// This is just to alert the user of invalid mesh data
 	SectionData.HasValidMeshData(true);
 
-	TArray<URuntimeMeshModifier*> TempModifiers;
+
 	{
-		FScopeLock Lock(&ModifierSyncRoot);
-		TempModifiers = CurrentMeshModifiers;
+		FReadScopeLock Lock(ModifierRWLock);
+
+		for (URuntimeMeshModifier* Modifier : CurrentMeshModifiers)
+		{
+			check(Modifier->IsValidLowLevel());
+
+			Modifier->ApplyToMesh(SectionData);
+		}
 	}
 
-	for (URuntimeMeshModifier* Modifier : TempModifiers)
-	{
-		check(Modifier->IsValidLowLevel());
-
-		Modifier->ApplyToMesh(SectionData);
-	}
 
 
 	{
@@ -720,7 +720,7 @@ void URuntimeMeshProviderStatic::UpdateSectionInternal(int32 LODIndex, int32 Sec
 void URuntimeMeshProviderStatic::BeginDestroy()
 {
 	{
-		FScopeLock Lock(&ModifierSyncRoot);
+		FWriteScopeLock Lock(ModifierRWLock);
 		CurrentMeshModifiers.Empty();
 	}
 	Super::BeginDestroy();
