@@ -21,6 +21,9 @@ void URuntimeMeshModifierNormals::CalculateNormalsTangents(FRuntimeMeshRenderabl
 	int32 NumIndices = MeshData.Triangles.Num();
 	int32 NumUVs = MeshData.TexCoords.Num();
 
+	// Resize the tangents array to fit the new normals/tangents
+	MeshData.Tangents.SetNum(NumVertices, true);
+
 	// Calculate the duplicate vertices map if we're wanting smooth normals.  Don't find duplicates if we don't want smooth normals
 	// that will cause it to only smooth across faces sharing a common vertex, not across faces with vertices of common position
 	const TMultiMap<uint32, uint32> DuplicateVertexMap = bInComputeSmoothNormals ? FindDuplicateVerticesMap(MeshData.Positions, NumVertices) : TMultiMap<uint32, uint32>();

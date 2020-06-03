@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "RuntimeMeshSectionProxy.h"
+#include "RuntimeMesh.h"
 
 class UBodySetup;
 class URuntimeMeshComponent;
