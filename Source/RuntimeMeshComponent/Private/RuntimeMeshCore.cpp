@@ -214,6 +214,7 @@ FRuntimeMeshRenderableCollisionData::FRuntimeMeshRenderableCollisionData(const F
 
 	// Copy Triangles
 	int32 NumTriangles = InRenderable.Triangles.NumTriangles();
+	Triangles.SetNum( NumTriangles );
 	for (int32 Index = 0; Index < NumTriangles; Index++)
 	{
 		Triangles.SetTriangleIndices(Index,
