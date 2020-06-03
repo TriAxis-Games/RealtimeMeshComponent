@@ -15,7 +15,7 @@
 #include "RuntimeMeshQuickHull.h"
 
 /** Util that returns 1 if on positive side of plane, -1 if negative, or 0 if split by plane */
-int32 BoxPlaneCompare(FBox InBox, const FPlane& InPlane)
+int32 RMCBoxPlaneCompare(FBox InBox, const FPlane& InPlane)
 {
 	FVector BoxCenter, BoxExtents;
 	InBox.GetCenterAndExtents(BoxCenter, BoxExtents);
@@ -243,28 +243,6 @@ bool TriangulatePoly(FRuntimeMeshRenderableMeshData& MeshData, int32 VertBase, c
 	return true;
 }
 
-/** Util to slice a convex hull with a plane */
-void SliceConvexElem(const FKConvexElem& InConvex, const FPlane& SlicePlane, TArray<FVector>& OutConvexVerts)
-{
-	// Get set of planes that make up hull
-	TArray<FPlane> ConvexPlanes;
-	InConvex.GetPlanes(ConvexPlanes);
-
-	if (ConvexPlanes.Num() >= 4)
-	{
-		// Add on the slicing plane (need to flip as it culls geom in the opposite sense to our geom culling code)
-		ConvexPlanes.Add(SlicePlane.Flip());
-
-		// Create output convex based on new set of planes
-		FKConvexElem SlicedElem;
-		bool bSuccess = SlicedElem.HullFromPlanes(ConvexPlanes, InConvex.VertexData);
-		if (bSuccess)
-		{
-			OutConvexVerts = SlicedElem.VertexData;
-		}
-	}
-}
-
 void SliceConvexShape(const FRuntimeMeshCollisionConvexMesh& InConvex, const FPlane& SlicePlane, FRuntimeMeshCollisionConvexMesh& OutConvex, FRuntimeMeshCollisionConvexMesh& OutOtherConvex)
 {
 	OutConvex.VertexBuffer.Empty();
@@ -468,7 +446,7 @@ void URuntimeMeshSlicer::SliceRuntimeMesh(URuntimeMeshComponent* InRuntimeMesh, 
 
 
 	TArray<FUtilEdge3D> ClipEdges;
-
+	//Per-section slicing of the rendereable mesh data
 	for (int32 SectionId : SectionIds)
 	{
 		// Check we have valid mesh data, or just skip this section
@@ -479,14 +457,14 @@ void URuntimeMeshSlicer::SliceRuntimeMesh(URuntimeMeshComponent* InRuntimeMesh, 
 
 		FBoxSphereBounds Bounds = SourceProvider->GetSectionBounds(LODIndex, SectionId);
 
-		int32 BoxCompare = BoxPlaneCompare(Bounds.GetBox(), SlicePlane);
+		int32 BoxCompare = RMCBoxPlaneCompare(Bounds.GetBox(), SlicePlane);
 
-		// Box not affected, leave alone
+		// Box not affected, leave alone (Everything is on the wanted side of the plane, do nothing)
 		if (BoxCompare == 1)
 		{
 			continue;
 		}
-		// Box clipped, move section to other component
+		// Box clipped, move section to other component (Everything is on the other side of the plane, the one we don't want to keep in the main mesh)
 		else if (BoxCompare == -1)
 		{
 			bSlicedAny = true;
@@ -508,7 +486,7 @@ void URuntimeMeshSlicer::SliceRuntimeMesh(URuntimeMeshComponent* InRuntimeMesh, 
 				SourceProvider->ClearSection(LODIndex, SectionId);
 			}
 		}
-		// Box split, slice mesh
+		// Box split, slice mesh (There are things on either side of the plane, according to the bounds)
 		else
 		{
 			bSlicedAny = true;
@@ -572,7 +550,7 @@ void URuntimeMeshSlicer::SliceRuntimeMesh(URuntimeMeshComponent* InRuntimeMesh, 
 				int32* SlicedV[3]; // Pointers to vert indices in new v buffer
 				int32* SlicedOtherV[3]; // Pointers to vert indices in new 'other half' v buffer
 
-										// For each vertex..
+										// For each vertex...
 				for (int32 i = 0; i < 3; i++)
 				{
 					// Get triangle vert index
