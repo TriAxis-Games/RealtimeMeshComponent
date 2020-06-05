@@ -4,14 +4,20 @@
 
 #include "Engine/Engine.h"
 #include "RuntimeMeshCore.h"
+#include "Containers/ResourceArray.h"
+
+class FRuntimeMeshBufferUpdateData;
+
+
 
 
 /** Single vertex buffer to hold one vertex stream within a section */
 class FRuntimeMeshVertexBuffer : public FVertexBuffer
 {
 protected:
-	/** The buffer configuration to use */
-	const EBufferUsageFlags UsageFlags;
+
+	/** Should this buffer by flagged as dynamic */
+	const bool bIsDynamicBuffer;
 
 	/** Size of a single vertex */
 	int32 VertexSize;
@@ -24,47 +30,99 @@ protected:
 
 public:
 
-	FRuntimeMeshVertexBuffer(ERuntimeMeshUpdateFrequency InUpdateFrequency);
+	FRuntimeMeshVertexBuffer(bool bInIsDynamicBuffer, int32 DefaultVertexSize);
 
 	~FRuntimeMeshVertexBuffer() {}
 
 	virtual void InitRHI() override;
+	void ReleaseRHI() override;
 
 	/** Gets the size of the vertex */
-	int32 Stride() const { return VertexSize; }
+	FORCEINLINE int32 Stride() const { return VertexSize; }
 
 	/** Get the size of the vertex buffer */
-	int32 Num() const { return NumVertices; }
+	FORCEINLINE int32 Num() const { return NumVertices; }
 
 	/** Gets the full allocated size of the buffer (Equal to VertexSize * NumVertices) */
-	int32 GetBufferSize() const { return NumVertices * VertexSize; }
+	FORCEINLINE int32 GetBufferSize() const { return NumVertices * VertexSize; }
+
+	/** Gets the size of a single piece of data within an element */
+	virtual int32 GetElementDatumSize() const = 0;
+
+	/** Gets the format of the element, needed for creation of SRV's */
+	virtual EPixelFormat GetElementFormat() const = 0;
 
 	/** Binds the vertex buffer to the factory data type */
 	virtual void Bind(FLocalVertexFactory::FDataType& DataType) = 0;
 
 
-protected:
-	void SetData(int32 NewStride, int32 NewVertexCount, const uint8* InData);
 
-	virtual void CreateSRV() = 0;
+
+public:
+
+	template<bool bIsInRenderThread>
+	static FVertexBufferRHIRef CreateRHIBuffer(FRHIResourceCreateInfo& CreateInfo, uint32 SizeInBytes, bool bDynamicBuffer)
+	{
+		const int32 Flags = (bDynamicBuffer ? BUF_Dynamic : BUF_Static) | BUF_ShaderResource;
+		if (SizeInBytes > 0)
+		{
+			if (bIsInRenderThread)
+			{
+				return RHICreateVertexBuffer(SizeInBytes, Flags, CreateInfo);
+			}
+			else
+			{
+				return RHIAsyncCreateVertexBuffer(SizeInBytes, Flags, CreateInfo);
+			}
+		}
+		return nullptr;
+
+	}
+
+	template<bool bIsInRenderThread>
+	static FVertexBufferRHIRef CreateRHIBuffer(FRuntimeMeshBufferUpdateData& InStream, bool bDynamicBuffer)
+	{
+		const uint32 SizeInBytes = InStream.GetResourceDataSize();
+
+		FRHIResourceCreateInfo CreateInfo(&InStream);
+
+		return CreateRHIBuffer<bIsInRenderThread>(CreateInfo, SizeInBytes, bDynamicBuffer);
+	}
+
+
+	template <uint32 MaxNumUpdates>
+	void InitRHIFromExisting(FRHIVertexBuffer* IntermediateBuffer, TRHIResourceUpdateBatcher<MaxNumUpdates>& Batcher)
+	{
+		check(VertexBufferRHI && IntermediateBuffer);
+
+		Batcher.QueueUpdateRequest(VertexBufferRHI, IntermediateBuffer);
+
+		if (ShaderResourceView)
+		{
+			Batcher.QueueUpdateRequest(ShaderResourceView, VertexBufferRHI, GetElementDatumSize(), GetElementFormat());
+		}
+	}
+
+
+
+	//void SetData(int32 NewStride, int32 NewVertexCount, const uint8* InData);
+
 };
 
 
 class FRuntimeMeshPositionVertexBuffer : public FRuntimeMeshVertexBuffer
 {
 public:
-	FRuntimeMeshPositionVertexBuffer(ERuntimeMeshUpdateFrequency InUpdateFrequency)
-		: FRuntimeMeshVertexBuffer(InUpdateFrequency)
+	FRuntimeMeshPositionVertexBuffer(bool bInIsDynamicBuffer)
+		: FRuntimeMeshVertexBuffer(bInIsDynamicBuffer, sizeof(FVector))
 	{
 
 	}
 
 	virtual FString GetFriendlyName() const override { return TEXT("FRuntimeMeshPositionVertexBuffer"); }
 
-	void SetData(int32 NewVertexCount, const uint8* InData)
-	{
-		FRuntimeMeshVertexBuffer::SetData(sizeof(FVector), NewVertexCount, InData);
-	}
+	virtual int32 GetElementDatumSize() const override { return 4; }
+	virtual EPixelFormat GetElementFormat() const override { return PF_R32_FLOAT; }
 
 	virtual void Bind(FLocalVertexFactory::FDataType& DataType) override 
 	{
@@ -72,11 +130,25 @@ public:
 		DataType.PositionComponentSRV = ShaderResourceView;
 	}
 
-protected:
-	virtual void CreateSRV() override 
+	template <uint32 MaxNumUpdates>
+	void InitRHIFromExisting(FRHIVertexBuffer* IntermediateBuffer, int32 NumElements, TRHIResourceUpdateBatcher<MaxNumUpdates>& Batcher)
 	{
-		ShaderResourceView = RHICreateShaderResourceView(VertexBufferRHI, 4, PF_R32_FLOAT);
+		if (VertexBufferRHI && IntermediateBuffer)
+		{
+			VertexSize = sizeof(FVector);
+			NumVertices = NumElements;
+
+			FRuntimeMeshVertexBuffer::InitRHIFromExisting<MaxNumUpdates>(IntermediateBuffer, Batcher);
+		}
 	}
+
+
+
+
+// 	void SetData(int32 NewVertexCount, const uint8* InData)
+// 	{
+// 		FRuntimeMeshVertexBuffer::SetData(sizeof(FVector), NewVertexCount, InData);
+// 	}
 };
 
 class FRuntimeMeshTangentsVertexBuffer : public FRuntimeMeshVertexBuffer
@@ -92,8 +164,8 @@ private:
 	bool bUseHighPrecision;
 
 public:
-	FRuntimeMeshTangentsVertexBuffer(ERuntimeMeshUpdateFrequency InUpdateFrequency)
-		: FRuntimeMeshVertexBuffer(InUpdateFrequency)
+	FRuntimeMeshTangentsVertexBuffer(bool bInIsDynamicBuffer)
+		: FRuntimeMeshVertexBuffer(bInIsDynamicBuffer, CalculateStride(false))
 		, bUseHighPrecision(false)
 	{
 
@@ -101,11 +173,8 @@ public:
 
 	virtual FString GetFriendlyName() const override { return TEXT("FRuntimeMeshTangentsVertexBuffer"); }
 
-	void SetData(bool bInUseHighPrecision, int32 NewVertexCount, const uint8* InData)
-	{
-		bUseHighPrecision = bInUseHighPrecision;
-		FRuntimeMeshVertexBuffer::SetData(CalculateStride(bInUseHighPrecision), NewVertexCount, InData);
-	}
+	virtual int32 GetElementDatumSize() const override { return bUseHighPrecision? sizeof(FPackedRGBA16N) : sizeof(FPackedNormal); }
+	virtual EPixelFormat GetElementFormat() const override { return bUseHighPrecision ? PF_R16G16B16A16_SNORM : PF_R8G8B8A8_SNORM; }
 
 	virtual void Bind(FLocalVertexFactory::FDataType& DataType) override
 	{
@@ -129,16 +198,32 @@ public:
 			TangentZOffset = sizeof(FPackedNormal);
 		}
 
- 		DataType.TangentBasisComponents[0] = FVertexStreamComponent(this, TangentXOffset, TangentSizeInBytes, TangentElementType, EVertexStreamUsage::ManualFetch);
- 		DataType.TangentBasisComponents[1] = FVertexStreamComponent(this, TangentZOffset, TangentSizeInBytes, TangentElementType, EVertexStreamUsage::ManualFetch);
+		DataType.TangentBasisComponents[0] = FVertexStreamComponent(this, TangentXOffset, TangentSizeInBytes, TangentElementType, EVertexStreamUsage::ManualFetch);
+		DataType.TangentBasisComponents[1] = FVertexStreamComponent(this, TangentZOffset, TangentSizeInBytes, TangentElementType, EVertexStreamUsage::ManualFetch);
 		DataType.TangentsSRV = ShaderResourceView;
 	}
 
-protected:
-	virtual void CreateSRV() override
+	template <uint32 MaxNumUpdates>
+	void InitRHIFromExisting(FRHIVertexBuffer* IntermediateBuffer, int32 NumElements, bool bShouldUseHighPrecision, TRHIResourceUpdateBatcher<MaxNumUpdates>& Batcher)
 	{
-		ShaderResourceView = RHICreateShaderResourceView(VertexBufferRHI, bUseHighPrecision ? 8 : 4, bUseHighPrecision ? PF_R16G16B16A16_SNORM : PF_R8G8B8A8_SNORM);
+		if (VertexBufferRHI && IntermediateBuffer)
+		{
+			bUseHighPrecision = bShouldUseHighPrecision;
+			VertexSize = CalculateStride(bShouldUseHighPrecision);
+			NumVertices = NumElements;
+
+			FRuntimeMeshVertexBuffer::InitRHIFromExisting<MaxNumUpdates>(IntermediateBuffer, Batcher);
+		}
 	}
+
+
+
+
+// 	void SetData(bool bInUseHighPrecision, int32 NewVertexCount, const uint8* InData)
+// 	{
+// 		bUseHighPrecision = bInUseHighPrecision;
+// 		FRuntimeMeshVertexBuffer::SetData(CalculateStride(bInUseHighPrecision), NewVertexCount, InData);
+// 	}
 };
 
 class FRuntimeMeshTexCoordsVertexBuffer : public FRuntimeMeshVertexBuffer
@@ -156,22 +241,18 @@ private:
 	int32 NumUVs;
 
 public:
-	FRuntimeMeshTexCoordsVertexBuffer(ERuntimeMeshUpdateFrequency InUpdateFrequency)
-		: FRuntimeMeshVertexBuffer(InUpdateFrequency)
+	FRuntimeMeshTexCoordsVertexBuffer(bool bInIsDynamicBuffer)
+		: FRuntimeMeshVertexBuffer(bInIsDynamicBuffer, CalculateStride(false, 1))
 		, bUseHighPrecision(false)
-		, NumUVs(0)
+		, NumUVs(1)
 	{
 
 	}
 
 	virtual FString GetFriendlyName() const override { return TEXT("FRuntimeMeshUVsVertexBuffer"); }
 
-	void SetData(bool bInUseHighPrecision, int32 InNumUVs, int32 NewVertexCount, const uint8* InData)
-	{
-		bUseHighPrecision = bInUseHighPrecision;
-		NumUVs = InNumUVs;
-		FRuntimeMeshVertexBuffer::SetData(CalculateStride(bInUseHighPrecision, InNumUVs), NewVertexCount, InData);
-	}
+	virtual int32 GetElementDatumSize() const override { return bUseHighPrecision ? sizeof(FVector2D) : sizeof(FVector2DHalf); }
+	virtual EPixelFormat GetElementFormat() const override { return bUseHighPrecision ? PF_G32R32F : PF_G16R16F; }
 
 	virtual void Bind(FLocalVertexFactory::FDataType& DataType) override
 	{ 
@@ -212,28 +293,41 @@ public:
 		DataType.TextureCoordinatesSRV = ShaderResourceView;
 	}
 
-protected:
-	virtual void CreateSRV() override
+	template <uint32 MaxNumUpdates>
+	void InitRHIFromExisting(FRHIVertexBuffer* IntermediateBuffer, int32 NumElements, bool bShouldUseHighPrecision, int32 NumChannels, TRHIResourceUpdateBatcher<MaxNumUpdates>& Batcher)
 	{
-		ShaderResourceView = RHICreateShaderResourceView(VertexBufferRHI, bUseHighPrecision ? 8 : 4, bUseHighPrecision ? PF_G32R32F : PF_G16R16F);
+		if (VertexBufferRHI && IntermediateBuffer)
+		{
+			bUseHighPrecision = bShouldUseHighPrecision;
+			NumUVs = NumChannels;
+			VertexSize = CalculateStride(bShouldUseHighPrecision, NumChannels);
+			NumVertices = NumElements;
+
+			FRuntimeMeshVertexBuffer::InitRHIFromExisting<MaxNumUpdates>(IntermediateBuffer, Batcher);
+		}
 	}
+
+// 	void SetData(bool bInUseHighPrecision, int32 InNumUVs, int32 NewVertexCount, const uint8* InData)
+// 	{
+// 		bUseHighPrecision = bInUseHighPrecision;
+// 		NumUVs = InNumUVs;
+// 		FRuntimeMeshVertexBuffer::SetData(CalculateStride(bInUseHighPrecision, InNumUVs), NewVertexCount, InData);
+// 	}
 };
 
 class FRuntimeMeshColorVertexBuffer : public FRuntimeMeshVertexBuffer
 {
 public:
-	FRuntimeMeshColorVertexBuffer(ERuntimeMeshUpdateFrequency InUpdateFrequency)
-		: FRuntimeMeshVertexBuffer(InUpdateFrequency)
+	FRuntimeMeshColorVertexBuffer(bool bInIsDynamicBuffer)
+		: FRuntimeMeshVertexBuffer(bInIsDynamicBuffer, sizeof(FColor))
 	{
 
 	}
 
 	virtual FString GetFriendlyName() const override { return TEXT("FRuntimeMeshColorVertexBuffer"); }
 
-	void SetData(int32 NewVertexCount, const uint8* InData)
-	{
-		FRuntimeMeshVertexBuffer::SetData(sizeof(FColor), NewVertexCount, InData);
-	}
+	virtual int32 GetElementDatumSize() const override { return sizeof(FColor); }
+	virtual EPixelFormat GetElementFormat() const override { return PF_R8G8B8A8; }
 
 	virtual void Bind(FLocalVertexFactory::FDataType& DataType) override
 	{
@@ -241,11 +335,22 @@ public:
 		DataType.ColorComponentsSRV = ShaderResourceView;
 	}
 
-protected:
-	virtual void CreateSRV() override
+	template <uint32 MaxNumUpdates>
+	void InitRHIFromExisting(FRHIVertexBuffer* IntermediateBuffer, int32 NumElements, TRHIResourceUpdateBatcher<MaxNumUpdates>& Batcher)
 	{
-		ShaderResourceView = RHICreateShaderResourceView(VertexBufferRHI, 4, PF_R8G8B8A8);
+		if (VertexBufferRHI && IntermediateBuffer)
+		{
+			VertexSize = sizeof(FColor);
+			NumVertices = NumElements;
+
+			FRuntimeMeshVertexBuffer::InitRHIFromExisting<MaxNumUpdates>(IntermediateBuffer, Batcher);
+		}
 	}
+
+// 	void SetData(int32 NewVertexCount, const uint8* InData)
+// 	{
+// 		FRuntimeMeshVertexBuffer::SetData(sizeof(FColor), NewVertexCount, InData);
+// 	}
 };
 
 
@@ -260,9 +365,9 @@ class FRuntimeMeshIndexBuffer : public FIndexBuffer
 		return bShouldUseHighPrecision ? sizeof(int32) : sizeof(uint16);
 	}
 
-private:	
-	/* The buffer configuration to use */
-	EBufferUsageFlags UsageFlags;
+private:
+	/** Should this buffer by flagged as dynamic */
+	bool bIsDynamicBuffer;
 
 	/* The size of a single index*/
 	int32 IndexSize;
@@ -272,7 +377,7 @@ private:
 
 public:
 
-	FRuntimeMeshIndexBuffer(ERuntimeMeshUpdateFrequency InUpdateFrequency);
+	FRuntimeMeshIndexBuffer(bool bInIsDynamicBuffer);
 
 	virtual FString GetFriendlyName() const override { return TEXT("FRuntimeMeshIndexBuffer"); }
 
@@ -285,7 +390,52 @@ public:
 	int32 GetBufferSize() const { return NumIndices * IndexSize; }
 	
 	/* Set the data for the index buffer */
-	void SetData(bool bInUse32BitIndices, int32 NewIndexCount, const uint8* InData);
+	//void SetData(bool bInUse32BitIndices, int32 NewIndexCount, const uint8* InData);
+
+
+
+	template<bool bIsInRenderThread>
+	static FIndexBufferRHIRef CreateRHIBuffer(FRHIResourceCreateInfo& CreateInfo, uint32 IndexSize, uint32 SizeInBytes, bool bDynamicBuffer)
+	{
+		const int32 Flags = (bDynamicBuffer ? BUF_Dynamic : BUF_Static) | BUF_ShaderResource;
+		if (SizeInBytes > 0)
+		{
+			if (bIsInRenderThread)
+			{
+				return RHICreateIndexBuffer(IndexSize, SizeInBytes, Flags, CreateInfo);
+			}
+			else
+			{
+				return RHIAsyncCreateIndexBuffer(IndexSize, SizeInBytes, Flags, CreateInfo);
+			}
+		}
+		return nullptr;
+
+	}
+
+	template<bool bIsInRenderThread>
+	static FIndexBufferRHIRef CreateRHIBuffer(FRuntimeMeshBufferUpdateData& InStream, bool bDynamicBuffer)
+	{
+		const uint32 SizeInBytes = InStream.GetResourceDataSize();
+
+		FRHIResourceCreateInfo CreateInfo(&InStream);
+
+		return CreateRHIBuffer<bIsInRenderThread>(CreateInfo, InStream.GetStride(), SizeInBytes, bDynamicBuffer);
+	}
+
+
+	template <uint32 MaxNumUpdates>
+	void InitRHIFromExisting(FRHIIndexBuffer* IntermediateBuffer, int32 NumElements, bool bShouldUseHighPrecision, TRHIResourceUpdateBatcher<MaxNumUpdates>& Batcher)
+	{
+		if (IndexBufferRHI && IntermediateBuffer)
+		{
+			IndexSize = CalculateStride(bShouldUseHighPrecision);
+			NumIndices = NumElements;
+
+			Batcher.QueueUpdateRequest(IndexBufferRHI, IntermediateBuffer);
+		}
+	}
+
 };
 
 /** Vertex Factory */
@@ -329,4 +479,158 @@ struct FRuntimeMeshRenderThreadDeleter
 			);
 		}
 	}
+};
+
+
+
+
+class FRuntimeMeshBufferUpdateData : public FResourceArrayInterface
+{
+	int32 ElementStride;
+	int32 NumElements;
+	TArray<uint8> Data;
+
+public:
+
+
+	FRuntimeMeshBufferUpdateData(FRuntimeMeshVertexPositionStream&& InPositions)
+		: ElementStride(InPositions.GetStride())
+		, NumElements(InPositions.Num())
+		, Data(MoveTemp(InPositions).TakeData())
+	{
+
+	}
+
+	FRuntimeMeshBufferUpdateData(FRuntimeMeshVertexTangentStream&& InTangents)
+		: ElementStride(InTangents.GetStride())
+		, NumElements(InTangents.Num())
+		, Data(MoveTemp(InTangents).TakeData())
+	{
+
+	}
+
+	FRuntimeMeshBufferUpdateData(FRuntimeMeshVertexTexCoordStream&& InTexCoords)
+		: ElementStride(InTexCoords.GetStride())
+		, NumElements(InTexCoords.Num())
+		, Data(MoveTemp(InTexCoords).TakeData())
+	{
+
+	}
+
+	FRuntimeMeshBufferUpdateData(FRuntimeMeshVertexColorStream&& InColors)
+		: ElementStride(InColors.GetStride())
+		, NumElements(InColors.Num())
+		, Data(MoveTemp(InColors).TakeData())
+	{
+
+	}
+
+	FRuntimeMeshBufferUpdateData(FRuntimeMeshTriangleStream&& InTriangles)
+		: ElementStride(InTriangles.GetStride())
+		, NumElements(InTriangles.Num())
+		, Data(MoveTemp(InTriangles).TakeData())
+	{
+
+	}
+
+
+	int32 GetStride() const { return ElementStride; }
+	int32 GetNumElements() const { return NumElements; }
+
+	const void* GetResourceData() const override
+	{
+		return reinterpret_cast<const void*>(Data.GetData());
+	}
+	uint32 GetResourceDataSize() const override
+	{
+		return Data.Num();
+	}
+	void Discard() override
+	{
+		Data.Empty();
+	}
+	bool IsStatic() const override
+	{
+		return false;
+	}
+	bool GetAllowCPUAccess() const override
+	{
+		return true;
+	}
+	void SetAllowCPUAccess(bool bInNeedsCPUAccess) override
+	{
+	}
+
+};
+
+class FRuntimeMeshSectionUpdateData
+{
+public:
+
+	FRuntimeMeshBufferUpdateData Positions;
+	FRuntimeMeshBufferUpdateData Tangents;
+	FRuntimeMeshBufferUpdateData TexCoords;
+	FRuntimeMeshBufferUpdateData Colors;
+
+	FRuntimeMeshBufferUpdateData Triangles;
+	FRuntimeMeshBufferUpdateData AdjacencyTriangles;
+
+
+
+
+	FVertexBufferRHIRef PositionsBuffer;
+	FVertexBufferRHIRef TangentsBuffer;
+	FVertexBufferRHIRef TexCoordsBuffer;
+	FVertexBufferRHIRef ColorsBuffer;
+
+	FIndexBufferRHIRef TrianglesBuffer;
+	FIndexBufferRHIRef AdjacencyTrianglesBuffer;
+
+
+	const bool bHighPrecisionTangents : 1;
+	const bool bHighPrecisionTexCoords : 1;
+	const uint8 NumTexCoordChannels;
+	const bool b32BitTriangles;
+	const bool b32BitAdjacencyTriangles;
+
+
+	bool bBuffersCreated;
+
+
+	FRuntimeMeshSectionUpdateData(FRuntimeMeshRenderableMeshData&& InMesh)
+		: Positions(MoveTemp(InMesh.Positions))
+		, Tangents(MoveTemp(InMesh.Tangents))
+		, TexCoords(MoveTemp(InMesh.TexCoords))
+		, Colors(MoveTemp(InMesh.Colors))
+		, Triangles(MoveTemp(InMesh.Triangles))
+		, AdjacencyTriangles(MoveTemp(InMesh.AdjacencyTriangles))
+		, bHighPrecisionTangents(InMesh.Tangents.IsHighPrecision())
+		, bHighPrecisionTexCoords(InMesh.TexCoords.IsHighPrecision())
+		, NumTexCoordChannels(InMesh.TexCoords.NumChannels())
+		, b32BitTriangles(InMesh.Triangles.IsHighPrecision())
+		, b32BitAdjacencyTriangles(InMesh.AdjacencyTriangles.IsHighPrecision())
+		, bBuffersCreated(false)
+	{
+
+	}
+
+	template<bool bIsInRenderThread>
+	void CreateRHIBuffers(bool bShouldUseDynamicBuffers)
+	{
+		if (!bBuffersCreated)
+		{
+			UE_LOG(RuntimeMeshLog, Verbose, TEXT("RM(%d): Creating GPU buffers for section."), FPlatformTLS::GetCurrentThreadId());
+
+			PositionsBuffer = FRuntimeMeshVertexBuffer::CreateRHIBuffer<bIsInRenderThread>(Positions, bShouldUseDynamicBuffers);
+			TangentsBuffer = FRuntimeMeshVertexBuffer::CreateRHIBuffer<bIsInRenderThread>(Tangents, bShouldUseDynamicBuffers);
+			TexCoordsBuffer = FRuntimeMeshVertexBuffer::CreateRHIBuffer<bIsInRenderThread>(TexCoords, bShouldUseDynamicBuffers);
+			ColorsBuffer = FRuntimeMeshVertexBuffer::CreateRHIBuffer<bIsInRenderThread>(Colors, bShouldUseDynamicBuffers);
+
+			TrianglesBuffer = FRuntimeMeshIndexBuffer::CreateRHIBuffer<bIsInRenderThread>(Triangles, bShouldUseDynamicBuffers);
+			AdjacencyTrianglesBuffer = FRuntimeMeshIndexBuffer::CreateRHIBuffer<bIsInRenderThread>(AdjacencyTriangles, bShouldUseDynamicBuffers);
+
+			bBuffersCreated = true;
+		}
+	}
+
 };

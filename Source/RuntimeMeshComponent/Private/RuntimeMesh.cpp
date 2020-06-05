@@ -735,7 +735,18 @@ void URuntimeMesh::HandleFullLODUpdate(const FRuntimeMeshProxyPtr& RenderProxyRe
 			LOD.Sections.FindOrAdd(Entry.Key) = Section.Properties;
 
 			RenderProxyRef->CreateOrUpdateSection_GameThread(LODId, Entry.Key, Section.Properties, true);
-			RenderProxyRef->UpdateSectionMesh_GameThread(LODId, Entry.Key, MakeShared<FRuntimeMeshRenderableMeshData>(MoveTemp(Section.MeshData)));
+
+
+			TSharedPtr<FRuntimeMeshSectionUpdateData> UpdateData = MakeShared<FRuntimeMeshSectionUpdateData>(MoveTemp(Section.MeshData));
+
+			// Push the data to the gpu from this thread if we're not on the game thread and the current RHI supports async
+			if (GRHISupportsAsyncTextureCreation && GIsThreadedRendering && !IsInGameThread())
+			{
+				UpdateData->CreateRHIBuffers<false>(Section.Properties.UpdateFrequency == ERuntimeMeshUpdateFrequency::Frequent);
+			}
+
+
+			RenderProxyRef->UpdateSectionMesh_GameThread(LODId, Entry.Key, UpdateData);
 			bRequiresProxyRecreate = true;
 		}
 		else
@@ -763,17 +774,25 @@ void URuntimeMesh::HandleSingleSectionUpdate(const FRuntimeMeshProxyPtr& RenderP
 	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMD(%d): HandleSingleSectionUpdate Called"), FPlatformTLS::GetCurrentThreadId());
 
 	FRuntimeMeshSectionProperties Properties = LODs[LODId].Sections.FindChecked(SectionId);
-	TSharedPtr<FRuntimeMeshRenderableMeshData> MeshData = MakeShared<FRuntimeMeshRenderableMeshData>(
+	FRuntimeMeshRenderableMeshData MeshData(
 		Properties.bUseHighPrecisionTangents,
 		Properties.bUseHighPrecisionTexCoords,
 		Properties.NumTexCoords,
 		Properties.bWants32BitIndices);
-	bool bResult = MeshProviderPtr->GetSectionMeshForLOD(LODId, SectionId, *MeshData);
+	bool bResult = MeshProviderPtr->GetSectionMeshForLOD(LODId, SectionId, MeshData);
 	
 	if (bResult)
 	{
 		// Update section
-		RenderProxyRef->UpdateSectionMesh_GameThread(LODId, SectionId, MeshData);
+		TSharedPtr<FRuntimeMeshSectionUpdateData> UpdateData = MakeShared<FRuntimeMeshSectionUpdateData>(MoveTemp(MeshData));
+
+		// Push the data to the gpu from this thread if we're not on the game thread and the current RHI supports async
+		if (GRHISupportsAsyncTextureCreation && GIsThreadedRendering && !IsInGameThread())
+		{
+			UpdateData->CreateRHIBuffers<false>(Properties.UpdateFrequency == ERuntimeMeshUpdateFrequency::Frequent);
+		}
+
+		RenderProxyRef->UpdateSectionMesh_GameThread(LODId, SectionId, UpdateData);
 		bRequiresProxyRecreate |= Properties.UpdateFrequency == ERuntimeMeshUpdateFrequency::Infrequent;
 		bRequiresProxyRecreate = true;
 	}

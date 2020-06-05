@@ -13,6 +13,29 @@ DECLARE_DWORD_COUNTER_STAT(TEXT("RuntimeMeshSectionProxy - Num Triangles"), STAT
 
 
 
+void FRuntimeMeshSectionProxyBuffers::InitResource()
+{
+	PositionBuffer.InitResource();
+	TangentsBuffer.InitResource();
+	UVsBuffer.InitResource();
+	ColorBuffer.InitResource();
+
+	IndexBuffer.InitResource();
+	ReversedIndexBuffer.InitResource();
+	DepthOnlyIndexBuffer.InitResource();
+	ReversedDepthOnlyIndexBuffer.InitResource();
+	AdjacencyIndexBuffer.InitResource();
+
+#if RHI_RAYTRACING
+	if (IsRayTracingEnabled())
+	{
+		RayTracingGeometry.InitResource();
+	}
+#endif
+
+	//VertexFactory.InitResource();
+}
+
 void FRuntimeMeshSectionProxyBuffers::Reset()
 {
 	VertexFactory.ReleaseResource();

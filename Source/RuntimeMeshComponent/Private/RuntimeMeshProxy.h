@@ -61,8 +61,8 @@ public:
 
 	void CreateOrUpdateSection_GameThread(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& InProperties, bool bShouldReset);
 	void SetSectionsForLOD_GameThread(int32 LODIndex, const TMap<int32, FRuntimeMeshSectionProperties>& InProperties, bool bShouldReset);
-	void UpdateSectionMesh_GameThread(int32 LODIndex, int32 SectionId, const TSharedPtr<FRuntimeMeshRenderableMeshData>& MeshData);
-	void UpdateMultipleSectionsMesh_GameThread(int32 LODIndex, const TMap<int32, TSharedPtr<FRuntimeMeshRenderableMeshData>>& MeshData);
+	void UpdateSectionMesh_GameThread(int32 LODIndex, int32 SectionId, const TSharedPtr<FRuntimeMeshSectionUpdateData>& MeshData);
+	void UpdateMultipleSectionsMesh_GameThread(int32 LODIndex, const TMap<int32, TSharedPtr<FRuntimeMeshSectionUpdateData>>& MeshData);
 	void ClearSection_GameThread(int32 LODIndex, int32 SectionId);
 	void RemoveSection_GameThread(int32 LODIndex, int32 SectionId);
 
@@ -75,8 +75,8 @@ public:
 
 	void CreateOrUpdateSection_RenderThread(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& InProperties, bool bShouldReset);
 	void SetSectionsForLOD_RenderThread(int32 LODIndex, const TMap<int32, FRuntimeMeshSectionProperties>& InProperties, bool bShouldReset);
-	void UpdateSectionMesh_RenderThread(int32 LODIndex, int32 SectionId, const TSharedPtr<FRuntimeMeshRenderableMeshData>& MeshData);
-	void UpdateMultipleSectionsMesh_RenderThread(int32 LODIndex, const TMap<int32, TSharedPtr<FRuntimeMeshRenderableMeshData>>& MeshData);
+	void UpdateSectionMesh_RenderThread(int32 LODIndex, int32 SectionId, const TSharedPtr<FRuntimeMeshSectionUpdateData>& MeshData);
+	void UpdateMultipleSectionsMesh_RenderThread(int32 LODIndex, const TMap<int32, TSharedPtr<FRuntimeMeshSectionUpdateData>>& MeshData);
 	void ClearSection_RenderThread(int32 LODIndex, int32 SectionId);
 	void RemoveSection_RenderThread(int32 LODIndex, int32 SectionId);
 
@@ -86,7 +86,7 @@ public:
 
 	void ClearSection(FRuntimeMeshSectionProxy& Section);
 
-	void ApplyMeshToSection(FRuntimeMeshSectionProxy& Section, FRuntimeMeshRenderableMeshData& MeshData);
+	void ApplyMeshToSection(FRuntimeMeshSectionProxy& Section, FRuntimeMeshSectionUpdateData&& MeshData);
 
 };
 

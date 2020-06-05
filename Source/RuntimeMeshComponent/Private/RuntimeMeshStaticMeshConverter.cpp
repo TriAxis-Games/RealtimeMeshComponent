@@ -2,13 +2,12 @@
 
 
 #include "RuntimeMeshStaticMeshConverter.h"
-
-
 #include "EngineGlobals.h"
 #include "Engine/StaticMesh.h"
 #include "PhysicsEngine/BodySetup.h"
-#include "../Public/RuntimeMeshRenderable.h"
-
+#include "RuntimeMeshRenderable.h"
+#include "RuntimeMeshComponent.h"
+#include "Providers/RuntimeMeshProviderStatic.h"
 
 int32 URuntimeMeshStaticMeshConverter::CopyVertexOrGetIndex(const FStaticMeshLODResources& LOD, const FStaticMeshSection& Section, TMap<int32, int32>& MeshToSectionVertexMap, int32 VertexIndex, FRuntimeMeshRenderableMeshData& NewMeshData)
 {

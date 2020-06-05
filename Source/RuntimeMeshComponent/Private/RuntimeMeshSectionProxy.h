@@ -70,21 +70,23 @@ struct FRuntimeMeshSectionProxyBuffers
 // 
 // 	}
 
-	FRuntimeMeshSectionProxyBuffers(ERuntimeMeshUpdateFrequency InUpdateFrequency, bool bInIsShared)
+	FRuntimeMeshSectionProxyBuffers(bool bInIsDynamicBuffer, bool bInIsShared)
 		: VertexFactory(GMaxRHIFeatureLevel)
-		, PositionBuffer(InUpdateFrequency)
-		, TangentsBuffer(InUpdateFrequency)
-		, UVsBuffer(InUpdateFrequency)
-		, ColorBuffer(InUpdateFrequency)
-		, IndexBuffer(InUpdateFrequency)
-		, ReversedIndexBuffer(InUpdateFrequency)
-		, DepthOnlyIndexBuffer(InUpdateFrequency)
-		, ReversedDepthOnlyIndexBuffer(InUpdateFrequency)
-		, AdjacencyIndexBuffer(InUpdateFrequency)
+		, PositionBuffer(bInIsDynamicBuffer)
+		, TangentsBuffer(bInIsDynamicBuffer)
+		, UVsBuffer(bInIsDynamicBuffer)
+		, ColorBuffer(bInIsDynamicBuffer)
+		, IndexBuffer(bInIsDynamicBuffer)
+		, ReversedIndexBuffer(bInIsDynamicBuffer)
+		, DepthOnlyIndexBuffer(bInIsDynamicBuffer)
+		, ReversedDepthOnlyIndexBuffer(bInIsDynamicBuffer)
+		, AdjacencyIndexBuffer(bInIsDynamicBuffer)
 		, bIsShared(bInIsShared)
 	{
 
 	}
+
+	void InitResource();
 
 	~FRuntimeMeshSectionProxyBuffers()
 	{
@@ -94,6 +96,20 @@ struct FRuntimeMeshSectionProxyBuffers
 	}
 
 	void Reset();
+
+
+	template <uint32 MaxNumUpdates>
+	void ApplyRHIReferences(FRuntimeMeshSectionUpdateData& UpdateData, TRHIResourceUpdateBatcher<MaxNumUpdates>& Batcher)
+	{
+		PositionBuffer.InitRHIFromExisting(UpdateData.PositionsBuffer, UpdateData.Positions.GetNumElements(), Batcher);
+		TangentsBuffer.InitRHIFromExisting(UpdateData.TangentsBuffer, UpdateData.Tangents.GetNumElements(), UpdateData.bHighPrecisionTangents, Batcher);
+		UVsBuffer.InitRHIFromExisting(UpdateData.TexCoordsBuffer, UpdateData.TexCoords.GetNumElements(), UpdateData.bHighPrecisionTexCoords, UpdateData.NumTexCoordChannels, Batcher);
+		ColorBuffer.InitRHIFromExisting(UpdateData.ColorsBuffer, UpdateData.Colors.GetNumElements(), Batcher);
+
+		IndexBuffer.InitRHIFromExisting(UpdateData.TrianglesBuffer, UpdateData.Triangles.GetNumElements(), UpdateData.b32BitTriangles, Batcher);
+		AdjacencyIndexBuffer.InitRHIFromExisting(UpdateData.AdjacencyTrianglesBuffer, UpdateData.AdjacencyTriangles.GetNumElements(), UpdateData.b32BitAdjacencyTriangles, Batcher);
+
+	}
 };
 
 
@@ -162,15 +178,15 @@ struct FRuntimeMeshSectionProxy
 
 	void UpdateState()
 	{
-		bool bHasInvalidData = false;
+		bIsValid = Buffers.IsValid();
 
-		if (Buffers.IsValid())
+		if (bIsValid)
 		{
-			bHasInvalidData |= Buffers->PositionBuffer.Num() < 3;
-			bHasInvalidData |= Buffers->TangentsBuffer.Num() < Buffers->PositionBuffer.Num();
-			bHasInvalidData |= Buffers->UVsBuffer.Num() < Buffers->PositionBuffer.Num();
-			bHasInvalidData |= Buffers->ColorBuffer.Num() < Buffers->ColorBuffer.Num();
-			bHasInvalidData |= Buffers->IndexBuffer.Num() < 3;
+			bIsValid &= Buffers->PositionBuffer.Num() >= 3;
+			bIsValid &= Buffers->TangentsBuffer.Num() >= Buffers->PositionBuffer.Num();
+			bIsValid &= Buffers->UVsBuffer.Num() >= Buffers->PositionBuffer.Num();
+			bIsValid &= Buffers->ColorBuffer.Num() >= Buffers->PositionBuffer.Num();
+			bIsValid &= Buffers->IndexBuffer.Num() >= 3;
 
 
 			bHasAdjacencyInfo = Buffers->AdjacencyIndexBuffer.Num() > 3;
@@ -178,12 +194,6 @@ struct FRuntimeMeshSectionProxy
 			bHasReversedIndices = Buffers->ReversedIndexBuffer.Num() == Buffers->IndexBuffer.Num();
 			bHasReversedDepthOnlyIndices = Buffers->ReversedDepthOnlyIndexBuffer.Num() == Buffers->IndexBuffer.Num();
 		}
-		else
-		{
-			bHasInvalidData = true;
-		}
-
-		bIsValid = !bHasInvalidData;
 	}
 
 	void CreateMeshBatch(FMeshBatch& MeshBatch, bool bShouldCastShadow, bool bWantsAdjacencyInfo) const

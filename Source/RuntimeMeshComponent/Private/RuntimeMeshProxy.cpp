@@ -47,7 +47,7 @@ void FRuntimeMeshProxy::QueueForUpdate()
 	// TODO: Is this really necessary. Enqueueing render commands fails sometimes when not called from game thread
 	// We need to correctly support asynchronus submission 
 
-	if (!IsQueuedForUpdate.AtomicSet(true) && GRenderingThread && !GIsRenderingThreadSuspended.Load(EMemoryOrder::Relaxed))
+	if (!IsQueuedForUpdate.AtomicSet(true)/* && GRenderingThread && !GIsRenderingThreadSuspended.Load(EMemoryOrder::Relaxed)*/)
 	{
 		ENQUEUE_RENDER_COMMAND(FRuntimeMeshProxy_Update)([this](FRHICommandListImmediate& RHICmdList)
 			{
@@ -128,7 +128,7 @@ void FRuntimeMeshProxy::SetSectionsForLOD_GameThread(int32 LODIndex, const TMap<
 		});
 	QueueForUpdate();
 }
-void FRuntimeMeshProxy::UpdateSectionMesh_GameThread(int32 LODIndex, int32 SectionId, const TSharedPtr<FRuntimeMeshRenderableMeshData>& MeshData)
+void FRuntimeMeshProxy::UpdateSectionMesh_GameThread(int32 LODIndex, int32 SectionId, const TSharedPtr<FRuntimeMeshSectionUpdateData>& MeshData)
 {
 	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMP(%d): UpdateSectionMesh_GameThread Called"), FPlatformTLS::GetCurrentThreadId());
 	PendingUpdates.Enqueue([this, LODIndex, SectionId, MeshData]()
@@ -137,7 +137,7 @@ void FRuntimeMeshProxy::UpdateSectionMesh_GameThread(int32 LODIndex, int32 Secti
 		});
 	QueueForUpdate();
 }
-void FRuntimeMeshProxy::UpdateMultipleSectionsMesh_GameThread(int32 LODIndex, const TMap<int32, TSharedPtr<FRuntimeMeshRenderableMeshData>>& MeshData)
+void FRuntimeMeshProxy::UpdateMultipleSectionsMesh_GameThread(int32 LODIndex, const TMap<int32, TSharedPtr<FRuntimeMeshSectionUpdateData>>& MeshData)
 {
 	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMP(%d): UpdateMultipleSectionsMesh_GameThread Called"), FPlatformTLS::GetCurrentThreadId());
 	PendingUpdates.Enqueue([this, LODIndex, MeshData]()
@@ -234,7 +234,8 @@ void FRuntimeMeshProxy::CreateOrUpdateSection_RenderThread(int32 LODIndex, int32
 			ClearSection(Section);
 		}
 
-		Section.Buffers = MakeShared<FRuntimeMeshSectionProxyBuffers>(InProperties.UpdateFrequency, false);
+		Section.Buffers = MakeShared<FRuntimeMeshSectionProxyBuffers>(InProperties.UpdateFrequency == ERuntimeMeshUpdateFrequency::Frequent, false);
+		Section.Buffers->InitResource();
 
 		Section.bIsVisible = InProperties.bIsVisible;
 		Section.bIsMainPassRenderable = InProperties.bIsMainPassRenderable;
@@ -282,7 +283,8 @@ void FRuntimeMeshProxy::SetSectionsForLOD_RenderThread(int32 LODIndex, const TMa
 				ClearSection(Section);
 			}
 
-			Section.Buffers = MakeShared<FRuntimeMeshSectionProxyBuffers>(SectionProperties.UpdateFrequency, false);
+			Section.Buffers = MakeShared<FRuntimeMeshSectionProxyBuffers>(SectionProperties.UpdateFrequency == ERuntimeMeshUpdateFrequency::Frequent, false);
+			Section.Buffers->InitResource();
 
 			Section.bIsVisible = SectionProperties.bIsVisible;
 			Section.bIsMainPassRenderable = SectionProperties.bIsMainPassRenderable;
@@ -298,7 +300,7 @@ void FRuntimeMeshProxy::SetSectionsForLOD_RenderThread(int32 LODIndex, const TMa
 	}
 }
 
-void FRuntimeMeshProxy::UpdateSectionMesh_RenderThread(int32 LODIndex, int32 SectionId, const TSharedPtr<FRuntimeMeshRenderableMeshData>& MeshData)
+void FRuntimeMeshProxy::UpdateSectionMesh_RenderThread(int32 LODIndex, int32 SectionId, const TSharedPtr<FRuntimeMeshSectionUpdateData>& MeshData)
 {
 	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMP(%d): UpdateSectionMesh_RenderThread Called"), FPlatformTLS::GetCurrentThreadId());
 	check(IsInRenderingThread());
@@ -311,7 +313,7 @@ void FRuntimeMeshProxy::UpdateSectionMesh_RenderThread(int32 LODIndex, int32 Sec
 		auto* FoundSection = LOD.Sections.Find(SectionId);
 		if (FoundSection)
 		{
-			ApplyMeshToSection(*FoundSection, *MeshData);
+			ApplyMeshToSection(*FoundSection, MoveTemp(*MeshData));
 
 			UpdateRenderState();
 		}
@@ -326,7 +328,7 @@ void FRuntimeMeshProxy::UpdateSectionMesh_RenderThread(int32 LODIndex, int32 Sec
 	}
 }
 
-void FRuntimeMeshProxy::UpdateMultipleSectionsMesh_RenderThread(int32 LODIndex, const TMap<int32, TSharedPtr<FRuntimeMeshRenderableMeshData>>& MeshDatas)
+void FRuntimeMeshProxy::UpdateMultipleSectionsMesh_RenderThread(int32 LODIndex, const TMap<int32, TSharedPtr<FRuntimeMeshSectionUpdateData>>& MeshDatas)
 {
 	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMP(%d): UpdateMultipleSectionsMesh_RenderThread Called"), FPlatformTLS::GetCurrentThreadId());
 	check(IsInRenderingThread());
@@ -338,12 +340,12 @@ void FRuntimeMeshProxy::UpdateMultipleSectionsMesh_RenderThread(int32 LODIndex, 
 		for (auto& NewSectionMesh : MeshDatas)
 		{
 			int32 SectionId = NewSectionMesh.Key;
-			const TSharedPtr<FRuntimeMeshRenderableMeshData>& MeshData = NewSectionMesh.Value;
+			const TSharedPtr<FRuntimeMeshSectionUpdateData>& MeshData = NewSectionMesh.Value;
 
 			auto* FoundSection = LOD.Sections.Find(SectionId);
 			if (FoundSection)
 			{
-				ApplyMeshToSection(*FoundSection, *MeshData);
+				ApplyMeshToSection(*FoundSection, MoveTemp(*MeshData));
 			}
 			else
 			{
@@ -456,26 +458,44 @@ void FRuntimeMeshProxy::ClearSection(FRuntimeMeshSectionProxy& Section)
 	Section.Buffers.Reset();
 }
 
-void FRuntimeMeshProxy::ApplyMeshToSection(FRuntimeMeshSectionProxy& Section, FRuntimeMeshRenderableMeshData& MeshData)
+void FRuntimeMeshProxy::ApplyMeshToSection(FRuntimeMeshSectionProxy& Section, FRuntimeMeshSectionUpdateData&& MeshData)
 {
 	FRuntimeMeshSectionProxyBuffers& Buffers = *Section.Buffers.Get();
 
 	// Clear the vertex factory first so we don't have issues here
 	Buffers.VertexFactory.ReleaseResource();
 
-	// Update all buffers data
-	Buffers.PositionBuffer.SetData(MeshData.Positions.Num(), MeshData.Positions.GetData());
-	Buffers.TangentsBuffer.SetData(MeshData.Tangents.IsHighPrecision(), MeshData.Tangents.Num(), MeshData.Tangents.GetData());
-	Buffers.UVsBuffer.SetData(MeshData.TexCoords.IsHighPrecision(), MeshData.TexCoords.NumChannels(), MeshData.TexCoords.Num(), MeshData.TexCoords.GetData());
-	Buffers.ColorBuffer.SetData(MeshData.Colors.Num(), MeshData.Colors.GetData());
 
-	Buffers.IndexBuffer.SetData(MeshData.Triangles.IsHighPrecision(), MeshData.Triangles.Num(), MeshData.Triangles.GetData());
+
+
+	// Update all buffers data
+
+	/* Todo: Make this batch count a little more accurate to what is required*/
+	TRHIResourceUpdateBatcher<16> Batcher;
+
+
+	MeshData.CreateRHIBuffers<true>(false);
+	Buffers.ApplyRHIReferences(MeshData, Batcher);
+
+	//FRuntimeMeshBufferUpdateData PositionUpdateData(MoveTemp(MeshData.Positions));
+
+	//FVertexBufferRHIRef NewPositionBuffer = FRuntimeMeshVertexBuffer::CreateRHIBuffer<true>(PositionUpdateData, false);
+	//Buffers.PositionBuffer.InitRHIForStreaming(NewPositionBuffer, PositionUpdateData.GetNumElements(), Batcher);
+
+	//Buffers.PositionBuffer.SetData(MeshData.Positions.Num(), MeshData.Positions.GetData());
+	//Buffers.TangentsBuffer.SetData(MeshData.Tangents.IsHighPrecision(), MeshData.Tangents.Num(), MeshData.Tangents.GetData());
+	//Buffers.UVsBuffer.SetData(MeshData.TexCoords.IsHighPrecision(), MeshData.TexCoords.NumChannels(), MeshData.TexCoords.Num(), MeshData.TexCoords.GetData());
+	//Buffers.ColorBuffer.SetData(MeshData.Colors.Num(), MeshData.Colors.GetData());
+
+	//Buffers.IndexBuffer.SetData(MeshData.Triangles.IsHighPrecision(), MeshData.Triangles.Num(), MeshData.Triangles.GetData());
 
 	Section.FirstIndex = 0;
-	Section.NumTriangles = MeshData.Triangles.NumTriangles();
+	Section.NumTriangles = MeshData.Triangles.GetNumElements() / 3;
 	Section.MinVertexIndex = 0;
-	Section.MaxVertexIndex = MeshData.Positions.Num();
+	Section.MaxVertexIndex = MeshData.Positions.GetNumElements();
 
+
+	Batcher.Flush();
 
 
 
