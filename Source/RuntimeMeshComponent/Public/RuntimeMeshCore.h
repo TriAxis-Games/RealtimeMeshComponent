@@ -158,3 +158,51 @@ struct FRuntimeMeshMisc
 };
 
 
+
+
+#if ENGINE_MAJOR_VERSION <= 4 && ENGINE_MINOR_VERSION < 24
+
+
+/** Keeps a FRWLock read-locked while this scope lives */
+class FReadScopeLock
+{
+public:
+	explicit FReadScopeLock(FRWLock& InLock)
+		: Lock(InLock)
+	{
+		Lock.ReadLock();
+	}
+
+	~FReadScopeLock()
+	{
+		Lock.ReadUnlock();
+	}
+
+private:
+	FRWLock& Lock;
+
+	UE_NONCOPYABLE(FReadScopeLock);
+};
+
+/** Keeps a FRWLock write-locked while this scope lives */
+class FWriteScopeLock
+{
+public:
+	explicit FWriteScopeLock(FRWLock& InLock)
+		: Lock(InLock)
+	{
+		Lock.WriteLock();
+	}
+
+	~FWriteScopeLock()
+	{
+		Lock.WriteUnlock();
+	}
+
+private:
+	FRWLock& Lock;
+
+	UE_NONCOPYABLE(FWriteScopeLock);
+};
+
+#endif

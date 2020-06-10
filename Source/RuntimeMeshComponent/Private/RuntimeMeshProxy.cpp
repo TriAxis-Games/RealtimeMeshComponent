@@ -58,6 +58,7 @@ void FRuntimeMeshProxy::QueueForUpdate()
 
 void FRuntimeMeshProxy::FlushPendingUpdates()
 {
+	check(IsInRenderingThread());
 	IsQueuedForUpdate.AtomicSet(false);
 
 	TFunction<void()> Cmd;
@@ -237,6 +238,7 @@ void FRuntimeMeshProxy::CreateOrUpdateSection_RenderThread(int32 LODIndex, int32
 		Section.Buffers = MakeShared<FRuntimeMeshSectionProxyBuffers>(InProperties.UpdateFrequency == ERuntimeMeshUpdateFrequency::Frequent, false);
 		Section.Buffers->InitResource();
 
+		Section.UpdateFrequency = InProperties.UpdateFrequency;
 		Section.bIsVisible = InProperties.bIsVisible;
 		Section.bIsMainPassRenderable = InProperties.bIsMainPassRenderable;
 		Section.bCastsShadow = InProperties.bCastsShadow;
@@ -462,10 +464,9 @@ void FRuntimeMeshProxy::ApplyMeshToSection(FRuntimeMeshSectionProxy& Section, FR
 {
 	FRuntimeMeshSectionProxyBuffers& Buffers = *Section.Buffers.Get();
 
-	// Clear the vertex factory first so we don't have issues here
-	Buffers.VertexFactory.ReleaseResource();
 
 
+	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMP(%d): ApplyMeshToSection Called"), FPlatformTLS::GetCurrentThreadId());
 
 
 	// Update all buffers data
@@ -476,18 +477,7 @@ void FRuntimeMeshProxy::ApplyMeshToSection(FRuntimeMeshSectionProxy& Section, FR
 
 	MeshData.CreateRHIBuffers<true>(false);
 	Buffers.ApplyRHIReferences(MeshData, Batcher);
-
-	//FRuntimeMeshBufferUpdateData PositionUpdateData(MoveTemp(MeshData.Positions));
-
-	//FVertexBufferRHIRef NewPositionBuffer = FRuntimeMeshVertexBuffer::CreateRHIBuffer<true>(PositionUpdateData, false);
-	//Buffers.PositionBuffer.InitRHIForStreaming(NewPositionBuffer, PositionUpdateData.GetNumElements(), Batcher);
-
-	//Buffers.PositionBuffer.SetData(MeshData.Positions.Num(), MeshData.Positions.GetData());
-	//Buffers.TangentsBuffer.SetData(MeshData.Tangents.IsHighPrecision(), MeshData.Tangents.Num(), MeshData.Tangents.GetData());
-	//Buffers.UVsBuffer.SetData(MeshData.TexCoords.IsHighPrecision(), MeshData.TexCoords.NumChannels(), MeshData.TexCoords.Num(), MeshData.TexCoords.GetData());
-	//Buffers.ColorBuffer.SetData(MeshData.Colors.Num(), MeshData.Colors.GetData());
-
-	//Buffers.IndexBuffer.SetData(MeshData.Triangles.IsHighPrecision(), MeshData.Triangles.Num(), MeshData.Triangles.GetData());
+	Batcher.Flush();
 
 	Section.FirstIndex = 0;
 	Section.NumTriangles = MeshData.Triangles.GetNumElements() / 3;
@@ -495,11 +485,9 @@ void FRuntimeMeshProxy::ApplyMeshToSection(FRuntimeMeshSectionProxy& Section, FR
 	Section.MaxVertexIndex = MeshData.Positions.GetNumElements();
 
 
-	Batcher.Flush();
-
-
 
 	Section.UpdateState();
+		
 
 	if (Section.CanRender())
 	{
@@ -511,6 +499,13 @@ void FRuntimeMeshProxy::ApplyMeshToSection(FRuntimeMeshSectionProxy& Section, FR
 		Buffers.VertexFactory.Init(DataType);
 		Buffers.VertexFactory.InitResource();
 	}
+	else
+	{
+		Buffers.VertexFactory.ReleaseResource();
+	}
+
+
+	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMP(%d): ApplyMeshToSection Finished"), FPlatformTLS::GetCurrentThreadId());
 }
 
 //

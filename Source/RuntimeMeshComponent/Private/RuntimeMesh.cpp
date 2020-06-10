@@ -526,75 +526,87 @@ class FRuntimeMeshUpdateTask : public FNonAbandonableTask
 
 void URuntimeMesh::QueueForUpdate()
 {
-	FRuntimeMeshMisc::DoOnGameThread([this]()
+	FRuntimeMeshMisc::DoOnGameThread([MeshPtr = GetMeshReference()]()
+	{
+		FRuntimeMeshSharedRef Mesh = MeshPtr.Pin();
+		if (Mesh)
 		{
-			if (this->IsValidLowLevel())
-			{
-				bCollisionIsDirty = true;
-				GetEngineSubsystem()->QueueMeshForUpdate(GetMeshReference());
-			}
-		});
+			Mesh->bCollisionIsDirty = true;
+			Mesh->GetEngineSubsystem()->QueueMeshForUpdate(Mesh->GetMeshReference());
+		}
+	});
 }
 
 void URuntimeMesh::QueueForMeshUpdate()
 {
 	// TODO: We shouldn't have to kick this to the game thread first
-	FRuntimeMeshMisc::DoOnGameThread([this]()
+
+	FRuntimeMeshMisc::DoOnGameThread([MeshPtr = GetMeshReference()]()
+	{
+		FRuntimeMeshSharedRef Mesh = MeshPtr.Pin();
+		if (Mesh)
 		{
-			if (this->IsValidLowLevel())
+			if (Mesh->bQueuedForMeshUpdate.AtomicSet(true) == false)
 			{
-				if (bQueuedForMeshUpdate.AtomicSet(true) == false)
+				FReadScopeLock Lock(Mesh->MeshProviderLock);
+				if (Mesh->MeshProviderPtr)
 				{
-					FReadScopeLock Lock(MeshProviderLock);
-					if (MeshProviderPtr)
+					if (Mesh->MeshProviderPtr->IsThreadSafe())
 					{
-						if (MeshProviderPtr->IsThreadSafe())
-						{
-							(new FAutoDeleteAsyncTask<FRuntimeMeshUpdateTask>(GetMeshReference()))->StartBackgroundTask(GetEngineSubsystem()->GetThreadPool());
-						}
-						else
-						{
-							GetEngineSubsystem()->QueueMeshForUpdate(GetMeshReference());
-						}
+						(new FAutoDeleteAsyncTask<FRuntimeMeshUpdateTask>(Mesh->GetMeshReference()))->StartBackgroundTask(Mesh->GetEngineSubsystem()->GetThreadPool());
+					}
+					else
+					{
+						Mesh->GetEngineSubsystem()->QueueMeshForUpdate(Mesh->GetMeshReference());
 					}
 				}
 			}
-		});
+		}
+	});
 }
 
 void URuntimeMesh::QueueForCollisionUpdate()
 {
-	FRuntimeMeshMisc::DoOnGameThread([this]()
+	FRuntimeMeshMisc::DoOnGameThread([MeshPtr = GetMeshReference()]()
+	{
+		FRuntimeMeshSharedRef Mesh = MeshPtr.Pin();
+		if (Mesh)
 		{
-			if (this->IsValidLowLevel())
-			{
-				bCollisionIsDirty = true;
-				GetEngineSubsystem()->QueueMeshForUpdate(GetMeshReference());
-			}
-		});
+			Mesh->bCollisionIsDirty = true;
+			Mesh->GetEngineSubsystem()->QueueMeshForUpdate(Mesh->GetMeshReference());
+		}
+	});
 }
 
 
 void URuntimeMesh::UpdateAllComponentBounds()
 {
-	FRuntimeMeshMisc::DoOnGameThread([this]()
-		{
-			DoForAllLinkedComponents([](URuntimeMeshComponent* Mesh)
-				{
-					Mesh->NewBoundsReceived();
-				});
+	FRuntimeMeshMisc::DoOnGameThread([MeshPtr = GetMeshReference()]()
+	{
+		FRuntimeMeshSharedRef Mesh = MeshPtr.Pin();
+			if (Mesh)
+			{
+				Mesh->DoForAllLinkedComponents([](URuntimeMeshComponent* MeshComponent)
+					{
+						MeshComponent->NewBoundsReceived();
+					});
+			}
 		});
 }
 
 void URuntimeMesh::RecreateAllComponentSceneProxies()
 {
-	FRuntimeMeshMisc::DoOnGameThread([this]()
+	FRuntimeMeshMisc::DoOnGameThread([MeshPtr = GetMeshReference()]()
+	{
+		FRuntimeMeshSharedRef Mesh = MeshPtr.Pin();
+		if (Mesh)
 		{
-			DoForAllLinkedComponents([](URuntimeMeshComponent* Mesh)
+			Mesh->DoForAllLinkedComponents([](URuntimeMeshComponent* MeshComponent)
 				{
-					Mesh->ForceProxyRecreate();
+					MeshComponent->ForceProxyRecreate();
 				});
-		});
+		}
+	});
 }
 
 

@@ -69,12 +69,12 @@ struct FRuntimeMeshReferenceOps
 	}
 
 
-	static FORCEINLINE const int32 AddReference(FReferencer* Reference)
+	static FORCEINLINE const void AddReference(FReferencer* Reference)
 	{
 		FPlatformAtomics::InterlockedIncrement(&Reference->ReferenceCount);
 	}
 
-	static FORCEINLINE const int32 ReleaseReference(FReferencer* Reference)
+	static FORCEINLINE const void ReleaseReference(FReferencer* Reference)
 	{
 		checkSlow(FPlatformAtomics::AtomicRead(&Reference->ReferenceCount) > 0);
 

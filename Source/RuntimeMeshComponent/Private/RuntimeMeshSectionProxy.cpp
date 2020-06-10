@@ -26,12 +26,12 @@ void FRuntimeMeshSectionProxyBuffers::InitResource()
 	ReversedDepthOnlyIndexBuffer.InitResource();
 	AdjacencyIndexBuffer.InitResource();
 
-#if RHI_RAYTRACING
-	if (IsRayTracingEnabled())
-	{
-		RayTracingGeometry.InitResource();
-	}
-#endif
+// #if RHI_RAYTRACING
+// 	if (IsRayTracingEnabled())
+// 	{
+// 		RayTracingGeometry.InitResource();
+// 	}
+// #endif
 
 	//VertexFactory.InitResource();
 }

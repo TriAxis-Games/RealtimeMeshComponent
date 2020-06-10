@@ -61,12 +61,12 @@ FRuntimeMeshComponentSceneProxy::FRuntimeMeshComponentSceneProxy(URuntimeMeshCom
 	//bCastShadow = true;// bCastShadow&& bAnySectionCastsShadows;
 	bCastDynamicShadow = true;// bCastDynamicShadow&& bCastShadow;
 
-	bStaticElementsAlwaysUseProxyPrimitiveUniformBuffer = true;
 
 	const auto FeatureLevel = GetScene().GetFeatureLevel();
 
 	// We always use local vertex factory, which gets its primitive data from GPUScene, so we can skip expensive primitive uniform buffer updates
 	bVFRequiresPrimitiveUniformBuffer = !UseGPUScene(GMaxRHIShaderPlatform, FeatureLevel);
+	bStaticElementsAlwaysUseProxyPrimitiveUniformBuffer = true;
 }
 
 FRuntimeMeshComponentSceneProxy::~FRuntimeMeshComponentSceneProxy()

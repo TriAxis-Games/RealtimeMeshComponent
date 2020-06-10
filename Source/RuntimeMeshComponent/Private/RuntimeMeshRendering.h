@@ -533,6 +533,8 @@ public:
 
 	}
 
+	virtual ~FRuntimeMeshBufferUpdateData() {}
+
 
 	int32 GetStride() const { return ElementStride; }
 	int32 GetNumElements() const { return NumElements; }
