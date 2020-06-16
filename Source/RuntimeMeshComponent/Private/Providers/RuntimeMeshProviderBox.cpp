@@ -16,6 +16,7 @@ void URuntimeMeshProviderBox::SetBoxRadius(const FVector& InRadius)
 	BoxRadius = InRadius;
 
 	MarkAllLODsDirty();
+	MarkCollisionDirty();
 }
 
 UMaterialInterface* URuntimeMeshProviderBox::GetBoxMaterial() const
