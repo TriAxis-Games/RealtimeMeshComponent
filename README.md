@@ -1,20 +1,17 @@
 # Runtime Mesh Component for Unreal Engine 4
 ---
-### I'm back and actively developing the RMC and affiliated plugins! 
-### Version 4 is now in beta!
+### Here you will find the current version of the RMC. At present it only supports UE4.23 and newer.  
+### If you require support for UE4.20-4.22 you'll need to use the v4 release found here: https://github.com/KoderzUnreal/RuntimeMeshComponent/releases/tag/v4.0
 
 ---
+**Join us on [Discord](https://discord.gg/KGvBBTv)**
+
+**Basic examples of the features of the RMC can be found [here!](https://github.com/Koderz/RuntimeMeshComponent-Examples)**
+**A more advanced example project can be found [here!](https://github.com/Moddingear/RMC-4.21-Example)**
 
 **This project is a labor of love, but unfortunately love doesn't pay the bills!
 If you've found this project useful, please consider supporting the development!
 [You can support the project here!](https://github.com/Koderz/RuntimeMeshComponent/wiki/Support-the-development!)**
-
----
-
-**Join us on [Discord](https://discord.gg/KGvBBTv)**
-
-**Examples for the RMC can be found [here!](https://github.com/Koderz/RuntimeMeshComponent-Examples)**
-**An example project using the RMC can be found [here!](https://github.com/Moddingear/RMC-4.21-Example)**
 
 ---
 
@@ -42,7 +39,7 @@ Upgrading from the PMC to the RMC isn't difficult. Visit the [Wiki](https://gith
 * Material Slots, just like Static Mesh Component
 * Visibility/Shadowing are configurable per section.
 * Collision separate from rendering (collision can use render mesh automatically with use of provider)
-* Tessellation Support*
+* Tessellation Support
 
 ---
 
@@ -51,6 +48,7 @@ For information on installation, usage and everything else, [please read the Wik
 
 
 **Supported Engine Versions:**
+v4.1 supports engine versions 4.23+
 v4.0 supports engine versions 4.20+
 v3.0 supports engine versions 4.17+
 v2.0 supports engine versions 4.12+
