@@ -84,6 +84,7 @@ bool URuntimeMeshProviderCollision::GetSectionMeshForLOD_Implementation(int32 LO
 	{
 		FRuntimeMeshRenderableCollisionData& SectionCacheData = RenderableCollisionData.FindOrAdd(SectionId);
 		SectionCacheData = FRuntimeMeshRenderableCollisionData(MeshData);
+		MarkCollisionDirty();
 	}
 
 	return bResult;
@@ -105,6 +106,7 @@ bool URuntimeMeshProviderCollision::GetAllSectionsMeshForLOD_Implementation(int3
 				SectionCacheData = FRuntimeMeshRenderableCollisionData(Entry.Value.MeshData);
 			}
 		}
+		MarkCollisionDirty();
 	}
 
 	return bResult;

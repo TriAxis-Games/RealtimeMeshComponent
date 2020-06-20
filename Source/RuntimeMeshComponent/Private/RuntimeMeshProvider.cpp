@@ -332,7 +332,7 @@ void URuntimeMeshProviderPassthrough::Initialize_Implementation()
 	URuntimeMeshProvider* ChildProviderTemp = GetChildProvider();
 	if (ChildProviderTemp)
 	{
-		ChildProviderTemp->Unlink();
+		ChildProviderTemp->Initialize_Implementation();
 	}
 }
 
