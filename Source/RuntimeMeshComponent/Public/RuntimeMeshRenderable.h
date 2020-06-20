@@ -27,6 +27,11 @@ public:
 	{
 		return Data.Num() / sizeof(FVector);
 	}
+	
+	void Reserve(int32 NewNum)
+	{
+		Data.Reserve(NewNum * sizeof(FVector));
+	}
 
 	const uint8* GetData() const { return reinterpret_cast<const uint8*>(Data.GetData()); }
 
@@ -131,6 +136,11 @@ public:
 	int32 Num() const
 	{
 		return Data.Num() / GetStride();
+	}
+	
+	void Reserve(int32 NewNum)
+	{
+		Data.Reserve(NewNum * GetStride());
 	}
 
 	const uint8* GetData() const { return reinterpret_cast<const uint8*>(Data.GetData()); }
@@ -376,6 +386,11 @@ public:
 	{
 		return ChannelCount;
 	}
+	
+	void Reserve(int32 NewNum)
+	{
+		Data.Reserve(NewNum * GetStride());
+	}
 
 	const uint8* GetData() const { return reinterpret_cast<const uint8*>(Data.GetData()); }
 
@@ -495,6 +510,11 @@ public:
 	{
 		return Data.Num() / sizeof(FColor);
 	}
+	
+	void Reserve(int32 NewNum)
+	{
+		Data.Reserve(NewNum * sizeof(FColor));
+	}
 
 	const uint8* GetData() const { return reinterpret_cast<const uint8*>(Data.GetData()); }
 
@@ -586,6 +606,11 @@ public:
 	int32 Num() const
 	{
 		return Data.Num() / Stride;
+	}
+	
+	void Reserve(int32 NewNum)
+	{
+		Data.Reserve(NewNum * Stride);
 	}
 
 	const uint8* GetData() const { return reinterpret_cast<const uint8*>(Data.GetData()); }
