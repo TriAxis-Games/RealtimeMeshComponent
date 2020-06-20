@@ -191,7 +191,7 @@ public:
 		// possible last UV channel if we have an odd number
 		if (UVIndex < NumUVs)
 		{
-			DataType.TextureCoordinates.Add(FVertexStreamComponent(this, UVSizeInBytes * UVIndex, UVStride, UVDoubleWideVertexElementType, EVertexStreamUsage::ManualFetch));
+			DataType.TextureCoordinates.Add(FVertexStreamComponent(this, UVSizeInBytes * UVIndex, UVStride, UVVertexElementType, EVertexStreamUsage::ManualFetch));
 		}
 
 		DataType.TextureCoordinatesSRV = ShaderResourceView;
