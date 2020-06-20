@@ -11,8 +11,12 @@
 
 // TODO: At some point remove this as a dependency, would be better to make a custom quickhull that gets only the edge information.
 // we don't care about the normal or triangle information that this generates. Plus I'd rather have it entirely on UE4 types.
+
+#pragma warning(push)
+#pragma warning(disable : 4701)
 #define QUICKHULL_IMPLEMENTATION
 #include "RuntimeMeshQuickHull.h"
+#pragma warning(pop)
 
 /** Util that returns 1 if on positive side of plane, -1 if negative, or 0 if split by plane */
 int32 RMCBoxPlaneCompare(FBox InBox, const FPlane& InPlane)

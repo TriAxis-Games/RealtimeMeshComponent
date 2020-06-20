@@ -29,32 +29,10 @@ private:
 	UPROPERTY()
 	URuntimeMeshModifierAdjacency* AdjacencyModifier;
 
-	//These are only for defaults when spawning, unused at runtime (after OnRegister)
-
-	//Sets the runtime mesh used. Leaving this null will create a new one and use the settings below.
-	//Beware : This meant to be used only with other RMCs if you want control from both components
-	
-
-// 	//LOD to use for complex collision
-// 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Post Processing", Meta = (ExposeOnSpawn = "true", AllowPrivateAccess = "true"), BlueprintSetter = SetRenderableLODForCollision, BlueprintGetter = GetLODForMeshCollision)
-// 	int32 LODForMeshCollision;
-
-// 	//Sections to use to gather complex collision data
-// 	UPROPERTY(BlueprintReadOnly, EditAnywhere, Category = "Post Processing", Meta = (ExposeOnSpawn = "true", AllowPrivateAccess = "true"), BlueprintGetter = GetSectionsForMeshCollision)
-// 	TSet<int32> SectionsForMeshCollision;
-
-// 	//Collision settings
-// 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Post Processing", Meta = (ExposeOnSpawn = "true", AllowPrivateAccess = "true"), BlueprintSetter = SetCollisionSettings, BlueprintGetter = GetCollisionSettings)
-// 	FRuntimeMeshCollisionSettings CollisionSettings;
-
-// 	//Collision mesh to add before section-gathered complex collision. Independant from bWantsCollision
-// 	UPROPERTY(BlueprintReadWrite, Category = "Post Processing", Meta = (ExposeOnSpawn = "true", AllowPrivateAccess = "true"), BlueprintSetter = SetCollisionMesh, BlueprintGetter = GetCollisionMesh)
-// 	FRuntimeMeshCollisionData CollisionMesh;
-
 
 public:
 
-	URuntimeMeshComponentStatic(const FObjectInitializer& ObjectInitializer);
+	URuntimeMeshComponentStatic();
 
 	void OnRegister() override;
 

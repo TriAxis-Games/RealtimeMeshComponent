@@ -2,6 +2,7 @@
 
 
 #include "RuntimeMeshProvider.h"
+#include "RuntimeMesh.h"
 
 
 void URuntimeMeshProvider::Shutdown()

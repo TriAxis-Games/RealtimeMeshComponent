@@ -4,6 +4,7 @@
 
 #include "Engine/Engine.h"
 #include "RuntimeMeshCore.h"
+#include "RuntimeMeshRenderable.h"
 #include "Containers/ResourceArray.h"
 
 class FRuntimeMeshBufferUpdateData;

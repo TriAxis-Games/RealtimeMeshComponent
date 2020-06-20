@@ -28,8 +28,7 @@ private:
 
 
 public:
-
-	URuntimeMeshComponent(const FObjectInitializer& ObjectInitializer);
+	URuntimeMeshComponent();
 
 	UFUNCTION(BlueprintCallable)
 	void Initialize(URuntimeMeshProvider* Provider)

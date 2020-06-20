@@ -3,8 +3,8 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "RuntimeMeshSectionProxy.h"
 #include "RuntimeMesh.h"
+#include "RuntimeMeshSectionProxy.h"
 
 class UBodySetup;
 class URuntimeMeshComponent;

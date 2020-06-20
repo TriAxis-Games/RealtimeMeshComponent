@@ -284,18 +284,18 @@ void URuntimeMesh::ClearSection(int32 LODIndex, int32 SectionId)
 
 void URuntimeMesh::RemoveSection(int32 LODIndex, int32 SectionId)
 {
-	check(LODs.IsValidIndex(LODIndex));
-	check(LODs[LODIndex].Sections.Contains(SectionId));
-
 	FScopeLock Lock(&SyncRoot);
 
-	LODs[LODIndex].Sections.Remove(SectionId);
+	check(LODs.IsValidIndex(LODIndex));
 
-	if (RenderProxy.IsValid())
+	if (LODs[LODIndex].Sections.Remove(SectionId))
 	{
-		SectionsToUpdate.FindOrAdd(LODIndex).FindOrAdd(SectionId) = ESectionUpdateType::Remove;
-		QueueForMeshUpdate();
-		RecreateAllComponentSceneProxies();
+		if (RenderProxy.IsValid())
+		{
+			SectionsToUpdate.FindOrAdd(LODIndex).FindOrAdd(SectionId) = ESectionUpdateType::Remove;
+			QueueForMeshUpdate();
+			RecreateAllComponentSceneProxies();
+		}
 	}
 }
 

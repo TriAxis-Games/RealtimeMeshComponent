@@ -18,8 +18,7 @@ DECLARE_CYCLE_STAT(TEXT("RuntimeMeshComponent - Collision Data Received"), STAT_
 DECLARE_CYCLE_STAT(TEXT("RuntimeMeshComponent - Create Scene Proxy"), STAT_RuntimeMeshComponent_CreateSceneProxy, STATGROUP_RuntimeMesh);
 
 
-URuntimeMeshComponent::URuntimeMeshComponent(const FObjectInitializer& ObjectInitializer)
-	: Super(ObjectInitializer)
+URuntimeMeshComponent::URuntimeMeshComponent()
 {
 	SetNetAddressable();
 

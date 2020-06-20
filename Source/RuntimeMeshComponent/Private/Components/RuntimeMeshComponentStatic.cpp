@@ -6,8 +6,7 @@
 #include "Modifiers/RuntimeMeshModifierNormals.h"
 #include "Modifiers/RuntimeMeshModifierAdjacency.h"
 
-URuntimeMeshComponentStatic::URuntimeMeshComponentStatic(const FObjectInitializer& ObjectInitializer)
-	: Super(ObjectInitializer)
+URuntimeMeshComponentStatic::URuntimeMeshComponentStatic()
 {
 	// We can create our static provider here as a default subobject
 	StaticProvider = CreateDefaultSubobject<URuntimeMeshProviderStatic>("StaticProvider");
