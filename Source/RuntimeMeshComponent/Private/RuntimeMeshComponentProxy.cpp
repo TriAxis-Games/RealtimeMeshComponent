@@ -167,6 +167,9 @@ void FRuntimeMeshComponentSceneProxy::DrawStaticElements(FStaticPrimitiveDrawInt
 						CreateMeshBatch(MeshBatch, Section, LODIndex, *RenderData, Material, nullptr);
 						PDI->DrawMesh(MeshBatch, RuntimeMeshProxy->GetScreenSize(LODIndex));
 
+						// Here we add a reference to the buffers so that we can guarantee these stay around for the life of this proxy
+						InUseBuffers.Add(Section.Buffers);
+
 						//UE_LOG(LogRuntimeMesh, Warning, TEXT("Section Screen Size Max: %f"), RuntimeMeshProxy->GetScreenSize(LODIndex));
 					}
 				}

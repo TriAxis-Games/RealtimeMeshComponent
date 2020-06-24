@@ -20,13 +20,21 @@ private:
 	};
 
 
+	// THis is the proxy we're rendering
 	FRuntimeMeshProxyPtr RuntimeMeshProxy;
 
+	// Extra section data, mostly material data after being combined with override materials on the component
 	TArray<TMap<int32, FRuntimeMeshSectionRenderData>, TInlineAllocator<RUNTIMEMESH_MAXLODS>> SectionRenderData;
+
+	// Reference all the in-use buffers so that as long as this proxy is around these buffers will be too. 
+	// This is meant only for statically drawn sections. Dynamically drawn sections can update safely in place.
+	// Static sections get new buffers on each update.
+	TArray<TSharedPtr<FRuntimeMeshSectionProxyBuffers>> InUseBuffers;
 
 	// Reference to the body setup for rendering.
 	UBodySetup* BodySetup;
 
+	// Store the combined material relevance.
 	FMaterialRelevance MaterialRelevance;
 
 public:

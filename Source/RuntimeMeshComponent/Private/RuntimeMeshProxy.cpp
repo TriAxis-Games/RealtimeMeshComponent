@@ -462,8 +462,12 @@ void FRuntimeMeshProxy::ClearSection(FRuntimeMeshSectionProxy& Section)
 
 void FRuntimeMeshProxy::ApplyMeshToSection(FRuntimeMeshSectionProxy& Section, FRuntimeMeshSectionUpdateData&& MeshData)
 {
+	if (Section.UpdateFrequency == ERuntimeMeshUpdateFrequency::Infrequent)
+	{
+		Section.Buffers = MakeShared<FRuntimeMeshSectionProxyBuffers>(false, false);
+		Section.Buffers->InitResource();
+	}
 	FRuntimeMeshSectionProxyBuffers& Buffers = *Section.Buffers.Get();
-
 
 
 	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMP(%d): ApplyMeshToSection Called"), FPlatformTLS::GetCurrentThreadId());
