@@ -291,7 +291,7 @@ public:
 	TSet<int32> GetSectionsForMeshCollision() const;
 
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static")
-	void SetRenderableSectionAffectsCollision(int32 SectionId, bool bCollisionEnabled);
+	void SetRenderableSectionAffectsCollision(int32 SectionId, bool bCollisionEnabled, bool bForceUpdate = false);
 
 
 	UFUNCTION(BlueprintCallable, Category="RuntimeMesh|Providers|Static")
@@ -386,7 +386,7 @@ private:
 		return SectionData;
 	}
 
-	void UpdateSectionAffectsCollision(int32 LODIndex, int32 SectionId, bool bAffectsCollision);
+	void UpdateSectionAffectsCollision(int32 LODIndex, int32 SectionId, bool bAffectsCollision, bool bForceUpdate = false);
 
 	void UpdateBounds();
 	FBoxSphereBounds GetBoundsFromMeshData(const FRuntimeMeshRenderableMeshData& MeshData);

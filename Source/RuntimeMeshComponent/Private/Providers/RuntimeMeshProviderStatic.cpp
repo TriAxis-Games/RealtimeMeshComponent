@@ -38,7 +38,7 @@ void URuntimeMeshProviderStatic::CreateSectionFromComponents(int32 LODIndex, int
 
 	CreateSection(LODIndex, SectionIndex, Properties, SectionData);
 
-	UpdateSectionAffectsCollision(LODIndex, SectionIndex, bCreateCollision);
+	UpdateSectionAffectsCollision(LODIndex, SectionIndex, bCreateCollision, true);
 }
 
 void URuntimeMeshProviderStatic::CreateSectionFromComponents(int32 LODIndex, int32 SectionIndex, int32 MaterialSlot, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals, 
@@ -53,7 +53,7 @@ void URuntimeMeshProviderStatic::CreateSectionFromComponents(int32 LODIndex, int
 
 	CreateSection(LODIndex, SectionIndex, Properties, SectionData);
 
-	UpdateSectionAffectsCollision(LODIndex, SectionIndex, bCreateCollision);
+	UpdateSectionAffectsCollision(LODIndex, SectionIndex, bCreateCollision, true);
 }	
 
 void  URuntimeMeshProviderStatic::CreateSectionFromComponents(int32 LODIndex, int32 SectionIndex, int32 MaterialSlot, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals,
@@ -67,7 +67,7 @@ void  URuntimeMeshProviderStatic::CreateSectionFromComponents(int32 LODIndex, in
 
 	CreateSection(LODIndex, SectionIndex, Properties, SectionData);
 
-	UpdateSectionAffectsCollision(LODIndex, SectionIndex, bCreateCollision);
+	UpdateSectionAffectsCollision(LODIndex, SectionIndex, bCreateCollision, true);
 }
 
 void URuntimeMeshProviderStatic::CreateSectionFromComponents(int32 LODIndex, int32 SectionIndex, int32 MaterialSlot, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals, 
@@ -81,7 +81,7 @@ void URuntimeMeshProviderStatic::CreateSectionFromComponents(int32 LODIndex, int
 
 	CreateSection(LODIndex, SectionIndex, Properties, SectionData);
 
-	UpdateSectionAffectsCollision(LODIndex, SectionIndex, bCreateCollision);
+	UpdateSectionAffectsCollision(LODIndex, SectionIndex, bCreateCollision, true);
 }
 
 void URuntimeMeshProviderStatic::UpdateSectionFromComponents(int32 LODIndex, int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals, 
@@ -181,9 +181,9 @@ TSet<int32> URuntimeMeshProviderStatic::GetSectionsForMeshCollision() const
 	return SectionsForMeshCollision;
 }
 
-void URuntimeMeshProviderStatic::SetRenderableSectionAffectsCollision(int32 SectionId, bool bCollisionEnabled)
+void URuntimeMeshProviderStatic::SetRenderableSectionAffectsCollision(int32 SectionId, bool bCollisionEnabled, bool bForceUpdate)
 {
-	UpdateSectionAffectsCollision(LODForMeshCollision, SectionId, bCollisionEnabled);
+	UpdateSectionAffectsCollision(LODForMeshCollision, SectionId, bCollisionEnabled, bForceUpdate);
 }
 
 TArray<int32> URuntimeMeshProviderStatic::GetSectionIds(int32 LODIndex) const
@@ -627,7 +627,7 @@ void URuntimeMeshProviderStatic::Serialize(FArchive& Ar)
 
 const TArray<FVector2D> URuntimeMeshProviderStatic::EmptyUVs;
 
-void URuntimeMeshProviderStatic::UpdateSectionAffectsCollision(int32 LODIndex, int32 SectionId, bool bAffectsCollision)
+void URuntimeMeshProviderStatic::UpdateSectionAffectsCollision(int32 LODIndex, int32 SectionId, bool bAffectsCollision, bool bForceUpdate)
 {
 	bool bMarkCollisionDirty = false;
 	{
@@ -647,7 +647,7 @@ void URuntimeMeshProviderStatic::UpdateSectionAffectsCollision(int32 LODIndex, i
 		}
 	}
 
-	if (bMarkCollisionDirty)
+	if (bForceUpdate || bMarkCollisionDirty)
 	{
 		MarkCollisionDirty();
 	}
@@ -699,7 +699,6 @@ void URuntimeMeshProviderStatic::UpdateSectionInternal(int32 LODIndex, int32 Sec
 	}
 
 
-
 	{
 		FScopeLock Lock(&MeshSyncRoot);
 		TMap<int32, FSectionDataMapEntry>* LODSections = SectionDataMap.Find(LODIndex);
@@ -713,6 +712,14 @@ void URuntimeMeshProviderStatic::UpdateSectionInternal(int32 LODIndex, int32 Sec
 				UpdateBounds();
 				MarkSectionDirty(LODIndex, SectionId);
 			}
+		}
+	}
+
+	{
+		FScopeLock Lock(&CollisionSyncRoot);
+		if (LODForMeshCollision == LODIndex && SectionsForMeshCollision.Contains(SectionId))
+		{
+			MarkCollisionDirty();
 		}
 	}
 }
