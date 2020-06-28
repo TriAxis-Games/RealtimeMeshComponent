@@ -104,10 +104,6 @@ public:
 		}
 	}
 
-
-
-	//void SetData(int32 NewStride, int32 NewVertexCount, const uint8* InData);
-
 };
 
 
@@ -143,13 +139,6 @@ public:
 		}
 	}
 
-
-
-
-// 	void SetData(int32 NewVertexCount, const uint8* InData)
-// 	{
-// 		FRuntimeMeshVertexBuffer::SetData(sizeof(FVector), NewVertexCount, InData);
-// 	}
 };
 
 class FRuntimeMeshTangentsVertexBuffer : public FRuntimeMeshVertexBuffer
@@ -217,14 +206,6 @@ public:
 		}
 	}
 
-
-
-
-// 	void SetData(bool bInUseHighPrecision, int32 NewVertexCount, const uint8* InData)
-// 	{
-// 		bUseHighPrecision = bInUseHighPrecision;
-// 		FRuntimeMeshVertexBuffer::SetData(CalculateStride(bInUseHighPrecision), NewVertexCount, InData);
-// 	}
 };
 
 class FRuntimeMeshTexCoordsVertexBuffer : public FRuntimeMeshVertexBuffer
@@ -308,12 +289,6 @@ public:
 		}
 	}
 
-// 	void SetData(bool bInUseHighPrecision, int32 InNumUVs, int32 NewVertexCount, const uint8* InData)
-// 	{
-// 		bUseHighPrecision = bInUseHighPrecision;
-// 		NumUVs = InNumUVs;
-// 		FRuntimeMeshVertexBuffer::SetData(CalculateStride(bInUseHighPrecision, InNumUVs), NewVertexCount, InData);
-// 	}
 };
 
 class FRuntimeMeshColorVertexBuffer : public FRuntimeMeshVertexBuffer
@@ -348,10 +323,6 @@ public:
 		}
 	}
 
-// 	void SetData(int32 NewVertexCount, const uint8* InData)
-// 	{
-// 		FRuntimeMeshVertexBuffer::SetData(sizeof(FColor), NewVertexCount, InData);
-// 	}
 };
 
 
