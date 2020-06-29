@@ -304,6 +304,9 @@ public:
 	bool DoesSectionHaveValidMeshData(int32 LODIndex, int32 SectionId) const;
 
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static")
+	void RemoveAllSectionsForLOD(int32 LODIndex);
+
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static")
 	FBoxSphereBounds GetSectionBounds(int32 LODIndex, int32 SectionId) const;
 
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static")

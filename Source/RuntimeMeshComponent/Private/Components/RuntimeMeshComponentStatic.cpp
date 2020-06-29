@@ -124,6 +124,46 @@ void URuntimeMeshComponentStatic::SetRenderableSectionAffectsCollision(int32 Sec
 	StaticProvider->SetRenderableSectionAffectsCollision(SectionId, bCollisionEnabled);
 }
 
+TArray<int32> URuntimeMeshComponentStatic::GetSectionIds(int32 LODIndex) const
+{
+	return StaticProvider->GetSectionIds(LODIndex);
+}
+
+int32 URuntimeMeshComponentStatic::GetLastSectionId(int32 LODIndex) const
+{
+	return StaticProvider->GetLastSectionId(LODIndex);
+}
+
+bool URuntimeMeshComponentStatic::DoesSectionHaveValidMeshData(int32 LODIndex, int32 SectionId) const
+{
+	return StaticProvider->DoesSectionHaveValidMeshData(LODIndex, SectionId);
+}
+
+void URuntimeMeshComponentStatic::RemoveAllSectionsForLOD(int32 LODIndex)
+{
+	return StaticProvider->RemoveAllSectionsForLOD(LODIndex);
+}
+
+FBoxSphereBounds URuntimeMeshComponentStatic::GetSectionBounds(int32 LODIndex, int32 SectionId) const
+{
+	return StaticProvider->GetSectionBounds(LODIndex, SectionId);
+}
+
+FRuntimeMeshSectionProperties URuntimeMeshComponentStatic::GetSectionProperties(int32 LODIndex, int32 SectionId) const
+{
+	return StaticProvider->GetSectionProperties(LODIndex, SectionId);
+}
+
+FRuntimeMeshRenderableMeshData URuntimeMeshComponentStatic::GetSectionRenderData(int32 LODIndex, int32 SectionId) const
+{
+	return StaticProvider->GetSectionRenderData(LODIndex, SectionId);
+}
+
+FRuntimeMeshRenderableMeshData URuntimeMeshComponentStatic::GetSectionRenderDataAndClear(int32 LODIndex, int32 SectionId)
+{
+	return StaticProvider->GetSectionRenderDataAndClear(LODIndex, SectionId);
+}
+
 int32 URuntimeMeshComponentStatic::GetLODForMeshCollision() const
 {
 	return StaticProvider->GetLODForMeshCollision();

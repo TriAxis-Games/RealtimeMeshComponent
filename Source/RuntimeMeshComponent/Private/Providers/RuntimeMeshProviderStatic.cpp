@@ -233,6 +233,15 @@ bool URuntimeMeshProviderStatic::DoesSectionHaveValidMeshData(int32 LODIndex, in
 	return SectionDataMap.FindChecked(LODIndex).FindChecked(SectionId).Get<1>().HasValidMeshData();
 }
 
+void URuntimeMeshProviderStatic::RemoveAllSectionsForLOD(int32 LODIndex)
+{
+	{
+		FScopeLock Lock(&MeshSyncRoot);
+		SectionDataMap.Remove(LODIndex);
+	}
+	MarkLODDirty(LODIndex);
+}
+
 FBoxSphereBounds URuntimeMeshProviderStatic::GetSectionBounds(int32 LODIndex, int32 SectionId) const
 {
 	FScopeLock Lock(&MeshSyncRoot);

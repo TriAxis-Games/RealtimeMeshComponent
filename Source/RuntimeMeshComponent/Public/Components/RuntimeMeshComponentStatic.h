@@ -217,6 +217,31 @@ public:
 
 
 
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshStatic|Mesh")
+	TArray<int32> GetSectionIds(int32 LODIndex) const;
+
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshStatic|Mesh")
+	int32 GetLastSectionId(int32 LODIndex) const;
+
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshStatic|Mesh")
+	bool DoesSectionHaveValidMeshData(int32 LODIndex, int32 SectionId) const;
+
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshStatic|Mesh")
+	void RemoveAllSectionsForLOD(int32 LODIndex);
+
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshStatic|Mesh")
+	FBoxSphereBounds GetSectionBounds(int32 LODIndex, int32 SectionId) const;
+
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshStatic|Mesh")
+	FRuntimeMeshSectionProperties GetSectionProperties(int32 LODIndex, int32 SectionId) const;
+
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshStatic|Mesh")
+	FRuntimeMeshRenderableMeshData GetSectionRenderData(int32 LODIndex, int32 SectionId) const;
+
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshStatic|Mesh")
+	FRuntimeMeshRenderableMeshData GetSectionRenderDataAndClear(int32 LODIndex, int32 SectionId);
+
+
 
 
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshStatic")
