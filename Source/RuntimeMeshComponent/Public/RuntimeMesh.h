@@ -106,19 +106,19 @@ private:
 
 public:
 
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, Category="Components|RuntimeMesh")
 	void Initialize(URuntimeMeshProvider* Provider);
 
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, Category="Components|RuntimeMesh")
 	bool IsInitialized() const { return LinkedComponents.Num() > 0; }
 
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, Category="Components|RuntimeMesh")
 	URuntimeMeshProvider* GetProviderPtr() { return MeshProviderPtr; }
 
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, Category="Components|RuntimeMesh")
 	void Reset();
 
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, Category="Components|RuntimeMesh")
 	FRuntimeMeshCollisionHitInfo GetHitSource(int32 FaceIndex) const;
 
 public:

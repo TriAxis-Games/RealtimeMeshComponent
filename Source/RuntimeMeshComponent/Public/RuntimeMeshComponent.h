@@ -30,17 +30,17 @@ private:
 public:
 	URuntimeMeshComponent();
 
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMeshComponent")
 	void Initialize(URuntimeMeshProvider* Provider)
 	{
 		GetOrCreateRuntimeMesh()->Initialize(Provider);
 	}
 
-	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
+	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMeshComponent")
 	void SetRuntimeMesh(URuntimeMesh* NewMesh);
 
 	/** Clears the geometry for ALL collision only sections */
-	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
+	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMeshComponent")
 	FORCEINLINE URuntimeMesh* GetRuntimeMesh() const
 	{
 		if (RuntimeMeshReference && RuntimeMeshReference->IsValidLowLevel())
@@ -51,7 +51,7 @@ public:
 	}
 
 	/** Clears the geometry for ALL collision only sections */
-	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
+	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMeshComponent")
 	FORCEINLINE URuntimeMesh* GetOrCreateRuntimeMesh()
 	{
 		EnsureHasRuntimeMesh();
@@ -61,14 +61,14 @@ public:
 
 
 
-	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh", Meta = (AllowPrivateAccess = "true", DisplayName = "Get Mobility"))
+	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMeshComponent", Meta = (AllowPrivateAccess = "true", DisplayName = "Get Mobility"))
 	ERuntimeMeshMobility GetRuntimeMeshMobility()
 	{
 		return Mobility == EComponentMobility::Movable ? ERuntimeMeshMobility::Movable :
 			Mobility == EComponentMobility::Stationary ? ERuntimeMeshMobility::Stationary : ERuntimeMeshMobility::Static;
 	}
 
-	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh", Meta = (AllowPrivateAccess = "true", DisplayName = "Set Mobility"))
+	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMeshComponent", Meta = (AllowPrivateAccess = "true", DisplayName = "Set Mobility"))
 	void SetRuntimeMeshMobility(ERuntimeMeshMobility NewMobility)
 	{
 		Super::SetMobility(
@@ -79,16 +79,16 @@ public:
 
 
 
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMeshComponent")
 	URuntimeMeshProvider* GetProvider() { return GetRuntimeMesh()? GetRuntimeMesh()->GetProviderPtr() : nullptr; }
 
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMeshComponent")
 	TArray<FRuntimeMeshMaterialSlot> GetMaterialSlots() const 
 	{ 
 		return GetRuntimeMesh()? GetRuntimeMesh()->GetMaterialSlots() : TArray<FRuntimeMeshMaterialSlot>(); 
 	}
 	
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMeshComponent")
 	void SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial)
 	{
 		URuntimeMesh* Mesh = GetRuntimeMesh();
@@ -100,7 +100,7 @@ public:
 
 
 
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMeshComponent")
 	FRuntimeMeshCollisionHitInfo GetHitSource(int32 FaceIndex) const;
 
 
