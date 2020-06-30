@@ -24,7 +24,7 @@ public:
 	/*
 	*	Calculates the tessellation indices for the supplied mesh data, setting the result back to the tessellation triangles in the mesh data.
 	*/
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, Category="RuntimeMesh|Modifiers|Adjacency")
 	static void CalculateTessellationIndices(FRuntimeMeshRenderableMeshData& MeshData);
 
 private:

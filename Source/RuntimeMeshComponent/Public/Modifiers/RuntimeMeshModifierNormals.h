@@ -20,6 +20,7 @@ public:
 
 	virtual void ApplyToMesh_Implementation(FRuntimeMeshRenderableMeshData& MeshData) override;
 
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Modifiers|Normals")
 	static void CalculateNormalsTangents(FRuntimeMeshRenderableMeshData& MeshData, bool bInComputeSmoothNormals = false);
 
 private:
