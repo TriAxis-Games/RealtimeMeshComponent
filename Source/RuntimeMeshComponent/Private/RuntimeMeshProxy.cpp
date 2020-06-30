@@ -479,7 +479,7 @@ void FRuntimeMeshProxy::ApplyMeshToSection(FRuntimeMeshSectionProxy& Section, FR
 	TRHIResourceUpdateBatcher<16> Batcher;
 
 
-	MeshData.CreateRHIBuffers<true>(false);
+	MeshData.CreateRHIBuffers<true>(Section.UpdateFrequency == ERuntimeMeshUpdateFrequency::Frequent);
 	Buffers.ApplyRHIReferences(MeshData, Batcher);
 	Batcher.Flush();
 
