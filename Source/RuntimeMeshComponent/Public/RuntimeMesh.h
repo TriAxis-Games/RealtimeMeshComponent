@@ -127,10 +127,10 @@ public:
 	UPROPERTY(BlueprintAssignable, Category = "Components|RuntimeMesh")
 	FRuntimeMeshCollisionUpdatedDelegate CollisionUpdated;
 
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
 	FBoxSphereBounds GetLocalBounds() const;
 
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
 	UBodySetup* GetBodySetup() { return BodySetup; }
 
 

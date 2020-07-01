@@ -7,7 +7,160 @@
 #include "RuntimeMeshRenderable.h"
 #include "Containers/ResourceArray.h"
 
-class FRuntimeMeshBufferUpdateData;
+
+
+class FRuntimeMeshBufferUpdateData : public FResourceArrayInterface
+{
+	int32 ElementStride;
+	int32 NumElements;
+	TArray<uint8> Data;
+
+public:
+
+
+	FRuntimeMeshBufferUpdateData(FRuntimeMeshVertexPositionStream&& InPositions)
+		: ElementStride(InPositions.GetStride())
+		, NumElements(InPositions.Num())
+		, Data(MoveTemp(InPositions).TakeData())
+	{
+
+	}
+
+	FRuntimeMeshBufferUpdateData(FRuntimeMeshVertexTangentStream&& InTangents)
+		: ElementStride(InTangents.GetStride())
+		, NumElements(InTangents.Num())
+		, Data(MoveTemp(InTangents).TakeData())
+	{
+
+	}
+
+	FRuntimeMeshBufferUpdateData(FRuntimeMeshVertexTexCoordStream&& InTexCoords)
+		: ElementStride(InTexCoords.GetStride())
+		, NumElements(InTexCoords.Num())
+		, Data(MoveTemp(InTexCoords).TakeData())
+	{
+
+	}
+
+	FRuntimeMeshBufferUpdateData(FRuntimeMeshVertexColorStream&& InColors)
+		: ElementStride(InColors.GetStride())
+		, NumElements(InColors.Num())
+		, Data(MoveTemp(InColors).TakeData())
+	{
+
+	}
+
+	FRuntimeMeshBufferUpdateData(FRuntimeMeshTriangleStream&& InTriangles)
+		: ElementStride(InTriangles.GetStride())
+		, NumElements(InTriangles.Num())
+		, Data(MoveTemp(InTriangles).TakeData())
+	{
+
+	}
+
+	virtual ~FRuntimeMeshBufferUpdateData() {}
+
+
+	int32 GetStride() const { return ElementStride; }
+	int32 GetNumElements() const { return NumElements; }
+
+	const void* GetResourceData() const override
+	{
+		return reinterpret_cast<const void*>(Data.GetData());
+	}
+	uint32 GetResourceDataSize() const override
+	{
+		return Data.Num();
+	}
+	void Discard() override
+	{
+		Data.Empty();
+	}
+	bool IsStatic() const override
+	{
+		return false;
+	}
+	bool GetAllowCPUAccess() const override
+	{
+		return true;
+	}
+	void SetAllowCPUAccess(bool bInNeedsCPUAccess) override
+	{
+	}
+
+};
+
+class FRuntimeMeshSectionUpdateData
+{
+public:
+
+	FRuntimeMeshBufferUpdateData Positions;
+	FRuntimeMeshBufferUpdateData Tangents;
+	FRuntimeMeshBufferUpdateData TexCoords;
+	FRuntimeMeshBufferUpdateData Colors;
+
+	FRuntimeMeshBufferUpdateData Triangles;
+	FRuntimeMeshBufferUpdateData AdjacencyTriangles;
+
+
+
+
+	FVertexBufferRHIRef PositionsBuffer;
+	FVertexBufferRHIRef TangentsBuffer;
+	FVertexBufferRHIRef TexCoordsBuffer;
+	FVertexBufferRHIRef ColorsBuffer;
+
+	FIndexBufferRHIRef TrianglesBuffer;
+	FIndexBufferRHIRef AdjacencyTrianglesBuffer;
+
+
+	const bool bHighPrecisionTangents : 1;
+	const bool bHighPrecisionTexCoords : 1;
+	const uint8 NumTexCoordChannels;
+	const bool b32BitTriangles;
+	const bool b32BitAdjacencyTriangles;
+
+
+	bool bBuffersCreated;
+
+
+	FRuntimeMeshSectionUpdateData(FRuntimeMeshRenderableMeshData&& InMesh)
+		: Positions(MoveTemp(InMesh.Positions))
+		, Tangents(MoveTemp(InMesh.Tangents))
+		, TexCoords(MoveTemp(InMesh.TexCoords))
+		, Colors(MoveTemp(InMesh.Colors))
+		, Triangles(MoveTemp(InMesh.Triangles))
+		, AdjacencyTriangles(MoveTemp(InMesh.AdjacencyTriangles))
+		, bHighPrecisionTangents(InMesh.Tangents.IsHighPrecision())
+		, bHighPrecisionTexCoords(InMesh.TexCoords.IsHighPrecision())
+		, NumTexCoordChannels(InMesh.TexCoords.NumChannels())
+		, b32BitTriangles(InMesh.Triangles.IsHighPrecision())
+		, b32BitAdjacencyTriangles(InMesh.AdjacencyTriangles.IsHighPrecision())
+		, bBuffersCreated(false)
+	{
+
+	}
+
+	template<bool bIsInRenderThread>
+	void CreateRHIBuffers(bool bShouldUseDynamicBuffers)
+	{
+		if (!bBuffersCreated)
+		{
+			UE_LOG(RuntimeMeshLog, Verbose, TEXT("RM(%d): Creating GPU buffers for section."), FPlatformTLS::GetCurrentThreadId());
+
+			PositionsBuffer = FRuntimeMeshVertexBuffer::CreateRHIBuffer<bIsInRenderThread>(Positions, bShouldUseDynamicBuffers);
+			TangentsBuffer = FRuntimeMeshVertexBuffer::CreateRHIBuffer<bIsInRenderThread>(Tangents, bShouldUseDynamicBuffers);
+			TexCoordsBuffer = FRuntimeMeshVertexBuffer::CreateRHIBuffer<bIsInRenderThread>(TexCoords, bShouldUseDynamicBuffers);
+			ColorsBuffer = FRuntimeMeshVertexBuffer::CreateRHIBuffer<bIsInRenderThread>(Colors, bShouldUseDynamicBuffers);
+
+			TrianglesBuffer = FRuntimeMeshIndexBuffer::CreateRHIBuffer<bIsInRenderThread>(Triangles, bShouldUseDynamicBuffers);
+			AdjacencyTrianglesBuffer = FRuntimeMeshIndexBuffer::CreateRHIBuffer<bIsInRenderThread>(AdjacencyTriangles, bShouldUseDynamicBuffers);
+
+			bBuffersCreated = true;
+		}
+	}
+
+};
 
 
 
@@ -453,158 +606,3 @@ struct FRuntimeMeshRenderThreadDeleter
 	}
 };
 
-
-
-
-class FRuntimeMeshBufferUpdateData : public FResourceArrayInterface
-{
-	int32 ElementStride;
-	int32 NumElements;
-	TArray<uint8> Data;
-
-public:
-
-
-	FRuntimeMeshBufferUpdateData(FRuntimeMeshVertexPositionStream&& InPositions)
-		: ElementStride(InPositions.GetStride())
-		, NumElements(InPositions.Num())
-		, Data(MoveTemp(InPositions).TakeData())
-	{
-
-	}
-
-	FRuntimeMeshBufferUpdateData(FRuntimeMeshVertexTangentStream&& InTangents)
-		: ElementStride(InTangents.GetStride())
-		, NumElements(InTangents.Num())
-		, Data(MoveTemp(InTangents).TakeData())
-	{
-
-	}
-
-	FRuntimeMeshBufferUpdateData(FRuntimeMeshVertexTexCoordStream&& InTexCoords)
-		: ElementStride(InTexCoords.GetStride())
-		, NumElements(InTexCoords.Num())
-		, Data(MoveTemp(InTexCoords).TakeData())
-	{
-
-	}
-
-	FRuntimeMeshBufferUpdateData(FRuntimeMeshVertexColorStream&& InColors)
-		: ElementStride(InColors.GetStride())
-		, NumElements(InColors.Num())
-		, Data(MoveTemp(InColors).TakeData())
-	{
-
-	}
-
-	FRuntimeMeshBufferUpdateData(FRuntimeMeshTriangleStream&& InTriangles)
-		: ElementStride(InTriangles.GetStride())
-		, NumElements(InTriangles.Num())
-		, Data(MoveTemp(InTriangles).TakeData())
-	{
-
-	}
-
-	virtual ~FRuntimeMeshBufferUpdateData() {}
-
-
-	int32 GetStride() const { return ElementStride; }
-	int32 GetNumElements() const { return NumElements; }
-
-	const void* GetResourceData() const override
-	{
-		return reinterpret_cast<const void*>(Data.GetData());
-	}
-	uint32 GetResourceDataSize() const override
-	{
-		return Data.Num();
-	}
-	void Discard() override
-	{
-		Data.Empty();
-	}
-	bool IsStatic() const override
-	{
-		return false;
-	}
-	bool GetAllowCPUAccess() const override
-	{
-		return true;
-	}
-	void SetAllowCPUAccess(bool bInNeedsCPUAccess) override
-	{
-	}
-
-};
-
-class FRuntimeMeshSectionUpdateData
-{
-public:
-
-	FRuntimeMeshBufferUpdateData Positions;
-	FRuntimeMeshBufferUpdateData Tangents;
-	FRuntimeMeshBufferUpdateData TexCoords;
-	FRuntimeMeshBufferUpdateData Colors;
-
-	FRuntimeMeshBufferUpdateData Triangles;
-	FRuntimeMeshBufferUpdateData AdjacencyTriangles;
-
-
-
-
-	FVertexBufferRHIRef PositionsBuffer;
-	FVertexBufferRHIRef TangentsBuffer;
-	FVertexBufferRHIRef TexCoordsBuffer;
-	FVertexBufferRHIRef ColorsBuffer;
-
-	FIndexBufferRHIRef TrianglesBuffer;
-	FIndexBufferRHIRef AdjacencyTrianglesBuffer;
-
-
-	const bool bHighPrecisionTangents : 1;
-	const bool bHighPrecisionTexCoords : 1;
-	const uint8 NumTexCoordChannels;
-	const bool b32BitTriangles;
-	const bool b32BitAdjacencyTriangles;
-
-
-	bool bBuffersCreated;
-
-
-	FRuntimeMeshSectionUpdateData(FRuntimeMeshRenderableMeshData&& InMesh)
-		: Positions(MoveTemp(InMesh.Positions))
-		, Tangents(MoveTemp(InMesh.Tangents))
-		, TexCoords(MoveTemp(InMesh.TexCoords))
-		, Colors(MoveTemp(InMesh.Colors))
-		, Triangles(MoveTemp(InMesh.Triangles))
-		, AdjacencyTriangles(MoveTemp(InMesh.AdjacencyTriangles))
-		, bHighPrecisionTangents(InMesh.Tangents.IsHighPrecision())
-		, bHighPrecisionTexCoords(InMesh.TexCoords.IsHighPrecision())
-		, NumTexCoordChannels(InMesh.TexCoords.NumChannels())
-		, b32BitTriangles(InMesh.Triangles.IsHighPrecision())
-		, b32BitAdjacencyTriangles(InMesh.AdjacencyTriangles.IsHighPrecision())
-		, bBuffersCreated(false)
-	{
-
-	}
-
-	template<bool bIsInRenderThread>
-	void CreateRHIBuffers(bool bShouldUseDynamicBuffers)
-	{
-		if (!bBuffersCreated)
-		{
-			UE_LOG(RuntimeMeshLog, Verbose, TEXT("RM(%d): Creating GPU buffers for section."), FPlatformTLS::GetCurrentThreadId());
-
-			PositionsBuffer = FRuntimeMeshVertexBuffer::CreateRHIBuffer<bIsInRenderThread>(Positions, bShouldUseDynamicBuffers);
-			TangentsBuffer = FRuntimeMeshVertexBuffer::CreateRHIBuffer<bIsInRenderThread>(Tangents, bShouldUseDynamicBuffers);
-			TexCoordsBuffer = FRuntimeMeshVertexBuffer::CreateRHIBuffer<bIsInRenderThread>(TexCoords, bShouldUseDynamicBuffers);
-			ColorsBuffer = FRuntimeMeshVertexBuffer::CreateRHIBuffer<bIsInRenderThread>(Colors, bShouldUseDynamicBuffers);
-
-			TrianglesBuffer = FRuntimeMeshIndexBuffer::CreateRHIBuffer<bIsInRenderThread>(Triangles, bShouldUseDynamicBuffers);
-			AdjacencyTrianglesBuffer = FRuntimeMeshIndexBuffer::CreateRHIBuffer<bIsInRenderThread>(AdjacencyTriangles, bShouldUseDynamicBuffers);
-
-			bBuffersCreated = true;
-		}
-	}
-
-};

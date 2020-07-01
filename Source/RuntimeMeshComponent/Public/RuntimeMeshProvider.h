@@ -22,10 +22,10 @@ protected:
 	FThreadSafeBool bIsBound;
 
 public:
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshProvider|ConfigureLODs")
 	bool IsBound() const { check(bIsBound == (Target != nullptr)); return bIsBound; }
 
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshProvider|ConfigureLODs")
 	void Shutdown();
 
 	virtual void BindTargetProvider(URuntimeMeshProviderTargetInterface* InTarget);
@@ -35,31 +35,31 @@ public:
 public:
     URuntimeMeshProvider();
 
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshProvider|ConfigureLODs")
 	virtual void Initialize() { }
 
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshProvider|ConfigureLODs")
 	virtual FBoxSphereBounds GetBounds() { return FBoxSphereBounds(FSphere(FVector::ZeroVector, 1.0f)); }
 
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshProvider|ConfigureLODs")
 	virtual bool GetSectionMeshForLOD(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData) { return false; }
 
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshProvider|ConfigureLODs")
 	virtual bool GetAllSectionsMeshForLOD(int32 LODIndex, TMap<int32, FRuntimeMeshSectionData>& MeshDatas) { return false; }
 
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshProvider|ConfigureLODs")
 	virtual FRuntimeMeshCollisionSettings GetCollisionSettings() { return FRuntimeMeshCollisionSettings(); }
 
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshProvider|ConfigureLODs")
 	virtual bool HasCollisionMesh() { return false; }
 
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshProvider|ConfigureLODs")
 	virtual bool GetCollisionMesh(FRuntimeMeshCollisionData& CollisionData) { return false; }
 
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshProvider|ConfigureLODs")
 	virtual void CollisionUpdateCompleted() { }
 
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshProvider|ConfigureLODs")
 	virtual bool IsThreadSafe() { return false; }
 
 	FRuntimeMeshProviderWeakRef GetReference();

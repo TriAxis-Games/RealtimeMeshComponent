@@ -17,10 +17,10 @@ class RUNTIMEMESHCOMPONENT_API URuntimeMeshModifier : public UObject
 public:
 	URuntimeMeshModifier();
 
-	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category="RuntimeMeshModifier")
 	void ApplyToMesh(FRuntimeMeshRenderableMeshData& MeshData);
 
-	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "RuntimeMeshModifier")
 	void ApplyToCollisionMesh(FRuntimeMeshCollisionData& MeshData);
 
 };
