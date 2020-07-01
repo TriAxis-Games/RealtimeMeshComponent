@@ -7,6 +7,8 @@
 #include "RuntimeMeshRenderable.h"
 #include "Containers/ResourceArray.h"
 
+class FRuntimeMeshVertexBuffer;
+class FRuntimeMeshIndexBuffer;
 
 
 class FRuntimeMeshBufferUpdateData : public FResourceArrayInterface
@@ -142,26 +144,9 @@ public:
 	}
 
 	template<bool bIsInRenderThread>
-	void CreateRHIBuffers(bool bShouldUseDynamicBuffers)
-	{
-		if (!bBuffersCreated)
-		{
-			UE_LOG(RuntimeMeshLog, Verbose, TEXT("RM(%d): Creating GPU buffers for section."), FPlatformTLS::GetCurrentThreadId());
-
-			PositionsBuffer = FRuntimeMeshVertexBuffer::CreateRHIBuffer<bIsInRenderThread>(Positions, bShouldUseDynamicBuffers);
-			TangentsBuffer = FRuntimeMeshVertexBuffer::CreateRHIBuffer<bIsInRenderThread>(Tangents, bShouldUseDynamicBuffers);
-			TexCoordsBuffer = FRuntimeMeshVertexBuffer::CreateRHIBuffer<bIsInRenderThread>(TexCoords, bShouldUseDynamicBuffers);
-			ColorsBuffer = FRuntimeMeshVertexBuffer::CreateRHIBuffer<bIsInRenderThread>(Colors, bShouldUseDynamicBuffers);
-
-			TrianglesBuffer = FRuntimeMeshIndexBuffer::CreateRHIBuffer<bIsInRenderThread>(Triangles, bShouldUseDynamicBuffers);
-			AdjacencyTrianglesBuffer = FRuntimeMeshIndexBuffer::CreateRHIBuffer<bIsInRenderThread>(AdjacencyTriangles, bShouldUseDynamicBuffers);
-
-			bBuffersCreated = true;
-		}
-	}
+	void CreateRHIBuffers(bool bShouldUseDynamicBuffers);
 
 };
-
 
 
 
@@ -606,3 +591,23 @@ struct FRuntimeMeshRenderThreadDeleter
 	}
 };
 
+
+
+template<bool bIsInRenderThread>
+void FRuntimeMeshSectionUpdateData::CreateRHIBuffers(bool bShouldUseDynamicBuffers)
+{
+	if (!bBuffersCreated)
+	{
+		UE_LOG(RuntimeMeshLog, Verbose, TEXT("RM(%d): Creating GPU buffers for section."), FPlatformTLS::GetCurrentThreadId());
+
+		PositionsBuffer = FRuntimeMeshVertexBuffer::CreateRHIBuffer<bIsInRenderThread>(Positions, bShouldUseDynamicBuffers);
+		TangentsBuffer = FRuntimeMeshVertexBuffer::CreateRHIBuffer<bIsInRenderThread>(Tangents, bShouldUseDynamicBuffers);
+		TexCoordsBuffer = FRuntimeMeshVertexBuffer::CreateRHIBuffer<bIsInRenderThread>(TexCoords, bShouldUseDynamicBuffers);
+		ColorsBuffer = FRuntimeMeshVertexBuffer::CreateRHIBuffer<bIsInRenderThread>(Colors, bShouldUseDynamicBuffers);
+
+		TrianglesBuffer = FRuntimeMeshIndexBuffer::CreateRHIBuffer<bIsInRenderThread>(Triangles, bShouldUseDynamicBuffers);
+		AdjacencyTrianglesBuffer = FRuntimeMeshIndexBuffer::CreateRHIBuffer<bIsInRenderThread>(AdjacencyTriangles, bShouldUseDynamicBuffers);
+
+		bBuffersCreated = true;
+	}
+}

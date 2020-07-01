@@ -107,7 +107,7 @@ class RUNTIMEMESHCOMPONENT_API URuntimeMeshProviderPassthrough
 {
     GENERATED_BODY()
 private:
-    UPROPERTY(VisibleAnywhere, BlueprintGetter = GetChildProvider, BlueprintSetter = SetChildProvider)
+    UPROPERTY(VisibleAnywhere, BlueprintGetter = GetChildProvider, BlueprintSetter = SetChildProvider, Category = "RuntimeMesh|Providers")
     URuntimeMeshProvider* ChildProvider;
 
 	mutable FRWLock ChildLock;
@@ -119,14 +119,14 @@ public:
 public:
     URuntimeMeshProviderPassthrough();
 
-    UFUNCTION(BlueprintCallable)
+    UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers")
 	URuntimeMeshProvider* GetChildProvider() const
 	{
 		FReadScopeLock Lock(ChildLock);
 		return ChildProvider;
 	}
 
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers")
     void SetChildProvider(URuntimeMeshProvider* InProvider);
 
 	virtual void Initialize() override;

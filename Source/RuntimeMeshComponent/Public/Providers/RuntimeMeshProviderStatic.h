@@ -39,7 +39,7 @@ private:
 	
 	TArray<FRuntimeMeshMaterialSlot> LoadedMaterialSlots;
 
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY(VisibleAnywhere, Category = "RuntimeMesh|Providers|Static")
 	TArray<URuntimeMeshModifier*> CurrentMeshModifiers;
 public:
 
