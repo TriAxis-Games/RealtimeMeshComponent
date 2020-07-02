@@ -455,14 +455,16 @@ public:
 
 	void BeginNewState()
 	{
-		ObjectType* Object = CurrentReferenceController ? CurrentReferenceController->Object : nullptr;
-		check(Object);
+		if (CurrentReferenceController)
+		{
+			ObjectType* Object = CurrentReferenceController->Object;
+			check(Object);
 
-		// Destroy the old ref
-		BeginDestroy();
+			// Destroy the old ref
+			BeginDestroy();
 
-		// Create our new ref
-		CurrentReferenceController = new FRuntimeMeshReferenceObject<ObjectType>(Object);
+			CurrentReferenceController = new FRuntimeMeshReferenceObject<ObjectType>(Object);
+		}
 	}
 
 	FRuntimeMeshReference3<ObjectType> GetReference()
