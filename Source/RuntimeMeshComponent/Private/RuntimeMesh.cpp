@@ -389,6 +389,7 @@ UMaterialInterface* URuntimeMesh::GetMaterial(int32 SlotIndex)
 
 void URuntimeMesh::BeginDestroy()
 {
+	Reset();
 	GCAnchor.BeginDestroy();
 	Super::BeginDestroy();
 }
