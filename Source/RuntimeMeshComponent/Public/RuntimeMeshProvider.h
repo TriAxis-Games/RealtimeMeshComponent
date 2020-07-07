@@ -15,7 +15,7 @@ class RUNTIMEMESHCOMPONENT_API URuntimeMeshProvider : public URuntimeMeshProvide
 	GENERATED_BODY()
 protected:
 
-	FRuntimeMeshReferenceAnchor3<URuntimeMeshProvider> GCAnchor;
+	FRuntimeMeshReferenceAnchor<URuntimeMeshProvider> GCAnchor;
 
 	URuntimeMeshProviderTargetInterface* Target;
 	mutable FRWLock TargetLock;

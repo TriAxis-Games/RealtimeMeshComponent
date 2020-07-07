@@ -102,7 +102,7 @@ private:
 	// This is a GC safety construct that allows threaded referencing of this object
 	// We block the GC if shared references exist
 	// and stop new shared references from being created if it's been marked for collection
-	FRuntimeMeshReferenceAnchor3<URuntimeMesh> GCAnchor;
+	FRuntimeMeshReferenceAnchor<URuntimeMesh> GCAnchor;
 
 public:
 
