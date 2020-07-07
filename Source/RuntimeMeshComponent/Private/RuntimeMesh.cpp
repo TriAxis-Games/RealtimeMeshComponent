@@ -31,7 +31,6 @@ DECLARE_CYCLE_STAT(TEXT("RuntimeMeshDelayedActions - Finalize Collision Cooked D
 URuntimeMesh::URuntimeMesh(const FObjectInitializer& ObjectInitializer)
 	: URuntimeMeshProviderTargetInterface(ObjectInitializer)
 	, bQueuedForMeshUpdate(false)
-	//, bIsInitialized(false)
 	, bCollisionIsDirty(false)
 	, MeshProviderPtr(nullptr)
 	, BodySetup(nullptr)
@@ -41,37 +40,61 @@ URuntimeMesh::URuntimeMesh(const FObjectInitializer& ObjectInitializer)
 
 void URuntimeMesh::Initialize(URuntimeMeshProvider* Provider)
 {
-	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RM(%d): Initialize called"), FPlatformTLS::GetCurrentThreadId());
-	check(Provider);
-	if (!Provider->IsBound())
+	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RM(%d) Thread(%d): Initialize called"), GetUniqueID(), FPlatformTLS::GetCurrentThreadId());
+
+	if (Provider == nullptr)
 	{
-#if WITH_EDITOR
-		Modify(true);
-#endif
-
-		Reset();
-
-		{
-			FWriteScopeLock Lock(MeshProviderLock);
-			MeshProviderPtr = Provider;
-		}
-
-		{
-			FReadScopeLock Lock(MeshProviderLock);
-			if (MeshProviderPtr)
-			{
-				MeshProviderPtr->BindTargetProvider(this);
-				MeshProviderPtr->Initialize();
-			}
-		}
-
-#if WITH_EDITOR
-		PostEditChange();
-#endif
+		UE_LOG(RuntimeMeshLog, Verbose, TEXT("RM(%d) Thread(%d): Initialize called with a null provider... resetting"), GetUniqueID(), FPlatformTLS::GetCurrentThreadId());
+		Reset();		
+		return;
 	}
-	else if (MeshProviderPtr != Provider)
+	
 	{
-		UE_LOG(RuntimeMeshLog, Error, TEXT("Cannot bind a provider to a RuntimeMesh after it has been bound to another provider."));
+		FReadScopeLock Lock(MeshProviderLock);
+
+		// Are we already bound to this provider? If so ignore it
+		if (MeshProviderPtr == Provider)
+		{
+			UE_LOG(RuntimeMeshLog, Verbose, TEXT("RM(%d) Thread(%d): Initialize called with same provider as already bound... ignoring."), GetUniqueID(), FPlatformTLS::GetCurrentThreadId());
+			return;
+		}
+
+		// Is this new provider somehow bound to us, but not us to it? 
+		if (Provider->IsBound())
+		{
+			// Are we somehow in some invalid state where the provider is bound to us, but we're not bound to it?
+			auto OtherMeshRef = Provider->GetMeshReference().Pin();
+			if (OtherMeshRef && (OtherMeshRef.Get() == this))
+			{
+				UE_LOG(RuntimeMeshLog, Fatal, TEXT("RM(%d) Thread(%d): Initialize called with provider bound to us, but not to it..."), GetUniqueID(), FPlatformTLS::GetCurrentThreadId());
+				return;
+			}
+
+			UE_LOG(RuntimeMeshLog, Verbose, TEXT("RM(%d) Thread(%d): Initialize called with provider already bound to another RuntimeMesh... ignoring."), GetUniqueID(), FPlatformTLS::GetCurrentThreadId());
+			return;
+		}
+	}
+		
+
+#if WITH_EDITOR
+	Modify(true);
+#endif
+
+	// Clear any existing binding and all data/proxies so we start over with the new provider
+	Reset();
+
+	{
+		FWriteScopeLock Lock(MeshProviderLock);
+		MeshProviderPtr = Provider;
+	}
+
+	{
+		FReadScopeLock Lock(MeshProviderLock);
+		if (MeshProviderPtr)
+		{
+			MeshProviderPtr->BindTargetProvider(this);
+			MeshProviderPtr->Initialize();
+		}
 	}
 }
 

@@ -48,7 +48,6 @@ class RUNTIMEMESHCOMPONENT_API URuntimeMesh
 	GENERATED_UCLASS_BODY()
 
 private:
-
 	// State tracking for async thread synchronization
 	FThreadSafeBool bQueuedForMeshUpdate;
 

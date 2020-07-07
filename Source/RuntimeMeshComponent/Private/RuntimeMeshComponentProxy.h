@@ -37,12 +37,15 @@ private:
 	// Store the combined material relevance.
 	FMaterialRelevance MaterialRelevance;
 
+	FRuntimeMeshObjectId<FRuntimeMeshComponentSceneProxy> ObjectId;
 public:
 
 	/*Constructor, copies the whole mesh data to feed to UE */
 	FRuntimeMeshComponentSceneProxy(URuntimeMeshComponent* Component);
 
 	virtual ~FRuntimeMeshComponentSceneProxy();
+
+	int32 GetUniqueID() const { return ObjectId.Get(); }
 
 	void CreateRenderThreadResources() override;
 

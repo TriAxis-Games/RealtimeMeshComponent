@@ -26,7 +26,7 @@ FRuntimeMeshComponentSceneProxy::FRuntimeMeshComponentSceneProxy(URuntimeMeshCom
 	, BodySetup(Component->GetBodySetup())
 {
 	check(Component->GetRuntimeMesh() != nullptr);
-	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMCSP(%d): Created"), FPlatformTLS::GetCurrentThreadId());
+	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMCSP(%d) Thread(%d): Created"), GetUniqueID(), FPlatformTLS::GetCurrentThreadId());
 
 
 	URuntimeMesh* Mesh = Component->GetRuntimeMesh();
@@ -140,7 +140,7 @@ void FRuntimeMeshComponentSceneProxy::CreateMeshBatch(FMeshBatch& MeshBatch, con
 void FRuntimeMeshComponentSceneProxy::DrawStaticElements(FStaticPrimitiveDrawInterface* PDI)
 {
 	SCOPE_CYCLE_COUNTER(STAT_RuntimeMeshComponentSceneProxy_DrawStaticMeshElements);
-	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMCSP(%d): DrawStaticElements Called"), FPlatformTLS::GetCurrentThreadId());
+	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMCSP(%d) Thread(%d): DrawStaticElements called"), GetUniqueID(), FPlatformTLS::GetCurrentThreadId());
 
 	if (RuntimeMeshProxy->HasValidLODs())
 	{
@@ -369,7 +369,7 @@ FLODMask FRuntimeMeshComponentSceneProxy::GetLODMask(const FSceneView* View) con
 
 	if (!RuntimeMeshProxy.IsValid())
 	{
-		UE_LOG(RuntimeMeshLog, Warning, TEXT("RMCP(%d): GetLODMask failed! No bound proxy."), FPlatformTLS::GetCurrentThreadId());
+		UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMCSP(%d) Thread(%d): GetLODMask failed! No bound proxy."), GetUniqueID(), FPlatformTLS::GetCurrentThreadId());
 		Result.SetLOD(0);
 	}
 	else

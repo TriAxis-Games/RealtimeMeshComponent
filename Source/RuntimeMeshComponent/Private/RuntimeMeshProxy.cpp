@@ -22,7 +22,7 @@ FRuntimeMeshProxy::FRuntimeMeshProxy()
 	, MaxAvailableLOD(INDEX_NONE)
 	, CurrentForcedLOD(INDEX_NONE)
 {
-	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMP(%d): Created"), FPlatformTLS::GetCurrentThreadId());
+	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMP(%d) Thread(%d): Created"), GetUniqueID(), FPlatformTLS::GetCurrentThreadId());
 }
 
 FRuntimeMeshProxy::~FRuntimeMeshProxy()
@@ -75,7 +75,7 @@ void FRuntimeMeshProxy::FlushPendingUpdates()
 
 void FRuntimeMeshProxy::ResetProxy_GameThread()
 {
-	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMP(%d): ResetProxy_GameThread Called"), FPlatformTLS::GetCurrentThreadId());
+	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMP(%d) Thread(%d): ResetProxy_GameThread called"), GetUniqueID(), FPlatformTLS::GetCurrentThreadId());
 	PendingUpdates.Enqueue([this]()
 		{
 			ResetProxy_RenderThread();
@@ -85,7 +85,7 @@ void FRuntimeMeshProxy::ResetProxy_GameThread()
 
 void FRuntimeMeshProxy::InitializeLODs_GameThread(const TArray<FRuntimeMeshLODProperties>& InProperties)
 {
-	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMP(%d): InitializeLODs_GameThread Called"), FPlatformTLS::GetCurrentThreadId());
+	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMP(%d) Thread(%d): InitializeLODs_GameThread called"), GetUniqueID(), FPlatformTLS::GetCurrentThreadId());
 	PendingUpdates.Enqueue([this, InProperties]()
 		{
 			InitializeLODs_RenderThread(InProperties);
@@ -94,7 +94,7 @@ void FRuntimeMeshProxy::InitializeLODs_GameThread(const TArray<FRuntimeMeshLODPr
 }
 void FRuntimeMeshProxy::ClearAllSectionsForLOD_GameThread(int32 LODIndex)
 {
-	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMP(%d): ClearAllSectionsForLOD_GameThread Called"), FPlatformTLS::GetCurrentThreadId());
+	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMP(%d) Thread(%d): ClearAllSectionsForLOD_GameThread called"), GetUniqueID(), FPlatformTLS::GetCurrentThreadId());
 	PendingUpdates.Enqueue([this, LODIndex]()
 		{
 			ClearAllSectionsForLOD_RenderThread(LODIndex);
@@ -103,7 +103,7 @@ void FRuntimeMeshProxy::ClearAllSectionsForLOD_GameThread(int32 LODIndex)
 }
 void FRuntimeMeshProxy::RemoveAllSectionsForLOD_GameThread(int32 LODIndex)
 {
-	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMP(%d): RemoveAllSectionsForLOD_GameThread Called"), FPlatformTLS::GetCurrentThreadId());
+	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMP(%d) Thread(%d): RemoveAllSectionsForLOD_GameThread called"), GetUniqueID(), FPlatformTLS::GetCurrentThreadId());
 	PendingUpdates.Enqueue([this, LODIndex]()
 		{
 			RemoveAllSectionsForLOD_RenderThread(LODIndex);
@@ -113,7 +113,7 @@ void FRuntimeMeshProxy::RemoveAllSectionsForLOD_GameThread(int32 LODIndex)
 
 void FRuntimeMeshProxy::CreateOrUpdateSection_GameThread(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& InProperties, bool bShouldReset)
 {
-	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMP(%d): CreateOrUpdateSection_GameThread Called"), FPlatformTLS::GetCurrentThreadId());
+	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMP(%d) Thread(%d): CreateOrUpdateSection_GameThread called"), GetUniqueID(), FPlatformTLS::GetCurrentThreadId());
 	PendingUpdates.Enqueue([this, LODIndex, SectionId, InProperties, bShouldReset]()
 		{
 			CreateOrUpdateSection_RenderThread(LODIndex, SectionId, InProperties, bShouldReset);
@@ -122,7 +122,7 @@ void FRuntimeMeshProxy::CreateOrUpdateSection_GameThread(int32 LODIndex, int32 S
 }
 void FRuntimeMeshProxy::SetSectionsForLOD_GameThread(int32 LODIndex, const TMap<int32, FRuntimeMeshSectionProperties>& InProperties, bool bShouldReset)
 {
-	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMP(%d): SetSectionsForLOD_GameThread Called"), FPlatformTLS::GetCurrentThreadId());
+	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMP(%d) Thread(%d): SetSectionsForLOD_GameThread called"), GetUniqueID(), FPlatformTLS::GetCurrentThreadId());
 	PendingUpdates.Enqueue([this, LODIndex, InProperties, bShouldReset]()
 		{
 			SetSectionsForLOD_RenderThread(LODIndex, InProperties, bShouldReset);
@@ -131,7 +131,7 @@ void FRuntimeMeshProxy::SetSectionsForLOD_GameThread(int32 LODIndex, const TMap<
 }
 void FRuntimeMeshProxy::UpdateSectionMesh_GameThread(int32 LODIndex, int32 SectionId, const TSharedPtr<FRuntimeMeshSectionUpdateData>& MeshData)
 {
-	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMP(%d): UpdateSectionMesh_GameThread Called"), FPlatformTLS::GetCurrentThreadId());
+	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMP(%d) Thread(%d): UpdateSectionMesh_GameThread called"), GetUniqueID(), FPlatformTLS::GetCurrentThreadId());
 	PendingUpdates.Enqueue([this, LODIndex, SectionId, MeshData]()
 		{
 			UpdateSectionMesh_RenderThread(LODIndex, SectionId, MeshData);
@@ -140,7 +140,7 @@ void FRuntimeMeshProxy::UpdateSectionMesh_GameThread(int32 LODIndex, int32 Secti
 }
 void FRuntimeMeshProxy::UpdateMultipleSectionsMesh_GameThread(int32 LODIndex, const TMap<int32, TSharedPtr<FRuntimeMeshSectionUpdateData>>& MeshData)
 {
-	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMP(%d): UpdateMultipleSectionsMesh_GameThread Called"), FPlatformTLS::GetCurrentThreadId());
+	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMP(%d) Thread(%d): UpdateMultipleSectionsMesh_GameThread called"), GetUniqueID(), FPlatformTLS::GetCurrentThreadId());
 	PendingUpdates.Enqueue([this, LODIndex, MeshData]()
 		{
 			UpdateMultipleSectionsMesh_RenderThread(LODIndex, MeshData);
@@ -149,7 +149,7 @@ void FRuntimeMeshProxy::UpdateMultipleSectionsMesh_GameThread(int32 LODIndex, co
 }
 void FRuntimeMeshProxy::ClearSection_GameThread(int32 LODIndex, int32 SectionId)
 {
-	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMP(%d): ClearSection_GameThread Called"), FPlatformTLS::GetCurrentThreadId());
+	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMP(%d) Thread(%d): ClearSection_GameThread called"), GetUniqueID(), FPlatformTLS::GetCurrentThreadId());
 	PendingUpdates.Enqueue([this, LODIndex, SectionId]()
 		{
 			ClearSection_RenderThread(LODIndex, SectionId);
@@ -158,7 +158,7 @@ void FRuntimeMeshProxy::ClearSection_GameThread(int32 LODIndex, int32 SectionId)
 }
 void FRuntimeMeshProxy::RemoveSection_GameThread(int32 LODIndex, int32 SectionId)
 {
-	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMP(%d): RemoveSection_GameThread Called"), FPlatformTLS::GetCurrentThreadId());
+	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMP(%d) Thread(%d): RemoveSection_GameThread called"), GetUniqueID(), FPlatformTLS::GetCurrentThreadId());
 	PendingUpdates.Enqueue([this, LODIndex, SectionId]()
 		{
 			RemoveSection_RenderThread(LODIndex, SectionId);
@@ -169,7 +169,7 @@ void FRuntimeMeshProxy::RemoveSection_GameThread(int32 LODIndex, int32 SectionId
 
 void FRuntimeMeshProxy::ResetProxy_RenderThread()
 {
-	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMP(%d): ResetProxy_RenderThread Called"), FPlatformTLS::GetCurrentThreadId());
+	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMP(%d) Thread(%d): ResetProxy_RenderThread called"), GetUniqueID(), FPlatformTLS::GetCurrentThreadId());
 	check(IsInRenderingThread());
 
 	LODs.Empty();
@@ -177,7 +177,7 @@ void FRuntimeMeshProxy::ResetProxy_RenderThread()
 
 void FRuntimeMeshProxy::InitializeLODs_RenderThread(const TArray<FRuntimeMeshLODProperties>& InProperties)
 {
-	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMP(%d): InitializeLODs_RenderThread Called"), FPlatformTLS::GetCurrentThreadId());
+	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMP(%d) Thread(%d): InitializeLODs_RenderThread called"), GetUniqueID(), FPlatformTLS::GetCurrentThreadId());
 	check(IsInRenderingThread());
 
 	LODs.SetNum(InProperties.Num());
@@ -197,14 +197,14 @@ void FRuntimeMeshProxy::InitializeLODs_RenderThread(const TArray<FRuntimeMeshLOD
 
 void FRuntimeMeshProxy::ClearAllSectionsForLOD_RenderThread(int32 LODIndex)
 {
-	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMP(%d): ClearAllSectionsForLOD_RenderThread Called"), FPlatformTLS::GetCurrentThreadId());
+	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMP(%d) Thread(%d): ClearAllSectionsForLOD_RenderThread called"), GetUniqueID(), FPlatformTLS::GetCurrentThreadId());
 	check(IsInRenderingThread());
 
 }
 
 void FRuntimeMeshProxy::RemoveAllSectionsForLOD_RenderThread(int32 LODIndex)
 {
-	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMP(%d): RemoveAllSectionsForLOD_RenderThread Called"), FPlatformTLS::GetCurrentThreadId());
+	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMP(%d) Thread(%d): RemoveAllSectionsForLOD_RenderThread called"), GetUniqueID(), FPlatformTLS::GetCurrentThreadId());
 	check(IsInRenderingThread());
 
 	if (LODs.IsValidIndex(LODIndex))
@@ -221,7 +221,7 @@ void FRuntimeMeshProxy::RemoveAllSectionsForLOD_RenderThread(int32 LODIndex)
 
 void FRuntimeMeshProxy::CreateOrUpdateSection_RenderThread(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& InProperties, bool bShouldReset)
 {
-	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMP(%d): CreateOrUpdateSection_RenderThread Called"), FPlatformTLS::GetCurrentThreadId());
+	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMP(%d) Thread(%d): CreateOrUpdateSection_RenderThread called"), GetUniqueID(), FPlatformTLS::GetCurrentThreadId());
 	check(IsInRenderingThread());
 
 	if (LODs.IsValidIndex(LODIndex))
@@ -254,7 +254,7 @@ void FRuntimeMeshProxy::CreateOrUpdateSection_RenderThread(int32 LODIndex, int32
 
 void FRuntimeMeshProxy::SetSectionsForLOD_RenderThread(int32 LODIndex, const TMap<int32, FRuntimeMeshSectionProperties>& InProperties, bool bShouldReset)
 {
-	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMP(%d): SetSectionsForLOD_RenderThread Called"), FPlatformTLS::GetCurrentThreadId());
+	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMP(%d) Thread(%d): SetSectionsForLOD_RenderThread called"), GetUniqueID(), FPlatformTLS::GetCurrentThreadId());
 	check(IsInRenderingThread());
 
 	if (LODs.IsValidIndex(LODIndex))
@@ -304,7 +304,7 @@ void FRuntimeMeshProxy::SetSectionsForLOD_RenderThread(int32 LODIndex, const TMa
 
 void FRuntimeMeshProxy::UpdateSectionMesh_RenderThread(int32 LODIndex, int32 SectionId, const TSharedPtr<FRuntimeMeshSectionUpdateData>& MeshData)
 {
-	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMP(%d): UpdateSectionMesh_RenderThread Called"), FPlatformTLS::GetCurrentThreadId());
+	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMP(%d) Thread(%d): UpdateSectionMesh_RenderThread called"), GetUniqueID(), FPlatformTLS::GetCurrentThreadId());
 	check(IsInRenderingThread());
 
 
@@ -332,7 +332,7 @@ void FRuntimeMeshProxy::UpdateSectionMesh_RenderThread(int32 LODIndex, int32 Sec
 
 void FRuntimeMeshProxy::UpdateMultipleSectionsMesh_RenderThread(int32 LODIndex, const TMap<int32, TSharedPtr<FRuntimeMeshSectionUpdateData>>& MeshDatas)
 {
-	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMP(%d): UpdateMultipleSectionsMesh_RenderThread Called"), FPlatformTLS::GetCurrentThreadId());
+	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMP(%d) Thread(%d): UpdateMultipleSectionsMesh_RenderThread called"), GetUniqueID(), FPlatformTLS::GetCurrentThreadId());
 	check(IsInRenderingThread());
 
 	if (LODs.IsValidIndex(LODIndex))
@@ -365,7 +365,7 @@ void FRuntimeMeshProxy::UpdateMultipleSectionsMesh_RenderThread(int32 LODIndex, 
 
 void FRuntimeMeshProxy::ClearSection_RenderThread(int32 LODIndex, int32 SectionId)
 {
-	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMP(%d): ClearSection_RenderThread Called"), FPlatformTLS::GetCurrentThreadId());
+	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMP(%d) Thread(%d): ClearSection_RenderThread called"), GetUniqueID(), FPlatformTLS::GetCurrentThreadId());
 	check(IsInRenderingThread());
 
 	if (LODs.IsValidIndex(LODIndex))
@@ -391,7 +391,7 @@ void FRuntimeMeshProxy::ClearSection_RenderThread(int32 LODIndex, int32 SectionI
 
 void FRuntimeMeshProxy::RemoveSection_RenderThread(int32 LODIndex, int32 SectionId)
 {
-	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMP(%d): RemoveSection_RenderThread Called"), FPlatformTLS::GetCurrentThreadId());
+	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMP(%d) Thread(%d): RemoveSection_RenderThread called"), GetUniqueID(), FPlatformTLS::GetCurrentThreadId());
 	check(IsInRenderingThread());
 
 	if (LODs.IsValidIndex(LODIndex))
@@ -470,7 +470,7 @@ void FRuntimeMeshProxy::ApplyMeshToSection(FRuntimeMeshSectionProxy& Section, FR
 	FRuntimeMeshSectionProxyBuffers& Buffers = *Section.Buffers.Get();
 
 
-	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMP(%d): ApplyMeshToSection Called"), FPlatformTLS::GetCurrentThreadId());
+	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMP(%d) Thread(%d): ApplyMeshToSection called"), GetUniqueID(), FPlatformTLS::GetCurrentThreadId());
 
 
 	// Update all buffers data
@@ -509,5 +509,5 @@ void FRuntimeMeshProxy::ApplyMeshToSection(FRuntimeMeshSectionProxy& Section, FR
 	}
 
 
-	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMP(%d): ApplyMeshToSection Finished"), FPlatformTLS::GetCurrentThreadId());
+	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMP(%d) Thread(%d): ApplyMeshToSection finished"), GetUniqueID(), FPlatformTLS::GetCurrentThreadId());
 }

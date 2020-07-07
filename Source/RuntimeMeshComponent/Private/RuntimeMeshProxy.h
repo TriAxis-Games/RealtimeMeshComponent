@@ -29,9 +29,12 @@ class FRuntimeMeshProxy
 
 	int8 CurrentForcedLOD;
 
+	FRuntimeMeshObjectId<FRuntimeMeshProxy> ObjectId;
 public:
 	FRuntimeMeshProxy();
 	~FRuntimeMeshProxy();
+
+	int32 GetUniqueID() const { return ObjectId.Get(); }
 
 	bool ShouldRender() const { return bShouldRender; }
 	bool ShouldRenderStatic() const { return bShouldRenderStatic; }

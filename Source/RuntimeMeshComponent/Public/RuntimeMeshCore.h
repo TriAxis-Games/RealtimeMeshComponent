@@ -157,7 +157,27 @@ struct FRuntimeMeshMisc
 	}
 };
 
+template<typename OwningType>
+struct FRuntimeMeshObjectId
+{
+private:
+	static FThreadSafeCounter ObjectIdCounter;
 
+public:
+	FRuntimeMeshObjectId()
+		: ObjectId(ObjectIdCounter.Increment()) { }
+	FRuntimeMeshObjectId(const FRuntimeMeshObjectId& Other)
+		: ObjectId(Other.ObjectId) { }
+	int32 Get() const { return ObjectId; }
+
+	operator int32() const { return ObjectId; }
+
+private:
+	const int32 ObjectId;
+};
+
+template<typename OwningType>
+FThreadSafeCounter FRuntimeMeshObjectId<OwningType>::ObjectIdCounter;
 
 
 #if ENGINE_MAJOR_VERSION <= 4 && ENGINE_MINOR_VERSION < 24
