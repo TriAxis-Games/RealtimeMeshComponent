@@ -49,9 +49,16 @@ void FRuntimeMeshProxy::QueueForUpdate()
 
 	if (!IsQueuedForUpdate.AtomicSet(true)/* && GRenderingThread && !GIsRenderingThreadSuspended.Load(EMemoryOrder::Relaxed)*/)
 	{
-		ENQUEUE_RENDER_COMMAND(FRuntimeMeshProxy_Update)([this](FRHICommandListImmediate& RHICmdList)
+		TWeakPtr<FRuntimeMeshProxy, ESPMode::ThreadSafe> WeakThis = this->AsShared();
+
+
+		ENQUEUE_RENDER_COMMAND(FRuntimeMeshProxy_Update)([WeakThis](FRHICommandListImmediate& RHICmdList)
 			{
-				FlushPendingUpdates();
+				auto Pinned = WeakThis.Pin();
+				if (Pinned)
+				{
+					Pinned->FlushPendingUpdates();
+				}
 			});
 	}
 }
@@ -171,6 +178,16 @@ void FRuntimeMeshProxy::ResetProxy_RenderThread()
 {
 	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMP(%d) Thread(%d): ResetProxy_RenderThread called"), GetUniqueID(), FPlatformTLS::GetCurrentThreadId());
 	check(IsInRenderingThread());
+
+	bShouldRender = false;
+	bShouldRenderStatic = false;
+	bShouldRenderDynamic = false;
+	bShouldRenderShadow = false;
+
+	MinAvailableLOD = INDEX_NONE;
+	MaxAvailableLOD = INDEX_NONE;
+
+	CurrentForcedLOD = INDEX_NONE;
 
 	LODs.Empty();
 }

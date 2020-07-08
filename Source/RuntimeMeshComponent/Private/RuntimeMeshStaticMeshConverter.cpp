@@ -301,10 +301,12 @@ bool URuntimeMeshStaticMeshConverter::CopyStaticMeshLODToCollisionData(UStaticMe
 bool URuntimeMeshStaticMeshConverter::CopyStaticMeshToRuntimeMesh(UStaticMesh* StaticMesh, URuntimeMeshComponent* RuntimeMeshComponent, int32 CollisionLODIndex, int32 MaxLODToCopy)
 {
 	URuntimeMeshProviderStatic* StaticProvider = Cast<URuntimeMeshProviderStatic>(RuntimeMeshComponent->GetProvider());
+	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMSMC(%d) Thread(%d): StaticMesh to RuntimeMesh conversion started."), RuntimeMeshComponent->GetUniqueID(), FPlatformTLS::GetCurrentThreadId());
 
 	// Not able to convert to RMC without a static provider
 	if (StaticProvider == nullptr)
 	{
+		UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMSMC(%d) Thread(%d): Unable to convert StaticMesh to RuntimeMesh. No StaticProvider present."), RuntimeMeshComponent->GetUniqueID(), FPlatformTLS::GetCurrentThreadId());
 		return false;
 	}
 
@@ -312,6 +314,7 @@ bool URuntimeMeshStaticMeshConverter::CopyStaticMeshToRuntimeMesh(UStaticMesh* S
 	// Check valid static mesh
 	if (StaticMesh == nullptr || StaticMesh->IsPendingKill())
 	{
+		UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMSMC(%d) Thread(%d): Unable to convert StaticMesh to RuntimeMesh. Invalid source StaticMesh."), RuntimeMeshComponent->GetUniqueID(), FPlatformTLS::GetCurrentThreadId());
 		StaticProvider->ConfigureLODs({ FRuntimeMeshLODProperties() });
 		StaticProvider->SetCollisionMesh(FRuntimeMeshCollisionData());
 		StaticProvider->SetCollisionSettings(FRuntimeMeshCollisionSettings());
@@ -321,6 +324,7 @@ bool URuntimeMeshStaticMeshConverter::CopyStaticMeshToRuntimeMesh(UStaticMesh* S
 	// Check mesh data is accessible
 	if (!((GIsEditor || StaticMesh->bAllowCPUAccess) && StaticMesh->RenderData != nullptr))
 	{
+		UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMSMC(%d) Thread(%d): Unable to convert StaticMesh to RuntimeMesh. Invalid source StaticMesh."), RuntimeMeshComponent->GetUniqueID(), FPlatformTLS::GetCurrentThreadId());
 		StaticProvider->ConfigureLODs({ FRuntimeMeshLODProperties() });
 		StaticProvider->SetCollisionMesh(FRuntimeMeshCollisionData());
 		StaticProvider->SetCollisionSettings(FRuntimeMeshCollisionSettings());

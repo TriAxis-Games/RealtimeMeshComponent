@@ -121,10 +121,15 @@ void URuntimeMesh::Reset()
 	bCollisionIsDirty = false;
 
 	LODs.Empty();
-	RenderProxy.Reset();
 	MaterialSlots.Empty();
 	SlotNameLookup.Empty();
 	SectionsToUpdate.Empty();
+
+	if (RenderProxy)
+	{
+		RenderProxy->ResetProxy_GameThread();
+		RenderProxy.Reset();
+	}
 
 	for (const auto& LinkedComponent : LinkedComponents)
 	{

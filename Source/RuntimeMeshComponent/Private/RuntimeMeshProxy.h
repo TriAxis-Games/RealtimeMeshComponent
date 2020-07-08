@@ -11,7 +11,7 @@
 /**
  *
  */
-class FRuntimeMeshProxy
+class FRuntimeMeshProxy : public TSharedFromThis<FRuntimeMeshProxy, ESPMode::ThreadSafe>
 {
 	TInlineLODArray<FRuntimeMeshLODData> LODs;
 
