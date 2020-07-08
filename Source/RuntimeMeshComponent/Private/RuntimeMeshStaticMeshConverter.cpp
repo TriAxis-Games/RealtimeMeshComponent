@@ -27,13 +27,22 @@ int32 URuntimeMeshStaticMeshConverter::CopyVertexOrGetIndex(const FStaticMeshLOD
 			LOD.VertexBuffers.StaticMeshVertexBuffer.VertexTangentY(VertexIndex),
 			LOD.VertexBuffers.StaticMeshVertexBuffer.VertexTangentZ(VertexIndex));
 
-		// Copy UV's
-		for (uint32 UVIndex = 0; UVIndex < LOD.VertexBuffers.StaticMeshVertexBuffer.GetNumTexCoords(); UVIndex++)
-		{
-			NewMeshData.TexCoords.Add(LOD.VertexBuffers.StaticMeshVertexBuffer.GetVertexUV(VertexIndex, UVIndex), UVIndex);
-		}
+		int32 NumTexCoords = LOD.VertexBuffers.StaticMeshVertexBuffer.GetNumTexCoords();
 
-		
+		// Copy UV's
+		if (NumTexCoords > 0)
+		{
+			int32 TexcoordVertIdx = NewMeshData.TexCoords.Add(LOD.VertexBuffers.StaticMeshVertexBuffer.GetVertexUV(VertexIndex, 0), 0);
+
+			for (int32 TexIndex = 1; TexIndex < NumTexCoords; TexIndex++)
+			{
+				NewMeshData.TexCoords.SetTexCoord(TexcoordVertIdx, LOD.VertexBuffers.StaticMeshVertexBuffer.GetVertexUV(VertexIndex, TexIndex), TexIndex);
+			}
+		}
+		else
+		{
+			NewMeshData.TexCoords.Add(FVector2D::ZeroVector);
+		}		
 
 		// Copy Color
 
@@ -44,6 +53,10 @@ int32 URuntimeMeshStaticMeshConverter::CopyVertexOrGetIndex(const FStaticMeshLOD
 #endif
 		{
 			NewMeshData.Colors.Add(LOD.VertexBuffers.ColorVertexBuffer.VertexColor(VertexIndex));
+		}
+		else
+		{
+			NewMeshData.Colors.Add(FColor::White);
 		}
 
 		MeshToSectionVertexMap.Add(VertexIndex, NewVertexIndex);
