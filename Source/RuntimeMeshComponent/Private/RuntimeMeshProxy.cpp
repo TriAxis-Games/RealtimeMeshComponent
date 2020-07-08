@@ -49,12 +49,11 @@ void FRuntimeMeshProxy::QueueForUpdate()
 
 	if (!IsQueuedForUpdate.AtomicSet(true)/* && GRenderingThread && !GIsRenderingThreadSuspended.Load(EMemoryOrder::Relaxed)*/)
 	{
-		TWeakPtr<FRuntimeMeshProxy, ESPMode::ThreadSafe> WeakThis = this->AsShared();
+		TWeakPtr<FRuntimeMeshProxy, ESPMode::ThreadSafe> ThisWeakRef = this->AsShared();
 
-
-		ENQUEUE_RENDER_COMMAND(FRuntimeMeshProxy_Update)([WeakThis](FRHICommandListImmediate& RHICmdList)
+		ENQUEUE_RENDER_COMMAND(FRuntimeMeshProxy_Update)([ThisWeakRef](FRHICommandListImmediate& RHICmdList)
 			{
-				auto Pinned = WeakThis.Pin();
+				auto Pinned = ThisWeakRef.Pin();
 				if (Pinned)
 				{
 					Pinned->FlushPendingUpdates();
