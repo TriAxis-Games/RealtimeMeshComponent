@@ -591,6 +591,8 @@ struct FRuntimeMeshRenderThreadDeleter
 	}
 };
 
+#define RMC_LOG_VERBOSE(Format, ...) \
+	UE_LOG(RuntimeMeshLog2, Verbose, TEXT("[Thread:%d]: " Format), FPlatformTLS::GetCurrentThreadId(), __VA_ARGS__);
 
 
 template<bool bIsInRenderThread>
@@ -598,7 +600,7 @@ void FRuntimeMeshSectionUpdateData::CreateRHIBuffers(bool bShouldUseDynamicBuffe
 {
 	if (!bBuffersCreated)
 	{
-		UE_LOG(RuntimeMeshLog, Verbose, TEXT("RM(%d): Creating GPU buffers for section."), FPlatformTLS::GetCurrentThreadId());
+		RMC_LOG_VERBOSE("Creating GPU buffers for section.");
 
 		PositionsBuffer = FRuntimeMeshVertexBuffer::CreateRHIBuffer<bIsInRenderThread>(Positions, bShouldUseDynamicBuffers);
 		TangentsBuffer = FRuntimeMeshVertexBuffer::CreateRHIBuffer<bIsInRenderThread>(Tangents, bShouldUseDynamicBuffers);
@@ -611,3 +613,6 @@ void FRuntimeMeshSectionUpdateData::CreateRHIBuffers(bool bShouldUseDynamicBuffe
 		bBuffersCreated = true;
 	}
 }
+
+
+#undef RMC_LOG_VERBOSE

@@ -14,8 +14,6 @@ URuntimeMeshComponentStatic::URuntimeMeshComponentStatic()
 
 void URuntimeMeshComponentStatic::OnRegister()
 {
-	Super::OnRegister();
-
 	if (RuntimeMesh)
 	{
 		StaticProvider = CastChecked<URuntimeMeshProviderStatic>(RuntimeMesh->GetProviderPtr());
@@ -24,7 +22,9 @@ void URuntimeMeshComponentStatic::OnRegister()
 	else
 	{
 		Initialize(StaticProvider);
-	}	
+	}
+
+	Super::OnRegister();
 }
 
 void URuntimeMeshComponentStatic::CreateSection_Blueprint(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties & SectionProperties, const FRuntimeMeshRenderableMeshData & SectionData)

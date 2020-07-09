@@ -20,13 +20,15 @@ DECLARE_CYCLE_STAT(TEXT("RuntimeMeshComponentSceneProxy - Get Dynamic Mesh Eleme
 DECLARE_CYCLE_STAT(TEXT("RuntimeMeshComponentSceneProxy - Draw Static Mesh Elements"), STAT_RuntimeMeshComponentSceneProxy_DrawStaticMeshElements, STATGROUP_RuntimeMesh);
 DECLARE_CYCLE_STAT(TEXT("RuntimeMeshComponentSceneProxy - Get Dynamic Ray Tracing Instances"), STAT_RuntimeMeshComponentSceneProxy_GetDynamicRayTracingInstances, STATGROUP_RuntimeMesh);
 
+#define RMC_LOG_VERBOSE(Format, ...) \
+	UE_LOG(RuntimeMeshLog2, Verbose, TEXT("[RMCSP:%d Mesh:%d Thread:%d]: " Format), GetUniqueID(), (RuntimeMeshProxy? RuntimeMeshProxy->GetMeshID() : -1), FPlatformTLS::GetCurrentThreadId(), __VA_ARGS__);
 
 FRuntimeMeshComponentSceneProxy::FRuntimeMeshComponentSceneProxy(URuntimeMeshComponent* Component) 
 	: FPrimitiveSceneProxy(Component)
 	, BodySetup(Component->GetBodySetup())
 {
 	check(Component->GetRuntimeMesh() != nullptr);
-	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMCSP(%d) Thread(%d): Created"), GetUniqueID(), FPlatformTLS::GetCurrentThreadId());
+	RMC_LOG_VERBOSE("Created");
 
 
 	URuntimeMesh* Mesh = Component->GetRuntimeMesh();
@@ -71,7 +73,7 @@ FRuntimeMeshComponentSceneProxy::FRuntimeMeshComponentSceneProxy(URuntimeMeshCom
 
 FRuntimeMeshComponentSceneProxy::~FRuntimeMeshComponentSceneProxy()
 {
-
+	RMC_LOG_VERBOSE("Destroyed");
 }
 
 void FRuntimeMeshComponentSceneProxy::CreateRenderThreadResources()
@@ -140,7 +142,8 @@ void FRuntimeMeshComponentSceneProxy::CreateMeshBatch(FMeshBatch& MeshBatch, con
 void FRuntimeMeshComponentSceneProxy::DrawStaticElements(FStaticPrimitiveDrawInterface* PDI)
 {
 	SCOPE_CYCLE_COUNTER(STAT_RuntimeMeshComponentSceneProxy_DrawStaticMeshElements);
-	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMCSP(%d) Thread(%d): DrawStaticElements called"), GetUniqueID(), FPlatformTLS::GetCurrentThreadId());
+
+	RMC_LOG_VERBOSE("DrawStaticElements called");
 
 	if (RuntimeMeshProxy->HasValidLODs())
 	{
@@ -181,7 +184,6 @@ void FRuntimeMeshComponentSceneProxy::DrawStaticElements(FStaticPrimitiveDrawInt
 void FRuntimeMeshComponentSceneProxy::GetDynamicMeshElements(const TArray<const FSceneView*>& Views, const FSceneViewFamily& ViewFamily, uint32 VisibilityMap, FMeshElementCollector& Collector) const
 {
 	SCOPE_CYCLE_COUNTER(STAT_RuntimeMeshComponentSceneProxy_GetDynamicMeshElements);
-	//UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMCSP(%d): GetDynamicMeshElements Called"), FPlatformTLS::GetCurrentThreadId());
 
 	// Set up wireframe material (if needed)
 	const bool bWireframe = AllowDebugViewmodes() && ViewFamily.EngineShowFlags.Wireframe;
@@ -369,7 +371,7 @@ FLODMask FRuntimeMeshComponentSceneProxy::GetLODMask(const FSceneView* View) con
 
 	if (!RuntimeMeshProxy.IsValid())
 	{
-		UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMCSP(%d) Thread(%d): GetLODMask failed! No bound proxy."), GetUniqueID(), FPlatformTLS::GetCurrentThreadId());
+		RMC_LOG_VERBOSE("GetLODMask failed! No bound proxy.");
 		Result.SetLOD(0);
 	}
 	else
@@ -435,3 +437,7 @@ int32 FRuntimeMeshComponentSceneProxy::GetLOD(const FSceneView* View) const
 
 	return ComputeStaticMeshLOD(ProxyBounds.Origin, ProxyBounds.SphereRadius, *View, 0, InvScreenSizeScale);
 }
+
+
+
+#undef RMC_LOG_VERBOSE

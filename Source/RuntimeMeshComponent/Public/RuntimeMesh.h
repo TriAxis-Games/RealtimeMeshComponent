@@ -103,7 +103,10 @@ private:
 	// and stop new shared references from being created if it's been marked for collection
 	FRuntimeMeshReferenceAnchor<URuntimeMesh> GCAnchor;
 
+	FRuntimeMeshObjectId<URuntimeMesh> MeshId;
 public:
+
+	uint32 GetMeshId() const { return MeshId; }
 
 	UFUNCTION(BlueprintCallable, Category="Components|RuntimeMesh")
 	void Initialize(URuntimeMeshProvider* Provider);

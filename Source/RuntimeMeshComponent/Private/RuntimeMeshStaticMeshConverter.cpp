@@ -9,6 +9,10 @@
 #include "RuntimeMeshComponent.h"
 #include "Providers/RuntimeMeshProviderStatic.h"
 
+#define RMC_LOG_VERBOSE(MeshId, Format, ...) \
+	UE_LOG(RuntimeMeshLog2, Verbose, TEXT("[SMC->RMC Mesh:%d Thread:%d]: " Format), MeshId, FPlatformTLS::GetCurrentThreadId(), __VA_ARGS__);
+
+
 int32 URuntimeMeshStaticMeshConverter::CopyVertexOrGetIndex(const FStaticMeshLODResources& LOD, const FStaticMeshSection& Section, TMap<int32, int32>& MeshToSectionVertexMap, int32 VertexIndex, FRuntimeMeshRenderableMeshData& NewMeshData)
 {
 	int32* FoundIndex = MeshToSectionVertexMap.Find(VertexIndex);
@@ -311,15 +315,16 @@ bool URuntimeMeshStaticMeshConverter::CopyStaticMeshLODToCollisionData(UStaticMe
 	return true;
 }
 
+
 bool URuntimeMeshStaticMeshConverter::CopyStaticMeshToRuntimeMesh(UStaticMesh* StaticMesh, URuntimeMeshComponent* RuntimeMeshComponent, int32 CollisionLODIndex, int32 MaxLODToCopy)
 {
 	URuntimeMeshProviderStatic* StaticProvider = Cast<URuntimeMeshProviderStatic>(RuntimeMeshComponent->GetProvider());
-	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMSMC(%d) Thread(%d): StaticMesh to RuntimeMesh conversion started."), RuntimeMeshComponent->GetUniqueID(), FPlatformTLS::GetCurrentThreadId());
+	RMC_LOG_VERBOSE(RuntimeMeshComponent->GetRuntimeMeshId(), "StaticMesh to RuntimeMesh conversion started")
 
 	// Not able to convert to RMC without a static provider
 	if (StaticProvider == nullptr)
 	{
-		UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMSMC(%d) Thread(%d): Unable to convert StaticMesh to RuntimeMesh. No StaticProvider present."), RuntimeMeshComponent->GetUniqueID(), FPlatformTLS::GetCurrentThreadId());
+		RMC_LOG_VERBOSE(RuntimeMeshComponent->GetRuntimeMeshId(), "Unable to convert StaticMesh to RuntimeMesh. No StaticProvider present.");
 		return false;
 	}
 
@@ -327,7 +332,7 @@ bool URuntimeMeshStaticMeshConverter::CopyStaticMeshToRuntimeMesh(UStaticMesh* S
 	// Check valid static mesh
 	if (StaticMesh == nullptr || StaticMesh->IsPendingKill())
 	{
-		UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMSMC(%d) Thread(%d): Unable to convert StaticMesh to RuntimeMesh. Invalid source StaticMesh."), RuntimeMeshComponent->GetUniqueID(), FPlatformTLS::GetCurrentThreadId());
+		RMC_LOG_VERBOSE(RuntimeMeshComponent->GetRuntimeMeshId(), "Unable to convert StaticMesh to RuntimeMesh. Invalid source StaticMesh.");
 		StaticProvider->ConfigureLODs({ FRuntimeMeshLODProperties() });
 		StaticProvider->SetCollisionMesh(FRuntimeMeshCollisionData());
 		StaticProvider->SetCollisionSettings(FRuntimeMeshCollisionSettings());
@@ -337,7 +342,7 @@ bool URuntimeMeshStaticMeshConverter::CopyStaticMeshToRuntimeMesh(UStaticMesh* S
 	// Check mesh data is accessible
 	if (!((GIsEditor || StaticMesh->bAllowCPUAccess) && StaticMesh->RenderData != nullptr))
 	{
-		UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMSMC(%d) Thread(%d): Unable to convert StaticMesh to RuntimeMesh. Invalid source StaticMesh."), RuntimeMeshComponent->GetUniqueID(), FPlatformTLS::GetCurrentThreadId());
+		RMC_LOG_VERBOSE(RuntimeMeshComponent->GetRuntimeMeshId(), "Unable to convert StaticMesh to RuntimeMesh. Invalid source StaticMesh.");
 		StaticProvider->ConfigureLODs({ FRuntimeMeshLODProperties() });
 		StaticProvider->SetCollisionMesh(FRuntimeMeshCollisionData());
 		StaticProvider->SetCollisionSettings(FRuntimeMeshCollisionSettings());
@@ -407,3 +412,5 @@ bool URuntimeMeshStaticMeshConverter::CopyStaticMeshComponentToRuntimeMesh(UStat
 	return false;
 }
 
+
+#undef RMC_LOG_VERBOSE

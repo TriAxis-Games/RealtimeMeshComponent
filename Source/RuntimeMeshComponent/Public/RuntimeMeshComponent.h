@@ -30,6 +30,8 @@ private:
 public:
 	URuntimeMeshComponent();
 
+	uint32 GetRuntimeMeshId() const { return RuntimeMeshReference? RuntimeMeshReference->GetMeshId() : -1; }
+
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMeshComponent")
 	void Initialize(URuntimeMeshProvider* Provider)
 	{

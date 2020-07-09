@@ -23,7 +23,8 @@ DECLARE_CYCLE_STAT(TEXT("RuntimeMeshDelayedActions - Finish Collision Async Cook
 DECLARE_CYCLE_STAT(TEXT("RuntimeMeshDelayedActions - Finalize Collision Cooked Data"), STAT_RuntimeMesh_FinalizeCollisionCookedData, STATGROUP_RuntimeMesh);
 
 
-
+#define RMC_LOG_VERBOSE(Format, ...) \
+	UE_LOG(RuntimeMeshLog2, Verbose, TEXT("[RM:%d Thread:%d]: " Format), GetMeshId(), FPlatformTLS::GetCurrentThreadId(), __VA_ARGS__);
 
 //////////////////////////////////////////////////////////////////////////
 //	URuntimeMesh
@@ -40,40 +41,50 @@ URuntimeMesh::URuntimeMesh(const FObjectInitializer& ObjectInitializer)
 
 void URuntimeMesh::Initialize(URuntimeMeshProvider* Provider)
 {
-	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RM(%d) Thread(%d): Initialize called"), GetUniqueID(), FPlatformTLS::GetCurrentThreadId());
+	RMC_LOG_VERBOSE("Initialize called");
 
 	if (Provider == nullptr)
 	{
-		UE_LOG(RuntimeMeshLog, Verbose, TEXT("RM(%d) Thread(%d): Initialize called with a null provider... resetting"), GetUniqueID(), FPlatformTLS::GetCurrentThreadId());
+		RMC_LOG_VERBOSE("Initialize called with a null provider... resetting.");
 		Reset();		
 		return;
 	}
 	
+	// If this provider is still bound, remove it from the current bound mesh
+	if (Provider->IsBound())
 	{
-		FReadScopeLock Lock(MeshProviderLock);
-
-		// Are we already bound to this provider? If so ignore it
-		if (MeshProviderPtr == Provider)
-		{
-			UE_LOG(RuntimeMeshLog, Verbose, TEXT("RM(%d) Thread(%d): Initialize called with same provider as already bound... ignoring."), GetUniqueID(), FPlatformTLS::GetCurrentThreadId());
-			return;
-		}
-
-		// Is this new provider somehow bound to us, but not us to it? 
-		if (Provider->IsBound())
-		{
-			// Are we somehow in some invalid state where the provider is bound to us, but we're not bound to it?
-			auto OtherMeshRef = Provider->GetMeshReference().Pin();
-			if (OtherMeshRef && (OtherMeshRef.Get() == this))
-			{
-				UE_LOG(RuntimeMeshLog, Fatal, TEXT("RM(%d) Thread(%d): Initialize called with provider bound to us, but not to it..."), GetUniqueID(), FPlatformTLS::GetCurrentThreadId());
-				return;
-			}
-
-			UE_LOG(RuntimeMeshLog, Verbose, TEXT("RM(%d) Thread(%d): Initialize called with provider already bound to another RuntimeMesh... ignoring."), GetUniqueID(), FPlatformTLS::GetCurrentThreadId());
-			return;
-		}
+		RMC_LOG_VERBOSE("Initialize called with provider already bound to a mesh... Taking ownership.");
+		Provider->Shutdown();
 	}
+
+	check(!Provider->IsBound());
+
+
+// 	{
+// 		FReadScopeLock Lock(MeshProviderLock);
+// 
+// 		// Are we already bound to this provider? If so ignore it
+// 		if (MeshProviderPtr == Provider)
+// 		{
+// 			RMC_LOG_VERBOSE("Initialize called with the same provider as already bound... ignoring.");
+// 			return;
+// 		}
+// 
+// 		// Is this new provider somehow bound to us, but not us to it? 
+// 		if (Provider->IsBound())
+// 		{
+// 			// Are we somehow in some invalid state where the provider is bound to us, but we're not bound to it?
+// 			auto OtherMeshRef = Provider->GetMeshReference().Pin();
+// 			if (OtherMeshRef && (OtherMeshRef.Get() == this))
+// 			{
+// 				RMC_LOG_VERBOSE("Initialize called with RuntimeMeshProvider(%d) bound to us, but not to it...", Provider->GetUniqueID());
+// 				return;
+// 			}
+// 
+// 			RMC_LOG_VERBOSE("Initialize called with provider already bound to RuntimeMesh(%d)... ignoring.", (OtherMeshRef? OtherMeshRef->GetMeshId() : -1));
+// 			return;
+// 		}
+// 	}
 		
 
 #if WITH_EDITOR
@@ -101,6 +112,7 @@ void URuntimeMesh::Initialize(URuntimeMeshProvider* Provider)
 
 void URuntimeMesh::Reset()
 {
+	RMC_LOG_VERBOSE("Reset called.");
 	GCAnchor.BeginNewState();
 
 	{
@@ -192,6 +204,7 @@ FBoxSphereBounds URuntimeMesh::GetLocalBounds() const
 
 void URuntimeMesh::ConfigureLODs(const TArray<FRuntimeMeshLODProperties>& InLODs)
 {
+	RMC_LOG_VERBOSE("ConfigureLODs called.");
 	{
 		FScopeLock Lock(&SyncRoot);
 		LODs.Empty();
@@ -211,11 +224,14 @@ void URuntimeMesh::ConfigureLODs(const TArray<FRuntimeMeshLODProperties>& InLODs
 
 void URuntimeMesh::SetLODScreenSize(int32 LODIndex, float ScreenSize)
 {
+	RMC_LOG_VERBOSE("MarkLODDirty called: LOD:%d ScreenSize:%f", LODIndex, ScreenSize);
 	// TODO: Implement
 }
 
 void URuntimeMesh::MarkLODDirty(int32 LODIndex)
 {
+	RMC_LOG_VERBOSE("MarkLODDirty called: LOD:%d", LODIndex);
+
 	FScopeLock Lock(&SyncRoot);
 
 	check(LODs.IsValidIndex(LODIndex));
@@ -228,6 +244,8 @@ void URuntimeMesh::MarkLODDirty(int32 LODIndex)
 
 void URuntimeMesh::MarkAllLODsDirty()
 {
+	RMC_LOG_VERBOSE("MarkAllLODsDirty called.");
+
 	FScopeLock Lock(&SyncRoot);
 
 	// Flag for update
@@ -242,6 +260,8 @@ void URuntimeMesh::MarkAllLODsDirty()
 
 void URuntimeMesh::CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties)
 {
+	RMC_LOG_VERBOSE("CreateSection called: LOD:%d Section:%d", LODIndex, SectionId);
+
 	check(IsInGameThread());
 	check(LODs.IsValidIndex(LODIndex));
 	check(SectionId >= 0);
@@ -257,6 +277,8 @@ void URuntimeMesh::CreateSection(int32 LODIndex, int32 SectionId, const FRuntime
 
 void URuntimeMesh::SetSectionVisibility(int32 LODIndex, int32 SectionId, bool bIsVisible)
 {
+	RMC_LOG_VERBOSE("SetSectionVisibility called: LOD:%d Section:%d IsVisible:%d", LODIndex, SectionId, bIsVisible);
+
 	check(LODs.IsValidIndex(LODIndex));
 	check(LODs[LODIndex].Sections.Contains(SectionId));
 
@@ -275,6 +297,8 @@ void URuntimeMesh::SetSectionVisibility(int32 LODIndex, int32 SectionId, bool bI
 
 void URuntimeMesh::SetSectionCastsShadow(int32 LODIndex, int32 SectionId, bool bCastsShadow)
 {
+	RMC_LOG_VERBOSE("SetSectionCastsShadow called: LOD:%d Section:%d CastsShadow:%d", LODIndex, SectionId, bCastsShadow);
+
 	check(LODs.IsValidIndex(LODIndex));
 	check(LODs[LODIndex].Sections.Contains(SectionId));
 
@@ -293,6 +317,8 @@ void URuntimeMesh::SetSectionCastsShadow(int32 LODIndex, int32 SectionId, bool b
 
 void URuntimeMesh::MarkSectionDirty(int32 LODIndex, int32 SectionId)
 {
+	RMC_LOG_VERBOSE("MarkSectionDirty called: LOD:%d Section:%d", LODIndex, SectionId);
+
 	check(LODs.IsValidIndex(LODIndex));
 	check(LODs[LODIndex].Sections.Contains(SectionId));
 
@@ -307,11 +333,25 @@ void URuntimeMesh::MarkSectionDirty(int32 LODIndex, int32 SectionId)
 
 void URuntimeMesh::ClearSection(int32 LODIndex, int32 SectionId)
 {
+	RMC_LOG_VERBOSE("ClearSection called: LOD:%d Section:%d", LODIndex, SectionId);
 
+	FScopeLock Lock(&SyncRoot);
+
+	check(LODs.IsValidIndex(LODIndex));
+
+	FRuntimeMeshSectionProperties* Section = LODs[LODIndex].Sections.Find(SectionId);
+	if (Section)
+	{
+		ESectionUpdateType& UpdateType = SectionsToUpdate.FindOrAdd(LODIndex).FindOrAdd(SectionId);
+		UpdateType = ESectionUpdateType::Clear;
+		QueueForMeshUpdate();
+	}
 }
 
 void URuntimeMesh::RemoveSection(int32 LODIndex, int32 SectionId)
 {
+	RMC_LOG_VERBOSE("RemoveSection called: LOD:%d Section:%d", LODIndex, SectionId);
+
 	FScopeLock Lock(&SyncRoot);
 
 	check(LODs.IsValidIndex(LODIndex));
@@ -329,12 +369,15 @@ void URuntimeMesh::RemoveSection(int32 LODIndex, int32 SectionId)
 
 void URuntimeMesh::MarkCollisionDirty()
 {
+	RMC_LOG_VERBOSE("MarkCollisionDirty called.");
+
 	QueueForCollisionUpdate();
 }
 
 
 void URuntimeMesh::SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial)
 {
+	RMC_LOG_VERBOSE("SetupMaterialSlot called: Slot:%d Name:%s Mat:%s", MaterialSlot, *SlotName.ToString(), InMaterial? *InMaterial->GetName() : TEXT(""));
 	{
 		FScopeLock Lock(&SyncRoot);
 		// Does this slot already exist?
@@ -417,6 +460,7 @@ UMaterialInterface* URuntimeMesh::GetMaterial(int32 SlotIndex)
 
 void URuntimeMesh::BeginDestroy()
 {
+	RMC_LOG_VERBOSE("BeginDestroy called.");
 	Reset();
 	GCAnchor.BeginDestroy();
 	Super::BeginDestroy();
@@ -449,6 +493,7 @@ void URuntimeMesh::PostDuplicate(EDuplicateMode::Type DuplicateMode)
 
 bool URuntimeMesh::GetPhysicsTriMeshData(struct FTriMeshCollisionData* CollisionData, bool InUseAllTriData)
 {
+	RMC_LOG_VERBOSE("GetPhysicsTriMeshData called.");
 	SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_GetPhysicsTriMesh);
 
 	FReadScopeLock Lock(MeshProviderLock);
@@ -479,6 +524,7 @@ bool URuntimeMesh::GetPhysicsTriMeshData(struct FTriMeshCollisionData* Collision
 
 bool URuntimeMesh::ContainsPhysicsTriMeshData(bool InUseAllTriData) const
 {
+	RMC_LOG_VERBOSE("ContainsPhysicsTriMeshData called.");
 	SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_HasPhysicsTriMesh);
 
 	FReadScopeLock Lock(MeshProviderLock);
@@ -497,7 +543,7 @@ bool URuntimeMesh::WantsNegXTriMesh()
 
 void URuntimeMesh::GetMeshId(FString& OutMeshId)
 {
-
+	OutMeshId = TEXT("RuntimeMesh:") + FString::FromInt(GetMeshId());
 }
 
 
@@ -625,6 +671,7 @@ void URuntimeMesh::UpdateAllComponentBounds()
 
 void URuntimeMesh::RecreateAllComponentSceneProxies()
 {
+	RMC_LOG_VERBOSE("RecreateAllComponentSceneProxies called.");
 	FRuntimeMeshMisc::DoOnGameThread([MeshPtr = GetMeshReference()]()
 	{
 		FRuntimeMeshSharedRef Mesh = MeshPtr.Pin();
@@ -649,6 +696,8 @@ void URuntimeMesh::HandleUpdate()
 	{
 		return;
 	}
+
+	RMC_LOG_VERBOSE("HandleUpdate called.");
 
 	FReadScopeLock ProviderLock(MeshProviderLock);
 	if (MeshProviderPtr)
@@ -748,7 +797,7 @@ void URuntimeMesh::HandleUpdate()
 
 void URuntimeMesh::HandleFullLODUpdate(const FRuntimeMeshProxyPtr& RenderProxyRef, int32 LODId, bool& bRequiresProxyRecreate)
 {
-	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMD(%d): HandleFullLODUpdate Called"), FPlatformTLS::GetCurrentThreadId());
+	RMC_LOG_VERBOSE("HandleFullLODUpdate called: LOD:%d", LODId);
 
 	auto& LOD = LODs[LODId];
 
@@ -812,7 +861,7 @@ void URuntimeMesh::HandleFullLODUpdate(const FRuntimeMeshProxyPtr& RenderProxyRe
 
 void URuntimeMesh::HandleSingleSectionUpdate(const FRuntimeMeshProxyPtr& RenderProxyRef, int32 LODId, int32 SectionId, bool& bRequiresProxyRecreate)
 {
-	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMD(%d): HandleSingleSectionUpdate Called"), FPlatformTLS::GetCurrentThreadId());
+	RMC_LOG_VERBOSE("HandleFullLODUpdate called: LOD:%d Section:%d", LODId, SectionId);
 
 	FRuntimeMeshSectionProperties Properties = LODs[LODId].Sections.FindChecked(SectionId);
 	FRuntimeMeshRenderableMeshData MeshData(
@@ -1041,6 +1090,8 @@ void URuntimeMesh::FinalizeNewCookedData()
 
 void URuntimeMesh::RegisterLinkedComponent(URuntimeMeshComponent* NewComponent)
 {
+	RMC_LOG_VERBOSE("Registering RMC:%d", NewComponent->GetUniqueID());
+
 	LinkedComponents.AddUnique(NewComponent);
 
 	EnsureRenderProxyReady();
@@ -1054,6 +1105,7 @@ void URuntimeMesh::RegisterLinkedComponent(URuntimeMeshComponent* NewComponent)
 
 void URuntimeMesh::UnRegisterLinkedComponent(URuntimeMeshComponent* ComponentToRemove)
 {
+	RMC_LOG_VERBOSE("Unregistering RMC:%d", ComponentToRemove->GetUniqueID());
 	LinkedComponents.RemoveSingleSwap(ComponentToRemove, true);
 }
 
@@ -1078,8 +1130,7 @@ FRuntimeMeshProxyPtr URuntimeMesh::GetRenderProxy(ERHIFeatureLevel::Type InFeatu
 
 	SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_Initialize);
 
-	RenderProxy = MakeShareable(new FRuntimeMeshProxy(), FRuntimeMeshRenderThreadDeleter<FRuntimeMeshProxy>());
-
+	RenderProxy = MakeShareable(new FRuntimeMeshProxy(GetMeshId()), FRuntimeMeshRenderThreadDeleter<FRuntimeMeshProxy>());
 
 	FScopeLock Lock(&SyncRoot);
 	if (LODs.Num() > 0)
@@ -1136,3 +1187,4 @@ bool URuntimeMesh::GetSceneFeatureLevel(ERHIFeatureLevel::Type& OutFeatureLevel)
 
 
 
+#undef RMC_LOG_VERBOSE

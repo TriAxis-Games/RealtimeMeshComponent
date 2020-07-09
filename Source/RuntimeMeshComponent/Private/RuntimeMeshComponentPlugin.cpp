@@ -28,4 +28,4 @@ void FRuntimeMeshComponentPlugin::ShutdownModule()
 
 }
 
-DEFINE_LOG_CATEGORY(RuntimeMeshLog);
+DEFINE_LOG_CATEGORY(RuntimeMeshLog2);

@@ -11,6 +11,25 @@
 #include "StaticMeshResources.h"
 #include "RuntimeMeshCore.generated.h"
 
+
+// RMC = RuntimeMeshComponent
+// RM = RuntimeMesh
+// RMP = RuntimeMeshProvider
+// RMM = RuntimeMeshModifier
+// RMPS = RuntimeMeshProviderStatic
+// RMRP = RuntimeMeshRenderProxy
+// RMCRP = RuntimeMeshComponentRenderProxy
+// RMCES = RuntimeMeshComponentEngineSubsystem
+// RMCS = RuntimeMeshComponentStatic
+// RMSMC = RuntimeMeshStaticMeshConverter
+
+
+
+
+
+
+
+
 #if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION < 22
 	// This version of the RMC is only supported by engine version 4.22 and above
 #endif

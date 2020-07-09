@@ -30,11 +30,14 @@ class FRuntimeMeshProxy : public TSharedFromThis<FRuntimeMeshProxy, ESPMode::Thr
 	int8 CurrentForcedLOD;
 
 	FRuntimeMeshObjectId<FRuntimeMeshProxy> ObjectId;
+
+	uint32 ParentMeshId;
 public:
-	FRuntimeMeshProxy();
+	FRuntimeMeshProxy(uint32 InParentMeshId);
 	~FRuntimeMeshProxy();
 
 	int32 GetUniqueID() const { return ObjectId.Get(); }
+	int32 GetMeshID() const { return ParentMeshId; }
 
 	bool ShouldRender() const { return bShouldRender; }
 	bool ShouldRenderStatic() const { return bShouldRenderStatic; }

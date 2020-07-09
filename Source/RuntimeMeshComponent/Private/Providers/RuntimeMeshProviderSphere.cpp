@@ -95,7 +95,7 @@ void URuntimeMeshProviderSphere::SetLODMultiplier(float InLODMultiplier)
 	if (InLODMultiplier >= 1)
 	{
 		//If the LODMultiplier is greater than one, there'd be infinite LODs as it would diverge. (It's a geometric series)
-		UE_LOG(RuntimeMeshLog, Error, TEXT("RMC Sphere Provider(%d): LODMultiplier was set greater than or equal to 1 ! Aborting ! Value : %f"), FPlatformTLS::GetCurrentThreadId(), InLODMultiplier);
+		UE_LOG(RuntimeMeshLog2, Error, TEXT("RMC Sphere Provider(%d): LODMultiplier was set greater than or equal to 1 ! Aborting ! Value : %f"), FPlatformTLS::GetCurrentThreadId(), InLODMultiplier);
 		return;
 	}
 	LODMultiplier = InLODMultiplier; 
@@ -146,7 +146,7 @@ void URuntimeMeshProviderSphere::Initialize()
 
 bool URuntimeMeshProviderSphere::GetSectionMeshForLOD(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData)
 {
-	UE_LOG(RuntimeMeshLog, Verbose, TEXT("RMC Sphere Provider(%d): Getting LOD:%d Section:%d"), FPlatformTLS::GetCurrentThreadId(), LODIndex, SectionId);
+	UE_LOG(RuntimeMeshLog2, Verbose, TEXT("RMC Sphere Provider(%d): Getting LOD:%d Section:%d"), FPlatformTLS::GetCurrentThreadId(), LODIndex, SectionId);
 
 	// We should only ever be queried for section 0
 	check(SectionId == 0 && LODIndex <= MaxLOD);

@@ -4,13 +4,15 @@
 #include "RuntimeMeshComponentPlugin.h"
 #include "RuntimeMeshModifier.h"
 
+#define RMC_LOG_VERBOSE(Format, ...) \
+	UE_LOG(RuntimeMeshLog2, Verbose, TEXT("[RMPS:%d Thread:%d]: " Format), GetUniqueID(), FPlatformTLS::GetCurrentThreadId(), __VA_ARGS__);
 
 URuntimeMeshProviderStatic::URuntimeMeshProviderStatic()
 	: StoreEditorGeneratedDataForGame(true)
 	, LODForMeshCollision(0)
 	, CombinedBounds(ForceInit)
 {
-	UE_LOG(RuntimeMeshLog, Verbose, TEXT("StaticProvider(%d): Created"), FPlatformTLS::GetCurrentThreadId());
+	RMC_LOG_VERBOSE("Created");
 
 }
 
@@ -290,7 +292,7 @@ FRuntimeMeshRenderableMeshData URuntimeMeshProviderStatic::GetSectionRenderDataA
 
 void URuntimeMeshProviderStatic::Initialize()
 {
-	UE_LOG(RuntimeMeshLog, Verbose, TEXT("StaticProvider(%d): Initialize called"), FPlatformTLS::GetCurrentThreadId());
+	RMC_LOG_VERBOSE("Initializing...");
 
 	// Setup loaded materials
 	for (int32 Index = 0; Index < LoadedMaterialSlots.Num(); Index++)
@@ -588,7 +590,7 @@ void URuntimeMeshProviderStatic::RemoveSection(int32 LODIndex, int32 SectionId)
 
 void URuntimeMeshProviderStatic::Serialize(FArchive& Ar)
 {
-	UE_LOG(RuntimeMeshLog, Verbose, TEXT("StaticProvider(%d): Serialize called"), FPlatformTLS::GetCurrentThreadId());
+	RMC_LOG_VERBOSE("Serializing...");
 	Ar.UsingCustomVersion(FRuntimeMeshVersion::GUID);
 
 	Super::Serialize(Ar);
@@ -741,3 +743,5 @@ void URuntimeMeshProviderStatic::BeginDestroy()
 	}
 	Super::BeginDestroy();
 }
+
+#undef RMC_LOG_VERBOSE
