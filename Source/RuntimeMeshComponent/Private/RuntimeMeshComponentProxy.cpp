@@ -32,13 +32,10 @@ FRuntimeMeshComponentSceneProxy::FRuntimeMeshComponentSceneProxy(URuntimeMeshCom
 
 
 	URuntimeMesh* Mesh = Component->GetRuntimeMesh();
-
-	RuntimeMeshProxy = Component->GetRuntimeMesh()->GetRenderProxy(GetScene().GetFeatureLevel());
-
-	UMaterialInterface* DefaultMat = UMaterial::GetDefaultMaterial(EMaterialDomain::MD_Surface);
+	RuntimeMeshProxy = Mesh->GetRenderProxy(GetScene().GetFeatureLevel());
 
 	// Fill the section render data
-	SectionRenderData.SetNum(RUNTIMEMESH_MAXLODS);
+	SectionMaterials.SetNum(RUNTIMEMESH_MAXLODS);
 	for (int32 LODIndex = 0; LODIndex < Mesh->LODs.Num(); LODIndex++)
 	{
 		const FRuntimeMeshLOD& LOD = Mesh->LODs[LODIndex];
@@ -46,16 +43,16 @@ FRuntimeMeshComponentSceneProxy::FRuntimeMeshComponentSceneProxy(URuntimeMeshCom
 		for (const auto& Section : LOD.Sections)
 		{
 			const FRuntimeMeshSectionProperties& SectionProperties = Section.Value;
+			UMaterialInterface*& SectionMat = SectionMaterials[LODIndex].Add(Section.Key);
 
-			auto& RenderData = SectionRenderData[LODIndex].Add(Section.Key);
-			RenderData.Material = Component->GetMaterial(SectionProperties.MaterialSlot);
-			if (RenderData.Material == nullptr)
+			SectionMat = Component->GetMaterial(SectionProperties.MaterialSlot);
+
+			if (SectionMat == nullptr)
 			{
-				RenderData.Material = DefaultMat;
+				SectionMat = UMaterial::GetDefaultMaterial(EMaterialDomain::MD_Surface);
 			}
-			RenderData.bWantsAdjacencyInfo = RequiresAdjacencyInformation(RenderData.Material, nullptr, GetScene().GetFeatureLevel());
 
-			MaterialRelevance |= RenderData.Material->GetRelevance(GetScene().GetFeatureLevel());			
+			MaterialRelevance |= SectionMat->GetRelevance(GetScene().GetFeatureLevel());			
 		}
 	}   
 
@@ -107,36 +104,63 @@ FPrimitiveViewRelevance FRuntimeMeshComponentSceneProxy::GetViewRelevance(const 
 	return Result;
 }
 
-void FRuntimeMeshComponentSceneProxy::CreateMeshBatch(FMeshBatch& MeshBatch, const FRuntimeMeshSectionProxy& Section, int32 LODIndex, const FRuntimeMeshSectionRenderData& RenderData, FMaterialRenderProxy* Material, FMaterialRenderProxy* WireframeMaterial) const
+void FRuntimeMeshComponentSceneProxy::CreateMeshBatch(FMeshBatch& MeshBatch, const FRuntimeMeshSectionProxy& Section, int32 LODIndex, UMaterialInterface* Material, FMaterialRenderProxy* WireframeMaterial) const
 {
 	SCOPE_CYCLE_COUNTER(STAT_RuntimeMeshComponentSceneProxy_CreateMeshBatch);
 
-	bool bRenderWireframe = WireframeMaterial != nullptr;
-	bool bWantsAdjacency = !bRenderWireframe && RenderData.bWantsAdjacencyInfo;
+	check(Section.CanRender());
+	check(Section.Buffers->VertexFactory.IsInitialized());
 
-	Section.CreateMeshBatch(MeshBatch, Section.bCastsShadow, bWantsAdjacency);
+	// Should we be rendering in wireframe?
+	const bool bRenderWireframe = WireframeMaterial != nullptr;
+
+	// Decide if we should be using adjacency information for this material
+	const bool bWantsAdjacencyInfo = !bRenderWireframe && RequiresAdjacencyInformation(Material, Section.Buffers->VertexFactory.GetType(), GetScene().GetFeatureLevel());
+	check(!bWantsAdjacencyInfo || Section.bHasAdjacencyInfo);
+
+	// No support for stateless dithered LOD transitions for movable meshes
+	const bool bDitheredLODTransition = !IsMovable() && Material->IsDitheredLODTransition();
+
+
+	const FRuntimeMeshIndexBuffer* CurrentIndexBuffer =
+		(bWantsAdjacencyInfo ?
+			&Section.Buffers->AdjacencyIndexBuffer :
+			&Section.Buffers->IndexBuffer);
+
+	int32 NumIndicesPerTriangle = bWantsAdjacencyInfo ? 12 : 3;
+	int32 NumPrimitives = CurrentIndexBuffer->Num() / NumIndicesPerTriangle;
+
+	FMaterialRenderProxy* MaterialRenderProxy = Material->GetRenderProxy();
+
+	MeshBatch.VertexFactory = &Section.Buffers->VertexFactory;
+	MeshBatch.Type = bWantsAdjacencyInfo ? PT_12_ControlPointPatchList : PT_TriangleList;
+	MeshBatch.CastShadow = Section.bCastsShadow;
 
 	MeshBatch.LODIndex = LODIndex;
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	MeshBatch.VisualizeLODIndex = LODIndex;
 #endif
 
-	MeshBatch.bDitheredLODTransition = !IsMovable() && Material->GetMaterialInterface()->IsDitheredLODTransition();
+	MeshBatch.bDitheredLODTransition = !IsMovable() && MaterialRenderProxy->GetMaterialInterface()->IsDitheredLODTransition();
 	MeshBatch.bWireframe = WireframeMaterial != nullptr;
-	MeshBatch.MaterialRenderProxy = MeshBatch.bWireframe ? WireframeMaterial : Material;
 
+	MeshBatch.MaterialRenderProxy = MeshBatch.bWireframe ? WireframeMaterial : MaterialRenderProxy;
 	MeshBatch.ReverseCulling = IsLocalToWorldDeterminantNegative();
+
 	MeshBatch.DepthPriorityGroup = SDPG_World;
 	MeshBatch.bCanApplyViewModeOverrides = false;
 
 
 	FMeshBatchElement& BatchElement = MeshBatch.Elements[0];
 
+	BatchElement.IndexBuffer = CurrentIndexBuffer;
+	BatchElement.FirstIndex = 0;
+	BatchElement.NumPrimitives = NumPrimitives;
+	BatchElement.MinVertexIndex = 0;
+	BatchElement.MaxVertexIndex = Section.Buffers->PositionBuffer.Num() - 1;
+
 	BatchElement.MaxScreenSize = RuntimeMeshProxy->GetScreenSize(LODIndex);
 	BatchElement.MinScreenSize = RuntimeMeshProxy->GetScreenSize(LODIndex + 1);
-
-	//UE_LOG(LogRuntimeMesh, Warning, TEXT("Section Screen Size: %f - %f"), BatchElement.MaxScreenSize, BatchElement.MinScreenSize);
-	return;
 }
 
 void FRuntimeMeshComponentSceneProxy::DrawStaticElements(FStaticPrimitiveDrawInterface* PDI)
@@ -157,23 +181,21 @@ void FRuntimeMeshComponentSceneProxy::DrawStaticElements(FStaticPrimitiveDrawInt
 				for (const auto& SectionEntry : LOD.Sections)
 				{
 					auto& Section = SectionEntry.Value;
-					auto* RenderData = SectionRenderData[LODIndex].Find(SectionEntry.Key);
 
-					if (RenderData != nullptr && Section.ShouldRenderStaticPath())
+					if (Section.ShouldRenderStaticPath())
 					{
-						FMaterialRenderProxy* Material = RenderData->Material->GetRenderProxy();
+						UMaterialInterface* SectionMat = GetMaterialForSection(LODIndex, SectionId);
+						check(SectionMat);
 
 						FMeshBatch MeshBatch;
 						MeshBatch.LODIndex = LODIndex;
 						MeshBatch.SegmentIndex = SectionEntry.Key;
 
-						CreateMeshBatch(MeshBatch, Section, LODIndex, *RenderData, Material, nullptr);
+						CreateMeshBatch(MeshBatch, Section, LODIndex, SectionMat, nullptr);
 						PDI->DrawMesh(MeshBatch, RuntimeMeshProxy->GetScreenSize(LODIndex));
 
 						// Here we add a reference to the buffers so that we can guarantee these stay around for the life of this proxy
 						InUseBuffers.Add(Section.Buffers);
-
-						//UE_LOG(LogRuntimeMesh, Warning, TEXT("Section Screen Size Max: %f"), RuntimeMeshProxy->GetScreenSize(LODIndex));
 					}
 				}
 			}
@@ -218,14 +240,14 @@ void FRuntimeMeshComponentSceneProxy::GetDynamicMeshElements(const TArray<const 
 						for (const auto& SectionEntry : LOD.Sections)
 						{
 							auto& Section = SectionEntry.Value;
-							auto* RenderData = SectionRenderData[LODIndex].Find(SectionEntry.Key);
 
-							if (RenderData != nullptr && Section.ShouldRender() && (Section.ShouldRenderDynamicPath() || bForceDynamicPath))
+							if (Section.ShouldRender() && (Section.ShouldRenderDynamicPath() || bForceDynamicPath))
 							{
-								FMaterialRenderProxy* Material = RenderData->Material->GetRenderProxy();
+								UMaterialInterface* SectionMat = GetMaterialForSection(LODIndex, SectionEntry.Key);
+								check(SectionMat);
 
 								FMeshBatch& MeshBatch = Collector.AllocateMesh();
-								CreateMeshBatch(MeshBatch, Section, LODIndex, *RenderData, Material, WireframeMaterialInstance);
+								CreateMeshBatch(MeshBatch, Section, LODIndex, SectionMat, WireframeMaterialInstance);
 								MeshBatch.bDitheredLODTransition = LODMask.IsDithered();
 
 								Collector.AddMesh(ViewIndex, MeshBatch);
@@ -394,10 +416,10 @@ FLODMask FRuntimeMeshComponentSceneProxy::GetLODMask(const FSceneView* View) con
 			if (MaxLOD != INDEX_NONE)
 			{
 				// only dither if at least one section in LOD0 is dithered. Mixed dithering on sections won't work very well, but it makes an attempt
-				const auto& LOD0Sections = SectionRenderData[0];
+				const auto& LOD0Sections = SectionMaterials[0];
 				for (const auto& Section : LOD0Sections)
 				{
-					if (Section.Value.Material->IsDitheredLODTransition())
+					if (Section.Value->IsDitheredLODTransition())
 					{
 						bUseDithered = true;
 						break;

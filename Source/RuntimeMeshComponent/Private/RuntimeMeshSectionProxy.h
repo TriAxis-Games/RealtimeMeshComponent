@@ -44,15 +44,6 @@ struct FRuntimeMeshSectionProxyBuffers
 	/** Index buffer for this section */
 	FRuntimeMeshIndexBuffer IndexBuffer;
 
-	/** Reversed index buffer, used to prevent changing culling state between drawcalls. */
-	FRuntimeMeshIndexBuffer ReversedIndexBuffer;
-
-	/** Index buffer resource for rendering in depth only passes. */
-	FRuntimeMeshIndexBuffer DepthOnlyIndexBuffer;
-
-	/** Reversed depth only index buffer, used to prevent changing culling state between drawcalls. */
-	FRuntimeMeshIndexBuffer ReversedDepthOnlyIndexBuffer;
-
 	/** Index buffer for this section */
 	FRuntimeMeshIndexBuffer AdjacencyIndexBuffer;
 
@@ -77,9 +68,6 @@ struct FRuntimeMeshSectionProxyBuffers
 		, UVsBuffer(bInIsDynamicBuffer)
 		, ColorBuffer(bInIsDynamicBuffer)
 		, IndexBuffer(bInIsDynamicBuffer)
-		, ReversedIndexBuffer(bInIsDynamicBuffer)
-		, DepthOnlyIndexBuffer(bInIsDynamicBuffer)
-		, ReversedDepthOnlyIndexBuffer(bInIsDynamicBuffer)
 		, AdjacencyIndexBuffer(bInIsDynamicBuffer)
 		, bIsShared(bInIsShared)
 	{
@@ -134,9 +122,6 @@ struct FRuntimeMeshSectionProxy
 	uint32 bForceOpaque : 1;
 
 	uint32 bHasAdjacencyInfo : 1;
-	uint32 bHasDepthOnlyIndices : 1;
-	uint32 bHasReversedIndices : 1;
-	uint32 bHasReversedDepthOnlyIndices : 1;
 	uint32 bHasRayTracingGeometry : 1;
 
 
@@ -153,9 +138,6 @@ struct FRuntimeMeshSectionProxy
 		, bCastsShadow(false)
 		, bForceOpaque(false)
 		, bHasAdjacencyInfo(false)
-		, bHasDepthOnlyIndices(false)
-		, bHasReversedIndices(false)
-		, bHasReversedDepthOnlyIndices(false)
 		, bHasRayTracingGeometry(false)
 	{
 
@@ -190,9 +172,6 @@ struct FRuntimeMeshSectionProxy
 
 
 			bHasAdjacencyInfo = Buffers->AdjacencyIndexBuffer.Num() > 3;
-			bHasDepthOnlyIndices = Buffers->DepthOnlyIndexBuffer.Num() == Buffers->IndexBuffer.Num();
-			bHasReversedIndices = Buffers->ReversedIndexBuffer.Num() == Buffers->IndexBuffer.Num();
-			bHasReversedDepthOnlyIndices = Buffers->ReversedDepthOnlyIndexBuffer.Num() == Buffers->IndexBuffer.Num();
 		}
 	}
 
@@ -217,9 +196,6 @@ struct FRuntimeMeshSectionProxy
 		BatchElement.NumPrimitives = NumPrimitives;
 		BatchElement.MinVertexIndex = 0;
 		BatchElement.MaxVertexIndex = Buffers->PositionBuffer.Num() - 1;
-	
-	
-		//INC_DWORD_STAT_BY(STAT_RuntimeMeshSectionProxy_NumTriangles, NumPrimitives);
 	}
 };
 

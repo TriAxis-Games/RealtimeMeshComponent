@@ -13,18 +13,11 @@ class URuntimeMeshComponent;
 class FRuntimeMeshComponentSceneProxy : public FPrimitiveSceneProxy
 {
 private:
-	struct FRuntimeMeshSectionRenderData
-	{
-		UMaterialInterface* Material;
-		bool bWantsAdjacencyInfo;
-	};
-
-
 	// THis is the proxy we're rendering
 	FRuntimeMeshProxyPtr RuntimeMeshProxy;
 
 	// Extra section data, mostly material data after being combined with override materials on the component
-	TArray<TMap<int32, FRuntimeMeshSectionRenderData>, TInlineAllocator<RUNTIMEMESH_MAXLODS>> SectionRenderData;
+	TArray<TMap<int32, UMaterialInterface*>, TInlineAllocator<RUNTIMEMESH_MAXLODS>> SectionMaterials;
 
 	// Reference all the in-use buffers so that as long as this proxy is around these buffers will be too. 
 	// This is meant only for statically drawn sections. Dynamically drawn sections can update safely in place.
@@ -47,6 +40,12 @@ public:
 
 	int32 GetUniqueID() const { return ObjectId.Get(); }
 
+	UMaterialInterface* GetMaterialForSection(int32 LODIndex, int32 SectionIndex) const
+	{
+		UMaterialInterface* const* SectionMat = SectionMaterials[LODIndex].Find(SectionIndex);
+		return SectionMat != nullptr ? *SectionMat : nullptr;
+	}
+
 	void CreateRenderThreadResources() override;
 
 	virtual bool CanBeOccluded() const override
@@ -56,7 +55,7 @@ public:
 
 	virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View) const override;
 
-	void CreateMeshBatch(FMeshBatch& MeshBatch, const FRuntimeMeshSectionProxy& Section, int32 LODIndex, const FRuntimeMeshSectionRenderData& RenderData, FMaterialRenderProxy* Material, FMaterialRenderProxy* WireframeMaterial) const;
+	void CreateMeshBatch(FMeshBatch& MeshBatch, const FRuntimeMeshSectionProxy& Section, int32 LODIndex, UMaterialInterface* Material, FMaterialRenderProxy* WireframeMaterial) const;
 
 	virtual void DrawStaticElements(FStaticPrimitiveDrawInterface* PDI) override;
 

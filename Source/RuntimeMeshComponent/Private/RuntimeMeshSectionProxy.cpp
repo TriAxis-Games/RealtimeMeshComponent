@@ -21,9 +21,6 @@ void FRuntimeMeshSectionProxyBuffers::InitResource()
 	ColorBuffer.InitResource();
 
 	IndexBuffer.InitResource();
-	ReversedIndexBuffer.InitResource();
-	DepthOnlyIndexBuffer.InitResource();
-	ReversedDepthOnlyIndexBuffer.InitResource();
 	AdjacencyIndexBuffer.InitResource();
 
 // #if RHI_RAYTRACING
@@ -46,9 +43,6 @@ void FRuntimeMeshSectionProxyBuffers::Reset()
 	ColorBuffer.ReleaseResource();
 
 	IndexBuffer.ReleaseResource();
-	ReversedIndexBuffer.ReleaseResource();
-	DepthOnlyIndexBuffer.ReleaseResource();
-	ReversedDepthOnlyIndexBuffer.ReleaseResource();
 	AdjacencyIndexBuffer.ReleaseResource();
 
 #if RHI_RAYTRACING

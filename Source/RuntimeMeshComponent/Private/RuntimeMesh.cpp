@@ -26,6 +26,47 @@ DECLARE_CYCLE_STAT(TEXT("RuntimeMeshDelayedActions - Finalize Collision Cooked D
 #define RMC_LOG_VERBOSE(Format, ...) \
 	UE_LOG(RuntimeMeshLog2, Verbose, TEXT("[RM:%d Thread:%d]: " Format), GetMeshId(), FPlatformTLS::GetCurrentThreadId(), __VA_ARGS__);
 
+
+
+
+class FRuntimeMeshUpdateTask : public FNonAbandonableTask
+{
+	friend class FAutoDeleteAsyncTask<FRuntimeMeshUpdateTask>;
+
+	FRuntimeMeshWeakRef Ref;
+
+	FRuntimeMeshUpdateTask(const FRuntimeMeshWeakRef& InRef)
+		: Ref(InRef)
+	{
+	}
+
+	void DoWork()
+	{
+		FRuntimeMeshSharedRef PinnedRef = Ref.Pin();
+		if (PinnedRef)
+		{
+			if (PinnedRef->bQueuedForMeshUpdate.AtomicSet(false))
+			{
+				// TODO: This really shouldn't be required.... it shouldn't be unreachable and still getting a pinned ref
+				//if (!PinnedRef->IsUnreachable())
+				//{
+				PinnedRef->HandleUpdate();
+				//}
+			}
+		}
+	}
+
+	FORCEINLINE TStatId GetStatId() const
+	{
+		return TStatId();
+		// RETURN_QUICK_DECLARE_CYCLE_STAT(ExampleAsyncTask, STATGROUP_ThreadPoolAsyncTasks);
+	}
+};
+
+
+
+
+
 //////////////////////////////////////////////////////////////////////////
 //	URuntimeMesh
 
@@ -548,10 +589,6 @@ void URuntimeMesh::GetMeshId(FString& OutMeshId)
 
 
 
-
-
-
-
 void URuntimeMesh::QueueForDelayedInitialize()
 {
 // 	FRuntimeMeshMisc::DoOnGameThread([this]()
@@ -565,39 +602,6 @@ void URuntimeMesh::QueueForDelayedInitialize()
 // 		});
 }
 
-class FRuntimeMeshUpdateTask : public FNonAbandonableTask
-{
-	friend class FAutoDeleteAsyncTask<FRuntimeMeshUpdateTask>;
-
-	FRuntimeMeshWeakRef Ref;
-
-	FRuntimeMeshUpdateTask(const FRuntimeMeshWeakRef& InRef)
-		: Ref(InRef)
-	{
-	}
-
-	void DoWork()
-	{
-		FRuntimeMeshSharedRef PinnedRef = Ref.Pin();
-		if (PinnedRef)
-		{
-			if (PinnedRef->bQueuedForMeshUpdate.AtomicSet(false))
-			{
-				// TODO: This really shouldn't be required.... it shouldn't be unreachable and still getting a pinned ref
-				//if (!PinnedRef->IsUnreachable())
-				//{
-					PinnedRef->HandleUpdate();
-				//}
-			}
-		}
-	}
-
-	FORCEINLINE TStatId GetStatId() const
-	{
-		return TStatId();
-		// RETURN_QUICK_DECLARE_CYCLE_STAT(ExampleAsyncTask, STATGROUP_ThreadPoolAsyncTasks);
-	}
-};
 
 void URuntimeMesh::QueueForUpdate()
 {
@@ -894,8 +898,6 @@ void URuntimeMesh::HandleSingleSectionUpdate(const FRuntimeMeshProxyPtr& RenderP
 		bRequiresProxyRecreate = true;
 	}
 }
-
-
 
 
 URuntimeMeshComponentEngineSubsystem* URuntimeMesh::GetEngineSubsystem()

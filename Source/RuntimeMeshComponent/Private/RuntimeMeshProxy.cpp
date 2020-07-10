@@ -1,7 +1,7 @@
 // Copyright 2016-2020 Chris Conway (Koderz). All Rights Reserved.
 
-#include "CoreMinimal.h"
 #include "RuntimeMeshProxy.h"
+#include "CoreMinimal.h"
 #include "RuntimeMeshComponentPlugin.h"
 #include "RuntimeMesh.h"
 
@@ -476,9 +476,6 @@ void FRuntimeMeshProxy::ClearSection(FRuntimeMeshSectionProxy& Section)
 	Section.bIsValid = false;
 
 	Section.bHasAdjacencyInfo = false;
-	Section.bHasDepthOnlyIndices = false;
-	Section.bHasReversedIndices = false;
-	Section.bHasReversedDepthOnlyIndices = false;
 	Section.bHasRayTracingGeometry = false;
 
 	Section.Buffers.Reset();
@@ -512,11 +509,8 @@ void FRuntimeMeshProxy::ApplyMeshToSection(FRuntimeMeshSectionProxy& Section, FR
 	Section.MinVertexIndex = 0;
 	Section.MaxVertexIndex = MeshData.Positions.GetNumElements();
 
-
-
 	Section.UpdateState();
-		
-
+	
 	if (Section.CanRender())
 	{
 		FLocalVertexFactory::FDataType DataType;
@@ -531,7 +525,8 @@ void FRuntimeMeshProxy::ApplyMeshToSection(FRuntimeMeshSectionProxy& Section, FR
 	{
 		Buffers.VertexFactory.ReleaseResource();
 	}
-	
+
+	check(!Section.CanRender() || Buffers.VertexFactory.IsInitialized());
 }
 
 
