@@ -184,7 +184,7 @@ void FRuntimeMeshComponentSceneProxy::DrawStaticElements(FStaticPrimitiveDrawInt
 
 					if (Section.ShouldRenderStaticPath())
 					{
-						UMaterialInterface* SectionMat = GetMaterialForSection(LODIndex, SectionId);
+						UMaterialInterface* SectionMat = GetMaterialForSection(LODIndex, Section.MaterialSlot);
 						check(SectionMat);
 
 						FMeshBatch MeshBatch;
@@ -243,7 +243,7 @@ void FRuntimeMeshComponentSceneProxy::GetDynamicMeshElements(const TArray<const 
 
 							if (Section.ShouldRender() && (Section.ShouldRenderDynamicPath() || bForceDynamicPath))
 							{
-								UMaterialInterface* SectionMat = GetMaterialForSection(LODIndex, SectionEntry.Key);
+								UMaterialInterface* SectionMat = GetMaterialForSection(LODIndex, Section.MaterialSlot);
 								check(SectionMat);
 
 								FMeshBatch& MeshBatch = Collector.AllocateMesh();

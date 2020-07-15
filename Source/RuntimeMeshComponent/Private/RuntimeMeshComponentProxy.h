@@ -43,7 +43,9 @@ public:
 	UMaterialInterface* GetMaterialForSection(int32 LODIndex, int32 SectionIndex) const
 	{
 		UMaterialInterface* const* SectionMat = SectionMaterials[LODIndex].Find(SectionIndex);
-		return SectionMat != nullptr ? *SectionMat : nullptr;
+		UMaterialInterface* Mat = SectionMat != nullptr ? *SectionMat : nullptr;
+		check(Mat);
+		return Mat;
 	}
 
 	void CreateRenderThreadResources() override;

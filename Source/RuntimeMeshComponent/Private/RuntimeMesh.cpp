@@ -303,7 +303,6 @@ void URuntimeMesh::CreateSection(int32 LODIndex, int32 SectionId, const FRuntime
 {
 	RMC_LOG_VERBOSE("CreateSection called: LOD:%d Section:%d", LODIndex, SectionId);
 
-	check(IsInGameThread());
 	check(LODs.IsValidIndex(LODIndex));
 	check(SectionId >= 0);
 
