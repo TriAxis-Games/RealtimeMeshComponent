@@ -2,12 +2,15 @@
 ---
 ### Here you will find the current version of the RMC. At present it only supports UE4.23 and newer.  
 ### If you require support for UE4.20-4.22 you'll need to use the v4 release found here: https://github.com/KoderzUnreal/RuntimeMeshComponent/releases/tag/v4.0
+---
+
+**For information on installation, usage and everything else, [please read the Wiki](https://runtimemesh.koderz.io/)**
 
 ---
 **Join us on [Discord](https://discord.gg/KGvBBTv)**
 
-**Basic examples of the features of the RMC can be found [here!](https://github.com/Koderz/RuntimeMeshComponent-Examples)**
-**A more advanced example project can be found [here!](https://github.com/Moddingear/RMC-4.21-Example)**
+**Basic examples of the features of the RMC can be found [here!](https://github.com/KoderzUnreal/RuntimeMeshComponent-Examples)**
+**A more advanced example project can be found [here!](https://github.com/Moddingear/Hexagons)**
 
 **This project is a labor of love, but unfortunately love doesn't pay the bills!
 If you've found this project useful, please consider supporting the development!
@@ -35,15 +38,11 @@ Upgrading from the PMC to the RMC isn't difficult. Visit the [Wiki](https://gith
 * Navigation Mesh Support
 * RMC <-> StaticMesh conversions (RMC -> SMC only works in editor due to engine limits)
 * Configurable Render Paths, (Quicker Update, Slower Render) (Slower Update, Quicker Render)
-* No store mesh data internally, much lower memory footprint, mesh data can be cached by provider if wanted
+* No mesh data stored internally, much lower memory footprint, mesh data can be cached by provider if wanted
 * Material Slots, just like Static Mesh Component
 * Visibility/Shadowing are configurable per section.
 * Collision separate from rendering (collision can use render mesh automatically with use of provider)
 * Tessellation Support
-
----
-
-For information on installation, usage and everything else, [please read the Wiki](https://github.com/Koderz/UE4RuntimeMeshComponent/wiki/)
 
 
 
