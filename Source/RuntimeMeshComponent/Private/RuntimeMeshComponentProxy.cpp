@@ -26,6 +26,7 @@ DECLARE_CYCLE_STAT(TEXT("RuntimeMeshComponentSceneProxy - Get Dynamic Ray Tracin
 FRuntimeMeshComponentSceneProxy::FRuntimeMeshComponentSceneProxy(URuntimeMeshComponent* Component) 
 	: FPrimitiveSceneProxy(Component)
 	, BodySetup(Component->GetBodySetup())
+	, bAnyMaterialUsesDithering(false)
 {
 	check(Component->GetRuntimeMesh() != nullptr);
 	RMC_LOG_VERBOSE("Created");
@@ -35,7 +36,6 @@ FRuntimeMeshComponentSceneProxy::FRuntimeMeshComponentSceneProxy(URuntimeMeshCom
 	RuntimeMeshProxy = Mesh->GetRenderProxy(GetScene().GetFeatureLevel());
 
 	// Fill the section render data
-	SectionMaterials.SetNum(RUNTIMEMESH_MAXLODS);
 	for (int32 LODIndex = 0; LODIndex < Mesh->LODs.Num(); LODIndex++)
 	{
 		const FRuntimeMeshLOD& LOD = Mesh->LODs[LODIndex];
@@ -43,16 +43,19 @@ FRuntimeMeshComponentSceneProxy::FRuntimeMeshComponentSceneProxy(URuntimeMeshCom
 		for (const auto& Section : LOD.Sections)
 		{
 			const FRuntimeMeshSectionProperties& SectionProperties = Section.Value;
-			UMaterialInterface*& SectionMat = SectionMaterials[LODIndex].Add(Section.Key);
+			int32 MaterialSlotIndex = SectionProperties.MaterialSlot;
 
-			SectionMat = Component->GetMaterial(SectionProperties.MaterialSlot);
-
-			if (SectionMat == nullptr)
+			if (!Materials.Contains(MaterialSlotIndex))
 			{
-				SectionMat = UMaterial::GetDefaultMaterial(EMaterialDomain::MD_Surface);
-			}
-
-			MaterialRelevance |= SectionMat->GetRelevance(GetScene().GetFeatureLevel());			
+				UMaterialInterface* SlotMaterial = Component->GetMaterial(MaterialSlotIndex);
+				if (!SlotMaterial)
+				{
+					SlotMaterial = UMaterial::GetDefaultMaterial(MD_Surface);
+				}
+				Materials.Add(MaterialSlotIndex, SlotMaterial);
+				MaterialRelevance |= SlotMaterial->GetRelevance(GetScene().GetFeatureLevel());
+				bAnyMaterialUsesDithering |= SlotMaterial->IsDitheredLODTransition();
+			}		
 		}
 	}   
 
@@ -184,7 +187,7 @@ void FRuntimeMeshComponentSceneProxy::DrawStaticElements(FStaticPrimitiveDrawInt
 
 					if (Section.ShouldRenderStaticPath())
 					{
-						UMaterialInterface* SectionMat = GetMaterialForSection(LODIndex, Section.MaterialSlot);
+						UMaterialInterface* SectionMat = GetMaterialSlot(Section.MaterialSlot);
 						check(SectionMat);
 
 						FMeshBatch MeshBatch;
@@ -243,7 +246,7 @@ void FRuntimeMeshComponentSceneProxy::GetDynamicMeshElements(const TArray<const 
 
 							if (Section.ShouldRender() && (Section.ShouldRenderDynamicPath() || bForceDynamicPath))
 							{
-								UMaterialInterface* SectionMat = GetMaterialForSection(LODIndex, Section.MaterialSlot);
+								UMaterialInterface* SectionMat = GetMaterialSlot(Section.MaterialSlot);
 								check(SectionMat);
 
 								FMeshBatch& MeshBatch = Collector.AllocateMesh();
@@ -411,21 +414,7 @@ FLODMask FRuntimeMeshComponentSceneProxy::GetLODMask(const FSceneView* View) con
 		else
 		{
 			const FBoxSphereBounds& ProxyBounds = GetBounds();
-			bool bUseDithered = false;
-			int32 MaxLOD = RuntimeMeshProxy->GetMaxLOD();
-			if (MaxLOD != INDEX_NONE)
-			{
-				// only dither if at least one section in LOD0 is dithered. Mixed dithering on sections won't work very well, but it makes an attempt
-				const auto& LOD0Sections = SectionMaterials[0];
-				for (const auto& Section : LOD0Sections)
-				{
-					if (Section.Value->IsDitheredLODTransition())
-					{
-						bUseDithered = true;
-						break;
-					}
-				}
-			}
+			bool bUseDithered = RuntimeMeshProxy->GetMaxLOD() != INDEX_NONE && bAnyMaterialUsesDithering;
 
 			FCachedSystemScalabilityCVars CachedSystemScalabilityCVars = GetCachedScalabilityCVars();
 

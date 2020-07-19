@@ -263,6 +263,7 @@ void FRuntimeMeshProxy::CreateOrUpdateSection_RenderThread(int32 LODIndex, int32
 		Section.Buffers->InitResource();
 
 		Section.UpdateFrequency = InProperties.UpdateFrequency;
+		Section.MaterialSlot = InProperties.MaterialSlot;
 		Section.bIsVisible = InProperties.bIsVisible;
 		Section.bIsMainPassRenderable = InProperties.bIsMainPassRenderable;
 		Section.bCastsShadow = InProperties.bCastsShadow;

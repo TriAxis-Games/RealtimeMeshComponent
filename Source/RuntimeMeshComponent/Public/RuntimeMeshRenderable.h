@@ -844,7 +844,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Rendering|MaterialSlot")
 	UMaterialInterface* Material;
 
-	FRuntimeMeshMaterialSlot() { }
+	FRuntimeMeshMaterialSlot() : SlotName(NAME_None), Material(nullptr) { }
 
 	FRuntimeMeshMaterialSlot(const FName& InSlotName, UMaterialInterface* InMaterial)
 		: SlotName(InSlotName), Material(InMaterial) { }
@@ -913,6 +913,14 @@ public:
 			TexCoords.IsHighPrecision(),
 			TexCoords.NumChannels(),
 			Triangles.IsHighPrecision());
+	}
+
+	void CopyStructureToSettings(FRuntimeMeshSectionProperties& OutProperties)
+	{
+		OutProperties.bUseHighPrecisionTangents = Tangents.IsHighPrecision();
+		OutProperties.bUseHighPrecisionTexCoords = TexCoords.IsHighPrecision();
+		OutProperties.NumTexCoords = TexCoords.NumChannels();
+		OutProperties.bWants32BitIndices = Triangles.IsHighPrecision();
 	}
 
 	bool HasValidMeshData(bool bPrintErrorMessage = false) const;

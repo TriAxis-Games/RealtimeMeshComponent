@@ -16,8 +16,8 @@ private:
 	// THis is the proxy we're rendering
 	FRuntimeMeshProxyPtr RuntimeMeshProxy;
 
-	// Extra section data, mostly material data after being combined with override materials on the component
-	TArray<TMap<int32, UMaterialInterface*>, TInlineAllocator<RUNTIMEMESH_MAXLODS>> SectionMaterials;
+	// All the in use materials
+	TMap<int32, UMaterialInterface*> Materials;
 
 	// Reference all the in-use buffers so that as long as this proxy is around these buffers will be too. 
 	// This is meant only for statically drawn sections. Dynamically drawn sections can update safely in place.
@@ -31,6 +31,8 @@ private:
 	FMaterialRelevance MaterialRelevance;
 
 	FRuntimeMeshObjectId<FRuntimeMeshComponentSceneProxy> ObjectId;
+
+	bool bAnyMaterialUsesDithering;
 public:
 
 	/*Constructor, copies the whole mesh data to feed to UE */
@@ -40,12 +42,15 @@ public:
 
 	int32 GetUniqueID() const { return ObjectId.Get(); }
 
-	UMaterialInterface* GetMaterialForSection(int32 LODIndex, int32 SectionIndex) const
+	UMaterialInterface* GetMaterialSlot(int32 MaterialSlotId) const
 	{
-		UMaterialInterface* const* SectionMat = SectionMaterials[LODIndex].Find(SectionIndex);
-		UMaterialInterface* Mat = SectionMat != nullptr ? *SectionMat : nullptr;
-		check(Mat);
-		return Mat;
+		UMaterialInterface*const* Mat = Materials.Find(MaterialSlotId);
+		if (Mat && *Mat)
+		{
+			return *Mat;
+		}
+		
+		return UMaterial::GetDefaultMaterial(MD_Surface);
 	}
 
 	void CreateRenderThreadResources() override;
