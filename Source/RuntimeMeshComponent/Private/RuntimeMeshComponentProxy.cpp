@@ -10,10 +10,8 @@
 #include "Materials/Material.h"
 #include "UnrealEngine.h"
 #include "SceneManagement.h"
-
-#if RHI_RAYTRACING
+#include "RayTracingDefinitions.h"
 #include "RayTracingInstance.h"
-#endif 
 
 DECLARE_CYCLE_STAT(TEXT("RuntimeMeshComponentSceneProxy - Create Mesh Batch"), STAT_RuntimeMeshComponentSceneProxy_CreateMeshBatch, STATGROUP_RuntimeMesh);
 DECLARE_CYCLE_STAT(TEXT("RuntimeMeshComponentSceneProxy - Get Dynamic Mesh Elements"), STAT_RuntimeMeshComponentSceneProxy_GetDynamicMeshElements, STATGROUP_RuntimeMesh);
@@ -107,7 +105,7 @@ FPrimitiveViewRelevance FRuntimeMeshComponentSceneProxy::GetViewRelevance(const 
 	return Result;
 }
 
-void FRuntimeMeshComponentSceneProxy::CreateMeshBatch(FMeshBatch& MeshBatch, const FRuntimeMeshSectionProxy& Section, int32 LODIndex, UMaterialInterface* Material, FMaterialRenderProxy* WireframeMaterial) const
+void FRuntimeMeshComponentSceneProxy::CreateMeshBatch(FMeshBatch& MeshBatch, const FRuntimeMeshSectionProxy& Section, int32 LODIndex, int32 SectionId, UMaterialInterface* Material, FMaterialRenderProxy* WireframeMaterial, bool bForRayTracing) const
 {
 	SCOPE_CYCLE_COUNTER(STAT_RuntimeMeshComponentSceneProxy_CreateMeshBatch);
 
@@ -118,7 +116,7 @@ void FRuntimeMeshComponentSceneProxy::CreateMeshBatch(FMeshBatch& MeshBatch, con
 	const bool bRenderWireframe = WireframeMaterial != nullptr;
 
 	// Decide if we should be using adjacency information for this material
-	const bool bWantsAdjacencyInfo = !bRenderWireframe && RequiresAdjacencyInformation(Material, Section.Buffers->VertexFactory.GetType(), GetScene().GetFeatureLevel());
+	const bool bWantsAdjacencyInfo = !bForRayTracing && !bRenderWireframe && RequiresAdjacencyInformation(Material, Section.Buffers->VertexFactory.GetType(), GetScene().GetFeatureLevel());
 	check(!bWantsAdjacencyInfo || Section.bHasAdjacencyInfo);
 
 	// No support for stateless dithered LOD transitions for movable meshes
@@ -144,6 +142,8 @@ void FRuntimeMeshComponentSceneProxy::CreateMeshBatch(FMeshBatch& MeshBatch, con
 	MeshBatch.VisualizeLODIndex = LODIndex;
 #endif
 
+	MeshBatch.SegmentIndex = SectionId;
+
 	MeshBatch.bDitheredLODTransition = !IsMovable() && MaterialRenderProxy->GetMaterialInterface()->IsDitheredLODTransition();
 	MeshBatch.bWireframe = WireframeMaterial != nullptr;
 
@@ -162,8 +162,11 @@ void FRuntimeMeshComponentSceneProxy::CreateMeshBatch(FMeshBatch& MeshBatch, con
 	BatchElement.MinVertexIndex = 0;
 	BatchElement.MaxVertexIndex = Section.Buffers->PositionBuffer.Num() - 1;
 
-	BatchElement.MaxScreenSize = RuntimeMeshProxy->GetScreenSize(LODIndex);
-	BatchElement.MinScreenSize = RuntimeMeshProxy->GetScreenSize(LODIndex + 1);
+	if (!bForRayTracing)
+	{
+		BatchElement.MaxScreenSize = RuntimeMeshProxy->GetScreenSize(LODIndex);
+		BatchElement.MinScreenSize = RuntimeMeshProxy->GetScreenSize(LODIndex + 1);
+	}
 }
 
 void FRuntimeMeshComponentSceneProxy::DrawStaticElements(FStaticPrimitiveDrawInterface* PDI)
@@ -180,9 +183,9 @@ void FRuntimeMeshComponentSceneProxy::DrawStaticElements(FStaticPrimitiveDrawInt
 
 			if (LOD.bShouldRenderStatic)
 			{
-				int32 SectionId = 0;
 				for (const auto& SectionEntry : LOD.Sections)
 				{
+					int32 SectionId = SectionEntry.Key;
 					auto& Section = SectionEntry.Value;
 
 					if (Section.ShouldRenderStaticPath())
@@ -194,7 +197,7 @@ void FRuntimeMeshComponentSceneProxy::DrawStaticElements(FStaticPrimitiveDrawInt
 						MeshBatch.LODIndex = LODIndex;
 						MeshBatch.SegmentIndex = SectionEntry.Key;
 
-						CreateMeshBatch(MeshBatch, Section, LODIndex, SectionMat, nullptr);
+						CreateMeshBatch(MeshBatch, Section, LODIndex, SectionId, SectionMat, nullptr, false);
 						PDI->DrawMesh(MeshBatch, RuntimeMeshProxy->GetScreenSize(LODIndex));
 
 						// Here we add a reference to the buffers so that we can guarantee these stay around for the life of this proxy
@@ -242,6 +245,7 @@ void FRuntimeMeshComponentSceneProxy::GetDynamicMeshElements(const TArray<const 
 					{
 						for (const auto& SectionEntry : LOD.Sections)
 						{
+							int32 SectionId = SectionEntry.Key;
 							auto& Section = SectionEntry.Value;
 
 							if (Section.ShouldRender() && (Section.ShouldRenderDynamicPath() || bForceDynamicPath))
@@ -250,7 +254,7 @@ void FRuntimeMeshComponentSceneProxy::GetDynamicMeshElements(const TArray<const 
 								check(SectionMat);
 
 								FMeshBatch& MeshBatch = Collector.AllocateMesh();
-								CreateMeshBatch(MeshBatch, Section, LODIndex, SectionMat, WireframeMaterialInstance);
+								CreateMeshBatch(MeshBatch, Section, LODIndex, SectionId, SectionMat, WireframeMaterialInstance, false);
 								MeshBatch.bDitheredLODTransition = LODMask.IsDithered();
 
 								Collector.AddMesh(ViewIndex, MeshBatch);
@@ -298,53 +302,51 @@ void FRuntimeMeshComponentSceneProxy::GetDynamicMeshElements(const TArray<const 
 #endif
 
 
-// #if RHI_RAYTRACING
-//  void FRuntimeMeshComponentSceneProxy::GetDynamicRayTracingInstances(struct FRayTracingMaterialGatheringContext& Context, TArray<struct FRayTracingInstance>& OutRayTracingInstances)
-//  {
-// 	 SCOPE_CYCLE_COUNTER(STAT_RuntimeMeshComponentSceneProxy_GetDynamicRayTracingInstances);
-// 	 
-// 	 // TODO: Should this use any LOD determination logic? Or always use a specific LOD?
-// 
-// 	 int32 LODIndex = 0;
-// 	 auto& LOD = RuntimeMeshProxy->GetLODs()[LODIndex];
-// 
-// 	 for (const auto& SectionEntry : LOD->GetSections())
-// 	 {
-// 		 auto& Section = SectionEntry.Value;
-// 		 auto* RenderData = SectionRenderData[LODIndex].Find(SectionEntry.Key);
-// 		 FMaterialRenderProxy* Material = RenderData->Material->GetRenderProxy();
-// 
-// 		 FRayTracingGeometry* SectionRayTracingGeometry = Section->GetRayTracingGeometry();
-// 		 if (RenderData != nullptr && Section->ShouldRender() && SectionRayTracingGeometry->RayTracingGeometryRHI.IsValid())
-// 		 {
-// 			 check(SectionRayTracingGeometry->Initializer.TotalPrimitiveCount > 0);
-// 			 check(SectionRayTracingGeometry->Initializer.IndexBuffer.IsValid());
-// 
-// 			 FRayTracingInstance RayTracingInstance;
-// 			 RayTracingInstance.Geometry = SectionRayTracingGeometry;
-// 			 RayTracingInstance.InstanceTransforms.Add(GetLocalToWorld());
-// 
-// 			 uint32 SectionIdx = 0;
-// 			 FMeshBatch MeshBatch;
-// 			 MeshBatch.LODIndex = LODIndex;
-// 			 MeshBatch.SegmentIndex = SectionEntry.Key;
-// 
-// 
-// 			 MeshBatch.MaterialRenderProxy = Material;
-// 			 MeshBatch.ReverseCulling = IsLocalToWorldDeterminantNegative();
-// 			 MeshBatch.DepthPriorityGroup = SDPG_World;
-// 			 MeshBatch.bCanApplyViewModeOverrides = false;
-// 
-// 			 Section->CreateMeshBatch(MeshBatch, true, false);
-// 
-// 			 RayTracingInstance.Materials.Add(MeshBatch);
-// 			 RayTracingInstance.BuildInstanceMaskAndFlags();
-// 			 OutRayTracingInstances.Add(RayTracingInstance);
-// 
-// 		 }
-// 	 }
-//  }
-// #endif // RHI_RAYTRACING
+#if RHI_RAYTRACING
+void FRuntimeMeshComponentSceneProxy::GetDynamicRayTracingInstances(struct FRayTracingMaterialGatheringContext& Context, TArray<struct FRayTracingInstance>& OutRayTracingInstances)
+{
+	SCOPE_CYCLE_COUNTER(STAT_RuntimeMeshComponentSceneProxy_GetDynamicRayTracingInstances);
+
+	// TODO: Should this use any LOD determination logic? Or always use a specific LOD?
+	int32 LODIndex = 0;
+	
+	if (RuntimeMeshProxy->HasValidLODs())
+	{
+		auto& LOD = RuntimeMeshProxy->GetLOD(LODIndex);
+
+		for (const auto& SectionEntry : LOD.Sections)
+		{
+			int32 SectionId = SectionEntry.Key;
+			auto& Section = SectionEntry.Value;
+
+			if (Section.ShouldRenderDynamicPathRayTracing())
+			{
+				UMaterialInterface* SectionMat = GetMaterialSlot(Section.MaterialSlot);
+				check(SectionMat);
+
+				FRayTracingGeometry* SectionRayTracingGeometry = &Section.Buffers->RayTracingGeometry;
+
+				if (SectionRayTracingGeometry->RayTracingGeometryRHI->IsValid())
+				{
+					check(SectionRayTracingGeometry->Initializer.TotalPrimitiveCount > 0);
+					check(SectionRayTracingGeometry->Initializer.IndexBuffer.IsValid());
+
+					FRayTracingInstance RayTracingInstance;
+					RayTracingInstance.Geometry = SectionRayTracingGeometry;
+					RayTracingInstance.InstanceTransforms.Add(GetLocalToWorld());
+
+					FMeshBatch MeshBatch;
+					CreateMeshBatch(MeshBatch, Section, LODIndex, SectionId, SectionMat, nullptr, true);
+
+					RayTracingInstance.Materials.Add(MeshBatch);
+					RayTracingInstance.BuildInstanceMaskAndFlags();
+					OutRayTracingInstances.Add(RayTracingInstance);
+				}
+			}
+		}
+	}
+}
+#endif // RHI_RAYTRACING
 
  int8 FRuntimeMeshComponentSceneProxy::GetCurrentFirstLOD() const
  {

@@ -22,15 +22,6 @@ void FRuntimeMeshSectionProxyBuffers::InitResource()
 
 	IndexBuffer.InitResource();
 	AdjacencyIndexBuffer.InitResource();
-
-// #if RHI_RAYTRACING
-// 	if (IsRayTracingEnabled())
-// 	{
-// 		RayTracingGeometry.InitResource();
-// 	}
-// #endif
-
-	//VertexFactory.InitResource();
 }
 
 void FRuntimeMeshSectionProxyBuffers::Reset()
@@ -49,6 +40,40 @@ void FRuntimeMeshSectionProxyBuffers::Reset()
 	if (IsRayTracingEnabled())
 	{
 		RayTracingGeometry.ReleaseResource();
+	}
+#endif
+}
+
+void FRuntimeMeshSectionProxyBuffers::UpdateRayTracingGeometry()
+{
+#if RHI_RAYTRACING
+	if (IsRayTracingEnabled())
+	{
+		ENQUEUE_RENDER_COMMAND(InitRuntimeMeshRayTracingGeometry)(
+			[ThisShared = this->AsShared()](FRHICommandListImmediate& RHICmdList)
+		{
+			FRayTracingGeometryInitializer Initializer;
+			Initializer.PositionVertexBuffer = nullptr;
+			Initializer.IndexBuffer = nullptr;
+			Initializer.BaseVertexIndex = 0;
+			Initializer.VertexBufferStride = 12;
+			Initializer.VertexBufferByteOffset = 0;
+			Initializer.TotalPrimitiveCount = 0;
+			Initializer.VertexBufferElementType = VET_Float3;
+			Initializer.GeometryType = RTGT_Triangles;
+			Initializer.bFastBuild = true;
+			Initializer.bAllowUpdate = false;
+
+			ThisShared->RayTracingGeometry.SetInitializer(Initializer);
+			ThisShared->RayTracingGeometry.InitResource();
+
+			ThisShared->RayTracingGeometry.Initializer.PositionVertexBuffer = ThisShared->PositionBuffer.VertexBufferRHI;
+			ThisShared->RayTracingGeometry.Initializer.IndexBuffer = ThisShared->IndexBuffer.IndexBufferRHI;
+			ThisShared->RayTracingGeometry.Initializer.TotalPrimitiveCount = ThisShared->IndexBuffer.Num() / 3;
+
+
+			ThisShared->RayTracingGeometry.UpdateRHI();
+		});
 	}
 #endif
 }

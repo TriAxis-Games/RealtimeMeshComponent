@@ -23,7 +23,7 @@ struct FRuntimeMeshSectionNullBufferElement
 };
 
 
-struct FRuntimeMeshSectionProxyBuffers
+struct FRuntimeMeshSectionProxyBuffers : public TSharedFromThis<FRuntimeMeshSectionProxyBuffers>
 {
 	/** Vertex factory for this section */
 	FRuntimeMeshVertexFactory VertexFactory;
@@ -98,6 +98,8 @@ struct FRuntimeMeshSectionProxyBuffers
 		AdjacencyIndexBuffer.InitRHIFromExisting(UpdateData.AdjacencyTrianglesBuffer, UpdateData.AdjacencyTriangles.GetNumElements(), UpdateData.b32BitAdjacencyTriangles, Batcher);
 
 	}
+
+	void UpdateRayTracingGeometry();
 };
 
 
@@ -156,6 +158,8 @@ struct FRuntimeMeshSectionProxy
 	FORCEINLINE bool ShouldRenderStaticPath() const { return ShouldRender() && ShouldRenderMainPass() && IsStaticSection(); }
 	FORCEINLINE bool ShouldRenderDynamicPath() const { return ShouldRender() && ShouldRenderMainPass() && !IsStaticSection(); }
 	FORCEINLINE bool ShouldRenderShadow() const { return ShouldRender() && bCastsShadow; }
+
+	FORCEINLINE bool ShouldRenderDynamicPathRayTracing() const { return ShouldRender(); }
 
 
 	void UpdateState()

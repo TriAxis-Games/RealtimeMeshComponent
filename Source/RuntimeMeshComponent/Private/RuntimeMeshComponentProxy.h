@@ -62,18 +62,18 @@ public:
 
 	virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View) const override;
 
-	void CreateMeshBatch(FMeshBatch& MeshBatch, const FRuntimeMeshSectionProxy& Section, int32 LODIndex, UMaterialInterface* Material, FMaterialRenderProxy* WireframeMaterial) const;
+	void CreateMeshBatch(FMeshBatch& MeshBatch, const FRuntimeMeshSectionProxy& Section, int32 LODIndex, int32 SectionId, UMaterialInterface* Material, FMaterialRenderProxy* WireframeMaterial, bool bForRayTracing) const;
 
 	virtual void DrawStaticElements(FStaticPrimitiveDrawInterface* PDI) override;
 
 	virtual void GetDynamicMeshElements(const TArray<const FSceneView*>& Views, const FSceneViewFamily& ViewFamily, uint32 VisibilityMap, FMeshElementCollector& Collector) const override;
 
 #if RHI_RAYTRACING
-	virtual bool IsRayTracingRelevant() const { return false; }
+	virtual bool IsRayTracingRelevant() const { return true; }
 	virtual bool IsRayTracingStaticRelevant() const { return false; }
 
 	/** Gathers dynamic ray tracing instances from this proxy. */
-	//virtual void GetDynamicRayTracingInstances(struct FRayTracingMaterialGatheringContext& Context, TArray<struct FRayTracingInstance>& OutRayTracingInstances);
+	virtual void GetDynamicRayTracingInstances(struct FRayTracingMaterialGatheringContext& Context, TArray<struct FRayTracingInstance>& OutRayTracingInstances);
 
 #endif // RHI_RAYTRACING
 

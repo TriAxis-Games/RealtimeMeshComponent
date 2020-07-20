@@ -92,7 +92,7 @@ public:
 
 	void ClearSection(FRuntimeMeshSectionProxy& Section);
 
-	void ApplyMeshToSection(FRuntimeMeshSectionProxy& Section, FRuntimeMeshSectionUpdateData&& MeshData);
+	void ApplyMeshToSection(int32 LODIndex, int32 SectionId, FRuntimeMeshSectionProxy& Section, FRuntimeMeshSectionUpdateData&& MeshData);
 
 };
 

@@ -340,7 +340,7 @@ void FRuntimeMeshProxy::UpdateSectionMesh_RenderThread(int32 LODIndex, int32 Sec
 		auto* FoundSection = LOD.Sections.Find(SectionId);
 		if (FoundSection)
 		{
-			ApplyMeshToSection(*FoundSection, MoveTemp(*MeshData));
+			ApplyMeshToSection(LODIndex, SectionId, *FoundSection, MoveTemp(*MeshData));
 
 			UpdateRenderState();
 		}
@@ -372,7 +372,7 @@ void FRuntimeMeshProxy::UpdateMultipleSectionsMesh_RenderThread(int32 LODIndex, 
 			auto* FoundSection = LOD.Sections.Find(SectionId);
 			if (FoundSection)
 			{
-				ApplyMeshToSection(*FoundSection, MoveTemp(*MeshData));
+				ApplyMeshToSection(LODIndex, SectionId, *FoundSection, MoveTemp(*MeshData));
 			}
 			else
 			{
@@ -482,7 +482,7 @@ void FRuntimeMeshProxy::ClearSection(FRuntimeMeshSectionProxy& Section)
 	Section.Buffers.Reset();
 }
 
-void FRuntimeMeshProxy::ApplyMeshToSection(FRuntimeMeshSectionProxy& Section, FRuntimeMeshSectionUpdateData&& MeshData)
+void FRuntimeMeshProxy::ApplyMeshToSection(int32 LODIndex, int32 SectionId, FRuntimeMeshSectionProxy& Section, FRuntimeMeshSectionUpdateData&& MeshData)
 {
 	if (Section.UpdateFrequency == ERuntimeMeshUpdateFrequency::Infrequent)
 	{
@@ -521,10 +521,18 @@ void FRuntimeMeshProxy::ApplyMeshToSection(FRuntimeMeshSectionProxy& Section, FR
 		Buffers.ColorBuffer.Bind(DataType);
 		Buffers.VertexFactory.Init(DataType);
 		Buffers.VertexFactory.InitResource();
+
+		// TODO: Should this use any lod selection logic for ray tracing?
+		// We only use LOD 0 for ray tracing at this time
+		if (LODIndex == 0)
+		{
+			Buffers.UpdateRayTracingGeometry();
+		}
 	}
 	else
 	{
 		Buffers.VertexFactory.ReleaseResource();
+		Buffers.RayTracingGeometry.ReleaseResource();
 	}
 
 	check(!Section.CanRender() || Buffers.VertexFactory.IsInitialized());
