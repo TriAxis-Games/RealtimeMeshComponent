@@ -49,31 +49,43 @@ void FRuntimeMeshSectionProxyBuffers::UpdateRayTracingGeometry()
 #if RHI_RAYTRACING
 	if (IsRayTracingEnabled())
 	{
-		ENQUEUE_RENDER_COMMAND(InitRuntimeMeshRayTracingGeometry)(
-			[ThisShared = this->AsShared()](FRHICommandListImmediate& RHICmdList)
-		{
-			FRayTracingGeometryInitializer Initializer;
-			Initializer.PositionVertexBuffer = nullptr;
-			Initializer.IndexBuffer = nullptr;
-			Initializer.BaseVertexIndex = 0;
-			Initializer.VertexBufferStride = 12;
-			Initializer.VertexBufferByteOffset = 0;
-			Initializer.TotalPrimitiveCount = 0;
-			Initializer.VertexBufferElementType = VET_Float3;
-			Initializer.GeometryType = RTGT_Triangles;
-			Initializer.bFastBuild = true;
-			Initializer.bAllowUpdate = false;
+		FRayTracingGeometryInitializer Initializer;
+#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION <= 23
+		Initializer.PositionVertexBuffer = nullptr;
+#endif
+		Initializer.IndexBuffer = nullptr;
+#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION <= 23
+		Initializer.BaseVertexIndex = 0;
+		Initializer.VertexBufferStride = 12;
+		Initializer.VertexBufferByteOffset = 0;
+#endif
+		Initializer.TotalPrimitiveCount = 0;
 
-			ThisShared->RayTracingGeometry.SetInitializer(Initializer);
-			ThisShared->RayTracingGeometry.InitResource();
+#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION <= 23
+		Initializer.VertexBufferElementType = VET_Float3;
+#endif
+		Initializer.GeometryType = RTGT_Triangles;
+		Initializer.bFastBuild = true;
+		Initializer.bAllowUpdate = false;
 
-			ThisShared->RayTracingGeometry.Initializer.PositionVertexBuffer = ThisShared->PositionBuffer.VertexBufferRHI;
-			ThisShared->RayTracingGeometry.Initializer.IndexBuffer = ThisShared->IndexBuffer.IndexBufferRHI;
-			ThisShared->RayTracingGeometry.Initializer.TotalPrimitiveCount = ThisShared->IndexBuffer.Num() / 3;
+		RayTracingGeometry.SetInitializer(Initializer);
+		RayTracingGeometry.InitResource();
 
+#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION <= 23
+		RayTracingGeometry.Initializer.PositionVertexBuffer = PositionBuffer.VertexBufferRHI;
+#endif
+		RayTracingGeometry.Initializer.IndexBuffer = IndexBuffer.IndexBufferRHI;
+		RayTracingGeometry.Initializer.TotalPrimitiveCount = IndexBuffer.Num() / 3;
 
-			ThisShared->RayTracingGeometry.UpdateRHI();
-		});
+#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 24
+		FRayTracingGeometrySegment Segment;
+		Segment.VertexBuffer = PositionBuffer.VertexBufferRHI;
+		Segment.NumPrimitives = IndexBuffer.Num() / 3;
+		RayTracingGeometry.Initializer.Segments.Add(Segment);
+#endif
+
+		RayTracingGeometry.UpdateRHI();
+
 	}
 #endif
 }

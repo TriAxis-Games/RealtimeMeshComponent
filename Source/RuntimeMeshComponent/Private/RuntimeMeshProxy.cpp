@@ -497,9 +497,9 @@ void FRuntimeMeshProxy::ApplyMeshToSection(int32 LODIndex, int32 SectionId, FRun
 
 	// Update all buffers data
 
+
 	/* Todo: Make this batch count a little more accurate to what is required*/
 	TRHIResourceUpdateBatcher<16> Batcher;
-
 
 	MeshData.CreateRHIBuffers<true>(Section.UpdateFrequency == ERuntimeMeshUpdateFrequency::Frequent);
 	Buffers.ApplyRHIReferences(MeshData, Batcher);
