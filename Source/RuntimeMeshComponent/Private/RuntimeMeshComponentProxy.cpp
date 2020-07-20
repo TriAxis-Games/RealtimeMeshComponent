@@ -144,8 +144,8 @@ void FRuntimeMeshComponentSceneProxy::CreateMeshBatch(FMeshBatch& MeshBatch, con
 
 	MeshBatch.SegmentIndex = SectionId;
 
-	MeshBatch.bDitheredLODTransition = !IsMovable() && MaterialRenderProxy->GetMaterialInterface()->IsDitheredLODTransition();
-	MeshBatch.bWireframe = WireframeMaterial != nullptr;
+	MeshBatch.bDitheredLODTransition = !bForRayTracing && !IsMovable() && MaterialRenderProxy->GetMaterialInterface()->IsDitheredLODTransition();
+	MeshBatch.bWireframe = !bForRayTracing && WireframeMaterial != nullptr;
 
 	MeshBatch.MaterialRenderProxy = MeshBatch.bWireframe ? WireframeMaterial : MaterialRenderProxy;
 	MeshBatch.ReverseCulling = IsLocalToWorldDeterminantNegative();
@@ -155,7 +155,7 @@ void FRuntimeMeshComponentSceneProxy::CreateMeshBatch(FMeshBatch& MeshBatch, con
 
 
 	FMeshBatchElement& BatchElement = MeshBatch.Elements[0];
-
+	BatchElement.PrimitiveUniformBuffer = GetUniformBuffer();
 	BatchElement.IndexBuffer = CurrentIndexBuffer;
 	BatchElement.FirstIndex = 0;
 	BatchElement.NumPrimitives = NumPrimitives;
@@ -337,6 +337,10 @@ void FRuntimeMeshComponentSceneProxy::GetDynamicRayTracingInstances(struct FRayT
 
 					FMeshBatch MeshBatch;
 					CreateMeshBatch(MeshBatch, Section, LODIndex, SectionId, SectionMat, nullptr, true);
+
+
+					MeshBatch.CastRayTracedShadow = IsShadowCast(Context.ReferenceView);
+
 
 					RayTracingInstance.Materials.Add(MeshBatch);
 					RayTracingInstance.BuildInstanceMaskAndFlags();

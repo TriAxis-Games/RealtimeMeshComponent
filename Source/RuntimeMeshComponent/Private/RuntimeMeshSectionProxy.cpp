@@ -12,18 +12,6 @@
 DECLARE_DWORD_COUNTER_STAT(TEXT("RuntimeMeshSectionProxy - Num Triangles"), STAT_RuntimeMeshSectionProxy_NumTriangles, STATGROUP_RuntimeMesh);
 
 
-
-void FRuntimeMeshSectionProxyBuffers::InitResource()
-{
-	PositionBuffer.InitResource();
-	TangentsBuffer.InitResource();
-	UVsBuffer.InitResource();
-	ColorBuffer.InitResource();
-
-	IndexBuffer.InitResource();
-	AdjacencyIndexBuffer.InitResource();
-}
-
 void FRuntimeMeshSectionProxyBuffers::Reset()
 {
 	VertexFactory.ReleaseResource();
@@ -85,7 +73,6 @@ void FRuntimeMeshSectionProxyBuffers::UpdateRayTracingGeometry()
 #endif
 
 		RayTracingGeometry.UpdateRHI();
-
 	}
 #endif
 }

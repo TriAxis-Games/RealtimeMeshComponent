@@ -55,11 +55,6 @@ struct FRuntimeMeshSectionProxyBuffers : public TSharedFromThis<FRuntimeMeshSect
 	uint32 bIsShared : 1;
 
 
-// 
-// 	FRuntimeMeshSectionBuffers()
-// 	{
-// 
-// 	}
 
 	FRuntimeMeshSectionProxyBuffers(bool bInIsDynamicBuffer, bool bInIsShared)
 		: VertexFactory(GMaxRHIFeatureLevel)
@@ -74,8 +69,6 @@ struct FRuntimeMeshSectionProxyBuffers : public TSharedFromThis<FRuntimeMeshSect
 
 	}
 
-	void InitResource();
-
 	~FRuntimeMeshSectionProxyBuffers()
 	{
 		check(IsInRenderingThread());
@@ -87,16 +80,27 @@ struct FRuntimeMeshSectionProxyBuffers : public TSharedFromThis<FRuntimeMeshSect
 
 
 	template <uint32 MaxNumUpdates>
+	void InitFromRHIReferences(FRuntimeMeshSectionUpdateData& UpdateData, TRHIResourceUpdateBatcher<MaxNumUpdates>& Batcher)
+	{
+		PositionBuffer.InitRHIFromExisting(UpdateData.PositionsBuffer, UpdateData.Positions.GetNumElements());
+		TangentsBuffer.InitRHIFromExisting(UpdateData.TangentsBuffer, UpdateData.Tangents.GetNumElements(), UpdateData.bHighPrecisionTangents);
+		UVsBuffer.InitRHIFromExisting(UpdateData.TexCoordsBuffer, UpdateData.TexCoords.GetNumElements(), UpdateData.bHighPrecisionTexCoords, UpdateData.NumTexCoordChannels);
+		ColorBuffer.InitRHIFromExisting(UpdateData.ColorsBuffer, UpdateData.Colors.GetNumElements());
+
+		IndexBuffer.InitRHIFromExisting(UpdateData.TrianglesBuffer, UpdateData.Triangles.GetNumElements(), UpdateData.b32BitTriangles);
+		AdjacencyIndexBuffer.InitRHIFromExisting(UpdateData.AdjacencyTrianglesBuffer, UpdateData.AdjacencyTriangles.GetNumElements(), UpdateData.b32BitAdjacencyTriangles);
+	}
+
+	template <uint32 MaxNumUpdates>
 	void ApplyRHIReferences(FRuntimeMeshSectionUpdateData& UpdateData, TRHIResourceUpdateBatcher<MaxNumUpdates>& Batcher)
 	{
-		PositionBuffer.InitRHIFromExisting(UpdateData.PositionsBuffer, UpdateData.Positions.GetNumElements(), Batcher);
-		TangentsBuffer.InitRHIFromExisting(UpdateData.TangentsBuffer, UpdateData.Tangents.GetNumElements(), UpdateData.bHighPrecisionTangents, Batcher);
-		UVsBuffer.InitRHIFromExisting(UpdateData.TexCoordsBuffer, UpdateData.TexCoords.GetNumElements(), UpdateData.bHighPrecisionTexCoords, UpdateData.NumTexCoordChannels, Batcher);
-		ColorBuffer.InitRHIFromExisting(UpdateData.ColorsBuffer, UpdateData.Colors.GetNumElements(), Batcher);
+		PositionBuffer.UpdateRHIFromExisting(UpdateData.PositionsBuffer, UpdateData.Positions.GetNumElements(), Batcher);
+		TangentsBuffer.UpdateRHIFromExisting(UpdateData.TangentsBuffer, UpdateData.Tangents.GetNumElements(), UpdateData.bHighPrecisionTangents, Batcher);
+		UVsBuffer.UpdateRHIFromExisting(UpdateData.TexCoordsBuffer, UpdateData.TexCoords.GetNumElements(), UpdateData.bHighPrecisionTexCoords, UpdateData.NumTexCoordChannels, Batcher);
+		ColorBuffer.UpdateRHIFromExisting(UpdateData.ColorsBuffer, UpdateData.Colors.GetNumElements(), Batcher);
 
-		IndexBuffer.InitRHIFromExisting(UpdateData.TrianglesBuffer, UpdateData.Triangles.GetNumElements(), UpdateData.b32BitTriangles, Batcher);
-		AdjacencyIndexBuffer.InitRHIFromExisting(UpdateData.AdjacencyTrianglesBuffer, UpdateData.AdjacencyTriangles.GetNumElements(), UpdateData.b32BitAdjacencyTriangles, Batcher);
-
+		IndexBuffer.UpdateRHIFromExisting(UpdateData.TrianglesBuffer, UpdateData.Triangles.GetNumElements(), UpdateData.b32BitTriangles, Batcher);
+		AdjacencyIndexBuffer.UpdateRHIFromExisting(UpdateData.AdjacencyTrianglesBuffer, UpdateData.AdjacencyTriangles.GetNumElements(), UpdateData.b32BitAdjacencyTriangles, Batcher);
 	}
 
 	void UpdateRayTracingGeometry();

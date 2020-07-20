@@ -259,11 +259,9 @@ void FRuntimeMeshProxy::CreateOrUpdateSection_RenderThread(int32 LODIndex, int32
 			ClearSection(Section);
 		}
 
-		Section.Buffers = MakeShared<FRuntimeMeshSectionProxyBuffers>(InProperties.UpdateFrequency == ERuntimeMeshUpdateFrequency::Frequent, false);
-		Section.Buffers->InitResource();
-
 		Section.UpdateFrequency = InProperties.UpdateFrequency;
 		Section.MaterialSlot = InProperties.MaterialSlot;
+
 		Section.bIsVisible = InProperties.bIsVisible;
 		Section.bIsMainPassRenderable = InProperties.bIsMainPassRenderable;
 		Section.bCastsShadow = InProperties.bCastsShadow;
@@ -310,8 +308,8 @@ void FRuntimeMeshProxy::SetSectionsForLOD_RenderThread(int32 LODIndex, const TMa
 				ClearSection(Section);
 			}
 
-			Section.Buffers = MakeShared<FRuntimeMeshSectionProxyBuffers>(SectionProperties.UpdateFrequency == ERuntimeMeshUpdateFrequency::Frequent, false);
-			Section.Buffers->InitResource();
+			Section.UpdateFrequency = SectionProperties.UpdateFrequency;
+			Section.MaterialSlot = SectionProperties.MaterialSlot;
 
 			Section.bIsVisible = SectionProperties.bIsVisible;
 			Section.bIsMainPassRenderable = SectionProperties.bIsMainPassRenderable;
@@ -484,36 +482,38 @@ void FRuntimeMeshProxy::ClearSection(FRuntimeMeshSectionProxy& Section)
 
 void FRuntimeMeshProxy::ApplyMeshToSection(int32 LODIndex, int32 SectionId, FRuntimeMeshSectionProxy& Section, FRuntimeMeshSectionUpdateData&& MeshData)
 {
-	if (Section.UpdateFrequency == ERuntimeMeshUpdateFrequency::Infrequent)
-	{
-		Section.Buffers = MakeShared<FRuntimeMeshSectionProxyBuffers>(false, false);
-		Section.Buffers->InitResource();
-	}
-	FRuntimeMeshSectionProxyBuffers& Buffers = *Section.Buffers.Get();
-
-
 	RMC_LOG_VERBOSE("ApplyMeshToSection called");
 
+	bool bShouldRecreateBuffers = !Section.Buffers.IsValid() || Section.UpdateFrequency == ERuntimeMeshUpdateFrequency::Infrequent;
 
-	// Update all buffers data
-
-
-	/* Todo: Make this batch count a little more accurate to what is required*/
+	// This creates the RHI buffers if they weren't previously created by another thread
+	MeshData.CreateRHIBuffers<true>(Section.UpdateFrequency == ERuntimeMeshUpdateFrequency::Frequent);
+		
 	TRHIResourceUpdateBatcher<16> Batcher;
 
-	MeshData.CreateRHIBuffers<true>(Section.UpdateFrequency == ERuntimeMeshUpdateFrequency::Frequent);
-	Buffers.ApplyRHIReferences(MeshData, Batcher);
+	if (bShouldRecreateBuffers)
+	{
+		Section.Buffers = MakeShared<FRuntimeMeshSectionProxyBuffers>(false, false);
+		Section.Buffers->InitFromRHIReferences(MeshData, Batcher);
+	}
+	else
+	{
+		Section.Buffers->ApplyRHIReferences(MeshData, Batcher);
+	}
+
 	Batcher.Flush();
 
+	// Update the state
 	Section.FirstIndex = 0;
 	Section.NumTriangles = MeshData.Triangles.GetNumElements() / 3;
 	Section.MinVertexIndex = 0;
 	Section.MaxVertexIndex = MeshData.Positions.GetNumElements();
-
 	Section.UpdateState();
 	
 	if (Section.CanRender())
 	{
+		FRuntimeMeshSectionProxyBuffers& Buffers = *Section.Buffers.Get();
+
 		FLocalVertexFactory::FDataType DataType;
 		Buffers.PositionBuffer.Bind(DataType);
 		Buffers.TangentsBuffer.Bind(DataType);
@@ -531,11 +531,13 @@ void FRuntimeMeshProxy::ApplyMeshToSection(int32 LODIndex, int32 SectionId, FRun
 	}
 	else
 	{
+		FRuntimeMeshSectionProxyBuffers& Buffers = *Section.Buffers.Get();
+
 		Buffers.VertexFactory.ReleaseResource();
 		Buffers.RayTracingGeometry.ReleaseResource();
 	}
 
-	check(!Section.CanRender() || Buffers.VertexFactory.IsInitialized());
+	check(!Section.CanRender() || Section.Buffers->VertexFactory.IsInitialized());
 }
 
 
