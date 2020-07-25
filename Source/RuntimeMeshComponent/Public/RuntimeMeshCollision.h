@@ -483,6 +483,11 @@ public:
 		Data.SetNum(NewNum, bAllowShrinking);
 	}
 
+	void SetNumZeroed(int32 NewNum, bool bAllowShrinking = true)
+	{
+		Data.SetNumZeroed(NewNum, bAllowShrinking);
+	}
+
 	int32 Num() const
 	{
 		return Data.Num();
