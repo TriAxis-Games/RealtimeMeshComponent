@@ -8,8 +8,8 @@ URuntimeMeshProviderPlane::URuntimeMeshProviderPlane()
 	: LocationA(100, 100, 0)
 	, LocationB(-100, 100, 0)
 	, LocationC(100, -100, 0)
-	, VertsAB({100,10,1})
-	, VertsAC({100,10,1})
+	, VertsAB({100,10,2})
+	, VertsAC({100,10,2})
 	, ScreenSize({ 0.1,0.01 })
 {
 }
