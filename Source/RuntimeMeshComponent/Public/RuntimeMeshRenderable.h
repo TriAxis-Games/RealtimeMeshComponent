@@ -907,6 +907,14 @@ public:
 		AdjacencyTriangles.Empty();
 	}
 
+	void ReserveVertices(int32 Number)
+	{
+		Positions.Reserve(Number);
+		Tangents.Reserve(Number);
+		TexCoords.Reserve(Number);
+		Colors.Reserve(Number);
+	}
+
 	FRuntimeMeshRenderableMeshData CopyStructure() const
 	{
 		return FRuntimeMeshRenderableMeshData(Tangents.IsHighPrecision(),
