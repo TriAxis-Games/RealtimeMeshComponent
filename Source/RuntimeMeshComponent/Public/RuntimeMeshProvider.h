@@ -3,222 +3,140 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "RuntimeMeshRenderable.h"
-#include "RuntimeMeshCollision.h"
+#include "RuntimeMeshProviderTargetInterface.h"
+#include "RuntimeMeshReference.h"
 #include "RuntimeMeshProvider.generated.h"
 
 
-class FRuntimeMeshProviderProxy;
-using FRuntimeMeshProviderProxyRef = TSharedRef<FRuntimeMeshProviderProxy, ESPMode::ThreadSafe>;
-using FRuntimeMeshProviderProxyPtr = TSharedPtr<FRuntimeMeshProviderProxy, ESPMode::ThreadSafe>;
-using FRuntimeMeshProviderProxyWeakPtr = TWeakPtr<FRuntimeMeshProviderProxy, ESPMode::ThreadSafe>;
 
-
-DECLARE_DELEGATE(FRuntimeMeshProviderThreadExclusiveFunction);
-
-class RUNTIMEMESHCOMPONENT_API IRuntimeMeshProviderProxy
+UCLASS(HideCategories = Object, BlueprintType, Meta = (ShortTooltip = "A RuntimeMeshProvider is a class containing the logic to create the mesh data and related information to be used by a RuntimeMeshComponent for rendering."))
+class RUNTIMEMESHCOMPONENT_API URuntimeMeshProvider : public URuntimeMeshProviderTargetInterface
 {
+	GENERATED_BODY()
+protected:
+
+	FRuntimeMeshReferenceAnchor<URuntimeMeshProvider> GCAnchor;
+
+	URuntimeMeshProviderTargetInterface* Target;
+	mutable FRWLock TargetLock;
+	FThreadSafeBool bIsBound;
+
 public:
-	IRuntimeMeshProviderProxy() { }
-	virtual ~IRuntimeMeshProviderProxy() { }
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshProvider|ConfigureLODs")
+	bool IsBound() const { check(bIsBound == (Target != nullptr)); return bIsBound; }
 
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshProvider|ConfigureLODs")
+	void Shutdown();
+
+	virtual void BindTargetProvider(URuntimeMeshProviderTargetInterface* InTarget);
+	virtual void UnlinkProviders() override;
+
+
+public:
+    URuntimeMeshProvider();
+
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshProvider|ConfigureLODs")
 	virtual void Initialize() { }
-	
-	virtual void ConfigureLODs(TArray<FRuntimeMeshLODProperties> LODs) { }
 
-	virtual void CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties) { }
-	virtual void SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial) { }
-	virtual int32 GetMaterialIndex(FName MaterialSlotName) { return INDEX_NONE; }
-	virtual int32 GetNumMaterials() { return 0; }
-	virtual TArray<FRuntimeMeshMaterialSlot> GetMaterialSlots() const { return TArray<FRuntimeMeshMaterialSlot>(); }
-	virtual void MarkSectionDirty(int32 LODIndex, int32 SectionId) { }
-	virtual void MarkLODDirty(int32 LODIndex) { }
-	virtual void MarkAllLODsDirty() { }
-	virtual void SetSectionVisibility(int32 LODIndex, int32 SectionId, bool bIsVisible) { }
-	virtual void SetSectionCastsShadow(int32 LODIndex, int32 SectionId, bool bCastsShadow) { }
-	virtual void RemoveSection(int32 LODIndex, int32 SectionId) { }
-	virtual void MarkCollisionDirty() { }
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshProvider|ConfigureLODs")
+	virtual FBoxSphereBounds GetBounds() { return FBoxSphereBounds(FSphere(FVector::ZeroVector, 1.0f)); }
 
-	virtual FBoxSphereBounds GetBounds() { return FBoxSphereBounds(); }
-
-	virtual bool GetAllSectionsMeshForLOD(int32 LODIndex, TMap<int32, TTuple<FRuntimeMeshSectionProperties, FRuntimeMeshRenderableMeshData>>& MeshDatas) { return false; }
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshProvider|ConfigureLODs")
 	virtual bool GetSectionMeshForLOD(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData) { return false; }
 
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshProvider|ConfigureLODs")
+	virtual bool GetAllSectionsMeshForLOD(int32 LODIndex, TMap<int32, FRuntimeMeshSectionData>& MeshDatas) { return false; }
+
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshProvider|ConfigureLODs")
 	virtual FRuntimeMeshCollisionSettings GetCollisionSettings() { return FRuntimeMeshCollisionSettings(); }
+
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshProvider|ConfigureLODs")
 	virtual bool HasCollisionMesh() { return false; }
+
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshProvider|ConfigureLODs")
 	virtual bool GetCollisionMesh(FRuntimeMeshCollisionData& CollisionData) { return false; }
 
-	virtual bool IsThreadSafe() const { return false; }
-	virtual void DoOnGameThreadAndBlockThreads(FRuntimeMeshProviderThreadExclusiveFunction Func) { }
-};
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshProvider|ConfigureLODs")
+	virtual void CollisionUpdateCompleted() { }
 
-/**
- *
- */
-class RUNTIMEMESHCOMPONENT_API FRuntimeMeshProviderProxy : public IRuntimeMeshProviderProxy, public TSharedFromThis<FRuntimeMeshProviderProxy, ESPMode::ThreadSafe>
-{
-private:
-	TWeakObjectPtr<URuntimeMeshProvider> Parent;
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshProvider|ConfigureLODs")
+	virtual bool IsThreadSafe() { return false; }
 
-protected:
-	FRuntimeMeshProviderProxyWeakPtr PreviousProvider;
+	FRuntimeMeshProviderWeakRef GetReference();
 
-public:
-	FRuntimeMeshProviderProxy(TWeakObjectPtr<URuntimeMeshProvider> InParent);
-
-protected:
-	virtual void BindPreviousProvider(const FRuntimeMeshProviderProxyPtr& InPreviousProvider);
-	
-public:
-	virtual void UpdateProxyParameters(URuntimeMeshProvider* ParentProvider, bool bIsInitialSetup);
-	
-	virtual void ConfigureLODs(TArray<FRuntimeMeshLODProperties> LODs) override;
-
-	virtual void CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties) override;
-	virtual void SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial) override;
-	virtual int32 GetMaterialIndex(FName MaterialSlotName) override;
-	virtual int32 GetNumMaterials() override;
-	virtual TArray<FRuntimeMeshMaterialSlot> GetMaterialSlots() const override;
-	virtual void MarkSectionDirty(int32 LODIndex, int32 SectionId) override;
+	//	Begin IRuntimeMeshProviderTargetInterface interface
+	virtual FRuntimeMeshWeakRef GetMeshReference() override;
+	virtual void ConfigureLODs(const TArray<FRuntimeMeshLODProperties>& InLODs) override;
+	virtual void SetLODScreenSize(int32 LODIndex, float ScreenSize) override;
 	virtual void MarkLODDirty(int32 LODIndex) override;
 	virtual void MarkAllLODsDirty() override;
+
+	virtual void CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties) override;
 	virtual void SetSectionVisibility(int32 LODIndex, int32 SectionId, bool bIsVisible) override;
 	virtual void SetSectionCastsShadow(int32 LODIndex, int32 SectionId, bool bCastsShadow) override;
+	virtual void MarkSectionDirty(int32 LODIndex, int32 SectionId) override;
+	virtual void ClearSection(int32 LODIndex, int32 SectionId) override;
 	virtual void RemoveSection(int32 LODIndex, int32 SectionId) override;
 	virtual void MarkCollisionDirty() override;
 
-	TWeakObjectPtr<URuntimeMeshProvider> GetParent() const { return Parent; }
+	virtual void SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial) override;
+	virtual int32 GetMaterialIndex(FName MaterialSlotName) override;
+	virtual bool IsMaterialSlotNameValid(FName MaterialSlotName) const override;
+	virtual FRuntimeMeshMaterialSlot GetMaterialSlot(int32 SlotIndex) override;
+	virtual int32 GetNumMaterials() override;
+	virtual TArray<FName> GetMaterialSlotNames() override;
+	virtual TArray<FRuntimeMeshMaterialSlot> GetMaterialSlots() override;
+	virtual UMaterialInterface* GetMaterial(int32 SlotIndex) override;
+	//	End IRuntimeMeshProviderTargetInterface interface
 
-	virtual void DoOnGameThreadAndBlockThreads(FRuntimeMeshProviderThreadExclusiveFunction Func) override;
+    // Begin UObject interface
+	void BeginDestroy() override;
+    bool IsReadyForFinishDestroy() override;
+    // End UObject interface
+protected:
 
-	template<typename T>
-	TSharedRef<const T, ESPMode::ThreadSafe> AsSharedType() const
-	{
-		return StaticCastSharedRef<T>(this->AsShared());
-	}
-
-	template<typename T>
-	TSharedRef<T, ESPMode::ThreadSafe> AsSharedType()
-	{
-		return StaticCastSharedRef<T>(this->AsShared());
-	}
-private:
-	friend class FRuntimeMeshData;
-	friend class FRuntimeMeshProviderProxyPassThrough;
-	friend class FRuntimeMeshProviderProxyUObjectProviderConnector;
+    friend class URuntimeMesh;
 };
 
 
-class RUNTIMEMESHCOMPONENT_API FRuntimeMeshProviderProxyPassThrough : public FRuntimeMeshProviderProxy
+
+
+UCLASS(HideCategories = Object, BlueprintType, Meta = (ShortTooltip = "A RuntimeMeshProviderPassthrough is a class containing logic to modify the mesh data from a linked provider before passing it onto the RuntimeMeshComponent."))
+class RUNTIMEMESHCOMPONENT_API URuntimeMeshProviderPassthrough
+    : public URuntimeMeshProvider
 {
-protected:
-	FRuntimeMeshProviderProxyPtr NextProvider;
+    GENERATED_BODY()
+private:
+    UPROPERTY(VisibleAnywhere, BlueprintGetter = GetChildProvider, BlueprintSetter = SetChildProvider, Category = "RuntimeMesh|Providers")
+    URuntimeMeshProvider* ChildProvider;
+
+	mutable FRWLock ChildLock;
+public:
+
+	virtual void BindTargetProvider(URuntimeMeshProviderTargetInterface* InTarget) override;
+	virtual void UnlinkProviders() override;
 
 public:
-	FRuntimeMeshProviderProxyPassThrough(TWeakObjectPtr<URuntimeMeshProvider> InParent, const FRuntimeMeshProviderProxyPtr& InNextProvider);
+    URuntimeMeshProviderPassthrough();
 
+    UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers")
+	URuntimeMeshProvider* GetChildProvider() const
+	{
+		FReadScopeLock Lock(ChildLock);
+		return ChildProvider;
+	}
 
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers")
+    void SetChildProvider(URuntimeMeshProvider* InProvider);
 
-protected:
-	virtual void BindPreviousProvider(const FRuntimeMeshProviderProxyPtr& InPreviousProvider) override;
-
-public:
 	virtual void Initialize() override;
-
-	virtual FBoxSphereBounds GetBounds();
-
-	virtual bool GetAllSectionsMeshForLOD(int32 LODIndex, TMap<int32, TTuple<FRuntimeMeshSectionProperties, FRuntimeMeshRenderableMeshData>>& MeshDatas) override;
+	virtual FBoxSphereBounds GetBounds() override;
 	virtual bool GetSectionMeshForLOD(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData) override;
-
-	virtual FRuntimeMeshCollisionSettings GetCollisionSettings();
-	virtual bool HasCollisionMesh();
+	virtual bool GetAllSectionsMeshForLOD(int32 LODIndex, TMap<int32, FRuntimeMeshSectionData>& MeshDatas) override;
+	virtual FRuntimeMeshCollisionSettings GetCollisionSettings() override;
+	virtual bool HasCollisionMesh() override;
 	virtual bool GetCollisionMesh(FRuntimeMeshCollisionData& CollisionData) override;
+	virtual void CollisionUpdateCompleted() override;
+	virtual bool IsThreadSafe() override;
 
-	virtual bool IsThreadSafe() const;
 };
-
-
-
-UCLASS(Abstract, HideCategories = Object, BlueprintType, Blueprintable, Meta = (ShortTooltip = "A RuntimeMeshProvider is a class containing the logic to create the mesh data and related information to be used by a RuntimeMeshComponent for rendering."))
-class RUNTIMEMESHCOMPONENT_API URuntimeMeshProvider : public UObject
-{
-	GENERATED_BODY()
-
-private:
-	FRuntimeMeshProviderProxyPtr Proxy;
-
-protected:
-	virtual FRuntimeMeshProviderProxyRef GetProxy();
-
-public:
-	FRuntimeMeshProviderProxyRef SetupProxy();
-
-	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Common")
-	void MarkProxyParametersDirty();
-
-	UFUNCTION(BlueprintNativeEvent, Category = "RuntimeMesh|Providers|Common")
-	void Initialize();
-
-	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "RuntimeMesh|Providers|Common")
-	void ConfigureLODs(const TArray<FRuntimeMeshLODProperties>& LODs);
-
-	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "RuntimeMesh|Providers|Common")
-	void CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties);
-	
-	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "RuntimeMesh|Providers|Common")
-	void SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial);
-
-	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "RuntimeMesh|Providers|Common")
-	int32 GetMaterialIndex(FName MaterialSlotName);
-
-	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "RuntimeMesh|Providers|Common")
-	int32 GetNumMaterialSlots();
-
-	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "RuntimeMesh|Providers|Common")
-	TArray<FRuntimeMeshMaterialSlot> GetMaterialSlots();
-	
-	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "RuntimeMesh|Providers|Common")
-	void MarkSectionDirty(int32 LODIndex, int32 SectionId);
-
-	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "RuntimeMesh|Providers|Common")
-	void MarkLODDirty(int32 LODIndex);
-
-	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "RuntimeMesh|Providers|Common")
-	void MarkAllLODsDirty();
-
-	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "RuntimeMesh|Providers|Common")
-	void SetSectionVisibility(int32 LODIndex, int32 SectionId, bool bIsVisible);
-	
-	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "RuntimeMesh|Providers|Common")
-	void SetSectionCastsShadow(int32 LODIndex, int32 SectionId, bool bCastsShadow);
-	
-	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "RuntimeMesh|Providers|Common")
-	void RemoveSection(int32 LODIndex, int32 SectionId);
-	
-	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "RuntimeMesh|Providers|Common")
-	void MarkCollisionDirty();
-
-
-protected:
-
-	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "RuntimeMesh|Providers|Common")
-	FBoxSphereBounds GetBounds();
-
-	//UFUNCTION(BlueprintNativeEvent, Category = "RuntimeMesh|Providers|Common")
-	//bool GetAllSectionsMeshForLOD(int32 LODIndex, TMap<int32, TTuple<FRuntimeMeshSectionProperties, FRuntimeMeshRenderableMeshData>>& MeshDatas);
-
-	UFUNCTION(BlueprintNativeEvent, Category = "RuntimeMesh|Providers|Common")
-	bool GetSectionMeshForLOD(int32 LODIndex, int32 SectionId, UPARAM(Ref) FRuntimeMeshRenderableMeshData& MeshData);
-
-	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "RuntimeMesh|Providers|Common")
-	FRuntimeMeshCollisionSettings GetCollisionSettings();
-
-	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "RuntimeMesh|Providers|Common")
-	bool HasCollisionMesh();
-
-	UFUNCTION(BlueprintNativeEvent, Category = "RuntimeMesh|Providers|Common")
-	bool GetCollisionMesh(UPARAM(Ref) FRuntimeMeshCollisionData& CollisionData);
-
-	friend class FRuntimeMeshProviderProxyUObjectProviderConnector;
-}; 
-

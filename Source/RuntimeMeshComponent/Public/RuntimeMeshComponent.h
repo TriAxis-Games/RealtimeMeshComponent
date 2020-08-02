@@ -28,34 +28,32 @@ private:
 
 
 public:
+	URuntimeMeshComponent();
 
-	URuntimeMeshComponent(const FObjectInitializer& ObjectInitializer);
+	uint32 GetRuntimeMeshId() const { return RuntimeMeshReference? RuntimeMeshReference->GetMeshId() : -1; }
 
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMeshComponent")
 	void Initialize(URuntimeMeshProvider* Provider)
 	{
 		GetOrCreateRuntimeMesh()->Initialize(Provider);
-	}	
-	
-	/** Creates a static provider replacing whatever provider exists. */
-	UFUNCTION(BlueprintCallable)
-	URuntimeMeshProviderStatic* InitializeStaticProvider()
-	{
-		return GetOrCreateRuntimeMesh()->InitializeStaticProvider();
 	}
 
-	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
+	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMeshComponent")
 	void SetRuntimeMesh(URuntimeMesh* NewMesh);
 
 	/** Clears the geometry for ALL collision only sections */
-	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
+	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMeshComponent")
 	FORCEINLINE URuntimeMesh* GetRuntimeMesh() const
 	{
-		return RuntimeMeshReference;
+		if (RuntimeMeshReference && RuntimeMeshReference->IsValidLowLevel())
+		{
+			return RuntimeMeshReference;
+		}
+		return nullptr;
 	}
 
 	/** Clears the geometry for ALL collision only sections */
-	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
+	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMeshComponent")
 	FORCEINLINE URuntimeMesh* GetOrCreateRuntimeMesh()
 	{
 		EnsureHasRuntimeMesh();
@@ -65,14 +63,14 @@ public:
 
 
 
-	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh", Meta = (AllowPrivateAccess = "true", DisplayName = "Get Mobility"))
+	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMeshComponent", Meta = (AllowPrivateAccess = "true", DisplayName = "Get Mobility"))
 	ERuntimeMeshMobility GetRuntimeMeshMobility()
 	{
 		return Mobility == EComponentMobility::Movable ? ERuntimeMeshMobility::Movable :
 			Mobility == EComponentMobility::Stationary ? ERuntimeMeshMobility::Stationary : ERuntimeMeshMobility::Static;
 	}
 
-	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh", Meta = (AllowPrivateAccess = "true", DisplayName = "Set Mobility"))
+	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMeshComponent", Meta = (AllowPrivateAccess = "true", DisplayName = "Set Mobility"))
 	void SetRuntimeMeshMobility(ERuntimeMeshMobility NewMobility)
 	{
 		Super::SetMobility(
@@ -83,15 +81,16 @@ public:
 
 
 
-	UFUNCTION(BlueprintCallable)
-	URuntimeMeshProvider* GetProvider() { return GetRuntimeMesh()? GetRuntimeMesh()->GetProvider() : nullptr; }
+	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMeshComponent")
+	URuntimeMeshProvider* GetProvider() { return GetRuntimeMesh()? GetRuntimeMesh()->GetProviderPtr() : nullptr; }
 
-	FRuntimeMeshProviderProxyPtr GetCurrentProviderProxy() { return GetRuntimeMesh()? GetRuntimeMesh()->GetCurrentProviderProxy() : nullptr; }
-
-	UFUNCTION(BlueprintCallable)
-	TArray<FRuntimeMeshMaterialSlot> GetMaterialSlots() const { return GetRuntimeMesh()? GetRuntimeMesh()->GetMaterialSlots() : TArray<FRuntimeMeshMaterialSlot>(); }
+	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMeshComponent")
+	TArray<FRuntimeMeshMaterialSlot> GetMaterialSlots() const 
+	{ 
+		return GetRuntimeMesh()? GetRuntimeMesh()->GetMaterialSlots() : TArray<FRuntimeMeshMaterialSlot>(); 
+	}
 	
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMeshComponent")
 	void SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial)
 	{
 		URuntimeMesh* Mesh = GetRuntimeMesh();
@@ -103,13 +102,8 @@ public:
 
 
 
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMeshComponent")
 	FRuntimeMeshCollisionHitInfo GetHitSource(int32 FaceIndex) const;
-
-
-	static void InitializeMultiThreading(int32 NumThreads, int32 StackSize = 0, EThreadPriority ThreadPriority = TPri_BelowNormal);
-
-	static FRuntimeMeshBackgroundWorkDelegate InitializeUserSuppliedThreading();
 
 
 
@@ -145,6 +139,9 @@ protected:
 	virtual void PostLoad() override;
 
 	virtual void BeginDestroy() override;
+
+	virtual void OnRegister() override;
+	virtual void OnUnregister() override;
 
 private:
 

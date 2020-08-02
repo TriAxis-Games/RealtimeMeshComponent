@@ -8,7 +8,7 @@
 #include "RuntimeMeshRenderable.generated.h"
 
 USTRUCT(BlueprintType)
-struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshVertexPositionStream
+struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshVertexPositionStream 
 {
 	GENERATED_USTRUCT_BODY();
 
@@ -18,21 +18,23 @@ private:
 public:
 	FRuntimeMeshVertexPositionStream() { }
 
+	FORCEINLINE int32 GetStride() const { return sizeof(FVector); }
+
+	FORCEINLINE int32 Num() const
+	{
+		return Data.Num() / GetStride();
+	}
 	void SetNum(int32 NewNum, bool bAllowShrinking = true)
 	{
-		Data.SetNum(NewNum * sizeof(FVector), bAllowShrinking);
+		Data.SetNum(NewNum * GetStride(), bAllowShrinking);
 	}
-
-	int32 Num() const
+	void Reserve(int32 Number)
 	{
-		return Data.Num() / sizeof(FVector);
+		Data.Reserve(Number * GetStride());
 	}
-
-	const uint8* GetData() const { return reinterpret_cast<const uint8*>(Data.GetData()); }
-
 	void Empty(int32 Slack = 0)
 	{
-		Data.Empty(Slack * sizeof(FVector));
+		Data.Empty(Slack * GetStride());
 	}
 
 	int32 Add(const FVector& InPosition)
@@ -42,12 +44,10 @@ public:
 		*((FVector*)&Data[Index]) = InPosition;
 		return Index / sizeof(FVector);
 	}
-
 	void Append(const FRuntimeMeshVertexPositionStream& InOther)
 	{
 		Data.Append(InOther.Data);
 	}
-
 	void Append(const TArray<FVector>& InPositions)
 	{
 		int32 StartIndex = Data.Num();
@@ -55,14 +55,13 @@ public:
 		FMemory::Memcpy(Data.GetData() + StartIndex, InPositions.GetData(), InPositions.Num() * sizeof(FVector));
 	}
 
-	const FVector& GetPosition(int32 Index) const
-	{
-		return *((FVector*)&Data[Index * sizeof(FVector)]);
-	}
-
 	void SetPosition(int32 Index, const FVector& NewPosition)
 	{
 		*((FVector*)&Data[Index * sizeof(FVector)]) = NewPosition;
+	}
+	const FVector& GetPosition(int32 Index) const
+	{
+		return *((FVector*)&Data[Index * sizeof(FVector)]);
 	}
 
 	FBox GetBounds() const
@@ -74,6 +73,16 @@ public:
 			NewBox += GetPosition(Index);
 		}
 		return NewBox;
+	}
+
+	const uint8* GetData() const { return Data.GetData(); }
+	TArray<uint8>&& TakeData()&& { return MoveTemp(Data); }
+	const TArray<FVector> GetCopy() const
+	{
+		TArray<FVector> OutData;
+		OutData.SetNum(Num());
+		FMemory::Memcpy(OutData.GetData(), Data.GetData(), Data.Num());
+		return OutData;
 	}
 
 	bool Serialize(FArchive& Ar)
@@ -95,19 +104,12 @@ USTRUCT(BlueprintType)
 struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshVertexTangentStream
 {
 	GENERATED_USTRUCT_BODY();
-	/*
-		This is always laid out tangent first, normal second, and it's either FPackedNormal for normal precision or FPackedRGBA16N for high precision.
-	*/
 
 private:
+	// This is always laid out tangent first, normal second, and it's 
+	// either FPackedNormal for normal precision or FPackedRGBA16N for high precision.
 	TArray<uint8> Data;
 	bool bIsHighPrecision;
-
-public:
-	bool IsHighPrecision() const { return bIsHighPrecision; }
-private:
-	int32 GetElementSize() const { return (bIsHighPrecision ? sizeof(FPackedRGBA16N) : sizeof(FPackedNormal)); }
-	int32 GetStride() const { return GetElementSize() * 2; }
 
 public:
 	FRuntimeMeshVertexTangentStream(bool bInUseHighPrecisionTangentBasis = false)
@@ -115,18 +117,23 @@ public:
 	{
 	}
 
+	FORCEINLINE bool IsHighPrecision() const { return bIsHighPrecision; }
+
+	FORCEINLINE int32 GetElementSize() const { return (bIsHighPrecision ? sizeof(FPackedRGBA16N) : sizeof(FPackedNormal)); }
+	FORCEINLINE int32 GetStride() const { return GetElementSize() * 2; }
+
+	FORCEINLINE int32 Num() const
+	{
+		return Data.Num() / GetStride();
+	}
 	void SetNum(int32 NewNum, bool bAllowShrinking = true)
 	{
 		Data.SetNum(NewNum * GetStride(), bAllowShrinking);
 	}
-
-	int32 Num() const
+	void Reserve(int32 Number)
 	{
-		return Data.Num() / GetStride();
+		Data.Reserve(Number * GetStride());
 	}
-
-	const uint8* GetData() const { return reinterpret_cast<const uint8*>(Data.GetData()); }
-
 	void Empty(int32 Slack = 0)
 	{
 		Data.Empty(Slack * GetStride());
@@ -149,7 +156,6 @@ public:
 		}
 		return Index / Stride;
 	}
-
 	int32 Add(const FVector4& InNormal, const FVector& InTangent)
 	{
 		int32 Index = Data.Num();
@@ -167,7 +173,6 @@ public:
 		}
 		return Index / Stride;
 	}
-
 	int32 Add(const FVector& InTangentX, const FVector& InTangentY, const FVector& InTangentZ)
 	{
 		int32 Index = Data.Num();
@@ -185,12 +190,10 @@ public:
 		}
 		return Index / Stride;
 	}
-
 	void Append(const FRuntimeMeshVertexTangentStream& InOther)
 	{
 		Data.Append(InOther.Data);
 	}
-
 	void Append(const TArray<FVector>& InNormals, const TArray<FRuntimeMeshTangent>& InTangents)
 	{
 		int32 MaxCount = FMath::Max(InNormals.Num(), InTangents.Num());
@@ -222,8 +225,47 @@ public:
 				Tangent = FVector(1, 0, 0);
 				Normal.W = 1.0f;
 			}
-			
+
 			Add(Normal, Tangent);
+		}
+	}
+		
+	void SetNormal(int32 Index, const FVector& NewNormal)
+	{
+		const int32 EntryIndex = Index * 2 + 1;
+		if (bIsHighPrecision)
+		{
+			*((FPackedRGBA16N*)&Data[EntryIndex * sizeof(FPackedRGBA16N)]) = FPackedRGBA16N(NewNormal);
+		}
+		else
+		{
+			*((FPackedNormal*)&Data[EntryIndex * sizeof(FPackedNormal)]) = FPackedNormal(NewNormal);
+		}
+	}
+	void SetTangent(int32 Index, const FVector& NewTangent)
+	{
+		const int32 EntryIndex = Index * 2;
+		if (bIsHighPrecision)
+		{
+			*((FPackedRGBA16N*)&Data[EntryIndex * sizeof(FPackedRGBA16N)]) = FPackedRGBA16N(NewTangent);
+		}
+		else
+		{
+			*((FPackedNormal*)&Data[EntryIndex * sizeof(FPackedNormal)]) = FPackedNormal(NewTangent);
+		}
+	}
+	void SetTangents(int32 Index, const FVector& InTangentX, const FVector& InTangentY, const FVector& InTangentZ)
+	{
+		const int32 EntryIndex = Index * 2;
+		if (bIsHighPrecision)
+		{
+			*((FPackedRGBA16N*)&Data[EntryIndex * sizeof(FPackedRGBA16N)]) = FPackedRGBA16N(InTangentX);
+			*((FPackedRGBA16N*)&Data[(EntryIndex + 1) * sizeof(FPackedRGBA16N)]) = FPackedRGBA16N(FVector4(InTangentZ, GetBasisDeterminantSign(InTangentX, InTangentY, InTangentZ)));
+		}
+		else
+		{
+			*((FPackedNormal*)&Data[EntryIndex * sizeof(FPackedNormal)]) = FPackedNormal(InTangentX);
+			*((FPackedNormal*)&Data[(EntryIndex + 1) * sizeof(FPackedNormal)]) = FPackedNormal(FVector4(InTangentZ, GetBasisDeterminantSign(InTangentX, InTangentY, InTangentZ)));
 		}
 	}
 
@@ -239,20 +281,6 @@ public:
 			return (*((FPackedNormal*)&Data[EntryIndex * sizeof(FPackedNormal)])).ToFVector();
 		}
 	}
-
-	void SetNormal(int32 Index, const FVector& NewNormal)
-	{
-		const int32 EntryIndex = Index * 2 + 1;
-		if (bIsHighPrecision)
-		{
-			*((FPackedRGBA16N*)&Data[EntryIndex * sizeof(FPackedRGBA16N)]) = FPackedRGBA16N(NewNormal);
-		}
-		else
-		{
-			*((FPackedNormal*)&Data[EntryIndex * sizeof(FPackedNormal)]) = FPackedNormal(NewNormal);
-		}
-	}
-
 	FVector GetTangent(int32 Index) const
 	{
 		const int32 EntryIndex = Index * 2;
@@ -265,20 +293,6 @@ public:
 			return (*((FPackedNormal*)&Data[EntryIndex * sizeof(FPackedNormal)])).ToFVector();
 		}
 	}
-
-	void SetTangent(int32 Index, const FVector& NewTangent)
-	{
-		const int32 EntryIndex = Index * 2;
-		if (bIsHighPrecision)
-		{
-			*((FPackedRGBA16N*)&Data[EntryIndex * sizeof(FPackedRGBA16N)]) = FPackedRGBA16N(NewTangent);
-		}
-		else
-		{
-			*((FPackedNormal*)&Data[EntryIndex * sizeof(FPackedNormal)]) = FPackedNormal(NewTangent);
-		}
-	}
-
 	void GetTangents(int32 Index, FVector& OutTangentX, FVector& OutTangentY, FVector& OutTangentZ) const
 	{
 		const int32 EntryIndex = Index * 2;
@@ -300,21 +314,15 @@ public:
 		}
 	}
 
-	void SetTangents(int32 Index, const FVector& InTangentX, const FVector& InTangentY, const FVector& InTangentZ)
-	{
-		const int32 EntryIndex = Index * 2;
-		if (bIsHighPrecision)
-		{
-			*((FPackedRGBA16N*)&Data[EntryIndex * sizeof(FPackedRGBA16N)]) = FPackedRGBA16N(InTangentX);
-			*((FPackedRGBA16N*)&Data[(EntryIndex + 1) * sizeof(FPackedRGBA16N)]) = FPackedRGBA16N(FVector4(InTangentZ, GetBasisDeterminantSign(InTangentX, InTangentY, InTangentZ)));
-		}
-		else
-		{
-			*((FPackedNormal*)&Data[EntryIndex * sizeof(FPackedNormal)]) = FPackedNormal(InTangentX);
-			*((FPackedNormal*)&Data[(EntryIndex + 1) * sizeof(FPackedNormal)]) = FPackedNormal(FVector4(InTangentZ, GetBasisDeterminantSign(InTangentX, InTangentY, InTangentZ)));
-		}
-	}
-
+	const uint8* GetData() const { return Data.GetData(); }
+	TArray<uint8>&& TakeData()&& { return MoveTemp(Data); }
+// 	const TArray<TArray<FVector2D>> GetCopy() const
+// 	{
+// 		TArray<FVector> OutData;
+// 		OutData.SetNum(Num());
+// 		FMemory::Memcpy(OutData.GetData(), Data.GetData(), Data.Num());
+// 		return OutData;
+// 	}
 
 	bool Serialize(FArchive& Ar)
 	{
@@ -343,34 +351,32 @@ private:
 	bool bIsHighPrecision;
 
 public:
-	bool IsHighPrecision() const { return bIsHighPrecision; }
-private:
-	int32 GetElementSize() const { return (bIsHighPrecision ? sizeof(FVector2D) : sizeof(FVector2DHalf)); }
-	int32 GetStride() const { return GetElementSize() * ChannelCount; }
-
-public:
 	FRuntimeMeshVertexTexCoordStream(int32 InChannelCount = 1, bool bInShouldUseHighPrecision = false)
 		: ChannelCount(InChannelCount), bIsHighPrecision(bInShouldUseHighPrecision)
 	{
 	}
 
-	void SetNum(int32 NewNum, bool bAllowShrinking = true)
-	{
-		Data.SetNum(NewNum * GetStride(), bAllowShrinking);
-	}
-
-	int32 Num() const
-	{
-		return Data.Num() / GetStride();
-	}
-
-	int32 NumChannels() const
+	FORCEINLINE bool IsHighPrecision() const { return bIsHighPrecision; }
+	FORCEINLINE int32 NumChannels() const
 	{
 		return ChannelCount;
 	}
 
-	const uint8* GetData() const { return reinterpret_cast<const uint8*>(Data.GetData()); }
+	FORCEINLINE int32 GetElementSize() const { return (bIsHighPrecision ? sizeof(FVector2D) : sizeof(FVector2DHalf)); }
+	FORCEINLINE int32 GetStride() const { return GetElementSize() * ChannelCount; }
 
+	FORCEINLINE int32 Num() const
+	{
+		return Data.Num() / GetStride();
+	}
+	void SetNum(int32 NewNum, bool bAllowShrinking = true)
+	{
+		Data.SetNum(NewNum * GetStride(), bAllowShrinking);
+	}
+	void Reserve(int32 Number)
+	{
+		Data.Reserve(Number * GetStride());
+	}
 	void Empty(int32 Slack = 0)
 	{
 		Data.Empty(Slack * GetStride());
@@ -395,12 +401,10 @@ public:
 
 		return Index / Stride;
 	}
-
 	void Append(const FRuntimeMeshVertexTexCoordStream& InOther)
 	{
 		Data.Append(InOther.Data);
 	}
-
 	void FillIn(int32 StartIndex, const TArray<FVector2D>& InChannelData, int32 ChannelId = 0)
 	{
 		if (Num() < (StartIndex + InChannelData.Num()))
@@ -411,20 +415,6 @@ public:
 		for (int32 Index = 0; Index < InChannelData.Num(); Index++)
 		{
 			SetTexCoord(StartIndex + Index, InChannelData[Index], ChannelId);
-		}
-	}
-
-	const FVector2D GetTexCoord(int32 Index, int32 ChannelId = 0) const
-	{
-		if (bIsHighPrecision)
-		{
-			static const int32 ElementSize = sizeof(FVector2D);
-			return *((FVector2D*)&Data[(Index * ElementSize * ChannelCount) + (ChannelId * ElementSize)]);
-		}
-		else
-		{
-			static const int32 ElementSize = sizeof(FVector2DHalf);
-			return *((FVector2DHalf*)&Data[(Index * ElementSize * ChannelCount) + (ChannelId * ElementSize)]);
 		}
 	}
 
@@ -441,15 +431,30 @@ public:
 			*((FVector2DHalf*)&Data[(Index * ElementSize * ChannelCount) + (ChannelId * ElementSize)]) = NewTexCoord;
 		}
 	}
+	const FVector2D GetTexCoord(int32 Index, int32 ChannelId = 0) const
+	{
+		if (bIsHighPrecision)
+		{
+			static const int32 ElementSize = sizeof(FVector2D);
+			return *((FVector2D*)&Data[(Index * ElementSize * ChannelCount) + (ChannelId * ElementSize)]);
+		}
+		else
+		{
+			static const int32 ElementSize = sizeof(FVector2DHalf);
+			return *((FVector2DHalf*)&Data[(Index * ElementSize * ChannelCount) + (ChannelId * ElementSize)]);
+		}
+	}
 
-// 	friend FArchive& operator <<(FArchive& Ar, FRuntimeMeshVertexTexCoordStream& Stream)
-// 	{
-// 		Ar << Stream.bIsHighPrecision;
-// 		Ar << Stream.ChannelCount;
-// 		Ar << Stream.Data;
-// 		return Ar;
-// 	}
-	
+	const uint8* GetData() const { return Data.GetData(); }
+	TArray<uint8>&& TakeData()&& { return MoveTemp(Data); }
+	// 	const TArray<TArray<FVector2D>> GetCopy() const
+	// 	{
+	// 		TArray<FVector> OutData;
+	// 		OutData.SetNum(Num());
+	// 		FMemory::Memcpy(OutData.GetData(), Data.GetData(), Data.Num());
+	// 		return OutData;
+	// 	}
+		
 	bool Serialize(FArchive& Ar)
 	{
 		Ar << bIsHighPrecision;
@@ -478,21 +483,23 @@ private:
 public:
 	FRuntimeMeshVertexColorStream() { }
 
+	FORCEINLINE int32 GetStride() const { return sizeof(FColor); }
+
+	FORCEINLINE int32 Num() const
+	{
+		return Data.Num() / GetStride();
+	}
 	void SetNum(int32 NewNum, bool bAllowShrinking = true)
 	{
-		Data.SetNum(NewNum * sizeof(FColor), bAllowShrinking);
+		Data.SetNum(NewNum * GetStride(), bAllowShrinking);
 	}
-
-	int32 Num() const
+	void Reserve(int32 Number)
 	{
-		return Data.Num() / sizeof(FColor);
+		Data.Reserve(Number * GetStride());
 	}
-
-	const uint8* GetData() const { return reinterpret_cast<const uint8*>(Data.GetData()); }
-
 	void Empty(int32 Slack = 0)
 	{
-		Data.Empty(Slack * sizeof(FColor));
+		Data.Empty(Slack * GetStride());
 	}
 
 	int32 Add(const FColor& InColor)
@@ -502,19 +509,16 @@ public:
 		*((FColor*)&Data[Index]) = InColor;
 		return Index / sizeof(FColor);
 	}
-
 	void Append(const FRuntimeMeshVertexColorStream& InOther)
 	{
 		Data.Append(InOther.Data);
 	}
-
 	void Append(const TArray<FColor>& InColors)
 	{
 		int32 StartIndex = Data.Num();
 		Data.SetNum(StartIndex + sizeof(FColor) * InColors.Num());
 		FMemory::Memcpy(Data.GetData() + StartIndex, InColors.GetData(), InColors.Num() * sizeof(FColor));
 	}
-
 	void Append(const TArray<FLinearColor>& InColors)
 	{
 		int32 StartIndex = Num();
@@ -525,15 +529,24 @@ public:
 		}
 	}
 
+	void SetColor(int32 Index, const FColor& NewColor)
+	{
+		*((FColor*)&Data[Index * sizeof(FColor)]) = NewColor;
+	}
 	const FColor& GetColor(int32 Index) const
 	{
 		return *((FColor*)&Data[Index * sizeof(FColor)]);
 	}
 
-	void SetColor(int32 Index, const FColor& NewColor)
-	{
-		*((FColor*)&Data[Index * sizeof(FColor)]) = NewColor;
-	}
+	const uint8* GetData() const { return Data.GetData(); }
+	TArray<uint8>&& TakeData()&& { return MoveTemp(Data); }
+	// 	const TArray<TArray<FVector2D>> GetCopy() const
+	// 	{
+	// 		TArray<FVector> OutData;
+	// 		OutData.SetNum(Num());
+	// 		FMemory::Memcpy(OutData.GetData(), Data.GetData(), Data.Num());
+	// 		return OutData;
+	// 	}
 
 	bool Serialize(FArchive& Ar)
 	{
@@ -561,35 +574,35 @@ private:
 	uint8 Stride;
 
 public:
-	bool IsHighPrecision() const { return bIsUsing32BitIndices; }
-
-public:
 	FRuntimeMeshTriangleStream(bool bInUse32BitIndices = false)
 		: bIsUsing32BitIndices(bInUse32BitIndices), Stride(bInUse32BitIndices ? sizeof(uint32) : sizeof(uint16))
 	{
 
 	}
 
-	void SetNum(int32 NewNum, bool bAllowShrinking = true)
+	bool IsHighPrecision() const { return bIsUsing32BitIndices; }
+
+	FORCEINLINE int32 GetStride() const { return Stride; }
+
+	FORCEINLINE int32 Num() const
 	{
-		Data.SetNum(NewNum * Stride, bAllowShrinking);
+		return Data.Num() / GetStride();
 	}
-
-	int32 Num() const
-	{
-		return Data.Num() / Stride;
-	}
-
-	const uint8* GetData() const { return reinterpret_cast<const uint8*>(Data.GetData()); }
-
 	int32 NumTriangles() const
 	{
 		return (Num() / 3);
 	}
-
+	void SetNum(int32 NewNum, bool bAllowShrinking = true)
+	{
+		Data.SetNum(NewNum * GetStride(), bAllowShrinking);
+	}
+	void Reserve(int32 Number)
+	{
+		Data.Reserve(Number * GetStride());
+	}
 	void Empty(int32 Slack = 0)
 	{
-		Data.Empty(Slack * Stride);
+		Data.Empty(Slack * GetStride());
 	}
 
 	int32 Add(uint32 NewIndex)
@@ -608,7 +621,6 @@ public:
 
 		return Index / Stride;
 	}
-
 	int32 AddTriangle(uint32 NewIndexA, uint32 NewIndexB, uint32 NewIndexC)
 	{
 		int32 Index = Data.Num();
@@ -633,12 +645,10 @@ public:
 
 		return Index / Stride;
 	}
-
 	void Append(const FRuntimeMeshTriangleStream& InOther)
 	{
 		Data.Append(InOther.Data);
 	}
-
 	void Append(const TArray<int32>& InTriangles)
 	{
 		int32 StartIndex = Num();
@@ -657,7 +667,6 @@ public:
 			}
 		}
 	}
-
 	void Append(const TArray<uint16>& InTriangles)
 	{
 		int32 StartIndex = Num();
@@ -677,6 +686,17 @@ public:
 		}
 	}
 
+	void SetVertexIndex(int32 Index, uint32 NewIndex)
+	{
+		if (bIsUsing32BitIndices)
+		{
+			*((uint32*)&Data[Index * Stride]) = NewIndex;
+		}
+		else
+		{
+			*((uint16*)&Data[Index * Stride]) = NewIndex;
+		}
+	}
 	uint32 GetVertexIndex(int32 Index) const
 	{
 		if (bIsUsing32BitIndices)
@@ -689,17 +709,15 @@ public:
 		}
 	}
 
-	void SetVertexIndex(int32 Index, uint32 NewIndex)
-	{
-		if (bIsUsing32BitIndices)
-		{
-			*((uint32*)&Data[Index * Stride]) = NewIndex;
-		}
-		else
-		{
-			*((uint16*)&Data[Index * Stride]) = NewIndex;
-		}
-	}
+	const uint8* GetData() const { return Data.GetData(); }
+	TArray<uint8>&& TakeData()&& { return MoveTemp(Data); }
+	// 	const TArray<TArray<FVector2D>> GetCopy() const
+	// 	{
+	// 		TArray<FVector> OutData;
+	// 		OutData.SetNum(Num());
+	// 		FMemory::Memcpy(OutData.GetData(), Data.GetData(), Data.Num());
+	// 		return OutData;
+	// 	}
 
 	bool Serialize(FArchive& Ar)
 	{
@@ -734,7 +752,11 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Rendering|SectionProperties")
 	bool bIsVisible;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Rendering|SectionProperties")
+	bool bIsMainPassRenderable;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Rendering|SectionProperties")
 	bool bCastsShadow;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Rendering|SectionProperties")
+	bool bForceOpaque;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Rendering|SectionProperties")
 	bool bUseHighPrecisionTangents;
@@ -746,18 +768,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Rendering|SectionProperties")
 	bool bWants32BitIndices;
 
-	FRuntimeMeshSectionProperties()
-		: UpdateFrequency(ERuntimeMeshUpdateFrequency::Infrequent)
-		, MaterialSlot(0)
-		, bIsVisible(true)
-		, bCastsShadow(true)
-		, bUseHighPrecisionTangents(false)
-		, bUseHighPrecisionTexCoords(false)
-		, NumTexCoords(1)
-		, bWants32BitIndices(false)
-	{
-
-	}
+	FRuntimeMeshSectionProperties();
 
 	friend FArchive& operator<<(FArchive& Ar, FRuntimeMeshSectionProperties& Properties)
 	{
@@ -793,10 +804,14 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Rendering|LODProperties")
 	bool bCanGetAllSectionsAtOnce;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Rendering|LODProperties")
+	bool bShouldMergeStaticSectionBuffers;
+
 	FRuntimeMeshLODProperties()
 		: ScreenSize(1.0f)
 		, bCanGetSectionsIndependently(true)
 		, bCanGetAllSectionsAtOnce(false)
+		, bShouldMergeStaticSectionBuffers(false)
 	{
 
 	}
@@ -827,11 +842,11 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Rendering|MaterialSlot")
 	FName SlotName;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Rendering|MaterialSlot")
-	TWeakObjectPtr<UMaterialInterface> Material;
+	UMaterialInterface* Material;
 
-	FRuntimeMeshMaterialSlot() { }
+	FRuntimeMeshMaterialSlot() : SlotName(NAME_None), Material(nullptr) { }
 
-	FRuntimeMeshMaterialSlot(const FName& InSlotName, const TWeakObjectPtr<UMaterialInterface>& InMaterial)
+	FRuntimeMeshMaterialSlot(const FName& InSlotName, UMaterialInterface* InMaterial)
 		: SlotName(InSlotName), Material(InMaterial) { }
 
 
@@ -892,8 +907,31 @@ public:
 		AdjacencyTriangles.Empty();
 	}
 
-	bool HasValidMeshData(bool bPrintErrorMessage = false) const;
+	void ReserveVertices(int32 Number)
+	{
+		Positions.Reserve(Number);
+		Tangents.Reserve(Number);
+		TexCoords.Reserve(Number);
+		Colors.Reserve(Number);
+	}
 
+	FRuntimeMeshRenderableMeshData CopyStructure() const
+	{
+		return FRuntimeMeshRenderableMeshData(Tangents.IsHighPrecision(),
+			TexCoords.IsHighPrecision(),
+			TexCoords.NumChannels(),
+			Triangles.IsHighPrecision());
+	}
+
+	void CopyStructureToSettings(FRuntimeMeshSectionProperties& OutProperties)
+	{
+		OutProperties.bUseHighPrecisionTangents = Tangents.IsHighPrecision();
+		OutProperties.bUseHighPrecisionTexCoords = TexCoords.IsHighPrecision();
+		OutProperties.NumTexCoords = TexCoords.NumChannels();
+		OutProperties.bWants32BitIndices = Triangles.IsHighPrecision();
+	}
+
+	bool HasValidMeshData(bool bPrintErrorMessage = false) const;
 
 	friend FArchive& operator<<(FArchive& Ar, FRuntimeMeshRenderableMeshData& MeshData)
 	{
@@ -909,3 +947,196 @@ public:
 	}
 };
 
+
+
+USTRUCT(BlueprintType)
+struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshSectionData
+{
+	GENERATED_BODY()
+public:
+	FRuntimeMeshSectionProperties Properties;
+	FRuntimeMeshRenderableMeshData MeshData;
+
+	FRuntimeMeshSectionData()
+		: MeshData(Properties)
+	{}
+
+	FRuntimeMeshSectionData(const FRuntimeMeshSectionProperties& InProperties)
+		: Properties(InProperties)
+		, MeshData(Properties)
+	{}
+};
+
+
+#if WITH_EDITOR
+
+namespace __RuntimeMeshNatVisRenderableTypes
+{
+	//
+	//	These types are here specifically for .natvis as they align 
+	//	with the structure of the data used within the stream types.
+	//
+
+	struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshTriangleIndicesHighPrecision
+	{
+		int32 Index0;
+		int32 Index1;
+		int32 Index2;
+	};
+	struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshTriangleIndicesLowPrecision
+	{
+		uint16 Index0;
+		uint16 Index1;
+		uint16 Index2;
+	};
+
+	struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshTangentHighPrecision
+	{
+		FPackedRGBA16N Tangent;
+		FPackedRGBA16N Normal;
+	};
+	struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshTangentLowPrecision
+	{
+		FPackedNormal Tangent;
+		FPackedNormal Normal;
+	};
+
+	struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshTexCoordLowPrecision1
+	{
+		FVector2DHalf UV0;
+	};
+
+	struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshTexCoordLowPrecision2
+	{
+		FVector2DHalf UV0;
+		FVector2DHalf UV1;
+	};
+
+	struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshTexCoordLowPrecision3
+	{
+		FVector2DHalf UV0;
+		FVector2DHalf UV1;
+		FVector2DHalf UV2;
+	};
+
+	struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshTexCoordLowPrecision4
+	{
+		FVector2DHalf UV0;
+		FVector2DHalf UV1;
+		FVector2DHalf UV2;
+		FVector2DHalf UV3;
+	};
+
+	struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshTexCoordLowPrecision5
+	{
+		FVector2DHalf UV0;
+		FVector2DHalf UV1;
+		FVector2DHalf UV2;
+		FVector2DHalf UV3;
+		FVector2DHalf UV4;
+	};
+
+	struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshTexCoordLowPrecision6
+	{
+		FVector2DHalf UV0;
+		FVector2DHalf UV1;
+		FVector2DHalf UV2;
+		FVector2DHalf UV3;
+		FVector2DHalf UV4;
+		FVector2DHalf UV5;
+	};
+
+	struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshTexCoordLowPrecision7
+	{
+		FVector2DHalf UV0;
+		FVector2DHalf UV1;
+		FVector2DHalf UV2;
+		FVector2DHalf UV3;
+		FVector2DHalf UV4;
+		FVector2DHalf UV5;
+		FVector2DHalf UV6;
+	};
+
+	struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshTexCoordLowPrecision8
+	{
+		FVector2DHalf UV0;
+		FVector2DHalf UV1;
+		FVector2DHalf UV2;
+		FVector2DHalf UV3;
+		FVector2DHalf UV4;
+		FVector2DHalf UV5;
+		FVector2DHalf UV6;
+		FVector2DHalf UV7;
+	};
+
+	struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshTexCoordHighPrecision1
+	{
+		FVector2D UV0;
+	};
+
+	struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshTexCoordHighPrecision2
+	{
+		FVector2D UV0;
+		FVector2D UV1;
+	};
+
+	struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshTexCoordHighPrecision3
+	{
+		FVector2D UV0;
+		FVector2D UV1;
+		FVector2D UV2;
+	};
+
+	struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshTexCoordHighPrecision4
+	{
+		FVector2D UV0;
+		FVector2D UV1;
+		FVector2D UV2;
+		FVector2D UV3;
+	};
+
+	struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshTexCoordHighPrecision5
+	{
+		FVector2D UV0;
+		FVector2D UV1;
+		FVector2D UV2;
+		FVector2D UV3;
+		FVector2D UV4;
+	};
+
+	struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshTexCoordHighPrecision6
+	{
+		FVector2D UV0;
+		FVector2D UV1;
+		FVector2D UV2;
+		FVector2D UV3;
+		FVector2D UV4;
+		FVector2D UV5;
+	};
+
+	struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshTexCoordHighPrecision7
+	{
+		FVector2D UV0;
+		FVector2D UV1;
+		FVector2D UV2;
+		FVector2D UV3;
+		FVector2D UV4;
+		FVector2D UV5;
+		FVector2D UV6;
+	};
+
+	struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshTexCoordHighPrecision8
+	{
+		FVector2D UV0;
+		FVector2D UV1;
+		FVector2D UV2;
+		FVector2D UV3;
+		FVector2D UV4;
+		FVector2D UV5;
+		FVector2D UV6;
+		FVector2D UV7;
+	};
+
+}
+
+#endif

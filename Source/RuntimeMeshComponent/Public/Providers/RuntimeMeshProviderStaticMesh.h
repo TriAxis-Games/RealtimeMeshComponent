@@ -15,26 +15,46 @@ class RUNTIMEMESHCOMPONENT_API URuntimeMeshProviderStaticMesh : public URuntimeM
 {
 	GENERATED_BODY()
 
-public:
-	UPROPERTY(Category = "RuntimeMesh|Providers|StaticMesh", EditAnywhere, BlueprintReadWrite)
+private:
+	UPROPERTY(Category = "RuntimeMesh|Providers|StaticMesh", VisibleAnywhere, BlueprintGetter=GetStaticMesh, BlueprintSetter=SetStaticMesh)
 	UStaticMesh* StaticMesh;
 
-	UPROPERTY(Category = "RuntimeMesh|Providers|StaticMesh", EditAnywhere, BlueprintReadWrite)
+	UPROPERTY(Category = "RuntimeMesh|Providers|StaticMesh", VisibleAnywhere, BlueprintGetter=GetMaxLOD, BlueprintSetter=SetMaxLOD)
 	int32 MaxLOD;
 
-	UPROPERTY(Category = "RuntimeMesh|Providers|StaticMesh", EditAnywhere, BlueprintReadWrite)
+	UPROPERTY(Category = "RuntimeMesh|Providers|StaticMesh", VisibleAnywhere, BlueprintGetter=GetComplexCollisionLOD, BlueprintSetter=SetComplexCollisionLOD)
 	int32 ComplexCollisionLOD;
 	
-protected:
+public:
 	URuntimeMeshProviderStaticMesh();
 
-	virtual void Initialize_Implementation() override;
+	UFUNCTION(Category = "RuntimeMesh|Providers|StaticMesh", BlueprintCallable)
+	UStaticMesh* GetStaticMesh() const;
 
-	virtual FBoxSphereBounds GetBounds_Implementation() override;
+	UFUNCTION(Category = "RuntimeMesh|Providers|StaticMesh", BlueprintCallable)
+	void SetStaticMesh(UStaticMesh* InStaticMesh);
 
-	virtual bool GetSectionMeshForLOD_Implementation(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData) override;
+	UFUNCTION(Category = "RuntimeMesh|Providers|StaticMesh", BlueprintCallable)
+	int32 GetMaxLOD() const;
 
-	virtual FRuntimeMeshCollisionSettings GetCollisionSettings_Implementation() override;
-	virtual bool HasCollisionMesh_Implementation() override;
-	virtual bool GetCollisionMesh_Implementation(FRuntimeMeshCollisionData& CollisionData) override;
+	UFUNCTION(Category = "RuntimeMesh|Providers|StaticMesh", BlueprintCallable)
+	void SetMaxLOD(int32 InMaxLOD);
+
+	UFUNCTION(Category = "RuntimeMesh|Providers|StaticMesh", BlueprintCallable)
+	int32 GetComplexCollisionLOD() const;
+
+	UFUNCTION(Category = "RuntimeMesh|Providers|StaticMesh", BlueprintCallable)
+	void SetComplexCollisionLOD(int32 InLOD);
+
+
+protected:
+	virtual void Initialize() override;
+	virtual FBoxSphereBounds GetBounds() override;
+	virtual bool GetSectionMeshForLOD(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData) override;
+	virtual FRuntimeMeshCollisionSettings GetCollisionSettings() override;
+	virtual bool HasCollisionMesh() override;
+	virtual bool GetCollisionMesh(FRuntimeMeshCollisionData& CollisionData) override;
+
+	void UpdateCollisionFromStaticMesh();
+	void UpdateRenderingFromStaticMesh();
 };

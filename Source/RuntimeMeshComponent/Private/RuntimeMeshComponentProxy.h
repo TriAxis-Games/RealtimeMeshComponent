@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "RuntimeMeshData.h"
+#include "RuntimeMesh.h"
 #include "RuntimeMeshSectionProxy.h"
 
 class UBodySetup;
@@ -13,32 +13,45 @@ class URuntimeMeshComponent;
 class FRuntimeMeshComponentSceneProxy : public FPrimitiveSceneProxy
 {
 private:
-	struct FRuntimeMeshSectionRenderData
-	{
-		UMaterialInterface* Material;
-		bool bWantsAdjacencyInfo;
-	};
-
-
+	// THis is the proxy we're rendering
 	FRuntimeMeshProxyPtr RuntimeMeshProxy;
 
-	TArray<TMap<int32, FRuntimeMeshSectionRenderData>, TInlineAllocator<RUNTIMEMESH_MAXLODS>> SectionRenderData;
+	// All the in use materials
+	TMap<int32, UMaterialInterface*> Materials;
+
+	// Reference all the in-use buffers so that as long as this proxy is around these buffers will be too. 
+	// This is meant only for statically drawn sections. Dynamically drawn sections can update safely in place.
+	// Static sections get new buffers on each update.
+	TArray<TSharedPtr<FRuntimeMeshSectionProxyBuffers>> InUseBuffers;
 
 	// Reference to the body setup for rendering.
 	UBodySetup* BodySetup;
 
+	// Store the combined material relevance.
 	FMaterialRelevance MaterialRelevance;
 
-	bool bHasStaticSections;
-	bool bHasDynamicSections;
-	bool bHasShadowableSections;
+	FRuntimeMeshObjectId<FRuntimeMeshComponentSceneProxy> ObjectId;
 
+	bool bAnyMaterialUsesDithering;
 public:
 
 	/*Constructor, copies the whole mesh data to feed to UE */
 	FRuntimeMeshComponentSceneProxy(URuntimeMeshComponent* Component);
 
 	virtual ~FRuntimeMeshComponentSceneProxy();
+
+	int32 GetUniqueID() const { return ObjectId.Get(); }
+
+	UMaterialInterface* GetMaterialSlot(int32 MaterialSlotId) const
+	{
+		UMaterialInterface*const* Mat = Materials.Find(MaterialSlotId);
+		if (Mat && *Mat)
+		{
+			return *Mat;
+		}
+		
+		return UMaterial::GetDefaultMaterial(MD_Surface);
+	}
 
 	void CreateRenderThreadResources() override;
 
@@ -49,7 +62,7 @@ public:
 
 	virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View) const override;
 
-	void CreateMeshBatch(FMeshBatch& MeshBatch, const FRuntimeMeshSectionProxy& Section, int32 LODIndex, const FRuntimeMeshSectionRenderData& RenderData, FMaterialRenderProxy* Material, FMaterialRenderProxy* WireframeMaterial) const;
+	void CreateMeshBatch(FMeshBatch& MeshBatch, const FRuntimeMeshSectionProxy& Section, int32 LODIndex, int32 SectionId, UMaterialInterface* Material, FMaterialRenderProxy* WireframeMaterial, bool bForRayTracing) const;
 
 	virtual void DrawStaticElements(FStaticPrimitiveDrawInterface* PDI) override;
 

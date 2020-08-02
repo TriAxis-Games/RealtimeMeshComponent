@@ -6,19 +6,27 @@
 #include "RuntimeMeshProvider.h"
 #include "RuntimeMeshProviderStatic.generated.h"
 
+class URuntimeMeshModifier;
+
 UCLASS(HideCategories = Object, BlueprintType)
 class RUNTIMEMESHCOMPONENT_API URuntimeMeshProviderStatic : public URuntimeMeshProvider
 {
 	GENERATED_BODY()
 
 protected:
-	UPROPERTY(Category = "RuntimeMeshActor", EditAnywhere, BlueprintReadOnly, Meta = (ExposeFunctionCategories = "Mesh,Rendering,Physics,Components|RuntimeMesh", AllowPrivateAccess = "true"))
+	UPROPERTY(Category = "RuntimeMeshActor", EditAnywhere, BlueprintReadOnly, Meta = (AllowPrivateAccess = "true"))
 	bool StoreEditorGeneratedDataForGame;
+
 private:
 
 	using FSectionDataMapEntry = TTuple<FRuntimeMeshSectionProperties, FRuntimeMeshRenderableMeshData, FBoxSphereBounds>;
 
 private:
+	mutable FCriticalSection MeshSyncRoot;
+	mutable FCriticalSection CollisionSyncRoot;
+
+	mutable FRWLock ModifierRWLock;
+
 	TArray<FRuntimeMeshLODProperties> LODConfigurations;
 	TMap<int32, TMap<int32, FSectionDataMapEntry>> SectionDataMap;
 
@@ -28,18 +36,27 @@ private:
 	FRuntimeMeshCollisionSettings CollisionSettings;
 	TOptional<FRuntimeMeshCollisionData> CollisionMesh;
 	FBoxSphereBounds CombinedBounds;
-
+	
 	TArray<FRuntimeMeshMaterialSlot> LoadedMaterialSlots;
+
+	UPROPERTY(VisibleAnywhere, Category = "RuntimeMesh|Providers|Static")
+	TArray<URuntimeMeshModifier*> CurrentMeshModifiers;
 public:
 
 	URuntimeMeshProviderStatic();
 
-	void Initialize_Implementation() override;
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static")
+	void RegisterModifier(URuntimeMeshModifier* Modifier);
+
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static")
+	void UnRegisterModifier(URuntimeMeshModifier* Modifier);
+
+
 	
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static", Meta=(DisplayName = "Create Section"))
 	void CreateSection_Blueprint(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties, const FRuntimeMeshRenderableMeshData& SectionData)
 	{
-		URuntimeMeshProvider::CreateSection(LODIndex, SectionId, SectionProperties);
+		CreateSection(LODIndex, SectionId, SectionProperties);
 		UpdateSectionInternal(LODIndex, SectionId, SectionData, GetBoundsFromMeshData(SectionData));
 	}
 
@@ -203,34 +220,34 @@ public:
 
 
 
-	void CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties, bool bCreateCollision = true)
+	void CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties, bool bCreateCollision)
 	{
-		URuntimeMeshProvider::CreateSection(LODIndex, SectionId, SectionProperties);
+		CreateSection(LODIndex, SectionId, SectionProperties);
 		UpdateSectionAffectsCollision(LODIndex, SectionId, bCreateCollision);
 	}
 
 	void CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties, const FRuntimeMeshRenderableMeshData& SectionData, bool bCreateCollision = true)
 	{
-		URuntimeMeshProvider::CreateSection(LODIndex, SectionId, SectionProperties);
+		CreateSection(LODIndex, SectionId, SectionProperties);
 		UpdateSectionInternal(LODIndex, SectionId, SectionData, GetBoundsFromMeshData(SectionData));
 		UpdateSectionAffectsCollision(LODIndex, SectionId, bCreateCollision);
 	}
 	void CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties, FRuntimeMeshRenderableMeshData&& SectionData, bool bCreateCollision = true)
 	{
-		URuntimeMeshProvider::CreateSection(LODIndex, SectionId, SectionProperties);
+		CreateSection(LODIndex, SectionId, SectionProperties);
 		UpdateSectionInternal(LODIndex, SectionId, MoveTemp(SectionData), GetBoundsFromMeshData(SectionData));
 		UpdateSectionAffectsCollision(LODIndex, SectionId, bCreateCollision);
 	}
 	void CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties, const FRuntimeMeshRenderableMeshData& SectionData, FBoxSphereBounds KnownBounds, bool bCreateCollision = true)
 	{
-		URuntimeMeshProvider::CreateSection(LODIndex, SectionId, SectionProperties);
-		UpdateSectionInternal(LODIndex, SectionId, SectionData, KnownBounds);
+		CreateSection(LODIndex, SectionId, SectionProperties);
+		UpdateSectionInternal(LODIndex, SectionId, SectionData, GetBoundsFromMeshData(SectionData));
 		UpdateSectionAffectsCollision(LODIndex, SectionId, bCreateCollision);
 	}
 	void CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties, FRuntimeMeshRenderableMeshData&& SectionData, FBoxSphereBounds KnownBounds, bool bCreateCollision = true)
 	{
-		URuntimeMeshProvider::CreateSection(LODIndex, SectionId, SectionProperties);
-		UpdateSectionInternal(LODIndex, SectionId, MoveTemp(SectionData), KnownBounds);
+		CreateSection(LODIndex, SectionId, SectionProperties);
+		UpdateSectionInternal(LODIndex, SectionId, MoveTemp(SectionData), GetBoundsFromMeshData(SectionData));
 		UpdateSectionAffectsCollision(LODIndex, SectionId, bCreateCollision);
 	}
 
@@ -251,48 +268,128 @@ public:
 		UpdateSectionInternal(LODIndex, SectionId, MoveTemp(SectionData), KnownBounds);
 	}
 
-	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static")
-	void ClearSection(int32 LODIndex, int32 SectionId);
 
-	UFUNCTION(BlueprintPure, Category = "RuntimeMesh|Providers|Static")
-	FRuntimeMeshCollisionSettings GetCollisionSettingsStored() { return CollisionSettings; }
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static")
+	FRuntimeMeshCollisionSettings GetCollisionSettingsStatic() const;
+
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static")
 	void SetCollisionSettings(const FRuntimeMeshCollisionSettings& NewCollisionSettings);
 
-	FRuntimeMeshCollisionData GetCollisionMeshWithoutVisible() { return CollisionMesh.Get(FRuntimeMeshCollisionData()); }
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static")
+	FRuntimeMeshCollisionData GetCollisionMeshStatic() const;
+
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static")
 	void SetCollisionMesh(const FRuntimeMeshCollisionData& NewCollisionMesh);
 
-	UFUNCTION(BlueprintPure, Category = "RuntimeMesh|Providers|Static")
-	int32 GetRenderableLODForCollision() { return LODForMeshCollision; }
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static")
+	int32 GetLODForMeshCollision() const;
+
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static")
 	void SetRenderableLODForCollision(int32 LODIndex);
 
-	UFUNCTION(BlueprintPure, Category = "RuntimeMesh|Providers|Static")
-	TSet<int32> GetRenderableSectionAffectingCollision() { return SectionsForMeshCollision; }
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static")
-	void SetRenderableSectionAffectsCollision(int32 SectionId, bool bCollisionEnabled);
+	TSet<int32> GetSectionsForMeshCollision() const;
+
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static")
+	void SetRenderableSectionAffectsCollision(int32 SectionId, bool bCollisionEnabled, bool bForceUpdate = false);
 
 
+	UFUNCTION(BlueprintCallable, Category="RuntimeMesh|Providers|Static")
+	TArray<int32> GetSectionIds(int32 LODIndex) const;
 
-protected:
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static")
+	int32 GetLastSectionId(int32 LODIndex) const;
 
-	virtual void ConfigureLODs_Implementation(const TArray<FRuntimeMeshLODProperties>& LODSettings) override;
-	virtual void CreateSection_Implementation(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties) override;
-	virtual void SetSectionVisibility_Implementation(int32 LODIndex, int32 SectionId, bool bIsVisible) override;
-	virtual void SetSectionCastsShadow_Implementation(int32 LODIndex, int32 SectionId, bool bCastsShadow) override;
-	virtual void RemoveSection_Implementation(int32 LODIndex, int32 SectionId) override;
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static")
+	bool DoesSectionHaveValidMeshData(int32 LODIndex, int32 SectionId) const;
 
-protected:
-	virtual FBoxSphereBounds GetBounds_Implementation() override { return CombinedBounds; }
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static")
+	void RemoveAllSectionsForLOD(int32 LODIndex);
 
-	virtual bool GetSectionMeshForLOD_Implementation(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData) override;
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static")
+	FBoxSphereBounds GetSectionBounds(int32 LODIndex, int32 SectionId) const;
 
-	virtual FRuntimeMeshCollisionSettings GetCollisionSettings_Implementation() override;
-	virtual bool HasCollisionMesh_Implementation() override;
-	virtual bool GetCollisionMesh_Implementation(FRuntimeMeshCollisionData& CollisionData) override;
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static")
+	FRuntimeMeshSectionProperties GetSectionProperties(int32 LODIndex, int32 SectionId) const;
 
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static")
+	FRuntimeMeshRenderableMeshData GetSectionRenderData(int32 LODIndex, int32 SectionId) const;
+
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static")
+	FRuntimeMeshRenderableMeshData GetSectionRenderDataAndClear(int32 LODIndex, int32 SectionId);
+
+
+public:
+
+	virtual void Initialize() override;
+	virtual FBoxSphereBounds GetBounds() override { return CombinedBounds; }
+	virtual bool GetSectionMeshForLOD(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData) override;
+	virtual FRuntimeMeshCollisionSettings GetCollisionSettings() override;
+	virtual bool HasCollisionMesh() override;
+	virtual bool GetCollisionMesh(FRuntimeMeshCollisionData& CollisionData) override;
+
+public:
+	virtual void ConfigureLODs(const TArray<FRuntimeMeshLODProperties>& LODSettings) override;
+	virtual void SetLODScreenSize(int32 LODIndex, float ScreenSize) override;
+	virtual void CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties) override;
+	virtual void SetSectionVisibility(int32 LODIndex, int32 SectionId, bool bIsVisible) override;
+	virtual void SetSectionCastsShadow(int32 LODIndex, int32 SectionId, bool bCastsShadow) override;
+	virtual void ClearSection(int32 LODIndex, int32 SectionId) override;
+	virtual void RemoveSection(int32 LODIndex, int32 SectionId) override;
+
+
+	virtual void Serialize(FArchive& Ar) override;
+	virtual void BeginDestroy() override;
 private:
-	void UpdateSectionAffectsCollision(int32 LODIndex, int32 SectionId, bool bAffectsCollision);
+	static const TArray<FVector2D> EmptyUVs;
+
+	template<typename TangentType, typename ColorType>
+	static FRuntimeMeshRenderableMeshData FillMeshData(FRuntimeMeshSectionProperties& Properties, const TArray<FVector>& Vertices, const TArray<FVector>& Normals, const TArray<TangentType>& Tangents,
+		const TArray<ColorType>& VertexColors, const TArray<FVector2D>& UV0, const TArray<FVector2D>& UV1, const TArray<FVector2D>& UV2, const TArray<FVector2D>& UV3, const TArray<int32>& Triangles)
+	{
+		Properties.bWants32BitIndices = Vertices.Num() > MAX_uint16;
+		Properties.bUseHighPrecisionTexCoords = true;
+		Properties.NumTexCoords =
+			UV3.Num() > 0 ? 4 :
+			UV2.Num() > 0 ? 3 :
+			UV1.Num() > 0 ? 2 : 1;
+
+
+		FRuntimeMeshRenderableMeshData SectionData(Properties);
+		SectionData.Positions.Append(Vertices);
+		SectionData.Tangents.Append(Normals, Tangents);
+		if (SectionData.Tangents.Num() < SectionData.Positions.Num())
+		{
+			int32 Count = SectionData.Tangents.Num();
+			SectionData.Tangents.SetNum(SectionData.Positions.Num());
+			for (int32 Index = Count; Index < SectionData.Tangents.Num(); Index++)
+			{
+				SectionData.Tangents.SetTangents(Index, FVector(1, 0, 0), FVector(0, 1, 0), FVector(0, 0, 1));
+			}
+		}
+		SectionData.Colors.Append(VertexColors);
+		if (SectionData.Colors.Num() < SectionData.Positions.Num())
+		{
+			SectionData.Colors.SetNum(SectionData.Positions.Num());
+		}
+
+		int32 StartIndexTexCoords = SectionData.TexCoords.Num();
+		SectionData.TexCoords.FillIn(StartIndexTexCoords, UV0, 0);
+		SectionData.TexCoords.FillIn(StartIndexTexCoords, UV1, 1);
+		SectionData.TexCoords.FillIn(StartIndexTexCoords, UV2, 2);
+		SectionData.TexCoords.FillIn(StartIndexTexCoords, UV3, 3);
+
+		if (SectionData.TexCoords.Num() < SectionData.Positions.Num())
+		{
+			SectionData.TexCoords.SetNum(SectionData.Positions.Num());
+		}
+
+		SectionData.Triangles.Append(Triangles);
+
+		return SectionData;
+	}
+
+	void UpdateSectionAffectsCollision(int32 LODIndex, int32 SectionId, bool bAffectsCollision, bool bForceUpdate = false);
 
 	void UpdateBounds();
 	FBoxSphereBounds GetBoundsFromMeshData(const FRuntimeMeshRenderableMeshData& MeshData);
@@ -305,6 +402,5 @@ private:
 	}
 	void UpdateSectionInternal(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData&& SectionData, FBoxSphereBounds KnownBounds);
 
-protected:
-	void Serialize(FArchive& Ar) override;
+
 };

@@ -6,45 +6,37 @@
 #include "RuntimeMeshProvider.h"
 #include "RuntimeMeshProviderBox.generated.h"
 
-class RUNTIMEMESHCOMPONENT_API FRuntimeMeshProviderBoxProxy : public FRuntimeMeshProviderProxy
-{
-	FVector BoxRadius;
-	TWeakObjectPtr<UMaterialInterface> Material;
-
-public:
-	FRuntimeMeshProviderBoxProxy(TWeakObjectPtr<URuntimeMeshProvider> InParent);
-	~FRuntimeMeshProviderBoxProxy();
-
-	void UpdateProxyParameters(URuntimeMeshProvider* ParentProvider, bool bIsInitialSetup) override;
-
-	virtual void Initialize() override;
-
-	virtual bool GetSectionMeshForLOD(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData) override;
-
-	FRuntimeMeshCollisionSettings GetCollisionSettings() override;
-	bool HasCollisionMesh() override;
-	virtual bool GetCollisionMesh(FRuntimeMeshCollisionData& CollisionData) override;
-
-	virtual FBoxSphereBounds GetBounds() override { return FBoxSphereBounds(FBox(-BoxRadius, BoxRadius)); }
-
-	bool IsThreadSafe() const override;
-
-
-
-};
-
 UCLASS(HideCategories = Object, BlueprintType)
 class RUNTIMEMESHCOMPONENT_API URuntimeMeshProviderBox : public URuntimeMeshProvider
 {
 	GENERATED_BODY()
+private:
+	mutable FCriticalSection PropertySyncRoot;
 
-public:
-	UPROPERTY(Category = "RuntimeMesh|Providers|Box", EditAnywhere, BlueprintReadWrite)
+	UPROPERTY(Category = "RuntimeMesh|Providers|Box", VisibleAnywhere, BlueprintGetter=GetBoxRadius, BlueprintSetter=SetBoxRadius)
 	FVector BoxRadius;
 
-	UPROPERTY(Category = "RuntimeMesh|Providers|Box", EditAnywhere, BlueprintReadWrite)
+	UPROPERTY(Category = "RuntimeMesh|Providers|Box", VisibleAnywhere, BlueprintGetter=GetBoxMaterial, BlueprintSetter=SetBoxMaterial)
 	UMaterialInterface* Material;
+public:
+	UFUNCTION(Category = "RuntimeMesh|Providers|Box", BlueprintCallable)
+	FVector GetBoxRadius() const;
+	UFUNCTION(Category = "RuntimeMesh|Providers|Box", BlueprintCallable)
+	void SetBoxRadius(const FVector& InRadius);
+
+	UFUNCTION(Category = "RuntimeMesh|Providers|Box", BlueprintCallable)
+	UMaterialInterface* GetBoxMaterial() const;
+	UFUNCTION(Category = "RuntimeMesh|Providers|Box", BlueprintCallable)
+	void SetBoxMaterial(UMaterialInterface* InMaterial);
+
 
 protected:
-	virtual FRuntimeMeshProviderProxyRef GetProxy() override { return MakeShared<FRuntimeMeshProviderBoxProxy, ESPMode::ThreadSafe>(TWeakObjectPtr<URuntimeMeshProvider>(this)); }
+	void Initialize() override;
+	FBoxSphereBounds GetBounds() override;
+	bool GetSectionMeshForLOD(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData) override;
+	FRuntimeMeshCollisionSettings GetCollisionSettings() override;
+	bool HasCollisionMesh() override;
+	bool GetCollisionMesh(FRuntimeMeshCollisionData& CollisionData) override;
+	bool IsThreadSafe() override;
+
 };

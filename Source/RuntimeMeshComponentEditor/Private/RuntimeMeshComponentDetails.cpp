@@ -123,8 +123,7 @@ FReply FRuntimeMeshComponentDetails::ClickedOnConvertToStaticMesh()
 	// Find first selected RuntimeMeshComp
 	URuntimeMeshComponent* RuntimeMeshComp = GetFirstSelectedRuntimeMeshComp();
 	URuntimeMesh* RuntimeMesh = RuntimeMeshComp->GetRuntimeMesh();
-	URuntimeMeshProvider* MeshProvider = RuntimeMesh->GetProvider();
-	FRuntimeMeshProviderProxyPtr MeshProviderProxy = RuntimeMesh->GetCurrentProviderProxy();
+	URuntimeMeshProvider* MeshProvider = RuntimeMesh->GetProviderPtr();
 	if (RuntimeMeshComp != nullptr && RuntimeMesh != nullptr && MeshProvider != nullptr)
 	{
 		FString NewNameSuggestion = FString(TEXT("RuntimeMeshComp"));
@@ -169,7 +168,7 @@ FReply FRuntimeMeshComponentDetails::ClickedOnConvertToStaticMesh()
 			for (int32 Index = 0; Index < RMCMaterialSlots.Num(); Index++)
 			{
 				UMaterialInterface* Mat = RuntimeMeshComp->OverrideMaterials.Num() > Index ? RuntimeMeshComp->OverrideMaterials[Index] : nullptr;
-				Mat = Mat ? Mat : RMCMaterialSlots[Index].Material.Get();
+				Mat = Mat ? Mat : RMCMaterialSlots[Index].Material;
 				Materials[Index] = FStaticMaterial(Mat, RMCMaterialSlots[Index].SlotName);
 			}
 
@@ -197,7 +196,7 @@ FReply FRuntimeMeshComponentDetails::ClickedOnConvertToStaticMesh()
 					// We also go ahead and use high precision tangents/uvs so we don't loose 
 					// quality passing through the build pipeline after quantizing it once
 					FRuntimeMeshRenderableMeshData MeshData(true, true, Section.NumTexCoords, true);
-					if (MeshProviderProxy->GetSectionMeshForLOD(LODIndex, SectionEntry.Key, MeshData))
+					if (MeshProvider->GetSectionMeshForLOD(LODIndex, SectionEntry.Key, MeshData))
 					{
 						MaxUVs = FMath::Max<int32>(MaxUVs, Section.NumTexCoords);
 						

@@ -11,41 +11,35 @@
 #include "StaticMeshResources.h"
 #include "RuntimeMeshCore.generated.h"
 
-DECLARE_STATS_GROUP(TEXT("RuntimeMesh"), STATGROUP_RuntimeMesh, STATCAT_Advanced);
 
-// Define RHI_RAYTRACING to 0 for engine versions earlier than this was introduced
-#if !defined(RHI_RAYTRACING)
-#define RHI_RAYTRACING 0
+// RMC = RuntimeMeshComponent
+// RM = RuntimeMesh
+// RMP = RuntimeMeshProvider
+// RMM = RuntimeMeshModifier
+// RMPS = RuntimeMeshProviderStatic
+// RMRP = RuntimeMeshRenderProxy
+// RMCRP = RuntimeMeshComponentRenderProxy
+// RMCES = RuntimeMeshComponentEngineSubsystem
+// RMCS = RuntimeMeshComponentStatic
+// RMSMC = RuntimeMeshStaticMeshConverter
+
+
+
+
+
+
+
+
+#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION < 22
+	// This version of the RMC is only supported by engine version 4.22 and above
 #endif
+
+DECLARE_STATS_GROUP(TEXT("RuntimeMesh"), STATGROUP_RuntimeMesh, STATCAT_Advanced);
 
 #define RUNTIMEMESH_MAXTEXCOORDS MAX_STATIC_TEXCOORDS
 #define RUNTIMEMESH_MAXLODS MAX_STATIC_MESH_LODS
 
 #define RUNTIMEMESH_ENABLE_DEBUG_RENDERING (!(UE_BUILD_SHIPPING || UE_BUILD_TEST) || WITH_EDITOR)
-
-
-// This was added to RenderUtils in 4.21 so we replicate it here for backward compatibility.
-#if ENGINE_MAJOR_VERSION <= 4 && ENGINE_MINOR_VERSION <= 20
-
-/**
-* Given 2 axes of a basis stored as a packed type, regenerates the y-axis tangent vector and scales by z.W
-* @param XAxis - x axis (tangent)
-* @param ZAxis - z axis (normal), the sign of the determinant is stored in ZAxis.W
-* @return y axis (binormal)
-*/
-template<typename VectorType>
-FORCEINLINE FVector GenerateYAxis(const VectorType& XAxis, const VectorType& ZAxis)
-{
-	static_assert(	ARE_TYPES_EQUAL(VectorType, FPackedNormal) ||
-		ARE_TYPES_EQUAL(VectorType, FPackedRGBA16N), "ERROR: Must be FPackedNormal or FPackedRGBA16N");
-	FVector  x = XAxis.ToFVector();
-	FVector4 z = ZAxis.ToFVector4();
-	return (FVector(z) ^ x) * z.W;
-}
-
-#endif
-
-
 
 
 template<typename InElementType>
@@ -114,6 +108,17 @@ enum class ERuntimeMeshCollisionCookingMode : uint8
 	CookingPerformance UMETA(DisplayName = "Cooking Performance"),
 };
 
+UENUM(BlueprintType)
+enum class ERuntimeMeshThreadingPriority : uint8
+{
+	Normal,
+	AboveNormal,
+	BelowNormal,
+	Highest,
+	Lowest,
+	SlightlyBelowNormal,
+	TimeCritical,
+};
 
 
 /**
@@ -152,5 +157,91 @@ public:
 };
 
 
+struct FRuntimeMeshMisc
+{
+	template<typename LambdaType>
+	static void DoOnGameThread(LambdaType&& InFunction)
+	{
+		if (IsInGameThread())
+		{
+			InFunction();
+		}
+		else
+		{
+			FFunctionGraphTask::CreateAndDispatchWhenReady([InFunction]()
+				{
+					InFunction();
+				}, TStatId(), nullptr, ENamedThreads::GameThread);
+		}
+	}
+};
 
-DECLARE_DELEGATE_OneParam(FRuntimeMeshBackgroundWorkDelegate, double);
+template<typename OwningType>
+struct FRuntimeMeshObjectId
+{
+private:
+	static FThreadSafeCounter ObjectIdCounter;
+
+public:
+	FRuntimeMeshObjectId()
+		: ObjectId(ObjectIdCounter.Increment()) { }
+	FRuntimeMeshObjectId(const FRuntimeMeshObjectId& Other)
+		: ObjectId(Other.ObjectId) { }
+	int32 Get() const { return ObjectId; }
+
+	operator int32() const { return ObjectId; }
+
+private:
+	const int32 ObjectId;
+};
+
+template<typename OwningType>
+FThreadSafeCounter FRuntimeMeshObjectId<OwningType>::ObjectIdCounter;
+
+
+#if ENGINE_MAJOR_VERSION <= 4 && ENGINE_MINOR_VERSION < 24
+
+
+/** Keeps a FRWLock read-locked while this scope lives */
+class FReadScopeLock
+{
+public:
+	explicit FReadScopeLock(FRWLock& InLock)
+		: Lock(InLock)
+	{
+		Lock.ReadLock();
+	}
+
+	~FReadScopeLock()
+	{
+		Lock.ReadUnlock();
+	}
+
+private:
+	FRWLock& Lock;
+
+	UE_NONCOPYABLE(FReadScopeLock);
+};
+
+/** Keeps a FRWLock write-locked while this scope lives */
+class FWriteScopeLock
+{
+public:
+	explicit FWriteScopeLock(FRWLock& InLock)
+		: Lock(InLock)
+	{
+		Lock.WriteLock();
+	}
+
+	~FWriteScopeLock()
+	{
+		Lock.WriteUnlock();
+	}
+
+private:
+	FRWLock& Lock;
+
+	UE_NONCOPYABLE(FWriteScopeLock);
+};
+
+#endif

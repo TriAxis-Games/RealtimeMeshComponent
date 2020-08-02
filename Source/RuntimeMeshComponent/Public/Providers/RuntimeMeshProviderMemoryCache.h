@@ -7,57 +7,46 @@
 #include "RuntimeMeshProviderMemoryCache.generated.h"
 
 
-class RUNTIMEMESHCOMPONENT_API FRuntimeMeshProviderMemoryCacheProxy : public FRuntimeMeshProviderProxyPassThrough
+UCLASS(HideCategories = Object, BlueprintType)
+class RUNTIMEMESHCOMPONENT_API URuntimeMeshProviderMemoryCache : public URuntimeMeshProviderPassthrough
 {
-	FORCEINLINE int64 GenerateKeyFromLODAndSection(int32 LODIndex, int32 SectionId)
-	{
-		return (((int64)LODIndex) << 32) | ((int64)SectionId);
-	}
+	GENERATED_BODY()
+private:
 
-
-	TMap<int64, TOptional<FRuntimeMeshRenderableMeshData>> CachedMeshData;
+	TMap<int32, TMap<int32, FRuntimeMeshSectionProperties>> CacheSectionConfig;
+	TMap<int32, TMap<int32, TOptional<FRuntimeMeshRenderableMeshData>>> CachedMeshData;
 
 	TOptional<FRuntimeMeshCollisionSettings> CachedCollisionSettings;
 	TOptional<bool> CachedHasCollisionMesh;
 	TOptional<TPair<bool, FRuntimeMeshCollisionData>> CachedCollisionData;
-public:
-	FRuntimeMeshProviderMemoryCacheProxy(TWeakObjectPtr<URuntimeMeshProvider> InParent, const FRuntimeMeshProviderProxyPtr& InNextProvider);
-	~FRuntimeMeshProviderMemoryCacheProxy();
 
+	FCriticalSection MeshSyncRoot;
+	FCriticalSection CollisionSyncRoot;
+public:
+	UFUNCTION(Category = "RuntimeMesh|Providers|Cache", BlueprintCallable)
 	void ClearCache();
 
 protected:
-	virtual void CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties);
-	virtual void MarkSectionDirty(int32 LODIndex, int32 SectionId);
-	virtual void RemoveSection(int32 LODIndex, int32 SectionId);
-	virtual void MarkCollisionDirty();
-
-
-
 	virtual bool GetSectionMeshForLOD(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData) override;
-
-	FRuntimeMeshCollisionSettings GetCollisionSettings() override;
-	bool HasCollisionMesh() override;
+	virtual bool GetAllSectionsMeshForLOD(int32 LODIndex, TMap<int32, FRuntimeMeshSectionData>& MeshDatas) override;
+	virtual FRuntimeMeshCollisionSettings GetCollisionSettings() override;
+	virtual bool HasCollisionMesh() override;
 	virtual bool GetCollisionMesh(FRuntimeMeshCollisionData& CollisionData) override;
-	
-	bool IsThreadSafe() const override;
+	virtual bool IsThreadSafe() override;
 
-};
+	virtual void ConfigureLODs(const TArray<FRuntimeMeshLODProperties>& InLODs) override;
+	virtual void MarkLODDirty(int32 LODIndex) override;
+	virtual void MarkAllLODsDirty() override;
+	virtual void CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties) override;
+	virtual void MarkSectionDirty(int32 LODIndex, int32 SectionId) override;
+	virtual void ClearSection(int32 LODIndex, int32 SectionId) override;
+	virtual void RemoveSection(int32 LODIndex, int32 SectionId) override;
+	virtual void MarkCollisionDirty() override;
 
-UCLASS(HideCategories = Object, BlueprintType)
-class RUNTIMEMESHCOMPONENT_API URuntimeMeshProviderMemoryCache : public URuntimeMeshProvider
-{
-	GENERATED_BODY()
+	virtual void BeginDestroy() override;
 
-public:
-	UPROPERTY(Category = "RuntimeMesh|Providers|MemoryCache", EditAnywhere, BlueprintReadWrite)
-	URuntimeMeshProvider* SourceProvider;
+private:
+	void ClearCacheLOD(int32 LODIndex);
+	void ClearCacheSection(int32 LODIndex, int32 SectionId);
 
-protected:
-	virtual FRuntimeMeshProviderProxyRef GetProxy() override 
-	{ 
-		FRuntimeMeshProviderProxyPtr SourceProviderProxy = SourceProvider ? SourceProvider->SetupProxy() : FRuntimeMeshProviderProxyPtr();
-
-		return MakeShared<FRuntimeMeshProviderMemoryCacheProxy, ESPMode::ThreadSafe>(TWeakObjectPtr<URuntimeMeshProvider>(this), SourceProviderProxy);
-	}
 };

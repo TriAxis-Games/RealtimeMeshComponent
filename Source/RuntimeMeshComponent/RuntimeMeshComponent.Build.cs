@@ -7,12 +7,12 @@ public class RuntimeMeshComponent : ModuleRules
 {
     public RuntimeMeshComponent(ReadOnlyTargetRules rules) : base(rules)
     {
+#if UE_4_23_OR_LATER
         PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
+#endif
 
-#if UE_4_22_OR_LATER
         // This is to access RayTracing Definitions
         PrivateIncludePaths.Add(Path.Combine(EngineDirectory, "Shaders", "Shared"));
-#endif
 
         PublicDependencyModuleNames.AddRange(
             new string[]
@@ -30,9 +30,6 @@ public class RuntimeMeshComponent : ModuleRules
                 "RenderCore",
                 "RHI",
                 "NavigationSystem",
-#if !UE_4_22_OR_LATER
-                "ShaderCore",
-#endif
 #if UE_4_23_OR_LATER
                 "PhysicsCore",
 #endif

@@ -2,515 +2,375 @@
 
 
 #include "RuntimeMeshProvider.h"
+#include "RuntimeMesh.h"
 
-FRuntimeMeshProviderProxy::FRuntimeMeshProviderProxy(TWeakObjectPtr<URuntimeMeshProvider> InParent)
-	: Parent(InParent)
-{
-}
 
-void FRuntimeMeshProviderProxy::BindPreviousProvider(const FRuntimeMeshProviderProxyPtr& InPreviousProvider)
+void URuntimeMeshProvider::Shutdown()
 {
-	PreviousProvider = InPreviousProvider;
-}
-
-void FRuntimeMeshProviderProxy::UpdateProxyParameters(URuntimeMeshProvider* ParentProvider, bool bIsInitialSetup)
-{
-}
-
-void FRuntimeMeshProviderProxy::ConfigureLODs(TArray<FRuntimeMeshLODProperties> LODs)
-{
-	FRuntimeMeshProviderProxyPtr Pinned = PreviousProvider.Pin();
-	if (Pinned.IsValid())
+	FRuntimeMeshWeakRef MeshRef;
 	{
-		Pinned->ConfigureLODs(LODs);
+		FReadScopeLock Lock(TargetLock);
+		if (bIsBound)
+		{
+			check(Target);
+			MeshRef = Target->GetMeshReference();
+		}
+	}
+
+	FRuntimeMeshSharedRef PinnedRef = MeshRef.Pin();
+	if (PinnedRef)
+	{
+		PinnedRef->Reset();
 	}
 }
 
-void FRuntimeMeshProviderProxy::CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties)
+void URuntimeMeshProvider::BindTargetProvider(URuntimeMeshProviderTargetInterface* InTarget)
 {
-	FRuntimeMeshProviderProxyPtr Pinned = PreviousProvider.Pin();
-	if (Pinned.IsValid())
+	FWriteScopeLock Lock(TargetLock);
+	Target = InTarget;
+	bIsBound = true;
+}
+
+void URuntimeMeshProvider::UnlinkProviders()
+{
+	FWriteScopeLock Lock(TargetLock);
+	Target = nullptr;
+	bIsBound = false;
+}
+
+URuntimeMeshProvider::URuntimeMeshProvider()
+	: GCAnchor(this)
+	, bIsBound(false)
+{
+
+}
+
+FRuntimeMeshProviderWeakRef URuntimeMeshProvider::GetReference()
+{
+	return GCAnchor.GetReference();
+}
+
+FRuntimeMeshWeakRef URuntimeMeshProvider::GetMeshReference()
+{
+	FReadScopeLock Lock(TargetLock);
+	return Target ? Target->GetMeshReference() : FRuntimeMeshWeakRef();
+}
+
+
+
+
+void URuntimeMeshProvider::ConfigureLODs(const TArray<FRuntimeMeshLODProperties>& InLODs)
+{
+	FReadScopeLock Lock(TargetLock);
+	if (Target)
 	{
-		Pinned->CreateSection(LODIndex, SectionId, SectionProperties);
+		Target->ConfigureLODs(InLODs);
 	}
 }
 
-void FRuntimeMeshProviderProxy::SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial)
+void URuntimeMeshProvider::SetLODScreenSize(int32 LODIndex, float ScreenSize)
 {
-	FRuntimeMeshProviderProxyPtr Pinned = PreviousProvider.Pin();
-	if (Pinned.IsValid())
+	FReadScopeLock Lock(TargetLock);
+	if (Target)
 	{
-		Pinned->SetupMaterialSlot(MaterialSlot, SlotName, InMaterial);
+		Target->SetLODScreenSize(LODIndex, ScreenSize);
 	}
 }
 
-int32 FRuntimeMeshProviderProxy::GetMaterialIndex(FName MaterialSlotName)
+void URuntimeMeshProvider::MarkLODDirty(int32 LODIndex)
 {
-	FRuntimeMeshProviderProxyPtr Pinned = PreviousProvider.Pin();
-	if (Pinned.IsValid())
+	FReadScopeLock Lock(TargetLock);
+	if (Target)
 	{
-		return Pinned->GetMaterialIndex(MaterialSlotName);
+		Target->MarkLODDirty(LODIndex);
+	}
+}
+
+void URuntimeMeshProvider::MarkAllLODsDirty()
+{
+	FReadScopeLock Lock(TargetLock);
+	if (Target)
+	{
+		Target->MarkAllLODsDirty();
+	}
+}
+
+void URuntimeMeshProvider::CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties)
+{
+	FReadScopeLock Lock(TargetLock);
+	if (Target)
+	{
+		Target->CreateSection(LODIndex, SectionId, SectionProperties);
+	}
+}
+
+void URuntimeMeshProvider::SetSectionVisibility(int32 LODIndex, int32 SectionId, bool bIsVisible)
+{
+	FReadScopeLock Lock(TargetLock);
+	if (Target)
+	{
+		Target->SetSectionVisibility(LODIndex, SectionId, bIsVisible);
+	}
+}
+
+void URuntimeMeshProvider::SetSectionCastsShadow(int32 LODIndex, int32 SectionId, bool bCastsShadow)
+{
+	FReadScopeLock Lock(TargetLock);
+	if (Target)
+	{
+		Target->SetSectionCastsShadow(LODIndex, SectionId, bCastsShadow);
+	}
+}
+
+void URuntimeMeshProvider::MarkSectionDirty(int32 LODIndex, int32 SectionId)
+{
+	FReadScopeLock Lock(TargetLock);
+	if (Target)
+	{
+		Target->MarkSectionDirty(LODIndex, SectionId);
+	}
+}
+
+void URuntimeMeshProvider::ClearSection(int32 LODIndex, int32 SectionId)
+{
+	FReadScopeLock Lock(TargetLock);
+	if (Target)
+	{
+		Target->ClearSection(LODIndex, SectionId);
+	}
+}
+
+void URuntimeMeshProvider::RemoveSection(int32 LODIndex, int32 SectionId)
+{
+	FReadScopeLock Lock(TargetLock);
+	if (Target)
+	{
+		Target->RemoveSection(LODIndex, SectionId);
+	}
+}
+
+void URuntimeMeshProvider::MarkCollisionDirty()
+{
+	FReadScopeLock Lock(TargetLock);
+	if (Target)
+	{
+		Target->MarkCollisionDirty();
+	}
+}
+
+void URuntimeMeshProvider::SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial)
+{
+	FReadScopeLock Lock(TargetLock);
+	if (Target)
+	{
+		Target->SetupMaterialSlot(MaterialSlot, SlotName, InMaterial);
+	}
+}
+
+int32 URuntimeMeshProvider::GetMaterialIndex(FName MaterialSlotName)
+{
+	FReadScopeLock Lock(TargetLock);
+	if (Target)
+	{
+		return Target->GetMaterialIndex(MaterialSlotName);
 	}
 	return INDEX_NONE;
 }
 
-int32 FRuntimeMeshProviderProxy::GetNumMaterials()
+bool URuntimeMeshProvider::IsMaterialSlotNameValid(FName MaterialSlotName) const
 {
-	FRuntimeMeshProviderProxyPtr Pinned = PreviousProvider.Pin();
-	if (Pinned.IsValid())
+	FReadScopeLock Lock(TargetLock);
+	if (Target)
 	{
-		return Pinned->GetNumMaterials();
+		return Target->IsMaterialSlotNameValid(MaterialSlotName);
+	}
+	return false;
+}
+
+FRuntimeMeshMaterialSlot URuntimeMeshProvider::GetMaterialSlot(int32 SlotIndex)
+{
+	FReadScopeLock Lock(TargetLock);
+	if (Target)
+	{
+		return Target->GetMaterialSlot(SlotIndex);
+	}
+	return FRuntimeMeshMaterialSlot();
+}
+
+int32 URuntimeMeshProvider::GetNumMaterials()
+{
+	FReadScopeLock Lock(TargetLock);
+	if (Target)
+	{
+		return Target->GetNumMaterials();
 	}
 	return 0;
 }
 
-TArray<FRuntimeMeshMaterialSlot> FRuntimeMeshProviderProxy::GetMaterialSlots() const
+TArray<FName> URuntimeMeshProvider::GetMaterialSlotNames()
 {
-	FRuntimeMeshProviderProxyPtr Pinned = PreviousProvider.Pin();
-	if (Pinned.IsValid())
+	FReadScopeLock Lock(TargetLock);
+	if (Target)
 	{
-		return Pinned->GetMaterialSlots();
+		return Target->GetMaterialSlotNames();
+	}
+	return TArray<FName>();
+}
+
+TArray<FRuntimeMeshMaterialSlot> URuntimeMeshProvider::GetMaterialSlots()
+{
+	FReadScopeLock Lock(TargetLock);
+	if (Target)
+	{
+		return Target->GetMaterialSlots();
 	}
 	return TArray<FRuntimeMeshMaterialSlot>();
 }
 
-void FRuntimeMeshProviderProxy::MarkSectionDirty(int32 LODIndex, int32 SectionId)
+UMaterialInterface* URuntimeMeshProvider::GetMaterial(int32 SlotIndex)
 {
-	FRuntimeMeshProviderProxyPtr Pinned = PreviousProvider.Pin();
-	if (Pinned.IsValid())
+	FReadScopeLock Lock(TargetLock);
+	if (Target)
 	{
-		Pinned->MarkSectionDirty(LODIndex, SectionId);
+		return Target->GetMaterial(SlotIndex);
+	}
+	return nullptr;
+}
+
+
+void URuntimeMeshProvider::BeginDestroy()
+{
+	Shutdown();
+	Super::BeginDestroy();
+}
+
+bool URuntimeMeshProvider::IsReadyForFinishDestroy()
+{
+	return (Super::IsReadyForFinishDestroy() && GCAnchor.IsFree());// || (GIsEditor && GIsReconstructingBlueprintInstances);
+}
+
+
+
+
+
+
+void URuntimeMeshProviderPassthrough::BindTargetProvider(URuntimeMeshProviderTargetInterface* InTarget)
+{
+	URuntimeMeshProvider::BindTargetProvider(InTarget);
+
+	FReadScopeLock Lock(ChildLock);
+	if (ChildProvider)
+	{
+		ChildProvider->BindTargetProvider(this);
 	}
 }
 
-void FRuntimeMeshProviderProxy::MarkLODDirty(int32 LODIndex)
+void URuntimeMeshProviderPassthrough::UnlinkProviders()
 {
-	FRuntimeMeshProviderProxyPtr Pinned = PreviousProvider.Pin();
-	if (Pinned.IsValid())
+	FReadScopeLock Lock(ChildLock);
+	if (ChildProvider)
 	{
-		Pinned->MarkLODDirty(LODIndex);
+		ChildProvider->UnlinkProviders();
+	}
+
+	URuntimeMeshProvider::UnlinkProviders();
+}
+
+URuntimeMeshProviderPassthrough::URuntimeMeshProviderPassthrough()
+	: ChildProvider(nullptr)
+{
+}
+
+void URuntimeMeshProviderPassthrough::SetChildProvider(URuntimeMeshProvider* InProvider)
+{
+	FWriteScopeLock Lock(ChildLock);
+	ChildProvider = InProvider;
+}
+
+void URuntimeMeshProviderPassthrough::Initialize()
+{
+	FReadScopeLock Lock(ChildLock);
+	if (ChildProvider)
+	{
+		ChildProvider->Initialize();
 	}
 }
 
-void FRuntimeMeshProviderProxy::MarkAllLODsDirty()
+FBoxSphereBounds URuntimeMeshProviderPassthrough::GetBounds()
 {
-	FRuntimeMeshProviderProxyPtr Pinned = PreviousProvider.Pin();
-	if (Pinned.IsValid())
+	FReadScopeLock Lock(ChildLock);
+	if (ChildProvider)
 	{
-		Pinned->MarkAllLODsDirty();
+		return ChildProvider->GetBounds();
 	}
+	return FBoxSphereBounds(FSphere(FVector::ZeroVector, 1.0f));
 }
 
-void FRuntimeMeshProviderProxy::SetSectionVisibility(int32 LODIndex, int32 SectionId, bool bIsVisible)
+bool URuntimeMeshProviderPassthrough::GetSectionMeshForLOD(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData)
 {
-	FRuntimeMeshProviderProxyPtr Pinned = PreviousProvider.Pin();
-	if (Pinned.IsValid())
+	FReadScopeLock Lock(ChildLock);
+	if (ChildProvider)
 	{
-		Pinned->SetSectionVisibility(LODIndex, SectionId, bIsVisible);
-	}
-}
-
-void FRuntimeMeshProviderProxy::SetSectionCastsShadow(int32 LODIndex, int32 SectionId, bool bCastsShadow)
-{
-	FRuntimeMeshProviderProxyPtr Pinned = PreviousProvider.Pin();
-	if (Pinned.IsValid())
-	{
-		Pinned->SetSectionCastsShadow(LODIndex, SectionId, bCastsShadow);
-	}
-}
-
-void FRuntimeMeshProviderProxy::RemoveSection(int32 LODIndex, int32 SectionId)
-{
-	FRuntimeMeshProviderProxyPtr Pinned = PreviousProvider.Pin();
-	if (Pinned.IsValid())
-	{
-		Pinned->RemoveSection(LODIndex, SectionId);
-	}
-}
-
-void FRuntimeMeshProviderProxy::MarkCollisionDirty()
-{
-	FRuntimeMeshProviderProxyPtr Pinned = PreviousProvider.Pin();
-	if (Pinned.IsValid())
-	{
-		Pinned->MarkCollisionDirty();
-	}
-}
-
-void FRuntimeMeshProviderProxy::DoOnGameThreadAndBlockThreads(FRuntimeMeshProviderThreadExclusiveFunction Func)
-{
-	FRuntimeMeshProviderProxyPtr Pinned = PreviousProvider.Pin();
-	if (Pinned.IsValid())
-	{
-		Pinned->DoOnGameThreadAndBlockThreads(Func);
-	}
-}
-
-
-
-FRuntimeMeshProviderProxyPassThrough::FRuntimeMeshProviderProxyPassThrough(TWeakObjectPtr<URuntimeMeshProvider> InParent, const FRuntimeMeshProviderProxyPtr& InNextProvider)
-	: FRuntimeMeshProviderProxy(InParent), NextProvider(InNextProvider)
-{
-}
-
-void FRuntimeMeshProviderProxyPassThrough::BindPreviousProvider(const FRuntimeMeshProviderProxyPtr& InPreviousProvider)
-{
-	if (NextProvider.IsValid())
-	{
-		NextProvider->BindPreviousProvider(this->AsShared());
-	}
-
-	FRuntimeMeshProviderProxy::BindPreviousProvider(InPreviousProvider);
-}
-
-void FRuntimeMeshProviderProxyPassThrough::Initialize()
-{
-	if (NextProvider.IsValid())
-	{
-		NextProvider->Initialize();
-	}
-}
-
-FBoxSphereBounds FRuntimeMeshProviderProxyPassThrough::GetBounds()
-{
-	if (NextProvider.IsValid())
-	{
-		return NextProvider->GetBounds();
-	}
-	return FBoxSphereBounds();
-}
-
-bool FRuntimeMeshProviderProxyPassThrough::GetAllSectionsMeshForLOD(int32 LODIndex, TMap<int32, TTuple<FRuntimeMeshSectionProperties, FRuntimeMeshRenderableMeshData>>& MeshDatas)
-{
-	if (NextProvider.IsValid())
-	{
-		return NextProvider->GetAllSectionsMeshForLOD(LODIndex, MeshDatas);
+		return ChildProvider->GetSectionMeshForLOD(LODIndex, SectionId, MeshData);
 	}
 	return false;
 }
 
-bool FRuntimeMeshProviderProxyPassThrough::GetSectionMeshForLOD(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData)
+bool URuntimeMeshProviderPassthrough::GetAllSectionsMeshForLOD(int32 LODIndex, TMap<int32, FRuntimeMeshSectionData>& MeshDatas)
 {
-	if (NextProvider.IsValid())
+	FReadScopeLock Lock(ChildLock);
+	if (ChildProvider)
 	{
-		return NextProvider->GetSectionMeshForLOD(LODIndex, SectionId, MeshData);
+		return ChildProvider->GetAllSectionsMeshForLOD(LODIndex, MeshDatas);
 	}
 	return false;
 }
 
-FRuntimeMeshCollisionSettings FRuntimeMeshProviderProxyPassThrough::GetCollisionSettings()
+FRuntimeMeshCollisionSettings URuntimeMeshProviderPassthrough::GetCollisionSettings()
 {
-	if (NextProvider.IsValid())
+	FReadScopeLock Lock(ChildLock);
+	if (ChildProvider)
 	{
-		return NextProvider->GetCollisionSettings();
+		return ChildProvider->GetCollisionSettings();
 	}
 	return FRuntimeMeshCollisionSettings();
 }
 
-bool FRuntimeMeshProviderProxyPassThrough::HasCollisionMesh()
+bool URuntimeMeshProviderPassthrough::HasCollisionMesh()
 {
-	if (NextProvider.IsValid())
+	FReadScopeLock Lock(ChildLock);
+	if (ChildProvider)
 	{
-		return NextProvider->HasCollisionMesh();
+		return ChildProvider->HasCollisionMesh();
 	}
 	return false;
 }
 
-bool FRuntimeMeshProviderProxyPassThrough::GetCollisionMesh(FRuntimeMeshCollisionData& CollisionData)
+bool URuntimeMeshProviderPassthrough::GetCollisionMesh(FRuntimeMeshCollisionData& CollisionData)
 {
-	if (NextProvider.IsValid())
+	FReadScopeLock Lock(ChildLock);
+	if (ChildProvider)
 	{
-		return NextProvider->GetCollisionMesh(CollisionData);
+		return ChildProvider->GetCollisionMesh(CollisionData);
 	}
 	return false;
 }
 
-bool FRuntimeMeshProviderProxyPassThrough::IsThreadSafe() const
+void URuntimeMeshProviderPassthrough::CollisionUpdateCompleted()
 {
-	if (NextProvider.IsValid())
+	FReadScopeLock Lock(ChildLock);
+	if (ChildProvider)
 	{
-		return NextProvider->IsThreadSafe();
+		ChildProvider->CollisionUpdateCompleted();
+	}
+}
 
+bool URuntimeMeshProviderPassthrough::IsThreadSafe()
+{
+	FReadScopeLock Lock(ChildLock);
+	if (ChildProvider)
+	{
+		return ChildProvider->IsThreadSafe();
 	}
 	return false;
 }
-
-
-
-
-
-class RUNTIMEMESHCOMPONENT_API FRuntimeMeshProviderProxyUObjectProviderConnector : public FRuntimeMeshProviderProxy
-{
-
-public:
-	FRuntimeMeshProviderProxyUObjectProviderConnector(TWeakObjectPtr<URuntimeMeshProvider> InParent)
-		: FRuntimeMeshProviderProxy(InParent)
-	{
-
-	}
-
-public:
-	virtual void Initialize() override
-	{
-		check(IsInGameThread());
-		URuntimeMeshProvider* Temp = Parent.Get();
-		if (Temp)
-		{
-			Temp->Initialize();
-		}
-	}
-
-	virtual FBoxSphereBounds GetBounds() override
-	{
-		check(IsInGameThread());
-		URuntimeMeshProvider* Temp = Parent.Get();
-		if (Temp)
-		{
-			return Temp->GetBounds();
-		}
-		return FRuntimeMeshProviderProxy::GetBounds();
-	}
-
-	virtual bool GetAllSectionsMeshForLOD(int32 LODIndex, TMap<int32, TTuple<FRuntimeMeshSectionProperties, FRuntimeMeshRenderableMeshData>>& MeshDatas) override
-	{
-// 		check(IsInGameThread());
-// 		URuntimeMeshProvider* Temp = Parent.Get();
-// 		if (Temp)
-// 		{
-// 			return Temp->GetAllSectionsMeshForLOD(LODIndex, MeshDatas);
-// 		}
-		return false;
-	}
-	virtual bool GetSectionMeshForLOD(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData) override
-	{
-		check(IsInGameThread());
-		URuntimeMeshProvider* Temp = Parent.Get();
-		if (Temp)
-		{
-			return Temp->GetSectionMeshForLOD(LODIndex, SectionId, MeshData);
-		}
-		return false;
-	}
-
-	virtual FRuntimeMeshCollisionSettings GetCollisionSettings()
-	{
-		check(IsInGameThread());
-		URuntimeMeshProvider* Temp = Parent.Get();
-		if (Temp)
-		{
-			return Temp->GetCollisionSettings();
-		}
-		return FRuntimeMeshCollisionSettings();
-	}
-	virtual bool HasCollisionMesh()
-	{
-		check(IsInGameThread());
-		URuntimeMeshProvider* Temp = Parent.Get();
-		if (Temp)
-		{
-			return Temp->HasCollisionMesh();
-		}
-		return false;
-	}
-
-	virtual bool GetCollisionMesh(FRuntimeMeshCollisionData& CollisionDatas) override
-	{
-		check(IsInGameThread());
-		URuntimeMeshProvider* Temp = Parent.Get();
-		if (Temp)
-		{
-			return Temp->GetCollisionMesh(CollisionDatas);
-		}
-		return false;
-	}
-
-
-	// UObject based providers are never thread safe
-	// So here we'll ignore any result that the actual provider 
-	// would have otherwise said and just say no, so that nobody has the brainy 
-	// idea of saying yes in the UObject provider and causing issues. :)
-	virtual bool IsThreadSafe() const override { return false; }
-};
-
-
-
-FRuntimeMeshProviderProxyRef URuntimeMeshProvider::GetProxy()
-{
-	FRuntimeMeshProviderProxyRef NewConnector = MakeShared<FRuntimeMeshProviderProxyUObjectProviderConnector, ESPMode::ThreadSafe>(TWeakObjectPtr<URuntimeMeshProvider>(this));
-	Proxy = NewConnector;
-	return NewConnector;
-}
-
-FRuntimeMeshProviderProxyRef URuntimeMeshProvider::SetupProxy()
-{
-	FRuntimeMeshProviderProxyRef NewProxy = GetProxy();
-	Proxy = NewProxy;
-
-	// We can go ahead and update the parameters once to kick it off.
-	NewProxy->UpdateProxyParameters(this, true);
-	return NewProxy;
-}
-
-void URuntimeMeshProvider::MarkProxyParametersDirty()
-{
-	// Right now this just blindly updates the parameters
-	// This gives us the ability to add the threading support later hopefully without
-	// affecting the public API
-
-	if (Proxy.IsValid())
-	{
-		TWeakObjectPtr<URuntimeMeshProvider> ProviderRef(this);
-		FRuntimeMeshProviderProxyPtr ProxyPtr = Proxy;
-		Proxy->DoOnGameThreadAndBlockThreads(FRuntimeMeshProviderThreadExclusiveFunction::CreateLambda([ProviderRef, ProxyPtr]()
-			{
-				if (ProviderRef.IsValid())
-				{
-					ProxyPtr->UpdateProxyParameters(ProviderRef.Get(), false);
-				}
-			}));
-	}
-}
-
-void URuntimeMeshProvider::Initialize_Implementation()
-{
-
-}
-
-void URuntimeMeshProvider::ConfigureLODs_Implementation(const TArray<FRuntimeMeshLODProperties>& LODs)
-{
-	if (Proxy.IsValid())
-	{
-		Proxy->ConfigureLODs(LODs);
-	}
-}
-
-void URuntimeMeshProvider::CreateSection_Implementation(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties)
-{
-	if (Proxy.IsValid())
-	{
-		Proxy->CreateSection(LODIndex, SectionId, SectionProperties);
-	}
-}
-
-void URuntimeMeshProvider::SetupMaterialSlot_Implementation(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial)
-{
-	if (Proxy.IsValid())
-	{
-		Proxy->SetupMaterialSlot(MaterialSlot, SlotName, InMaterial);
-	}
-}
-
-int32 URuntimeMeshProvider::GetMaterialIndex_Implementation(FName MaterialSlotName)
-{
-	if (Proxy.IsValid())
-	{
-		return Proxy->GetMaterialIndex(MaterialSlotName);
-	}
-	return INDEX_NONE;
-}
-
-int32 URuntimeMeshProvider::GetNumMaterialSlots_Implementation()
-{
-	if (Proxy.IsValid())
-	{
-		return Proxy->GetNumMaterials();
-	}
-	return 0;
-}
-
-TArray<FRuntimeMeshMaterialSlot> URuntimeMeshProvider::GetMaterialSlots_Implementation()
-{
-	if (Proxy.IsValid())
-	{
-		return Proxy->GetMaterialSlots();
-	}
-
-	return TArray<FRuntimeMeshMaterialSlot>();
-}
-
-void URuntimeMeshProvider::MarkSectionDirty_Implementation(int32 LODIndex, int32 SectionId)
-{
-	if (Proxy.IsValid())
-	{
-		Proxy->MarkSectionDirty(LODIndex, SectionId);
-	}
-}
-
-void URuntimeMeshProvider::MarkLODDirty_Implementation(int32 LODIndex)
-{
-	if (Proxy.IsValid())
-	{
-		Proxy->MarkSectionDirty(LODIndex, INDEX_NONE);
-	}
-}
-
-void URuntimeMeshProvider::MarkAllLODsDirty_Implementation()
-{
-	if (Proxy.IsValid())
-	{
-		Proxy->MarkAllLODsDirty();
-	}
-}
-
-void URuntimeMeshProvider::SetSectionVisibility_Implementation(int32 LODIndex, int32 SectionId, bool bIsVisible)
-{
-	if (Proxy.IsValid())
-	{
-		Proxy->SetSectionVisibility(LODIndex, SectionId, bIsVisible);
-	}
-}
-
-void URuntimeMeshProvider::SetSectionCastsShadow_Implementation(int32 LODIndex, int32 SectionId, bool bCastsShadow)
-{
-	if (Proxy.IsValid())
-	{
-		Proxy->SetSectionCastsShadow(LODIndex, SectionId, bCastsShadow);
-	}
-}
-
-void URuntimeMeshProvider::RemoveSection_Implementation(int32 LODIndex, int32 SectionId)
-{
-	if (Proxy.IsValid())
-	{
-		Proxy->RemoveSection(LODIndex, SectionId);
-	}
-}
-
-void URuntimeMeshProvider::MarkCollisionDirty_Implementation()
-{
-	if (Proxy.IsValid())
-	{
-		Proxy->MarkCollisionDirty();
-	}
-}
-
-FBoxSphereBounds URuntimeMeshProvider::GetBounds_Implementation()
-{
-	return FBoxSphereBounds();
-}
-
-// bool URuntimeMeshProvider::GetAllSectionsMeshForLOD_Implementation(int32 LODIndex, TMap<int32, FRuntimeMeshRenderableMeshData>& MeshDatas)
-// {
-// 	return false;
-// }
-
-bool URuntimeMeshProvider::GetSectionMeshForLOD_Implementation(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData)
-{
-	return false;
-}
-
-FRuntimeMeshCollisionSettings URuntimeMeshProvider::GetCollisionSettings_Implementation()
-{
-	return FRuntimeMeshCollisionSettings();
-}
-
-bool URuntimeMeshProvider::HasCollisionMesh_Implementation()
-{
-	return false;
-}
-
-bool URuntimeMeshProvider::GetCollisionMesh_Implementation(FRuntimeMeshCollisionData& CollisionData)
-{
-	return false;
-}
-

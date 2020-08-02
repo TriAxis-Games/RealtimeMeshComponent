@@ -1,32 +1,32 @@
 // Copyright 2016-2020 Chris Conway (Koderz). All Rights Reserved.
 
 
-#include "Providers/RuntimeMeshProviderNormals.h"
+#include "Modifiers/RuntimeMeshModifierNormals.h"
 
-FRuntimeMeshProviderNormalsProxy::FRuntimeMeshProviderNormalsProxy(TWeakObjectPtr<URuntimeMeshProvider> InParent, const FRuntimeMeshProviderProxyPtr& InNextProvider, bool InComputeNormals, bool InComputeTangents)
-	: FRuntimeMeshProviderProxyPassThrough(InParent, InNextProvider), 
-	bComputeNormals(InComputeNormals), bComputeTangents(InComputeTangents)
+
+URuntimeMeshModifierNormals::URuntimeMeshModifierNormals()
+	: bComputeSmoothNormals(false)
 {
+
 }
 
-FRuntimeMeshProviderNormalsProxy::~FRuntimeMeshProviderNormalsProxy()
+void URuntimeMeshModifierNormals::ApplyToMesh_Implementation(FRuntimeMeshRenderableMeshData& MeshData)
 {
+	CalculateNormalsTangents(MeshData, bComputeSmoothNormals);	
 }
 
-bool FRuntimeMeshProviderNormalsProxy::GetSectionMeshForLOD(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData)
+void URuntimeMeshModifierNormals::CalculateNormalsTangents(FRuntimeMeshRenderableMeshData& MeshData, bool bInComputeSmoothNormals)
 {
-	if (!NextProvider.IsValid())
-	{
-		return false;
-	}
-	bool bResult = NextProvider->GetSectionMeshForLOD(LODIndex, SectionId, MeshData);
 	int32 NumVertices = MeshData.Positions.Num();
 	int32 NumIndices = MeshData.Triangles.Num();
 	int32 NumUVs = MeshData.TexCoords.Num();
 
+	// Resize the tangents array to fit the new normals/tangents
+	MeshData.Tangents.SetNum(NumVertices, true);
+
 	// Calculate the duplicate vertices map if we're wanting smooth normals.  Don't find duplicates if we don't want smooth normals
 	// that will cause it to only smooth across faces sharing a common vertex, not across faces with vertices of common position
-	const TMultiMap<uint32, uint32> DuplicateVertexMap = /*bCreateSmoothNormals ? FRuntimeMeshInternalUtilities::FindDuplicateVerticesMap(VertexAccessor, NumVertices) :*/ TMultiMap<uint32, uint32>();
+	const TMultiMap<uint32, uint32> DuplicateVertexMap = bInComputeSmoothNormals ? FindDuplicateVerticesMap(MeshData.Positions, NumVertices) : TMultiMap<uint32, uint32>();
 
 
 	// Number of triangles
@@ -44,7 +44,7 @@ bool FRuntimeMeshProviderNormalsProxy::GetSectionMeshForLOD(int32 LODIndex, int3
 	FaceTangentZ.AddUninitialized(NumTris);
 
 	// Iterate over triangles
-	for (int TriIdx = 0; TriIdx < NumTris; TriIdx++)
+	for (int32 TriIdx = 0; TriIdx < NumTris; TriIdx++)
 	{
 		uint32 CornerIndex[3];
 		FVector P[3];
@@ -122,14 +122,14 @@ bool FRuntimeMeshProviderNormalsProxy::GetSectionMeshForLOD(int32 LODIndex, int3
 				FPlane(P[2].X - P[0].X, P[2].Y - P[0].Y, P[2].Z - P[0].Z, 0),
 				FPlane(P[0].X, P[0].Y, P[0].Z, 0),
 				FPlane(0, 0, 0, 1)
-			);
+				);
 
 			FMatrix ParameterToTexture(
 				FPlane(T2.X - T1.X, T2.Y - T1.Y, 0, 0),
 				FPlane(T3.X - T1.X, T3.Y - T1.Y, 0, 0),
 				FPlane(T1.X, T1.Y, 1, 0),
 				FPlane(0, 0, 0, 1)
-			);
+				);
 
 			// Use InverseSlow to catch singular matrices.  Inverse can miss this sometimes.
 			const FMatrix TextureToLocal = ParameterToTexture.Inverse() * ParameterToLocal;
@@ -194,16 +194,53 @@ bool FRuntimeMeshProviderNormalsProxy::GetSectionMeshForLOD(int32 LODIndex, int3
 		TangentX.Normalize();
 		TangentY.Normalize();
 
+		MeshData.Tangents.SetNormal(VertxIdx, TangentZ);
+		MeshData.Tangents.SetTangent(VertxIdx, TangentX);
+	}
+}
 
-		//TangentSetter(VertxIdx, TangentX, TangentY, TangentZ);
-		if (bComputeNormals)
+
+TMultiMap<uint32, uint32> URuntimeMeshModifierNormals::FindDuplicateVerticesMap(const FRuntimeMeshVertexPositionStream& PositionStream, float Tollerance)
+{
+	int32 NumVertices = PositionStream.Num();
+
+
+	TArray<FRuntimeMeshVertexSortingElement> VertexSorter;
+	VertexSorter.Empty(NumVertices);
+	for (int32 Index = 0; Index < NumVertices; Index++)
+	{
+		new (VertexSorter)FRuntimeMeshVertexSortingElement(Index, PositionStream.GetPosition(Index));
+	}
+
+	// Sort the list
+	VertexSorter.Sort(FRuntimeMeshVertexSortingFunction());
+
+	// Clear the index map.
+	TMultiMap<uint32, uint32> IndexMap;
+
+	// Map out the duplicates.
+	for (int32 Index = 0; Index < NumVertices; Index++)
+	{
+		uint32 SrcVertIdx = VertexSorter[Index].Index;
+		float Value = VertexSorter[Index].Value;
+
+		// Search forward adding pairs both ways
+		for (int32 SubIndex = Index + 1; SubIndex < NumVertices; SubIndex++)
 		{
-			MeshData.Tangents.SetNormal(VertxIdx, TangentZ);
-		}
-		if (bComputeTangents)
-		{
-			MeshData.Tangents.SetTangent(VertxIdx, TangentX);
+			if (FMath::Abs(VertexSorter[SubIndex].Value - Value) > THRESH_POINTS_ARE_SAME * 4.01f)
+			{
+				// No more possible duplicates
+				break;
+			}
+
+			uint32 OtherVertIdx = VertexSorter[SubIndex].Index;
+			if (PositionStream.GetPosition(SrcVertIdx).Equals(PositionStream.GetPosition(OtherVertIdx), Tollerance))
+			{
+				IndexMap.AddUnique(SrcVertIdx, OtherVertIdx);
+				IndexMap.AddUnique(OtherVertIdx, SrcVertIdx);
+			}
 		}
 	}
-	return bResult;
+
+	return IndexMap;
 }

@@ -18,8 +18,7 @@ DECLARE_CYCLE_STAT(TEXT("RuntimeMeshComponent - Collision Data Received"), STAT_
 DECLARE_CYCLE_STAT(TEXT("RuntimeMeshComponent - Create Scene Proxy"), STAT_RuntimeMeshComponent_CreateSceneProxy, STATGROUP_RuntimeMesh);
 
 
-URuntimeMeshComponent::URuntimeMeshComponent(const FObjectInitializer& ObjectInitializer)
-	: Super(ObjectInitializer)
+URuntimeMeshComponent::URuntimeMeshComponent()
 {
 	SetNetAddressable();
 
@@ -69,16 +68,6 @@ FRuntimeMeshCollisionHitInfo URuntimeMeshComponent::GetHitSource(int32 FaceIndex
 	return FRuntimeMeshCollisionHitInfo();
 }
 
-void URuntimeMeshComponent::InitializeMultiThreading(int32 NumThreads, int32 StackSize /*= 0*/, EThreadPriority ThreadPriority /*= TPri_BelowNormal*/)
-{
-	URuntimeMesh::InitializeMultiThreading(NumThreads, StackSize, ThreadPriority);
-}
-
-FRuntimeMeshBackgroundWorkDelegate URuntimeMeshComponent::InitializeUserSuppliedThreading()
-{
-	return URuntimeMesh::InitializeUserSuppliedThreading();
-}
-
 void URuntimeMeshComponent::NewCollisionMeshReceived()
 {
 	SCOPE_CYCLE_COUNTER(STAT_RuntimeMeshComponent_NewCollisionMeshReceived);
@@ -115,7 +104,8 @@ FBoxSphereBounds URuntimeMeshComponent::CalcBounds(const FTransform& LocalToWorl
 {
 	if (GetRuntimeMesh())
 	{
-		return GetRuntimeMesh()->GetLocalBounds().TransformBy(LocalToWorld);
+		FBoxSphereBounds TempBounds = GetRuntimeMesh()->GetLocalBounds();
+		return TempBounds.TransformBy(LocalToWorld);
 	}
 
 	return FBoxSphereBounds(FSphere(FVector::ZeroVector, 1));
@@ -183,7 +173,7 @@ void URuntimeMeshComponent::GetUsedMaterials(TArray<UMaterialInterface*>& OutMat
 
 		if (Mat == nullptr)
 		{
-			Mat = Slots[Index].Material.Get();
+			Mat = Slots[Index].Material;
 		}
 
 		if (Mat)
@@ -226,6 +216,16 @@ UMaterialInterface* URuntimeMeshComponent::GetMaterial(int32 ElementIndex) const
 void URuntimeMeshComponent::PostLoad()
 {
 	Super::PostLoad();
+}
+
+void URuntimeMeshComponent::BeginDestroy()
+{
+	Super::BeginDestroy();
+}
+
+void URuntimeMeshComponent::OnRegister()
+{
+	Super::OnRegister();
 
 	if (RuntimeMeshReference)
 	{
@@ -233,7 +233,7 @@ void URuntimeMeshComponent::PostLoad()
 	}
 }
 
-void URuntimeMeshComponent::BeginDestroy()
+void URuntimeMeshComponent::OnUnregister()
 {
 	if (RuntimeMeshReference)
 	{
@@ -241,5 +241,5 @@ void URuntimeMeshComponent::BeginDestroy()
 		RuntimeMeshReference = nullptr;
 	}
 
-	Super::BeginDestroy();
+	Super::OnUnregister();
 }

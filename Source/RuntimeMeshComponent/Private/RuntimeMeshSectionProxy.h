@@ -7,9 +7,6 @@
 #include "RuntimeMeshRendering.h"
 #include "RuntimeMeshRenderable.h"
 
-class FRuntimeMeshSectionProxy;
-
-
 struct FRuntimeMeshSectionNullBufferElement
 {
 	FPackedNormal Normal;
@@ -26,14 +23,8 @@ struct FRuntimeMeshSectionNullBufferElement
 };
 
 
-class FRuntimeMeshSectionProxy
+struct FRuntimeMeshSectionProxyBuffers : public TSharedFromThis<FRuntimeMeshSectionProxyBuffers>
 {
-	/** This stores all this sections config*/
-	FRuntimeMeshSectionProperties Properties;
-
-	/** Feature level in use, needed for recreating LODs vertex factories */
-	ERHIFeatureLevel::Type FeatureLevel;
-
 	/** Vertex factory for this section */
 	FRuntimeMeshVertexFactory VertexFactory;
 
@@ -44,10 +35,11 @@ class FRuntimeMeshSectionProxy
 	FRuntimeMeshTangentsVertexBuffer TangentsBuffer;
 
 	/** Vertex buffer containing the UVs for this section */
-	FRuntimeMeshUVsVertexBuffer UVsBuffer;
+	FRuntimeMeshTexCoordsVertexBuffer UVsBuffer;
 
 	/** Vertex buffer containing the colors for this section */
 	FRuntimeMeshColorVertexBuffer ColorBuffer;
+
 
 	/** Index buffer for this section */
 	FRuntimeMeshIndexBuffer IndexBuffer;
@@ -55,89 +47,216 @@ class FRuntimeMeshSectionProxy
 	/** Index buffer for this section */
 	FRuntimeMeshIndexBuffer AdjacencyIndexBuffer;
 
+
 #if RHI_RAYTRACING
 	FRayTracingGeometry RayTracingGeometry;
 #endif
 
-public:
+	uint32 bIsShared : 1;
 
-	FRuntimeMeshSectionProxy(ERHIFeatureLevel::Type InFeatureLevel, const FRuntimeMeshSectionProperties& SectionProperties)
-		: Properties(SectionProperties)
-		, FeatureLevel(InFeatureLevel)
-		, VertexFactory(InFeatureLevel, this)
-		, PositionBuffer(SectionProperties.UpdateFrequency)
-		, TangentsBuffer(SectionProperties.UpdateFrequency, SectionProperties.bUseHighPrecisionTangents)
-		, UVsBuffer(SectionProperties.UpdateFrequency, SectionProperties.bUseHighPrecisionTexCoords, SectionProperties.NumTexCoords)
-		, ColorBuffer(SectionProperties.UpdateFrequency)
-		, IndexBuffer(SectionProperties.UpdateFrequency, SectionProperties.bWants32BitIndices)
-		, AdjacencyIndexBuffer(SectionProperties.UpdateFrequency, SectionProperties.bWants32BitIndices)
+
+
+	FRuntimeMeshSectionProxyBuffers(bool bInIsDynamicBuffer, bool bInIsShared)
+		: VertexFactory(GMaxRHIFeatureLevel)
+		, PositionBuffer(bInIsDynamicBuffer)
+		, TangentsBuffer(bInIsDynamicBuffer)
+		, UVsBuffer(bInIsDynamicBuffer)
+		, ColorBuffer(bInIsDynamicBuffer)
+		, IndexBuffer(bInIsDynamicBuffer)
+		, AdjacencyIndexBuffer(bInIsDynamicBuffer)
+		, bIsShared(bInIsShared)
 	{
 
 	}
 
-	~FRuntimeMeshSectionProxy()
+	~FRuntimeMeshSectionProxyBuffers()
 	{
 		check(IsInRenderingThread());
 
 		Reset();
 	}
-	
+
 	void Reset();
 
-	bool CanRender() const;
-	bool ShouldRender() const { return Properties.bIsVisible && CanRender(); }
-	bool WantsToRenderInStaticPath() const { return Properties.UpdateFrequency == ERuntimeMeshUpdateFrequency::Infrequent; }
-	bool CastsShadow() const { return Properties.bCastsShadow; }
 
-	FRuntimeMeshVertexFactory* GetVertexFactory() { return &VertexFactory; }
-#if RHI_RAYTRACING
-	FRayTracingGeometry* GetRayTracingGeometry() { return &RayTracingGeometry; }
-#endif
-	void BuildVertexDataType(FLocalVertexFactory::FDataType& DataType);
+	template <uint32 MaxNumUpdates>
+	void InitFromRHIReferences(FRuntimeMeshSectionUpdateData& UpdateData, TRHIResourceUpdateBatcher<MaxNumUpdates>& Batcher)
+	{
+		PositionBuffer.InitRHIFromExisting(UpdateData.PositionsBuffer, UpdateData.Positions.GetNumElements());
+		TangentsBuffer.InitRHIFromExisting(UpdateData.TangentsBuffer, UpdateData.Tangents.GetNumElements(), UpdateData.bHighPrecisionTangents);
+		UVsBuffer.InitRHIFromExisting(UpdateData.TexCoordsBuffer, UpdateData.TexCoords.GetNumElements(), UpdateData.bHighPrecisionTexCoords, UpdateData.NumTexCoordChannels);
+		ColorBuffer.InitRHIFromExisting(UpdateData.ColorsBuffer, UpdateData.Colors.GetNumElements());
 
-	void CreateMeshBatch(FMeshBatch& MeshBatch, bool bCastsShadow, bool bWantsAdjacencyInfo) const;
+		IndexBuffer.InitRHIFromExisting(UpdateData.TrianglesBuffer, UpdateData.Triangles.GetNumElements(), UpdateData.b32BitTriangles);
+		AdjacencyIndexBuffer.InitRHIFromExisting(UpdateData.AdjacencyTrianglesBuffer, UpdateData.AdjacencyTriangles.GetNumElements(), UpdateData.b32BitAdjacencyTriangles);
+	}
+
+	template <uint32 MaxNumUpdates>
+	void ApplyRHIReferences(FRuntimeMeshSectionUpdateData& UpdateData, TRHIResourceUpdateBatcher<MaxNumUpdates>& Batcher)
+	{
+		PositionBuffer.UpdateRHIFromExisting(UpdateData.PositionsBuffer, UpdateData.Positions.GetNumElements(), Batcher);
+		TangentsBuffer.UpdateRHIFromExisting(UpdateData.TangentsBuffer, UpdateData.Tangents.GetNumElements(), UpdateData.bHighPrecisionTangents, Batcher);
+		UVsBuffer.UpdateRHIFromExisting(UpdateData.TexCoordsBuffer, UpdateData.TexCoords.GetNumElements(), UpdateData.bHighPrecisionTexCoords, UpdateData.NumTexCoordChannels, Batcher);
+		ColorBuffer.UpdateRHIFromExisting(UpdateData.ColorsBuffer, UpdateData.Colors.GetNumElements(), Batcher);
+
+		IndexBuffer.UpdateRHIFromExisting(UpdateData.TrianglesBuffer, UpdateData.Triangles.GetNumElements(), UpdateData.b32BitTriangles, Batcher);
+		AdjacencyIndexBuffer.UpdateRHIFromExisting(UpdateData.AdjacencyTrianglesBuffer, UpdateData.AdjacencyTriangles.GetNumElements(), UpdateData.b32BitAdjacencyTriangles, Batcher);
+	}
+
+	void UpdateRayTracingGeometry();
+};
 
 
-	void UpdateProperties_RenderThread(const FRuntimeMeshSectionProperties& SectionProperties);
-	void UpdateSection_RenderThread(const FRuntimeMeshRenderableMeshData& MeshData);
-	void ClearSection_RenderThread();
+
+struct FRuntimeMeshSectionProxy
+{
+	TSharedPtr<FRuntimeMeshSectionProxyBuffers> Buffers;
+
+	uint32 FirstIndex;
+	uint32 NumTriangles;
+	uint32 MinVertexIndex;
+	uint32 MaxVertexIndex;
+
+	ERuntimeMeshUpdateFrequency UpdateFrequency;
+	int32 MaterialSlot;
+
+	uint32 bIsValid : 1;
+	uint32 bIsVisible : 1;
+	uint32 bIsMainPassRenderable : 1;
+	uint32 bCastsShadow : 1;
+	// Should this section be considered opaque in ray tracing
+	uint32 bForceOpaque : 1;
+
+	uint32 bHasAdjacencyInfo : 1;
+	uint32 bHasRayTracingGeometry : 1;
+
+
+	FRuntimeMeshSectionProxy()
+		: FirstIndex(0)
+		, NumTriangles(0)
+		, MinVertexIndex(0)
+		, MaxVertexIndex(0)
+		, UpdateFrequency(ERuntimeMeshUpdateFrequency::Infrequent)
+		, MaterialSlot(0)
+		, bIsValid(false)
+		, bIsVisible(false)
+		, bIsMainPassRenderable(false)
+		, bCastsShadow(false)
+		, bForceOpaque(false)
+		, bHasAdjacencyInfo(false)
+		, bHasRayTracingGeometry(false)
+	{
+
+	}
+
+	FORCEINLINE bool CanRender() const 
+	{
+		check(!bIsValid || (Buffers.IsValid() && NumTriangles > 0 && MaxVertexIndex > 0));
+		return bIsValid;
+	}
+
+	FORCEINLINE bool ShouldRenderMainPass() const { return bIsMainPassRenderable; }
+	FORCEINLINE bool IsStaticSection() const { return UpdateFrequency == ERuntimeMeshUpdateFrequency::Infrequent; }
+
+	FORCEINLINE bool ShouldRender() const { return CanRender() && bIsVisible; }
+	FORCEINLINE bool ShouldRenderStaticPath() const { return ShouldRender() && ShouldRenderMainPass() && IsStaticSection(); }
+	FORCEINLINE bool ShouldRenderDynamicPath() const { return ShouldRender() && ShouldRenderMainPass() && !IsStaticSection(); }
+	FORCEINLINE bool ShouldRenderShadow() const { return ShouldRender() && bCastsShadow; }
+
+	FORCEINLINE bool ShouldRenderDynamicPathRayTracing() const { return ShouldRender(); }
+
+
+	void UpdateState()
+	{
+		bIsValid = Buffers.IsValid();
+
+		if (bIsValid)
+		{
+			bIsValid &= Buffers->PositionBuffer.Num() >= 3;
+			bIsValid &= Buffers->TangentsBuffer.Num() >= Buffers->PositionBuffer.Num();
+			bIsValid &= Buffers->UVsBuffer.Num() >= Buffers->PositionBuffer.Num();
+			bIsValid &= Buffers->ColorBuffer.Num() >= Buffers->PositionBuffer.Num();
+			bIsValid &= Buffers->IndexBuffer.Num() >= 3;
+
+
+			bHasAdjacencyInfo = Buffers->AdjacencyIndexBuffer.Num() > 3;
+		}
+	}
+
+	void CreateMeshBatch(FMeshBatch& MeshBatch, bool bShouldCastShadow, bool bWantsAdjacencyInfo) const
+	{
+		MeshBatch.VertexFactory = &Buffers->VertexFactory;
+		MeshBatch.Type = bWantsAdjacencyInfo ? PT_12_ControlPointPatchList : PT_TriangleList;
+		
+		MeshBatch.CastShadow = bShouldCastShadow;
+	
+		// Make sure that if the material wants adjacency information, that you supply it
+		check(!bWantsAdjacencyInfo || bHasAdjacencyInfo);
+	
+		const FRuntimeMeshIndexBuffer* CurrentIndexBuffer = bWantsAdjacencyInfo ? &Buffers->AdjacencyIndexBuffer : &Buffers->IndexBuffer;
+	
+		int32 NumIndicesPerTriangle = bWantsAdjacencyInfo ? 12 : 3;
+		int32 NumPrimitives = CurrentIndexBuffer->Num() / NumIndicesPerTriangle;
+	
+		FMeshBatchElement& BatchElement = MeshBatch.Elements[0];
+		BatchElement.IndexBuffer = CurrentIndexBuffer;
+		BatchElement.FirstIndex = 0;
+		BatchElement.NumPrimitives = NumPrimitives;
+		BatchElement.MinVertexIndex = 0;
+		BatchElement.MaxVertexIndex = Buffers->PositionBuffer.Num() - 1;
+	}
 };
 
 
 
 
-class FRuntimeMeshLODProxy : public TSharedFromThis<FRuntimeMeshLODProxy>
+struct FRuntimeMeshLODData
 {
 	/** Sections for this LOD, these do not have to be configured the same as sections in other LODs */
-	TMap<int32, FRuntimeMeshSectionProxyPtr> Sections;
+	TMap<int32, FRuntimeMeshSectionProxy> Sections;
 
-	FRuntimeMeshLODProperties Properties;
+	float ScreenSize;
 
-	ERHIFeatureLevel::Type FeatureLevel;
+	uint32 bShouldRender : 1;
+	uint32 bShouldRenderStatic : 1;
+	uint32 bShouldRenderDynamic : 1;
+	uint32 bShouldRenderShadow : 1;
 
-public:
-	FRuntimeMeshLODProxy(ERHIFeatureLevel::Type InFeatureLevel, const FRuntimeMeshLODProperties& InProperties);
-	~FRuntimeMeshLODProxy();
+	uint32 bShouldMergeStaticSections : 1;
 
-	TMap<int32, FRuntimeMeshSectionProxyPtr>& GetSections() { return Sections; }
-	const TMap<int32, FRuntimeMeshSectionProxyPtr>& GetSections() const { return Sections; }
 
-	bool CanRender() const;
-	bool HasAnyStaticPath() const;
-	bool HasAnyDynamicPath() const;
-	bool HasAnyShadowCasters() const;
+	FRuntimeMeshLODData()
+		: ScreenSize(0.0f)
+		, bShouldRender(false)
+		, bShouldRenderStatic(false)
+		, bShouldRenderDynamic(false)
+		, bShouldRenderShadow(false)
+		, bShouldMergeStaticSections(false)
+	{
 
-	float GetMaxScreenSize() const { return Properties.ScreenSize; }
+	}
 
-	void Configure_RenderThread(const FRuntimeMeshLODProperties& InProperties);
-	void Reset_RenderThread();
 
-	void CreateOrUpdateSection_RenderThread(int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties, bool bShouldReset);
-	void UpdateSectionMesh_RenderThread(int32 SectionId, const FRuntimeMeshRenderableMeshData& MeshData);
-	void ClearSection_RenderThread(int32 SectionId);
-	void ClearAllSections_RenderThread();
-	void RemoveAllSections_RenderThread();
-	void RemoveSection_RenderThread(int32 SectionId);
+	void UpdateState()
+	{
+		bShouldRender = false;
+		bShouldRenderStatic = false;
+		bShouldRenderDynamic = false;
+		bShouldRenderShadow = false;
+		
+		for (auto& SectionEntry : Sections)
+		{
+			FRuntimeMeshSectionProxy& Section = SectionEntry.Value;
+
+			Section.UpdateState();
+
+			bShouldRender |= Section.CanRender();
+			bShouldRenderStatic |= Section.ShouldRenderStaticPath();
+			bShouldRenderDynamic |= Section.ShouldRenderDynamicPath();		
+			bShouldRenderShadow |= Section.ShouldRenderShadow();
+		}
+	}
+
 
 };
 

@@ -1,63 +1,24 @@
-// Copyright 2016-2019 Chris Conway (Koderz). All Rights Reserved.
+// Copyright 2016-2020 Chris Conway (Koderz). All Rights Reserved.
 
 
 #include "Providers/RuntimeMeshProviderPlane.h"
 
 
-FRuntimeMeshProviderPlaneProxy::FRuntimeMeshProviderPlaneProxy(TWeakObjectPtr<URuntimeMeshProvider> InParent)
-	: FRuntimeMeshProviderProxy(InParent)
+URuntimeMeshProviderPlane::URuntimeMeshProviderPlane()
+	: LocationA(100, 100, 0)
+	, LocationB(-100, 100, 0)
+	, LocationC(100, -100, 0)
+	, VertsAB({100,10,2})
+	, VertsAC({100,10,2})
+	, ScreenSize({ 0.1,0.01 })
 {
-
 }
 
-FRuntimeMeshProviderPlaneProxy::~FRuntimeMeshProviderPlaneProxy()
+void URuntimeMeshProviderPlane::Initialize()
 {
-
-}
-
-void FRuntimeMeshProviderPlaneProxy::UpdateProxyParameters(URuntimeMeshProvider* ParentProvider, bool bIsInitialSetup)
-{
-	URuntimeMeshProviderPlane* PlaneProvider = Cast<URuntimeMeshProviderPlane>(ParentProvider);
-	MarkCollisionDirty();
-	if (LocationA != PlaneProvider->LocationA || LocationB != PlaneProvider->LocationB || LocationC != PlaneProvider->LocationC)
-	{
-		LocationA = PlaneProvider->LocationA;
-		LocationB = PlaneProvider->LocationB;
-		LocationC = PlaneProvider->LocationC;
-		MarkSectionDirty(INDEX_NONE, 0); //Mark all LODs dirty
-	}
-	bool bHasParameterChanged = false;
-	TArray<int32> VertsABBefore = VertsAB, VertsACBefore = VertsAC;
-	if (VertsAB != PlaneProvider->VertsAB)
-	{
-		bHasParameterChanged = true;
-		VertsAB = PlaneProvider->VertsAB;
-	}
-	if (VertsAC != PlaneProvider->VertsAC)
-	{
-		bHasParameterChanged = true;
-		VertsAC = PlaneProvider->VertsAC;
-	}
-	if (ScreenSize != PlaneProvider->ScreenSize)
-	{
-		bHasParameterChanged = true;
-		ScreenSize = PlaneProvider->ScreenSize;
-	}
-	Material = PlaneProvider->Material;
-	int32 MaxLODBefore = MaxLOD;
 	MaxLOD = GetMaximumPossibleLOD();
-
-
-	if (!bIsInitialSetup && bHasParameterChanged)
-	{
-		Initialize();
-	}
 	
-}
-
-void FRuntimeMeshProviderPlaneProxy::Initialize()
-{
-	SetupMaterialSlot(0, FName("Plane Base"), Material.Get());
+	SetupMaterialSlot(0, FName("Plane Base"), Material);
 
 
 	TArray<FRuntimeMeshLODProperties> NewLODs;
@@ -83,14 +44,15 @@ void FRuntimeMeshProviderPlaneProxy::Initialize()
 	}
 }
 
-
-bool FRuntimeMeshProviderPlaneProxy::GetSectionMeshForLOD(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData)
+bool URuntimeMeshProviderPlane::GetSectionMeshForLOD(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData)
 {
+	FScopeLock Lock(&PropertySyncRoot);
+
 	// We should only ever be queried for section 0
 	check(SectionId == 0 && LODIndex <= MaxLOD);
-	//UE_LOG(LogTemp, Log, TEXT("Asking for LOD index %i, VertsAB len = %i, VertsAC len = %i"), LODIndex, VertsAB.Num(), VertsAC.Num());
-	//return true;
-	int32 NumVertsAB = VertsAB[LODIndex], NumVertsAC = VertsAC[LODIndex];
+
+	int32 NumVertsAB = VertsAB[LODIndex];
+	int32 NumVertsAC = VertsAC[LODIndex];
 	FVector ABDirection = (LocationB - LocationA) / (NumVertsAB - 1);
 	FVector ACDirection = (LocationC - LocationA) / (NumVertsAB - 1);
 	FVector Normal = (ABDirection ^ ACDirection).GetUnsafeNormal();
@@ -101,7 +63,7 @@ bool FRuntimeMeshProviderPlaneProxy::GetSectionMeshForLOD(int32 LODIndex, int32 
 		for (int32 ABIndex = 0; ABIndex < NumVertsAB; ABIndex++)
 		{
 			FVector Location = LocationA + ABDirection * ABIndex + ACDirection * ACIndex;
-			FVector2D TexCoord = FVector2D((float)ABIndex / (float)(NumVertsAB-1), (float)ACIndex / (float)(NumVertsAC-1));
+			FVector2D TexCoord = FVector2D((float)ABIndex / (float)(NumVertsAB - 1), (float)ACIndex / (float)(NumVertsAC - 1));
 			//UE_LOG(LogTemp, Log, TEXT("TexCoord for vertex %i:%i : %s"), ABIndex, ACIndex, *TexCoord.ToString());
 			MeshData.Positions.Add(Location);
 			MeshData.Tangents.Add(Normal, Tangent);
@@ -122,31 +84,30 @@ bool FRuntimeMeshProviderPlaneProxy::GetSectionMeshForLOD(int32 LODIndex, int32 
 	return true;
 }
 
-FRuntimeMeshCollisionSettings FRuntimeMeshProviderPlaneProxy::GetCollisionSettings()
+FRuntimeMeshCollisionSettings URuntimeMeshProviderPlane::GetCollisionSettings()
 {
 	FRuntimeMeshCollisionSettings Settings;
 	Settings.bUseAsyncCooking = false;
 	Settings.bUseComplexAsSimple = true;
-	   	 
+
 	return Settings;
 }
 
-bool FRuntimeMeshProviderPlaneProxy::HasCollisionMesh()
+FBoxSphereBounds URuntimeMeshProviderPlane::GetBounds()
 {
-	return false;
+	FScopeLock Lock(&PropertySyncRoot);
+	FVector LocationD = LocationB - LocationA + LocationC; // C + BA
+	FVector points[4] = { LocationA, LocationB, LocationC, LocationD };
+	FBox BoundingBox = FBox(points, 4);
+	return FBoxSphereBounds(BoundingBox);
 }
 
-bool FRuntimeMeshProviderPlaneProxy::GetCollisionMesh(FRuntimeMeshCollisionData& CollisionData)
+bool URuntimeMeshProviderPlane::IsThreadSafe()
 {
-	return false;
+	return true;
 }
 
-URuntimeMeshProviderPlane::URuntimeMeshProviderPlane()
+int32 URuntimeMeshProviderPlane::GetMaximumPossibleLOD()
 {
-	LocationA = FVector(100, 100, 0);
-	LocationB = FVector(-100, 100, 0);
-	LocationC = FVector(100, -100, 0);
-	VertsAB = TArray<int32>({100,10,1});
-	VertsAC = TArray<int32>({100,10,1});
-	ScreenSize = TArray<float>({ 0.1,0.01 });
+	return FMath::Min3(VertsAB.Num() - 1, VertsAC.Num() - 1, ScreenSize.Num());
 }

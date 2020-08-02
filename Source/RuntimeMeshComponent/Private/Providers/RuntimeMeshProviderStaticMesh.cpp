@@ -13,19 +13,114 @@ URuntimeMeshProviderStaticMesh::URuntimeMeshProviderStaticMesh()
 
 }
 
-void URuntimeMeshProviderStaticMesh::Initialize_Implementation()
+UStaticMesh* URuntimeMeshProviderStaticMesh::GetStaticMesh() const
 {
-	// Setup the lods and sections
+	return StaticMesh;
+}
+
+void URuntimeMeshProviderStaticMesh::SetStaticMesh(UStaticMesh* InStaticMesh)
+{
+	StaticMesh = InStaticMesh;
+	UpdateRenderingFromStaticMesh();
+	UpdateCollisionFromStaticMesh();
+}
+
+int32 URuntimeMeshProviderStaticMesh::GetMaxLOD() const
+{
+	return MaxLOD;
+}
+
+void URuntimeMeshProviderStaticMesh::SetMaxLOD(int32 InMaxLOD)
+{
+	MaxLOD = InMaxLOD;
+	UpdateRenderingFromStaticMesh();
+}
+
+int32 URuntimeMeshProviderStaticMesh::GetComplexCollisionLOD() const
+{
+	return ComplexCollisionLOD;
+}
+
+void URuntimeMeshProviderStaticMesh::SetComplexCollisionLOD(int32 InLOD)
+{
+	ComplexCollisionLOD = InLOD;
+	UpdateCollisionFromStaticMesh();
+}
+
+void URuntimeMeshProviderStaticMesh::Initialize()
+{
+	UpdateRenderingFromStaticMesh();
+	UpdateCollisionFromStaticMesh();
+}
+
+FBoxSphereBounds URuntimeMeshProviderStaticMesh::GetBounds()
+{
+	if (StaticMesh)
+	{
+		return StaticMesh->GetBounds();
+	}
+	return FBoxSphereBounds(ForceInit);
+}
+
+bool URuntimeMeshProviderStaticMesh::GetSectionMeshForLOD(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData)
+{ 
+	return URuntimeMeshStaticMeshConverter::CopyStaticMeshSectionToRenderableMeshData(StaticMesh, LODIndex, SectionId, MeshData);
+}
+
+FRuntimeMeshCollisionSettings URuntimeMeshProviderStaticMesh::GetCollisionSettings()
+{
+	FRuntimeMeshCollisionSettings NewSettings;
+	NewSettings.bUseAsyncCooking = true;
+	NewSettings.bUseComplexAsSimple = false;
+	NewSettings.CookingMode = ERuntimeMeshCollisionCookingMode::CookingPerformance;
+	
+	URuntimeMeshStaticMeshConverter::CopyStaticMeshCollisionToCollisionSettings(StaticMesh, NewSettings);
+
+	return NewSettings;
+}
+
+bool URuntimeMeshProviderStaticMesh::HasCollisionMesh()
+{
+	return ComplexCollisionLOD >= 0;
+}
+
+bool URuntimeMeshProviderStaticMesh::GetCollisionMesh(FRuntimeMeshCollisionData& CollisionData)
+{
+	bool bResult = URuntimeMeshStaticMeshConverter::CopyStaticMeshLODToCollisionData(StaticMesh, ComplexCollisionLOD, CollisionData);
+
+	if (bResult)
+	{
+		for (auto& Section : CollisionData.CollisionSources)
+		{
+			Section.SourceProvider = this;
+		}
+	}
+	return bResult;
+}
+
+
+void URuntimeMeshProviderStaticMesh::UpdateCollisionFromStaticMesh()
+{
+	MarkCollisionDirty();
+}
+
+void URuntimeMeshProviderStaticMesh::UpdateRenderingFromStaticMesh()
+{
+	// Setup the LODs and sections
 
 	// Check valid static mesh
 	if (StaticMesh == nullptr || StaticMesh->IsPendingKill())
 	{
+		ConfigureLODs({ FRuntimeMeshLODProperties() });
+		MarkCollisionDirty();
 		return;
 	}
 
 	// Check mesh data is accessible
 	if (!((GIsEditor || StaticMesh->bAllowCPUAccess) && StaticMesh->RenderData != nullptr))
 	{
+		ConfigureLODs({ FRuntimeMeshLODProperties() });
+		MarkCollisionDirty();
 		return;
 	}
 
@@ -50,67 +145,18 @@ void URuntimeMeshProviderStaticMesh::Initialize_Implementation()
 	ConfigureLODs(LODs);
 
 
-	// Copy LODs
+	// Create all sections for all LODs
 	for (int32 LODIndex = 0; LODIndex < LODResources.Num() && LODIndex <= MaxLOD; LODIndex++)
 	{
 		const auto& LOD = LODResources[LODIndex];
-		
-		// Copy Sections
+
 		for (int32 SectionId = 0; SectionId < LOD.Sections.Num(); SectionId++)
 		{
 			const auto& Section = LOD.Sections[SectionId];
 
 			FRuntimeMeshSectionProperties SectionProperties;
-			
 
 			CreateSection(LODIndex, SectionId, SectionProperties);
-
-
 		}
 	}
-}
-
-FBoxSphereBounds URuntimeMeshProviderStaticMesh::GetBounds_Implementation()
-{
-	if (StaticMesh)
-	{
-		return StaticMesh->GetBounds();
-	}
-	return FBoxSphereBounds(ForceInit);
-}
-
-bool URuntimeMeshProviderStaticMesh::GetSectionMeshForLOD_Implementation(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData)
-{ 
-	return URuntimeMeshStaticMeshConverter::CopyStaticMeshSectionToRenderableMeshData(StaticMesh, LODIndex, SectionId, MeshData);
-}
-
-FRuntimeMeshCollisionSettings URuntimeMeshProviderStaticMesh::GetCollisionSettings_Implementation()
-{
-	FRuntimeMeshCollisionSettings NewSettings;
-	NewSettings.bUseAsyncCooking = true;
-	NewSettings.bUseComplexAsSimple = false;
-	NewSettings.CookingMode = ERuntimeMeshCollisionCookingMode::CookingPerformance;
-	
-	URuntimeMeshStaticMeshConverter::CopyStaticMeshCollisionToCollisionSettings(StaticMesh, NewSettings);
-
-	return NewSettings;
-}
-
-bool URuntimeMeshProviderStaticMesh::HasCollisionMesh_Implementation()
-{
-	return ComplexCollisionLOD >= 0;
-}
-
-bool URuntimeMeshProviderStaticMesh::GetCollisionMesh_Implementation(FRuntimeMeshCollisionData& CollisionData)
-{
-	bool bResult = URuntimeMeshStaticMeshConverter::CopyStaticMeshLODToCollisionData(StaticMesh, ComplexCollisionLOD, CollisionData);
-
-	if (bResult)
-	{
-		for (auto& Section : CollisionData.CollisionSources)
-		{
-			Section.SourceProvider = this;
-		}
-	}
-	return bResult;
 }

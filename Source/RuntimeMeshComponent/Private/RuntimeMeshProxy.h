@@ -11,67 +11,88 @@
 /**
  *
  */
-class FRuntimeMeshProxy
+class FRuntimeMeshProxy : public TSharedFromThis<FRuntimeMeshProxy, ESPMode::ThreadSafe>
 {
-	ERHIFeatureLevel::Type FeatureLevel;
-
-	TInlineLODArray<TSharedPtr<FRuntimeMeshLODProxy>> LODs;
+	TInlineLODArray<FRuntimeMeshLODData> LODs;
 
 	FThreadSafeBool IsQueuedForUpdate;
 	TQueue<TFunction<void()>, EQueueMode::Mpsc> PendingUpdates;
+
+
+	uint32 bShouldRender : 1;
+	uint32 bShouldRenderStatic : 1;
+	uint32 bShouldRenderDynamic : 1;
+	uint32 bShouldRenderShadow : 1;
+
+	int8 MinAvailableLOD;
+	int8 MaxAvailableLOD;
+
+	int8 CurrentForcedLOD;
+
+	FRuntimeMeshObjectId<FRuntimeMeshProxy> ObjectId;
+
+	uint32 ParentMeshId;
 public:
-	FRuntimeMeshProxy(ERHIFeatureLevel::Type InFeatureLevel);
+	FRuntimeMeshProxy(uint32 InParentMeshId);
 	~FRuntimeMeshProxy();
 
-	ERHIFeatureLevel::Type GetFeatureLevel() const { return FeatureLevel; }
+	int32 GetUniqueID() const { return ObjectId.Get(); }
+	int32 GetMeshID() const { return ParentMeshId; }
 
-	int32 GetMaxLOD() 
-	{
-		return LODs.Num() - 1;
-	}
-	float GetScreenSize(int32 LODIndex);
+	bool ShouldRender() const { return bShouldRender; }
+	bool ShouldRenderStatic() const { return bShouldRenderStatic; }
+	bool ShouldRenderDynamic() const { return bShouldRenderDynamic; }
+	bool ShouldRenderShadow() const { return bShouldRenderShadow; }
+
+	int32 GetMinLOD() const { return MinAvailableLOD; }
+	int32 GetMaxLOD() const { return MaxAvailableLOD; }
+
+	bool HasValidLODs() const { return MinAvailableLOD != INDEX_NONE && MaxAvailableLOD != INDEX_NONE && MaxAvailableLOD >= MinAvailableLOD; }
+
+	int32 GetForcedLOD() const { return CurrentForcedLOD; }
+
+	FRuntimeMeshLODData& GetLOD(int32 LODIndex) { return LODs[LODIndex]; }
+
+	float GetScreenSize(int32 LODIndex) const;
 
 	void QueueForUpdate();
 	void FlushPendingUpdates();
 
+
 	void ResetProxy_GameThread();
+
 	void InitializeLODs_GameThread(const TArray<FRuntimeMeshLODProperties>& InProperties);
+	void ClearAllSectionsForLOD_GameThread(int32 LODIndex);
+	void RemoveAllSectionsForLOD_GameThread(int32 LODIndex);
+
 	void CreateOrUpdateSection_GameThread(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& InProperties, bool bShouldReset);
-	void UpdateSectionMesh_GameThread(int32 LODIndex, int32 SectionId, const TSharedPtr<FRuntimeMeshRenderableMeshData>& MeshData);
-	void ClearAllSections_GameThread(int32 LODIndex);
+	void SetSectionsForLOD_GameThread(int32 LODIndex, const TMap<int32, FRuntimeMeshSectionProperties>& InProperties, bool bShouldReset);
+	void UpdateSectionMesh_GameThread(int32 LODIndex, int32 SectionId, const TSharedPtr<FRuntimeMeshSectionUpdateData>& MeshData);
+	void UpdateMultipleSectionsMesh_GameThread(int32 LODIndex, const TMap<int32, TSharedPtr<FRuntimeMeshSectionUpdateData>>& MeshData);
 	void ClearSection_GameThread(int32 LODIndex, int32 SectionId);
-	void RemoveAllSections_GameThread(int32 LODIndex);
 	void RemoveSection_GameThread(int32 LODIndex, int32 SectionId);
 
+
 	void ResetProxy_RenderThread();
+
 	void InitializeLODs_RenderThread(const TArray<FRuntimeMeshLODProperties>& InProperties);
+	void ClearAllSectionsForLOD_RenderThread(int32 LODIndex);
+	void RemoveAllSectionsForLOD_RenderThread(int32 LODIndex);
+
 	void CreateOrUpdateSection_RenderThread(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& InProperties, bool bShouldReset);
-	void UpdateSectionMesh_RenderThread(int32 LODIndex, int32 SectionId, const TSharedPtr<FRuntimeMeshRenderableMeshData>& MeshData);
-	void ClearAllSections_RenderThread(int32 LODIndex);
+	void SetSectionsForLOD_RenderThread(int32 LODIndex, const TMap<int32, FRuntimeMeshSectionProperties>& InProperties, bool bShouldReset);
+	void UpdateSectionMesh_RenderThread(int32 LODIndex, int32 SectionId, const TSharedPtr<FRuntimeMeshSectionUpdateData>& MeshData);
+	void UpdateMultipleSectionsMesh_RenderThread(int32 LODIndex, const TMap<int32, TSharedPtr<FRuntimeMeshSectionUpdateData>>& MeshData);
 	void ClearSection_RenderThread(int32 LODIndex, int32 SectionId);
-	void RemoveAllSections_RenderThread(int32 LODIndex);
 	void RemoveSection_RenderThread(int32 LODIndex, int32 SectionId);
 
 
-	TInlineLODArray<TSharedPtr<FRuntimeMeshLODProxy>>& GetLODs() { return LODs; }
 
-	void CalculateViewRelevance(bool& bHasStaticSections, bool& bHasDynamicSections, bool& bHasShadowableSections)
-	{
-		check(IsInRenderingThread());
-		bHasStaticSections = false;
-		bHasDynamicSections = false;
-		bHasShadowableSections = false;
-		for (const auto& LOD : LODs)
-		{
-			if (LOD.IsValid())
-			{
-				bHasStaticSections |= LOD->HasAnyStaticPath();
-				bHasDynamicSections |= LOD->HasAnyDynamicPath();
-				bHasShadowableSections = LOD->HasAnyShadowCasters();
-			}
-		}
-	}
-private:
+	void UpdateRenderState();
+
+	void ClearSection(FRuntimeMeshSectionProxy& Section);
+
+	void ApplyMeshToSection(int32 LODIndex, int32 SectionId, FRuntimeMeshSectionProxy& Section, FRuntimeMeshSectionUpdateData&& MeshData);
 
 };
 

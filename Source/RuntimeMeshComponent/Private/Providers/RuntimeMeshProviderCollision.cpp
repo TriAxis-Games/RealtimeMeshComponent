@@ -3,138 +3,245 @@
 
 #include "Providers/RuntimeMeshProviderCollision.h"
 
-FRuntimeMeshProviderCollisionFromRenderableProxy::FRuntimeMeshProviderCollisionFromRenderableProxy(TWeakObjectPtr<URuntimeMeshProvider> InParent, const FRuntimeMeshProviderProxyPtr& InNextProvider)
-	: FRuntimeMeshProviderProxyPassThrough(InParent, InNextProvider),
-	LODForMeshCollision(0)
+
+URuntimeMeshProviderCollision::URuntimeMeshProviderCollision()
+	: LODForMeshCollision(0)
 {
 
 }
 
-FRuntimeMeshProviderCollisionFromRenderableProxy::~FRuntimeMeshProviderCollisionFromRenderableProxy()
+void URuntimeMeshProviderCollision::SetCollisionSettings(const FRuntimeMeshCollisionSettings& NewCollisionSettings)
 {
-
-}
-
-void FRuntimeMeshProviderCollisionFromRenderableProxy::UpdateProxyParameters(URuntimeMeshProvider* ParentProvider, bool bIsInitialSetup)
-{
-	URuntimeMeshProviderCollisionFromRenderable* CastParent = Cast<URuntimeMeshProviderCollisionFromRenderable>(ParentProvider);
-	if (CastParent)
 	{
+		FScopeLock Lock(&SyncRoot);
+		CollisionSettings = NewCollisionSettings;
+	}
+	MarkCollisionDirty();
+}
 
-		LODForMeshCollision = CastParent->LODForMeshCollision;
-		SectionsForMeshCollision = CastParent->SectionsForMeshCollision;
-		CollisionSettings = CastParent->CollisionSettings;
-		CollisionMesh = CastParent->CollisionMesh;
-		if (!bIsInitialSetup)
+void URuntimeMeshProviderCollision::SetCollisionMesh(const FRuntimeMeshCollisionData& NewCollisionMesh)
+{
+	{
+		FScopeLock Lock(&SyncRoot);
+		CollisionMesh = NewCollisionMesh;
+	}
+	MarkCollisionDirty();
+}
+
+void URuntimeMeshProviderCollision::SetRenderableLODForCollision(int32 LODIndex)
+{
+	bool bMarkCollisionDirty = false;
+	{
+		FScopeLock Lock(&SyncRoot);
+		if (LODForMeshCollision != LODIndex)
 		{
-			MarkCollisionDirty();
+			LODForMeshCollision = LODIndex;
+			RenderableCollisionData.Empty();
+
+			bMarkCollisionDirty = true;
 		}
+	}
+
+	if (bMarkCollisionDirty)
+	{
+		MarkCollisionDirty();
 	}
 }
 
-FRuntimeMeshCollisionSettings FRuntimeMeshProviderCollisionFromRenderableProxy::GetCollisionSettings()
+void URuntimeMeshProviderCollision::SetRenderableSectionAffectsCollision(int32 SectionId, bool bCollisionEnabled)
 {
+	bool bShouldMarkCollisionDirty = false;
+	{
+		FScopeLock Lock(&SyncRoot);
+		if (bCollisionEnabled && !SectionsAffectingCollision.Contains(SectionId))
+		{
+			SectionsAffectingCollision.Add(SectionId);
+			bShouldMarkCollisionDirty = true;
+		}
+		else if (!bCollisionEnabled && SectionsAffectingCollision.Contains(SectionId))
+		{
+			SectionsAffectingCollision.Remove(SectionId);
+			RenderableCollisionData.Remove(SectionId);
+			bShouldMarkCollisionDirty = true;
+		}
+	}
+
+	if (bShouldMarkCollisionDirty)
+	{
+		MarkCollisionDirty();
+	}
+}
+
+
+
+
+bool URuntimeMeshProviderCollision::GetSectionMeshForLOD(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData)
+{
+	bool bResult = Super::GetSectionMeshForLOD(LODIndex, SectionId, MeshData);
+
+	FScopeLock Lock(&SyncRoot);
+	if (bResult && LODIndex == LODForMeshCollision && SectionsAffectingCollision.Contains(SectionId))
+	{
+		FRuntimeMeshRenderableCollisionData& SectionCacheData = RenderableCollisionData.FindOrAdd(SectionId);
+		SectionCacheData = FRuntimeMeshRenderableCollisionData(MeshData);
+		MarkCollisionDirty();
+	}
+
+	return bResult;
+}
+
+bool URuntimeMeshProviderCollision::GetAllSectionsMeshForLOD(int32 LODIndex, TMap<int32, FRuntimeMeshSectionData>& MeshDatas)
+{
+	bool bResult = Super::GetAllSectionsMeshForLOD(LODIndex, MeshDatas);
+
+	FScopeLock Lock(&SyncRoot);
+	if (bResult && LODIndex == LODForMeshCollision)
+	{
+		RenderableCollisionData.Empty();
+		for (const auto& Entry : MeshDatas)
+		{
+			if (SectionsAffectingCollision.Contains(Entry.Key))
+			{
+				FRuntimeMeshRenderableCollisionData& SectionCacheData = RenderableCollisionData.FindOrAdd(Entry.Key);
+				SectionCacheData = FRuntimeMeshRenderableCollisionData(Entry.Value.MeshData);
+			}
+		}
+
+		MarkCollisionDirty();
+	}
+
+	return bResult;
+}
+
+FRuntimeMeshCollisionSettings URuntimeMeshProviderCollision::GetCollisionSettings()
+{
+	FScopeLock Lock(&SyncRoot);
 	return CollisionSettings;
 }
 
-bool FRuntimeMeshProviderCollisionFromRenderableProxy::HasCollisionMesh()
+bool URuntimeMeshProviderCollision::HasCollisionMesh()
 {
-	return SectionsForMeshCollision.Num()>0;
+	FScopeLock Lock(&SyncRoot);
+	return (CollisionMesh.Vertices.Num() > 0 && CollisionMesh.Triangles.Num() > 0) ||
+		RenderableCollisionData.Num() > 0;
 }
 
-bool FRuntimeMeshProviderCollisionFromRenderableProxy::GetCollisionMesh(FRuntimeMeshCollisionData& CollisionData)
+bool URuntimeMeshProviderCollision::GetCollisionMesh(FRuntimeMeshCollisionData& CollisionData)
 {
-	if (CollisionMesh.Vertices.Num() > 0 && CollisionMesh.Triangles.Num() > 0) //If the given collision mesh is valid, use it
+	FScopeLock Lock(&SyncRoot);
+
+	//If the given collision mesh is valid, use it
+	if (CollisionMesh.Vertices.Num() > 0 && CollisionMesh.Triangles.Num() > 0)
 	{
 		CollisionData = CollisionMesh;
 		return true;
 	}
-	if (!NextProvider.IsValid())
+
+
+	for (const auto& CachedSectionEntry : RenderableCollisionData)
 	{
-		return false;
-	}
-	for (int32 SectionIdx : SectionsForMeshCollision)
-	{
-		//Todo : This doesn't use material indices
-		FRuntimeMeshRenderableMeshData SectionMesh;
-		if (NextProvider->GetSectionMeshForLOD(LODForMeshCollision, SectionIdx, SectionMesh))
+		int32 SectionId = CachedSectionEntry.Key;
+		const FRuntimeMeshRenderableCollisionData& CachedSection = CachedSectionEntry.Value;
+
+		int32 FirstVertex = CollisionData.Vertices.Num();
+
+
+		// Copy the vertices
+		int32 NumVertices = CachedSection.Vertices.Num();
+		CollisionData.Vertices.SetNum(FirstVertex + NumVertices);
+		for (int32 Index = 0; Index < NumVertices; Index++)
 		{
-			int32 FirstVertex = CollisionData.Vertices.Num();
-			int32 NumVertex = SectionMesh.Positions.Num();
-			int32 NumTexCoords = SectionMesh.TexCoords.Num();
-			int32 NumChannels = SectionMesh.TexCoords.NumChannels();
-			CollisionData.Vertices.SetNum(FirstVertex + NumVertex, false);
-			CollisionData.TexCoords.SetNum(NumChannels, FirstVertex + NumVertex, false);
-			for (int32 VertIdx = 0; VertIdx < NumVertex; VertIdx++)
-			{
-				CollisionData.Vertices.SetPosition(FirstVertex + VertIdx, SectionMesh.Positions.GetPosition(VertIdx));
-				if (VertIdx >= NumTexCoords)
-				{
-					continue;
-				}
-				for (int32 ChannelIdx = 0; ChannelIdx < NumChannels; ChannelIdx++)
-				{
-					CollisionData.TexCoords.SetTexCoord(ChannelIdx, FirstVertex + VertIdx, SectionMesh.TexCoords.GetTexCoord(VertIdx, ChannelIdx));
-				}
-			}
-
-			int32 FirstTris = CollisionData.Triangles.Num();
-			int32 NumTriangles = SectionMesh.Triangles.NumTriangles();
-			CollisionData.Triangles.SetNum(FirstTris + NumTriangles, false);
-			CollisionData.MaterialIndices.SetNum(FirstTris + NumTriangles, false);
-			for (int32 TrisIdx = 0; TrisIdx < NumTriangles; TrisIdx++)
-			{
-				int32 Index0 = SectionMesh.Triangles.GetVertexIndex(TrisIdx * 3) + FirstVertex;
-				int32 Index1 = SectionMesh.Triangles.GetVertexIndex(TrisIdx * 3 + 1) + FirstVertex;
-				int32 Index2 = SectionMesh.Triangles.GetVertexIndex(TrisIdx * 3 + 2) + FirstVertex;
-
-
-				CollisionData.Triangles.SetTriangleIndices(TrisIdx + FirstTris, Index0, Index1, Index2);
-				CollisionData.MaterialIndices.SetMaterialIndex(TrisIdx + FirstTris, 0 /* TODO: Get section material index */);
-			}
-
-
-			CollisionData.CollisionSources.Emplace(FirstTris, CollisionData.Triangles.Num() - 1, GetParent(), SectionIdx, ERuntimeMeshCollisionFaceSourceType::Renderable);
+			CollisionData.Vertices.SetPosition(FirstVertex + Index, CachedSection.Vertices.GetPosition(Index));
 		}
+
+		// Copy tex coords
+		int32 MaxTexCoordChannels = FMath::Max(CollisionData.TexCoords.NumChannels(), CachedSection.TexCoords.NumChannels());
+		CollisionData.TexCoords.SetNum(MaxTexCoordChannels, FirstVertex + NumVertices);
+		for (int32 Index = 0; Index < NumVertices; Index++)
+		{
+			for (int32 ChannelId = 0; ChannelId < MaxTexCoordChannels; ChannelId++)
+			{
+				if (ChannelId < CachedSection.TexCoords.NumChannels() && CachedSection.TexCoords.NumTexCoords(ChannelId) > Index)
+				{
+					FVector2D TexCoord = CachedSection.TexCoords.GetTexCoord(ChannelId, Index);
+					CollisionData.TexCoords.SetTexCoord(ChannelId, Index, TexCoord);
+				}
+				else
+				{
+					CollisionData.TexCoords.SetTexCoord(ChannelId, Index, FVector2D::ZeroVector);
+				}
+			}
+		}
+
+
+		// Copy triangles and fill in material indices
+		int32 StartTriangle = CollisionData.Triangles.Num();
+		int32 NumTriangles = CachedSection.Triangles.Num();
+		CollisionData.Triangles.SetNum(StartTriangle + NumTriangles);
+		CollisionData.MaterialIndices.SetNum(StartTriangle + NumTriangles);
+		for (int32 Index = 0; Index < NumTriangles; Index++)
+		{
+			int32 IdA, IdB, IdC;
+			CachedSection.Triangles.GetTriangleIndices(Index, IdA, IdB, IdC);
+
+			CollisionData.Triangles.SetTriangleIndices(StartTriangle + Index, IdA + FirstVertex, IdB + FirstVertex, IdC + FirstVertex);
+			CollisionData.MaterialIndices.SetMaterialIndex(StartTriangle + Index, SectionId);
+		}
+
+
+		CollisionData.CollisionSources.Emplace(StartTriangle, StartTriangle + NumTriangles - 1, this, SectionId, ERuntimeMeshCollisionFaceSourceType::Renderable);
 	}
 	return true;
 }
 
-bool FRuntimeMeshProviderCollisionFromRenderableProxy::IsThreadSafe() const
+bool URuntimeMeshProviderCollision::IsThreadSafe()
 {
-	return true;
+	return Super::IsThreadSafe();
 }
 
 
 
-void URuntimeMeshProviderCollisionFromRenderable::SetCollisionSettings(const FRuntimeMeshCollisionSettings& NewCollisionSettings)
+
+void URuntimeMeshProviderCollision::ConfigureLODs(const TArray<FRuntimeMeshLODProperties>& InLODs)
 {
-	CollisionSettings = NewCollisionSettings;
-	MarkProxyParametersDirty();
+	ClearCachedData();
+
+	Super::ConfigureLODs(InLODs);
 }
 
-void URuntimeMeshProviderCollisionFromRenderable::SetCollisionMesh(const FRuntimeMeshCollisionData& NewCollisionMesh)
+void URuntimeMeshProviderCollision::CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties)
 {
-	CollisionMesh = NewCollisionMesh;
-	MarkProxyParametersDirty();
+	ClearSectionData(LODIndex, SectionId);
+
+	Super::CreateSection(LODIndex, SectionId, SectionProperties);
 }
 
-void URuntimeMeshProviderCollisionFromRenderable::SetRenderableLODForCollision(int32 LODIndex)
+void URuntimeMeshProviderCollision::ClearSection(int32 LODIndex, int32 SectionId)
 {
-	LODForMeshCollision = LODIndex;
-	MarkProxyParametersDirty();
+	ClearSectionData(LODIndex, SectionId);
+
+	Super::ClearSection(LODIndex, SectionId);
 }
 
-void URuntimeMeshProviderCollisionFromRenderable::SetRenderableSectionAffectsCollision(int32 SectionId, bool bCollisionEnabled)
+void URuntimeMeshProviderCollision::RemoveSection(int32 LODIndex, int32 SectionId)
 {
-	if (bCollisionEnabled && !SectionsForMeshCollision.Contains(SectionId))
+	ClearSectionData(LODIndex, SectionId);
+
+	URuntimeMeshProvider::RemoveSection(LODIndex, SectionId);
+}
+
+void URuntimeMeshProviderCollision::ClearCachedData()
+{
+	FScopeLock Lock(&SyncRoot);
+	RenderableCollisionData.Empty();
+}
+
+void URuntimeMeshProviderCollision::ClearSectionData(int32 LODIndex, int32 SectionId)
+{
+	FScopeLock Lock(&SyncRoot);
+	if (LODIndex == LODForMeshCollision)
 	{
-		SectionsForMeshCollision.Add(SectionId);
-		MarkProxyParametersDirty();
-	}
-	else if (!bCollisionEnabled && SectionsForMeshCollision.Contains(SectionId))
-	{
-		SectionsForMeshCollision.Remove(SectionId);
-		MarkProxyParametersDirty();
+		RenderableCollisionData.Remove(SectionId);
 	}
 }
+

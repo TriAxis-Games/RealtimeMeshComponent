@@ -8,20 +8,6 @@
 #include "RuntimeMeshBlueprintFunctions.generated.h"
 
 
-
-UENUM(BlueprintType)
-enum class ERuntimeMeshThreadingPriority : uint8
-{
-	Normal,
-	AboveNormal,
-	BelowNormal,
-	Highest,
-	Lowest,
-	SlightlyBelowNormal,
-	TimeCritical,
-};
-
-
 /**
  * 
  */
@@ -30,13 +16,6 @@ class RUNTIMEMESHCOMPONENT_API URuntimeMeshBlueprintFunctions : public UBlueprin
 {
 	GENERATED_BODY()
 public:
-
-
-	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Threading")
-	static void RuntimeMeshInitializeMultiThreading(int32 NumThreads, int32 StackSize = 0, ERuntimeMeshThreadingPriority ThreadPriority = ERuntimeMeshThreadingPriority::BelowNormal);
-
-
-	//static URuntimeMeshProvider* ConstructRuntimeMeshProvider(TSubclassOf<URuntimeMeshProvider> Class);
 
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Rendering|MeshData")
 	static FRuntimeMeshRenderableMeshData CreateRenderableMeshData(bool bWantsHighPrecisionTangents = false, bool bWantsHighPrecisionTexCoords = false, uint8 NumTexCoords = 1, bool bWants32BitIndices = false)

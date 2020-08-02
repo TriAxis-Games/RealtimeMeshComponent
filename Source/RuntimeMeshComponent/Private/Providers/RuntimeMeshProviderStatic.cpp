@@ -2,15 +2,30 @@
 
 #include "Providers/RuntimeMeshProviderStatic.h"
 #include "RuntimeMeshComponentPlugin.h"
+#include "RuntimeMeshModifier.h"
 
+#define RMC_LOG_VERBOSE(Format, ...) \
+	UE_LOG(RuntimeMeshLog2, Verbose, TEXT("[RMPS:%d Thread:%d]: " Format), GetUniqueID(), FPlatformTLS::GetCurrentThreadId(), __VA_ARGS__);
 
 URuntimeMeshProviderStatic::URuntimeMeshProviderStatic()
 	: StoreEditorGeneratedDataForGame(true)
 	, LODForMeshCollision(0)
 	, CombinedBounds(ForceInit)
 {
-	UE_LOG(RuntimeMeshLog, Verbose, TEXT("StaticProvider(%d): Created"), FPlatformTLS::GetCurrentThreadId());
+	RMC_LOG_VERBOSE("Created");
 
+}
+
+void URuntimeMeshProviderStatic::RegisterModifier(URuntimeMeshModifier* Modifier)
+{
+	FWriteScopeLock Lock(ModifierRWLock);
+	CurrentMeshModifiers.Add(Modifier);
+}
+
+void URuntimeMeshProviderStatic::UnRegisterModifier(URuntimeMeshModifier* Modifier)
+{
+	FWriteScopeLock Lock(ModifierRWLock);
+	CurrentMeshModifiers.Remove(Modifier);
 }
 
 void URuntimeMeshProviderStatic::CreateSectionFromComponents(int32 LODIndex, int32 SectionIndex, int32 MaterialSlot, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals, 
@@ -20,48 +35,12 @@ void URuntimeMeshProviderStatic::CreateSectionFromComponents(int32 LODIndex, int
 	FRuntimeMeshSectionProperties Properties;
 	Properties.MaterialSlot = MaterialSlot;
 	Properties.UpdateFrequency = UpdateFrequency;
-	Properties.bWants32BitIndices = Vertices.Num() > MAX_uint16;
-	Properties.bUseHighPrecisionTexCoords = true;
-	Properties.NumTexCoords =
-		UV3.Num() > 0 ? 4 :
-		UV2.Num() > 0 ? 3 :
-		UV1.Num() > 0 ? 2 : 1;
 
-
-	FRuntimeMeshRenderableMeshData SectionData(Properties);
-	SectionData.Positions.Append(Vertices);
-	SectionData.Tangents.Append(Normals, Tangents);
-	if (SectionData.Tangents.Num() < SectionData.Positions.Num())
-	{
-		int32 Count = SectionData.Tangents.Num();
-		SectionData.Tangents.SetNum(SectionData.Positions.Num());
-		for (int32 Index = Count; Index < SectionData.Tangents.Num(); Index++)
-		{
-			SectionData.Tangents.SetTangents(Index, FVector(1, 0, 0), FVector(0, 1, 0), FVector(0, 0, 1));
-		}
-	}
-	SectionData.Colors.Append(VertexColors);
-	if (SectionData.Colors.Num() < SectionData.Positions.Num())
-	{
-		SectionData.Colors.SetNum(SectionData.Positions.Num());
-	}
-
-	int32 StartIndexTexCoords = SectionData.TexCoords.Num();
-	SectionData.TexCoords.FillIn(StartIndexTexCoords, UV0, 0);
-	SectionData.TexCoords.FillIn(StartIndexTexCoords, UV1, 1);
-	SectionData.TexCoords.FillIn(StartIndexTexCoords, UV2, 2);
-	SectionData.TexCoords.FillIn(StartIndexTexCoords, UV3, 3);
-
-	if (SectionData.TexCoords.Num() < SectionData.Positions.Num())
-	{
-		SectionData.TexCoords.SetNum(SectionData.Positions.Num());
-	}
-
-	SectionData.Triangles.Append(Triangles);
+	FRuntimeMeshRenderableMeshData SectionData = FillMeshData(Properties, Vertices, Normals, Tangents, VertexColors, UV0, UV1, UV2, UV3, Triangles);
 
 	CreateSection(LODIndex, SectionIndex, Properties, SectionData);
 
-	UpdateSectionAffectsCollision(LODIndex, SectionIndex, bCreateCollision);
+	UpdateSectionAffectsCollision(LODIndex, SectionIndex, bCreateCollision, true);
 }
 
 void URuntimeMeshProviderStatic::CreateSectionFromComponents(int32 LODIndex, int32 SectionIndex, int32 MaterialSlot, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals, 
@@ -71,47 +50,12 @@ void URuntimeMeshProviderStatic::CreateSectionFromComponents(int32 LODIndex, int
 	FRuntimeMeshSectionProperties Properties;
 	Properties.MaterialSlot = MaterialSlot;
 	Properties.UpdateFrequency = UpdateFrequency;
-	Properties.bWants32BitIndices = Vertices.Num() > MAX_uint16;
-	Properties.bUseHighPrecisionTexCoords = true;
-	Properties.NumTexCoords =
-		UV3.Num() > 0 ? 4 :
-		UV2.Num() > 0 ? 3 :
-		UV1.Num() > 0 ? 2 : 1;
 
-	FRuntimeMeshRenderableMeshData SectionData(Properties);
-	SectionData.Positions.Append(Vertices);
-	SectionData.Tangents.Append(Normals, Tangents);
-	if (SectionData.Tangents.Num() < SectionData.Positions.Num())
-	{
-		int32 Count = SectionData.Tangents.Num();
-		SectionData.Tangents.SetNum(SectionData.Positions.Num());
-		for (int32 Index = Count; Index < SectionData.Tangents.Num(); Index++)
-		{
-			SectionData.Tangents.SetTangents(Index, FVector(1, 0, 0), FVector(0, 1, 0), FVector(0, 0, 1));
-		}
-	}
-	SectionData.Colors.Append(VertexColors);
-	if (SectionData.Colors.Num() < SectionData.Positions.Num())
-	{
-		SectionData.Colors.SetNum(SectionData.Positions.Num());
-	}
-
-	int32 StartIndexTexCoords = SectionData.TexCoords.Num();
-	SectionData.TexCoords.FillIn(StartIndexTexCoords, UV0, 0);
-	SectionData.TexCoords.FillIn(StartIndexTexCoords, UV1, 1);
-	SectionData.TexCoords.FillIn(StartIndexTexCoords, UV2, 2);
-	SectionData.TexCoords.FillIn(StartIndexTexCoords, UV3, 3);
-
-	if (SectionData.TexCoords.Num() < SectionData.Positions.Num())
-	{
-		SectionData.TexCoords.SetNum(SectionData.Positions.Num());
-	}
-
-	SectionData.Triangles.Append(Triangles);
+	FRuntimeMeshRenderableMeshData SectionData = FillMeshData(Properties, Vertices, Normals, Tangents, VertexColors, UV0, UV1, UV2, UV3, Triangles);
 
 	CreateSection(LODIndex, SectionIndex, Properties, SectionData);
 
-	UpdateSectionAffectsCollision(LODIndex, SectionIndex, bCreateCollision);
+	UpdateSectionAffectsCollision(LODIndex, SectionIndex, bCreateCollision, true);
 }	
 
 void  URuntimeMeshProviderStatic::CreateSectionFromComponents(int32 LODIndex, int32 SectionIndex, int32 MaterialSlot, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals,
@@ -120,40 +64,12 @@ void  URuntimeMeshProviderStatic::CreateSectionFromComponents(int32 LODIndex, in
 	FRuntimeMeshSectionProperties Properties;
 	Properties.MaterialSlot = MaterialSlot;
 	Properties.UpdateFrequency = UpdateFrequency;
-	Properties.bWants32BitIndices = Vertices.Num() > MAX_uint16;
-	Properties.bUseHighPrecisionTexCoords = true;
-	Properties.NumTexCoords = 1;
 
-	FRuntimeMeshRenderableMeshData SectionData(Properties);
-	SectionData.Positions.Append(Vertices);
-	SectionData.Tangents.Append(Normals, Tangents);
-	if (SectionData.Tangents.Num() < SectionData.Positions.Num())
-	{
-		int32 Count = SectionData.Tangents.Num();
-		SectionData.Tangents.SetNum(SectionData.Positions.Num());
-		for (int32 Index = Count; Index < SectionData.Tangents.Num(); Index++)
-		{
-			SectionData.Tangents.SetTangents(Index, FVector(1, 0, 0), FVector(0, 1, 0), FVector(0, 0, 1));
-		}
-	}
-	SectionData.Colors.Append(VertexColors);
-	if (SectionData.Colors.Num() < SectionData.Positions.Num())
-	{
-		SectionData.Colors.SetNum(SectionData.Positions.Num());
-	}
-
-	int32 StartIndexTexCoords = SectionData.TexCoords.Num();
-	SectionData.TexCoords.FillIn(StartIndexTexCoords, UV0, 0);
-
-	if (SectionData.TexCoords.Num() < SectionData.Positions.Num())
-	{
-		SectionData.TexCoords.SetNum(SectionData.Positions.Num());
-	}
-	SectionData.Triangles.Append(Triangles);
+	FRuntimeMeshRenderableMeshData SectionData = FillMeshData(Properties, Vertices, Normals, Tangents, VertexColors, UV0, EmptyUVs, EmptyUVs, EmptyUVs, Triangles);
 
 	CreateSection(LODIndex, SectionIndex, Properties, SectionData);
 
-	UpdateSectionAffectsCollision(LODIndex, SectionIndex, bCreateCollision);
+	UpdateSectionAffectsCollision(LODIndex, SectionIndex, bCreateCollision, true);
 }
 
 void URuntimeMeshProviderStatic::CreateSectionFromComponents(int32 LODIndex, int32 SectionIndex, int32 MaterialSlot, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals, 
@@ -162,79 +78,19 @@ void URuntimeMeshProviderStatic::CreateSectionFromComponents(int32 LODIndex, int
 	FRuntimeMeshSectionProperties Properties;
 	Properties.MaterialSlot = MaterialSlot;
 	Properties.UpdateFrequency = UpdateFrequency;
-	Properties.bWants32BitIndices = Vertices.Num() > MAX_uint16;
-	Properties.bUseHighPrecisionTexCoords = true;
-	Properties.NumTexCoords = 1;
 
-	FRuntimeMeshRenderableMeshData SectionData(Properties);
-	SectionData.Positions.Append(Vertices);
-	SectionData.Tangents.Append(Normals, Tangents);
-	if (SectionData.Tangents.Num() < SectionData.Positions.Num())
-	{
-		int32 Count = SectionData.Tangents.Num();
-		SectionData.Tangents.SetNum(SectionData.Positions.Num());
-		for (int32 Index = Count; Index < SectionData.Tangents.Num(); Index++)
-		{
-			SectionData.Tangents.SetTangents(Index, FVector(1, 0, 0), FVector(0, 1, 0), FVector(0, 0, 1));
-		}
-	}
-	SectionData.Colors.Append(VertexColors);
-	if (SectionData.Colors.Num() < SectionData.Positions.Num())
-	{
-		SectionData.Colors.SetNum(SectionData.Positions.Num());
-	}
-
-	int32 StartIndexTexCoords = SectionData.TexCoords.Num();
-	SectionData.TexCoords.FillIn(StartIndexTexCoords, UV0, 0);
-
-	if (SectionData.TexCoords.Num() < SectionData.Positions.Num())
-	{
-		SectionData.TexCoords.SetNum(SectionData.Positions.Num());
-	}
-	SectionData.Triangles.Append(Triangles);
+	FRuntimeMeshRenderableMeshData SectionData = FillMeshData(Properties, Vertices, Normals, Tangents, VertexColors, UV0, EmptyUVs, EmptyUVs, EmptyUVs, Triangles);
 
 	CreateSection(LODIndex, SectionIndex, Properties, SectionData);
 
-	UpdateSectionAffectsCollision(LODIndex, SectionIndex, bCreateCollision);
+	UpdateSectionAffectsCollision(LODIndex, SectionIndex, bCreateCollision, true);
 }
 
 void URuntimeMeshProviderStatic::UpdateSectionFromComponents(int32 LODIndex, int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals, 
 	const TArray<FVector2D>& UV0, const TArray<FVector2D>& UV1, const TArray<FVector2D>& UV2, const TArray<FVector2D>& UV3, const TArray<FLinearColor>& VertexColors, const TArray<FRuntimeMeshTangent>& Tangents)
 {
-	int32 NumTexChannels =
-		UV3.Num() > 0 ? 4 :
-		UV2.Num() > 0 ? 3 :
-		UV1.Num() > 0 ? 2 : 1;
-
-	FRuntimeMeshRenderableMeshData SectionData(false, true, NumTexChannels, Vertices.Num() > MAX_uint16);
-	SectionData.Positions.Append(Vertices);
-	SectionData.Tangents.Append(Normals, Tangents);
-	if (SectionData.Tangents.Num() < SectionData.Positions.Num())
-	{
-		int32 Count = SectionData.Tangents.Num();
-		SectionData.Tangents.SetNum(SectionData.Positions.Num());
-		for (int32 Index = Count; Index < SectionData.Tangents.Num(); Index++)
-		{
-			SectionData.Tangents.SetTangents(Index, FVector(1, 0, 0), FVector(0, 1, 0), FVector(0, 0, 1));
-		}
-	}
-	SectionData.Colors.Append(VertexColors);
-	if (SectionData.Colors.Num() < SectionData.Positions.Num())
-	{
-		SectionData.Colors.SetNum(SectionData.Positions.Num());
-	}
-
-	int32 StartIndexTexCoords = SectionData.TexCoords.Num();
-	SectionData.TexCoords.FillIn(StartIndexTexCoords, UV0, 0);
-	SectionData.TexCoords.FillIn(StartIndexTexCoords, UV1, 1);
-	SectionData.TexCoords.FillIn(StartIndexTexCoords, UV2, 2);
-	SectionData.TexCoords.FillIn(StartIndexTexCoords, UV3, 3);
-
-	if (SectionData.TexCoords.Num() < SectionData.Positions.Num())
-	{
-		SectionData.TexCoords.SetNum(SectionData.Positions.Num());
-	}
-	SectionData.Triangles.Append(Triangles);
+	FRuntimeMeshSectionProperties Properties;
+	FRuntimeMeshRenderableMeshData SectionData = FillMeshData(Properties, Vertices, Normals, Tangents, VertexColors, UV0, UV1, UV2, UV3, Triangles);
 
 	UpdateSection(LODIndex, SectionIndex, SectionData);
 }
@@ -242,40 +98,8 @@ void URuntimeMeshProviderStatic::UpdateSectionFromComponents(int32 LODIndex, int
 void URuntimeMeshProviderStatic::UpdateSectionFromComponents(int32 LODIndex, int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals, 
 	const TArray<FVector2D>& UV0, const TArray<FVector2D>& UV1, const TArray<FVector2D>& UV2, const TArray<FVector2D>& UV3, const TArray<FColor>& VertexColors, const TArray<FRuntimeMeshTangent>& Tangents)
 {
-	int32 NumTexChannels =
-		UV3.Num() > 0 ? 4 :
-		UV2.Num() > 0 ? 3 :
-		UV1.Num() > 0 ? 2 : 1;
-
-	FRuntimeMeshRenderableMeshData SectionData(false, true, NumTexChannels, Vertices.Num() > MAX_uint16);
-	SectionData.Positions.Append(Vertices);
-	SectionData.Tangents.Append(Normals, Tangents);
-	if (SectionData.Tangents.Num() < SectionData.Positions.Num())
-	{
-		int32 Count = SectionData.Tangents.Num();
-		SectionData.Tangents.SetNum(SectionData.Positions.Num());
-		for (int32 Index = Count; Index < SectionData.Tangents.Num(); Index++)
-		{
-			SectionData.Tangents.SetTangents(Index, FVector(1, 0, 0), FVector(0, 1, 0), FVector(0, 0, 1));
-		}
-	}
-	SectionData.Colors.Append(VertexColors);
-	if (SectionData.Colors.Num() < SectionData.Positions.Num())
-	{
-		SectionData.Colors.SetNum(SectionData.Positions.Num());
-	}
-
-	int32 StartIndexTexCoords = SectionData.TexCoords.Num();
-	SectionData.TexCoords.FillIn(StartIndexTexCoords, UV0, 0);
-	SectionData.TexCoords.FillIn(StartIndexTexCoords, UV1, 1);
-	SectionData.TexCoords.FillIn(StartIndexTexCoords, UV2, 2);
-	SectionData.TexCoords.FillIn(StartIndexTexCoords, UV3, 3);
-
-	if (SectionData.TexCoords.Num() < SectionData.Positions.Num())
-	{
-		SectionData.TexCoords.SetNum(SectionData.Positions.Num());
-	}
-	SectionData.Triangles.Append(Triangles);
+	FRuntimeMeshSectionProperties Properties;
+	FRuntimeMeshRenderableMeshData SectionData = FillMeshData(Properties, Vertices, Normals, Tangents, VertexColors, UV0, UV1, UV2, UV3, Triangles);
 
 	UpdateSection(LODIndex, SectionIndex, SectionData);
 }
@@ -283,34 +107,8 @@ void URuntimeMeshProviderStatic::UpdateSectionFromComponents(int32 LODIndex, int
 void URuntimeMeshProviderStatic::UpdateSectionFromComponents(int32 LODIndex, int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals,
 	const TArray<FVector2D>& UV0, const TArray<FLinearColor>& VertexColors, const TArray<FRuntimeMeshTangent>& Tangents)
 {
-	int32 NumTexChannels = 1;
-
-	FRuntimeMeshRenderableMeshData SectionData(false, true, NumTexChannels, Vertices.Num() > MAX_uint16);
-	SectionData.Positions.Append(Vertices);
-	SectionData.Tangents.Append(Normals, Tangents);
-	if (SectionData.Tangents.Num() < SectionData.Positions.Num())
-	{
-		int32 Count = SectionData.Tangents.Num();
-		SectionData.Tangents.SetNum(SectionData.Positions.Num());
-		for (int32 Index = Count; Index < SectionData.Tangents.Num(); Index++)
-		{
-			SectionData.Tangents.SetTangents(Index, FVector(1, 0, 0), FVector(0, 1, 0), FVector(0, 0, 1));
-		}
-	}
-	SectionData.Colors.Append(VertexColors);
-	if (SectionData.Colors.Num() < SectionData.Positions.Num())
-	{
-		SectionData.Colors.SetNum(SectionData.Positions.Num());
-	}
-
-	int32 StartIndexTexCoords = SectionData.TexCoords.Num();
-	SectionData.TexCoords.FillIn(StartIndexTexCoords, UV0, 0);
-
-	if (SectionData.TexCoords.Num() < SectionData.Positions.Num())
-	{
-		SectionData.TexCoords.SetNum(SectionData.Positions.Num());
-	}
-	SectionData.Triangles.Append(Triangles);
+	FRuntimeMeshSectionProperties Properties;
+	FRuntimeMeshRenderableMeshData SectionData = FillMeshData(Properties, Vertices, Normals, Tangents, VertexColors, UV0, EmptyUVs, EmptyUVs, EmptyUVs, Triangles);
 
 	UpdateSection(LODIndex, SectionIndex, SectionData);
 }
@@ -320,47 +118,187 @@ void URuntimeMeshProviderStatic::UpdateSectionFromComponents(int32 LODIndex, int
 {
 	int32 NumTexChannels = 1;
 
-	FRuntimeMeshRenderableMeshData SectionData(false, true, NumTexChannels, Vertices.Num() > MAX_uint16);
-	SectionData.Positions.Append(Vertices);
-	SectionData.Tangents.Append(Normals, Tangents);
-	if (SectionData.Tangents.Num() < SectionData.Positions.Num())
-	{
-		int32 Count = SectionData.Tangents.Num();
-		SectionData.Tangents.SetNum(SectionData.Positions.Num());
-		for (int32 Index = Count; Index < SectionData.Tangents.Num(); Index++)
-		{
-			SectionData.Tangents.SetTangents(Index, FVector(1, 0, 0), FVector(0, 1, 0), FVector(0, 0, 1));
-		}
-	}
-	SectionData.Colors.Append(VertexColors);
-	if (SectionData.Colors.Num() < SectionData.Positions.Num())
-	{
-		SectionData.Colors.SetNum(SectionData.Positions.Num());
-	}
-
-	int32 StartIndexTexCoords = SectionData.TexCoords.Num();
-	SectionData.TexCoords.FillIn(StartIndexTexCoords, UV0, 0);
-
-	if (SectionData.TexCoords.Num() < SectionData.Positions.Num())
-	{
-		SectionData.TexCoords.SetNum(SectionData.Positions.Num());
-	}
-	SectionData.Triangles.Append(Triangles);
+	FRuntimeMeshSectionProperties Properties;
+	FRuntimeMeshRenderableMeshData SectionData = FillMeshData(Properties, Vertices, Normals, Tangents, VertexColors, UV0, EmptyUVs, EmptyUVs, EmptyUVs, Triangles);
 
 	UpdateSection(LODIndex, SectionIndex, SectionData);
 }
 
 
 
-void URuntimeMeshProviderStatic::Initialize_Implementation()
+
+
+FRuntimeMeshCollisionSettings URuntimeMeshProviderStatic::GetCollisionSettingsStatic() const
 {
-	UE_LOG(RuntimeMeshLog, Verbose, TEXT("StaticProvider(%d): Initialize called"), FPlatformTLS::GetCurrentThreadId());
+	FScopeLock Lock(&CollisionSyncRoot);
+	return CollisionSettings;
+}
+
+void URuntimeMeshProviderStatic::SetCollisionSettings(const FRuntimeMeshCollisionSettings& NewCollisionSettings)
+{
+	{
+		FScopeLock Lock(&CollisionSyncRoot);
+		CollisionSettings = NewCollisionSettings;
+	}
+	MarkCollisionDirty();
+}
+
+FRuntimeMeshCollisionData URuntimeMeshProviderStatic::GetCollisionMeshStatic() const
+{
+	FScopeLock Lock(&CollisionSyncRoot);
+	if (CollisionMesh.IsSet())
+	{
+		return CollisionMesh.GetValue();
+	}
+	return FRuntimeMeshCollisionData();
+}
+
+void URuntimeMeshProviderStatic::SetCollisionMesh(const FRuntimeMeshCollisionData& NewCollisionMesh)
+{
+	{
+		FScopeLock Lock(&CollisionSyncRoot);
+		CollisionMesh = NewCollisionMesh;
+	}
+	MarkCollisionDirty();
+}
+
+int32 URuntimeMeshProviderStatic::GetLODForMeshCollision() const
+{
+	FScopeLock Lock(&CollisionSyncRoot);
+	return LODForMeshCollision;
+}
+
+void URuntimeMeshProviderStatic::SetRenderableLODForCollision(int32 LODIndex)
+{
+	{
+		FScopeLock Lock(&CollisionSyncRoot);
+		LODForMeshCollision = LODIndex;
+	}
+	MarkCollisionDirty();
+}
+
+TSet<int32> URuntimeMeshProviderStatic::GetSectionsForMeshCollision() const
+{
+	FScopeLock Lock(&CollisionSyncRoot);
+	return SectionsForMeshCollision;
+}
+
+void URuntimeMeshProviderStatic::SetRenderableSectionAffectsCollision(int32 SectionId, bool bCollisionEnabled, bool bForceUpdate)
+{
+	UpdateSectionAffectsCollision(LODForMeshCollision, SectionId, bCollisionEnabled, bForceUpdate);
+}
+
+TArray<int32> URuntimeMeshProviderStatic::GetSectionIds(int32 LODIndex) const
+{
+	FScopeLock Lock(&MeshSyncRoot);
+	TArray<int32> SectionIds;
+
+	const auto* FoundLOD = SectionDataMap.Find(LODIndex);
+	if (FoundLOD)
+	{
+		FoundLOD->GetKeys(SectionIds);
+	}
+
+	return SectionIds;
+}
+
+int32 URuntimeMeshProviderStatic::GetLastSectionId(int32 LODIndex) const
+{
+	TArray<int32> SectionIds;
+	{
+		FScopeLock Lock(&MeshSyncRoot);
+
+		const auto* FoundLOD = SectionDataMap.Find(LODIndex);
+		if (FoundLOD)
+		{
+			FoundLOD->GetKeys(SectionIds);
+		}
+	}
+
+	int32 MaxIndex = INDEX_NONE;
+
+	for (int32 Index = 0; Index < SectionIds.Num(); Index++)
+	{
+		MaxIndex = FMath::Max(MaxIndex, SectionIds[Index]);
+	}
+
+	return MaxIndex;
+}
+
+bool URuntimeMeshProviderStatic::DoesSectionHaveValidMeshData(int32 LODIndex, int32 SectionId) const
+{
+	FScopeLock Lock(&MeshSyncRoot);
+
+	check(SectionDataMap.Contains(LODIndex));
+	check(SectionDataMap[LODIndex].Contains(SectionId));
+
+	return SectionDataMap.FindChecked(LODIndex).FindChecked(SectionId).Get<1>().HasValidMeshData();
+}
+
+void URuntimeMeshProviderStatic::RemoveAllSectionsForLOD(int32 LODIndex)
+{
+	{
+		FScopeLock Lock(&MeshSyncRoot);
+		SectionDataMap.Remove(LODIndex);
+	}
+	MarkLODDirty(LODIndex);
+}
+
+FBoxSphereBounds URuntimeMeshProviderStatic::GetSectionBounds(int32 LODIndex, int32 SectionId) const
+{
+	FScopeLock Lock(&MeshSyncRoot);
+
+	check(SectionDataMap.Contains(LODIndex));
+	check(SectionDataMap[LODIndex].Contains(SectionId));
+
+	return SectionDataMap.FindChecked(LODIndex).FindChecked(SectionId).Get<2>();
+}
+
+FRuntimeMeshSectionProperties URuntimeMeshProviderStatic::GetSectionProperties(int32 LODIndex, int32 SectionId) const
+{
+	FScopeLock Lock(&MeshSyncRoot);
+
+	check(SectionDataMap.Contains(LODIndex));
+	check(SectionDataMap[LODIndex].Contains(SectionId));
+
+	return SectionDataMap.FindChecked(LODIndex).FindChecked(SectionId).Get<0>();
+}
+
+FRuntimeMeshRenderableMeshData URuntimeMeshProviderStatic::GetSectionRenderData(int32 LODIndex, int32 SectionId) const
+{
+	FScopeLock Lock(&MeshSyncRoot);
+
+	check(SectionDataMap.Contains(LODIndex));
+	check(SectionDataMap[LODIndex].Contains(SectionId));
+
+	return SectionDataMap.FindChecked(LODIndex).FindChecked(SectionId).Get<1>();
+}
+
+FRuntimeMeshRenderableMeshData URuntimeMeshProviderStatic::GetSectionRenderDataAndClear(int32 LODIndex, int32 SectionId)
+{
+	FRuntimeMeshRenderableMeshData MeshData;
+	{
+		FScopeLock Lock(&MeshSyncRoot);
+
+		check(SectionDataMap.Contains(LODIndex));
+		check(SectionDataMap[LODIndex].Contains(SectionId));
+
+		MeshData = MoveTemp(SectionDataMap.FindChecked(LODIndex).FindChecked(SectionId).Get<1>());
+	}
+	ClearSection(LODIndex, SectionId);
+
+	return MeshData;
+}
+
+void URuntimeMeshProviderStatic::Initialize()
+{
+	RMC_LOG_VERBOSE("Initializing...");
 
 	// Setup loaded materials
 	for (int32 Index = 0; Index < LoadedMaterialSlots.Num(); Index++)
 	{
 		FName SlotName = LoadedMaterialSlots[Index].SlotName;
-		UMaterialInterface* Material = LoadedMaterialSlots[Index].Material.Get();
+		UMaterialInterface* Material = LoadedMaterialSlots[Index].Material;
 
 		SetupMaterialSlot(Index, SlotName, Material);
 	}
@@ -371,7 +309,7 @@ void URuntimeMeshProviderStatic::Initialize_Implementation()
 	{
 		//TMap<int32, TMap<int32, FSectionDataMapEntry>> SectionDataMapTemp = MoveTemp(SectionDataMap);
 
-		URuntimeMeshProvider::ConfigureLODs_Implementation(LODConfigurations);
+		URuntimeMeshProvider::ConfigureLODs(LODConfigurations);
 
 		// Setup existing sections
 		for (const auto& LOD : SectionDataMap)
@@ -379,7 +317,7 @@ void URuntimeMeshProviderStatic::Initialize_Implementation()
 			for (const auto& Section : LOD.Value)
 			{
 				// Create the section
-				URuntimeMeshProvider::CreateSection_Implementation(LOD.Key, Section.Key, Section.Value.Get<0>());
+				URuntimeMeshProvider::CreateSection(LOD.Key, Section.Key, Section.Value.Get<0>());
 				if (Section.Value.Get<1>().HasValidMeshData())
 				{
 					URuntimeMeshProvider::MarkSectionDirty(LOD.Key, Section.Key);
@@ -393,127 +331,16 @@ void URuntimeMeshProviderStatic::Initialize_Implementation()
 	else
 	{
 		// Default LOD 0
-		URuntimeMeshProvider::ConfigureLODs(
+		ConfigureLODs(
 			{
 				FRuntimeMeshLODProperties(),
 			});
 	}
 }
 
-
-
-void URuntimeMeshProviderStatic::ClearSection(int32 LODIndex, int32 SectionId)
+bool URuntimeMeshProviderStatic::GetSectionMeshForLOD(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData)
 {
-	TMap<int32, FSectionDataMapEntry>* LODSections = SectionDataMap.Find(LODIndex);
-	if (LODSections)
-	{
-		FSectionDataMapEntry* Section = LODSections->Find(SectionId);
-		if (Section)
-		{
-			Section->Get<1>().Reset();
-			UpdateBounds();
-			MarkSectionDirty(LODIndex, SectionId);
-		}
-	}
-}
-
-void URuntimeMeshProviderStatic::SetCollisionSettings(const FRuntimeMeshCollisionSettings& NewCollisionSettings)
-{
-	CollisionSettings = NewCollisionSettings;
-	MarkCollisionDirty();
-}
-
-void URuntimeMeshProviderStatic::SetCollisionMesh(const FRuntimeMeshCollisionData& NewCollisionMesh)
-{
-	CollisionMesh = NewCollisionMesh;
-	MarkCollisionDirty();
-}
-
-void URuntimeMeshProviderStatic::SetRenderableLODForCollision(int32 LODIndex)
-{
-	LODForMeshCollision = LODIndex;
-	MarkCollisionDirty();
-}
-
-void URuntimeMeshProviderStatic::SetRenderableSectionAffectsCollision(int32 SectionId, bool bCollisionEnabled)
-{
-	UpdateSectionAffectsCollision(LODForMeshCollision, SectionId, bCollisionEnabled);
-}
-
-void URuntimeMeshProviderStatic::ConfigureLODs_Implementation(const TArray<FRuntimeMeshLODProperties>& LODSettings)
-{
-	check(LODSettings.Num() > 0 && LODSettings.Num() <= RUNTIMEMESH_MAXLODS);
-
-	LODConfigurations = LODSettings;
-	SectionDataMap.Empty();
-
-	LODForMeshCollision = FMath::Min(RUNTIMEMESH_MAXLODS - 1, LODForMeshCollision);
-
-	URuntimeMeshProvider::ConfigureLODs_Implementation(LODSettings);
-}
-
-
-
-void URuntimeMeshProviderStatic::CreateSection_Implementation(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties)
-{
-	SectionDataMap.FindOrAdd(LODIndex).FindOrAdd(SectionId) = MakeTuple(SectionProperties, FRuntimeMeshRenderableMeshData(), FBoxSphereBounds(FVector::ZeroVector, FVector::ZeroVector, 0));
-	URuntimeMeshProvider::CreateSection_Implementation(LODIndex, SectionId, SectionProperties);
-}
-
-
-
-void URuntimeMeshProviderStatic::RemoveSection_Implementation(int32 LODIndex, int32 SectionId)
-{
-	TMap<int32, FSectionDataMapEntry>* LODSections = SectionDataMap.Find(LODIndex);
-	if (LODSections)
-	{
-		if (LODSections->Remove(SectionId))
-		{
-			// Remove map for LOD if empty
-			if (LODSections->Num() == 0)
-			{
-				SectionDataMap.Remove(LODIndex);
-			}
-			UpdateBounds();
-		}
-	}
-	URuntimeMeshProvider::RemoveSection_Implementation(LODIndex, SectionId);
-}
-
-void URuntimeMeshProviderStatic::SetSectionCastsShadow_Implementation(int32 LODIndex, int32 SectionId, bool bCastsShadow)
-{
-	TMap<int32, FSectionDataMapEntry>* LODSections = SectionDataMap.Find(LODIndex);
-	if (LODSections)
-	{
-		FSectionDataMapEntry* Section = LODSections->Find(SectionId);
-		if (Section)
-		{
-			Section->Get<0>().bCastsShadow = bCastsShadow;
-			URuntimeMeshProvider::SetSectionCastsShadow_Implementation(LODIndex, SectionId, bCastsShadow);
-		}
-	}
-}
-
-void URuntimeMeshProviderStatic::SetSectionVisibility_Implementation(int32 LODIndex, int32 SectionId, bool bIsVisible)
-{
-	TMap<int32, FSectionDataMapEntry>* LODSections = SectionDataMap.Find(LODIndex);
-	if (LODSections)
-	{
-		FSectionDataMapEntry* Section = LODSections->Find(SectionId);
-		if (Section)
-		{
-			Section->Get<0>().bIsVisible = bIsVisible;
-			URuntimeMeshProvider::SetSectionVisibility_Implementation(LODIndex, SectionId, bIsVisible);
-		}
-	}
-}
-
-
-
-
-
-bool URuntimeMeshProviderStatic::GetSectionMeshForLOD_Implementation(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData)
-{
+	FScopeLock Lock(&MeshSyncRoot);
 	TMap<int32, FSectionDataMapEntry>* LODSections = SectionDataMap.Find(LODIndex);
 	if (LODSections)
 	{
@@ -527,29 +354,41 @@ bool URuntimeMeshProviderStatic::GetSectionMeshForLOD_Implementation(int32 LODIn
 	return false;
 }
 
-FRuntimeMeshCollisionSettings URuntimeMeshProviderStatic::GetCollisionSettings_Implementation()
+FRuntimeMeshCollisionSettings URuntimeMeshProviderStatic::GetCollisionSettings()
 {
+	FScopeLock Lock(&CollisionSyncRoot);
 	return CollisionSettings;
 }
 
-bool URuntimeMeshProviderStatic::HasCollisionMesh_Implementation()
+bool URuntimeMeshProviderStatic::HasCollisionMesh()
 {
-	if (CollisionMesh.IsSet())
+	int32 LODForMeshCollisionTemp = INDEX_NONE;
+	TSet<int32> SectionsForMeshCollisionTemp;
+
 	{
-		return true;
+		FScopeLock Lock(&CollisionSyncRoot);
+		if (CollisionMesh.IsSet())
+		{
+			return true;
+		}
+		LODForMeshCollisionTemp = LODForMeshCollision;
+		SectionsForMeshCollisionTemp = SectionsForMeshCollision;
 	}
 
-	TMap<int32, FSectionDataMapEntry>* LODSections = SectionDataMap.Find(LODForMeshCollision);
-	if (LODSections)
 	{
-		for (int32 SectionId : SectionsForMeshCollision)
+		FScopeLock Lock(&MeshSyncRoot);
+		TMap<int32, FSectionDataMapEntry>* LODSections = SectionDataMap.Find(LODForMeshCollisionTemp);
+		if (LODSections)
 		{
-			FSectionDataMapEntry* Section = LODSections->Find(SectionId);
-			if (Section)
+			for (int32 SectionId : SectionsForMeshCollisionTemp)
 			{
-				if (Section->Get<1>().HasValidMeshData())
+				FSectionDataMapEntry* Section = LODSections->Find(SectionId);
+				if (Section)
 				{
-					return true;
+					if (Section->Get<1>().HasValidMeshData())
+					{
+						return true;
+					}
 				}
 			}
 		}
@@ -558,63 +397,74 @@ bool URuntimeMeshProviderStatic::HasCollisionMesh_Implementation()
 	return false;
 }
 
-bool URuntimeMeshProviderStatic::GetCollisionMesh_Implementation(FRuntimeMeshCollisionData& CollisionData)
+bool URuntimeMeshProviderStatic::GetCollisionMesh(FRuntimeMeshCollisionData& CollisionData)
 {
+	int32 LODForMeshCollisionTemp = INDEX_NONE;
+	TSet<int32> SectionsForMeshCollisionTemp;
 	bool bHadMeshData = false;
-	if (CollisionMesh.IsSet())
+
 	{
-		CollisionData = CollisionMesh.GetValue();
-		bHadMeshData = true;
+		FScopeLock Lock(&CollisionSyncRoot);
+		if (CollisionMesh.IsSet())
+		{
+			CollisionData = CollisionMesh.GetValue();
+			bHadMeshData = true;
+		}
+		LODForMeshCollisionTemp = LODForMeshCollision;
+		SectionsForMeshCollisionTemp = SectionsForMeshCollision;
 	}
 
-	TMap<int32, FSectionDataMapEntry>* LODSections = SectionDataMap.Find(LODForMeshCollision);
-	if (LODSections)
 	{
-		for (int32 SectionId : SectionsForMeshCollision)
+		FScopeLock Lock(&MeshSyncRoot);
+		TMap<int32, FSectionDataMapEntry>* LODSections = SectionDataMap.Find(LODForMeshCollisionTemp);
+		if (LODSections)
 		{
-			FSectionDataMapEntry* Section = LODSections->Find(SectionId);
-			if (Section)
+			for (int32 SectionId : SectionsForMeshCollisionTemp)
 			{
-				FRuntimeMeshRenderableMeshData& SectionData = Section->Get<1>();
-				if (SectionData.HasValidMeshData())
+				FSectionDataMapEntry* Section = LODSections->Find(SectionId);
+				if (Section)
 				{
-					int32 FirstVertex = CollisionData.Vertices.Num();
-					int32 NumVertex = SectionData.Positions.Num();
-					int32 NumTexCoords = SectionData.TexCoords.Num();
-					int32 NumChannels = SectionData.TexCoords.NumChannels();
-					CollisionData.Vertices.SetNum(FirstVertex + NumVertex, false);
-					CollisionData.TexCoords.SetNum(NumChannels, FirstVertex + NumVertex, false);
-					for (int32 VertIdx = 0; VertIdx < NumVertex; VertIdx++)
+					FRuntimeMeshRenderableMeshData& SectionData = Section->Get<1>();
+					if (SectionData.HasValidMeshData())
 					{
-						CollisionData.Vertices.SetPosition(FirstVertex + VertIdx, SectionData.Positions.GetPosition(VertIdx));
-						if (VertIdx >= NumTexCoords)
+						int32 FirstVertex = CollisionData.Vertices.Num();
+						int32 NumVertex = SectionData.Positions.Num();
+						int32 NumTexCoords = SectionData.TexCoords.Num();
+						int32 NumChannels = SectionData.TexCoords.NumChannels();
+						CollisionData.Vertices.SetNum(FirstVertex + NumVertex, false);
+						CollisionData.TexCoords.SetNum(NumChannels, FirstVertex + NumVertex, false);
+						for (int32 VertIdx = 0; VertIdx < NumVertex; VertIdx++)
 						{
-							continue;
+							CollisionData.Vertices.SetPosition(FirstVertex + VertIdx, SectionData.Positions.GetPosition(VertIdx));
+							if (VertIdx >= NumTexCoords)
+							{
+								continue;
+							}
+							for (int32 ChannelIdx = 0; ChannelIdx < NumChannels; ChannelIdx++)
+							{
+								CollisionData.TexCoords.SetTexCoord(ChannelIdx, FirstVertex + VertIdx, SectionData.TexCoords.GetTexCoord(VertIdx, ChannelIdx));
+							}
 						}
-						for (int32 ChannelIdx = 0; ChannelIdx < NumChannels; ChannelIdx++)
+
+						int32 FirstTris = CollisionData.Triangles.Num();
+						int32 NumTriangles = SectionData.Triangles.NumTriangles();
+						CollisionData.Triangles.SetNum(FirstTris + NumTriangles, false);
+						CollisionData.MaterialIndices.SetNum(FirstTris + NumTriangles, false);
+						for (int32 TrisIdx = 0; TrisIdx < NumTriangles; TrisIdx++)
 						{
-							CollisionData.TexCoords.SetTexCoord(ChannelIdx, FirstVertex + VertIdx, SectionData.TexCoords.GetTexCoord(VertIdx, ChannelIdx));
+							int32 Index0 = SectionData.Triangles.GetVertexIndex(TrisIdx * 3) + FirstVertex;
+							int32 Index1 = SectionData.Triangles.GetVertexIndex(TrisIdx * 3 + 1) + FirstVertex;
+							int32 Index2 = SectionData.Triangles.GetVertexIndex(TrisIdx * 3 + 2) + FirstVertex;
+
+
+							CollisionData.Triangles.SetTriangleIndices(TrisIdx + FirstTris, Index0, Index1, Index2);
+							CollisionData.MaterialIndices.SetMaterialIndex(TrisIdx + FirstTris, Section->Get<0>().MaterialSlot);
 						}
+
+
+						CollisionData.CollisionSources.Emplace(FirstTris, CollisionData.Triangles.Num() - 1, this, SectionId, ERuntimeMeshCollisionFaceSourceType::Renderable);
+						bHadMeshData = true;
 					}
-
-					int32 FirstTris = CollisionData.Triangles.Num();
-					int32 NumTriangles = SectionData.Triangles.NumTriangles();
-					CollisionData.Triangles.SetNum(FirstTris + NumTriangles, false);
-					CollisionData.MaterialIndices.SetNum(FirstTris + NumTriangles, false);
-					for (int32 TrisIdx = 0; TrisIdx < NumTriangles; TrisIdx++)
-					{
-						int32 Index0 = SectionData.Triangles.GetVertexIndex(TrisIdx * 3) + FirstVertex;
-						int32 Index1 = SectionData.Triangles.GetVertexIndex(TrisIdx * 3 + 1) + FirstVertex;
-						int32 Index2 = SectionData.Triangles.GetVertexIndex(TrisIdx * 3 + 2) + FirstVertex;
-
-
-						CollisionData.Triangles.SetTriangleIndices(TrisIdx + FirstTris, Index0, Index1, Index2);
-						CollisionData.MaterialIndices.SetMaterialIndex(TrisIdx + FirstTris, Section->Get<0>().MaterialSlot);
-					}
-
-
-					CollisionData.CollisionSources.Emplace(FirstTris, CollisionData.Triangles.Num() - 1, this, SectionId, ERuntimeMeshCollisionFaceSourceType::Renderable);
-					bHadMeshData = true;
 				}
 			}
 		}
@@ -623,75 +473,124 @@ bool URuntimeMeshProviderStatic::GetCollisionMesh_Implementation(FRuntimeMeshCol
 	return bHadMeshData;
 }
 
-void URuntimeMeshProviderStatic::UpdateSectionAffectsCollision(int32 LODIndex, int32 SectionId, bool bAffectsCollision)
+
+
+void URuntimeMeshProviderStatic::ConfigureLODs(const TArray<FRuntimeMeshLODProperties>& LODSettings)
 {
-	if (LODIndex == LODForMeshCollision)
+	check(LODSettings.Num() > 0 && LODSettings.Num() <= RUNTIMEMESH_MAXLODS);
+
 	{
-		if (bAffectsCollision && !SectionsForMeshCollision.Contains(SectionId))
-		{
-			SectionsForMeshCollision.Add(SectionId);
-			MarkCollisionDirty();
-		}
-		else if (!bAffectsCollision && SectionsForMeshCollision.Contains(SectionId))
-		{
-			SectionsForMeshCollision.Remove(SectionId);
-			MarkCollisionDirty();
-		}
+		FScopeLock Lock(&MeshSyncRoot);
+		LODConfigurations = LODSettings;
+		SectionDataMap.Empty();
 	}
+
+	{
+		FScopeLock Lock(&CollisionSyncRoot);
+		LODForMeshCollision = FMath::Min(LODSettings.Num(), LODForMeshCollision);
+	}
+
+	Super::ConfigureLODs(LODSettings);
 }
 
-void URuntimeMeshProviderStatic::UpdateBounds()
+void URuntimeMeshProviderStatic::SetLODScreenSize(int32 LODIndex, float ScreenSize)
 {
-	FBoxSphereBounds NewBounds(FVector::ZeroVector, FVector::ZeroVector, 0);
-	bool bFirst = true;
+	check(LODConfigurations.IsValidIndex(LODIndex));
 
-	for (const auto& LOD : SectionDataMap)
 	{
-		for (const auto& Section : LOD.Value)
+		FScopeLock Lock(&MeshSyncRoot);
+		LODConfigurations[LODIndex].ScreenSize = ScreenSize;
+	}
+
+	Super::SetLODScreenSize(LODIndex, ScreenSize);
+}
+
+void URuntimeMeshProviderStatic::CreateSection(int32 LODIndex, int32 SectionId, const FRuntimeMeshSectionProperties& SectionProperties)
+{
+	{
+		FScopeLock Lock(&MeshSyncRoot);
+		SectionDataMap.FindOrAdd(LODIndex).FindOrAdd(SectionId) = MakeTuple(SectionProperties, FRuntimeMeshRenderableMeshData(), FBoxSphereBounds(FVector::ZeroVector, FVector::ZeroVector, 0));
+	}
+	URuntimeMeshProvider::CreateSection(LODIndex, SectionId, SectionProperties);
+}
+
+void URuntimeMeshProviderStatic::SetSectionVisibility(int32 LODIndex, int32 SectionId, bool bIsVisible)
+{
+	{
+		FScopeLock Lock(&MeshSyncRoot);
+		TMap<int32, FSectionDataMapEntry>* LODSections = SectionDataMap.Find(LODIndex);
+		if (LODSections)
 		{
-			if (bFirst)
+			FSectionDataMapEntry* Section = LODSections->Find(SectionId);
+			if (Section)
 			{
-				NewBounds = Section.Value.Get<2>();
-				bFirst = false;
-			}
-			else
-			{
-				NewBounds = NewBounds + Section.Value.Get<2>();
+				Section->Get<0>().bIsVisible = bIsVisible;
 			}
 		}
 	}
-	CombinedBounds = NewBounds;
+	URuntimeMeshProvider::SetSectionVisibility(LODIndex, SectionId, bIsVisible);
 }
 
-FBoxSphereBounds URuntimeMeshProviderStatic::GetBoundsFromMeshData(const FRuntimeMeshRenderableMeshData& MeshData)
+void URuntimeMeshProviderStatic::SetSectionCastsShadow(int32 LODIndex, int32 SectionId, bool bCastsShadow)
 {
-	return FBoxSphereBounds(MeshData.Positions.GetBounds());
-}
-
-
-
-void URuntimeMeshProviderStatic::UpdateSectionInternal(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData&& SectionData, FBoxSphereBounds KnownBounds)
-{
-	// This is just to alert the user of invalid mesh data
-	SectionData.HasValidMeshData(true);
-
-	TMap<int32, FSectionDataMapEntry>* LODSections = SectionDataMap.Find(LODIndex);
-	if (LODSections)
 	{
-		FSectionDataMapEntry* Section = LODSections->Find(SectionId);
-		if (Section)
+		FScopeLock Lock(&MeshSyncRoot);
+		TMap<int32, FSectionDataMapEntry>* LODSections = SectionDataMap.Find(LODIndex);
+		if (LODSections)
 		{
-			(*Section) = MakeTuple(Section->Get<0>(), SectionData, KnownBounds);
-
-			UpdateBounds();
-			MarkSectionDirty(LODIndex, SectionId);
+			FSectionDataMapEntry* Section = LODSections->Find(SectionId);
+			if (Section)
+			{
+				Section->Get<0>().bCastsShadow = bCastsShadow;
+			}
 		}
 	}
+	URuntimeMeshProvider::SetSectionCastsShadow(LODIndex, SectionId, bCastsShadow);
 }
+
+void URuntimeMeshProviderStatic::ClearSection(int32 LODIndex, int32 SectionId)
+{
+	{
+		FScopeLock Lock(&MeshSyncRoot);
+		TMap<int32, FSectionDataMapEntry>* LODSections = SectionDataMap.Find(LODIndex);
+		if (LODSections)
+		{
+			FSectionDataMapEntry* Section = LODSections->Find(SectionId);
+			if (Section)
+			{
+				Section->Get<1>().Reset();
+				UpdateBounds();
+			}
+		}
+	}
+	URuntimeMeshProvider::ClearSection(LODIndex, SectionId);
+}
+
+void URuntimeMeshProviderStatic::RemoveSection(int32 LODIndex, int32 SectionId)
+{
+	{
+		FScopeLock Lock(&MeshSyncRoot);
+		TMap<int32, FSectionDataMapEntry>* LODSections = SectionDataMap.Find(LODIndex);
+		if (LODSections)
+		{
+			if (LODSections->Remove(SectionId))
+			{
+				// Remove map for LOD if empty
+				if (LODSections->Num() == 0)
+				{
+					SectionDataMap.Remove(LODIndex);
+				}
+				UpdateBounds();
+			}
+		}
+	}
+	URuntimeMeshProvider::RemoveSection(LODIndex, SectionId);
+}
+
 
 void URuntimeMeshProviderStatic::Serialize(FArchive& Ar)
 {
-	UE_LOG(RuntimeMeshLog, Verbose, TEXT("StaticProvider(%d): Serialize called"), FPlatformTLS::GetCurrentThreadId());
+	RMC_LOG_VERBOSE("Serializing...");
 	Ar.UsingCustomVersion(FRuntimeMeshVersion::GUID);
 
 	Super::Serialize(Ar);
@@ -733,3 +632,116 @@ void URuntimeMeshProviderStatic::Serialize(FArchive& Ar)
 		}
 	}
 }
+
+
+
+
+const TArray<FVector2D> URuntimeMeshProviderStatic::EmptyUVs;
+
+void URuntimeMeshProviderStatic::UpdateSectionAffectsCollision(int32 LODIndex, int32 SectionId, bool bAffectsCollision, bool bForceUpdate)
+{
+	bool bMarkCollisionDirty = false;
+	{
+		FScopeLock Lock(&CollisionSyncRoot);
+		if (LODIndex == LODForMeshCollision)
+		{
+			if (bAffectsCollision && !SectionsForMeshCollision.Contains(SectionId))
+			{
+				SectionsForMeshCollision.Add(SectionId);
+				bMarkCollisionDirty = true;
+			}
+			else if (!bAffectsCollision && SectionsForMeshCollision.Contains(SectionId))
+			{
+				SectionsForMeshCollision.Remove(SectionId);
+				bMarkCollisionDirty = true;
+			}
+		}
+	}
+
+	if (bForceUpdate || bMarkCollisionDirty)
+	{
+		MarkCollisionDirty();
+	}
+}
+
+void URuntimeMeshProviderStatic::UpdateBounds()
+{
+	FBoxSphereBounds NewBounds(FVector::ZeroVector, FVector::ZeroVector, 0);
+	bool bFirst = true;
+
+	for (const auto& LOD : SectionDataMap)
+	{
+		for (const auto& Section : LOD.Value)
+		{
+			if (bFirst)
+			{
+				NewBounds = Section.Value.Get<2>();
+				bFirst = false;
+			}
+			else
+			{
+				NewBounds = NewBounds + Section.Value.Get<2>();
+			}
+		}
+	}
+	CombinedBounds = NewBounds;
+}
+
+FBoxSphereBounds URuntimeMeshProviderStatic::GetBoundsFromMeshData(const FRuntimeMeshRenderableMeshData& MeshData)
+{
+	return FBoxSphereBounds(MeshData.Positions.GetBounds());
+}
+
+void URuntimeMeshProviderStatic::UpdateSectionInternal(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData&& SectionData, FBoxSphereBounds KnownBounds)
+{
+	// This is just to alert the user of invalid mesh data
+	SectionData.HasValidMeshData(true);
+
+
+	{
+		FReadScopeLock Lock(ModifierRWLock);
+
+		for (URuntimeMeshModifier* Modifier : CurrentMeshModifiers)
+		{
+			check(Modifier->IsValidLowLevel());
+
+			Modifier->ApplyToMesh(SectionData);
+		}
+	}
+
+
+	{
+		FScopeLock Lock(&MeshSyncRoot);
+		TMap<int32, FSectionDataMapEntry>* LODSections = SectionDataMap.Find(LODIndex);
+		if (LODSections)
+		{
+			FSectionDataMapEntry* Section = LODSections->Find(SectionId);
+			if (Section)
+			{
+				(*Section) = MakeTuple(Section->Get<0>(), SectionData, KnownBounds);
+
+				UpdateBounds();
+				MarkSectionDirty(LODIndex, SectionId);
+			}
+		}
+	}
+
+	{
+		FScopeLock Lock(&CollisionSyncRoot);
+		if (LODForMeshCollision == LODIndex && SectionsForMeshCollision.Contains(SectionId))
+		{
+			MarkCollisionDirty();
+		}
+	}
+}
+
+void URuntimeMeshProviderStatic::BeginDestroy()
+{
+	{
+		FWriteScopeLock Lock(ModifierRWLock);
+		CurrentMeshModifiers.Empty();
+	}
+	Super::BeginDestroy();
+}
+
+#undef RMC_LOG_VERBOSE
