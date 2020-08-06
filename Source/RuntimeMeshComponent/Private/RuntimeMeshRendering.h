@@ -601,8 +601,7 @@ public:
 		else
 		{
 			FRHIResourceCreateInfo CreateInfo;
-			CreateInfo.bWithoutNativeResource;
-			IndexBufferRHI = CreateRHIBuffer<true>(CreateInfo, sizeof(uint16), 0, bIsDynamicBuffer);
+			IndexBufferRHI = CreateRHIBuffer<true>(CreateInfo, IndexSize, 0, bIsDynamicBuffer);
 		}
 	}
 
