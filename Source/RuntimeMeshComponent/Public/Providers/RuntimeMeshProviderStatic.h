@@ -317,6 +317,9 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static")
 	FRuntimeMeshRenderableMeshData GetSectionRenderDataAndClear(int32 LODIndex, int32 SectionId);
+	
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static")
+	void SetShouldSerializeMeshData(bool bIsSerialized);
 
 
 public:
