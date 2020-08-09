@@ -290,6 +290,11 @@ FRuntimeMeshRenderableMeshData URuntimeMeshProviderStatic::GetSectionRenderDataA
 	return MeshData;
 }
 
+void URuntimeMeshProviderStatic::SetShouldSerializeMeshData(bool bIsSerialized)
+{
+	StoreEditorGeneratedDataForGame = bIsSerialized;
+}
+
 void URuntimeMeshProviderStatic::Initialize()
 {
 	RMC_LOG_VERBOSE("Initializing...");
