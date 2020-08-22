@@ -22,6 +22,7 @@ void URuntimeMeshComponentStatic::OnRegister()
 	else
 	{
 		Initialize(StaticProvider);
+		RuntimeMesh = GetRuntimeMesh();
 	}
 
 	Super::OnRegister();
