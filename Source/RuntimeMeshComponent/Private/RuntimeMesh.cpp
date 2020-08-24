@@ -1149,9 +1149,9 @@ FRuntimeMeshProxyPtr URuntimeMesh::GetRenderProxy(ERHIFeatureLevel::Type InFeatu
 		for (int32 LODIndex = 0; LODIndex < LODs.Num(); LODIndex++)
 		{
 			FRuntimeMeshLOD& LOD = LODs[LODIndex];
-			for (int32 SectionId = 0; SectionId < LOD.Sections.Num(); SectionId++)
+			for (auto pair : LOD.Sections)
 			{
-				RenderProxy->CreateOrUpdateSection_GameThread(LODIndex, SectionId, LOD.Sections[SectionId], true);
+				RenderProxy->CreateOrUpdateSection_GameThread(LODIndex, pair.Key, pair.Value, true);
 				bHadAnyInitialized = true;
 
 			}
