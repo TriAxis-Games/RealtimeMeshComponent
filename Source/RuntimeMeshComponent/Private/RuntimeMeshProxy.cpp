@@ -224,6 +224,19 @@ void FRuntimeMeshProxy::ClearAllSectionsForLOD_RenderThread(int32 LODIndex)
 	RMC_LOG_VERBOSE("ClearAllSectionsForLOD_RenderThread: LOD:%d", LODIndex);
 	check(IsInRenderingThread());
 
+	if (LODs.IsValidIndex(LODIndex))
+	{
+		auto& LOD = LODs[LODIndex];
+		for (auto& SectionEntry : LOD.Sections)
+		{
+			ClearSection(SectionEntry.Value);			
+		}
+		UpdateRenderState();
+	}
+	else
+	{
+		// Invalid LOD
+	}
 }
 
 void FRuntimeMeshProxy::RemoveAllSectionsForLOD_RenderThread(int32 LODIndex)

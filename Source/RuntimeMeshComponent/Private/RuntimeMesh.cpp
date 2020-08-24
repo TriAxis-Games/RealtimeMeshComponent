@@ -874,7 +874,7 @@ void URuntimeMesh::HandleSingleSectionUpdate(const FRuntimeMeshProxyPtr& RenderP
 		Properties.bWants32BitIndices);
 	bool bResult = MeshProviderPtr->GetSectionMeshForLOD(LODId, SectionId, MeshData);
 	
-	if (bResult)
+	if (bResult && MeshData.HasValidMeshData())
 	{
 		// Update section
 		TSharedPtr<FRuntimeMeshSectionUpdateData> UpdateData = MakeShared<FRuntimeMeshSectionUpdateData>(MoveTemp(MeshData));
