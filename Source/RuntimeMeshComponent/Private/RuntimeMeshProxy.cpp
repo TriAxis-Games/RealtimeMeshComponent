@@ -547,7 +547,9 @@ void FRuntimeMeshProxy::ApplyMeshToSection(int32 LODIndex, int32 SectionId, FRun
 		FRuntimeMeshSectionProxyBuffers& Buffers = *Section.Buffers.Get();
 
 		Buffers.VertexFactory.ReleaseResource();
+#if RHI_RAYTRACING
 		Buffers.RayTracingGeometry.ReleaseResource();
+#endif
 	}
 
 	check(!Section.CanRender() || Section.Buffers->VertexFactory.IsInitialized());
