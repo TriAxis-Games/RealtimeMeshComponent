@@ -51,6 +51,7 @@ private:
 	// State tracking for async thread synchronization
 	FThreadSafeBool bQueuedForMeshUpdate;
 
+
 	// Whether this mesh needs to be initialized by the tick object. 
 	// This is to get away from postload so BP calls in the 
 	// provider are safe 
@@ -195,9 +196,11 @@ private:
 	void UpdateAllComponentBounds();
 	void RecreateAllComponentSceneProxies();
 
+
 	void HandleUpdate();
 	void HandleFullLODUpdate(const FRuntimeMeshProxyPtr& RenderProxyRef, int32 LODId, bool& bRequiresProxyRecreate);
 	void HandleSingleSectionUpdate(const FRuntimeMeshProxyPtr& RenderProxyRef, int32 LODId, int32 SectionId, bool& bRequiresProxyRecreate);
+
 
 	static URuntimeMeshComponentEngineSubsystem* GetEngineSubsystem();
 

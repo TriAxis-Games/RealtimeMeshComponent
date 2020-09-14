@@ -153,7 +153,6 @@ private:
 
 
 
-
 	friend class URuntimeMesh;
 	friend class FRuntimeMeshComponentSceneProxy;
 };

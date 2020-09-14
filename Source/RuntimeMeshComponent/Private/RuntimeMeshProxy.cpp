@@ -5,6 +5,7 @@
 #include "RuntimeMeshComponentPlugin.h"
 #include "RuntimeMesh.h"
 
+
 DECLARE_CYCLE_STAT(TEXT("RuntimeMeshProxy - Initialize LDOs - RenderThread"), STAT_RuntimeMeshProxy_InitializeLODs_RT, STATGROUP_RuntimeMesh);
 DECLARE_CYCLE_STAT(TEXT("RuntimeMeshProxy - Clear LOD - RenderThread"), STAT_RuntimeMeshProxy_ClearLOD_RT, STATGROUP_RuntimeMesh);
 DECLARE_CYCLE_STAT(TEXT("RuntimeMeshProxy - Create/Update Section - RenderThread"), STAT_RuntimeMeshProxy_CreateUpdateSection_RT, STATGROUP_RuntimeMesh);
@@ -81,7 +82,6 @@ void FRuntimeMeshProxy::FlushPendingUpdates()
 		Cmd();
 	}
 }
-
 
 
 
@@ -197,6 +197,7 @@ void FRuntimeMeshProxy::ResetProxy_RenderThread()
 	CurrentForcedLOD = INDEX_NONE;
 
 	LODs.Empty();
+
 }
 
 void FRuntimeMeshProxy::InitializeLODs_RenderThread(const TArray<FRuntimeMeshLODProperties>& InProperties)
@@ -449,6 +450,8 @@ void FRuntimeMeshProxy::RemoveSection_RenderThread(int32 LODIndex, int32 Section
 	}
 }
 
+
+
 void FRuntimeMeshProxy::UpdateRenderState()
 {
 	bShouldRender = false;
@@ -547,9 +550,7 @@ void FRuntimeMeshProxy::ApplyMeshToSection(int32 LODIndex, int32 SectionId, FRun
 		FRuntimeMeshSectionProxyBuffers& Buffers = *Section.Buffers.Get();
 
 		Buffers.VertexFactory.ReleaseResource();
-#if RHI_RAYTRACING
 		Buffers.RayTracingGeometry.ReleaseResource();
-#endif
 	}
 
 	check(!Section.CanRender() || Section.Buffers->VertexFactory.IsInitialized());

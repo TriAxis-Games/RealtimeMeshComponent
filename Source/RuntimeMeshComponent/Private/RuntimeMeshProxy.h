@@ -15,6 +15,8 @@ class FRuntimeMeshProxy : public TSharedFromThis<FRuntimeMeshProxy, ESPMode::Thr
 {
 	TInlineLODArray<FRuntimeMeshLODData> LODs;
 
+
+
 	FThreadSafeBool IsQueuedForUpdate;
 	TQueue<TFunction<void()>, EQueueMode::Mpsc> PendingUpdates;
 
@@ -55,6 +57,7 @@ public:
 
 	float GetScreenSize(int32 LODIndex) const;
 
+
 	void QueueForUpdate();
 	void FlushPendingUpdates();
 
@@ -85,7 +88,6 @@ public:
 	void UpdateMultipleSectionsMesh_RenderThread(int32 LODIndex, const TMap<int32, TSharedPtr<FRuntimeMeshSectionUpdateData>>& MeshData);
 	void ClearSection_RenderThread(int32 LODIndex, int32 SectionId);
 	void RemoveSection_RenderThread(int32 LODIndex, int32 SectionId);
-
 
 
 	void UpdateRenderState();

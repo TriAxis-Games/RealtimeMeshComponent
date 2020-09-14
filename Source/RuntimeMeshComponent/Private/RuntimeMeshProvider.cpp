@@ -158,6 +158,7 @@ void URuntimeMeshProvider::MarkCollisionDirty()
 	}
 }
 
+
 void URuntimeMeshProvider::SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial)
 {
 	FReadScopeLock Lock(TargetLock);
@@ -364,6 +365,7 @@ void URuntimeMeshProviderPassthrough::CollisionUpdateCompleted()
 		ChildProvider->CollisionUpdateCompleted();
 	}
 }
+
 
 bool URuntimeMeshProviderPassthrough::IsThreadSafe()
 {

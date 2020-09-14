@@ -59,6 +59,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshProvider|ConfigureLODs")
 	virtual void CollisionUpdateCompleted() { }
 
+
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshProvider|ConfigureLODs")
 	virtual bool IsThreadSafe() { return false; }
 
@@ -78,6 +79,7 @@ public:
 	virtual void ClearSection(int32 LODIndex, int32 SectionId) override;
 	virtual void RemoveSection(int32 LODIndex, int32 SectionId) override;
 	virtual void MarkCollisionDirty() override;
+
 
 	virtual void SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial) override;
 	virtual int32 GetMaterialIndex(FName MaterialSlotName) override;
@@ -137,6 +139,8 @@ public:
 	virtual bool HasCollisionMesh() override;
 	virtual bool GetCollisionMesh(FRuntimeMeshCollisionData& CollisionData) override;
 	virtual void CollisionUpdateCompleted() override;
+
+
 	virtual bool IsThreadSafe() override;
 
 };

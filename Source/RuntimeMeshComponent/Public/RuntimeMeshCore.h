@@ -45,7 +45,6 @@ DECLARE_STATS_GROUP(TEXT("RuntimeMesh"), STATGROUP_RuntimeMesh, STATCAT_Advanced
 template<typename InElementType>
 using TInlineLODArray = TArray<InElementType, TInlineAllocator<RUNTIMEMESH_MAXLODS>>;
 
-
 // Custom version for runtime mesh serialization
 namespace FRuntimeMeshVersion
 {
@@ -54,6 +53,10 @@ namespace FRuntimeMeshVersion
 		Initial = 0,
 		StaticProviderSupportsSerialization = 1,
 		StaticProviderSupportsSerializationV2 = 2,
+		// Premium feature for distance field
+		AddedDistanceField = 3,
+		// Premium feature for reversed, depth only, and reversed depth only index buffers
+		AddedExtraIndexBuffers = 4,
 
 		// -----<new versions can be added above this line>-------------------------------------------------
 		VersionPlusOne,
@@ -245,3 +248,40 @@ private:
 };
 
 #endif
+
+
+USTRUCT()
+struct FRuntimeMeshDistanceFieldData
+{
+	GENERATED_BODY()
+
+	/** 
+	* Distance field data, this can be compressed or not depending on flags.
+	*/
+	TArray<uint8> CompressedDistanceFieldVolume;
+
+	/** Dimensions of DistanceFieldVolume. */
+	FIntVector Size;
+
+	/** Local space bounding box of the distance field volume. */
+	FBox LocalBoundingBox;
+
+	FVector2D DistanceMinMax;
+
+	/** Whether the mesh was closed and therefore a valid distance field was supported. */
+	bool bMeshWasClosed;
+
+	/** Whether the distance field was built assuming that every triangle is a frontface. */
+	bool bBuiltAsIfTwoSided;
+
+	/** Whether the mesh was a plane with very little extent in Z. */
+	bool bMeshWasPlane;
+
+	friend FArchive& operator<<(FArchive& Ar, FRuntimeMeshDistanceFieldData& Data)
+	{
+		Ar << Data.CompressedDistanceFieldVolume << Data.Size << Data.LocalBoundingBox << Data.DistanceMinMax << Data.bMeshWasClosed << Data.bBuiltAsIfTwoSided << Data.bMeshWasPlane;
+		return Ar;
+	}
+};
+
+using FRuntimeMeshDistanceFieldDataPtr = TSharedPtr<FRuntimeMeshDistanceFieldData, ESPMode::ThreadSafe>;

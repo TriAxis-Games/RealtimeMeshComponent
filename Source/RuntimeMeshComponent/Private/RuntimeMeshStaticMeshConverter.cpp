@@ -2,12 +2,14 @@
 
 
 #include "RuntimeMeshStaticMeshConverter.h"
+#include "RuntimeMeshComponentPlugin.h"
 #include "EngineGlobals.h"
 #include "Engine/StaticMesh.h"
 #include "PhysicsEngine/BodySetup.h"
 #include "RuntimeMeshRenderable.h"
 #include "RuntimeMeshComponent.h"
 #include "Providers/RuntimeMeshProviderStatic.h"
+
 
 #define RMC_LOG_VERBOSE(MeshId, Format, ...) \
 	UE_LOG(RuntimeMeshLog2, Verbose, TEXT("[SMC->RMC Mesh:%d Thread:%d]: " Format), MeshId, FPlatformTLS::GetCurrentThreadId(), __VA_ARGS__);
@@ -399,6 +401,7 @@ bool URuntimeMeshStaticMeshConverter::CopyStaticMeshToRuntimeMesh(UStaticMesh* S
 	{
 		StaticProvider->SetCollisionMesh(CollisionData);
 	}
+
 
 	return true;
 }

@@ -53,6 +53,7 @@ class FRuntimeMeshUpdateTask : public FNonAbandonableTask
 				PinnedRef->HandleUpdate();
 				//}
 			}
+
 		}
 	}
 
@@ -602,6 +603,8 @@ void URuntimeMesh::QueueForDelayedInitialize()
 }
 
 
+
+
 void URuntimeMesh::QueueForUpdate()
 {
 	FRuntimeMeshMisc::DoOnGameThread([MeshPtr = GetMeshReference()]()
@@ -899,6 +902,7 @@ void URuntimeMesh::HandleSingleSectionUpdate(const FRuntimeMeshProxyPtr& RenderP
 }
 
 
+
 URuntimeMeshComponentEngineSubsystem* URuntimeMesh::GetEngineSubsystem()
 {
 	URuntimeMeshComponentEngineSubsystem* RMCSubsystem = GEngine->GetEngineSubsystem<URuntimeMeshComponentEngineSubsystem>();
@@ -1162,6 +1166,7 @@ FRuntimeMeshProxyPtr URuntimeMesh::GetRenderProxy(ERHIFeatureLevel::Type InFeatu
 			MarkAllLODsDirty();
 		}
 	}
+
 
 	return RenderProxy;
 }
