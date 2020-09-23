@@ -245,7 +245,7 @@ public:
 		check(InVertexBufferRHI);
 
 		VertexBufferRHI = InVertexBufferRHI;
-		if (RHISupportsManualVertexFetch(GMaxRHIShaderPlatform))
+		if (VertexBufferRHI.IsValid() && RHISupportsManualVertexFetch(GMaxRHIShaderPlatform))
 		{
 		 	ShaderResourceView = RHICreateShaderResourceView(VertexBufferRHI, GetElementDatumSize(), GetElementFormat());
 		}
@@ -601,8 +601,7 @@ public:
 		else
 		{
 			FRHIResourceCreateInfo CreateInfo;
-			CreateInfo.bWithoutNativeResource;
-			IndexBufferRHI = CreateRHIBuffer<true>(CreateInfo, sizeof(uint16), 0, bIsDynamicBuffer);
+			IndexBufferRHI = CreateRHIBuffer<true>(CreateInfo, IndexSize, 0, bIsDynamicBuffer);
 		}
 	}
 

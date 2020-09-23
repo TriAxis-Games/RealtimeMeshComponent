@@ -13,6 +13,7 @@
 #include "RayTracingDefinitions.h"
 #include "RayTracingInstance.h"
 
+
 DECLARE_CYCLE_STAT(TEXT("RuntimeMeshComponentSceneProxy - Create Mesh Batch"), STAT_RuntimeMeshComponentSceneProxy_CreateMeshBatch, STATGROUP_RuntimeMesh);
 DECLARE_CYCLE_STAT(TEXT("RuntimeMeshComponentSceneProxy - Get Dynamic Mesh Elements"), STAT_RuntimeMeshComponentSceneProxy_GetDynamicMeshElements, STATGROUP_RuntimeMesh);
 DECLARE_CYCLE_STAT(TEXT("RuntimeMeshComponentSceneProxy - Draw Static Mesh Elements"), STAT_RuntimeMeshComponentSceneProxy_DrawStaticMeshElements, STATGROUP_RuntimeMesh);
@@ -67,6 +68,8 @@ FRuntimeMeshComponentSceneProxy::FRuntimeMeshComponentSceneProxy(URuntimeMeshCom
 	// We always use local vertex factory, which gets its primitive data from GPUScene, so we can skip expensive primitive uniform buffer updates
 	bVFRequiresPrimitiveUniformBuffer = !UseGPUScene(GMaxRHIShaderPlatform, FeatureLevel);
 	bStaticElementsAlwaysUseProxyPrimitiveUniformBuffer = true;
+	bVerifyUsedMaterials = false;
+
 }
 
 FRuntimeMeshComponentSceneProxy::~FRuntimeMeshComponentSceneProxy()
@@ -119,6 +122,7 @@ void FRuntimeMeshComponentSceneProxy::CreateMeshBatch(FMeshBatch& MeshBatch, con
 	const bool bWantsAdjacencyInfo = !bForRayTracing && !bRenderWireframe && RequiresAdjacencyInformation(Material, Section.Buffers->VertexFactory.GetType(), GetScene().GetFeatureLevel());
 	check(!bWantsAdjacencyInfo || Section.bHasAdjacencyInfo);
 
+
 	// No support for stateless dithered LOD transitions for movable meshes
 	const bool bDitheredLODTransition = !IsMovable() && Material->IsDitheredLODTransition();
 
@@ -126,7 +130,7 @@ void FRuntimeMeshComponentSceneProxy::CreateMeshBatch(FMeshBatch& MeshBatch, con
 	const FRuntimeMeshIndexBuffer* CurrentIndexBuffer =
 		(bWantsAdjacencyInfo ?
 			&Section.Buffers->AdjacencyIndexBuffer :
-			&Section.Buffers->IndexBuffer);
+		&Section.Buffers->IndexBuffer);
 
 	int32 NumIndicesPerTriangle = bWantsAdjacencyInfo ? 12 : 3;
 	int32 NumPrimitives = CurrentIndexBuffer->Num() / NumIndicesPerTriangle;
@@ -284,7 +288,6 @@ void FRuntimeMeshComponentSceneProxy::GetDynamicMeshElements(const TArray<const 
 #endif
 	}
 }
-
 
 
 // This function was exposed on 4.24, previously it existed but wasn't public

@@ -44,6 +44,7 @@ struct FRuntimeMeshSectionProxyBuffers : public TSharedFromThis<FRuntimeMeshSect
 	/** Index buffer for this section */
 	FRuntimeMeshIndexBuffer IndexBuffer;
 
+
 	/** Index buffer for this section */
 	FRuntimeMeshIndexBuffer AdjacencyIndexBuffer;
 
@@ -101,6 +102,7 @@ struct FRuntimeMeshSectionProxyBuffers : public TSharedFromThis<FRuntimeMeshSect
 
 		IndexBuffer.UpdateRHIFromExisting(UpdateData.TrianglesBuffer, UpdateData.Triangles.GetNumElements(), UpdateData.b32BitTriangles, Batcher);
 		AdjacencyIndexBuffer.UpdateRHIFromExisting(UpdateData.AdjacencyTrianglesBuffer, UpdateData.AdjacencyTriangles.GetNumElements(), UpdateData.b32BitAdjacencyTriangles, Batcher);
+
 	}
 
 	void UpdateRayTracingGeometry();

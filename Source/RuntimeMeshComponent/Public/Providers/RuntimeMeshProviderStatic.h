@@ -39,6 +39,7 @@ private:
 	
 	TArray<FRuntimeMeshMaterialSlot> LoadedMaterialSlots;
 
+
 	UPROPERTY(VisibleAnywhere, Category = "RuntimeMesh|Providers|Static")
 	TArray<URuntimeMeshModifier*> CurrentMeshModifiers;
 public:
@@ -317,7 +318,9 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static")
 	FRuntimeMeshRenderableMeshData GetSectionRenderDataAndClear(int32 LODIndex, int32 SectionId);
-
+	
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static")
+	void SetShouldSerializeMeshData(bool bIsSerialized);
 
 public:
 
@@ -327,6 +330,7 @@ public:
 	virtual FRuntimeMeshCollisionSettings GetCollisionSettings() override;
 	virtual bool HasCollisionMesh() override;
 	virtual bool GetCollisionMesh(FRuntimeMeshCollisionData& CollisionData) override;
+
 
 public:
 	virtual void ConfigureLODs(const TArray<FRuntimeMeshLODProperties>& LODSettings) override;

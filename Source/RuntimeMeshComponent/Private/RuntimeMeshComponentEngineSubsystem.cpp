@@ -143,6 +143,7 @@ void URuntimeMeshComponentEngineSubsystem::Tick(float DeltaTime)
 					{
 						MeshRef->HandleUpdate();
 					}
+
 				}
 			}
 		}

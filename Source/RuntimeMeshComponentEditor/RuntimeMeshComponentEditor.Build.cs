@@ -7,7 +7,16 @@ public class RuntimeMeshComponentEditor : ModuleRules
 {
     public RuntimeMeshComponentEditor(ReadOnlyTargetRules rules) : base(rules)
     {
+        bEnforceIWYU = true;
+        bLegacyPublicIncludePaths = false;
+
+#if UE_4_23_OR_LATER
         PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
+#endif
+
+#if UE_4_24_OR_LATER
+#else
+#endif
 
 
         PublicDependencyModuleNames.AddRange(
@@ -18,7 +27,6 @@ public class RuntimeMeshComponentEditor : ModuleRules
                 
             }
             );
-
 
         PrivateDependencyModuleNames.AddRange(
             new string[]
@@ -43,12 +51,6 @@ public class RuntimeMeshComponentEditor : ModuleRules
 
                 "RuntimeMeshComponent",
             }
-            );
-        DynamicallyLoadedModuleNames.AddRange(
-            new string[]
-            {
-				// ... add any modules that your module loads dynamically here ...
-			}
             );
     }
 }

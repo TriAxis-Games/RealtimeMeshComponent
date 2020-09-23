@@ -98,8 +98,6 @@ void URuntimeMeshComponent::ForceProxyRecreate()
 }
 
 
-
-
 FBoxSphereBounds URuntimeMeshComponent::CalcBounds(const FTransform& LocalToWorld) const
 {
 	if (GetRuntimeMesh())
