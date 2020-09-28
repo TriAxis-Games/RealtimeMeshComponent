@@ -4,12 +4,12 @@
 ### If you require support for UE4.20-4.22 you'll need to use the v4 release found here: https://github.com/KoderzUnreal/RuntimeMeshComponent/releases/tag/v4.0
 ---
 
-**For information on installation, usage and everything else, [please read the Wiki](https://runtimemesh.koderz.io/)**
+**For information on installation, usage and everything else, [please read the docs!](https://runtimemesh.koderz.io/)**
 
 ---
 **Join us on [Discord](https://discord.gg/KGvBBTv)**
 
-**Basic examples of the features of the RMC can be found [here!](https://github.com/KoderzUnreal/RuntimeMeshComponent-Examples)**
+**Basic examples of the features of the RMC can be found [here!](https://github.com/TriAxis-Games/RuntimeMeshComponent-Examples)**
 **A more advanced example project can be found [here!](https://github.com/Moddingear/Hexagons)**
 
 **This project is a labor of love, but unfortunately love doesn't pay the bills!
@@ -18,31 +18,49 @@ If you've found this project useful, please consider supporting the development!
 
 ---
 
-The Runtime Mesh Component, or RMC for short, is a component designed specifically to support rendering and collision on meshes generated at runtime. This could be anything from voxel engines like Minecraft, to custom model viewers, or supporting user loaded models. It has numerous different features to support most of the normal rendering needs of a game, as well as ability to support both static collision for things such as terrain, as well as dynamic collision for things that need to be able to move and bounce around!
+The RuntimeMeshComponent or more commonly known as RMC, is a replacement to the ProceduralMeshComponent (aka PMC) found in UE4. The RMC is much more efficient, and carries many more features, while allowing for a much more fine-grained approach for advanced use cases, while being simple to use just like the PMC. It can handle any use case from simply loading models at runtime, to debug views, to modification of existing models all the way up to procedural generation of entire worlds!
 
-The RMC is very similar in purpose to the ProceduralMeshComponent or CustomMeshComponent currently found in UE4, but far surpasses both in features, and efficiency! Both the Procedural Mesh Component and Custom Mesh Component are memory heavy, the Procedural Mesh Component is inefficient both in its rendering path as well as update logic, and the Custom Mesh Component is very lacking in any real features.
-
-Version 4 is a total redesign of the component, to better support the wide variety of cases people have used it for, and more in the future. With this it has departed being backward compatible or cross compatible with the Procedural Mesh Component, but for that it has gained a massive amount of customizability, as well as compartmentalization of logic to better increase efficiency. 
-
-Upgrading from the PMC to the RMC isn't difficult. Visit the [Wiki](https://github.com/Koderz/UE4RuntimeMeshComponent/wiki/) to find out more!
+The RMC has been around for 4+ years and has an active community of users from individuals, to schools, to Fortune 500 companies, with many released projects. You can also find active support in our Discord server here: https://discord.gg/KGvBBTv
 
 ---
 
-*List of features for V4: (Those with asterisks not yet completed, or tested)*
-* Full support for variable mesh configurations
+Features (Community Edition):
+* Full Collision Support, both static triangle mesh and dynamic moving objects
+* Variable mesh formats, allowing for tradeoff in needed features and memory/performance overhead
 * Up to 8 Texture Coordinate (UV) channels
-* High or normal precision Texture Coordinate (UV) channels
-* High or normal precision normals/tangents
-* LOD Support (Both static and dynamic draw paths functional, with dithering support)
-* Automatic Normal/Tangent calculation possible
-* Navigation Mesh Support
-* RMC <-> StaticMesh conversions (RMC -> SMC only works in editor due to engine limits)
-* Configurable Render Paths, (Quicker Update, Slower Render) (Slower Update, Quicker Render)
-* No mesh data stored internally, much lower memory footprint, mesh data can be cached by provider if wanted
-* Material Slots, just like Static Mesh Component
-* Visibility/Shadowing are configurable per section.
-* Collision separate from rendering (collision can use render mesh automatically with use of provider)
-* Tessellation Support
+* Normal or High preicision Texture Coordinate (UV) channels
+* Normal or High preicision texture coordinates, supports engine feature for high precision normals
+* LOD Support, alowing engine maximum of 8 LOD levels and full dithering support
+* Full NavMesh support
+* Tessellation support, including generation
+* Full threading support, both internally managing threads and allowing for your external threading safely around the garbage collector.
+* Async collision updates. As collision can be slow to update, the RMC can offload it from the game thread.
+* Separate collision from rendering
+* StaticMesh conversion in game and editor.
+* Tangent generation utility
+* Mesh Slicer
+
+
+Features (Premium Edition):
+* All features found in RMC-Community!
+* Additional Reversed Indices buffer for inverted views or inverted transforms like negative scaling.
+* Depth Only Indices, allow for a separate index buffer for depth prepass and shadows for improved performance
+* Distance Field support. Supports engine features like DF Shadows, and DF Ambient Occlusion, and material distance queries, and Niagara collision
+* Distance Field generation on CPU. RMC can generate the DF for you on the CPU, GPU implementation coming later.
+* Model loading of many common formats including obj, stl, fbx, x, 3ds, dae, and more through Assimp
+* Optimization-ReIndex, can reindex the mesh to remove redundant vertices.
+* Optimization-VertexOrder, Forsyth algorithm to optimize the order of vertices to improve caching efficiency
+* Optimization-Overdraw, Reducing overdraw of a mesh by rearranging triangles
+* Optimization-VertexFetch, Improve memory coherency by ordering vertex buffer to more efficiently work with triangle order
+* Texture loading support for .jpg/.jpeg, .png, .tga, .bmp, .psd, .gif
+* Texture mipmap generation support
+
+
+Improvements over PMC:
+* 50-90% Lower memory useage than PMC
+* 30-100% lower render thread cpu time
+* Static draw path for maximum rendering performance
+* Dynamic Draw path for efficient frequent updates.
 
 
 
