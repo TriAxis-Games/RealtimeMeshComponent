@@ -35,4 +35,4 @@ public:
 	}
 };
 
-DECLARE_LOG_CATEGORY_EXTERN(RuntimeMeshLog2, Warning, All);
+DECLARE_LOG_CATEGORY_EXTERN(RuntimeMeshLog, Warning, All);

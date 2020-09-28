@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "RuntimeMesh.h"
 #include "RuntimeMeshSectionProxy.h"
+#include "Materials/Material.h"
 
 class UBodySetup;
 class URuntimeMeshComponent;

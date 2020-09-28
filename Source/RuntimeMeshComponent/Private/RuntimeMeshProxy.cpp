@@ -16,7 +16,7 @@ DECLARE_CYCLE_STAT(TEXT("RuntimeMeshProxy - Remove All Sections - RenderThread")
 DECLARE_CYCLE_STAT(TEXT("RuntimeMeshProxy - Remove Section - RenderThread"), STAT_RuntimeMeshProxy_RemoveSection_RT, STATGROUP_RuntimeMesh);
 
 #define RMC_LOG_VERBOSE(Format, ...) \
-	UE_LOG(RuntimeMeshLog2, Verbose, TEXT("[RMSP:%d Mesh:%d Thread:%d]: " Format), GetUniqueID(), ParentMeshId, FPlatformTLS::GetCurrentThreadId(), __VA_ARGS__);
+	UE_LOG(RuntimeMeshLog, Verbose, TEXT("[RMSP:%d Mesh:%d Thread:%d]: " Format), GetUniqueID(), ParentMeshId, FPlatformTLS::GetCurrentThreadId(), ##__VA_ARGS__);
 
 FRuntimeMeshProxy::FRuntimeMeshProxy(uint32 InParentMeshId)
 	: bShouldRender(false)
@@ -550,7 +550,9 @@ void FRuntimeMeshProxy::ApplyMeshToSection(int32 LODIndex, int32 SectionId, FRun
 		FRuntimeMeshSectionProxyBuffers& Buffers = *Section.Buffers.Get();
 
 		Buffers.VertexFactory.ReleaseResource();
+#if RHI_RAYTRACING
 		Buffers.RayTracingGeometry.ReleaseResource();
+#endif
 	}
 
 	check(!Section.CanRender() || Section.Buffers->VertexFactory.IsInitialized());

@@ -6,7 +6,7 @@
 
 
 #define RMC_LOG_VERBOSE(Format, ...) \
-	UE_LOG(RuntimeMeshLog2, Verbose, TEXT("[RMPS:%d Thread:%d]: " Format), GetUniqueID(), FPlatformTLS::GetCurrentThreadId(), __VA_ARGS__);
+	UE_LOG(RuntimeMeshLog, Verbose, TEXT("[RMPS:%d Thread:%d]: " Format), GetUniqueID(), FPlatformTLS::GetCurrentThreadId(), ##__VA_ARGS__);
 
 URuntimeMeshProviderStatic::URuntimeMeshProviderStatic()
 	: StoreEditorGeneratedDataForGame(true)
