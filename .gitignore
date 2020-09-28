@@ -83,7 +83,7 @@ DerivedDataCache/*
 .DS_Store
 
 # Un-Ignore All ThirdParty binary/libs etc.
-!ThirdParty/**
+!Source/ThirdParty/**
 
 # Ignore Export directory
 Export/**
