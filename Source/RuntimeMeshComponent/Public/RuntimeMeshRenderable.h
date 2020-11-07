@@ -1,4 +1,4 @@
-// Copyright 2016-2020 Chris Conway (Koderz). All Rights Reserved.
+// Copyright 2016-2020 TriAxis Games L.L.C. All Rights Reserved.
 
 #pragma once
 
@@ -880,19 +880,26 @@ public:
 	FRuntimeMeshTriangleStream AdjacencyTriangles;
 
 	FRuntimeMeshRenderableMeshData()
-		: Tangents(false), TexCoords(1, false), Triangles(false), AdjacencyTriangles(false)
+		: Tangents(false)
+		, TexCoords(1, false)
+		, Triangles(false)
+		, AdjacencyTriangles(false)
 	{
 
 	}
 	FRuntimeMeshRenderableMeshData(FRuntimeMeshSectionProperties SectionProps)
-		: Tangents(SectionProps.bUseHighPrecisionTangents), TexCoords(SectionProps.NumTexCoords, SectionProps.bUseHighPrecisionTexCoords)
-		, Triangles(SectionProps.bWants32BitIndices), AdjacencyTriangles(SectionProps.bWants32BitIndices)
+		: Tangents(SectionProps.bUseHighPrecisionTangents)
+		, TexCoords(SectionProps.NumTexCoords, SectionProps.bUseHighPrecisionTexCoords)
+		, Triangles(SectionProps.bWants32BitIndices)
+		, AdjacencyTriangles(SectionProps.bWants32BitIndices)
 	{
 
 	}
 	FRuntimeMeshRenderableMeshData(bool bWantsHighPrecisionTangents, bool bWantsHighPrecisionTexCoords, uint8 NumTexCoords, bool bWants32BitIndices)
-		: Tangents(bWantsHighPrecisionTangents), TexCoords(NumTexCoords, bWantsHighPrecisionTexCoords)
-		, Triangles(bWants32BitIndices), AdjacencyTriangles(bWants32BitIndices)
+		: Tangents(bWantsHighPrecisionTangents)
+		, TexCoords(NumTexCoords, bWantsHighPrecisionTexCoords)
+		, Triangles(bWants32BitIndices)
+		, AdjacencyTriangles(bWants32BitIndices)
 	{
 
 	}
@@ -941,6 +948,15 @@ public:
 		MeshData.Colors.Serialize(Ar);
 
 		MeshData.Triangles.Serialize(Ar);
+
+		if (Ar.CustomVer(FRuntimeMeshVersion::GUID) > FRuntimeMeshVersion::AddedExtraIndexBuffers)
+		{
+			FRuntimeMeshTriangleStream NullTriangles(false);
+			NullTriangles.Serialize(Ar);
+			NullTriangles.Serialize(Ar);
+			NullTriangles.Serialize(Ar);
+		}
+
 		MeshData.AdjacencyTriangles.Serialize(Ar);
 
 		return Ar;

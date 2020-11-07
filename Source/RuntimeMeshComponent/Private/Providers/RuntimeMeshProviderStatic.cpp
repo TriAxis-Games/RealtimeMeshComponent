@@ -1,11 +1,12 @@
-// Copyright 2016-2020 Chris Conway (Koderz). All Rights Reserved.
+// Copyright 2016-2020 TriAxis Games L.L.C. All Rights Reserved.
 
 #include "Providers/RuntimeMeshProviderStatic.h"
 #include "RuntimeMeshComponentPlugin.h"
 #include "RuntimeMeshModifier.h"
 
+
 #define RMC_LOG_VERBOSE(Format, ...) \
-	UE_LOG(RuntimeMeshLog2, Verbose, TEXT("[RMPS:%d Thread:%d]: " Format), GetUniqueID(), FPlatformTLS::GetCurrentThreadId(), __VA_ARGS__);
+	UE_LOG(RuntimeMeshLog, Verbose, TEXT("[RMPS:%d Thread:%d]: " Format), GetUniqueID(), FPlatformTLS::GetCurrentThreadId(), ##__VA_ARGS__);
 
 URuntimeMeshProviderStatic::URuntimeMeshProviderStatic()
 	: StoreEditorGeneratedDataForGame(true)
@@ -295,6 +296,8 @@ void URuntimeMeshProviderStatic::SetShouldSerializeMeshData(bool bIsSerialized)
 	StoreEditorGeneratedDataForGame = bIsSerialized;
 }
 
+
+
 void URuntimeMeshProviderStatic::Initialize()
 {
 	RMC_LOG_VERBOSE("Initializing...");
@@ -479,7 +482,6 @@ bool URuntimeMeshProviderStatic::GetCollisionMesh(FRuntimeMeshCollisionData& Col
 }
 
 
-
 void URuntimeMeshProviderStatic::ConfigureLODs(const TArray<FRuntimeMeshLODProperties>& LODSettings)
 {
 	check(LODSettings.Num() > 0 && LODSettings.Num() <= RUNTIMEMESH_MAXLODS);
@@ -641,6 +643,30 @@ void URuntimeMeshProviderStatic::Serialize(FArchive& Ar)
 				if (Ar.IsLoading())
 				{
 					LoadedMaterialSlots = MaterialSlots;
+				}
+			}
+
+			if (Ar.CustomVer(FRuntimeMeshVersion::GUID) >= FRuntimeMeshVersion::AddedDistanceField)
+			{
+				if (Ar.IsSaving())
+				{
+					bool bHasDistanceField = false;
+					Ar << bHasDistanceField;
+					if (bHasDistanceField)
+					{
+						FRuntimeMeshDistanceFieldData NullDistanceField;
+						Ar << NullDistanceField;
+					}
+				}
+				else if (Ar.IsLoading())
+				{
+					bool bHasDistanceField;
+					Ar << bHasDistanceField;
+					if (bHasDistanceField)
+					{
+						FRuntimeMeshDistanceFieldData NullDistanceField;
+						Ar << NullDistanceField;
+					}
 				}
 			}
 		}

@@ -1,4 +1,4 @@
-// Copyright 2016-2020 Chris Conway (Koderz). All Rights Reserved.
+// Copyright 2016-2020 TriAxis Games L.L.C. All Rights Reserved.
 
 #pragma once
 
@@ -43,6 +43,7 @@ struct FRuntimeMeshSectionProxyBuffers : public TSharedFromThis<FRuntimeMeshSect
 
 	/** Index buffer for this section */
 	FRuntimeMeshIndexBuffer IndexBuffer;
+
 
 	/** Index buffer for this section */
 	FRuntimeMeshIndexBuffer AdjacencyIndexBuffer;
@@ -101,6 +102,7 @@ struct FRuntimeMeshSectionProxyBuffers : public TSharedFromThis<FRuntimeMeshSect
 
 		IndexBuffer.UpdateRHIFromExisting(UpdateData.TrianglesBuffer, UpdateData.Triangles.GetNumElements(), UpdateData.b32BitTriangles, Batcher);
 		AdjacencyIndexBuffer.UpdateRHIFromExisting(UpdateData.AdjacencyTrianglesBuffer, UpdateData.AdjacencyTriangles.GetNumElements(), UpdateData.b32BitAdjacencyTriangles, Batcher);
+
 	}
 
 	void UpdateRayTracingGeometry();

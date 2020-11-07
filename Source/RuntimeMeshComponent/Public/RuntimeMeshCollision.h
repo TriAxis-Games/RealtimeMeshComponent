@@ -1,4 +1,4 @@
-// Copyright 2016-2020 Chris Conway (Koderz). All Rights Reserved.
+// Copyright 2016-2020 TriAxis Games L.L.C. All Rights Reserved.
 
 #pragma once
 
@@ -18,7 +18,7 @@ struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshCollisionConvexMesh
 	GENERATED_BODY()
 
 public:
-	FRuntimeMeshCollisionConvexMesh() { }
+	FRuntimeMeshCollisionConvexMesh() : BoundingBox(ForceInit) { }
 	FRuntimeMeshCollisionConvexMesh(const TArray<FVector>& InVertexBuffer)
 		: VertexBuffer(InVertexBuffer)
 		, BoundingBox(InVertexBuffer)
@@ -26,8 +26,8 @@ public:
 	}
 	FRuntimeMeshCollisionConvexMesh(TArray<FVector>&& InVertexBuffer)
 		: VertexBuffer(InVertexBuffer)
+		, BoundingBox(VertexBuffer)
 	{
-		BoundingBox = FBox(VertexBuffer);
 	}
 	FRuntimeMeshCollisionConvexMesh(const TArray<FVector>& InVertexBuffer, const FBox& InBoundingBox)
 		: VertexBuffer(InVertexBuffer)
@@ -36,8 +36,8 @@ public:
 	}
 	FRuntimeMeshCollisionConvexMesh(TArray<FVector>&& InVertexBuffer, const FBox& InBoundingBox)
 		: VertexBuffer(InVertexBuffer)
+		, BoundingBox(VertexBuffer)
 	{
-		BoundingBox = FBox(VertexBuffer);
 	}
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Collision|Convex")

@@ -1,4 +1,4 @@
-// Copyright 2016-2020 Chris Conway (Koderz). All Rights Reserved.
+// Copyright 2016-2020 TriAxis Games L.L.C. All Rights Reserved.
 
 
 #include "RuntimeMeshProvider.h"
@@ -157,6 +157,7 @@ void URuntimeMeshProvider::MarkCollisionDirty()
 		Target->MarkCollisionDirty();
 	}
 }
+
 
 void URuntimeMeshProvider::SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial)
 {
@@ -364,6 +365,7 @@ void URuntimeMeshProviderPassthrough::CollisionUpdateCompleted()
 		ChildProvider->CollisionUpdateCompleted();
 	}
 }
+
 
 bool URuntimeMeshProviderPassthrough::IsThreadSafe()
 {

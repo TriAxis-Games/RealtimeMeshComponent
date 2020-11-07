@@ -1,4 +1,4 @@
-// Copyright 2016-2020 Chris Conway (Koderz). All Rights Reserved.
+// Copyright 2016-2020 TriAxis Games L.L.C. All Rights Reserved.
 
 #pragma once
 
@@ -38,6 +38,7 @@ private:
 	FBoxSphereBounds CombinedBounds;
 	
 	TArray<FRuntimeMeshMaterialSlot> LoadedMaterialSlots;
+
 
 	UPROPERTY(VisibleAnywhere, Category = "RuntimeMesh|Providers|Static")
 	TArray<URuntimeMeshModifier*> CurrentMeshModifiers;
@@ -321,7 +322,6 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMesh|Providers|Static")
 	void SetShouldSerializeMeshData(bool bIsSerialized);
 
-
 public:
 
 	virtual void Initialize() override;
@@ -330,6 +330,7 @@ public:
 	virtual FRuntimeMeshCollisionSettings GetCollisionSettings() override;
 	virtual bool HasCollisionMesh() override;
 	virtual bool GetCollisionMesh(FRuntimeMeshCollisionData& CollisionData) override;
+
 
 public:
 	virtual void ConfigureLODs(const TArray<FRuntimeMeshLODProperties>& LODSettings) override;

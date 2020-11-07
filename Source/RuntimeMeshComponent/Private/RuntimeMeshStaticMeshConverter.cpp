@@ -1,7 +1,8 @@
-// Copyright 2016-2020 Chris Conway (Koderz). All Rights Reserved.
+// Copyright 2016-2020 TriAxis Games L.L.C. All Rights Reserved.
 
 
 #include "RuntimeMeshStaticMeshConverter.h"
+#include "RuntimeMeshComponentPlugin.h"
 #include "EngineGlobals.h"
 #include "Engine/StaticMesh.h"
 #include "PhysicsEngine/BodySetup.h"
@@ -9,8 +10,9 @@
 #include "RuntimeMeshComponent.h"
 #include "Providers/RuntimeMeshProviderStatic.h"
 
+
 #define RMC_LOG_VERBOSE(MeshId, Format, ...) \
-	UE_LOG(RuntimeMeshLog2, Verbose, TEXT("[SMC->RMC Mesh:%d Thread:%d]: " Format), MeshId, FPlatformTLS::GetCurrentThreadId(), __VA_ARGS__);
+	UE_LOG(RuntimeMeshLog, Verbose, TEXT("[SMC->RMC Mesh:%d Thread:%d]: " Format), MeshId, FPlatformTLS::GetCurrentThreadId(), ##__VA_ARGS__);
 
 
 int32 URuntimeMeshStaticMeshConverter::CopyVertexOrGetIndex(const FStaticMeshLODResources& LOD, const FStaticMeshSection& Section, TMap<int32, int32>& MeshToSectionVertexMap, int32 VertexIndex, FRuntimeMeshRenderableMeshData& NewMeshData)
@@ -399,6 +401,7 @@ bool URuntimeMeshStaticMeshConverter::CopyStaticMeshToRuntimeMesh(UStaticMesh* S
 	{
 		StaticProvider->SetCollisionMesh(CollisionData);
 	}
+
 
 	return true;
 }

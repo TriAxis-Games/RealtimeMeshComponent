@@ -1,4 +1,4 @@
-// Copyright 2016-2020 Chris Conway (Koderz). All Rights Reserved.
+// Copyright 2016-2020 TriAxis Games L.L.C. All Rights Reserved.
 
 #include "RuntimeMesh.h"
 #include "RuntimeMeshComponentPlugin.h"
@@ -24,7 +24,7 @@ DECLARE_CYCLE_STAT(TEXT("RuntimeMeshDelayedActions - Finalize Collision Cooked D
 
 
 #define RMC_LOG_VERBOSE(Format, ...) \
-	UE_LOG(RuntimeMeshLog2, Verbose, TEXT("[RM:%d Thread:%d]: " Format), GetMeshId(), FPlatformTLS::GetCurrentThreadId(), __VA_ARGS__);
+	UE_LOG(RuntimeMeshLog, Verbose, TEXT("[RM:%d Thread:%d]: " Format), GetMeshId(), FPlatformTLS::GetCurrentThreadId(), ##__VA_ARGS__);
 
 
 
@@ -53,6 +53,7 @@ class FRuntimeMeshUpdateTask : public FNonAbandonableTask
 				PinnedRef->HandleUpdate();
 				//}
 			}
+
 		}
 	}
 
@@ -602,6 +603,8 @@ void URuntimeMesh::QueueForDelayedInitialize()
 }
 
 
+
+
 void URuntimeMesh::QueueForUpdate()
 {
 	FRuntimeMeshMisc::DoOnGameThread([MeshPtr = GetMeshReference()]()
@@ -874,7 +877,7 @@ void URuntimeMesh::HandleSingleSectionUpdate(const FRuntimeMeshProxyPtr& RenderP
 		Properties.bWants32BitIndices);
 	bool bResult = MeshProviderPtr->GetSectionMeshForLOD(LODId, SectionId, MeshData);
 	
-	if (bResult)
+	if (bResult && MeshData.HasValidMeshData())
 	{
 		// Update section
 		TSharedPtr<FRuntimeMeshSectionUpdateData> UpdateData = MakeShared<FRuntimeMeshSectionUpdateData>(MoveTemp(MeshData));
@@ -897,6 +900,7 @@ void URuntimeMesh::HandleSingleSectionUpdate(const FRuntimeMeshProxyPtr& RenderP
 		bRequiresProxyRecreate = true;
 	}
 }
+
 
 
 URuntimeMeshComponentEngineSubsystem* URuntimeMesh::GetEngineSubsystem()
@@ -1162,6 +1166,7 @@ FRuntimeMeshProxyPtr URuntimeMesh::GetRenderProxy(ERHIFeatureLevel::Type InFeatu
 			MarkAllLODsDirty();
 		}
 	}
+
 
 	return RenderProxy;
 }
