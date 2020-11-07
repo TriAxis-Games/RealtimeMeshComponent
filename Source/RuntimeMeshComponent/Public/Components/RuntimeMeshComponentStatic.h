@@ -189,6 +189,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshStatic|Mesh", Meta = (DisplayName = "Clear Section"))
 	void ClearSection(int32 LODIndex, int32 SectionId);
 
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshStatic|Mesh", Meta = (DisplayName = "Clear Section"))
+	void RemoveSection(int32 LODIndex, int32 SectionId);
+
 
 
 	UFUNCTION(BlueprintPure, Category = "RuntimeMeshStatic|Collision")

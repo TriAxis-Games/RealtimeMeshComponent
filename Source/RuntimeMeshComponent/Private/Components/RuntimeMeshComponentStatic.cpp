@@ -105,6 +105,11 @@ void URuntimeMeshComponentStatic::ClearSection(int32 LODIndex, int32 SectionId)
 	StaticProvider->ClearSection(LODIndex, SectionId);
 }
 
+void URuntimeMeshComponentStatic::RemoveSection(int32 LODIndex, int32 SectionId)
+{
+	StaticProvider->RemoveSection(LODIndex, SectionId);
+}
+
 void URuntimeMeshComponentStatic::SetCollisionSettings(const FRuntimeMeshCollisionSettings & NewCollisionSettings)
 {
 	StaticProvider->SetCollisionSettings(NewCollisionSettings);

@@ -566,6 +566,11 @@ void URuntimeMeshProviderStatic::ClearSection(int32 LODIndex, int32 SectionId)
 				Section->Get<1>().Reset();
 				UpdateBounds();
 			}
+
+		}
+		if (LODIndex == LODForMeshCollision && SectionsForMeshCollision.Contains(SectionId)) //collision needs to be cleared
+		{
+			UpdateSectionAffectsCollision(LODIndex, SectionId, true, true); //section should still be set as needed for collision but collision mesh needs to be updated
 		}
 	}
 	URuntimeMeshProvider::ClearSection(LODIndex, SectionId);
@@ -587,6 +592,10 @@ void URuntimeMeshProviderStatic::RemoveSection(int32 LODIndex, int32 SectionId)
 				}
 				UpdateBounds();
 			}
+		}
+		if (LODIndex == LODForMeshCollision && SectionsForMeshCollision.Contains(SectionId)) //collision needs to be removed
+		{
+			UpdateSectionAffectsCollision(LODIndex, SectionId, true, true); //section should still be set as needed for collision but collision mesh needs to be updated
 		}
 	}
 	URuntimeMeshProvider::RemoveSection(LODIndex, SectionId);
