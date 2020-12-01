@@ -362,8 +362,8 @@ public:
 		return ChannelCount;
 	}
 
-	FORCEINLINE int32 GetElementSize() const { return (bIsHighPrecision ? sizeof(FVector2D) : sizeof(FVector2DHalf)); }
-	FORCEINLINE int32 GetStride() const { return GetElementSize() * ChannelCount; }
+	FORCEINLINE int32 GetElementSize() const { return (bIsHighPrecision ? sizeof(FVector2D) : sizeof(FVector2DHalf)); } //size in bytes
+	FORCEINLINE int32 GetStride() const { return GetElementSize() * ChannelCount; } //num of bytes per texture in data
 
 	FORCEINLINE int32 Num() const
 	{
@@ -391,12 +391,12 @@ public:
 		if (bIsHighPrecision)
 		{
 			static const int32 ElementSize = sizeof(FVector2D);
-			*((FVector2D*)&Data[(Index * Stride) + (ChannelId * ElementSize)]) = InTexCoord;
+			*((FVector2D*)&Data[(Index * Stride * ChannelCount) + (ChannelId * ElementSize)]) = InTexCoord;
 		}
 		else
 		{
 			static const int32 ElementSize = sizeof(FVector2DHalf);
-			*((FVector2DHalf*)&Data[(Index * Stride) + (ChannelId * ElementSize)]) = InTexCoord;
+			*((FVector2DHalf*)&Data[(Index * Stride * ChannelCount) + (ChannelId * ElementSize)]) = InTexCoord;
 		}
 
 		return Index / Stride;
