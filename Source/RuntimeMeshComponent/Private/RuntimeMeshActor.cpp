@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Chris Conway (Koderz). All Rights Reserved.
+// Copyright 2016-2020 TriAxis Games L.L.C. All Rights Reserved.
 
 #include "RuntimeMeshActor.h"
 #include "RuntimeMeshComponent.h"
@@ -9,20 +9,18 @@
 
 ARuntimeMeshActor::ARuntimeMeshActor(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
-	, bRunGenerateMeshesOnConstruction(true)
-	, bRunGenerateMeshesOnBeginPlay(false)
 {
+#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 24
+	SetCanBeDamaged(false);
+#else
 	bCanBeDamaged = false;
+#endif
 
 	RuntimeMeshComponent = CreateDefaultSubobject<URuntimeMeshComponent>(TEXT("RuntimeMeshComponent0"));
 	RuntimeMeshComponent->SetCollisionProfileName(UCollisionProfile::BlockAll_ProfileName);
 	RuntimeMeshComponent->Mobility = EComponentMobility::Static;
 
-#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 20
 	RuntimeMeshComponent->SetGenerateOverlapEvents(false);
-#else
-	RuntimeMeshComponent->bGenerateOverlapEvents = false;
-#endif
 	RootComponent = RuntimeMeshComponent;
 }
 
@@ -58,42 +56,5 @@ EComponentMobility::Type ARuntimeMeshActor::GetMobility()
 		return RuntimeMeshComponent->Mobility;
 	}
 	return EComponentMobility::Static;
-}
-
-void ARuntimeMeshActor::OnConstruction(const FTransform& Transform)
-{
-	Super::OnConstruction(Transform);
-	
-	if (bRunGenerateMeshesOnConstruction)
-	{
-		GenerateMeshes();
-	}
-}
-
-void ARuntimeMeshActor::BeginPlay()
-{
-	Super::BeginPlay();
-	
-	bool bIsGameWorld = GetWorld() && GetWorld()->IsGameWorld() && !GetWorld()->IsPreviewWorld() && !GetWorld()->IsEditorWorld();
-
-	bool bHadSerializedMeshData = false;
-	if (RuntimeMeshComponent)
-	{
-		URuntimeMesh* Mesh = RuntimeMeshComponent->GetRuntimeMesh();
-		if (Mesh)
-		{
-			bHadSerializedMeshData = Mesh->ShouldSerializeMeshData();
-		}
-	}
-
-	if ((bIsGameWorld && !bHadSerializedMeshData) || bRunGenerateMeshesOnBeginPlay)
-	{
-		GenerateMeshes();
-	}
-}
-
-void ARuntimeMeshActor::GenerateMeshes_Implementation()
-{
-
 }
 

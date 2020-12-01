@@ -1,10 +1,10 @@
-// Copyright 2016-2018 Chris Conway (Koderz). All Rights Reserved.
+// Copyright 2016-2020 TriAxis Games L.L.C. All Rights Reserved.
 
 #pragma once
 #include "IDetailCustomization.h"
 #include "DetailLayoutBuilder.h"
 #include "RuntimeMesh.h"
-#include "SlateEnums.h"
+#include "Types/SlateEnums.h"
 
 class FRuntimeMeshComponentDetails : public IDetailCustomization
 {
@@ -27,29 +27,4 @@ public:
 	/** Cached array of selected objects */
 	TArray<TWeakObjectPtr<UObject>> SelectedObjectsList;
 	TArray<URuntimeMesh*> RuntimeMeshesReferenced;
-
-	TArray<TSharedPtr<ERuntimeMeshCollisionCookingMode>> CookingModes;
-
-	ECheckBoxState UseComplexAsSimple() const;
-	void UseComplexAsSimpleCheckedStateChanged(ECheckBoxState InCheckboxState);
-
-	ECheckBoxState IsAsyncCollisionEnabled() const;
-	void AsyncCollisionCheckedStateChanged(ECheckBoxState InCheckboxState);
-
-	ECheckBoxState ShouldSerializeMeshData() const;
-	void ShouldSerializeMeshDataCheckedStateChanged(ECheckBoxState InCheckboxState);
-
-	FText GetModeText(const TSharedPtr<ERuntimeMeshCollisionCookingMode>& Mode) const;
-
-	FText GetSelectedModeText() const 
-	{
-		return GetModeText(GetCurrentCollisionCookingMode());
-	}
-
-	TSharedRef<SWidget> MakeCollisionModeComboItemWidget(TSharedPtr<ERuntimeMeshCollisionCookingMode> Mode);
-
-	TSharedPtr<ERuntimeMeshCollisionCookingMode> GetCurrentCollisionCookingMode() const;
-
-	void CollisionCookingModeSelectionChanged(TSharedPtr<ERuntimeMeshCollisionCookingMode> NewMode, ESelectInfo::Type SelectionType);
-
 };

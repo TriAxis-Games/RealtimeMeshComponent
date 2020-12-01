@@ -1,28 +1,22 @@
-// Copyright 2016-2018 Chris Conway (Koderz). All Rights Reserved.
+// Copyright 2016-2020 TriAxis Games L.L.C. All Rights Reserved.
 
+using System.IO;
 using UnrealBuildTool;
 
 public class RuntimeMeshComponentEditor : ModuleRules
 {
     public RuntimeMeshComponentEditor(ReadOnlyTargetRules rules) : base(rules)
     {
+        bEnforceIWYU = true;
+        bLegacyPublicIncludePaths = false;
+
+#if UE_4_23_OR_LATER
         PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
+#endif
 
-        // HORU: this was throwing warnings
-        //     PublicIncludePaths.AddRange(
-        //         new string[] {
-        //             "RuntimeMeshComponentEditor/Public"
-        //	// ... add public include paths required here ...
-        //}
-        //         );
-
-        // HORU: this was throwing warnings
-        //     PrivateIncludePaths.AddRange(
-        //         new string[] {
-        //             "RuntimeMeshComponentEditor/Private",
-        //	// ... add other private include paths required here ...
-        //}
-        //         );
+#if UE_4_24_OR_LATER
+#else
+#endif
 
 
         PublicDependencyModuleNames.AddRange(
@@ -33,7 +27,6 @@ public class RuntimeMeshComponentEditor : ModuleRules
                 
             }
             );
-
 
         PrivateDependencyModuleNames.AddRange(
             new string[]
@@ -58,12 +51,6 @@ public class RuntimeMeshComponentEditor : ModuleRules
 
                 "RuntimeMeshComponent",
             }
-            );
-        DynamicallyLoadedModuleNames.AddRange(
-            new string[]
-            {
-				// ... add any modules that your module loads dynamically here ...
-			}
             );
     }
 }

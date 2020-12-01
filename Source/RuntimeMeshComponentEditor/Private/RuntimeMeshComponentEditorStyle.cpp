@@ -1,10 +1,10 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 2016-2020 TriAxis Games L.L.C. All Rights Reserved.
 
 #include "RuntimeMeshComponentEditorStyle.h"
 #include "Framework/Application/SlateApplication.h"
 #include "Styling/SlateStyleRegistry.h"
-#include "SlateGameResources.h"
-#include "IPluginManager.h"
+#include "Slate/SlateGameResources.h"
+#include "Interfaces/IPluginManager.h"
 
 TSharedPtr< FSlateStyleSet > FRuntimeMeshComponentEditorStyle::StyleInstance = NULL;
 

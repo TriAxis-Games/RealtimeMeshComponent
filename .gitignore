@@ -1,3 +1,6 @@
+# Git files
+.git/
+
 # Visual Studio 2015 user specific files
 .vs/
 
@@ -49,7 +52,7 @@ SourceArt/**/*.png
 SourceArt/**/*.tga
 
 # Binary Files
-Binaries/*
+Binaries/**
 Plugins/*/Binaries/*
 
 # Builds
@@ -70,8 +73,26 @@ Build/*/**
 Saved/*
 
 # Compiled source files for the engine to use
-Intermediate/*
+Intermediate/**
 Plugins/*/Intermediate/*
 
 # Cache files for the editor to use
 DerivedDataCache/*
+
+# Mac crap
+.DS_Store
+
+# Un-Ignore All ThirdParty binary/libs etc.
+!Source/ThirdParty/**
+
+# Ignore Export directory
+Export/**
+
+# Ignore VS Code files
+.vscode/**
+
+# Unignore .github folder
+!.github/**
+
+# Unignore .gitignore
+!.gitignore

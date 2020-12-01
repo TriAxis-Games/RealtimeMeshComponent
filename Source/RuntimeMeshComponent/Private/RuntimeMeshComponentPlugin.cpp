@@ -1,8 +1,9 @@
-// Copyright 2016-2018 Chris Conway (Koderz). All Rights Reserved.
+// Copyright 2016-2020 TriAxis Games L.L.C. All Rights Reserved.
 
 #include "RuntimeMeshComponentPlugin.h"
-#include "CustomVersion.h"
+#include "Serialization/CustomVersion.h"
 #include "RuntimeMeshCore.h"
+
 
 // Register the custom version with core
 FCustomVersionRegistration GRegisterRuntimeMeshCustomVersion(FRuntimeMeshVersion::GUID, FRuntimeMeshVersion::LatestVersion, TEXT("RuntimeMesh"));
@@ -20,12 +21,10 @@ IMPLEMENT_MODULE(FRuntimeMeshComponentPlugin, RuntimeMeshComponent)
 
 void FRuntimeMeshComponentPlugin::StartupModule()
 {
-
 }
 
 void FRuntimeMeshComponentPlugin::ShutdownModule()
 {
-
 }
 
 DEFINE_LOG_CATEGORY(RuntimeMeshLog);

@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="utf-8"?> 
+<AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
+  <Type Name="FRuntimeMeshVertexPositionStream">
+    <DisplayString Condition="Data.ArrayNum == 0">Empty</DisplayString>
+    <DisplayString Condition="Data.ArrayNum &lt; 0">Invalid</DisplayString>
+    <DisplayString Condition="Data.ArrayMax &lt; Data.ArrayNum">Invalid</DisplayString>
+    <DisplayString Condition="Data.ArrayMax &gt;= Data.ArrayNum">Num={Data.ArrayNum / sizeof(FVector)}</DisplayString>
+    <Expand>
+      <ArrayItems Condition="Data.ArrayNum &lt;= Data.ArrayMax">
+        <Size>Data.ArrayNum / sizeof(FVector)</Size>
+        <ValuePointer>(FVector*)Data.AllocatorInstance.Data</ValuePointer>
+      </ArrayItems>
+    </Expand>
+  </Type>
+  <Type Name="FRuntimeMeshVertexColorStream">
+    <DisplayString Condition="Data.ArrayNum == 0">Empty</DisplayString>
+    <DisplayString Condition="Data.ArrayNum &lt; 0">Invalid</DisplayString>
+    <DisplayString Condition="Data.ArrayMax &lt; Data.ArrayNum">Invalid</DisplayString>
+    <DisplayString Condition="Data.ArrayMax &gt;= Data.ArrayNum">Num={Data.ArrayNum / sizeof(FColor)}</DisplayString>
+    <Expand>
+      <ArrayItems Condition="Data.ArrayNum &lt;= Data.ArrayMax">
+        <Size>Data.ArrayNum / sizeof(FColor)</Size>
+        <ValuePointer>(FColor*)Data.AllocatorInstance.Data</ValuePointer>
+      </ArrayItems>
+    </Expand>
+  </Type>
+  <Type Name="FRuntimeMeshVertexTangentStream">
+    <DisplayString Condition="Data.ArrayNum == 0">Empty</DisplayString>
+    <DisplayString Condition="Data.ArrayNum &lt; 0">Invalid</DisplayString>
+    <DisplayString Condition="Data.ArrayMax &lt; Data.ArrayNum">Invalid</DisplayString>
+    <DisplayString Condition="Data.ArrayMax &gt;= Data.ArrayNum &amp;&amp; bIsHighPrecision">Num={Data.ArrayNum / sizeof(__RuntimeMeshNatVisRenderableTypes::FRuntimeMeshTangentHighPrecision)}, Precision=High</DisplayString>
+    <DisplayString Condition="Data.ArrayMax &gt;= Data.ArrayNum &amp;&amp; bIsHighPrecision == false">Num={Data.ArrayNum / sizeof(__RuntimeMeshNatVisRenderableTypes::FRuntimeMeshTangentLowPrecision)}, Precision=Low</DisplayString>
+    <Expand>
+      <ArrayItems Condition="Data.ArrayNum &lt;= Data.ArrayMax &amp;&amp; bIsHighPrecision">
+        <Size>Data.ArrayNum / sizeof(__RuntimeMeshNatVisRenderableTypes::FRuntimeMeshTangentHighPrecision)</Size>
+        <ValuePointer>(__RuntimeMeshNatVisRenderableTypes::FRuntimeMeshTangentHighPrecision*)Data.AllocatorInstance.Data</ValuePointer>
+      </ArrayItems>
+      <ArrayItems Condition="Data.ArrayNum &lt;= Data.ArrayMax &amp;&amp; bIsHighPrecision == false">
+        <Size>Data.ArrayNum / sizeof(__RuntimeMeshNatVisRenderableTypes::FRuntimeMeshTangentLowPrecision)</Size>
+        <ValuePointer>(__RuntimeMeshNatVisRenderableTypes::FRuntimeMeshTangentLowPrecision*)Data.AllocatorInstance.Data</ValuePointer>
+      </ArrayItems>
+    </Expand>
+  </Type>
+  
+  
+  <Type Name="FRuntimeMeshVertexTexCoordStream">
+    <DisplayString Condition="Data.ArrayNum == 0">Empty</DisplayString>
+    <DisplayString Condition="Data.ArrayNum &lt; 0">Invalid</DisplayString>
+    <DisplayString Condition="Data.ArrayMax &lt; Data.ArrayNum">Invalid</DisplayString>
+    <DisplayString Condition="Data.ArrayMax &gt;= Data.ArrayNum &amp;&amp; bIsHighPrecision == true &amp;&amp; ChannelCount == 1">Num={Data.ArrayNum / sizeof(__RuntimeMeshNatVisRenderableTypes::FRuntimeMeshTexCoordHighPrecision1)}, Precision=High, NumChannels=1</DisplayString>
+    <DisplayString Condition="Data.ArrayMax &gt;= Data.ArrayNum &amp;&amp; bIsHighPrecision == true &amp;&amp; ChannelCount == 2">Num={Data.ArrayNum / sizeof(__RuntimeMeshNatVisRenderableTypes::FRuntimeMeshTexCoordHighPrecision2)}, Precision=High, NumChannels=2</DisplayString>
+    <DisplayString Condition="Data.ArrayMax &gt;= Data.ArrayNum &amp;&amp; bIsHighPrecision == true &amp;&amp; ChannelCount == 3">Num={Data.ArrayNum / sizeof(__RuntimeMeshNatVisRenderableTypes::FRuntimeMeshTexCoordHighPrecision3)}, Precision=High, NumChannels=3</DisplayString>
+    <DisplayString Condition="Data.ArrayMax &gt;= Data.ArrayNum &amp;&amp; bIsHighPrecision == true &amp;&amp; ChannelCount == 4">Num={Data.ArrayNum / sizeof(__RuntimeMeshNatVisRenderableTypes::FRuntimeMeshTexCoordHighPrecision4)}, Precision=High, NumChannels=4</DisplayString>
+    <DisplayString Condition="Data.ArrayMax &gt;= Data.ArrayNum &amp;&amp; bIsHighPrecision == true &amp;&amp; ChannelCount == 5">Num={Data.ArrayNum / sizeof(__RuntimeMeshNatVisRenderableTypes::FRuntimeMeshTexCoordHighPrecision5)}, Precision=High, NumChannels=5</DisplayString>
+    <DisplayString Condition="Data.ArrayMax &gt;= Data.ArrayNum &amp;&amp; bIsHighPrecision == true &amp;&amp; ChannelCount == 6">Num={Data.ArrayNum / sizeof(__RuntimeMeshNatVisRenderableTypes::FRuntimeMeshTexCoordHighPrecision6)}, Precision=High, NumChannels=6</DisplayString>
+    <DisplayString Condition="Data.ArrayMax &gt;= Data.ArrayNum &amp;&amp; bIsHighPrecision == true &amp;&amp; ChannelCount == 7">Num={Data.ArrayNum / sizeof(__RuntimeMeshNatVisRenderableTypes::FRuntimeMeshTexCoordHighPrecision7)}, Precision=High, NumChannels=7</DisplayString>
+    <DisplayString Condition="Data.ArrayMax &gt;= Data.ArrayNum &amp;&amp; bIsHighPrecision == true &amp;&amp; ChannelCount == 8">Num={Data.ArrayNum / sizeof(__RuntimeMeshNatVisRenderableTypes::FRuntimeMeshTexCoordHighPrecision8)}, Precision=High, NumChannels=8</DisplayString>
+
+    <DisplayString Condition="Data.ArrayMax &gt;= Data.ArrayNum &amp;&amp; bIsHighPrecision == false &amp;&amp; ChannelCount == 1">Num={Data.ArrayNum / sizeof(__RuntimeMeshNatVisRenderableTypes::FRuntimeMeshTexCoordLowPrecision1)}, Precision=Low, NumChannels=1</DisplayString>
+    <DisplayString Condition="Data.ArrayMax &gt;= Data.ArrayNum &amp;&amp; bIsHighPrecision == false &amp;&amp; ChannelCount == 2">Num={Data.ArrayNum / sizeof(__RuntimeMeshNatVisRenderableTypes::FRuntimeMeshTexCoordLowPrecision2)}, Precision=Low, NumChannels=2</DisplayString>
+    <DisplayString Condition="Data.ArrayMax &gt;= Data.ArrayNum &amp;&amp; bIsHighPrecision == false &amp;&amp; ChannelCount == 3">Num={Data.ArrayNum / sizeof(__RuntimeMeshNatVisRenderableTypes::FRuntimeMeshTexCoordLowPrecision3)}, Precision=Low, NumChannels=3</DisplayString>
+    <DisplayString Condition="Data.ArrayMax &gt;= Data.ArrayNum &amp;&amp; bIsHighPrecision == false &amp;&amp; ChannelCount == 4">Num={Data.ArrayNum / sizeof(__RuntimeMeshNatVisRenderableTypes::FRuntimeMeshTexCoordLowPrecision4)}, Precision=Low, NumChannels=4</DisplayString>
+    <DisplayString Condition="Data.ArrayMax &gt;= Data.ArrayNum &amp;&amp; bIsHighPrecision == false &amp;&amp; ChannelCount == 5">Num={Data.ArrayNum / sizeof(__RuntimeMeshNatVisRenderableTypes::FRuntimeMeshTexCoordLowPrecision5)}, Precision=Low, NumChannels=5</DisplayString>
+    <DisplayString Condition="Data.ArrayMax &gt;= Data.ArrayNum &amp;&amp; bIsHighPrecision == false &amp;&amp; ChannelCount == 6">Num={Data.ArrayNum / sizeof(__RuntimeMeshNatVisRenderableTypes::FRuntimeMeshTexCoordLowPrecision6)}, Precision=Low, NumChannels=6</DisplayString>
+    <DisplayString Condition="Data.ArrayMax &gt;= Data.ArrayNum &amp;&amp; bIsHighPrecision == false &amp;&amp; ChannelCount == 7">Num={Data.ArrayNum / sizeof(__RuntimeMeshNatVisRenderableTypes::FRuntimeMeshTexCoordLowPrecision7)}, Precision=Low, NumChannels=7</DisplayString>
+    <DisplayString Condition="Data.ArrayMax &gt;= Data.ArrayNum &amp;&amp; bIsHighPrecision == false &amp;&amp; ChannelCount == 8">Num={Data.ArrayNum / sizeof(__RuntimeMeshNatVisRenderableTypes::FRuntimeMeshTexCoordLowPrecision8)}, Precision=Low, NumChannels=8</DisplayString>
+
+    <Expand>
+      <ArrayItems Condition="Data.ArrayNum &lt;= Data.ArrayMax &amp;&amp; bIsHighPrecision == true &amp;&amp; ChannelCount == 1">
+        <Size>Data.ArrayNum / sizeof(__RuntimeMeshNatVisRenderableTypes::FRuntimeMeshTexCoordHighPrecision1)</Size>
+        <ValuePointer>(__RuntimeMeshNatVisRenderableTypes::FRuntimeMeshTexCoordHighPrecision1*)Data.AllocatorInstance.Data</ValuePointer>
+      </ArrayItems>
+      <ArrayItems Condition="Data.ArrayNum &lt;= Data.ArrayMax &amp;&amp; bIsHighPrecision == true &amp;&amp; ChannelCount == 2">
+        <Size>Data.ArrayNum / sizeof(__RuntimeMeshNatVisRenderableTypes::FRuntimeMeshTexCoordHighPrecision2)</Size>
+        <ValuePointer>(__RuntimeMeshNatVisRenderableTypes::FRuntimeMeshTexCoordHighPrecision2*)Data.AllocatorInstance.Data</ValuePointer>
+      </ArrayItems>
+      <ArrayItems Condition="Data.ArrayNum &lt;= Data.ArrayMax &amp;&amp; bIsHighPrecision == true &amp;&amp; ChannelCount == 3">
+        <Size>Data.ArrayNum / sizeof(__RuntimeMeshNatVisRenderableTypes::FRuntimeMeshTexCoordHighPrecision3)</Size>
+        <ValuePointer>(__RuntimeMeshNatVisRenderableTypes::FRuntimeMeshTexCoordHighPrecision3*)Data.AllocatorInstance.Data</ValuePointer>
+      </ArrayItems>
+      <ArrayItems Condition="Data.ArrayNum &lt;= Data.ArrayMax &amp;&amp; bIsHighPrecision == true &amp;&amp; ChannelCount == 4">
+        <Size>Data.ArrayNum / sizeof(__RuntimeMeshNatVisRenderableTypes::FRuntimeMeshTexCoordHighPrecision4)</Size>
+        <ValuePointer>(__RuntimeMeshNatVisRenderableTypes::FRuntimeMeshTexCoordHighPrecision4*)Data.AllocatorInstance.Data</ValuePointer>
+      </ArrayItems>
+      <ArrayItems Condition="Data.ArrayNum &lt;= Data.ArrayMax &amp;&amp; bIsHighPrecision == true &amp;&amp; ChannelCount == 5">
+        <Size>Data.ArrayNum / sizeof(__RuntimeMeshNatVisRenderableTypes::FRuntimeMeshTexCoordHighPrecision5)</Size>
+        <ValuePointer>(__RuntimeMeshNatVisRenderableTypes::FRuntimeMeshTexCoordHighPrecision5*)Data.AllocatorInstance.Data</ValuePointer>
+      </ArrayItems>
+      <ArrayItems Condition="Data.ArrayNum &lt;= Data.ArrayMax &amp;&amp; bIsHighPrecision == true &amp;&amp; ChannelCount == 6">
+        <Size>Data.ArrayNum / sizeof(__RuntimeMeshNatVisRenderableTypes::FRuntimeMeshTexCoordHighPrecision6)</Size>
+        <ValuePointer>(__RuntimeMeshNatVisRenderableTypes::FRuntimeMeshTexCoordHighPrecision6*)Data.AllocatorInstance.Data</ValuePointer>
+      </ArrayItems>
+      <ArrayItems Condition="Data.ArrayNum &lt;= Data.ArrayMax &amp;&amp; bIsHighPrecision == true &amp;&amp; ChannelCount == 7">
+        <Size>Data.ArrayNum / sizeof(__RuntimeMeshNatVisRenderableTypes::FRuntimeMeshTexCoordHighPrecision7)</Size>
+        <ValuePointer>(__RuntimeMeshNatVisRenderableTypes::FRuntimeMeshTexCoordHighPrecision7*)Data.AllocatorInstance.Data</ValuePointer>
+      </ArrayItems>
+      <ArrayItems Condition="Data.ArrayNum &lt;= Data.ArrayMax &amp;&amp; bIsHighPrecision == true &amp;&amp; ChannelCount == 8">
+        <Size>Data.ArrayNum / sizeof(__RuntimeMeshNatVisRenderableTypes::FRuntimeMeshTexCoordHighPrecision8)</Size>
+        <ValuePointer>(__RuntimeMeshNatVisRenderableTypes::FRuntimeMeshTexCoordHighPrecision8*)Data.AllocatorInstance.Data</ValuePointer>
+      </ArrayItems>
+
+      <ArrayItems Condition="Data.ArrayNum &lt;= Data.ArrayMax &amp;&amp; bIsHighPrecision == false &amp;&amp; ChannelCount == 1">
+        <Size>Data.ArrayNum / sizeof(__RuntimeMeshNatVisRenderableTypes::FRuntimeMeshTexCoordLowPrecision1)</Size>
+        <ValuePointer>(__RuntimeMeshNatVisRenderableTypes::FRuntimeMeshTexCoordLowPrecision1*)Data.AllocatorInstance.Data</ValuePointer>
+      </ArrayItems>
+      <ArrayItems Condition="Data.ArrayNum &lt;= Data.ArrayMax &amp;&amp; bIsHighPrecision == false &amp;&amp; ChannelCount == 2">
+        <Size>Data.ArrayNum / sizeof(__RuntimeMeshNatVisRenderableTypes::FRuntimeMeshTexCoordLowPrecision2)</Size>
+        <ValuePointer>(__RuntimeMeshNatVisRenderableTypes::FRuntimeMeshTexCoordLowPrecision2*)Data.AllocatorInstance.Data</ValuePointer>
+      </ArrayItems>
+      <ArrayItems Condition="Data.ArrayNum &lt;= Data.ArrayMax &amp;&amp; bIsHighPrecision == false &amp;&amp; ChannelCount == 3">
+        <Size>Data.ArrayNum / sizeof(__RuntimeMeshNatVisRenderableTypes::FRuntimeMeshTexCoordLowPrecision3)</Size>
+        <ValuePointer>(__RuntimeMeshNatVisRenderableTypes::FRuntimeMeshTexCoordLowPrecision3*)Data.AllocatorInstance.Data</ValuePointer>
+      </ArrayItems>
+      <ArrayItems Condition="Data.ArrayNum &lt;= Data.ArrayMax &amp;&amp; bIsHighPrecision == false &amp;&amp; ChannelCount == 4">
+        <Size>Data.ArrayNum / sizeof(__RuntimeMeshNatVisRenderableTypes::FRuntimeMeshTexCoordLowPrecision4)</Size>
+        <ValuePointer>(__RuntimeMeshNatVisRenderableTypes::FRuntimeMeshTexCoordLowPrecision4*)Data.AllocatorInstance.Data</ValuePointer>
+      </ArrayItems>
+      <ArrayItems Condition="Data.ArrayNum &lt;= Data.ArrayMax &amp;&amp; bIsHighPrecision == false &amp;&amp; ChannelCount == 5">
+        <Size>Data.ArrayNum / sizeof(__RuntimeMeshNatVisRenderableTypes::FRuntimeMeshTexCoordLowPrecision5)</Size>
+        <ValuePointer>(__RuntimeMeshNatVisRenderableTypes::FRuntimeMeshTexCoordLowPrecision5*)Data.AllocatorInstance.Data</ValuePointer>
+      </ArrayItems>
+      <ArrayItems Condition="Data.ArrayNum &lt;= Data.ArrayMax &amp;&amp; bIsHighPrecision == false &amp;&amp; ChannelCount == 6">
+        <Size>Data.ArrayNum / sizeof(__RuntimeMeshNatVisRenderableTypes::FRuntimeMeshTexCoordLowPrecision6)</Size>
+        <ValuePointer>(__RuntimeMeshNatVisRenderableTypes::FRuntimeMeshTexCoordLowPrecision6*)Data.AllocatorInstance.Data</ValuePointer>
+      </ArrayItems>
+      <ArrayItems Condition="Data.ArrayNum &lt;= Data.ArrayMax &amp;&amp; bIsHighPrecision == false &amp;&amp; ChannelCount == 7">
+        <Size>Data.ArrayNum / sizeof(__RuntimeMeshNatVisRenderableTypes::FRuntimeMeshTexCoordLowPrecision7)</Size>
+        <ValuePointer>(__RuntimeMeshNatVisRenderableTypes::FRuntimeMeshTexCoordLowPrecision7*)Data.AllocatorInstance.Data</ValuePointer>
+      </ArrayItems>
+      <ArrayItems Condition="Data.ArrayNum &lt;= Data.ArrayMax &amp;&amp; bIsHighPrecision == false &amp;&amp; ChannelCount == 8">
+        <Size>Data.ArrayNum / sizeof(__RuntimeMeshNatVisRenderableTypes::FRuntimeMeshTexCoordLowPrecision8)</Size>
+        <ValuePointer>(__RuntimeMeshNatVisRenderableTypes::FRuntimeMeshTexCoordLowPrecision8*)Data.AllocatorInstance.Data</ValuePointer>
+      </ArrayItems>
+      
+    </Expand>
+  </Type>
+
+  <Type Name="FRuntimeMeshTriangleStream">
+    <DisplayString Condition="Data.ArrayNum == 0">Empty</DisplayString>
+    <DisplayString Condition="Data.ArrayNum &lt; 0">Invalid</DisplayString>
+    <DisplayString Condition="Data.ArrayMax &lt; Data.ArrayNum">Invalid</DisplayString>
+    <DisplayString Condition="Data.ArrayMax &gt;= Data.ArrayNum &amp;&amp; bIsUsing32BitIndices">NumTriangles={Data.ArrayNum / (sizeof(int32) * 3)}, NumIndices={Data.ArrayNum / sizeof(int32)}, Precision=High</DisplayString>
+    <DisplayString Condition="Data.ArrayMax &gt;= Data.ArrayNum &amp;&amp; bIsUsing32BitIndices == false">NumTriangles={Data.ArrayNum / (sizeof(uint16) * 3)}, NumIndices={Data.ArrayNum / sizeof(uint16)}, Precision=Low</DisplayString>
+    <Expand>
+      <ArrayItems Condition="Data.ArrayNum &lt;= Data.ArrayMax &amp;&amp; bIsUsing32BitIndices">
+        <Size>Data.ArrayNum / sizeof(__RuntimeMeshNatVisRenderableTypes::FRuntimeMeshTriangleIndicesHighPrecision)</Size>
+        <ValuePointer>(__RuntimeMeshNatVisRenderableTypes::FRuntimeMeshTriangleIndicesHighPrecision*)Data.AllocatorInstance.Data</ValuePointer>
+      </ArrayItems>
+      <ArrayItems Condition="Data.ArrayNum &lt;= Data.ArrayMax &amp;&amp; bIsUsing32BitIndices == false">
+        <Size>Data.ArrayNum / sizeof(__RuntimeMeshNatVisRenderableTypes::FRuntimeMeshTriangleIndicesLowPrecision)</Size>
+        <ValuePointer>(__RuntimeMeshNatVisRenderableTypes::FRuntimeMeshTriangleIndicesLowPrecision*)Data.AllocatorInstance.Data</ValuePointer>
+      </ArrayItems>
+    </Expand>
+  </Type>
+</AutoVisualizer>

@@ -1,29 +1,41 @@
 {
   "FileVersion": 3,
-  "Version": 32,
-  "VersionName": "3.2",
-  "FriendlyName": "Runtime Mesh Component",
+  "Version": 41,
+  "VersionName": "4.1",
+  "FriendlyName": "Runtime Mesh Component Community",
   "Description": "A component allowing for rendering and interacting with runtime generated geometry.",
   "Category": "Rendering",
   "CreatedBy": "Chris Conway (Koderz)",
-  "CreatedByURL": "https://forums.unrealengine.com/member.php?141752-Koderz",
-  "DocsURL": "https://github.com/Koderz/UE4RuntimeMeshComponent/wiki",
+  "CreatedByURL": "hhttps://github.com/Koderz",
+  "DocsURL": "https://runtimemesh.koderz.io/",
   "MarketplaceURL": "com.epicgames.launcher://ue/marketplace/content/ad0b45a6a31e462aba7cf7c790a9c125",
-  "SupportURL": "https://github.com/Koderz/UE4RuntimeMeshComponent/issues",
+  "SupportURL": "https://github.com/TriAxis-Games/RuntimeMeshComponent/issues",
   "EnabledByDefault": true,
   "CanContainContent": false,
-  "IsBetaVersion": true,
+  "IsBetaVersion": false,
   "Installed": false,
   "Modules": [
     {
       "Name": "RuntimeMeshComponent",
       "Type": "Runtime",
-      "LoadingPhase": "Default"
+      "LoadingPhase": "Default",
+      "WhitelistPlatforms": [
+        "Win64",
+        "Linux",
+        "Mac",
+        "XboxOne",
+        "PS4"
+      ]
     },
     {
       "Name": "RuntimeMeshComponentEditor",
       "Type": "Editor",
-      "LoadingPhase": "Default"
+      "LoadingPhase": "Default",
+      "WhitelistPlatforms": [
+        "Win64",
+        "Linux",
+        "Mac"
+      ]
     }
   ]
 }
