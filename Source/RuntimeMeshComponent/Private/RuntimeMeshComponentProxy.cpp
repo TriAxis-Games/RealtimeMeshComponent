@@ -4,6 +4,7 @@
 #include "RuntimeMeshComponentPlugin.h"
 #include "RuntimeMeshComponent.h"
 #include "RuntimeMeshProxy.h"
+#include "Materials/Material.h"
 #include "PhysicsEngine/BodySetup.h"
 #include "TessellationRendering.h"
 #include "PrimitiveSceneProxy.h"
