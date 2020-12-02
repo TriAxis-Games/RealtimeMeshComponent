@@ -363,7 +363,7 @@ public:
 	}
 
 	FORCEINLINE int32 GetElementSize() const { return (bIsHighPrecision ? sizeof(FVector2D) : sizeof(FVector2DHalf)); } //size in bytes
-	FORCEINLINE int32 GetStride() const { return GetElementSize() * ChannelCount; } //num of bytes per texture in data
+	FORCEINLINE int32 GetStride() const { return GetElementSize() * ChannelCount; } //num of bytes of UV per vertex in data
 
 	FORCEINLINE int32 Num() const
 	{
@@ -394,23 +394,22 @@ public:
 	*/
 	int32 Add(const FVector2D& InTexCoord, int32 ChannelId = 0)
 	{
-		int32 Index = Num();
-		int32 Stride = GetStride();
-		checkf((Index / Stride) % ChannelCount == ChannelId, TEXT("[FRuntimeMeshVertexTexCoordStream::Add] UVs have been added out of order, aborting..."));
-		Data.AddZeroed(Stride);
+		int32 Index = Data.Num();
+		checkf((Index / GetElementSize()) % ChannelCount == ChannelId, TEXT("[FRuntimeMeshVertexTexCoordStream::Add] UVs have been added out of order, aborting..."));
+		Data.AddZeroed(GetElementSize());
 
 		if (bIsHighPrecision)
 		{
 			static const int32 ElementSize = sizeof(FVector2D);
-			*((FVector2D*)&Data[(Index * Stride * ChannelCount) + (ChannelId * ElementSize)]) = InTexCoord;
+			*((FVector2D*)&Data[Index]) = InTexCoord;
 		}
 		else
 		{
 			static const int32 ElementSize = sizeof(FVector2DHalf);
-			*((FVector2DHalf*)&Data[(Index * Stride * ChannelCount) + (ChannelId * ElementSize)]) = InTexCoord;
+			*((FVector2DHalf*)&Data[Index]) = InTexCoord;
 		}
 
-		return Index / Stride;
+		return Index / GetStride();
 	}
 
 	/* Add a UV at the end of the array
@@ -423,37 +422,30 @@ public:
 		const int32 Index = Num();
 		const int32 Stride = GetStride();
 		checkf(InTexCoords.Num() == ChannelCount, TEXT("[FRuntimeMeshVertexTexCoordStream::Add] Given array of UVs doesn't match UV channel count, aborting..."));
-		//checkf((Index / Stride) % ChannelCount == 0, TEXT("[FRuntimeMeshVertexTexCoordStream::Add] Current array of UVs didn't end with the last UV channel, aborting..."));
-		//Data.AddZeroed(Stride*ChannelCount);
+		checkf((oldNum / GetElementSize()) % ChannelCount == 0, TEXT("[FRuntimeMeshVertexTexCoordStream::Add] Current array of UVs didn't end with the last UV channel, aborting..."));
 		Data.AddZeroed(Stride);
 
 		if (bIsHighPrecision)
 		{
 			static const int32 ElementSize = sizeof(FVector2D);
-			FVector2D* uvs = reinterpret_cast<FVector2D*>(&Data[0]);
 
 			for (int32 ChannelId = 0; ChannelId < ChannelCount; ChannelId++)
 			{
-				//*((FVector2D*)&Data[(Index * Stride * ChannelCount) + (ChannelId * ElementSize)]) = InTexCoords[ChannelId];
-				const int index = oldNum / ElementSize + ChannelId;
-				uvs[index] = InTexCoords[ChannelId];
+				*((FVector2D*)&Data[(Index * Stride) + (ChannelId * ElementSize)]) = InTexCoords[ChannelId];
 			}
 		}
 		else
 		{
 			static const int32 ElementSize = sizeof(FVector2DHalf);
-			FVector2DHalf* uvs = reinterpret_cast<FVector2DHalf*>(&Data[0]);
 
 			for (int32 ChannelId = 0; ChannelId < ChannelCount; ChannelId++)
 			{
-				//*((FVector2DHalf*)&Data[(Index * Stride * ChannelCount) + (ChannelId * ElementSize)]) = InTexCoords[ChannelId];
-				const int index = oldNum / ElementSize + ChannelId;
-				uvs[index] = InTexCoords[ChannelId];
+				*((FVector2DHalf*)&Data[(Index * Stride) + (ChannelId * ElementSize)]) = InTexCoords[ChannelId];
 			}
 			
 		}
 
-		return Index / Stride;
+		return Index;
 	}
 
 	void Append(const FRuntimeMeshVertexTexCoordStream& InOther)
