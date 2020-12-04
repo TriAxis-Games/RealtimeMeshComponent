@@ -43,6 +43,9 @@ public class RuntimeMeshComponent : ModuleRules
 #if UE_4_23_OR_LATER
                 "PhysicsCore",
 #endif
+#if UE_4_26_OR_LATER
+				"DeveloperSettings",
+#endif		
             }
             );
     }
