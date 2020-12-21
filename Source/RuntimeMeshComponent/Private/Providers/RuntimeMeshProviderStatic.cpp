@@ -567,6 +567,7 @@ void URuntimeMeshProviderStatic::ClearSection(int32 LODIndex, int32 SectionId)
 			{
 				Section->Get<1>().Reset();
 				UpdateBounds();
+				MarkSectionDirty(LODIndex, SectionId);
 			}
 
 		}
@@ -593,6 +594,7 @@ void URuntimeMeshProviderStatic::RemoveSection(int32 LODIndex, int32 SectionId)
 					SectionDataMap.Remove(LODIndex);
 				}
 				UpdateBounds();
+				MarkSectionDirty(LODIndex, SectionId);
 			}
 		}
 		if (LODIndex == LODForMeshCollision && SectionsForMeshCollision.Contains(SectionId)) //collision needs to be removed
