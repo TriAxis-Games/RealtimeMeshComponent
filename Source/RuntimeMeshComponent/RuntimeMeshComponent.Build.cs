@@ -1,4 +1,4 @@
-// Copyright 2016-2020 Chris Conway (Koderz). All Rights Reserved.
+// Copyright 2016-2020 TriAxis Games L.L.C. All Rights Reserved.
 
 using System.IO;
 using UnrealBuildTool;
@@ -43,6 +43,9 @@ public class RuntimeMeshComponent : ModuleRules
 #if UE_4_23_OR_LATER
                 "PhysicsCore",
 #endif
+#if UE_4_26_OR_LATER
+				"DeveloperSettings",
+#endif		
             }
             );
     }

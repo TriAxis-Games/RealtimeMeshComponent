@@ -1,4 +1,4 @@
-// Copyright 2016-2020 Chris Conway (Koderz). All Rights Reserved.
+// Copyright 2016-2020 TriAxis Games L.L.C. All Rights Reserved.
 
 #include "IRuntimeMeshComponentEditorPlugin.h"
 #include "PropertyEditorModule.h"
@@ -100,24 +100,24 @@ void FRuntimeMeshComponentEditorPlugin::ShutdownModule()
 
 void FRuntimeMeshComponentEditorPlugin::DonateActionClicked()
 {
-	FPlatformProcess::LaunchURL(TEXT("https://github.com/Koderz/RuntimeMeshComponent/wiki/Support-the-development!"), NULL, NULL);
+	FPlatformProcess::LaunchURL(TEXT("https://www.paypal.com/paypalme/Koderz"), NULL, NULL);
 
 }
 
 void FRuntimeMeshComponentEditorPlugin::HelpActionClicked()
 {
-	FPlatformProcess::LaunchURL(TEXT("https://github.com/Koderz/UE4RuntimeMeshComponent/wiki"), NULL, NULL);
+	FPlatformProcess::LaunchURL(TEXT("https://runtimemesh.koderz.io/"), NULL, NULL);
 }
 
 void FRuntimeMeshComponentEditorPlugin::ForumsActionClicked()
 {
-	FPlatformProcess::LaunchURL(TEXT("https://github.com/Koderz/UE4RuntimeMeshComponent/wiki"), NULL, NULL);
+	FPlatformProcess::LaunchURL(TEXT("https://forums.unrealengine.com/unreal-engine/marketplace/85617-runtime-mesh-component"), NULL, NULL);
 
 }
 
 void FRuntimeMeshComponentEditorPlugin::IssuesActionClicked()
 {
-	FPlatformProcess::LaunchURL(TEXT("https://github.com/Koderz/UE4RuntimeMeshComponent/issues"), NULL, NULL);
+	FPlatformProcess::LaunchURL(TEXT("https://github.com/TriAxis-Games/RuntimeMeshComponent/issues"), NULL, NULL);
 
 }
 
@@ -129,8 +129,7 @@ void FRuntimeMeshComponentEditorPlugin::DiscordActionClicked()
 
 void FRuntimeMeshComponentEditorPlugin::MarketplaceActionClicked()
 {
-	FPlatformProcess::LaunchURL(TEXT("https://unrealengine.com/Marketplace/RuntimeMeshComponent"), NULL, NULL);
-
+	FPlatformProcess::LaunchURL(TEXT("https://www.unrealengine.com/marketplace/en-US/product/runtime-mesh-component"), NULL, NULL);
 }
 
 void FRuntimeMeshComponentEditorPlugin::AddMenuBarExtension(FMenuBarBuilder& Builder)

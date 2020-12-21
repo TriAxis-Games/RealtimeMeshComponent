@@ -1,4 +1,4 @@
-// Copyright 2016-2020 Chris Conway (Koderz). All Rights Reserved.
+// Copyright 2016-2020 TriAxis Games L.L.C. All Rights Reserved.
 
 #pragma once
 
@@ -188,6 +188,9 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshStatic|Mesh", Meta = (DisplayName = "Clear Section"))
 	void ClearSection(int32 LODIndex, int32 SectionId);
+
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshStatic|Mesh", Meta = (DisplayName = "Clear Section"))
+	void RemoveSection(int32 LODIndex, int32 SectionId);
 
 
 
