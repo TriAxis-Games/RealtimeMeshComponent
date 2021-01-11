@@ -152,7 +152,11 @@ FReply FRuntimeMeshComponentDetails::ClickedOnConvertToStaticMesh()
 			}
 
 			// Create the package to save the static mesh
+#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 26
+			UPackage* Package = CreatePackage(*UserPackageName);
+#else
 			UPackage* Package = CreatePackage(NULL, *UserPackageName);
+#endif
 			check(Package);
 
 			// Create StaticMesh object
