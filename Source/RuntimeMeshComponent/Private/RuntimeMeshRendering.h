@@ -5,6 +5,7 @@
 #include "Engine/Engine.h"
 #include "RuntimeMeshCore.h"
 #include "RuntimeMeshRenderable.h"
+#include "RuntimeMeshComponentPlugin.h" // For RuntimeMeshLog
 #include "Containers/ResourceArray.h"
 
 class FRuntimeMeshVertexBuffer;
