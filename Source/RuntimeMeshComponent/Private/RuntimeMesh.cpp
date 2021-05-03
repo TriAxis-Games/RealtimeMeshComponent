@@ -34,9 +34,11 @@ class FRuntimeMeshUpdateTask : public FNonAbandonableTask
 	friend class FAutoDeleteAsyncTask<FRuntimeMeshUpdateTask>;
 
 	FRuntimeMeshWeakRef Ref;
+	TUniqueFunction<void ()> CompletionFunc;
 
-	FRuntimeMeshUpdateTask(const FRuntimeMeshWeakRef& InRef)
+	FRuntimeMeshUpdateTask(const FRuntimeMeshWeakRef& InRef, TUniqueFunction<void ()>&& InCompletionFunc = nullptr)
 		: Ref(InRef)
+		, CompletionFunc(MoveTemp(InCompletionFunc))
 	{
 	}
 
@@ -52,6 +54,11 @@ class FRuntimeMeshUpdateTask : public FNonAbandonableTask
 				//{
 				PinnedRef->HandleUpdate();
 				//}
+
+				if (CompletionFunc)
+				{
+					CompletionFunc();
+				}
 			}
 
 		}
@@ -397,12 +404,15 @@ void URuntimeMesh::RemoveSection(int32 LODIndex, int32 SectionId)
 
 	check(LODs.IsValidIndex(LODIndex));
 
-	if (LODs[LODIndex].Sections.Remove(SectionId))
+	if (LODs[LODIndex].Sections.Contains(SectionId))
 	{
 		if (RenderProxy.IsValid())
 		{
 			SectionsToUpdate.FindOrAdd(LODIndex).FindOrAdd(SectionId) = ESectionUpdateType::Remove;
-			QueueForMeshUpdate();
+			QueueForMeshUpdate([&LocalLODs = LODs, LODIndex, SectionId]() 
+				{ 
+					LocalLODs[LODIndex].Sections.Remove(SectionId); 
+				});
 			RecreateAllComponentSceneProxies();
 		}
 	}
@@ -618,11 +628,11 @@ void URuntimeMesh::QueueForUpdate()
 	});
 }
 
-void URuntimeMesh::QueueForMeshUpdate()
+void URuntimeMesh::QueueForMeshUpdate(TUniqueFunction<void ()> InCompletionFunc)
 {
 	// TODO: We shouldn't have to kick this to the game thread first
 
-	FRuntimeMeshMisc::DoOnGameThread([MeshPtr = GetMeshReference()]()
+	FRuntimeMeshMisc::DoOnGameThread([MeshPtr = GetMeshReference(), CompletionFunc = MoveTemp(InCompletionFunc)]() mutable
 	{
 		FRuntimeMeshSharedRef Mesh = MeshPtr.Pin();
 		if (Mesh)
@@ -634,7 +644,7 @@ void URuntimeMesh::QueueForMeshUpdate()
 				{
 					if (Mesh->MeshProviderPtr->IsThreadSafe())
 					{
-						(new FAutoDeleteAsyncTask<FRuntimeMeshUpdateTask>(Mesh->GetMeshReference()))->StartBackgroundTask(Mesh->GetEngineSubsystem()->GetThreadPool());
+						(new FAutoDeleteAsyncTask<FRuntimeMeshUpdateTask>(Mesh->GetMeshReference(), MoveTemp(CompletionFunc)))->StartBackgroundTask(Mesh->GetEngineSubsystem()->GetThreadPool());
 					}
 					else
 					{

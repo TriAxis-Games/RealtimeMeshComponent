@@ -190,7 +190,7 @@ private:
 
 	void QueueForDelayedInitialize();
 	void QueueForUpdate();
-	void QueueForMeshUpdate();
+	void QueueForMeshUpdate(TUniqueFunction<void ()> InCompletionFunc = nullptr);
 	void QueueForCollisionUpdate();
 
 	void UpdateAllComponentBounds();

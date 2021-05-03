@@ -162,8 +162,7 @@ public:
 
 struct FRuntimeMeshMisc
 {
-	template<typename LambdaType>
-	static void DoOnGameThread(LambdaType&& InFunction)
+	static void DoOnGameThread(TUniqueFunction<void ()> InFunction)
 	{
 		if (IsInGameThread())
 		{
@@ -171,10 +170,7 @@ struct FRuntimeMeshMisc
 		}
 		else
 		{
-			FFunctionGraphTask::CreateAndDispatchWhenReady([InFunction]()
-				{
-					InFunction();
-				}, TStatId(), nullptr, ENamedThreads::GameThread);
+			FFunctionGraphTask::CreateAndDispatchWhenReady(MoveTemp(InFunction), TStatId(), nullptr, ENamedThreads::GameThread);
 		}
 	}
 };
