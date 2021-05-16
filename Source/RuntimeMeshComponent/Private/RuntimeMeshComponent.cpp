@@ -72,8 +72,16 @@ void URuntimeMeshComponent::NewCollisionMeshReceived()
 {
 	SCOPE_CYCLE_COUNTER(STAT_RuntimeMeshComponent_NewCollisionMeshReceived);
 
-	// First recreate the physics state
+	// First Store Velocities
+	FVector PrevLinearVelocity = GetPhysicsLinearVelocity();
+	FVector PrevAngularVelocity = GetPhysicsAngularVelocityInDegrees();
+
+	// Recreate the physics state
 	RecreatePhysicsState();
+	
+	// Apply Velocities
+	SetPhysicsLinearVelocity(PrevLinearVelocity, false);
+	SetPhysicsAngularVelocityInDegrees(PrevAngularVelocity, false);
 	
  	// Now update the navigation.
 	FNavigationSystem::UpdateComponentData(*this);
