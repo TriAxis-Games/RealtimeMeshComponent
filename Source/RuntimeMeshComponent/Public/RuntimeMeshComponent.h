@@ -29,6 +29,9 @@ private:
 
 public:
 	URuntimeMeshComponent();
+	
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "RuntimeMesh")
+	bool KeepMomentumOnCollisionUpdate = false;
 
 	uint32 GetRuntimeMeshId() const { return RuntimeMeshReference? RuntimeMeshReference->GetMeshId() : -1; }
 
