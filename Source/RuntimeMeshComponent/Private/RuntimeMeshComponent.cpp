@@ -71,17 +71,25 @@ FRuntimeMeshCollisionHitInfo URuntimeMeshComponent::GetHitSource(int32 FaceIndex
 void URuntimeMeshComponent::NewCollisionMeshReceived()
 {
 	SCOPE_CYCLE_COUNTER(STAT_RuntimeMeshComponent_NewCollisionMeshReceived);
-
-	// First Store Velocities
-	FVector PrevLinearVelocity = GetPhysicsLinearVelocity();
-	FVector PrevAngularVelocity = GetPhysicsAngularVelocityInDegrees();
-
-	// Recreate the physics state
-	RecreatePhysicsState();
 	
-	// Apply Velocities
-	SetPhysicsLinearVelocity(PrevLinearVelocity, false);
-	SetPhysicsAngularVelocityInDegrees(PrevAngularVelocity, false);
+	if (KeepMomentumOnCollisionUpdate)
+	{
+		// First Store Velocities
+		FVector PrevLinearVelocity = GetPhysicsLinearVelocity();
+		FVector PrevAngularVelocity = GetPhysicsAngularVelocityInDegrees();
+
+		// Recreate the physics state
+		RecreatePhysicsState();
+	
+		// Apply Velocities
+		SetPhysicsLinearVelocity(PrevLinearVelocity, false);
+		SetPhysicsAngularVelocityInDegrees(PrevAngularVelocity, false);
+	}
+	else
+	{
+		//First recreate the physics state
+		RecreatePhysicsState();
+	}
 	
  	// Now update the navigation.
 	FNavigationSystem::UpdateComponentData(*this);
