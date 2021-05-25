@@ -156,6 +156,7 @@ void URuntimeMesh::Reset()
 {
 	RMC_LOG_VERBOSE("Reset called.");
 	GCAnchor.BeginNewState();
+	bQueuedForMeshUpdate.AtomicSet(false);
 
 	{
 		FWriteScopeLock Lock(MeshProviderLock);
