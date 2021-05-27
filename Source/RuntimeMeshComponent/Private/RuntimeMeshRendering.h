@@ -1,4 +1,4 @@
-// Copyright 2016-2020 Chris Conway (Koderz). All Rights Reserved.
+// Copyright 2016-2020 TriAxis Games L.L.C. All Rights Reserved.
 
 #pragma once
 
@@ -651,7 +651,7 @@ struct FRuntimeMeshRenderThreadDeleter
 };
 
 #define RMC_LOG_VERBOSE(Format, ...) \
-	UE_LOG(RuntimeMeshLog2, Verbose, TEXT("[Thread:%d]: " Format), FPlatformTLS::GetCurrentThreadId(), __VA_ARGS__);
+	UE_LOG(RuntimeMeshLog, Verbose, TEXT("[Thread:%d]: " Format), FPlatformTLS::GetCurrentThreadId(), ##__VA_ARGS__);
 
 
 template<bool bIsInRenderThread>

@@ -1,10 +1,11 @@
-// Copyright 2016-2020 Chris Conway (Koderz). All Rights Reserved.
+// Copyright 2016-2020 TriAxis Games L.L.C. All Rights Reserved.
 
 #pragma once
 
 #include "CoreMinimal.h"
 #include "RuntimeMesh.h"
 #include "RuntimeMeshSectionProxy.h"
+#include "Materials/Material.h"
 
 class UBodySetup;
 class URuntimeMeshComponent;

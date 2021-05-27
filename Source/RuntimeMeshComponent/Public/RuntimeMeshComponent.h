@@ -1,4 +1,4 @@
-// Copyright 2016-2020 Chris Conway (Koderz). All Rights Reserved.
+// Copyright 2016-2020 TriAxis Games L.L.C. All Rights Reserved.
 
 #pragma once
 
@@ -29,6 +29,9 @@ private:
 
 public:
 	URuntimeMeshComponent();
+	
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "RuntimeMesh")
+	bool KeepMomentumOnCollisionUpdate = false;
 
 	uint32 GetRuntimeMeshId() const { return RuntimeMeshReference? RuntimeMeshReference->GetMeshId() : -1; }
 

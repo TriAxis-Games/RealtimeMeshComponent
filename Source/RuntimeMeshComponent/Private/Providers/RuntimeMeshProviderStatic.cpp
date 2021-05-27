@@ -1,4 +1,4 @@
-// Copyright 2016-2020 Chris Conway (Koderz). All Rights Reserved.
+// Copyright 2016-2020 TriAxis Games L.L.C. All Rights Reserved.
 
 #include "Providers/RuntimeMeshProviderStatic.h"
 #include "RuntimeMeshComponentPlugin.h"
@@ -6,7 +6,7 @@
 
 
 #define RMC_LOG_VERBOSE(Format, ...) \
-	UE_LOG(RuntimeMeshLog2, Verbose, TEXT("[RMPS:%d Thread:%d]: " Format), GetUniqueID(), FPlatformTLS::GetCurrentThreadId(), __VA_ARGS__);
+	UE_LOG(RuntimeMeshLog, Verbose, TEXT("[RMPS:%d Thread:%d]: " Format), GetUniqueID(), FPlatformTLS::GetCurrentThreadId(), ##__VA_ARGS__);
 
 URuntimeMeshProviderStatic::URuntimeMeshProviderStatic()
 	: StoreEditorGeneratedDataForGame(true)
@@ -567,7 +567,13 @@ void URuntimeMeshProviderStatic::ClearSection(int32 LODIndex, int32 SectionId)
 			{
 				Section->Get<1>().Reset();
 				UpdateBounds();
+				MarkSectionDirty(LODIndex, SectionId);
 			}
+
+		}
+		if (LODIndex == LODForMeshCollision && SectionsForMeshCollision.Contains(SectionId)) //collision needs to be cleared
+		{
+			UpdateSectionAffectsCollision(LODIndex, SectionId, true, true); //section should still be set as needed for collision but collision mesh needs to be updated
 		}
 	}
 	URuntimeMeshProvider::ClearSection(LODIndex, SectionId);
@@ -588,7 +594,12 @@ void URuntimeMeshProviderStatic::RemoveSection(int32 LODIndex, int32 SectionId)
 					SectionDataMap.Remove(LODIndex);
 				}
 				UpdateBounds();
+				MarkSectionDirty(LODIndex, SectionId);
 			}
+		}
+		if (LODIndex == LODForMeshCollision && SectionsForMeshCollision.Contains(SectionId)) //collision needs to be removed
+		{
+			UpdateSectionAffectsCollision(LODIndex, SectionId, true, true); //section should still be set as needed for collision but collision mesh needs to be updated
 		}
 	}
 	URuntimeMeshProvider::RemoveSection(LODIndex, SectionId);
