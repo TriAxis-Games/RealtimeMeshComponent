@@ -1,10 +1,36 @@
+# Runtime Mesh Component for Unreal Engine 4
+---
+### Here you will find the current version of the RMC. At present it only supports UE4.23 and newer.  
+### If you require support for UE4.20-4.22 you'll need to use the v4 release found here: https://github.com/KoderzUnreal/RuntimeMeshComponent/releases/tag/v4.0
+---
+
 **For information on installation, usage and everything else, [please read the Wiki](https://runtimemesh.koderz.io/)**
+
+---
+**Join us on [Discord](https://discord.gg/KGvBBTv)**
+
 **Basic examples of the features of the RMC can be found [here!](https://github.com/KoderzUnreal/RuntimeMeshComponent-Examples)**
+**A more advanced example project can be found [here!](https://github.com/Moddingear/Hexagons)**
+
+**This project is a labor of love, but unfortunately love doesn't pay the bills!
+If you've found this project useful, please consider supporting the development!
+[You can support the project here!](https://github.com/Koderz/RuntimeMeshComponent/wiki/Support-the-development!)**
+
+---
+
 The Runtime Mesh Component, or RMC for short, is a component designed specifically to support rendering and collision on meshes generated at runtime. This could be anything from voxel engines like Minecraft, to custom model viewers, or supporting user loaded models. It has numerous different features to support most of the normal rendering needs of a game, as well as ability to support both static collision for things such as terrain, as well as dynamic collision for things that need to be able to move and bounce around!
+
+The RMC is very similar in purpose to the ProceduralMeshComponent or CustomMeshComponent currently found in UE4, but far surpasses both in features, and efficiency! Both the Procedural Mesh Component and Custom Mesh Component are memory heavy, the Procedural Mesh Component is inefficient both in its rendering path as well as update logic, and the Custom Mesh Component is very lacking in any real features.
+
+Version 4 is a total redesign of the component, to better support the wide variety of cases people have used it for, and more in the future. With this it has departed being backward compatible or cross compatible with the Procedural Mesh Component, but for that it has gained a massive amount of customizability, as well as compartmentalization of logic to better increase efficiency. 
+
 Upgrading from the PMC to the RMC isn't difficult. Visit the [Wiki](https://github.com/Koderz/UE4RuntimeMeshComponent/wiki/) to find out more!
+
+---
+
 *List of features for V4: (Those with asterisks not yet completed, or tested)*
 * Full support for variable mesh configurations
-* Variable mesh formats, allowing for tradeoff in needed features and memory/performance overhead
+* Up to 8 Texture Coordinate (UV) channels
 * High or normal precision Texture Coordinate (UV) channels
 * High or normal precision normals/tangents
 * LOD Support (Both static and dynamic draw paths functional, with dithering support)
@@ -18,23 +44,14 @@ Upgrading from the PMC to the RMC isn't difficult. Visit the [Wiki](https://gith
 * Collision separate from rendering (collision can use render mesh automatically with use of provider)
 * Tessellation Support
 
-Features (Premium Edition):
-* All features found in RMC-Community!
-* Additional Reversed Indices buffer for inverted views or inverted transforms like negative scaling.
-* Depth Only Indices, allow for a separate index buffer for depth prepass and shadows for improved performance
-* Distance Field support. Supports engine features like DF Shadows, and DF Ambient Occlusion, and material distance queries, and Niagara collision
-* Distance Field generation on CPU. RMC can generate the DF for you on the CPU, GPU implementation coming later.
-* Model loading of many common formats including obj, stl, fbx, x, 3ds, dae, and more through Assimp
-* Optimization-ReIndex, can reindex the mesh to remove redundant vertices.
-* Optimization-VertexOrder, Forsyth algorithm to optimize the order of vertices to improve caching efficiency
-* Optimization-Overdraw, Reducing overdraw of a mesh by rearranging triangles
-* Optimization-VertexFetch, Improve memory coherency by ordering vertex buffer to more efficiently work with triangle order
-* Texture loading support for .jpg/.jpeg, .png, .tga, .bmp, .psd, .gif
-* Texture mipmap generation support
 
 
-Improvements over PMC:
-* 50-90% Lower memory useage than PMC
-* 30-100% lower render thread cpu time
-* Static draw path for maximum rendering performance
-* Dynamic Draw path for efficient frequent updates.
+**Supported Engine Versions:**
+v4.1 supports engine versions 4.23+
+v4.0 supports engine versions 4.20+
+v3.0 supports engine versions 4.17+
+v2.0 supports engine versions 4.12+
+v1.2 supports engine versions 4.10+
+
+*The Runtime Mesh Component should support all UE4 platforms.*
+*Collision MAY NOT be available on some platforms (HTML5)*

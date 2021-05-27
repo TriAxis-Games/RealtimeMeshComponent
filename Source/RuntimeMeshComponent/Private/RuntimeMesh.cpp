@@ -730,10 +730,10 @@ void URuntimeMesh::HandleUpdate()
 						SectionsToGetMesh.FindOrAdd(LODId).Add(INDEX_NONE);
 						continue;
 					}
-
-					if (LODs[LODId].Sections.Contains(SectionId))
+					
+					if (EnumHasAnyFlags(UpdateType, ESectionUpdateType::AllData))
 					{
-						if (EnumHasAnyFlags(UpdateType, ESectionUpdateType::AllData))
+						if (LODs[LODId].Sections.Contains(SectionId))
 						{
 							if (EnumHasAllFlags(UpdateType, ESectionUpdateType::Properties))
 							{
@@ -746,16 +746,16 @@ void URuntimeMesh::HandleUpdate()
 								SectionsToGetMesh.FindOrAdd(LODId).Add(SectionId);
 							}
 						}
-						else
+					}
+					else
+					{
+						if (EnumHasAllFlags(UpdateType, ESectionUpdateType::Remove))
 						{
-							if (EnumHasAllFlags(UpdateType, ESectionUpdateType::Remove))
-							{
-								RenderProxyRef->RemoveSection_GameThread(LODId, SectionId);
-							}
-							else if (EnumHasAllFlags(UpdateType, ESectionUpdateType::Clear))
-							{
-								RenderProxyRef->ClearSection_GameThread(LODId, SectionId);
-							}
+							RenderProxyRef->RemoveSection_GameThread(LODId, SectionId);
+						}
+						else if (EnumHasAllFlags(UpdateType, ESectionUpdateType::Clear))
+						{
+							RenderProxyRef->ClearSection_GameThread(LODId, SectionId);
 						}
 					}
 				}

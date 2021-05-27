@@ -75,4 +75,4 @@ v1.2 supports engine versions 4.10+
 
 *The Runtime Mesh Component should support all UE4 platforms.*
 *Collision MAY NOT be available on some platforms (HTML5)*
->>>>>>> a6b0b92c75344e5d960eabc37ba77fc392e15cc8
+>>>>>>> 81768be1c5a1cb296b36270622b56324a0022358

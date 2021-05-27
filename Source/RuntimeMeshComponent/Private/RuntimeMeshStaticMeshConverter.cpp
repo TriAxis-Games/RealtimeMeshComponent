@@ -38,11 +38,9 @@ int32 URuntimeMeshStaticMeshConverter::CopyVertexOrGetIndex(const FStaticMeshLOD
 		// Copy UV's
 		if (NumTexCoords > 0)
 		{
-			int32 TexcoordVertIdx = NewMeshData.TexCoords.Add(LOD.VertexBuffers.StaticMeshVertexBuffer.GetVertexUV(VertexIndex, 0), 0);
-
-			for (int32 TexIndex = 1; TexIndex < NumTexCoords; TexIndex++)
+			for (int32 TexIndex = 0; TexIndex < NumTexCoords; TexIndex++)
 			{
-				NewMeshData.TexCoords.SetTexCoord(TexcoordVertIdx, LOD.VertexBuffers.StaticMeshVertexBuffer.GetVertexUV(VertexIndex, TexIndex), TexIndex);
+				NewMeshData.TexCoords.Add(LOD.VertexBuffers.StaticMeshVertexBuffer.GetVertexUV(VertexIndex, TexIndex), TexIndex);
 			}
 		}
 		else
