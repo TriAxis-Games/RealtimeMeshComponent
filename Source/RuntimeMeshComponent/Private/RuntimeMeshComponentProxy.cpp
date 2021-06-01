@@ -6,7 +6,7 @@
 #include "RuntimeMeshProxy.h"
 #include "Materials/Material.h"
 #include "PhysicsEngine/BodySetup.h"
-#include "TessellationRendering.h"
+//#include "TessellationRendering.h"
 #include "PrimitiveSceneProxy.h"
 #include "Materials/Material.h"
 #include "UnrealEngine.h"
@@ -95,7 +95,7 @@ FPrimitiveViewRelevance FRuntimeMeshComponentSceneProxy::GetViewRelevance(const 
 	#if ENGINE_MINOR_VERSION >= 26
 		bool bForceDynamicPath = IsRichView(*View->Family) || IsSelected() || View->Family->EngineShowFlags.Wireframe;
 	#else
-		bool bForceDynamicPath = !IsStaticPathAvailable() || IsRichView(*View->Family) || IsSelected() || View->Family->EngineShowFlags.Wireframe;
+		bool bForceDynamicPath = IsRichView(*View->Family) || IsSelected() || View->Family->EngineShowFlags.Wireframe;
 	#endif
 	Result.bStaticRelevance = !bForceDynamicPath && RuntimeMeshProxy->ShouldRenderStatic();
 	Result.bDynamicRelevance = bForceDynamicPath || RuntimeMeshProxy->ShouldRenderDynamic();
@@ -124,7 +124,7 @@ void FRuntimeMeshComponentSceneProxy::CreateMeshBatch(FMeshBatch& MeshBatch, con
 	const bool bRenderWireframe = WireframeMaterial != nullptr;
 
 	// Decide if we should be using adjacency information for this material
-	const bool bWantsAdjacencyInfo = !bForRayTracing && !bRenderWireframe && RequiresAdjacencyInformation(Material, Section.Buffers->VertexFactory.GetType(), GetScene().GetFeatureLevel());
+	const bool bWantsAdjacencyInfo = false;//!bForRayTracing && !bRenderWireframe && RequiresAdjacencyInformation(Material, Section.Buffers->VertexFactory.GetType(), GetScene().GetFeatureLevel());
 	check(!bWantsAdjacencyInfo || Section.bHasAdjacencyInfo);
 
 
@@ -242,7 +242,7 @@ void FRuntimeMeshComponentSceneProxy::GetDynamicMeshElements(const TArray<const 
 			#if ENGINE_MINOR_VERSION >= 26
 				bool bForceDynamicPath = IsRichView(*Views[ViewIndex]->Family) || Views[ViewIndex]->Family->EngineShowFlags.Wireframe || IsSelected();
 			#else
-				bool bForceDynamicPath = IsRichView(*Views[ViewIndex]->Family) || Views[ViewIndex]->Family->EngineShowFlags.Wireframe || IsSelected() || !IsStaticPathAvailable();
+				bool bForceDynamicPath = IsRichView(*Views[ViewIndex]->Family) || Views[ViewIndex]->Family->EngineShowFlags.Wireframe || IsSelected();
 			#endif
 
 			if (IsShown(View) && (VisibilityMap & (1 << ViewIndex)))
@@ -318,50 +318,50 @@ void FRuntimeMeshComponentSceneProxy::GetDynamicMeshElements(const TArray<const 
 #if RHI_RAYTRACING
 void FRuntimeMeshComponentSceneProxy::GetDynamicRayTracingInstances(struct FRayTracingMaterialGatheringContext& Context, TArray<struct FRayTracingInstance>& OutRayTracingInstances)
 {
-	SCOPE_CYCLE_COUNTER(STAT_RuntimeMeshComponentSceneProxy_GetDynamicRayTracingInstances);
+	//SCOPE_CYCLE_COUNTER(STAT_RuntimeMeshComponentSceneProxy_GetDynamicRayTracingInstances);
 
-	// TODO: Should this use any LOD determination logic? Or always use a specific LOD?
-	int32 LODIndex = 0;
-	
-	if (RuntimeMeshProxy->HasValidLODs())
-	{
-		auto& LOD = RuntimeMeshProxy->GetLOD(LODIndex);
+	//// TODO: Should this use any LOD determination logic? Or always use a specific LOD?
+	//int32 LODIndex = 0;
+	//
+	//if (RuntimeMeshProxy->HasValidLODs())
+	//{
+	//	auto& LOD = RuntimeMeshProxy->GetLOD(LODIndex);
 
-		for (const auto& SectionEntry : LOD.Sections)
-		{
-			int32 SectionId = SectionEntry.Key;
-			auto& Section = SectionEntry.Value;
+	//	for (const auto& SectionEntry : LOD.Sections)
+	//	{
+	//		int32 SectionId = SectionEntry.Key;
+	//		auto& Section = SectionEntry.Value;
 
-			if (Section.ShouldRenderDynamicPathRayTracing())
-			{
-				UMaterialInterface* SectionMat = GetMaterialSlot(Section.MaterialSlot);
-				check(SectionMat);
+	//		if (Section.ShouldRenderDynamicPathRayTracing())
+	//		{
+	//			UMaterialInterface* SectionMat = GetMaterialSlot(Section.MaterialSlot);
+	//			check(SectionMat);
 
-				FRayTracingGeometry* SectionRayTracingGeometry = &Section.Buffers->RayTracingGeometry;
+	//			FRayTracingGeometry* SectionRayTracingGeometry = &Section.Buffers->RayTracingGeometry;
 
-				if (SectionRayTracingGeometry->RayTracingGeometryRHI->IsValid())
-				{
-					check(SectionRayTracingGeometry->Initializer.TotalPrimitiveCount > 0);
-					check(SectionRayTracingGeometry->Initializer.IndexBuffer.IsValid());
+	//			if (SectionRayTracingGeometry->RayTracingGeometryRHI->IsValid())
+	//			{
+	//				check(SectionRayTracingGeometry->Initializer.TotalPrimitiveCount > 0);
+	//				check(SectionRayTracingGeometry->Initializer.IndexBuffer.IsValid());
 
-					FRayTracingInstance RayTracingInstance;
-					RayTracingInstance.Geometry = SectionRayTracingGeometry;
-					RayTracingInstance.InstanceTransforms.Add(GetLocalToWorld());
+	//				FRayTracingInstance RayTracingInstance;
+	//				RayTracingInstance.Geometry = SectionRayTracingGeometry;
+	//				RayTracingInstance.InstanceTransforms.Add(GetLocalToWorld());
 
-					FMeshBatch MeshBatch;
-					CreateMeshBatch(MeshBatch, Section, LODIndex, SectionId, SectionMat, nullptr, true);
-
-
-					MeshBatch.CastRayTracedShadow = IsShadowCast(Context.ReferenceView);
+	//				FMeshBatch MeshBatch;
+	//				CreateMeshBatch(MeshBatch, Section, LODIndex, SectionId, SectionMat, nullptr, true);
 
 
-					RayTracingInstance.Materials.Add(MeshBatch);
-					RayTracingInstance.BuildInstanceMaskAndFlags();
-					OutRayTracingInstances.Add(RayTracingInstance);
-				}
-			}
-		}
-	}
+	//				MeshBatch.CastRayTracedShadow = IsShadowCast(Context.ReferenceView);
+
+
+	//				RayTracingInstance.Materials.Add(MeshBatch);
+	//				RayTracingInstance.BuildInstanceMaskAndFlags();
+	//				OutRayTracingInstances.Add(RayTracingInstance);
+	//			}
+	//		}
+	//	}
+	//}
 }
 #endif // RHI_RAYTRACING
 
