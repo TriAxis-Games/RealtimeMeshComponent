@@ -1,6 +1,7 @@
-# Runtime Mesh Component for Unreal Engine 4
+# Runtime Mesh Component for Unreal Engine 5
 ---
-### Here you will find the current version of the RMC. At present it only supports UE4.23 and newer.  
+### Here you will find the current version of the RMC. At present it only supports UE5.0.0 and newer.  
+### If you require support for UE4.23-4.26 you'll need to use the v4 release found here: https://github.com/TriAxis-Games/RuntimeMeshComponent/tree/master
 ### If you require support for UE4.20-4.22 you'll need to use the v4 release found here: https://github.com/KoderzUnreal/RuntimeMeshComponent/releases/tag/v4.0
 ---
 
@@ -65,11 +66,13 @@ Improvements over PMC:
 
 
 **Supported Engine Versions:**
-v4.1 supports engine versions 4.23+
+RMC4_UE5 supports engine versions 5.0.0+
+v4.1 supports engine versions 4.23 - 4.26
 v4.0 supports engine versions 4.20+
 v3.0 supports engine versions 4.17+
 v2.0 supports engine versions 4.12+
 v1.2 supports engine versions 4.10+
 
-*The Runtime Mesh Component should support all UE4 platforms.*
+*The Runtime Mesh Component should support all UE4 and UE5 platforms.*
+*Some rendering features like tesselation is not currently supported on UE5*
 *Collision MAY NOT be available on some platforms (HTML5)*

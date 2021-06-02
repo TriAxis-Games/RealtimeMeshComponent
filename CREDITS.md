@@ -23,3 +23,6 @@
 [RumbleballTheReal](https://github.com/RumbleballTheReal)
 [SiggiG](https://github.com/SiggiG)
 [timdecode](https://github.com/timdecode)
+
+### UE5 Adaptation
+[EddieAtaberk](https://github.com/eddieataberk)

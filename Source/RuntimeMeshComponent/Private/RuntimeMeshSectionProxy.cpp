@@ -34,7 +34,7 @@ void FRuntimeMeshSectionProxyBuffers::Reset()
 
 void FRuntimeMeshSectionProxyBuffers::UpdateRayTracingGeometry()
 {
-#if RHI_RAYTRACING
+#if RHI_RAYTRACING/*
 	if (IsRayTracingEnabled())
 	{
 		FRayTracingGeometryInitializer Initializer;
@@ -73,6 +73,6 @@ void FRuntimeMeshSectionProxyBuffers::UpdateRayTracingGeometry()
 #endif
 
 		RayTracingGeometry.UpdateRHI();
-	}
+	}*/
 #endif
 }

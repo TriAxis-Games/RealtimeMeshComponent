@@ -10,10 +10,11 @@
 ARuntimeMeshActor::ARuntimeMeshActor(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 24
-	SetCanBeDamaged(false);
-#else
+
+#if ENGINE_MAJOR_VERSION <= 4 && ENGINE_MINOR_VERSION <= 24
 	bCanBeDamaged = false;
+#else
+	SetCanBeDamaged(false);
 #endif
 
 	RuntimeMeshComponent = CreateDefaultSubobject<URuntimeMeshComponent>(TEXT("RuntimeMeshComponent0"));

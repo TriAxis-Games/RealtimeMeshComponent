@@ -220,7 +220,7 @@ public:
 	{
 		const uint32 SizeInBytes = InStream.GetResourceDataSize();
 
-		FRHIResourceCreateInfo CreateInfo(&InStream);
+		FRHIResourceCreateInfo CreateInfo(TEXT("RuntimeMeshComponent"), &InStream);
 
 		return CreateRHIBuffer<bIsInRenderThread>(CreateInfo, SizeInBytes, bDynamicBuffer);
 	}
@@ -569,7 +569,7 @@ public:
 	{
 		const uint32 SizeInBytes = InStream.GetResourceDataSize();
 
-		FRHIResourceCreateInfo CreateInfo(&InStream);
+		FRHIResourceCreateInfo CreateInfo(TEXT("RuntimeMeshComponent"),&InStream);
 
 		return CreateRHIBuffer<bIsInRenderThread>(CreateInfo, InStream.GetStride(), SizeInBytes, bDynamicBuffer);
 	}
@@ -600,7 +600,7 @@ public:
 		}
 		else
 		{
-			FRHIResourceCreateInfo CreateInfo;
+			FRHIResourceCreateInfo CreateInfo(TEXT("RuntimeMeshComponent"));
 			IndexBufferRHI = CreateRHIBuffer<true>(CreateInfo, IndexSize, 0, bIsDynamicBuffer);
 		}
 	}
