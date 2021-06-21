@@ -1078,7 +1078,14 @@ void URuntimeMesh::FinalizeNewCookedData()
 	SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_FinalizeCollisionCookedData);
 
 	check(IsInGameThread());
-
+	
+	{
+		FWriteScopeLock Lock(MeshProviderLock);
+		if (MeshProviderPtr)
+		{
+			MeshProviderPtr->CollisionUpdateCompleted();
+		}
+	}
 	// Alert all linked components so they can update their physics state.
 	DoForAllLinkedComponents([](URuntimeMeshComponent* Mesh)
 		{
