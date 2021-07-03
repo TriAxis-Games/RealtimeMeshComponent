@@ -259,21 +259,18 @@ FReply FRuntimeMeshComponentDetails::ClickedOnConvertToStaticMesh()
 				if (RawMesh.IsValid())
 				{
 					// Add source to new StaticMesh
-					//const TArray<FStaticMeshSourceModel> RMCSourceModels = StaticMesh->GetSourceModels();
+					FStaticMeshSourceModel& SrcModel = StaticMesh->AddSourceModel();
+					SrcModel.BuildSettings.bRecomputeNormals = false;
+					SrcModel.BuildSettings.bRecomputeTangents = false;
+					SrcModel.BuildSettings.bRemoveDegenerates = true;
+					SrcModel.BuildSettings.bUseHighPrecisionTangentBasis = bUseHighPrecisionTangents;
+					SrcModel.BuildSettings.bUseFullPrecisionUVs = bUseFullPrecisionUVs;
+					SrcModel.BuildSettings.bGenerateLightmapUVs = true;
+					SrcModel.BuildSettings.SrcLightmapIndex = 0;
+					SrcModel.BuildSettings.DstLightmapIndex = 1;
+					SrcModel.RawMeshBulkData->SaveRawMesh(RawMesh);
 
-					FStaticMeshSourceModel* SrcModel = {};//new (RMCSourceModels) FStaticMeshSourceModel();
-
-					SrcModel->BuildSettings.bRecomputeNormals = false;
-					SrcModel->BuildSettings.bRecomputeTangents = false;
-					SrcModel->BuildSettings.bRemoveDegenerates = true;
-					SrcModel->BuildSettings.bUseHighPrecisionTangentBasis = bUseHighPrecisionTangents;
-					SrcModel->BuildSettings.bUseFullPrecisionUVs = bUseFullPrecisionUVs;
-					SrcModel->BuildSettings.bGenerateLightmapUVs = true;
-					SrcModel->BuildSettings.SrcLightmapIndex = 0;
-					SrcModel->BuildSettings.DstLightmapIndex = 1;
-					SrcModel->RawMeshBulkData->SaveRawMesh(RawMesh);
-
-					SrcModel->ScreenSize = LOD.Properties.ScreenSize;
+					SrcModel.ScreenSize = LOD.Properties.ScreenSize;
 
 					// Set the materials used for this static mesh
 					int32 NumMaterials = StaticMesh->GetStaticMaterials().Num();
