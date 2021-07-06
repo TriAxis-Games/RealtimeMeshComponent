@@ -923,12 +923,19 @@ void URuntimeMesh::UpdateCollision(bool bForceCookNow)
 	SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_UpdateCollision);
 
 	check(IsInGameThread());
-
-	FReadScopeLock Lock(MeshProviderLock);
-	if (MeshProviderPtr)
+	bool HasCollisionSettings = false;
+	FRuntimeMeshCollisionSettings CollisionSettings;
 	{
-		FRuntimeMeshCollisionSettings CollisionSettings = MeshProviderPtr->GetCollisionSettings();
-
+		FReadScopeLock Lock(MeshProviderLock);
+		if (MeshProviderPtr)
+		{
+			CollisionSettings = MeshProviderPtr->GetCollisionSettings();
+			HasCollisionSettings = true;
+		}
+	}
+	
+	if (HasCollisionSettings)
+	{
 		UWorld* World = GetWorld();
 		const bool bShouldCookAsync = !bForceCookNow && World && World->IsGameWorld() && CollisionSettings.bUseAsyncCooking;
 

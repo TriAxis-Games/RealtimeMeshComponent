@@ -152,7 +152,7 @@ FReply FRuntimeMeshComponentDetails::ClickedOnConvertToStaticMesh()
 			}
 
 			// Create the package to save the static mesh
-			UPackage* Package = CreatePackage(NULL, *UserPackageName);
+			UPackage* Package = CreatePackage(*UserPackageName);
 			check(Package);
 
 			// Create StaticMesh object
