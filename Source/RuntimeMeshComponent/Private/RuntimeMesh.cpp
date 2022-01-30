@@ -869,7 +869,12 @@ void URuntimeMesh::HandleSingleSectionUpdate(const FRuntimeMeshProxyPtr& RenderP
 {
 	RMC_LOG_VERBOSE("HandleFullLODUpdate called: LOD:%d Section:%d", LODId, SectionId);
 
-	FRuntimeMeshSectionProperties Properties = LODs[LODId].Sections.FindChecked(SectionId);
+	
+	FRuntimeMeshSectionProperties Properties;
+	{
+		FScopeLock Lock(&SyncRoot);
+		Properties = LODs[LODId].Sections.FindChecked(SectionId);
+	}
 	FRuntimeMeshRenderableMeshData MeshData(
 		Properties.bUseHighPrecisionTangents,
 		Properties.bUseHighPrecisionTexCoords,

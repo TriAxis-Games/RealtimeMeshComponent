@@ -63,6 +63,7 @@ private:
 	UPROPERTY()
 	URuntimeMeshProvider* MeshProviderPtr;
 
+	// Protects MeshProviderPtr
 	mutable FRWLock MeshProviderLock;
 
 	UPROPERTY(Transient)
@@ -94,6 +95,8 @@ private:
 	TMap<FName, int32> SlotNameLookup;
 
 	// Thread synchronization for the LOD/Material data
+	// Protects BodySetup, CollisionSource, AsyncBodyQueue, PendingSourceInfo, bCollisionIsDirty, LODs, MaterialSlots,
+	// SlotNameLookup, SectionsToUpdate, RenderProxy and LinkedComponents
 	mutable FCriticalSection SyncRoot;
 
 	// Sections that are waiting for an update
