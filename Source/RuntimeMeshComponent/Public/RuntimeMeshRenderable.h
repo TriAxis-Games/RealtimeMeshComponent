@@ -18,7 +18,7 @@ private:
 public:
 	FRuntimeMeshVertexPositionStream() { }
 
-	FORCEINLINE int32 GetStride() const { return sizeof(FVector); }
+	FORCEINLINE int32 GetStride() const { return sizeof(FVector3f); }
 
 	FORCEINLINE int32 Num() const
 	{
@@ -37,31 +37,31 @@ public:
 		Data.Empty(Slack * GetStride());
 	}
 
-	int32 Add(const FVector& InPosition)
+	int32 Add(const FVector3f& InPosition)
 	{
 		int32 Index = Data.Num();
-		Data.AddUninitialized(sizeof(FVector));
-		*((FVector*)&Data[Index]) = InPosition;
-		return Index / sizeof(FVector);
+		Data.AddUninitialized(sizeof(FVector3f));
+		*((FVector3f*)&Data[Index]) = InPosition;
+		return Index / sizeof(FVector3f);
 	}
 	void Append(const FRuntimeMeshVertexPositionStream& InOther)
 	{
 		Data.Append(InOther.Data);
 	}
-	void Append(const TArray<FVector>& InPositions)
+	void Append(const TArray<FVector3f>& InPositions)
 	{
 		int32 StartIndex = Data.Num();
-		Data.SetNum(StartIndex + sizeof(FVector) * InPositions.Num());
-		FMemory::Memcpy(Data.GetData() + StartIndex, InPositions.GetData(), InPositions.Num() * sizeof(FVector));
+		Data.SetNum(StartIndex + sizeof(FVector3f) * InPositions.Num());
+		FMemory::Memcpy(Data.GetData() + StartIndex, InPositions.GetData(), InPositions.Num() * sizeof(FVector3f));
 	}
 
-	void SetPosition(int32 Index, const FVector& NewPosition)
+	void SetPosition(int32 Index, const FVector3f& NewPosition)
 	{
-		*((FVector*)&Data[Index * sizeof(FVector)]) = NewPosition;
+		*((FVector3f*)&Data[Index * sizeof(FVector3f)]) = NewPosition;
 	}
-	const FVector& GetPosition(int32 Index) const
+	const FVector3f& GetPosition(int32 Index) const
 	{
-		return *((FVector*)&Data[Index * sizeof(FVector)]);
+		return *((FVector3f*)&Data[Index * sizeof(FVector3f)]);
 	}
 
 	FBox GetBounds() const
@@ -77,9 +77,9 @@ public:
 
 	const uint8* GetData() const { return Data.GetData(); }
 	TArray<uint8>&& TakeData()&& { return MoveTemp(Data); }
-	const TArray<FVector> GetCopy() const
+	const TArray<FVector3f> GetCopy() const
 	{
-		TArray<FVector> OutData;
+		TArray<FVector3f> OutData;
 		OutData.SetNum(Num());
 		FMemory::Memcpy(OutData.GetData(), Data.GetData(), Data.Num());
 		return OutData;
@@ -139,7 +139,7 @@ public:
 		Data.Empty(Slack * GetStride());
 	}
 
-	int32 Add(const FVector& InNormal, const FVector& InTangent)
+	int32 Add(const FVector3f& InNormal, const FVector3f& InTangent)
 	{
 		int32 Index = Data.Num();
 		int32 Stride = GetStride();
@@ -156,7 +156,7 @@ public:
 		}
 		return Index / Stride;
 	}
-	int32 Add(const FVector4& InNormal, const FVector& InTangent)
+	int32 Add(const FVector4f& InNormal, const FVector3f& InTangent)
 	{
 		int32 Index = Data.Num();
 		int32 Stride = GetStride();
@@ -173,7 +173,7 @@ public:
 		}
 		return Index / Stride;
 	}
-	int32 Add(const FVector& InTangentX, const FVector& InTangentY, const FVector& InTangentZ)
+	int32 Add(const FVector3f& InTangentX, const FVector3f& InTangentY, const FVector3f& InTangentZ)
 	{
 		int32 Index = Data.Num();
 		int32 Stride = GetStride();
@@ -181,12 +181,12 @@ public:
 		if (bIsHighPrecision)
 		{
 			*((FPackedRGBA16N*)&Data[Index]) = FPackedRGBA16N(InTangentX);
-			*((FPackedRGBA16N*)&Data[Index + sizeof(FPackedRGBA16N)]) = FPackedRGBA16N(FVector4(InTangentZ, GetBasisDeterminantSign(InTangentX, InTangentY, InTangentZ)));
+			*((FPackedRGBA16N*)&Data[Index + sizeof(FPackedRGBA16N)]) = FPackedRGBA16N(FVector4f(InTangentZ, GetBasisDeterminantSign(InTangentX, InTangentY, InTangentZ)));
 		}
 		else
 		{
 			*((FPackedNormal*)&Data[Index]) = FPackedNormal(InTangentX);
-			*((FPackedNormal*)&Data[Index + sizeof(FPackedNormal)]) = FPackedNormal(FVector4(InTangentZ, GetBasisDeterminantSign(InTangentX, InTangentY, InTangentZ)));
+			*((FPackedNormal*)&Data[Index + sizeof(FPackedNormal)]) = FPackedNormal(FVector4f(InTangentZ, GetBasisDeterminantSign(InTangentX, InTangentY, InTangentZ)));
 		}
 		return Index / Stride;
 	}
@@ -194,7 +194,7 @@ public:
 	{
 		Data.Append(InOther.Data);
 	}
-	void Append(const TArray<FVector>& InNormals, const TArray<FRuntimeMeshTangent>& InTangents)
+	void Append(const TArray<FVector3f>& InNormals, const TArray<FRuntimeMeshTangent>& InTangents)
 	{
 		int32 MaxCount = FMath::Max(InNormals.Num(), InTangents.Num());
 
@@ -203,8 +203,8 @@ public:
 			const int32 NormalIndex = FMath::Min(Index, InNormals.Num());
 			const int32 TangentIndex = FMath::Min(Index, InTangents.Num());
 
-			FVector4 Normal;
-			FVector Tangent;
+			FVector4f Normal;
+			FVector3f Tangent;
 
 			if (InNormals.IsValidIndex(NormalIndex))
 			{
@@ -212,7 +212,7 @@ public:
 			}
 			else
 			{
-				Normal = FVector(0, 0, 1);
+				Normal = FVector3f(0, 0, 1);
 			}
 
 			if (InTangents.IsValidIndex(TangentIndex))
@@ -222,7 +222,7 @@ public:
 			}
 			else
 			{
-				Tangent = FVector(1, 0, 0);
+				Tangent = FVector3f(1, 0, 0);
 				Normal.W = 1.0f;
 			}
 
@@ -230,7 +230,7 @@ public:
 		}
 	}
 		
-	void SetNormal(int32 Index, const FVector& NewNormal)
+	void SetNormal(int32 Index, const FVector3f& NewNormal)
 	{
 		const int32 EntryIndex = Index * 2 + 1;
 		if (bIsHighPrecision)
@@ -242,7 +242,7 @@ public:
 			*((FPackedNormal*)&Data[EntryIndex * sizeof(FPackedNormal)]) = FPackedNormal(NewNormal);
 		}
 	}
-	void SetTangent(int32 Index, const FVector& NewTangent)
+	void SetTangent(int32 Index, const FVector3f& NewTangent)
 	{
 		const int32 EntryIndex = Index * 2;
 		if (bIsHighPrecision)
@@ -254,63 +254,63 @@ public:
 			*((FPackedNormal*)&Data[EntryIndex * sizeof(FPackedNormal)]) = FPackedNormal(NewTangent);
 		}
 	}
-	void SetTangents(int32 Index, const FVector& InTangentX, const FVector& InTangentY, const FVector& InTangentZ)
+	void SetTangents(int32 Index, const FVector3f& InTangentX, const FVector3f& InTangentY, const FVector3f& InTangentZ)
 	{
 		const int32 EntryIndex = Index * 2;
 		if (bIsHighPrecision)
 		{
 			*((FPackedRGBA16N*)&Data[EntryIndex * sizeof(FPackedRGBA16N)]) = FPackedRGBA16N(InTangentX);
-			*((FPackedRGBA16N*)&Data[(EntryIndex + 1) * sizeof(FPackedRGBA16N)]) = FPackedRGBA16N(FVector4(InTangentZ, GetBasisDeterminantSign(InTangentX, InTangentY, InTangentZ)));
+			*((FPackedRGBA16N*)&Data[(EntryIndex + 1) * sizeof(FPackedRGBA16N)]) = FPackedRGBA16N(FVector4f(InTangentZ, GetBasisDeterminantSign(InTangentX, InTangentY, InTangentZ)));
 		}
 		else
 		{
 			*((FPackedNormal*)&Data[EntryIndex * sizeof(FPackedNormal)]) = FPackedNormal(InTangentX);
-			*((FPackedNormal*)&Data[(EntryIndex + 1) * sizeof(FPackedNormal)]) = FPackedNormal(FVector4(InTangentZ, GetBasisDeterminantSign(InTangentX, InTangentY, InTangentZ)));
+			*((FPackedNormal*)&Data[(EntryIndex + 1) * sizeof(FPackedNormal)]) = FPackedNormal(FVector4f(InTangentZ, GetBasisDeterminantSign(InTangentX, InTangentY, InTangentZ)));
 		}
 	}
 
-	FVector GetNormal(int32 Index) const
+	FVector3f GetNormal(int32 Index) const
 	{
 		const int32 EntryIndex = Index * 2 + 1;
 		if (bIsHighPrecision)
 		{
-			return (*((FPackedRGBA16N*)&Data[EntryIndex * sizeof(FPackedRGBA16N)])).ToFVector();
+			return (*((FPackedRGBA16N*)&Data[EntryIndex * sizeof(FPackedRGBA16N)])).ToFVector3f();
 		}
 		else
 		{
-			return (*((FPackedNormal*)&Data[EntryIndex * sizeof(FPackedNormal)])).ToFVector();
+			return (*((FPackedNormal*)&Data[EntryIndex * sizeof(FPackedNormal)])).ToFVector3f();
 		}
 	}
-	FVector GetTangent(int32 Index) const
+	FVector3f GetTangent(int32 Index) const
 	{
 		const int32 EntryIndex = Index * 2;
 		if (bIsHighPrecision)
 		{
-			return (*((FPackedRGBA16N*)&Data[EntryIndex * sizeof(FPackedRGBA16N)])).ToFVector();
+			return (*((FPackedRGBA16N*)&Data[EntryIndex * sizeof(FPackedRGBA16N)])).ToFVector3f();
 		}
 		else
 		{
-			return (*((FPackedNormal*)&Data[EntryIndex * sizeof(FPackedNormal)])).ToFVector();
+			return (*((FPackedNormal*)&Data[EntryIndex * sizeof(FPackedNormal)])).ToFVector3f();
 		}
 	}
-	void GetTangents(int32 Index, FVector& OutTangentX, FVector& OutTangentY, FVector& OutTangentZ) const
+	void GetTangents(int32 Index, FVector3f& OutTangentX, FVector3f& OutTangentY, FVector3f& OutTangentZ) const
 	{
 		const int32 EntryIndex = Index * 2;
 		if (bIsHighPrecision)
 		{
 			FPackedRGBA16N TempTangentX = *((FPackedRGBA16N*)&Data[EntryIndex * sizeof(FPackedRGBA16N)]);
 			FPackedRGBA16N TempTangentZ = *((FPackedRGBA16N*)&Data[(EntryIndex + 1) * sizeof(FPackedRGBA16N)]);
-			OutTangentX = TempTangentX.ToFVector();
-			OutTangentY = GenerateYAxis(TempTangentX, TempTangentZ);
-			OutTangentZ = TempTangentZ.ToFVector();
+			OutTangentX = TempTangentX.ToFVector3f();
+			OutTangentY = (FVector3f)GenerateYAxis(TempTangentX, TempTangentZ);
+			OutTangentZ = TempTangentZ.ToFVector3f();
 		}
 		else
 		{
 			FPackedNormal TempTangentX = *((FPackedNormal*)&Data[EntryIndex * sizeof(FPackedNormal)]);
 			FPackedNormal TempTangentZ = *((FPackedNormal*)&Data[(EntryIndex + 1) * sizeof(FPackedNormal)]);
-			OutTangentX = TempTangentX.ToFVector();
-			OutTangentY = GenerateYAxis(TempTangentX, TempTangentZ);
-			OutTangentZ = TempTangentZ.ToFVector();
+			OutTangentX = TempTangentX.ToFVector3f();
+			OutTangentY = (FVector3f)GenerateYAxis(TempTangentX, TempTangentZ);
+			OutTangentZ = TempTangentZ.ToFVector3f();
 		}
 	}
 

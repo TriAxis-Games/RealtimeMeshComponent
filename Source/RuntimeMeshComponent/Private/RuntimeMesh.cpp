@@ -544,7 +544,16 @@ bool URuntimeMesh::GetPhysicsTriMeshData(struct FTriMeshCollisionData* Collision
 
 		if (MeshProviderPtr->GetCollisionMesh(CollisionMesh))
 		{
-			CollisionData->Vertices = CollisionMesh.Vertices.TakeContents();
+			/*
+			CollisionData->Vertices.Empty();
+			for (FVector v : CollisionMesh.Vertices.TakeContents()) {
+				CollisionData->Vertices.Add((FVector3f)v);
+			}
+			*/
+
+			CollisionData->Vertices = TArray<FVector3f>(MoveTemp(CollisionMesh.Vertices.Data));// .TakeContents());
+
+//			CollisionData->Vertices = CollisionMesh.Vertices.TakeContents();
 			CollisionData->Indices = CollisionMesh.Triangles.TakeContents();
 			CollisionData->UVs = CollisionMesh.TexCoords.TakeContents();
 			CollisionData->MaterialIndices = CollisionMesh.MaterialIndices.TakeContents();
@@ -869,7 +878,11 @@ void URuntimeMesh::HandleSingleSectionUpdate(const FRuntimeMeshProxyPtr& RenderP
 {
 	RMC_LOG_VERBOSE("HandleFullLODUpdate called: LOD:%d Section:%d", LODId, SectionId);
 
-	FRuntimeMeshSectionProperties Properties = LODs[LODId].Sections.FindChecked(SectionId);
+	FRuntimeMeshSectionProperties Properties;
+	{
+		FScopeLock Lock(&SyncRoot);
+		Properties = LODs[LODId].Sections.FindChecked(SectionId);
+	}
 	FRuntimeMeshRenderableMeshData MeshData(
 		Properties.bUseHighPrecisionTangents,
 		Properties.bUseHighPrecisionTexCoords,

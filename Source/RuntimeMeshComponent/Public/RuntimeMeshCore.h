@@ -137,7 +137,7 @@ public:
 
 	/** Direction of X tangent for this vertex */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Tangent)
-	FVector TangentX;
+	FVector3f TangentX;
 
 	/** Bool that indicates whether we should flip the Y tangent when we compute it using cross product */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Tangent)
@@ -153,7 +153,7 @@ public:
 		, bFlipTangentY(bInFlipTangentY)
 	{}
 
-	FRuntimeMeshTangent(FVector InTangentX, bool bInFlipTangentY = false)
+	FRuntimeMeshTangent(FVector3f InTangentX, bool bInFlipTangentY = false)
 		: TangentX(InTangentX)
 		, bFlipTangentY(bInFlipTangentY)
 	{}

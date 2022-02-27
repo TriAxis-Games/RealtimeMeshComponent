@@ -162,7 +162,11 @@ void URuntimeMeshBlueprintFunctions::SetTangent(FRuntimeMeshVertexTangentStream&
 void URuntimeMeshBlueprintFunctions::GetTangents(FRuntimeMeshVertexTangentStream& Stream, FRuntimeMeshVertexTangentStream& OutStream, int32 Index, FVector& OutTangentX, FVector& OutTangentY, FVector& OutTangentZ)
 {
 	OutStream = Stream;
-	Stream.GetTangents(Index, OutTangentX, OutTangentY, OutTangentZ);
+	FVector3f tangentX, tangentY, tangentZ;
+	Stream.GetTangents(Index, tangentX, tangentY, tangentZ);
+	OutTangentX = (FVector)tangentX;
+	OutTangentY = (FVector)tangentY;
+	OutTangentZ = (FVector)tangentZ;
 }
 
 void URuntimeMeshBlueprintFunctions::SetTangents(FRuntimeMeshVertexTangentStream& Stream, FRuntimeMeshVertexTangentStream& OutStream, int32 Index, FVector InTangentX, FVector InTangentY, FVector InTangentZ)

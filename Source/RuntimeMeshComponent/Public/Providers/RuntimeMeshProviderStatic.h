@@ -346,9 +346,24 @@ public:
 	virtual void BeginDestroy() override;
 private:
 	static const TArray<FVector2D> EmptyUVs;
-
+	
 	template<typename TangentType, typename ColorType>
 	static FRuntimeMeshRenderableMeshData FillMeshData(FRuntimeMeshSectionProperties& Properties, const TArray<FVector>& Vertices, const TArray<FVector>& Normals, const TArray<TangentType>& Tangents,
+		const TArray<ColorType>& VertexColors, const TArray<FVector2D>& UV0, const TArray<FVector2D>& UV1, const TArray<FVector2D>& UV2, const TArray<FVector2D>& UV3, const TArray<int32>& Triangles)
+	{
+		TArray<FVector3f> verts;
+		for (FVector v : Vertices) {
+			verts.Add((FVector3f)v);
+		}
+		TArray<FVector3f> norms;
+		for (FVector v : Normals) {
+			norms.Add((FVector3f)v);
+		}
+		return FillMeshData(Properties, verts, norms, Tangents, VertexColors, UV0, UV1, UV2, UV3, Triangles);
+	}
+	
+	template<typename TangentType, typename ColorType>
+	static FRuntimeMeshRenderableMeshData FillMeshData(FRuntimeMeshSectionProperties& Properties, const TArray<FVector3f>& Vertices, const TArray<FVector3f>& Normals, const TArray<TangentType>& Tangents,
 		const TArray<ColorType>& VertexColors, const TArray<FVector2D>& UV0, const TArray<FVector2D>& UV1, const TArray<FVector2D>& UV2, const TArray<FVector2D>& UV3, const TArray<int32>& Triangles)
 	{
 		Properties.bWants32BitIndices = Vertices.Num() > MAX_uint16;
@@ -368,7 +383,7 @@ private:
 			SectionData.Tangents.SetNum(SectionData.Positions.Num());
 			for (int32 Index = Count; Index < SectionData.Tangents.Num(); Index++)
 			{
-				SectionData.Tangents.SetTangents(Index, FVector(1, 0, 0), FVector(0, 1, 0), FVector(0, 0, 1));
+				SectionData.Tangents.SetTangents(Index, FVector3f(1, 0, 0), FVector3f(0, 1, 0), FVector3f(0, 0, 1));
 			}
 		}
 		SectionData.Colors.Append(VertexColors);
