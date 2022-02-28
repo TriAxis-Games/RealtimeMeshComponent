@@ -40,12 +40,12 @@ int32 URuntimeMeshStaticMeshConverter::CopyVertexOrGetIndex(const FStaticMeshLOD
 		{
 			for (int32 TexIndex = 0; TexIndex < NumTexCoords; TexIndex++)
 			{
-				NewMeshData.TexCoords.Add((FVector2D)LOD.VertexBuffers.StaticMeshVertexBuffer.GetVertexUV(VertexIndex, TexIndex), TexIndex);
+				NewMeshData.TexCoords.Add((FVector2f)LOD.VertexBuffers.StaticMeshVertexBuffer.GetVertexUV(VertexIndex, TexIndex), TexIndex);
 			}
 		}
 		else
 		{
-			NewMeshData.TexCoords.Add(FVector2D::ZeroVector);
+			NewMeshData.TexCoords.Add(FVector2f::ZeroVector);
 		}		
 
 		// Copy Color
@@ -83,7 +83,7 @@ int32 URuntimeMeshStaticMeshConverter::CopyVertexOrGetIndex(const FStaticMeshLOD
 		// Copy UV's
 		for (int32 UVIndex = 0; UVIndex < NumUVChannels; UVIndex++)
 		{
-			NewMeshData.TexCoords.Add(UVIndex, (FVector2D)LOD.VertexBuffers.StaticMeshVertexBuffer.GetVertexUV(VertexIndex, UVIndex));
+			NewMeshData.TexCoords.Add(UVIndex, (FVector2f)LOD.VertexBuffers.StaticMeshVertexBuffer.GetVertexUV(VertexIndex, UVIndex));
 		}
 		
 		MeshToSectionVertexMap.Add(VertexIndex, NewVertexIndex);
@@ -198,8 +198,8 @@ bool URuntimeMeshStaticMeshConverter::CopyStaticMeshCollisionToCollisionSettings
 	{
 		bHadSimple = true;
 		OutCollisionSettings.ConvexElements.Emplace(
-			SourceConvexElems[ConvexIndex].VertexData, 
-			SourceConvexElems[ConvexIndex].ElemBox);
+			RMC_ConvertTArray<FVector3f>(SourceConvexElems[ConvexIndex].VertexData), 
+			FBox3f(SourceConvexElems[ConvexIndex].ElemBox));
 	}
 
 	// Copy boxes

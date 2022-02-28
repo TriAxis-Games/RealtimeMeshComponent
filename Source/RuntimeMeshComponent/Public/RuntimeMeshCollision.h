@@ -19,31 +19,31 @@ struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshCollisionConvexMesh
 
 public:
 	FRuntimeMeshCollisionConvexMesh() : BoundingBox(ForceInit) { }
-	FRuntimeMeshCollisionConvexMesh(const TArray<FVector>& InVertexBuffer)
+	FRuntimeMeshCollisionConvexMesh(const TArray<FVector3f>& InVertexBuffer)
 		: VertexBuffer(InVertexBuffer)
 		, BoundingBox(InVertexBuffer)
 	{
 	}
-	FRuntimeMeshCollisionConvexMesh(TArray<FVector>&& InVertexBuffer)
+	FRuntimeMeshCollisionConvexMesh(TArray<FVector3f>&& InVertexBuffer)
 		: VertexBuffer(InVertexBuffer)
 		, BoundingBox(VertexBuffer)
 	{
 	}
-	FRuntimeMeshCollisionConvexMesh(const TArray<FVector>& InVertexBuffer, const FBox& InBoundingBox)
+	FRuntimeMeshCollisionConvexMesh(const TArray<FVector3f>& InVertexBuffer, const FBox3f& InBoundingBox)
 		: VertexBuffer(InVertexBuffer)
 		, BoundingBox(InBoundingBox)
 	{
 	}
-	FRuntimeMeshCollisionConvexMesh(TArray<FVector>&& InVertexBuffer, const FBox& InBoundingBox)
+	FRuntimeMeshCollisionConvexMesh(TArray<FVector3f>&& InVertexBuffer, const FBox3f& InBoundingBox)
 		: VertexBuffer(InVertexBuffer)
 		, BoundingBox(VertexBuffer)
 	{
 	}
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Collision|Convex")
-	TArray<FVector> VertexBuffer;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Collision|Convex")
-	FBox BoundingBox;
+	TArray<FVector3f> VertexBuffer;
+	//UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Collision|Convex")
+	FBox3f BoundingBox;
 
 	friend FArchive& operator <<(FArchive& Ar, FRuntimeMeshCollisionConvexMesh& Section)
 	{
@@ -224,7 +224,7 @@ struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshCollisionVertexStream
 	GENERATED_USTRUCT_BODY()
 
 private:
-	TArray<FVector> Data;
+	TArray<FVector3f> Data;
 
 public:
 	FRuntimeMeshCollisionVertexStream() { }
@@ -249,23 +249,23 @@ public:
 		Data.Reserve(Number);
 	}
 
-	FORCEINLINE int32 Add(const FVector& InPosition)
+	FORCEINLINE int32 Add(const FVector3f& InPosition)
 	{
 		return Data.Add(InPosition);
 	}
 
-	FORCEINLINE const FVector& GetPosition(int32 Index) const
+	FORCEINLINE const FVector3f& GetPosition(int32 Index) const
 	{
 		return Data[Index];
 	}
 
-	FORCEINLINE void SetPosition(int32 Index, const FVector& NewPosition)
+	FORCEINLINE void SetPosition(int32 Index, const FVector3f& NewPosition)
 	{
 		Data[Index] = NewPosition;
 	}
 
 private:
-	TArray<FVector>&& TakeContents()
+	TArray<FVector3f>&& TakeContents()
 	{
 		return MoveTemp(Data);
 	}
@@ -392,7 +392,7 @@ struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshCollisionTexCoordStream
 	GENERATED_USTRUCT_BODY()
 
 private:
-	TArray<TArray<FVector2D>> Data;
+	TArray<TArray<FVector2f>> Data;
 
 public:
 	FRuntimeMeshCollisionTexCoordStream()
@@ -451,22 +451,22 @@ public:
 		Data[ChannelId].Empty(Slack);
 	}
 
-	FORCEINLINE int32 Add(int32 ChannelId, const FVector2D& NewTexCoord)
+	FORCEINLINE int32 Add(int32 ChannelId, const FVector2f& NewTexCoord)
 	{
 		return Data[ChannelId].Add(NewTexCoord);
 	}
 
-	FORCEINLINE FVector2D GetTexCoord(int32 ChannelId, int32 TexCoordIndex) const
+	FORCEINLINE FVector2f GetTexCoord(int32 ChannelId, int32 TexCoordIndex) const
 	{
 		return Data[ChannelId][TexCoordIndex];
 	}
 
-	FORCEINLINE void SetTexCoord(int32 ChannelId, int32 TexCoordIndex, const FVector2D& NewTexCoord)
+	FORCEINLINE void SetTexCoord(int32 ChannelId, int32 TexCoordIndex, const FVector2f& NewTexCoord)
 	{
 		Data[ChannelId][TexCoordIndex] = NewTexCoord;
 	}
 private:
-	TArray<TArray<FVector2D>>&& TakeContents()
+	TArray<TArray<FVector2f>>&& TakeContents()
 	{
 		return MoveTemp(Data);
 	}

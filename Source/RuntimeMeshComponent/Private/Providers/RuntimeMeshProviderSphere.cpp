@@ -233,8 +233,8 @@ float URuntimeMeshProviderSphere::CalculateScreenSize(int32 LODIndex)
 
 bool URuntimeMeshProviderSphere::GetSphereMesh(int32 SphereRadius, int32 LatitudeSegments, int32 LongitudeSegments, FRuntimeMeshRenderableMeshData& MeshData)
 {
-	TArray<FVector> LatitudeVerts;
-	TArray<FVector> TangentVerts;
+	TArray<FVector3f> LatitudeVerts;
+	TArray<FVector3f> TangentVerts;
 	int32 TrisOrder[6] = { 0, 1, LatitudeSegments + 1, 1, LatitudeSegments + 2, LatitudeSegments + 1 };
 	//Baked trigonometric data to avoid computing it too much (sin and cos are expensive !)
 	LatitudeVerts.SetNumUninitialized(LatitudeSegments + 1);
@@ -244,9 +244,9 @@ bool URuntimeMeshProviderSphere::GetSphereMesh(int32 SphereRadius, int32 Latitud
 		float angle = LatitudeIndex * 2.f * PI / LatitudeSegments;
 		float x, y;
 		FMath::SinCos(&y, &x, angle);
-		LatitudeVerts[LatitudeIndex] = FVector(x, y, 0);
+		LatitudeVerts[LatitudeIndex] = FVector3f(x, y, 0);
 		FMath::SinCos(&y, &x, angle + PI / 2.f);
-		TangentVerts[LatitudeIndex] = FVector(x, y, 0);
+		TangentVerts[LatitudeIndex] = FVector3f(x, y, 0);
 	}
 	//Making the verts
 	for (int32 LongitudeIndex = 0; LongitudeIndex < LongitudeSegments + 1; LongitudeIndex++) //This is one more vert than geometrically needed but this avoid having to make wrap-around code
@@ -256,11 +256,11 @@ bool URuntimeMeshProviderSphere::GetSphereMesh(int32 SphereRadius, int32 Latitud
 		FMath::SinCos(&r, &z, angle);
 		for (int32 LatitudeIndex = 0; LatitudeIndex < LatitudeSegments + 1; LatitudeIndex++) //In total, we only waste (2*LatitudeSegments + LongitudeSegments - 2) vertices but save LatitudeSegments*LongitudeSegments operations
 		{
-			FVector Normal = LatitudeVerts[LatitudeIndex] * r + FVector(0, 0, z);
-			FVector Position = Normal * SphereRadius;
+			FVector3f Normal = LatitudeVerts[LatitudeIndex] * r + FVector3f(0, 0, z);
+			FVector3f Position = Normal * SphereRadius;
 			MeshData.Positions.Add(Position);
 			MeshData.Tangents.Add(Normal, TangentVerts[LatitudeIndex]);
-			MeshData.TexCoords.Add(FVector2D((float)LatitudeIndex / LatitudeSegments, (float)LongitudeIndex / LongitudeSegments));
+			MeshData.TexCoords.Add(FVector2f((float)LatitudeIndex / LatitudeSegments, (float)LongitudeIndex / LongitudeSegments));
 			MeshData.Colors.Add(FColor::White);
 		}
 	}

@@ -33,7 +33,7 @@ private:
 	struct Corner;
 	struct Triangle;
 
-	static FORCEINLINE uint32 HashValue(const FVector& Vec)
+	static FORCEINLINE uint32 HashValue(const FVector3f& Vec)
 	{
 		return 31337 * GetTypeHash(Vec.X) + 13 * GetTypeHash(Vec.Y) + 3 * GetTypeHash(Vec.Z);
 	}
@@ -48,11 +48,11 @@ private:
 
 	struct Vertex
 	{
-		FVector Position;
-		FVector2D TexCoord;
+		FVector3f Position;
+		FVector2f TexCoord;
 
 		Vertex() { }
-		Vertex(const FVector& InPosition, const FVector2D& InTexCoord)
+		Vertex(const FVector3f& InPosition, const FVector2f& InTexCoord)
 			: Position(InPosition), TexCoord(InTexCoord)
 		{ }
 
@@ -148,10 +148,10 @@ private:
 	struct Corner
 	{
 		uint32 Index;
-		FVector2D TexCoord;
+		FVector2f TexCoord;
 
 		Corner() : Index(0) { }
-		Corner(uint32 InIndex, FVector2D InTexCoord)
+		Corner(uint32 InIndex, FVector2f InTexCoord)
 			: Index(InIndex), TexCoord(InTexCoord)
 		{ }
 	};
