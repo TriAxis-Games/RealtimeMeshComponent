@@ -555,7 +555,8 @@ bool URuntimeMesh::GetPhysicsTriMeshData(struct FTriMeshCollisionData* Collision
 
 //			CollisionData->Vertices = CollisionMesh.Vertices.TakeContents();
 			CollisionData->Indices = CollisionMesh.Triangles.TakeContents();
-			CollisionData->UVs = CollisionMesh.TexCoords.TakeContents();
+			//TODO might need to implement a 2D form of RMC_ConvertTArray for performance / correctness?
+			CollisionData->UVs = RMC_ConvertTArray<TArray<FVector2D>>(CollisionMesh.TexCoords.TakeContents()); //TODO might need to implement a 2D form of RMC_ConvertTArray
 			CollisionData->MaterialIndices = CollisionMesh.MaterialIndices.TakeContents();
 
 			CollisionData->bDeformableMesh = CollisionMesh.bDeformableMesh;
@@ -958,9 +959,9 @@ void URuntimeMesh::UpdateCollision(bool bForceCookNow)
 			for (const FRuntimeMeshCollisionConvexMesh& Convex : CollisionSettings.ConvexElements)
 			{
 				FKConvexElem& NewConvexElem = *new(ConvexElems) FKConvexElem();
-				NewConvexElem.VertexData = Convex.VertexBuffer;
+				NewConvexElem.VertexData = RMC_ConvertTArray<FVector>(Convex.VertexBuffer);
 				// TODO: Store this on the section so we don't have to compute it on each cook
-				NewConvexElem.ElemBox = Convex.BoundingBox;
+				NewConvexElem.ElemBox = FBox(Convex.BoundingBox);
 			}
 
 			auto& BoxElems = Setup->AggGeom.BoxElems;
@@ -999,7 +1000,8 @@ void URuntimeMesh::UpdateCollision(bool bForceCookNow)
 
 		if (bShouldCookAsync)
 		{
-#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 21
+#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION <= 20
+#else
 			// Abort all previous ones still standing
 			for (const auto& OldBody : AsyncBodySetupQueue)
 			{
