@@ -544,10 +544,9 @@ bool URuntimeMesh::GetPhysicsTriMeshData(struct FTriMeshCollisionData* Collision
 
 		if (MeshProviderPtr->GetCollisionMesh(CollisionMesh))
 		{
-			CollisionData->Vertices = RMC_ConvertTArray<FVector3f>(CollisionMesh.Vertices.TakeContents());
+			CollisionData->Vertices = CollisionMesh.Vertices.TakeContents();
 			CollisionData->Indices = CollisionMesh.Triangles.TakeContents();
-			//TODO might need to implement a 2D form of RMC_ConvertTArray for performance / correctness?
-			CollisionData->UVs = RMC_ConvertTArray<TArray<FVector2D>>(CollisionMesh.TexCoords.TakeContents()); //TODO might need to implement a 2D form of RMC_ConvertTArray
+			CollisionData->UVs = CollisionMesh.TexCoords.TakeContents();
 			CollisionData->MaterialIndices = CollisionMesh.MaterialIndices.TakeContents();
 
 			CollisionData->bDeformableMesh = CollisionMesh.bDeformableMesh;
@@ -950,7 +949,7 @@ void URuntimeMesh::UpdateCollision(bool bForceCookNow)
 			for (const FRuntimeMeshCollisionConvexMesh& Convex : CollisionSettings.ConvexElements)
 			{
 				FKConvexElem& NewConvexElem = *new(ConvexElems) FKConvexElem();
-				NewConvexElem.VertexData = RMC_ConvertTArray<FVector>(Convex.VertexBuffer);
+				NewConvexElem.VertexData = Convex.VertexBuffer;
 				// TODO: Store this on the section so we don't have to compute it on each cook
 				NewConvexElem.ElemBox = FBox(Convex.BoundingBox);
 			}

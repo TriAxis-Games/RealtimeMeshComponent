@@ -83,7 +83,7 @@ int32 URuntimeMeshStaticMeshConverter::CopyVertexOrGetIndex(const FStaticMeshLOD
 		// Copy UV's
 		for (int32 UVIndex = 0; UVIndex < NumUVChannels; UVIndex++)
 		{
-			NewMeshData.TexCoords.Add(UVIndex, (FVector2f)LOD.VertexBuffers.StaticMeshVertexBuffer.GetVertexUV(VertexIndex, UVIndex));
+			NewMeshData.TexCoords.Add(UVIndex, FVector2D(LOD.VertexBuffers.StaticMeshVertexBuffer.GetVertexUV(VertexIndex, UVIndex)));
 		}
 		
 		MeshToSectionVertexMap.Add(VertexIndex, NewVertexIndex);
@@ -198,8 +198,8 @@ bool URuntimeMeshStaticMeshConverter::CopyStaticMeshCollisionToCollisionSettings
 	{
 		bHadSimple = true;
 		OutCollisionSettings.ConvexElements.Emplace(
-			RMC_ConvertTArray<FVector3f>(SourceConvexElems[ConvexIndex].VertexData), 
-			FBox3f(SourceConvexElems[ConvexIndex].ElemBox));
+			SourceConvexElems[ConvexIndex].VertexData, 
+			SourceConvexElems[ConvexIndex].ElemBox);
 	}
 
 	// Copy boxes

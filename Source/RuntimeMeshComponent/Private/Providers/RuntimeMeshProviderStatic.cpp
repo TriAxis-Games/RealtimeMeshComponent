@@ -492,7 +492,7 @@ bool URuntimeMeshProviderStatic::GetCollisionMesh(FRuntimeMeshCollisionData& Col
 							}
 							for (int32 ChannelIdx = 0; ChannelIdx < NumChannels; ChannelIdx++)
 							{
-								CollisionData.TexCoords.SetTexCoord(ChannelIdx, FirstVertex + VertIdx, SectionData.TexCoords.GetTexCoord(VertIdx, ChannelIdx));
+								CollisionData.TexCoords.SetTexCoord(ChannelIdx, FirstVertex + VertIdx, FVector2D(SectionData.TexCoords.GetTexCoord(VertIdx, ChannelIdx)));
 							}
 						}
 

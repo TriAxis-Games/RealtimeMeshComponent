@@ -210,7 +210,7 @@ FRuntimeMeshRenderableCollisionData::FRuntimeMeshRenderableCollisionData(const F
 	{
 		for (int32 ChannelId = 0; ChannelId < NumChannels; ChannelId++)
 		{
-			TexCoords.SetTexCoord(ChannelId, Index, InRenderable.TexCoords.GetTexCoord(Index, ChannelId));
+			TexCoords.SetTexCoord(ChannelId, Index, FVector2D(InRenderable.TexCoords.GetTexCoord(Index, ChannelId)));
 		}
 	}
 
