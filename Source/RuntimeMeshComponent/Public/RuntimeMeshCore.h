@@ -30,7 +30,7 @@
 
 
 
-#if ENGINE_MAJOR_VERSION >= 5
+#if ENGINE_MAJOR_VERSION < 5
 	// This version of the RMC is only supported by engine version 5.0.0 (Preview 1) and above
 #endif
 

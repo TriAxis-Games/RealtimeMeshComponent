@@ -544,16 +544,7 @@ bool URuntimeMesh::GetPhysicsTriMeshData(struct FTriMeshCollisionData* Collision
 
 		if (MeshProviderPtr->GetCollisionMesh(CollisionMesh))
 		{
-			/*
-			CollisionData->Vertices.Empty();
-			for (FVector v : CollisionMesh.Vertices.TakeContents()) {
-				CollisionData->Vertices.Add((FVector3f)v);
-			}
-			*/
-
-			CollisionData->Vertices = TArray<FVector3f>(MoveTemp(CollisionMesh.Vertices.Data));// .TakeContents());
-
-//			CollisionData->Vertices = CollisionMesh.Vertices.TakeContents();
+			CollisionData->Vertices = RMC_ConvertTArray<FVector3f>(CollisionMesh.Vertices.TakeContents());
 			CollisionData->Indices = CollisionMesh.Triangles.TakeContents();
 			//TODO might need to implement a 2D form of RMC_ConvertTArray for performance / correctness?
 			CollisionData->UVs = RMC_ConvertTArray<TArray<FVector2D>>(CollisionMesh.TexCoords.TakeContents()); //TODO might need to implement a 2D form of RMC_ConvertTArray
