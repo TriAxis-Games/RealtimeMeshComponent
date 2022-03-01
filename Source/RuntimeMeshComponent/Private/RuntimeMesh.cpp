@@ -544,7 +544,7 @@ bool URuntimeMesh::GetPhysicsTriMeshData(struct FTriMeshCollisionData* Collision
 
 		if (MeshProviderPtr->GetCollisionMesh(CollisionMesh))
 		{
-			CollisionData->Vertices = RMC_ConvertTArray<FVector3f>(CollisionMesh.Vertices.TakeContents());
+			CollisionData->Vertices = CollisionMesh.Vertices.TakeContents();
 			CollisionData->Indices = CollisionMesh.Triangles.TakeContents();
 			CollisionData->UVs = CollisionMesh.TexCoords.TakeContents();
 			CollisionData->MaterialIndices = CollisionMesh.MaterialIndices.TakeContents();
