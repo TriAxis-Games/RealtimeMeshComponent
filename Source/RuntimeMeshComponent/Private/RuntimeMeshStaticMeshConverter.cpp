@@ -199,7 +199,7 @@ bool URuntimeMeshStaticMeshConverter::CopyStaticMeshCollisionToCollisionSettings
 		bHadSimple = true;
 		OutCollisionSettings.ConvexElements.Emplace(
 			SourceConvexElems[ConvexIndex].VertexData, 
-			FBox3f(SourceConvexElems[ConvexIndex].ElemBox));
+			SourceConvexElems[ConvexIndex].ElemBox);
 	}
 
 	// Copy boxes

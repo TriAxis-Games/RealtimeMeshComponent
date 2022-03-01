@@ -21,29 +21,29 @@ public:
 	FRuntimeMeshCollisionConvexMesh() : BoundingBox(ForceInit) { }
 	FRuntimeMeshCollisionConvexMesh(const TArray<FVector>& InVertexBuffer)
 		: VertexBuffer(InVertexBuffer)
-		, BoundingBox(FBox(InVertexBuffer))
+		, BoundingBox(InVertexBuffer)
 	{
 	}
 	FRuntimeMeshCollisionConvexMesh(TArray<FVector>&& InVertexBuffer)
 		: VertexBuffer(InVertexBuffer)
-		, BoundingBox(FBox(VertexBuffer))
+		, BoundingBox(VertexBuffer)
 	{
 	}
-	FRuntimeMeshCollisionConvexMesh(const TArray<FVector>& InVertexBuffer, const FBox3f& InBoundingBox)
+	FRuntimeMeshCollisionConvexMesh(const TArray<FVector>& InVertexBuffer, const FBox& InBoundingBox)
 		: VertexBuffer(InVertexBuffer)
 		, BoundingBox(InBoundingBox)
 	{
 	}
-	FRuntimeMeshCollisionConvexMesh(TArray<FVector>&& InVertexBuffer, const FBox3f& InBoundingBox)
+	FRuntimeMeshCollisionConvexMesh(TArray<FVector>&& InVertexBuffer, const FBox& InBoundingBox)
 		: VertexBuffer(InVertexBuffer)
-		, BoundingBox(FBox(VertexBuffer))
+		, BoundingBox(InBoundingBox)
 	{
 	}
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Collision|Convex")
 	TArray<FVector> VertexBuffer;
-	//UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Collision|Convex")
-	FBox3f BoundingBox;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Collision|Convex")
+	FBox BoundingBox;
 
 	friend FArchive& operator <<(FArchive& Ar, FRuntimeMeshCollisionConvexMesh& Section)
 	{
