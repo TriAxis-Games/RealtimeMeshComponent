@@ -258,7 +258,7 @@ class FRuntimeMeshPositionVertexBuffer : public FRuntimeMeshVertexBuffer
 {
 public:
 	FRuntimeMeshPositionVertexBuffer(bool bInIsDynamicBuffer)
-		: FRuntimeMeshVertexBuffer(bInIsDynamicBuffer, sizeof(FVector))
+		: FRuntimeMeshVertexBuffer(bInIsDynamicBuffer, sizeof(FVector3f))
 	{
 
 	}
@@ -279,7 +279,7 @@ public:
 	{
 		if (VertexBufferRHI && IntermediateBuffer)
 		{
-			VertexSize = sizeof(FVector);
+			VertexSize = sizeof(FVector3f);
 			NumVertices = NumElements;
 
 			FRuntimeMeshVertexBuffer::UpdateRHIFromExisting<MaxNumUpdates>(IntermediateBuffer, Batcher);
@@ -288,7 +288,7 @@ public:
 
 	void InitRHIFromExisting(const FBufferRHIRef& InVertexBufferRHI, int32 NumElements)
 	{
-		VertexSize = sizeof(FVector);
+		VertexSize = sizeof(FVector3f);
 		NumVertices = NumElements;
 
 		FRuntimeMeshVertexBuffer::InitRHIFromExisting(InVertexBufferRHI);
@@ -375,7 +375,7 @@ class FRuntimeMeshTexCoordsVertexBuffer : public FRuntimeMeshVertexBuffer
 {
 	static constexpr int32 CalculateStride(bool bShouldUseHighPrecision, int32 InNumUVs)
 	{
-		return (bShouldUseHighPrecision ? sizeof(FVector2D) : sizeof(FVector2DHalf)) * InNumUVs;
+		return (bShouldUseHighPrecision ? sizeof(FVector2f) : sizeof(FVector2DHalf)) * InNumUVs;
 	}
 
 private:
@@ -396,7 +396,7 @@ public:
 
 	virtual FString GetFriendlyName() const override { return TEXT("FRuntimeMeshUVsVertexBuffer"); }
 
-	virtual int32 GetElementDatumSize() const override { return bUseHighPrecision ? sizeof(FVector2D) : sizeof(FVector2DHalf); }
+	virtual int32 GetElementDatumSize() const override { return bUseHighPrecision ? sizeof(FVector2f) : sizeof(FVector2DHalf); }
 	virtual EPixelFormat GetElementFormat() const override { return bUseHighPrecision ? PF_G32R32F : PF_G16R16F; }
 
 	virtual void Bind(FLocalVertexFactory::FDataType& DataType) override
@@ -410,7 +410,7 @@ public:
 		uint32 UVSizeInBytes = 0;
 		if (bUseHighPrecision)
 		{
-			UVSizeInBytes = sizeof(FVector2D);
+			UVSizeInBytes = sizeof(FVector2f);
 			UVDoubleWideVertexElementType = VET_Float4;
 			UVVertexElementType = VET_Float2;
 		}

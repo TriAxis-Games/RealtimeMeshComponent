@@ -59,7 +59,7 @@ int32 CopyVertexToNewMeshData(const FRuntimeMeshRenderableMeshData& Source, FRun
 
 	Destination.Colors.Add(Source.Colors.Num() > Index ? Source.Colors.GetColor(Index) : FColor::White);
 
-	Destination.TexCoords.Add(Source.TexCoords.Num() > Index ? Source.TexCoords.GetTexCoord(Index) : FVector2D(0, 0));
+	Destination.TexCoords.Add(Source.TexCoords.Num() > Index ? Source.TexCoords.GetTexCoord(Index) : FVector2f(0, 0));
 
 	return NewIndex;
 }
@@ -103,7 +103,7 @@ int32 AddInterpolatedVert(FRuntimeMeshRenderableMeshData& Source, FRuntimeMeshRe
 	}
 	else
 	{
-		Destination.Tangents.Add(FVector::RightVector, FVector::ForwardVector, FVector::UpVector);
+		Destination.Tangents.Add(FVector3f::RightVector, FVector3f::ForwardVector, FVector3f::UpVector);
 	}
 
 
@@ -128,19 +128,20 @@ int32 AddInterpolatedVert(FRuntimeMeshRenderableMeshData& Source, FRuntimeMeshRe
 
 	if (Source.TexCoords.Num() > MaxVertex)
 	{
-		FVector2D LeftTexCoord = Source.TexCoords.GetTexCoord(Vertex0);
-		FVector2D RightTexCoord = Source.TexCoords.GetTexCoord(Vertex1);
+		FVector2f LeftTexCoord = Source.TexCoords.GetTexCoord(Vertex0);
+		FVector2f RightTexCoord = Source.TexCoords.GetTexCoord(Vertex1);
 		Destination.TexCoords.Add(FMath::Lerp(LeftTexCoord, RightTexCoord, Alpha));
 	}
 	else
 	{
-		Destination.TexCoords.Add(Source.TexCoords.Num() > 0 ? Source.TexCoords.GetTexCoord(0) : FVector2D::ZeroVector);
+		Destination.TexCoords.Add(Source.TexCoords.Num() > 0 ? Source.TexCoords.GetTexCoord(0) : FVector2f::ZeroVector);
 	}
 
 	return NewIndex;
 }
 
 /** Transform triangle from 2D to 3D static-mesh triangle. */
+//NOTE: This uses engine types which are using double precision; not editing to single precision like much of the rest of the code.
 void Transform2DPolygonTo3D(const FUtilPoly2D& InPoly, const FMatrix& InMatrix, FRuntimeMeshRenderableMeshData& OutMeshData)
 {
 	FVector TangentX = -InMatrix.GetUnitAxis(EAxis::X);
@@ -154,7 +155,7 @@ void Transform2DPolygonTo3D(const FUtilPoly2D& InPoly, const FMatrix& InMatrix, 
 		OutMeshData.Positions.Add((FVector3f)FVector3d(InMatrix.TransformPosition(FVector(InVertex.Pos.X, InVertex.Pos.Y, 0.f))));
 		OutMeshData.Tangents.Add(TangentX, TangentY, TangentZ);
 		OutMeshData.Colors.Add(InVertex.Color);
-		OutMeshData.TexCoords.Add(InVertex.UV);
+		OutMeshData.TexCoords.Add(FVector2f(InVertex.UV));
 	}
 }
 

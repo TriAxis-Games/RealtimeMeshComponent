@@ -79,7 +79,7 @@ bool URuntimeMeshProviderBox::GetSectionMeshForLOD(int32 LODIndex, int32 Section
 	FVector TangentX, TangentY, TangentZ;
 
 
-	auto AddVertex = [&](const FVector& InPosition, const FVector& InTangentX, const FVector& InTangentZ, const FVector2D& InTexCoord)
+	auto AddVertex = [&](const FVector& InPosition, const FVector& InTangentX, const FVector& InTangentZ, const FVector2f& InTexCoord)
 	{
 		MeshData.Positions.Add(InPosition);
 		MeshData.Tangents.Add(InTangentZ, InTangentX);
@@ -92,60 +92,60 @@ bool URuntimeMeshProviderBox::GetSectionMeshForLOD(int32 LODIndex, int32 Section
 	// Pos Z
 	TangentZ = FVector(0.0f, 0.0f, 1.0f);
 	TangentX = FVector(0.0f, -1.0f, 0.0f);
-	AddVertex(BoxVerts[0], TangentX, TangentZ, FVector2D(0.0f, 0.0f));
-	AddVertex(BoxVerts[1], TangentX, TangentZ, FVector2D(0.0f, 1.0f));
-	AddVertex(BoxVerts[2], TangentX, TangentZ, FVector2D(1.0f, 1.0f));
-	AddVertex(BoxVerts[3], TangentX, TangentZ, FVector2D(1.0f, 0.0f));
+	AddVertex(BoxVerts[0], TangentX, TangentZ, FVector2f(0.0f, 0.0f));
+	AddVertex(BoxVerts[1], TangentX, TangentZ, FVector2f(0.0f, 1.0f));
+	AddVertex(BoxVerts[2], TangentX, TangentZ, FVector2f(1.0f, 1.0f));
+	AddVertex(BoxVerts[3], TangentX, TangentZ, FVector2f(1.0f, 0.0f));
 	MeshData.Triangles.AddTriangle(0, 1, 3);
 	MeshData.Triangles.AddTriangle(1, 2, 3);
 
 	// Neg X
 	TangentZ = FVector(-1.0f, 0.0f, 0.0f);
 	TangentX = FVector(0.0f, -1.0f, 0.0f);
-	AddVertex(BoxVerts[4], TangentX, TangentZ, FVector2D(0.0f, 0.0f));
-	AddVertex(BoxVerts[0], TangentX, TangentZ, FVector2D(0.0f, 1.0f));
-	AddVertex(BoxVerts[3], TangentX, TangentZ, FVector2D(1.0f, 1.0f));
-	AddVertex(BoxVerts[7], TangentX, TangentZ, FVector2D(1.0f, 0.0f));
+	AddVertex(BoxVerts[4], TangentX, TangentZ, FVector2f(0.0f, 0.0f));
+	AddVertex(BoxVerts[0], TangentX, TangentZ, FVector2f(0.0f, 1.0f));
+	AddVertex(BoxVerts[3], TangentX, TangentZ, FVector2f(1.0f, 1.0f));
+	AddVertex(BoxVerts[7], TangentX, TangentZ, FVector2f(1.0f, 0.0f));
 	MeshData.Triangles.AddTriangle(4, 5, 7);
 	MeshData.Triangles.AddTriangle(5, 6, 7);
 
 	// Pos Y
 	TangentZ = FVector(0.0f, 1.0f, 0.0f);
 	TangentX = FVector(-1.0f, 0.0f, 0.0f);
-	AddVertex(BoxVerts[5], TangentX, TangentZ, FVector2D(0.0f, 0.0f));
-	AddVertex(BoxVerts[1], TangentX, TangentZ, FVector2D(0.0f, 1.0f));
-	AddVertex(BoxVerts[0], TangentX, TangentZ, FVector2D(1.0f, 1.0f));
-	AddVertex(BoxVerts[4], TangentX, TangentZ, FVector2D(1.0f, 0.0f));
+	AddVertex(BoxVerts[5], TangentX, TangentZ, FVector2f(0.0f, 0.0f));
+	AddVertex(BoxVerts[1], TangentX, TangentZ, FVector2f(0.0f, 1.0f));
+	AddVertex(BoxVerts[0], TangentX, TangentZ, FVector2f(1.0f, 1.0f));
+	AddVertex(BoxVerts[4], TangentX, TangentZ, FVector2f(1.0f, 0.0f));
 	MeshData.Triangles.AddTriangle(8, 9, 11);
 	MeshData.Triangles.AddTriangle(9, 10, 11);
 
 	// Pos X
 	TangentZ = FVector(1.0f, 0.0f, 0.0f);
 	TangentX = FVector(0.0f, 1.0f, 0.0f);
-	AddVertex(BoxVerts[6], TangentX, TangentZ, FVector2D(0.0f, 0.0f));
-	AddVertex(BoxVerts[2], TangentX, TangentZ, FVector2D(0.0f, 1.0f));
-	AddVertex(BoxVerts[1], TangentX, TangentZ, FVector2D(1.0f, 1.0f));
-	AddVertex(BoxVerts[5], TangentX, TangentZ, FVector2D(1.0f, 0.0f));
+	AddVertex(BoxVerts[6], TangentX, TangentZ, FVector2f(0.0f, 0.0f));
+	AddVertex(BoxVerts[2], TangentX, TangentZ, FVector2f(0.0f, 1.0f));
+	AddVertex(BoxVerts[1], TangentX, TangentZ, FVector2f(1.0f, 1.0f));
+	AddVertex(BoxVerts[5], TangentX, TangentZ, FVector2f(1.0f, 0.0f));
 	MeshData.Triangles.AddTriangle(12, 13, 15);
 	MeshData.Triangles.AddTriangle(13, 14, 15);
 
 	// Neg Y
 	TangentZ = FVector(0.0f, -1.0f, 0.0f);
 	TangentX = FVector(1.0f, 0.0f, 0.0f);
-	AddVertex(BoxVerts[7], TangentX, TangentZ, FVector2D(0.0f, 0.0f));
-	AddVertex(BoxVerts[3], TangentX, TangentZ, FVector2D(0.0f, 1.0f));
-	AddVertex(BoxVerts[2], TangentX, TangentZ, FVector2D(1.0f, 1.0f));
-	AddVertex(BoxVerts[6], TangentX, TangentZ, FVector2D(1.0f, 0.0f));
+	AddVertex(BoxVerts[7], TangentX, TangentZ, FVector2f(0.0f, 0.0f));
+	AddVertex(BoxVerts[3], TangentX, TangentZ, FVector2f(0.0f, 1.0f));
+	AddVertex(BoxVerts[2], TangentX, TangentZ, FVector2f(1.0f, 1.0f));
+	AddVertex(BoxVerts[6], TangentX, TangentZ, FVector2f(1.0f, 0.0f));
 	MeshData.Triangles.AddTriangle(16, 17, 19);
 	MeshData.Triangles.AddTriangle(17, 18, 19);
 
 	// Neg Z
 	TangentZ = FVector(0.0f, 0.0f, -1.0f);
 	TangentX = FVector(0.0f, 1.0f, 0.0f);
-	AddVertex(BoxVerts[7], TangentX, TangentZ, FVector2D(0.0f, 0.0f));
-	AddVertex(BoxVerts[6], TangentX, TangentZ, FVector2D(0.0f, 1.0f));
-	AddVertex(BoxVerts[5], TangentX, TangentZ, FVector2D(1.0f, 1.0f));
-	AddVertex(BoxVerts[4], TangentX, TangentZ, FVector2D(1.0f, 0.0f));
+	AddVertex(BoxVerts[7], TangentX, TangentZ, FVector2f(0.0f, 0.0f));
+	AddVertex(BoxVerts[6], TangentX, TangentZ, FVector2f(0.0f, 1.0f));
+	AddVertex(BoxVerts[5], TangentX, TangentZ, FVector2f(1.0f, 1.0f));
+	AddVertex(BoxVerts[4], TangentX, TangentZ, FVector2f(1.0f, 0.0f));
 	MeshData.Triangles.AddTriangle(20, 21, 23);
 	MeshData.Triangles.AddTriangle(21, 22, 23);
 

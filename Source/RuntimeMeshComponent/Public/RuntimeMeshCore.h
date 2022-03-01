@@ -30,8 +30,8 @@
 
 
 
-#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION < 22
-	// This version of the RMC is only supported by engine version 4.22 and above
+#if ENGINE_MAJOR_VERSION >= 5
+	// This version of the RMC is only supported by engine version 5.0.0 (Preview 1) and above
 #endif
 
 DECLARE_STATS_GROUP(TEXT("RuntimeMesh"), STATGROUP_RuntimeMesh, STATCAT_Advanced);
@@ -285,3 +285,15 @@ struct FRuntimeMeshDistanceFieldData
 };
 
 using FRuntimeMeshDistanceFieldDataPtr = TSharedPtr<FRuntimeMeshDistanceFieldData, ESPMode::ThreadSafe>;
+
+template<typename T_out, typename T_in>
+static TArray<T_out> RMC_ConvertTArray(const TArray<T_in>& from)
+{
+	TArray<T_out> ret;
+	ret.Reserve(from.Num());
+	for (const auto& val : from)
+	{
+		ret.Push((T_out)val);
+	}
+	return ret;
+}

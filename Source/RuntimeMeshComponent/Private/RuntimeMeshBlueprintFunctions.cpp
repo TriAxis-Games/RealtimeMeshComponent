@@ -205,7 +205,7 @@ void URuntimeMeshBlueprintFunctions::EmptyTexCoords(FRuntimeMeshVertexTexCoordSt
 void URuntimeMeshBlueprintFunctions::AddTexCoord(FRuntimeMeshVertexTexCoordStream& Stream, FRuntimeMeshVertexTexCoordStream& OutStream, int32& OutIndex, FVector2D InTexCoord, int32 ChannelId)
 {
 	OutStream = Stream;
-	OutIndex = Stream.Add(InTexCoord, ChannelId);
+	OutIndex = Stream.Add(FVector2f(InTexCoord), ChannelId);
 }
 
 void URuntimeMeshBlueprintFunctions::AppendTexCoords(FRuntimeMeshVertexTexCoordStream& Stream, FRuntimeMeshVertexTexCoordStream& OutStream, const FRuntimeMeshVertexTexCoordStream& InOther)
@@ -217,13 +217,13 @@ void URuntimeMeshBlueprintFunctions::AppendTexCoords(FRuntimeMeshVertexTexCoordS
 void URuntimeMeshBlueprintFunctions::GetTexCoord(FRuntimeMeshVertexTexCoordStream& Stream, FRuntimeMeshVertexTexCoordStream& OutStream, int32 Index, int32 ChannelId, FVector2D& OutTexCoord)
 {
 	OutStream = Stream;
-	OutTexCoord = Stream.GetTexCoord(Index, ChannelId);
+	OutTexCoord = FVector2D(Stream.GetTexCoord(Index, ChannelId));
 }
 
 void URuntimeMeshBlueprintFunctions::SetTexCoord(FRuntimeMeshVertexTexCoordStream& Stream, FRuntimeMeshVertexTexCoordStream& OutStream, int32 Index, FVector2D NewTexCoord, int32 ChannelId /*= 0*/)
 {
 	OutStream = Stream;
-	Stream.SetTexCoord(Index, NewTexCoord, ChannelId);
+	Stream.SetTexCoord(Index, FVector2f(NewTexCoord), ChannelId);
 }
 
 
@@ -457,19 +457,19 @@ void URuntimeMeshBlueprintFunctions::EmptyCollisionTexCoords(FRuntimeMeshVertexT
 void URuntimeMeshBlueprintFunctions::AddCollisionTexCoord(FRuntimeMeshVertexTexCoordStream& Stream, FRuntimeMeshVertexTexCoordStream& OutStream, FVector2D InTexCoord, int32& OutIndex)
 {
 	OutStream = Stream;
-	OutIndex = Stream.Add(InTexCoord);
+	OutIndex = Stream.Add(FVector2f(InTexCoord));
 }
 
 void URuntimeMeshBlueprintFunctions::GetCollisionTexCoord(FRuntimeMeshVertexTexCoordStream& Stream, FRuntimeMeshVertexTexCoordStream& OutStream, int32 Index, FVector2D& OutTexCoord, int32 ChannelId)
 {
 	OutStream = Stream;
-	OutTexCoord = Stream.GetTexCoord(Index, ChannelId);
+	OutTexCoord = FVector2D(Stream.GetTexCoord(Index, ChannelId));
 }
 
 void URuntimeMeshBlueprintFunctions::SetCollisionTexCoord(FRuntimeMeshVertexTexCoordStream& Stream, FRuntimeMeshVertexTexCoordStream& OutStream, int32 Index, FVector2D NewTexCoord, int32 ChannelId /*= 0*/)
 {
 	OutStream = Stream;
-	Stream.SetTexCoord(Index, NewTexCoord, ChannelId);
+	Stream.SetTexCoord(Index, FVector2f(NewTexCoord), ChannelId);
 }
 
 
