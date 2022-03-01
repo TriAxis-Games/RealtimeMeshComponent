@@ -151,6 +151,15 @@ public:
 
 	}
 
+	FRuntimeMeshCollisionBox(const FVector& InCenter, const FRotator& InRotation, const FVector& InExtents)
+		: Center(InCenter)
+		, Rotation(InRotation)
+		, Extents(InExtents)
+
+	{
+
+	}
+
 	friend FArchive& operator <<(FArchive& Ar, FRuntimeMeshCollisionBox& Box)
 	{
 		Ar << Box.Center;
