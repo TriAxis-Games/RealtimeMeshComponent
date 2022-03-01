@@ -392,7 +392,7 @@ struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshCollisionTexCoordStream
 	GENERATED_USTRUCT_BODY()
 
 private:
-	TArray<TArray<FVector2f>> Data;
+	TArray<TArray<FVector2D>> Data;
 
 public:
 	FRuntimeMeshCollisionTexCoordStream()
@@ -451,22 +451,22 @@ public:
 		Data[ChannelId].Empty(Slack);
 	}
 
-	FORCEINLINE int32 Add(int32 ChannelId, const FVector2f& NewTexCoord)
+	FORCEINLINE int32 Add(int32 ChannelId, const FVector2D& NewTexCoord)
 	{
 		return Data[ChannelId].Add(NewTexCoord);
 	}
 
-	FORCEINLINE FVector2f GetTexCoord(int32 ChannelId, int32 TexCoordIndex) const
+	FORCEINLINE FVector2D GetTexCoord(int32 ChannelId, int32 TexCoordIndex) const
 	{
 		return Data[ChannelId][TexCoordIndex];
 	}
 
-	FORCEINLINE void SetTexCoord(int32 ChannelId, int32 TexCoordIndex, const FVector2f& NewTexCoord)
+	FORCEINLINE void SetTexCoord(int32 ChannelId, int32 TexCoordIndex, const FVector2D& NewTexCoord)
 	{
 		Data[ChannelId][TexCoordIndex] = NewTexCoord;
 	}
 private:
-	TArray<TArray<FVector2f>>&& TakeContents()
+	TArray<TArray<FVector2D>>&& TakeContents()
 	{
 		return MoveTemp(Data);
 	}

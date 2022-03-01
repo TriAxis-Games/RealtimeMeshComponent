@@ -163,12 +163,12 @@ bool URuntimeMeshProviderCollision::GetCollisionMesh(FRuntimeMeshCollisionData& 
 			{
 				if (ChannelId < CachedSection.TexCoords.NumChannels() && CachedSection.TexCoords.NumTexCoords(ChannelId) > Index)
 				{
-					FVector2f TexCoord = CachedSection.TexCoords.GetTexCoord(ChannelId, Index);
+					FVector2D TexCoord = CachedSection.TexCoords.GetTexCoord(ChannelId, Index);
 					CollisionData.TexCoords.SetTexCoord(ChannelId, Index, TexCoord);
 				}
 				else
 				{
-					CollisionData.TexCoords.SetTexCoord(ChannelId, Index, FVector2f::ZeroVector);
+					CollisionData.TexCoords.SetTexCoord(ChannelId, Index, FVector2D::ZeroVector);
 				}
 			}
 		}

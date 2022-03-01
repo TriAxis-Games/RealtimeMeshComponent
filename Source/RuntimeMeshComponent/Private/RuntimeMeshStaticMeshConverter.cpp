@@ -83,7 +83,7 @@ int32 URuntimeMeshStaticMeshConverter::CopyVertexOrGetIndex(const FStaticMeshLOD
 		// Copy UV's
 		for (int32 UVIndex = 0; UVIndex < NumUVChannels; UVIndex++)
 		{
-			NewMeshData.TexCoords.Add(UVIndex, (FVector2f)LOD.VertexBuffers.StaticMeshVertexBuffer.GetVertexUV(VertexIndex, UVIndex));
+			NewMeshData.TexCoords.Add(UVIndex, FVector2D(LOD.VertexBuffers.StaticMeshVertexBuffer.GetVertexUV(VertexIndex, UVIndex)));
 		}
 		
 		MeshToSectionVertexMap.Add(VertexIndex, NewVertexIndex);
