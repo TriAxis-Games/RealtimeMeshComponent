@@ -198,7 +198,7 @@ bool URuntimeMeshStaticMeshConverter::CopyStaticMeshCollisionToCollisionSettings
 	{
 		bHadSimple = true;
 		OutCollisionSettings.ConvexElements.Emplace(
-			RMC_ConvertTArray<FVector3f>(SourceConvexElems[ConvexIndex].VertexData), 
+			SourceConvexElems[ConvexIndex].VertexData, 
 			FBox3f(SourceConvexElems[ConvexIndex].ElemBox));
 	}
 

@@ -949,7 +949,7 @@ void URuntimeMesh::UpdateCollision(bool bForceCookNow)
 			for (const FRuntimeMeshCollisionConvexMesh& Convex : CollisionSettings.ConvexElements)
 			{
 				FKConvexElem& NewConvexElem = *new(ConvexElems) FKConvexElem();
-				NewConvexElem.VertexData = RMC_ConvertTArray<FVector>(Convex.VertexBuffer);
+				NewConvexElem.VertexData = Convex.VertexBuffer;
 				// TODO: Store this on the section so we don't have to compute it on each cook
 				NewConvexElem.ElemBox = FBox(Convex.BoundingBox);
 			}
