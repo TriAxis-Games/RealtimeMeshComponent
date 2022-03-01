@@ -29,3 +29,4 @@
 ### UE5 Preview 1 (LWC Double Precision) Changes
 [Darcul](https://github.com/Darcul)
 [connorjak](https://github.com/connorjak)
+[sfla](https://github.com/sfla)
