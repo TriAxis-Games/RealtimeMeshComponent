@@ -36,7 +36,7 @@ public:
 	}
 	FRuntimeMeshCollisionConvexMesh(TArray<FVector>&& InVertexBuffer, const FBox& InBoundingBox)
 		: VertexBuffer(InVertexBuffer)
-		, BoundingBox(VertexBuffer)
+		, BoundingBox(InBoundingBox)
 	{
 	}
 
@@ -224,7 +224,7 @@ struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshCollisionVertexStream
 	GENERATED_USTRUCT_BODY()
 
 private:
-	TArray<FVector> Data;
+	TArray<FVector3f> Data;
 
 public:
 	FRuntimeMeshCollisionVertexStream() { }
@@ -249,23 +249,23 @@ public:
 		Data.Reserve(Number);
 	}
 
-	FORCEINLINE int32 Add(const FVector& InPosition)
+	FORCEINLINE int32 Add(const FVector3f& InPosition)
 	{
 		return Data.Add(InPosition);
 	}
 
-	FORCEINLINE const FVector& GetPosition(int32 Index) const
+	FORCEINLINE const FVector3f& GetPosition(int32 Index) const
 	{
 		return Data[Index];
 	}
 
-	FORCEINLINE void SetPosition(int32 Index, const FVector& NewPosition)
+	FORCEINLINE void SetPosition(int32 Index, const FVector3f& NewPosition)
 	{
 		Data[Index] = NewPosition;
 	}
 
 private:
-	TArray<FVector>&& TakeContents()
+	TArray<FVector3f>&& TakeContents()
 	{
 		return MoveTemp(Data);
 	}

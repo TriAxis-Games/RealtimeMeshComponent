@@ -869,7 +869,11 @@ void URuntimeMesh::HandleSingleSectionUpdate(const FRuntimeMeshProxyPtr& RenderP
 {
 	RMC_LOG_VERBOSE("HandleFullLODUpdate called: LOD:%d Section:%d", LODId, SectionId);
 
-	FRuntimeMeshSectionProperties Properties = LODs[LODId].Sections.FindChecked(SectionId);
+	FRuntimeMeshSectionProperties Properties;
+	{
+		FScopeLock Lock(&SyncRoot);
+		Properties = LODs[LODId].Sections.FindChecked(SectionId);
+	}
 	FRuntimeMeshRenderableMeshData MeshData(
 		Properties.bUseHighPrecisionTangents,
 		Properties.bUseHighPrecisionTexCoords,
@@ -947,7 +951,7 @@ void URuntimeMesh::UpdateCollision(bool bForceCookNow)
 				FKConvexElem& NewConvexElem = *new(ConvexElems) FKConvexElem();
 				NewConvexElem.VertexData = Convex.VertexBuffer;
 				// TODO: Store this on the section so we don't have to compute it on each cook
-				NewConvexElem.ElemBox = Convex.BoundingBox;
+				NewConvexElem.ElemBox = FBox(Convex.BoundingBox);
 			}
 
 			auto& BoxElems = Setup->AggGeom.BoxElems;
@@ -986,7 +990,8 @@ void URuntimeMesh::UpdateCollision(bool bForceCookNow)
 
 		if (bShouldCookAsync)
 		{
-#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 21
+#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION <= 20
+#else
 			// Abort all previous ones still standing
 			for (const auto& OldBody : AsyncBodySetupQueue)
 			{

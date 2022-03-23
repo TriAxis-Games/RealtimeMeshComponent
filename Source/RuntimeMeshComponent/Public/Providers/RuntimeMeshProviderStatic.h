@@ -68,6 +68,8 @@ public:
 	}
 
 	/**
+	*	NOTE: For Blueprint compatibility, this function converts inputs from double precision to single precision.
+	*   Use single precision (FVector3f, FVector2f) versions for C++ code!
 	*	Create/replace a section for this runtime mesh.
 	*	@param	LODIndex			Index of the LOD to create the section in.
 	*	@param	SectionIndex		Index of the section to create or replace.
@@ -88,7 +90,6 @@ public:
 	void CreateSectionFromComponents(int32 LODIndex, int32 SectionIndex, int32 MaterialSlot, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals,
 		const TArray<FVector2D>& UV0, const TArray<FVector2D>& UV1, const TArray<FVector2D>& UV2, const TArray<FVector2D>& UV3, const TArray<FLinearColor>& VertexColors, 
 		const TArray<FRuntimeMeshTangent>& Tangents, ERuntimeMeshUpdateFrequency UpdateFrequency = ERuntimeMeshUpdateFrequency::Infrequent, bool bCreateCollision = true);
-	
 
 	/**
 	*	Create/replace a section for this runtime mesh.
@@ -107,8 +108,29 @@ public:
 	*	@param	UpdateFrequency		How frequently this section is expected to be updated, Infrequent draws faster than Average/Frequent but updates slower
 	*	@param	bCreateCollision	Indicates whether collision should be created for this section. This adds significant cost.
 	*/
-	void CreateSectionFromComponents(int32 LODIndex, int32 SectionIndex, int32 MaterialSlot, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals,
-		const TArray<FVector2D>& UV0, const TArray<FVector2D>& UV1, const TArray<FVector2D>& UV2, const TArray<FVector2D>& UV3, const TArray<FColor>& VertexColors, 
+	void CreateSectionFromComponents(int32 LODIndex, int32 SectionIndex, int32 MaterialSlot, const TArray<FVector3f>& Vertices, const TArray<int32>& Triangles, const TArray<FVector3f>& Normals,
+		const TArray<FVector2f>& UV0, const TArray<FVector2f>& UV1, const TArray<FVector2f>& UV2, const TArray<FVector2f>& UV3, const TArray<FLinearColor>& VertexColors,
+		const TArray<FRuntimeMeshTangent>& Tangents, ERuntimeMeshUpdateFrequency UpdateFrequency = ERuntimeMeshUpdateFrequency::Infrequent, bool bCreateCollision = true);
+
+	/**
+	*	Create/replace a section for this runtime mesh.
+	*	@param	LODIndex			Index of the LOD to create the section in.
+	*	@param	SectionIndex		Index of the section to create or replace.
+	*	@param	MaterialSlot		Index of the material to use for this section
+	*	@param	Vertices			Vertex buffer of all vertex positions to use for this mesh section.
+	*	@param	Triangles			Index buffer indicating which vertices make up each triangle. Length must be a multiple of 3.
+	*	@param	Normals				Optional array of normal vectors for each vertex. If supplied, must be same length as Vertices array.
+	*	@param	UV0					Optional array of texture co-ordinates for each vertex. If supplied, must be same length as Vertices array.
+	*	@param	UV1					Optional array of texture co-ordinates for each vertex. If supplied, must be same length as Vertices array.
+	*	@param	UV2					Optional array of texture co-ordinates for each vertex. If supplied, must be same length as Vertices array.
+	*	@param	UV3					Optional array of texture co-ordinates for each vertex. If supplied, must be same length as Vertices array.
+	*	@param	VertexColors		Optional array of colors for each vertex. If supplied, must be same length as Vertices array.
+	*	@param	Tangents			Optional array of tangent vector for each vertex. If supplied, must be same length as Vertices array.
+	*	@param	UpdateFrequency		How frequently this section is expected to be updated, Infrequent draws faster than Average/Frequent but updates slower
+	*	@param	bCreateCollision	Indicates whether collision should be created for this section. This adds significant cost.
+	*/
+	void CreateSectionFromComponents(int32 LODIndex, int32 SectionIndex, int32 MaterialSlot, const TArray<FVector3f>& Vertices, const TArray<int32>& Triangles, const TArray<FVector3f>& Normals,
+		const TArray<FVector2f>& UV0, const TArray<FVector2f>& UV1, const TArray<FVector2f>& UV2, const TArray<FVector2f>& UV3, const TArray<FColor>& VertexColors, 
 		const TArray<FRuntimeMeshTangent>& Tangents, ERuntimeMeshUpdateFrequency UpdateFrequency = ERuntimeMeshUpdateFrequency::Infrequent, bool bCreateCollision = true);
 
 	/**
@@ -125,8 +147,8 @@ public:
 	*	@param	UpdateFrequency		How frequently this section is expected to be updated, Infrequent draws faster than Average/Frequent but updates slower
 	*	@param	bCreateCollision	Indicates whether collision should be created for this section. This adds significant cost.
 	*/
-	void CreateSectionFromComponents(int32 LODIndex, int32 SectionIndex, int32 MaterialSlot, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals,
-		const TArray<FVector2D>& UV0, const TArray<FLinearColor>& VertexColors, const TArray<FRuntimeMeshTangent>& Tangents,
+	void CreateSectionFromComponents(int32 LODIndex, int32 SectionIndex, int32 MaterialSlot, const TArray<FVector3f>& Vertices, const TArray<int32>& Triangles, const TArray<FVector3f>& Normals,
+		const TArray<FVector2f>& UV0, const TArray<FLinearColor>& VertexColors, const TArray<FRuntimeMeshTangent>& Tangents,
 		ERuntimeMeshUpdateFrequency UpdateFrequency = ERuntimeMeshUpdateFrequency::Infrequent, bool bCreateCollision = true);
 
 
@@ -144,14 +166,16 @@ public:
 	*	@param	UpdateFrequency		How frequently this section is expected to be updated, Infrequent draws faster than Average/Frequent but updates slower
 	*	@param	bCreateCollision	Indicates whether collision should be created for this section. This adds significant cost.
 	*/
-	void CreateSectionFromComponents(int32 LODIndex, int32 SectionIndex, int32 MaterialSlot, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals,
-		const TArray<FVector2D>& UV0, const TArray<FColor>& VertexColors, const TArray<FRuntimeMeshTangent>& Tangents,
+	void CreateSectionFromComponents(int32 LODIndex, int32 SectionIndex, int32 MaterialSlot, const TArray<FVector3f>& Vertices, const TArray<int32>& Triangles, const TArray<FVector3f>& Normals,
+		const TArray<FVector2f>& UV0, const TArray<FColor>& VertexColors, const TArray<FRuntimeMeshTangent>& Tangents,
 		ERuntimeMeshUpdateFrequency UpdateFrequency = ERuntimeMeshUpdateFrequency::Infrequent, bool bCreateCollision = true);
 
 
 
 
 	/**
+	*	NOTE: For Blueprint compatibility, this function converts inputs from double precision to single precision.
+	*   Use single precision (FVector3f, FVector2f) versions for C++ code!
 	*	Update the mesh data of a section.
 	*	@param	LODIndex			Index of the LOD to create the section in.
 	*	@param	SectionIndex		Index of the section to create or replace.
@@ -169,6 +193,23 @@ public:
 	void UpdateSectionFromComponents(int32 LODIndex, int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals, const TArray<FVector2D>& UV0, 
 		const TArray<FVector2D>& UV1, const TArray<FVector2D>& UV2, const TArray<FVector2D>& UV3, const TArray<FLinearColor>& VertexColors, const TArray<FRuntimeMeshTangent>& Tangents);
 
+	/**
+	*	Update the mesh data of a section.
+	*	@param	LODIndex			Index of the LOD to create the section in.
+	*	@param	SectionIndex		Index of the section to create or replace.
+	*	@param	Vertices			Vertex buffer of all vertex positions to use for this mesh section.
+	*	@param	Triangles			Index buffer indicating which vertices make up each triangle. Length must be a multiple of 3.
+	*	@param	Normals				Optional array of normal vectors for each vertex. If supplied, must be same length as Vertices array.
+	*	@param	UV0					Optional array of texture co-ordinates for each vertex. If supplied, must be same length as Vertices array.
+	*	@param	UV1					Optional array of texture co-ordinates for each vertex. If supplied, must be same length as Vertices array.
+	*	@param	UV2					Optional array of texture co-ordinates for each vertex. If supplied, must be same length as Vertices array.
+	*	@param	UV3					Optional array of texture co-ordinates for each vertex. If supplied, must be same length as Vertices array.
+	*	@param	VertexColors		Optional array of colors for each vertex. If supplied, must be same length as Vertices array.
+	*	@param	Tangents			Optional array of tangent vector for each vertex. If supplied, must be same length as Vertices array.
+	*/
+	void UpdateSectionFromComponents(int32 LODIndex, int32 SectionIndex, const TArray<FVector3f>& Vertices, const TArray<int32>& Triangles, const TArray<FVector3f>& Normals, const TArray<FVector2f>& UV0,
+		const TArray<FVector2f>& UV1, const TArray<FVector2f>& UV2, const TArray<FVector2f>& UV3, const TArray<FLinearColor>& VertexColors, const TArray<FRuntimeMeshTangent>& Tangents);
+
 
 	/**
 	*	Update the mesh data of a section.
@@ -184,8 +225,8 @@ public:
 	*	@param	VertexColors		Optional array of colors for each vertex. If supplied, must be same length as Vertices array.
 	*	@param	Tangents			Optional array of tangent vector for each vertex. If supplied, must be same length as Vertices array.
 	*/
-	void UpdateSectionFromComponents(int32 LODIndex, int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals, const TArray<FVector2D>& UV0, 
-		const TArray<FVector2D>& UV1, const TArray<FVector2D>& UV2, const TArray<FVector2D>& UV3, const TArray<FColor>& VertexColors, const TArray<FRuntimeMeshTangent>& Tangents);
+	void UpdateSectionFromComponents(int32 LODIndex, int32 SectionIndex, const TArray<FVector3f>& Vertices, const TArray<int32>& Triangles, const TArray<FVector3f>& Normals, const TArray<FVector2f>& UV0, 
+		const TArray<FVector2f>& UV1, const TArray<FVector2f>& UV2, const TArray<FVector2f>& UV3, const TArray<FColor>& VertexColors, const TArray<FRuntimeMeshTangent>& Tangents);
 
 	/**
 	*	Update the mesh data of a section.
@@ -198,8 +239,8 @@ public:
 	*	@param	VertexColors		Optional array of colors for each vertex. If supplied, must be same length as Vertices array.
 	*	@param	Tangents			Optional array of tangent vector for each vertex. If supplied, must be same length as Vertices array.
 	*/
-	void UpdateSectionFromComponents(int32 LODIndex, int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals,
-		const TArray<FVector2D>& UV0, const TArray<FLinearColor>& VertexColors, const TArray<FRuntimeMeshTangent>& Tangents);
+	void UpdateSectionFromComponents(int32 LODIndex, int32 SectionIndex, const TArray<FVector3f>& Vertices, const TArray<int32>& Triangles, const TArray<FVector3f>& Normals,
+		const TArray<FVector2f>& UV0, const TArray<FLinearColor>& VertexColors, const TArray<FRuntimeMeshTangent>& Tangents);
 
 
 	/**
@@ -213,8 +254,8 @@ public:
 	*	@param	VertexColors		Optional array of colors for each vertex. If supplied, must be same length as Vertices array.
 	*	@param	Tangents			Optional array of tangent vector for each vertex. If supplied, must be same length as Vertices array.
 	*/
-	void UpdateSectionFromComponents(int32 LODIndex, int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals,
-		const TArray<FVector2D>& UV0, const TArray<FColor>& VertexColors, const TArray<FRuntimeMeshTangent>& Tangents);
+	void UpdateSectionFromComponents(int32 LODIndex, int32 SectionIndex, const TArray<FVector3f>& Vertices, const TArray<int32>& Triangles, const TArray<FVector3f>& Normals,
+		const TArray<FVector2f>& UV0, const TArray<FColor>& VertexColors, const TArray<FRuntimeMeshTangent>& Tangents);
 
 
 
@@ -345,11 +386,11 @@ public:
 	virtual void Serialize(FArchive& Ar) override;
 	virtual void BeginDestroy() override;
 private:
-	static const TArray<FVector2D> EmptyUVs;
-
+	static const TArray<FVector2f> EmptyUVs;
+	
 	template<typename TangentType, typename ColorType>
-	static FRuntimeMeshRenderableMeshData FillMeshData(FRuntimeMeshSectionProperties& Properties, const TArray<FVector>& Vertices, const TArray<FVector>& Normals, const TArray<TangentType>& Tangents,
-		const TArray<ColorType>& VertexColors, const TArray<FVector2D>& UV0, const TArray<FVector2D>& UV1, const TArray<FVector2D>& UV2, const TArray<FVector2D>& UV3, const TArray<int32>& Triangles)
+	static FRuntimeMeshRenderableMeshData FillMeshData(FRuntimeMeshSectionProperties& Properties, const TArray<FVector3f>& Vertices, const TArray<FVector3f>& Normals, const TArray<TangentType>& Tangents,
+		const TArray<ColorType>& VertexColors, const TArray<FVector2f>& UV0, const TArray<FVector2f>& UV1, const TArray<FVector2f>& UV2, const TArray<FVector2f>& UV3, const TArray<int32>& Triangles)
 	{
 		Properties.bWants32BitIndices = Vertices.Num() > MAX_uint16;
 		Properties.bUseHighPrecisionTexCoords = true;
@@ -368,7 +409,7 @@ private:
 			SectionData.Tangents.SetNum(SectionData.Positions.Num());
 			for (int32 Index = Count; Index < SectionData.Tangents.Num(); Index++)
 			{
-				SectionData.Tangents.SetTangents(Index, FVector(1, 0, 0), FVector(0, 1, 0), FVector(0, 0, 1));
+				SectionData.Tangents.SetTangents(Index, FVector3f(1, 0, 0), FVector3f(0, 1, 0), FVector3f(0, 0, 1));
 			}
 		}
 		SectionData.Colors.Append(VertexColors);

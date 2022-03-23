@@ -33,32 +33,34 @@ void URuntimeMeshComponentStatic::CreateSection_Blueprint(int32 LODIndex, int32 
 	StaticProvider->CreateSection_Blueprint(LODIndex, SectionId, SectionProperties, SectionData);
 }
 
+// NOTE: For Blueprint compatibility, this function converts inputs from double precision to single precision.
+// Use single precision(FVector3f, FVector2f) versions for C++ code!
 void URuntimeMeshComponentStatic::CreateSectionFromComponents(int32 LODIndex, int32 SectionIndex, int32 MaterialSlot, 
-	const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals, const TArray<FVector2D>& UV0, const TArray<FVector2D>& UV1, const TArray<FVector2D>& UV2, 
+	const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals, const TArray<FVector2D>& UV0, const TArray<FVector2D>& UV1, const TArray<FVector2D>& UV2,
 	const TArray<FVector2D>& UV3, const TArray<FLinearColor>& VertexColors, const TArray<FRuntimeMeshTangent>& Tangents, ERuntimeMeshUpdateFrequency UpdateFrequency, bool bCreateCollision)
 {
 	StaticProvider->CreateSectionFromComponents(LODIndex, SectionIndex, MaterialSlot,
 		Vertices, Triangles, Normals, UV0, UV1, UV2, UV3, VertexColors, Tangents, UpdateFrequency, bCreateCollision);
 }
 
-void URuntimeMeshComponentStatic::CreateSectionFromComponents(int32 LODIndex, int32 SectionIndex, int32 MaterialSlot, const TArray<FVector>& Vertices, const TArray<int32>& Triangles,
-	const TArray<FVector>& Normals, const TArray<FVector2D>& UV0, const TArray<FVector2D>& UV1, const TArray<FVector2D>& UV2, const TArray<FVector2D>& UV3, const TArray<FColor>& VertexColors,
-	const TArray<FRuntimeMeshTangent>& Tangents, ERuntimeMeshUpdateFrequency UpdateFrequency, bool bCreateCollision)
+void URuntimeMeshComponentStatic::CreateSectionFromComponents(int32 LODIndex, int32 SectionIndex, int32 MaterialSlot,
+	const TArray<FVector3f>& Vertices, const TArray<int32>& Triangles, const TArray<FVector3f>& Normals, const TArray<FVector2f>& UV0, const TArray<FVector2f>& UV1, const TArray<FVector2f>& UV2,
+	const TArray<FVector2f>& UV3, const TArray<FColor>& VertexColors, const TArray<FRuntimeMeshTangent>& Tangents, ERuntimeMeshUpdateFrequency UpdateFrequency, bool bCreateCollision)
 {
 	StaticProvider->CreateSectionFromComponents(LODIndex, SectionIndex, MaterialSlot,
 		Vertices, Triangles, Normals, UV0, UV1, UV2, UV3, VertexColors, Tangents, UpdateFrequency, bCreateCollision);
 }
 
-void URuntimeMeshComponentStatic::CreateSectionFromComponents(int32 LODIndex, int32 SectionIndex, int32 MaterialSlot, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, 
-	const TArray<FVector>& Normals, const TArray<FVector2D>& UV0, const TArray<FLinearColor>& VertexColors, const TArray<FRuntimeMeshTangent>& Tangents,
+void URuntimeMeshComponentStatic::CreateSectionFromComponents(int32 LODIndex, int32 SectionIndex, int32 MaterialSlot, const TArray<FVector3f>& Vertices, const TArray<int32>& Triangles,
+	const TArray<FVector3f>& Normals, const TArray<FVector2f>& UV0, const TArray<FLinearColor>& VertexColors, const TArray<FRuntimeMeshTangent>& Tangents,
 	ERuntimeMeshUpdateFrequency UpdateFrequency, bool bCreateCollision)
 {
 	StaticProvider->CreateSectionFromComponents(LODIndex, SectionIndex, MaterialSlot,
 		Vertices, Triangles, Normals, UV0, VertexColors, Tangents, UpdateFrequency, bCreateCollision);
 }
 
-void URuntimeMeshComponentStatic::CreateSectionFromComponents(int32 LODIndex, int32 SectionIndex, int32 MaterialSlot, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, 
-	const TArray<FVector>& Normals, const TArray<FVector2D>& UV0, const TArray<FColor>& VertexColors, const TArray<FRuntimeMeshTangent>& Tangents,
+void URuntimeMeshComponentStatic::CreateSectionFromComponents(int32 LODIndex, int32 SectionIndex, int32 MaterialSlot, const TArray<FVector3f>& Vertices, const TArray<int32>& Triangles,
+	const TArray<FVector3f>& Normals, const TArray<FVector2f>& UV0, const TArray<FColor>& VertexColors, const TArray<FRuntimeMeshTangent>& Tangents,
 	ERuntimeMeshUpdateFrequency UpdateFrequency, bool bCreateCollision)
 {
 	StaticProvider->CreateSectionFromComponents(LODIndex, SectionIndex, MaterialSlot,
@@ -70,31 +72,41 @@ void URuntimeMeshComponentStatic::UpdateSection_Blueprint(int32 LODIndex, int32 
 	StaticProvider->UpdateSection_Blueprint(LODIndex, SectionId, SectionData);
 }
 
-void URuntimeMeshComponentStatic::UpdateSectionFromComponents(int32 LODIndex, int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, 
-	const TArray<FVector>& Normals, const TArray<FVector2D>& UV0, const TArray<FVector2D>& UV1, const TArray<FVector2D>& UV2, const TArray<FVector2D>& UV3, 
+// NOTE: For Blueprint compatibility, this function converts inputs from double precision to single precision.
+// Use single precision(FVector3f, FVector2f) versions for C++ code!
+void URuntimeMeshComponentStatic::UpdateSectionFromComponents(int32 LODIndex, int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<int32>& Triangles,
+	const TArray<FVector>& Normals, const TArray<FVector2D>& UV0, const TArray<FVector2D>& UV1, const TArray<FVector2D>& UV2, const TArray<FVector2D>& UV3,
+	const TArray<FLinearColor>& VertexColors, const TArray<FRuntimeMeshTangent>& Tangents)
+{	
+	StaticProvider->UpdateSectionFromComponents(LODIndex, SectionIndex,
+		Vertices, Triangles, Normals, UV0, UV1, UV2, UV3, VertexColors, Tangents);
+}
+
+void URuntimeMeshComponentStatic::UpdateSectionFromComponents(int32 LODIndex, int32 SectionIndex, const TArray<FVector3f>& Vertices, const TArray<int32>& Triangles,
+	const TArray<FVector3f>& Normals, const TArray<FVector2f>& UV0, const TArray<FVector2f>& UV1, const TArray<FVector2f>& UV2, const TArray<FVector2f>& UV3,
 	const TArray<FLinearColor>& VertexColors, const TArray<FRuntimeMeshTangent>& Tangents)
 {
 	StaticProvider->UpdateSectionFromComponents(LODIndex, SectionIndex,
 		Vertices, Triangles, Normals, UV0, UV1, UV2, UV3, VertexColors, Tangents);
 }
 
-void URuntimeMeshComponentStatic::UpdateSectionFromComponents(int32 LODIndex, int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, 
-	const TArray<FVector>& Normals, const TArray<FVector2D>& UV0, const TArray<FVector2D>& UV1, const TArray<FVector2D>& UV2, const TArray<FVector2D>& UV3, 
+void URuntimeMeshComponentStatic::UpdateSectionFromComponents(int32 LODIndex, int32 SectionIndex, const TArray<FVector3f>& Vertices, const TArray<int32>& Triangles,
+	const TArray<FVector3f>& Normals, const TArray<FVector2f>& UV0, const TArray<FVector2f>& UV1, const TArray<FVector2f>& UV2, const TArray<FVector2f>& UV3,
 	const TArray<FColor>& VertexColors, const TArray<FRuntimeMeshTangent>& Tangents)
 {
 	StaticProvider->UpdateSectionFromComponents(LODIndex, SectionIndex,
 		Vertices, Triangles, Normals, UV0, UV1, UV2, UV3, VertexColors, Tangents);
 }
 
-void URuntimeMeshComponentStatic::UpdateSectionFromComponents(int32 LODIndex, int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals,
-	const TArray<FVector2D>& UV0, const TArray<FLinearColor>& VertexColors, const TArray<FRuntimeMeshTangent>& Tangents)
+void URuntimeMeshComponentStatic::UpdateSectionFromComponents(int32 LODIndex, int32 SectionIndex, const TArray<FVector3f>& Vertices, const TArray<int32>& Triangles, const TArray<FVector3f>& Normals,
+	const TArray<FVector2f>& UV0, const TArray<FLinearColor>& VertexColors, const TArray<FRuntimeMeshTangent>& Tangents)
 {
 	StaticProvider->UpdateSectionFromComponents(LODIndex, SectionIndex,
 		Vertices, Triangles, Normals, UV0, VertexColors, Tangents);
 }
 
-void URuntimeMeshComponentStatic::UpdateSectionFromComponents(int32 LODIndex, int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals,
-	const TArray<FVector2D>& UV0, const TArray<FColor>& VertexColors, const TArray<FRuntimeMeshTangent>& Tangents)
+void URuntimeMeshComponentStatic::UpdateSectionFromComponents(int32 LODIndex, int32 SectionIndex, const TArray<FVector3f>& Vertices, const TArray<int32>& Triangles, const TArray<FVector3f>& Normals,
+	const TArray<FVector2f>& UV0, const TArray<FColor>& VertexColors, const TArray<FRuntimeMeshTangent>& Tangents)
 {
 	StaticProvider->UpdateSectionFromComponents(LODIndex, SectionIndex,
 		Vertices, Triangles, Normals, UV0, VertexColors, Tangents);

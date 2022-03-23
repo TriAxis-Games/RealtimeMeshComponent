@@ -40,12 +40,12 @@ int32 URuntimeMeshStaticMeshConverter::CopyVertexOrGetIndex(const FStaticMeshLOD
 		{
 			for (int32 TexIndex = 0; TexIndex < NumTexCoords; TexIndex++)
 			{
-				NewMeshData.TexCoords.Add(LOD.VertexBuffers.StaticMeshVertexBuffer.GetVertexUV(VertexIndex, TexIndex), TexIndex);
+				NewMeshData.TexCoords.Add((FVector2f)LOD.VertexBuffers.StaticMeshVertexBuffer.GetVertexUV(VertexIndex, TexIndex), TexIndex);
 			}
 		}
 		else
 		{
-			NewMeshData.TexCoords.Add(FVector2D::ZeroVector);
+			NewMeshData.TexCoords.Add(FVector2f::ZeroVector);
 		}		
 
 		// Copy Color
@@ -83,7 +83,7 @@ int32 URuntimeMeshStaticMeshConverter::CopyVertexOrGetIndex(const FStaticMeshLOD
 		// Copy UV's
 		for (int32 UVIndex = 0; UVIndex < NumUVChannels; UVIndex++)
 		{
-			NewMeshData.TexCoords.Add(UVIndex, LOD.VertexBuffers.StaticMeshVertexBuffer.GetVertexUV(VertexIndex, UVIndex));
+			NewMeshData.TexCoords.Add(UVIndex, FVector2D(LOD.VertexBuffers.StaticMeshVertexBuffer.GetVertexUV(VertexIndex, UVIndex)));
 		}
 		
 		MeshToSectionVertexMap.Add(VertexIndex, NewVertexIndex);
@@ -94,7 +94,7 @@ int32 URuntimeMeshStaticMeshConverter::CopyVertexOrGetIndex(const FStaticMeshLOD
 bool URuntimeMeshStaticMeshConverter::CopyStaticMeshSectionToRenderableMeshData(UStaticMesh* StaticMesh, int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& OutMeshData)
 {
 	// Check valid static mesh
-	if (StaticMesh == nullptr || StaticMesh->IsPendingKill())
+	if (!IsValid(StaticMesh))
 	{
 		return false;
 	}
@@ -173,7 +173,7 @@ bool URuntimeMeshStaticMeshConverter::CopyStaticMeshSectionToRenderableMeshData(
 bool URuntimeMeshStaticMeshConverter::CopyStaticMeshCollisionToCollisionSettings(UStaticMesh* StaticMesh, FRuntimeMeshCollisionSettings& OutCollisionSettings)
 {
 	// Check valid static mesh
-	if (StaticMesh == nullptr || StaticMesh->IsPendingKill())
+	if (!IsValid(StaticMesh))
 	{
 		return false;
 	}
@@ -248,7 +248,7 @@ bool URuntimeMeshStaticMeshConverter::CopyStaticMeshCollisionToCollisionSettings
 bool URuntimeMeshStaticMeshConverter::CopyStaticMeshLODToCollisionData(UStaticMesh* StaticMesh, int32 LODIndex, FRuntimeMeshCollisionData& OutCollisionData)
 {
 	// Check valid static mesh
-	if (StaticMesh == nullptr || StaticMesh->IsPendingKill())
+	if (!IsValid(StaticMesh))
 	{
 		return false;
 	}
@@ -330,7 +330,7 @@ bool URuntimeMeshStaticMeshConverter::CopyStaticMeshToRuntimeMesh(UStaticMesh* S
 
 
 	// Check valid static mesh
-	if (StaticMesh == nullptr || StaticMesh->IsPendingKill())
+	if (!IsValid(StaticMesh))
 	{
 		RMC_LOG_VERBOSE(RuntimeMeshComponent->GetRuntimeMeshId(), "Unable to convert StaticMesh to RuntimeMesh. Invalid source StaticMesh.");
 		StaticProvider->ConfigureLODs({ FRuntimeMeshLODProperties() });

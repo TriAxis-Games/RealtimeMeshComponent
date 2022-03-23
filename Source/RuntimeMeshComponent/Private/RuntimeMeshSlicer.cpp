@@ -50,7 +50,7 @@ int32 CopyVertexToNewMeshData(const FRuntimeMeshRenderableMeshData& Source, FRun
 
 	int32 NewIndex = Destination.Positions.Add(Source.Positions.GetPosition(Index));
 
-	FVector TangentX, TangentY, TangentZ;
+	FVector3f TangentX, TangentY, TangentZ;
 	if (Source.Triangles.Num() > Index)
 	{
 		Source.Tangents.GetTangents(Index, TangentX, TangentY, TangentZ);
@@ -59,7 +59,7 @@ int32 CopyVertexToNewMeshData(const FRuntimeMeshRenderableMeshData& Source, FRun
 
 	Destination.Colors.Add(Source.Colors.Num() > Index ? Source.Colors.GetColor(Index) : FColor::White);
 
-	Destination.TexCoords.Add(Source.TexCoords.Num() > Index ? Source.TexCoords.GetTexCoord(Index) : FVector2D(0, 0));
+	Destination.TexCoords.Add(Source.TexCoords.Num() > Index ? Source.TexCoords.GetTexCoord(Index) : FVector2f(0, 0));
 
 	return NewIndex;
 }
@@ -78,14 +78,14 @@ int32 AddInterpolatedVert(FRuntimeMeshRenderableMeshData& Source, FRuntimeMeshRe
 		return CopyVertexToNewMeshData(Source, Destination, Vertex1);
 	}
 
-	FVector LeftPosition = Source.Positions.GetPosition(Vertex0);
-	FVector RightPosition = Source.Positions.GetPosition(Vertex1);
+	FVector3f LeftPosition = Source.Positions.GetPosition(Vertex0);
+	FVector3f RightPosition = Source.Positions.GetPosition(Vertex1);
 	int32 NewIndex = Destination.Positions.Add(FMath::Lerp(LeftPosition, RightPosition, Alpha));
 
 	if (Source.Tangents.Num() > MaxVertex)
 	{
-		FVector LeftTangentX, LeftTangentY, LeftTangentZ;
-		FVector RightTangentX, RightTangentY, RightTangentZ;
+		FVector3f LeftTangentX, LeftTangentY, LeftTangentZ;
+		FVector3f RightTangentX, RightTangentY, RightTangentZ;
 		Source.Tangents.GetTangents(Vertex0, LeftTangentX, LeftTangentY, LeftTangentZ);
 		Source.Tangents.GetTangents(Vertex1, RightTangentX, RightTangentY, RightTangentZ);
 
@@ -96,14 +96,14 @@ int32 AddInterpolatedVert(FRuntimeMeshRenderableMeshData& Source, FRuntimeMeshRe
 	}
 	else if (Source.Tangents.Num() > 0)
 	{
-		FVector TangentX, TangentY, TangentZ;
+		FVector3f TangentX, TangentY, TangentZ;
 		Source.Tangents.GetTangents(Vertex0, TangentX, TangentY, TangentZ);
 
 		Destination.Tangents.Add(TangentX, TangentY, TangentZ);
 	}
 	else
 	{
-		Destination.Tangents.Add(FVector::RightVector, FVector::ForwardVector, FVector::UpVector);
+		Destination.Tangents.Add(FVector3f::RightVector, FVector3f::ForwardVector, FVector3f::UpVector);
 	}
 
 
@@ -128,19 +128,20 @@ int32 AddInterpolatedVert(FRuntimeMeshRenderableMeshData& Source, FRuntimeMeshRe
 
 	if (Source.TexCoords.Num() > MaxVertex)
 	{
-		FVector2D LeftTexCoord = Source.TexCoords.GetTexCoord(Vertex0);
-		FVector2D RightTexCoord = Source.TexCoords.GetTexCoord(Vertex1);
+		FVector2f LeftTexCoord = Source.TexCoords.GetTexCoord(Vertex0);
+		FVector2f RightTexCoord = Source.TexCoords.GetTexCoord(Vertex1);
 		Destination.TexCoords.Add(FMath::Lerp(LeftTexCoord, RightTexCoord, Alpha));
 	}
 	else
 	{
-		Destination.TexCoords.Add(Source.TexCoords.Num() > 0 ? Source.TexCoords.GetTexCoord(0) : FVector2D::ZeroVector);
+		Destination.TexCoords.Add(Source.TexCoords.Num() > 0 ? Source.TexCoords.GetTexCoord(0) : FVector2f::ZeroVector);
 	}
 
 	return NewIndex;
 }
 
 /** Transform triangle from 2D to 3D static-mesh triangle. */
+//NOTE: This uses engine types which are using double precision; not editing to single precision like much of the rest of the code.
 void Transform2DPolygonTo3D(const FUtilPoly2D& InPoly, const FMatrix& InMatrix, FRuntimeMeshRenderableMeshData& OutMeshData)
 {
 	FVector TangentX = -InMatrix.GetUnitAxis(EAxis::X);
@@ -151,10 +152,10 @@ void Transform2DPolygonTo3D(const FUtilPoly2D& InPoly, const FMatrix& InMatrix, 
 	{
 		const FUtilVertex2D& InVertex = InPoly.Verts[VertexIndex];
 
-		OutMeshData.Positions.Add(InMatrix.TransformPosition(FVector(InVertex.Pos.X, InVertex.Pos.Y, 0.f)));
+		OutMeshData.Positions.Add((FVector3f)FVector3d(InMatrix.TransformPosition(FVector(InVertex.Pos.X, InVertex.Pos.Y, 0.f))));
 		OutMeshData.Tangents.Add(TangentX, TangentY, TangentZ);
 		OutMeshData.Colors.Add(InVertex.Color);
-		OutMeshData.TexCoords.Add(InVertex.UV);
+		OutMeshData.TexCoords.Add(FVector2f(InVertex.UV));
 	}
 }
 
@@ -772,7 +773,7 @@ void URuntimeMeshSlicer::SliceRuntimeMesh(URuntimeMeshComponent* InRuntimeMesh, 
 			{
 				NewDestiantionCap.Positions.Add(NewSourceCap.Positions.GetPosition(VertIdx));
 
-				FVector TangentX, TangentY, TangentZ;
+				FVector3f TangentX, TangentY, TangentZ;
 				NewSourceCap.Tangents.GetTangents(VertIdx, TangentX, TangentY, TangentZ);
 				TangentX *= -1.0f;
 				TangentY *= -1.0f;

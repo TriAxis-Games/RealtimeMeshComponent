@@ -30,8 +30,8 @@
 
 
 
-#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION < 22
-	// This version of the RMC is only supported by engine version 4.22 and above
+#if ENGINE_MAJOR_VERSION < 5
+	// This version of the RMC is only supported by engine version 5.0.0 (Preview 1) and above
 #endif
 
 DECLARE_STATS_GROUP(TEXT("RuntimeMesh"), STATGROUP_RuntimeMesh, STATCAT_Advanced);
@@ -137,7 +137,7 @@ public:
 
 	/** Direction of X tangent for this vertex */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Tangent)
-	FVector TangentX;
+	FVector3f TangentX;
 
 	/** Bool that indicates whether we should flip the Y tangent when we compute it using cross product */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Tangent)
@@ -153,7 +153,7 @@ public:
 		, bFlipTangentY(bInFlipTangentY)
 	{}
 
-	FRuntimeMeshTangent(FVector InTangentX, bool bInFlipTangentY = false)
+	FRuntimeMeshTangent(FVector3f InTangentX, bool bInFlipTangentY = false)
 		: TangentX(InTangentX)
 		, bFlipTangentY(bInFlipTangentY)
 	{}
@@ -285,3 +285,15 @@ struct FRuntimeMeshDistanceFieldData
 };
 
 using FRuntimeMeshDistanceFieldDataPtr = TSharedPtr<FRuntimeMeshDistanceFieldData, ESPMode::ThreadSafe>;
+
+template<typename T_out, typename T_in>
+static TArray<T_out> RMC_ConvertTArray(const TArray<T_in>& from)
+{
+	TArray<T_out> ret;
+	ret.Reserve(from.Num());
+	for (const auto& val : from)
+	{
+		ret.Push((T_out)val);
+	}
+	return ret;
+}

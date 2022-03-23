@@ -107,13 +107,13 @@ public:
 
 
 
-	FVertexBufferRHIRef PositionsBuffer;
-	FVertexBufferRHIRef TangentsBuffer;
-	FVertexBufferRHIRef TexCoordsBuffer;
-	FVertexBufferRHIRef ColorsBuffer;
+	FBufferRHIRef PositionsBuffer;
+	FBufferRHIRef TangentsBuffer;
+	FBufferRHIRef TexCoordsBuffer;
+	FBufferRHIRef ColorsBuffer;
 
-	FIndexBufferRHIRef TrianglesBuffer;
-	FIndexBufferRHIRef AdjacencyTrianglesBuffer;
+	FBufferRHIRef TrianglesBuffer;
+	FBufferRHIRef AdjacencyTrianglesBuffer;
 
 
 	const bool bHighPrecisionTangents : 1;
@@ -200,23 +200,23 @@ public:
 public:
 
 	template<bool bIsInRenderThread>
-	static FVertexBufferRHIRef CreateRHIBuffer(FRHIResourceCreateInfo& CreateInfo, uint32 SizeInBytes, bool bDynamicBuffer)
+	static FBufferRHIRef CreateRHIBuffer(FRHIResourceCreateInfo& CreateInfo, uint32 SizeInBytes, bool bDynamicBuffer)
 	{
-		const int32 Flags = (bDynamicBuffer ? BUF_Dynamic : BUF_Static) | BUF_ShaderResource;
+//		const int32 Flags = (bDynamicBuffer ? BUF_Dynamic : BUF_Static) | BUF_ShaderResource;
 		CreateInfo.bWithoutNativeResource = SizeInBytes <= 0;
 		if (bIsInRenderThread)
 		{
-			return RHICreateVertexBuffer(SizeInBytes, Flags, CreateInfo);
+			return RHICreateVertexBuffer(SizeInBytes, (bDynamicBuffer ? BUF_Dynamic : BUF_Static) | BUF_ShaderResource, CreateInfo);
 		}
 		else
 		{
-			return RHIAsyncCreateVertexBuffer(SizeInBytes, Flags, CreateInfo);
+			return RHIAsyncCreateVertexBuffer(SizeInBytes, (bDynamicBuffer ? BUF_Dynamic : BUF_Static) | BUF_ShaderResource, CreateInfo);
 		}
 		return nullptr;
 	}
 
 	template<bool bIsInRenderThread>
-	static FVertexBufferRHIRef CreateRHIBuffer(FRuntimeMeshBufferUpdateData& InStream, bool bDynamicBuffer)
+	static FBufferRHIRef CreateRHIBuffer(FRuntimeMeshBufferUpdateData& InStream, bool bDynamicBuffer)
 	{
 		const uint32 SizeInBytes = InStream.GetResourceDataSize();
 
@@ -227,7 +227,7 @@ public:
 
 
 	template <uint32 MaxNumUpdates>
-	void UpdateRHIFromExisting(FRHIVertexBuffer* IntermediateBuffer, TRHIResourceUpdateBatcher<MaxNumUpdates>& Batcher)
+	void UpdateRHIFromExisting(FRHIBuffer* IntermediateBuffer, TRHIResourceUpdateBatcher<MaxNumUpdates>& Batcher)
 	{
 		check(VertexBufferRHI && IntermediateBuffer);
 
@@ -239,7 +239,7 @@ public:
 		}
 	}
 
-	void InitRHIFromExisting(const FVertexBufferRHIRef& InVertexBufferRHI)
+	void InitRHIFromExisting(const FBufferRHIRef& InVertexBufferRHI)
 	{
 		InitResource();
 		check(InVertexBufferRHI);
@@ -258,7 +258,7 @@ class FRuntimeMeshPositionVertexBuffer : public FRuntimeMeshVertexBuffer
 {
 public:
 	FRuntimeMeshPositionVertexBuffer(bool bInIsDynamicBuffer)
-		: FRuntimeMeshVertexBuffer(bInIsDynamicBuffer, sizeof(FVector))
+		: FRuntimeMeshVertexBuffer(bInIsDynamicBuffer, sizeof(FVector3f))
 	{
 
 	}
@@ -275,20 +275,20 @@ public:
 	}
 
 	template <uint32 MaxNumUpdates>
-	void UpdateRHIFromExisting(FRHIVertexBuffer* IntermediateBuffer, int32 NumElements, TRHIResourceUpdateBatcher<MaxNumUpdates>& Batcher)
+	void UpdateRHIFromExisting(FRHIBuffer* IntermediateBuffer, int32 NumElements, TRHIResourceUpdateBatcher<MaxNumUpdates>& Batcher)
 	{
 		if (VertexBufferRHI && IntermediateBuffer)
 		{
-			VertexSize = sizeof(FVector);
+			VertexSize = sizeof(FVector3f);
 			NumVertices = NumElements;
 
 			FRuntimeMeshVertexBuffer::UpdateRHIFromExisting<MaxNumUpdates>(IntermediateBuffer, Batcher);
 		}
 	}
 
-	void InitRHIFromExisting(const FVertexBufferRHIRef& InVertexBufferRHI, int32 NumElements)
+	void InitRHIFromExisting(const FBufferRHIRef& InVertexBufferRHI, int32 NumElements)
 	{
-		VertexSize = sizeof(FVector);
+		VertexSize = sizeof(FVector3f);
 		NumVertices = NumElements;
 
 		FRuntimeMeshVertexBuffer::InitRHIFromExisting(InVertexBufferRHI);
@@ -348,7 +348,7 @@ public:
 	}
 
 	template <uint32 MaxNumUpdates>
-	void UpdateRHIFromExisting(FRHIVertexBuffer* IntermediateBuffer, int32 NumElements, bool bShouldUseHighPrecision, TRHIResourceUpdateBatcher<MaxNumUpdates>& Batcher)
+	void UpdateRHIFromExisting(FRHIBuffer* IntermediateBuffer, int32 NumElements, bool bShouldUseHighPrecision, TRHIResourceUpdateBatcher<MaxNumUpdates>& Batcher)
 	{
 		if (VertexBufferRHI && IntermediateBuffer)
 		{
@@ -360,7 +360,7 @@ public:
 		}
 	}
 
-	void InitRHIFromExisting(const FVertexBufferRHIRef& InVertexBufferRHI, int32 NumElements, bool bShouldUseHighPrecision)
+	void InitRHIFromExisting(const FBufferRHIRef& InVertexBufferRHI, int32 NumElements, bool bShouldUseHighPrecision)
 	{
 		bUseHighPrecision = bShouldUseHighPrecision;
 		VertexSize = CalculateStride(bShouldUseHighPrecision);
@@ -375,7 +375,7 @@ class FRuntimeMeshTexCoordsVertexBuffer : public FRuntimeMeshVertexBuffer
 {
 	static constexpr int32 CalculateStride(bool bShouldUseHighPrecision, int32 InNumUVs)
 	{
-		return (bShouldUseHighPrecision ? sizeof(FVector2D) : sizeof(FVector2DHalf)) * InNumUVs;
+		return (bShouldUseHighPrecision ? sizeof(FVector2f) : sizeof(FVector2DHalf)) * InNumUVs;
 	}
 
 private:
@@ -396,7 +396,7 @@ public:
 
 	virtual FString GetFriendlyName() const override { return TEXT("FRuntimeMeshUVsVertexBuffer"); }
 
-	virtual int32 GetElementDatumSize() const override { return bUseHighPrecision ? sizeof(FVector2D) : sizeof(FVector2DHalf); }
+	virtual int32 GetElementDatumSize() const override { return bUseHighPrecision ? sizeof(FVector2f) : sizeof(FVector2DHalf); }
 	virtual EPixelFormat GetElementFormat() const override { return bUseHighPrecision ? PF_G32R32F : PF_G16R16F; }
 
 	virtual void Bind(FLocalVertexFactory::FDataType& DataType) override
@@ -410,7 +410,7 @@ public:
 		uint32 UVSizeInBytes = 0;
 		if (bUseHighPrecision)
 		{
-			UVSizeInBytes = sizeof(FVector2D);
+			UVSizeInBytes = sizeof(FVector2f);
 			UVDoubleWideVertexElementType = VET_Float4;
 			UVVertexElementType = VET_Float2;
 		}
@@ -439,7 +439,7 @@ public:
 	}
 
 	template <uint32 MaxNumUpdates>
-	void UpdateRHIFromExisting(FRHIVertexBuffer* IntermediateBuffer, int32 NumElements, bool bShouldUseHighPrecision, int32 NumChannels, TRHIResourceUpdateBatcher<MaxNumUpdates>& Batcher)
+	void UpdateRHIFromExisting(FRHIBuffer* IntermediateBuffer, int32 NumElements, bool bShouldUseHighPrecision, int32 NumChannels, TRHIResourceUpdateBatcher<MaxNumUpdates>& Batcher)
 	{
 		if (VertexBufferRHI && IntermediateBuffer)
 		{
@@ -452,7 +452,7 @@ public:
 		}
 	}
 
-	void InitRHIFromExisting(const FVertexBufferRHIRef& InVertexBufferRHI, int32 NumElements, bool bShouldUseHighPrecision, int32 NumChannels)
+	void InitRHIFromExisting(const FBufferRHIRef& InVertexBufferRHI, int32 NumElements, bool bShouldUseHighPrecision, int32 NumChannels)
 	{
 		bUseHighPrecision = bShouldUseHighPrecision;
 		NumUVs = NumChannels;
@@ -485,7 +485,7 @@ public:
 	}
 
 	template <uint32 MaxNumUpdates>
-	void UpdateRHIFromExisting(FRHIVertexBuffer* IntermediateBuffer, int32 NumElements, TRHIResourceUpdateBatcher<MaxNumUpdates>& Batcher)
+	void UpdateRHIFromExisting(FRHIBuffer* IntermediateBuffer, int32 NumElements, TRHIResourceUpdateBatcher<MaxNumUpdates>& Batcher)
 	{
 		if (VertexBufferRHI && IntermediateBuffer)
 		{
@@ -496,7 +496,7 @@ public:
 		}
 	}
 
-	void InitRHIFromExisting(const FVertexBufferRHIRef& InVertexBufferRHI, int32 NumElements)
+	void InitRHIFromExisting(const FBufferRHIRef& InVertexBufferRHI, int32 NumElements)
 	{
 		VertexSize = sizeof(FColor);
 		NumVertices = NumElements;
@@ -548,24 +548,24 @@ public:
 
 
 	template<bool bIsInRenderThread>
-	static FIndexBufferRHIRef CreateRHIBuffer(FRHIResourceCreateInfo& CreateInfo, uint32 IndexSize, uint32 SizeInBytes, bool bDynamicBuffer)
+	static FBufferRHIRef CreateRHIBuffer(FRHIResourceCreateInfo& CreateInfo, uint32 IndexSize, uint32 SizeInBytes, bool bDynamicBuffer)
 	{
-		const int32 Flags = (bDynamicBuffer ? BUF_Dynamic : BUF_Static) | BUF_ShaderResource;
+//		const int32 Flags = (bDynamicBuffer ? BUF_Dynamic : BUF_Static) | BUF_ShaderResource;
 		CreateInfo.bWithoutNativeResource = SizeInBytes <= 0;
 		if (bIsInRenderThread)
 		{
-			return RHICreateIndexBuffer(IndexSize, SizeInBytes, Flags, CreateInfo);
+			return RHICreateIndexBuffer(IndexSize, SizeInBytes, (bDynamicBuffer ? BUF_Dynamic : BUF_Static) | BUF_ShaderResource, CreateInfo);
 		}
 		else
 		{
-			return RHIAsyncCreateIndexBuffer(IndexSize, SizeInBytes, Flags, CreateInfo);
+			return RHIAsyncCreateIndexBuffer(IndexSize, SizeInBytes, (bDynamicBuffer ? BUF_Dynamic : BUF_Static) | BUF_ShaderResource, CreateInfo);
 		}
 		return nullptr;
 
 	}
 
 	template<bool bIsInRenderThread>
-	static FIndexBufferRHIRef CreateRHIBuffer(FRuntimeMeshBufferUpdateData& InStream, bool bDynamicBuffer)
+	static FBufferRHIRef CreateRHIBuffer(FRuntimeMeshBufferUpdateData& InStream, bool bDynamicBuffer)
 	{
 		const uint32 SizeInBytes = InStream.GetResourceDataSize();
 
@@ -576,7 +576,7 @@ public:
 
 
 	template <uint32 MaxNumUpdates>
-	void UpdateRHIFromExisting(FRHIIndexBuffer* IntermediateBuffer, int32 NumElements, bool bShouldUseHighPrecision, TRHIResourceUpdateBatcher<MaxNumUpdates>& Batcher)
+	void UpdateRHIFromExisting(FRHIBuffer* IntermediateBuffer, int32 NumElements, bool bShouldUseHighPrecision, TRHIResourceUpdateBatcher<MaxNumUpdates>& Batcher)
 	{
 		if (IndexBufferRHI && IntermediateBuffer)
 		{
@@ -587,7 +587,7 @@ public:
 		}
 	}
 
-	void InitRHIFromExisting(const FIndexBufferRHIRef& InIndexBufferRHI, int32 NumElements, bool bShouldUseHighPrecision)
+	void InitRHIFromExisting(const FBufferRHIRef& InIndexBufferRHI, int32 NumElements, bool bShouldUseHighPrecision)
 	{
 		InitResource();
 
