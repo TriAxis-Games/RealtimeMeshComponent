@@ -238,6 +238,13 @@ FBoxSphereBounds URuntimeMesh::GetLocalBounds() const
 	return FBoxSphereBounds(FSphere(FVector::ZeroVector, 1.0f));
 }
 
+UBodySetup* URuntimeMesh::ForceCollisionUpdate(bool bForceCookNow)
+{
+	UpdateCollision(bForceCookNow);
+	bCollisionIsDirty = false;
+	return BodySetup;
+}
+
 // 
 // void URuntimeMesh::ShutdownInternal()
 // {

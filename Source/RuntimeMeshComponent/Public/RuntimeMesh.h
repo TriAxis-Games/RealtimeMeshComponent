@@ -139,6 +139,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
 	UBodySetup* GetBodySetup() { return BodySetup; }
 
+	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
+	UBodySetup* ForceCollisionUpdate(bool bForceCookNow = true);
+
 
 	//	Begin IRuntimeMeshProviderTargetInterface interface
 	virtual FRuntimeMeshWeakRef GetMeshReference() override { return GCAnchor.GetReference(); }
