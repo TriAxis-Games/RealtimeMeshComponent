@@ -114,20 +114,19 @@ void URuntimeMeshModifierNormals::CalculateNormalsTangents(FRuntimeMeshRenderabl
 			// 			FaceTangentY[TriIdx] = FVector3f((S1 * X2 - S2 * X1) * R, (S1 * Y2 - S2 * Y1) * R,
 			// 				(S1 * Z2 - S2 * Z1) * R);
 
-
-
+			
 			FMatrix44f	ParameterToLocal(
-				FPlane(P[1].X - P[0].X, P[1].Y - P[0].Y, P[1].Z - P[0].Z, 0),
-				FPlane(P[2].X - P[0].X, P[2].Y - P[0].Y, P[2].Z - P[0].Z, 0),
-				FPlane(P[0].X, P[0].Y, P[0].Z, 0),
-				FPlane(0, 0, 0, 1)
+				FPlane4f(P[1].X - P[0].X, P[1].Y - P[0].Y, P[1].Z - P[0].Z, 0),
+				FPlane4f(P[2].X - P[0].X, P[2].Y - P[0].Y, P[2].Z - P[0].Z, 0),
+				FPlane4f(P[0].X, P[0].Y, P[0].Z, 0),
+				FPlane4f(0, 0, 0, 1)
 				);
 
 			FMatrix44f ParameterToTexture(
-				FPlane(T2.X - T1.X, T2.Y - T1.Y, 0, 0),
-				FPlane(T3.X - T1.X, T3.Y - T1.Y, 0, 0),
-				FPlane(T1.X, T1.Y, 1, 0),
-				FPlane(0, 0, 0, 1)
+				FPlane4f(T2.X - T1.X, T2.Y - T1.Y, 0, 0),
+				FPlane4f(T3.X - T1.X, T3.Y - T1.Y, 0, 0),
+				FPlane4f(T1.X, T1.Y, 1, 0),
+				FPlane4f(0, 0, 0, 1)
 				);
 
 			// Use InverseSlow to catch singular matrices.  Inverse can miss this sometimes.
@@ -208,7 +207,7 @@ TMultiMap<uint32, uint32> URuntimeMeshModifierNormals::FindDuplicateVerticesMap(
 	VertexSorter.Empty(NumVertices);
 	for (int32 Index = 0; Index < NumVertices; Index++)
 	{
-		new (VertexSorter)FRuntimeMeshVertexSortingElement(Index, PositionStream.GetPosition(Index));
+		new (VertexSorter)FRuntimeMeshVertexSortingElement(Index, FVector(PositionStream.GetPosition(Index)));
 	}
 
 	// Sort the list
