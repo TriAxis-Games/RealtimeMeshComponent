@@ -64,13 +64,13 @@ public:
 		return *((FVector3f*)&Data[Index * sizeof(FVector3f)]);
 	}
 
-	FBox3f GetBounds() const
+	FBox GetBounds() const
 	{
-		FBox3f NewBox(ForceInit);
+		FBox NewBox(ForceInit);
 		int32 Count = Num();
 		for (int32 Index = 0; Index < Count; Index++)
 		{
-			NewBox += GetPosition(Index);
+			NewBox += FVector(GetPosition(Index));
 		}
 		return NewBox;
 	}
