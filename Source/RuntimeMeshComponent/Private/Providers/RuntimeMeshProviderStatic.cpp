@@ -773,7 +773,7 @@ void URuntimeMeshProviderStatic::UpdateBounds()
 
 FBoxSphereBounds URuntimeMeshProviderStatic::GetBoundsFromMeshData(const FRuntimeMeshRenderableMeshData& MeshData)
 {
-	return FBoxSphereBounds(MeshData.Positions.GetBounds());
+	return FBoxSphereBounds(FBox(MeshData.Positions.GetBounds()));
 }
 
 void URuntimeMeshProviderStatic::UpdateSectionInternal(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData&& SectionData, FBoxSphereBounds KnownBounds)

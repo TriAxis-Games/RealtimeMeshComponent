@@ -153,7 +153,7 @@ void Transform2DPolygonTo3D(const FUtilPoly2D& InPoly, const FMatrix& InMatrix, 
 		const FUtilVertex2D& InVertex = InPoly.Verts[VertexIndex];
 
 		OutMeshData.Positions.Add((FVector3f)FVector3d(InMatrix.TransformPosition(FVector(InVertex.Pos.X, InVertex.Pos.Y, 0.f))));
-		OutMeshData.Tangents.Add(TangentX, TangentY, TangentZ);
+		OutMeshData.Tangents.Add(FVector3f(TangentX), FVector3f(TangentY), FVector3f(TangentZ));
 		OutMeshData.Colors.Add(InVertex.Color);
 		OutMeshData.TexCoords.Add(FVector2f(InVertex.UV));
 	}
@@ -195,9 +195,9 @@ bool TriangulatePoly(FRuntimeMeshRenderableMeshData& MeshData, int32 VertBase, c
 			const int32 BIndex = EarVertexIndex;
 			const int32 CIndex = (EarVertexIndex + 1) % VertIndices.Num();
 
-			const FVector AVertPos = MeshData.Positions.GetPosition(VertIndices[AIndex]);
-			const FVector BVertPos = MeshData.Positions.GetPosition(VertIndices[BIndex]);
-			const FVector CVertPos = MeshData.Positions.GetPosition(VertIndices[CIndex]);
+			const FVector AVertPos = FVector(MeshData.Positions.GetPosition(VertIndices[AIndex]));
+			const FVector BVertPos = FVector(MeshData.Positions.GetPosition(VertIndices[BIndex]));
+			const FVector CVertPos = FVector(MeshData.Positions.GetPosition(VertIndices[CIndex]));
 
 			// Check that this vertex is convex (cross product must be positive)
 			const FVector ABEdge = BVertPos - AVertPos;
@@ -212,12 +212,12 @@ bool TriangulatePoly(FRuntimeMeshRenderableMeshData& MeshData, int32 VertBase, c
 			// Look through all verts before this in array to see if any are inside triangle
 			for (int32 VertexIndex = 0; VertexIndex < VertIndices.Num(); VertexIndex++)
 			{
-				const FVector TestVertPos = MeshData.Positions.GetPosition(VertIndices[VertexIndex]);
+				const FVector TestVertPos = FVector(MeshData.Positions.GetPosition(VertIndices[VertexIndex]));
 
 				if (VertexIndex != AIndex &&
 					VertexIndex != BIndex &&
 					VertexIndex != CIndex &&
-					FGeomTools::PointInTriangle(AVertPos, BVertPos, CVertPos, TestVertPos))
+					FGeomTools::PointInTriangle(FVector3f(AVertPos), FVector3f(BVertPos), FVector3f(CVertPos), FVector3f(TestVertPos)))
 				{
 					bFoundVertInside = true;
 					break;
@@ -514,7 +514,7 @@ void URuntimeMeshSlicer::SliceRuntimeMesh(URuntimeMeshComponent* InRuntimeMesh, 
 			// Build vertex buffer 
 			for (int32 BaseVertIndex = 0; BaseVertIndex < NumBaseVerts; BaseVertIndex++)
 			{
-				FVector Position = SourceSection.Positions.GetPosition(BaseVertIndex);
+				FVector Position = FVector(SourceSection.Positions.GetPosition(BaseVertIndex));
 
 				// Calc distance from plane
 				VertDistance[BaseVertIndex] = SlicePlane.PlaneDot(Position);

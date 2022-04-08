@@ -81,8 +81,8 @@ bool URuntimeMeshProviderBox::GetSectionMeshForLOD(int32 LODIndex, int32 Section
 
 	auto AddVertex = [&](const FVector& InPosition, const FVector& InTangentX, const FVector& InTangentZ, const FVector2f& InTexCoord)
 	{
-		MeshData.Positions.Add(InPosition);
-		MeshData.Tangents.Add(InTangentZ, InTangentX);
+		MeshData.Positions.Add(FVector3f(InPosition));
+		MeshData.Tangents.Add(FVector3f(InTangentZ), FVector3f(InTangentX));
 		MeshData.Colors.Add(FColor::White);
 		MeshData.TexCoords.Add(InTexCoord);
 	};
@@ -180,15 +180,15 @@ bool URuntimeMeshProviderBox::GetCollisionMesh(FRuntimeMeshCollisionData& Collis
 	FVector BoxRadiusTemp = BoxRadius;
 
 	// Generate verts
-	CollisionVertices.Add(FVector(-BoxRadiusTemp.X, BoxRadiusTemp.Y, BoxRadiusTemp.Z));
-	CollisionVertices.Add(FVector(BoxRadiusTemp.X, BoxRadiusTemp.Y, BoxRadiusTemp.Z));
-	CollisionVertices.Add(FVector(BoxRadiusTemp.X, -BoxRadiusTemp.Y, BoxRadiusTemp.Z));
-	CollisionVertices.Add(FVector(-BoxRadiusTemp.X, -BoxRadiusTemp.Y, BoxRadiusTemp.Z));
+	CollisionVertices.Add(FVector3f(-BoxRadiusTemp.X, BoxRadiusTemp.Y, BoxRadiusTemp.Z));
+	CollisionVertices.Add(FVector3f(BoxRadiusTemp.X, BoxRadiusTemp.Y, BoxRadiusTemp.Z));
+	CollisionVertices.Add(FVector3f(BoxRadiusTemp.X, -BoxRadiusTemp.Y, BoxRadiusTemp.Z));
+	CollisionVertices.Add(FVector3f(-BoxRadiusTemp.X, -BoxRadiusTemp.Y, BoxRadiusTemp.Z));
 
-	CollisionVertices.Add(FVector(-BoxRadiusTemp.X, BoxRadiusTemp.Y, -BoxRadiusTemp.Z));
-	CollisionVertices.Add(FVector(BoxRadiusTemp.X, BoxRadiusTemp.Y, -BoxRadiusTemp.Z));
-	CollisionVertices.Add(FVector(BoxRadiusTemp.X, -BoxRadiusTemp.Y, -BoxRadiusTemp.Z));
-	CollisionVertices.Add(FVector(-BoxRadiusTemp.X, -BoxRadiusTemp.Y, -BoxRadiusTemp.Z));
+	CollisionVertices.Add(FVector3f(-BoxRadiusTemp.X, BoxRadiusTemp.Y, -BoxRadiusTemp.Z));
+	CollisionVertices.Add(FVector3f(BoxRadiusTemp.X, BoxRadiusTemp.Y, -BoxRadiusTemp.Z));
+	CollisionVertices.Add(FVector3f(BoxRadiusTemp.X, -BoxRadiusTemp.Y, -BoxRadiusTemp.Z));
+	CollisionVertices.Add(FVector3f(-BoxRadiusTemp.X, -BoxRadiusTemp.Y, -BoxRadiusTemp.Z));
 
 	// Pos Z
 	CollisionTriangles.Add(0, 1, 3);

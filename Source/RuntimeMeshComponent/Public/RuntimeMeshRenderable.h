@@ -70,7 +70,7 @@ public:
 		int32 Count = Num();
 		for (int32 Index = 0; Index < Count; Index++)
 		{
-			NewBox += GetPosition(Index);
+			NewBox += FVector(GetPosition(Index));
 		}
 		return NewBox;
 	}
@@ -181,12 +181,12 @@ public:
 		if (bIsHighPrecision)
 		{
 			*((FPackedRGBA16N*)&Data[Index]) = FPackedRGBA16N(InTangentX);
-			*((FPackedRGBA16N*)&Data[Index + sizeof(FPackedRGBA16N)]) = FPackedRGBA16N(FVector4f(InTangentZ, GetBasisDeterminantSign(InTangentX, InTangentY, InTangentZ)));
+			*((FPackedRGBA16N*)&Data[Index + sizeof(FPackedRGBA16N)]) = FPackedRGBA16N(FVector4f(InTangentZ, GetBasisDeterminantSign(FVector(InTangentX), FVector(InTangentY), FVector(InTangentZ))));
 		}
 		else
 		{
 			*((FPackedNormal*)&Data[Index]) = FPackedNormal(InTangentX);
-			*((FPackedNormal*)&Data[Index + sizeof(FPackedNormal)]) = FPackedNormal(FVector4f(InTangentZ, GetBasisDeterminantSign(InTangentX, InTangentY, InTangentZ)));
+			*((FPackedNormal*)&Data[Index + sizeof(FPackedNormal)]) = FPackedNormal(FVector4f(InTangentZ, GetBasisDeterminantSign(FVector(InTangentX), FVector(InTangentY), FVector(InTangentZ))));
 		}
 		return Index / Stride;
 	}
@@ -260,12 +260,12 @@ public:
 		if (bIsHighPrecision)
 		{
 			*((FPackedRGBA16N*)&Data[EntryIndex * sizeof(FPackedRGBA16N)]) = FPackedRGBA16N(InTangentX);
-			*((FPackedRGBA16N*)&Data[(EntryIndex + 1) * sizeof(FPackedRGBA16N)]) = FPackedRGBA16N(FVector4f(InTangentZ, GetBasisDeterminantSign(InTangentX, InTangentY, InTangentZ)));
+			*((FPackedRGBA16N*)&Data[(EntryIndex + 1) * sizeof(FPackedRGBA16N)]) = FPackedRGBA16N(FVector4f(InTangentZ, GetBasisDeterminantSign(FVector(InTangentX), FVector(InTangentY), FVector(InTangentZ))));
 		}
 		else
 		{
 			*((FPackedNormal*)&Data[EntryIndex * sizeof(FPackedNormal)]) = FPackedNormal(InTangentX);
-			*((FPackedNormal*)&Data[(EntryIndex + 1) * sizeof(FPackedNormal)]) = FPackedNormal(FVector4f(InTangentZ, GetBasisDeterminantSign(InTangentX, InTangentY, InTangentZ)));
+			*((FPackedNormal*)&Data[(EntryIndex + 1) * sizeof(FPackedNormal)]) = FPackedNormal(FVector4f(InTangentZ, GetBasisDeterminantSign(FVector(InTangentX), FVector(InTangentY), FVector(InTangentZ))));
 		}
 	}
 

@@ -55,14 +55,14 @@ void URuntimeMeshModifierAdjacency::CalculateTessellationIndices(FRuntimeMeshRen
 
 void URuntimeMeshModifierAdjacency::AddIfLeastUV(PositionDictionary& PosDict, const Vertex& Vert, uint32 Index)
 {
-	auto* Pos = PosDict.Find(Vert.Position);
+	auto* Pos = PosDict.Find(FVector(Vert.Position));
 	if (Pos == nullptr)
 	{
-		PosDict.Add(Vert.Position, Corner(Index, Vert.TexCoord));
+		PosDict.Add(FVector(Vert.Position), Corner(Index, Vert.TexCoord));
 	}
 	else if (Vert.TexCoord < Pos->TexCoord)
 	{
-		PosDict[Vert.Position] = Corner(Index, Vert.TexCoord);
+		PosDict[FVector(Vert.Position)] = Corner(Index, Vert.TexCoord);
 	}
 }
 
@@ -110,7 +110,7 @@ void URuntimeMeshModifierAdjacency::ReplacePlaceholderIndices(FRuntimeMeshRender
 		// Deal with dominant positions.
 		for (uint32 V = 0; V < VerticesPerTriangle; V++)
 		{
-			Corner* Corn = PosDict.Find(Tri.GetEdge(V).GetVertex(0).Position);
+			Corner* Corn = PosDict.Find(FVector(Tri.GetEdge(V).GetVertex(0).Position));
 			if (Corn != nullptr)
 			{
 				MeshData.AdjacencyTriangles.SetVertexIndex(StartOutIndex + 9 + V, Corn->Index);
