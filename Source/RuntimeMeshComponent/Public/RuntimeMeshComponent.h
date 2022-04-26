@@ -108,7 +108,12 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMeshComponent")
 	FRuntimeMeshCollisionHitInfo GetHitSource(int32 FaceIndex) const;
 
-
+	UFUNCTION(BlueprintPure, Category = "Components|RuntimeMeshComponent")
+	bool IsUpdatingMesh() const 
+	{ 
+		URuntimeMesh* Mesh = GetRuntimeMesh();
+		return Mesh ? Mesh->IsUpdatingMesh() : false;
+	}
 
 private:
 

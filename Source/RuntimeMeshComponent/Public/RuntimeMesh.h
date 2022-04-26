@@ -51,6 +51,8 @@ private:
 	// State tracking for async thread synchronization
 	FThreadSafeBool bQueuedForMeshUpdate;
 
+	// Number of mesh update tasks which are currently running. Used to determine if mesh is being updated. Always 0 if MeshProviderPtr is not thread safe.
+	FThreadSafeCounter NumMeshUpdateTasks;
 
 	// Whether this mesh needs to be initialized by the tick object. 
 	// This is to get away from postload so BP calls in the 
@@ -142,6 +144,8 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
 	UBodySetup* ForceCollisionUpdate(bool bForceCookNow = true);
 
+	UFUNCTION(BlueprintPure, Category = "Components|RuntimeMesh")
+	bool IsUpdatingMesh() const { return NumMeshUpdateTasks.GetValue() != 0; }
 
 	//	Begin IRuntimeMeshProviderTargetInterface interface
 	virtual FRuntimeMeshWeakRef GetMeshReference() override { return GCAnchor.GetReference(); }

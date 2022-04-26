@@ -53,7 +53,7 @@ class FRuntimeMeshUpdateTask : public FNonAbandonableTask
 				PinnedRef->HandleUpdate();
 				//}
 			}
-
+			PinnedRef->NumMeshUpdateTasks.Decrement();
 		}
 	}
 
@@ -74,6 +74,7 @@ class FRuntimeMeshUpdateTask : public FNonAbandonableTask
 URuntimeMesh::URuntimeMesh(const FObjectInitializer& ObjectInitializer)
 	: URuntimeMeshProviderTargetInterface(ObjectInitializer)
 	, bQueuedForMeshUpdate(false)
+	, NumMeshUpdateTasks(0)
 	, bCollisionIsDirty(false)
 	, MeshProviderPtr(nullptr)
 	, BodySetup(nullptr)
@@ -88,10 +89,10 @@ void URuntimeMesh::Initialize(URuntimeMeshProvider* Provider)
 	if (Provider == nullptr)
 	{
 		RMC_LOG_VERBOSE("Initialize called with a null provider... resetting.");
-		Reset();		
+		Reset();
 		return;
 	}
-	
+
 	// If this provider is still bound, remove it from the current bound mesh
 	if (Provider->IsBound())
 	{
@@ -102,32 +103,32 @@ void URuntimeMesh::Initialize(URuntimeMeshProvider* Provider)
 	check(!Provider->IsBound());
 
 
-// 	{
-// 		FReadScopeLock Lock(MeshProviderLock);
-// 
-// 		// Are we already bound to this provider? If so ignore it
-// 		if (MeshProviderPtr == Provider)
-// 		{
-// 			RMC_LOG_VERBOSE("Initialize called with the same provider as already bound... ignoring.");
-// 			return;
-// 		}
-// 
-// 		// Is this new provider somehow bound to us, but not us to it? 
-// 		if (Provider->IsBound())
-// 		{
-// 			// Are we somehow in some invalid state where the provider is bound to us, but we're not bound to it?
-// 			auto OtherMeshRef = Provider->GetMeshReference().Pin();
-// 			if (OtherMeshRef && (OtherMeshRef.Get() == this))
-// 			{
-// 				RMC_LOG_VERBOSE("Initialize called with RuntimeMeshProvider(%d) bound to us, but not to it...", Provider->GetUniqueID());
-// 				return;
-// 			}
-// 
-// 			RMC_LOG_VERBOSE("Initialize called with provider already bound to RuntimeMesh(%d)... ignoring.", (OtherMeshRef? OtherMeshRef->GetMeshId() : -1));
-// 			return;
-// 		}
-// 	}
-		
+	// 	{
+	// 		FReadScopeLock Lock(MeshProviderLock);
+	// 
+	// 		// Are we already bound to this provider? If so ignore it
+	// 		if (MeshProviderPtr == Provider)
+	// 		{
+	// 			RMC_LOG_VERBOSE("Initialize called with the same provider as already bound... ignoring.");
+	// 			return;
+	// 		}
+	// 
+	// 		// Is this new provider somehow bound to us, but not us to it? 
+	// 		if (Provider->IsBound())
+	// 		{
+	// 			// Are we somehow in some invalid state where the provider is bound to us, but we're not bound to it?
+	// 			auto OtherMeshRef = Provider->GetMeshReference().Pin();
+	// 			if (OtherMeshRef && (OtherMeshRef.Get() == this))
+	// 			{
+	// 				RMC_LOG_VERBOSE("Initialize called with RuntimeMeshProvider(%d) bound to us, but not to it...", Provider->GetUniqueID());
+	// 				return;
+	// 			}
+	// 
+	// 			RMC_LOG_VERBOSE("Initialize called with provider already bound to RuntimeMesh(%d)... ignoring.", (OtherMeshRef? OtherMeshRef->GetMeshId() : -1));
+	// 			return;
+	// 		}
+	// 	}
+
 
 #if WITH_EDITOR
 	Modify(true);
@@ -426,7 +427,7 @@ void URuntimeMesh::MarkCollisionDirty()
 
 void URuntimeMesh::SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial)
 {
-	RMC_LOG_VERBOSE("SetupMaterialSlot called: Slot:%d Name:%s Mat:%s", MaterialSlot, *SlotName.ToString(), InMaterial? *InMaterial->GetName() : TEXT(""));
+	RMC_LOG_VERBOSE("SetupMaterialSlot called: Slot:%d Name:%s Mat:%s", MaterialSlot, *SlotName.ToString(), InMaterial ? *InMaterial->GetName() : TEXT(""));
 	{
 		FScopeLock Lock(&SyncRoot);
 		// Does this slot already exist?
@@ -599,15 +600,15 @@ void URuntimeMesh::GetMeshId(FString& OutMeshId)
 
 void URuntimeMesh::QueueForDelayedInitialize()
 {
-// 	FRuntimeMeshMisc::DoOnGameThread([this]()
-// 		{
-// 			if (this->IsValidLowLevel())
-// 			{
-// 				bNeedsInitialization = true;
-// 
-// 				GetEngineSubsystem()->QueueMeshForUpdate(GetMeshReference());
-// 			}
-// 		});
+	// 	FRuntimeMeshMisc::DoOnGameThread([this]()
+	// 		{
+	// 			if (this->IsValidLowLevel())
+	// 			{
+	// 				bNeedsInitialization = true;
+	// 
+	// 				GetEngineSubsystem()->QueueMeshForUpdate(GetMeshReference());
+	// 			}
+	// 		});
 }
 
 
@@ -642,6 +643,7 @@ void URuntimeMesh::QueueForMeshUpdate()
 				{
 					if (Mesh->MeshProviderPtr->IsThreadSafe())
 					{
+						Mesh->NumMeshUpdateTasks.Increment();
 						(new FAutoDeleteAsyncTask<FRuntimeMeshUpdateTask>(Mesh->GetMeshReference()))->StartBackgroundTask(Mesh->GetEngineSubsystem()->GetThreadPool());
 					}
 					else
@@ -673,14 +675,14 @@ void URuntimeMesh::UpdateAllComponentBounds()
 	FRuntimeMeshMisc::DoOnGameThread([MeshPtr = GetMeshReference()]()
 	{
 		FRuntimeMeshSharedRef Mesh = MeshPtr.Pin();
-			if (Mesh)
-			{
-				Mesh->DoForAllLinkedComponents([](URuntimeMeshComponent* MeshComponent)
-					{
-						MeshComponent->NewBoundsReceived();
-					});
-			}
-		});
+		if (Mesh)
+		{
+			Mesh->DoForAllLinkedComponents([](URuntimeMeshComponent* MeshComponent)
+				{
+					MeshComponent->NewBoundsReceived();
+				});
+		}
+	});
 }
 
 void URuntimeMesh::RecreateAllComponentSceneProxies()
@@ -738,7 +740,7 @@ void URuntimeMesh::HandleUpdate()
 						SectionsToGetMesh.FindOrAdd(LODId).Add(INDEX_NONE);
 						continue;
 					}
-					
+
 					if (EnumHasAnyFlags(UpdateType, ESectionUpdateType::AllData))
 					{
 						if (LODs[LODId].Sections.Contains(SectionId))
@@ -877,7 +879,7 @@ void URuntimeMesh::HandleSingleSectionUpdate(const FRuntimeMeshProxyPtr& RenderP
 {
 	RMC_LOG_VERBOSE("HandleFullLODUpdate called: LOD:%d Section:%d", LODId, SectionId);
 
-	
+
 	FRuntimeMeshSectionProperties Properties;
 	{
 		FScopeLock Lock(&SyncRoot);
@@ -889,7 +891,7 @@ void URuntimeMesh::HandleSingleSectionUpdate(const FRuntimeMeshProxyPtr& RenderP
 		Properties.NumTexCoords,
 		Properties.bWants32BitIndices);
 	bool bResult = MeshProviderPtr->GetSectionMeshForLOD(LODId, SectionId, MeshData);
-	
+
 	if (bResult && MeshData.HasValidMeshData())
 	{
 		// Update section
@@ -946,7 +948,7 @@ void URuntimeMesh::UpdateCollision(bool bForceCookNow)
 			HasCollisionSettings = true;
 		}
 	}
-	
+
 	if (HasCollisionSettings)
 	{
 		UWorld* World = GetWorld();
@@ -1098,7 +1100,7 @@ void URuntimeMesh::FinalizeNewCookedData()
 	SCOPE_CYCLE_COUNTER(STAT_RuntimeMesh_FinalizeCollisionCookedData);
 
 	check(IsInGameThread());
-	
+
 	{
 		FWriteScopeLock Lock(MeshProviderLock);
 		if (MeshProviderPtr)
