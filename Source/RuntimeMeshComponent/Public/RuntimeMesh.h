@@ -33,6 +33,10 @@ enum class ESectionUpdateType : uint8
 
 ENUM_CLASS_FLAGS(ESectionUpdateType);
 
+/**
+*	Delegate for when the mesh update is done.
+*/
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FRuntimeMeshDataCalculationCompletedDelegate);
 
 /**
 *	Delegate for when the collision was updated.
@@ -128,6 +132,9 @@ public:
 	FRuntimeMeshCollisionHitInfo GetHitSource(int32 FaceIndex) const;
 
 public:
+	// Event called when the mesh data has finished updated. This does NOT guarantee the end of rendering update, but just notifies the work updating mesh in RMC's thread (or game thread depending on your RMP's thread safety) is done. Works for both synchronous and async mesh update.
+	UPROPERTY(BlueprintAssignable, Category = "Components|RuntimeMesh")
+	FRuntimeMeshDataCalculationCompletedDelegate MeshDataCalculationCompleted;
 
 	/** Event called when the collision has finished updated, this works both with standard following frame synchronous updates, as well as async updates */
 	UPROPERTY(BlueprintAssignable, Category = "Components|RuntimeMesh")
@@ -200,7 +207,7 @@ private:
 	void QueueForCollisionUpdate();
 
 	void UpdateAllComponentBounds();
-	void RecreateAllComponentSceneProxies();
+	void RecreateAllComponentSceneProxies(bool bEndOfMeshCalculation = false);
 
 
 	void HandleUpdate();

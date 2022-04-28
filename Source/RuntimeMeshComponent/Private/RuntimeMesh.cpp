@@ -683,10 +683,10 @@ void URuntimeMesh::UpdateAllComponentBounds()
 		});
 }
 
-void URuntimeMesh::RecreateAllComponentSceneProxies()
+void URuntimeMesh::RecreateAllComponentSceneProxies(bool bEndOfMeshCalculation /*= false*/)
 {
 	RMC_LOG_VERBOSE("RecreateAllComponentSceneProxies called.");
-	FRuntimeMeshMisc::DoOnGameThread([MeshPtr = GetMeshReference()]()
+	FRuntimeMeshMisc::DoOnGameThread([MeshPtr = GetMeshReference(), bEndOfMeshCalculation]()
 	{
 		FRuntimeMeshSharedRef Mesh = MeshPtr.Pin();
 		if (Mesh)
@@ -695,6 +695,15 @@ void URuntimeMesh::RecreateAllComponentSceneProxies()
 				{
 					MeshComponent->ForceProxyRecreate();
 				});
+			
+			if (bEndOfMeshCalculation)
+			{
+				// Call user event to notify of the end of mesh data calculation
+				if (Mesh->MeshDataCalculationCompleted.IsBound())
+				{
+					Mesh->MeshDataCalculationCompleted.Broadcast();
+				}
+			}
 		}
 	});
 }
@@ -803,7 +812,7 @@ void URuntimeMesh::HandleUpdate()
 		UpdateAllComponentBounds();
 		if (bRequiresProxyRecreate)
 		{
-			RecreateAllComponentSceneProxies();
+			RecreateAllComponentSceneProxies(true);
 		}
 	}
 }
