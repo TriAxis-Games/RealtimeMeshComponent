@@ -56,9 +56,13 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshProvider|ConfigureLODs")
 	virtual bool GetCollisionMesh(FRuntimeMeshCollisionData& CollisionData) { return false; }
 
+	// Called in game thread when collision update is done.
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshProvider|ConfigureLODs")
 	virtual void CollisionUpdateCompleted() { }
 
+	// Called in game thread when mesh calculation is done.
+	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshProvider|ConfigureLODs")
+	virtual void MeshUpdateCompleted() { }
 
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshProvider|ConfigureLODs")
 	virtual bool IsThreadSafe() { return false; }
@@ -139,7 +143,7 @@ public:
 	virtual bool HasCollisionMesh() override;
 	virtual bool GetCollisionMesh(FRuntimeMeshCollisionData& CollisionData) override;
 	virtual void CollisionUpdateCompleted() override;
-
+	virtual void MeshUpdateCompleted() override;
 
 	virtual bool IsThreadSafe() override;
 

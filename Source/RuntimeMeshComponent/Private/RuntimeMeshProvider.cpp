@@ -366,6 +366,15 @@ void URuntimeMeshProviderPassthrough::CollisionUpdateCompleted()
 	}
 }
 
+void URuntimeMeshProviderPassthrough::MeshUpdateCompleted()
+{
+	FReadScopeLock Lock(ChildLock);
+	if (ChildProvider)
+	{
+		ChildProvider->MeshUpdateCompleted();
+	}
+}
+
 
 bool URuntimeMeshProviderPassthrough::IsThreadSafe()
 {

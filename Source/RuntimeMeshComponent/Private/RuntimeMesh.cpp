@@ -698,6 +698,14 @@ void URuntimeMesh::RecreateAllComponentSceneProxies(bool bEndOfMeshCalculation /
 			
 			if (bEndOfMeshCalculation)
 			{
+				{
+					FWriteScopeLock Lock(Mesh->MeshProviderLock);
+					if (Mesh->MeshProviderPtr)
+					{
+						Mesh->MeshProviderPtr->MeshUpdateCompleted();
+					}
+				}
+
 				// Call user event to notify of the end of mesh data calculation
 				if (Mesh->MeshDataCalculationCompleted.IsBound())
 				{
