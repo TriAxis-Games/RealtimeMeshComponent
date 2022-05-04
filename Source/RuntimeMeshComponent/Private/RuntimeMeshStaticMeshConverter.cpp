@@ -27,7 +27,11 @@ bool URuntimeMeshStaticMeshConverter::CheckStaticMeshAccessible(UStaticMesh* Sta
 	}
 
 	// Check mesh data is accessible
+#if ENGINE_MAJOR_VERSION == 4
+	if (!((GIsEditor || StaticMesh->bAllowCPUAccess) && StaticMesh->RenderData != nullptr))
+#else
 	if (!((GIsEditor || StaticMesh->bAllowCPUAccess) && StaticMesh->GetRenderData() != nullptr))
+#endif
 	{
 		RMC_LOG_WARNING(-1, "Tried to copy data from static mesh but static mesh \"%s\" is inaccessible!", *StaticMesh->GetFullName());
 		return false;
@@ -407,9 +411,13 @@ bool URuntimeMeshStaticMeshConverter::CopyStaticMeshData(UStaticMesh* StaticMesh
 	}
 
 	// Copy materials
+#if ENGINE_MAJOR_VERSION == 4
+	OutMaterials = StaticMesh->StaticMaterials;
+	FStaticMeshRenderData* RenderData = StaticMesh->RenderData.Get();
+#else
 	OutMaterials = StaticMesh->GetStaticMaterials();
-
 	FStaticMeshRenderData* RenderData = StaticMesh->GetRenderData();
+#endif
 	const auto& LODResources = RenderData->LODResources;
 
 	int32 NumLODs = FMath::Min(LODResources.Num(), MaxLODToCopy+1);
