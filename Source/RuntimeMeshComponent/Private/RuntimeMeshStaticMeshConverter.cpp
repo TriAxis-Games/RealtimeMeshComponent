@@ -3,7 +3,6 @@
 
 #include "RuntimeMeshStaticMeshConverter.h"
 #include "RuntimeMeshComponentPlugin.h"
-#include "EngineGlobals.h"
 #include "Engine/StaticMesh.h"
 #include "PhysicsEngine/BodySetup.h"
 #include "RuntimeMeshRenderable.h"
@@ -14,6 +13,27 @@
 #define RMC_LOG_VERBOSE(MeshId, Format, ...) \
 	UE_LOG(RuntimeMeshLog, Verbose, TEXT("[SMC->RMC Mesh:%d Thread:%d]: " Format), MeshId, FPlatformTLS::GetCurrentThreadId(), ##__VA_ARGS__);
 
+#define RMC_LOG_WARNING(MeshId, Format, ...) \
+	UE_LOG(RuntimeMeshLog, Warning, TEXT("[SMC->RMC Mesh:%d Thread:%d]: " Format), MeshId, FPlatformTLS::GetCurrentThreadId(), ##__VA_ARGS__);
+
+
+bool URuntimeMeshStaticMeshConverter::CheckStaticMeshAccessible(UStaticMesh* StaticMesh)
+{
+	if (!IsValid(StaticMesh))
+	{
+		RMC_LOG_WARNING(-1, "Tried to copy data from static mesh but static mesh is invalid! Stack trace:");
+		FDebug::DumpStackTraceToLog(ELogVerbosity::Verbose);
+		return false;
+	}
+
+	// Check mesh data is accessible
+	if (!((GIsEditor || StaticMesh->bAllowCPUAccess) && StaticMesh->GetRenderData() != nullptr))
+	{
+		RMC_LOG_WARNING(-1, "Tried to copy data from static mesh but static mesh \"%s\" is inaccessible!", *StaticMesh->GetFullName());
+		return false;
+	}
+	return true;
+}
 
 int32 URuntimeMeshStaticMeshConverter::CopyVertexOrGetIndex(const FStaticMeshLODResources& LOD, const FStaticMeshSection& Section, TMap<int32, int32>& MeshToSectionVertexMap, int32 VertexIndex, FRuntimeMeshRenderableMeshData& NewMeshData)
 {
@@ -93,6 +113,13 @@ int32 URuntimeMeshStaticMeshConverter::CopyVertexOrGetIndex(const FStaticMeshLOD
 
 bool URuntimeMeshStaticMeshConverter::CopyStaticMeshSectionToRenderableMeshData(UStaticMesh* StaticMesh, int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& OutMeshData)
 {
+	FRuntimeMeshSectionProperties Props;
+	return CopyStaticMeshSectionToRenderableMeshData(StaticMesh, LODIndex, SectionId, OutMeshData, Props);
+}
+
+bool URuntimeMeshStaticMeshConverter::CopyStaticMeshSectionToRenderableMeshData(UStaticMesh* StaticMesh, int32 LODIndex,
+	int32 SectionId, FRuntimeMeshRenderableMeshData& OutMeshData, FRuntimeMeshSectionProperties& OutProperties)
+{
 	// Check valid static mesh
 	if (StaticMesh == nullptr || StaticMesh->IsPendingKill())
 	{
@@ -144,13 +171,20 @@ bool URuntimeMeshStaticMeshConverter::CopyStaticMeshSectionToRenderableMeshData(
 		OutMeshData.Triangles.Add(SectionVertIndex);
 	}
 
+	FRuntimeMeshSectionProperties& SectionProperties = OutProperties;
+	SectionProperties.MaterialSlot = Section.MaterialIndex;
+	SectionProperties.bCastsShadow = Section.bCastShadow;
+	SectionProperties.bForceOpaque = Section.bForceOpaque;
+	SectionProperties.bIsVisible = true;
+
 	// Lets copy the adjacency information too for tessellation 
 	// At this point all vertices should be copied so it should work to just copy/convert the indices.
-
-#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 23
-	const auto& LODAdjacencyIndexBuffer = LOD.AdditionalIndexBuffers->AdjacencyIndexBuffer;
-#else
+	//Tesselation is only supported for UE4
+#if ENGINE_MAJOR_VERSION == 4
+#if ENGINE_MINOR_VERSION <= 22
 	const auto& LODAdjacencyIndexBuffer = LOD.AdjacencyIndexBuffer;
+#else
+	const auto& LODAdjacencyIndexBuffer = LOD.AdditionalIndexBuffers->AdjacencyIndexBuffer;
 #endif
 
 	if (LOD.bHasAdjacencyInfo && LODAdjacencyIndexBuffer.GetNumIndices() > 0)
@@ -166,20 +200,15 @@ bool URuntimeMeshStaticMeshConverter::CopyStaticMeshSectionToRenderableMeshData(
 			OutMeshData.AdjacencyTriangles.Add(MeshToSectionVertMap[AdjacencyIndices[StartIndex + Index]]);
 		}
 	}
-
+#endif
 	return true;
 }
 
 bool URuntimeMeshStaticMeshConverter::CopyStaticMeshCollisionToCollisionSettings(UStaticMesh* StaticMesh, FRuntimeMeshCollisionSettings& OutCollisionSettings)
 {
+	OutCollisionSettings = FRuntimeMeshCollisionSettings();
 	// Check valid static mesh
-	if (StaticMesh == nullptr || StaticMesh->IsPendingKill())
-	{
-		return false;
-	}
-
-	// Check mesh data is accessible
-	if (!((GIsEditor || StaticMesh->bAllowCPUAccess) && StaticMesh->RenderData != nullptr))
+	if (!CheckStaticMeshAccessible(StaticMesh))
 	{
 		return false;
 	}
@@ -248,13 +277,7 @@ bool URuntimeMeshStaticMeshConverter::CopyStaticMeshCollisionToCollisionSettings
 bool URuntimeMeshStaticMeshConverter::CopyStaticMeshLODToCollisionData(UStaticMesh* StaticMesh, int32 LODIndex, FRuntimeMeshCollisionData& OutCollisionData)
 {
 	// Check valid static mesh
-	if (StaticMesh == nullptr || StaticMesh->IsPendingKill())
-	{
-		return false;
-	}
-
-	// Check mesh data is accessible
-	if (!((GIsEditor || StaticMesh->bAllowCPUAccess) && StaticMesh->RenderData != nullptr))
+	if (!CheckStaticMeshAccessible(StaticMesh))
 	{
 		return false;
 	}
@@ -296,7 +319,7 @@ bool URuntimeMeshStaticMeshConverter::CopyStaticMeshLODToCollisionData(UStaticMe
 				uint32 MeshVertIndex = Indices[TriIndex * 3 + Index];
 
 				// See if we have this vert already in our section vert buffer, and copy vert in if not 
-				int32 SectionVertIndex = CopyVertexOrGetIndex(LOD, Section, MeshToSectionVertMap, MeshVertIndex, NumUVChannels, OutCollisionData);
+				CopyVertexOrGetIndex(LOD, Section, MeshToSectionVertMap, MeshVertIndex, NumUVChannels, OutCollisionData);
 
 				TempIndices[Index] = MeshVertIndex;
 			}
@@ -324,25 +347,18 @@ bool URuntimeMeshStaticMeshConverter::CopyStaticMeshToRuntimeMesh(UStaticMesh* S
 	// Not able to convert to RMC without a static provider
 	if (StaticProvider == nullptr)
 	{
-		RMC_LOG_VERBOSE(RuntimeMeshComponent->GetRuntimeMeshId(), "Unable to convert StaticMesh to RuntimeMesh. No StaticProvider present.");
+		RMC_LOG_WARNING(RuntimeMeshComponent->GetRuntimeMeshId(), "Unable to convert StaticMesh to RuntimeMesh. No StaticProvider present.");
 		return false;
 	}
+	TArray<TArray<FRuntimeMeshSectionData>> MeshData;
+	FRuntimeMeshCollisionSettings CollisionSettings;
+	FRuntimeMeshCollisionData CollisionData;
+	TArray<FRuntimeMeshLODProperties> LODProperties;
+	TArray<FStaticMaterial> Materials;
 
-
-	// Check valid static mesh
-	if (StaticMesh == nullptr || StaticMesh->IsPendingKill())
+	if (!CopyStaticMeshData(StaticMesh, MeshData, LODProperties, 
+		Materials, CollisionData, CollisionSettings, MaxLODToCopy))
 	{
-		RMC_LOG_VERBOSE(RuntimeMeshComponent->GetRuntimeMeshId(), "Unable to convert StaticMesh to RuntimeMesh. Invalid source StaticMesh.");
-		StaticProvider->ConfigureLODs({ FRuntimeMeshLODProperties() });
-		StaticProvider->SetCollisionMesh(FRuntimeMeshCollisionData());
-		StaticProvider->SetCollisionSettings(FRuntimeMeshCollisionSettings());
-		return false;
-	}
-
-	// Check mesh data is accessible
-	if (!((GIsEditor || StaticMesh->bAllowCPUAccess) && StaticMesh->RenderData != nullptr))
-	{
-		RMC_LOG_VERBOSE(RuntimeMeshComponent->GetRuntimeMeshId(), "Unable to convert StaticMesh to RuntimeMesh. Invalid source StaticMesh.");
 		StaticProvider->ConfigureLODs({ FRuntimeMeshLODProperties() });
 		StaticProvider->SetCollisionMesh(FRuntimeMeshCollisionData());
 		StaticProvider->SetCollisionSettings(FRuntimeMeshCollisionSettings());
@@ -350,56 +366,91 @@ bool URuntimeMeshStaticMeshConverter::CopyStaticMeshToRuntimeMesh(UStaticMesh* S
 	}
 
 	// Copy materials
-	const TArray<FStaticMaterial>& MaterialSlots = StaticMesh->StaticMaterials;
+	TArray<FStaticMaterial>& MaterialSlots = Materials;
 	for (int32 SlotIndex = 0; SlotIndex < MaterialSlots.Num(); SlotIndex++)
 	{
 		StaticProvider->SetupMaterialSlot(SlotIndex, MaterialSlots[SlotIndex].MaterialSlotName, MaterialSlots[SlotIndex].MaterialInterface);
 	}
 
-	const auto& LODResources = StaticMesh->RenderData->LODResources;
-
 	// Setup LODs
-	TArray<FRuntimeMeshLODProperties> LODs;
-	for (int32 LODIndex = 0; LODIndex < LODResources.Num() && LODIndex <= MaxLODToCopy; LODIndex++)
-	{
-		FRuntimeMeshLODProperties LODProperties;
-		LODProperties.ScreenSize = StaticMesh->RenderData->ScreenSize[LODIndex].Default;
-
-		LODs.Add(LODProperties);
-	}
+	TArray<FRuntimeMeshLODProperties>& LODs = LODProperties;
 	StaticProvider->ConfigureLODs(LODs);
 
 
 	// Create all sections for all LODs
-	for (int32 LODIndex = 0; LODIndex < LODResources.Num() && LODIndex <= MaxLODToCopy; LODIndex++)
+	for (int32 LODIndex = 0; LODIndex < MeshData.Num(); LODIndex++)
 	{
-		const auto& LOD = LODResources[LODIndex];
 
-		for (int32 SectionId = 0; SectionId < LOD.Sections.Num(); SectionId++)
+		for (int32 SectionId = 0; SectionId < MeshData[LODIndex].Num(); SectionId++)
 		{
-			const auto& Section = LOD.Sections[SectionId];
-
-			FRuntimeMeshSectionProperties SectionProperties;
-
-			FRuntimeMeshRenderableMeshData MeshData;
-			CopyStaticMeshSectionToRenderableMeshData(StaticMesh, LODIndex, SectionId, MeshData);
-
-			StaticProvider->CreateSection(LODIndex, SectionId, SectionProperties, MeshData);
+			StaticProvider->CreateSection(LODIndex, SectionId, MeshData[LODIndex][SectionId].Properties, MeshData[LODIndex][SectionId].MeshData);
 		}
 	}
+	StaticProvider->SetCollisionSettings(CollisionSettings);
 
-	FRuntimeMeshCollisionSettings CollisionSettings;
-	if (CopyStaticMeshCollisionToCollisionSettings(StaticMesh, CollisionSettings))
-	{
-		StaticProvider->SetCollisionSettings(CollisionSettings);
-	}
-
-	FRuntimeMeshCollisionData CollisionData;
-	if (CollisionLODIndex != INDEX_NONE && CopyStaticMeshLODToCollisionData(StaticMesh, CollisionLODIndex, CollisionData))
+	if (CollisionData.HasValidMeshData())
 	{
 		StaticProvider->SetCollisionMesh(CollisionData);
 	}
+	
+	return true;
+}
 
+bool URuntimeMeshStaticMeshConverter::CopyStaticMeshData(UStaticMesh* StaticMesh,
+                                                         TArray<TArray<FRuntimeMeshSectionData>>& OutSectionData, TArray<FRuntimeMeshLODProperties>& OutLODProperties,
+                                                         TArray<FStaticMaterial>& OutMaterials, FRuntimeMeshCollisionData& OutCollisionData,
+                                                         FRuntimeMeshCollisionSettings& OutCollisionSettings, int32 MaxLODToCopy)
+{
+	if (!CheckStaticMeshAccessible(StaticMesh))
+	{
+		return false;
+	}
+
+	// Copy materials
+	OutMaterials = StaticMesh->GetStaticMaterials();
+
+	FStaticMeshRenderData* RenderData = StaticMesh->GetRenderData();
+	const auto& LODResources = RenderData->LODResources;
+
+	int32 NumLODs = FMath::Min(LODResources.Num(), MaxLODToCopy+1);
+	// Setup LODs
+	TArray<FRuntimeMeshLODProperties>& LODs = OutLODProperties;
+	
+	for (int32 LODIndex = 0; LODIndex < NumLODs; LODIndex++)
+	{
+		FRuntimeMeshLODProperties LODProperties;
+		LODProperties.ScreenSize = RenderData->ScreenSize[LODIndex].Default;
+		LODs.Add(LODProperties);
+	}
+
+
+	// Create all sections for all LODs
+	
+	OutSectionData.SetNum(NumLODs);
+	for (int32 LODIndex = 0; LODIndex < NumLODs; LODIndex++)
+	{
+		const auto& LOD = LODResources[LODIndex];
+		OutSectionData[LODIndex].SetNum(LOD.Sections.Num());
+		for (int32 SectionId = 0; SectionId < LOD.Sections.Num(); SectionId++)
+		{
+
+			FRuntimeMeshRenderableMeshData MeshData;
+			CopyStaticMeshSectionToRenderableMeshData(StaticMesh, LODIndex, SectionId,
+				OutSectionData[LODIndex][SectionId].MeshData, OutSectionData[LODIndex][SectionId].Properties);
+		}
+	}
+
+	FRuntimeMeshCollisionSettings CollisionSettings = OutCollisionSettings;
+	if (CopyStaticMeshCollisionToCollisionSettings(StaticMesh, CollisionSettings))
+	{
+	}
+
+	int CollisionLODIndex = StaticMesh->LODForCollision;
+
+	FRuntimeMeshCollisionData CollisionData;
+	if (CollisionLODIndex >=0 && CollisionLODIndex < LODResources.Num() && CopyStaticMeshLODToCollisionData(StaticMesh, CollisionLODIndex, OutCollisionData))
+	{
+	}
 
 	return true;
 }
