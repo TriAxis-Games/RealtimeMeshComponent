@@ -734,7 +734,7 @@ public:
 
 	bool HasValidMeshData()
 	{
-		return Vertices.Num() >= 3 && Triangles.Num() >= 3;
+		return Vertices.Num() >= 3 && Triangles.Num() >= 1;
 	}
 
 	void ReserveVertices(int32 Number, int32 NumTexCoordChannels = 1)
