@@ -890,7 +890,7 @@ void URuntimeMesh::HandleSingleSectionUpdate(const FRuntimeMeshProxyPtr& RenderP
 		Properties.bWants32BitIndices);
 	bool bResult = MeshProviderPtr->GetSectionMeshForLOD(LODId, SectionId, MeshData);
 	
-	if (bResult && MeshData.HasValidMeshData())
+	if (bResult && MeshData.HasValidMeshData(true))
 	{
 		// Update section
 		TSharedPtr<FRuntimeMeshSectionUpdateData> UpdateData = MakeShared<FRuntimeMeshSectionUpdateData>(MoveTemp(MeshData));
@@ -907,6 +907,8 @@ void URuntimeMesh::HandleSingleSectionUpdate(const FRuntimeMeshProxyPtr& RenderP
 	}
 	else
 	{
+		UE_LOG(RuntimeMeshLog, Warning, TEXT("Could not Handle Section Update, Invalid Data: LOD:%d Section:%d"), LODId, SectionId);
+		
 		// Clear section
 		RenderProxyRef->ClearSection_GameThread(LODId, SectionId);
 		bRequiresProxyRecreate |= Properties.UpdateFrequency == ERuntimeMeshUpdateFrequency::Infrequent;
