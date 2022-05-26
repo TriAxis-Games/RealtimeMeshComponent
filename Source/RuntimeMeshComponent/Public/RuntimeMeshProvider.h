@@ -35,31 +35,77 @@ public:
 public:
     URuntimeMeshProvider();
 
+	/*
+	 * Called when the RMC's Initialize function is called. The provider is now connected to the component and can setup things
+	 */
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshProvider|ConfigureLODs")
 	virtual void Initialize() { }
 
+	/*
+	 * Called by the RMC to gather the bounds of the mesh.
+	 * Bounds that are too small will cause the mesh to flicker or disappear too early
+	 * Bounds that are too big will reduce the effectiveness of culling and lower performance
+	 */
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshProvider|ConfigureLODs")
 	virtual FBoxSphereBounds GetBounds() { return FBoxSphereBounds(FSphere(FVector::ZeroVector, 1.0f)); }
 
+	/*
+	 * Function called by the component to gather your mesh data
+	 * May be called from outside of the game thread if IsThreadSafe returns true
+	 * You should only return true if you believe that the mesh data you have given is valid
+	 * Will be enabled if bCanGetSectionsIndependently is true in the LOD properties
+	 * 
+	 * @param LODIndex Index of the LOD for which your are to supply mesh data
+	 * @param SectionId Index of the section for which you are to supply the mesh data
+	 * @param MeshData The structure that you have to fill with mesh data
+	 * @return True if you believe that you have given valid data, false if not. An empty mesh is considered invalid.
+	 */
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshProvider|ConfigureLODs")
 	virtual bool GetSectionMeshForLOD(int32 LODIndex, int32 SectionId, FRuntimeMeshRenderableMeshData& MeshData) { return false; }
 
+	/*
+	 * Function called by the component to gather your mesh data
+	 * May be called from outside of the game thread if IsThreadSafe returns true
+	 * You should only return true if you believe that the mesh data you have given is valid
+	 * Will be enabled if bCanGetAllSectionsAtOnce is true in the LOD properties
+	 * Will prefer calling this if possible
+	 * 
+	 * @param LODIndex Index of the LOD for which your are to supply mesh data
+	 * @param MeshData The structures that you have to fill with mesh data. Index 0 is for LOD0 and so on
+	 * @return True if you believe that you have given valid data, false if not. An empty mesh is considered invalid.
+	 */
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshProvider|ConfigureLODs")
 	virtual bool GetAllSectionsMeshForLOD(int32 LODIndex, TMap<int32, FRuntimeMeshSectionData>& MeshDatas) { return false; }
 
+	/*
+	 * Function called by the component to gather simple collision
+	 */
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshProvider|ConfigureLODs")
 	virtual FRuntimeMeshCollisionSettings GetCollisionSettings() { return FRuntimeMeshCollisionSettings(); }
 
+	/*
+	 * Function called by the component to know if a collision mesh (complex collision) is gatherable
+	 */
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshProvider|ConfigureLODs")
 	virtual bool HasCollisionMesh() { return false; }
 
+	/*
+	 * Function called by the component to gather a collision mesh (complex collision)
+	 * @return true if the collision mesh is valid
+	 */
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshProvider|ConfigureLODs")
 	virtual bool GetCollisionMesh(FRuntimeMeshCollisionData& CollisionData) { return false; }
 
+	/*
+	 * Called by the component when the last given collision mesh is applied.
+	 * This is only a notifier
+	 */
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshProvider|ConfigureLODs")
 	virtual void CollisionUpdateCompleted() { }
 
-
+	/*
+	 * Return true to enable out-of-gamethread renderable mesh gathering
+	 */
 	UFUNCTION(BlueprintCallable, Category = "RuntimeMeshProvider|ConfigureLODs")
 	virtual bool IsThreadSafe() { return false; }
 

@@ -5,12 +5,14 @@
 #include "Engine/Engine.h"
 #include "RuntimeMeshCore.h"
 #include "Runtime/Launch/Resources/Version.h"
+#include "Logging/MessageLog.h"
 #include "Components/MeshComponent.h"
 #include "Interfaces/Interface_CollisionDataProvider.h"
 #include "RuntimeMeshCollision.generated.h"
 
 class URuntimeMeshProvider;
 
+#define LOCTEXT_NAMESPACE "RuntimeMeshComponent"
 
 USTRUCT(BlueprintType)
 struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshCollisionConvexMesh
@@ -741,9 +743,35 @@ public:
 
 	}
 
-	bool HasValidMeshData()
+	bool HasValidMeshData(bool bPrintErrorMessage = false)
 	{
-		return Vertices.Num() >= 3 && Triangles.Num() >= 1;
+		bool status = true;
+		if (Vertices.Num() < 3 || Triangles.Num() < 1)
+		{
+			status = false;
+			if (bPrintErrorMessage)
+			{
+				FFormatNamedArguments Arguments;
+                Arguments.Add(TEXT("NumVerts"), Vertices.Num());
+				Arguments.Add(TEXT("NumTris"), Triangles.Num());
+                FText Message = FText::Format(LOCTEXT("InvalidCollisionData_NotEnough",
+                	"Supplied collision mesh doesn't have enough vertices or triangles. Supplied Vertices: {NumVerts} Supplied triangles: {NumTris}"), Arguments);
+                FMessageLog("RuntimeMesh").Error(Message);
+			}
+		}
+		if (Vertices.Num() %3 != 0)
+		{
+			status = false;
+			if (bPrintErrorMessage)
+			{
+				FFormatNamedArguments Arguments;
+				Arguments.Add(TEXT("NumVerts"), Vertices.Num());
+				FText Message = FText::Format(LOCTEXT("InvalidCollisionData_NotMultiple",
+					"Supplied collision mesh doesn't contain a multiple of 3 vertices. Supplied Vertices: {NumVerts}"), Arguments);
+				FMessageLog("RuntimeMesh").Error(Message);
+			}
+		}
+		return status;
 	}
 
 	void ReserveVertices(int32 Number, int32 NumTexCoordChannels = 1)
@@ -812,3 +840,5 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Collision|CollisionMesh")
 	FRuntimeMeshCollisionTexCoordStream TexCoords;
 };
+
+#undef LOCTEXT_NAMESPACE
