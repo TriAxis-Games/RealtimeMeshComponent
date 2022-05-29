@@ -19,31 +19,31 @@ struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshCollisionConvexMesh
 
 public:
 	FRuntimeMeshCollisionConvexMesh() : BoundingBox(ForceInit) { }
-	FRuntimeMeshCollisionConvexMesh(const TArray<FVector>& InVertexBuffer)
+	FRuntimeMeshCollisionConvexMesh(const TArray<FVector3f>& InVertexBuffer)
 		: VertexBuffer(InVertexBuffer)
 		, BoundingBox(InVertexBuffer)
 	{
 	}
-	FRuntimeMeshCollisionConvexMesh(TArray<FVector>&& InVertexBuffer)
+	FRuntimeMeshCollisionConvexMesh(TArray<FVector3f>&& InVertexBuffer)
 		: VertexBuffer(InVertexBuffer)
 		, BoundingBox(VertexBuffer)
 	{
 	}
-	FRuntimeMeshCollisionConvexMesh(const TArray<FVector>& InVertexBuffer, const FBox& InBoundingBox)
+	FRuntimeMeshCollisionConvexMesh(const TArray<FVector3f>& InVertexBuffer, const FBox3f& InBoundingBox)
 		: VertexBuffer(InVertexBuffer)
 		, BoundingBox(InBoundingBox)
 	{
 	}
-	FRuntimeMeshCollisionConvexMesh(TArray<FVector>&& InVertexBuffer, const FBox& InBoundingBox)
+	FRuntimeMeshCollisionConvexMesh(TArray<FVector3f>&& InVertexBuffer, const FBox3f& InBoundingBox)
 		: VertexBuffer(InVertexBuffer)
 		, BoundingBox(VertexBuffer)
 	{
 	}
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Collision|Convex")
-	TArray<FVector> VertexBuffer;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Collision|Convex")
-	FBox BoundingBox;
+	TArray<FVector3f> VertexBuffer;
+	UPROPERTY(/*EditAnywhere, BlueprintReadWrite, Category = "RuntimeMesh|Collision|Convex"*/) //TODO : Make bounding box visible in BP
+	FBox3f BoundingBox;
 
 	friend FArchive& operator <<(FArchive& Ar, FRuntimeMeshCollisionConvexMesh& Section)
 	{
@@ -233,7 +233,7 @@ struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshCollisionVertexStream
 	GENERATED_USTRUCT_BODY()
 
 private:
-	TArray<FVector> Data;
+	TArray<FVector3f> Data;
 
 public:
 	FRuntimeMeshCollisionVertexStream() { }
@@ -258,23 +258,39 @@ public:
 		Data.Reserve(Number);
 	}
 
-	FORCEINLINE int32 Add(const FVector& InPosition)
+	FORCEINLINE int32 AddF(const FVector3f& InPosition)
 	{
 		return Data.Add(InPosition);
 	}
 
-	FORCEINLINE const FVector& GetPosition(int32 Index) const
+	FORCEINLINE int32 Add(const FVector& InPosition)
+	{
+		return AddF(FVector3f(InPosition));
+	}
+
+	FORCEINLINE const FVector3f& GetFPosition(int32 Index) const
 	{
 		return Data[Index];
 	}
 
-	FORCEINLINE void SetPosition(int32 Index, const FVector& NewPosition)
+	UE_DEPRECATED(5.0, "Use GetFPosition instead. References have been broken.")
+	FORCEINLINE const FVector GetPosition(int32 Index) const
+	{
+		return FVector(GetFPosition(Index));
+	}
+
+	FORCEINLINE void SetFPosition(int32 Index, const FVector3f& NewPosition)
 	{
 		Data[Index] = NewPosition;
 	}
 
+	FORCEINLINE void SetPosition(int32 Index, const FVector& NewPosition)
+	{
+		SetFPosition(Index, FVector3f(NewPosition));
+	}
+
 private:
-	TArray<FVector>&& TakeContents()
+	TArray<FVector3f>&& TakeContents()
 	{
 		return MoveTemp(Data);
 	}

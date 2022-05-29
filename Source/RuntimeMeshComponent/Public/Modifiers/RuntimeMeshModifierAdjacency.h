@@ -49,10 +49,15 @@ private:
 	struct Vertex
 	{
 		FVector3f Position;
-		FVector2D TexCoord;
+		FVector2f TexCoord;
 
 		Vertex() { }
-		Vertex(const FVector3f& InPosition, const FVector2D& InTexCoord)
+		Vertex(const FVector3f& InPosition, const FVector2f& InTexCoord)
+			: Position(InPosition), TexCoord(InTexCoord)
+		{ }
+
+		UE_DEPRECATED(5.0, "Use the 32-bit constructor instead.")
+		Vertex(const FVector& InPosition, const FVector2D& InTexCoord)
 			: Position(InPosition), TexCoord(InTexCoord)
 		{ }
 
@@ -148,9 +153,14 @@ private:
 	struct Corner
 	{
 		uint32 Index;
-		FVector2D TexCoord;
+		FVector2f TexCoord;
 
 		Corner() : Index(0) { }
+		Corner(uint32 InIndex, FVector2f InTexCoord)
+			: Index(InIndex), TexCoord(InTexCoord)
+		{ }
+
+		UE_DEPRECATED(5.0, "Use the 32-bit constructor instead.")
 		Corner(uint32 InIndex, FVector2D InTexCoord)
 			: Index(InIndex), TexCoord(InTexCoord)
 		{ }

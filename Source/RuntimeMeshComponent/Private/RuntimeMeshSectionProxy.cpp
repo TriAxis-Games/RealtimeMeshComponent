@@ -7,7 +7,9 @@
 #if RHI_RAYTRACING
 #include "RayTracingInstance.h"
 #endif
-
+#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION <= 23
+#define BELOW_423
+#endif
 
 DECLARE_DWORD_COUNTER_STAT(TEXT("RuntimeMeshSectionProxy - Num Triangles"), STAT_RuntimeMeshSectionProxy_NumTriangles, STATGROUP_RuntimeMesh);
 
@@ -38,18 +40,18 @@ void FRuntimeMeshSectionProxyBuffers::UpdateRayTracingGeometry()
 	if (IsRayTracingEnabled())
 	{
 		FRayTracingGeometryInitializer Initializer;
-#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION <= 23
+#ifdef BELOW_423
 		Initializer.PositionVertexBuffer = nullptr;
 #endif
 		Initializer.IndexBuffer = nullptr;
-#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION <= 23
+#ifdef BELOW_423
 		Initializer.BaseVertexIndex = 0;
 		Initializer.VertexBufferStride = 12;
 		Initializer.VertexBufferByteOffset = 0;
 #endif
 		Initializer.TotalPrimitiveCount = 0;
 
-#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION <= 23
+#ifdef BELOW_423
 		Initializer.VertexBufferElementType = VET_Float3;
 #endif
 		Initializer.GeometryType = RTGT_Triangles;
@@ -59,13 +61,13 @@ void FRuntimeMeshSectionProxyBuffers::UpdateRayTracingGeometry()
 		RayTracingGeometry.SetInitializer(Initializer);
 		RayTracingGeometry.InitResource();
 
-#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION <= 23
+#ifdef BELOW_423
 		RayTracingGeometry.Initializer.PositionVertexBuffer = PositionBuffer.VertexBufferRHI;
 #endif
 		RayTracingGeometry.Initializer.IndexBuffer = IndexBuffer.IndexBufferRHI;
 		RayTracingGeometry.Initializer.TotalPrimitiveCount = IndexBuffer.Num() / 3;
 
-#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 24
+#ifndef BELOW_423
 		FRayTracingGeometrySegment Segment;
 		Segment.VertexBuffer = PositionBuffer.VertexBufferRHI;
 		Segment.NumPrimitives = IndexBuffer.Num() / 3;
@@ -76,3 +78,8 @@ void FRuntimeMeshSectionProxyBuffers::UpdateRayTracingGeometry()
 	}
 #endif
 }
+
+
+#ifdef BELOW_423
+#undef BELOW_423
+#endif

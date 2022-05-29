@@ -601,7 +601,11 @@ public:
 		}
 		else
 		{
-			FRHIResourceCreateInfo CreateInfo;
+#if ENGINE_MAJOR_VERSION == 5
+			FRHIResourceCreateInfo CreateInfo(TEXT("RMC RHI Create Info")); //TODO : Give it a better name in context
+#else
+			FRHIResourceCreateInfo CreateInfo();
+#endif
 			IndexBufferRHI = CreateRHIBuffer<true>(CreateInfo, IndexSize, 0, bIsDynamicBuffer);
 		}
 	}

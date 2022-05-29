@@ -80,9 +80,9 @@ void URuntimeMeshModifierAdjacency::ReplacePlaceholderIndices(FRuntimeMeshRender
 		const uint32 Index1 = MeshData.AdjacencyTriangles.GetVertexIndex(StartOutIndex + 1);
 		const uint32 Index2 = MeshData.AdjacencyTriangles.GetVertexIndex(StartOutIndex + 2);
 
-		const Vertex Vertex0(MeshData.Positions.GetPosition(Index0), MeshData.TexCoords.GetTexCoord(Index0));
-		const Vertex Vertex1(MeshData.Positions.GetPosition(Index1), MeshData.TexCoords.GetTexCoord(Index1));
-		const Vertex Vertex2(MeshData.Positions.GetPosition(Index2), MeshData.TexCoords.GetTexCoord(Index2));
+		const Vertex Vertex0(MeshData.Positions.GetFPosition(Index0), MeshData.TexCoords.GetFTexCoord(Index0));
+		const Vertex Vertex1(MeshData.Positions.GetFPosition(Index1), MeshData.TexCoords.GetFTexCoord(Index1));
+		const Vertex Vertex2(MeshData.Positions.GetFPosition(Index2), MeshData.TexCoords.GetFTexCoord(Index2));
 
 		Triangle Tri(Index0, Index1, Index2, Vertex0, Vertex1, Vertex2);
 
@@ -134,9 +134,9 @@ void URuntimeMeshModifierAdjacency::ExpandIB(FRuntimeMeshRenderableMeshData& Mes
 		const uint32 Index1 = MeshData.Triangles.GetVertexIndex(U * 3 + 1);
 		const uint32 Index2 = MeshData.Triangles.GetVertexIndex(U * 3 + 2);
 
-		const Vertex Vertex0(MeshData.Positions.GetPosition(Index0), MeshData.TexCoords.GetTexCoord(Index0));
-		const Vertex Vertex1(MeshData.Positions.GetPosition(Index1), MeshData.TexCoords.GetTexCoord(Index1));
-		const Vertex Vertex2(MeshData.Positions.GetPosition(Index2), MeshData.TexCoords.GetTexCoord(Index2));
+		const Vertex Vertex0(MeshData.Positions.GetFPosition(Index0), MeshData.TexCoords.GetFTexCoord(Index0));
+		const Vertex Vertex1(MeshData.Positions.GetFPosition(Index1), MeshData.TexCoords.GetFTexCoord(Index1));
+		const Vertex Vertex2(MeshData.Positions.GetFPosition(Index2), MeshData.TexCoords.GetFTexCoord(Index2));
 
 		Triangle Tri(Index0, Index1, Index2, Vertex0, Vertex1, Vertex2);
 

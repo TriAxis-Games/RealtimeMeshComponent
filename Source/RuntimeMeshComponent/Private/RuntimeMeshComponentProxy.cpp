@@ -6,7 +6,6 @@
 #include "RuntimeMeshProxy.h"
 #include "Materials/Material.h"
 #include "PhysicsEngine/BodySetup.h"
-#include "TessellationRendering.h"
 #include "PrimitiveSceneProxy.h"
 #include "Materials/Material.h"
 #include "UnrealEngine.h"
@@ -22,6 +21,11 @@ DECLARE_CYCLE_STAT(TEXT("RuntimeMeshComponentSceneProxy - Get Dynamic Ray Tracin
 
 #define RMC_LOG_VERBOSE(Format, ...) \
 	UE_LOG(RuntimeMeshLog, Verbose, TEXT("[RMCSP:%d Mesh:%d Thread:%d]: " Format), GetUniqueID(), (RuntimeMeshProxy? RuntimeMeshProxy->GetMeshID() : -1), FPlatformTLS::GetCurrentThreadId(), ##__VA_ARGS__);
+
+#if ENGINE_MAJOR_VERSION == 5 || (ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION >= 26)
+#define ABOVE_426
+#endif
+
 
 FRuntimeMeshComponentSceneProxy::FRuntimeMeshComponentSceneProxy(URuntimeMeshComponent* Component) 
 	: FPrimitiveSceneProxy(Component)
@@ -92,11 +96,11 @@ FPrimitiveViewRelevance FRuntimeMeshComponentSceneProxy::GetViewRelevance(const 
 	Result.bDrawRelevance = IsShown(View);
 	Result.bShadowRelevance = IsShadowCast(View);
 
-	#if ENGINE_MINOR_VERSION >= 26
-		bool bForceDynamicPath = IsRichView(*View->Family) || IsSelected() || View->Family->EngineShowFlags.Wireframe;
-	#else
-		bool bForceDynamicPath = !IsStaticPathAvailable() || IsRichView(*View->Family) || IsSelected() || View->Family->EngineShowFlags.Wireframe;
-	#endif
+#ifdef ABOVE_426
+	bool bForceDynamicPath = IsRichView(*View->Family) || IsSelected() || View->Family->EngineShowFlags.Wireframe;
+#else
+	bool bForceDynamicPath = !IsStaticPathAvailable() || IsRichView(*View->Family) || IsSelected() || View->Family->EngineShowFlags.Wireframe;
+#endif
 	Result.bStaticRelevance = !bForceDynamicPath && RuntimeMeshProxy->ShouldRenderStatic();
 	Result.bDynamicRelevance = bForceDynamicPath || RuntimeMeshProxy->ShouldRenderDynamic();
 
@@ -123,8 +127,12 @@ void FRuntimeMeshComponentSceneProxy::CreateMeshBatch(FMeshBatch& MeshBatch, con
 	// Should we be rendering in wireframe?
 	const bool bRenderWireframe = WireframeMaterial != nullptr;
 
+#if ENGINE_MAJOR_VERSION == 5
+	const bool bWantsAdjacencyInfo = false;
+#else
 	// Decide if we should be using adjacency information for this material
 	const bool bWantsAdjacencyInfo = !bForRayTracing && !bRenderWireframe && RequiresAdjacencyInformation(Material, Section.Buffers->VertexFactory.GetType(), GetScene().GetFeatureLevel());
+#endif
 	check(!bWantsAdjacencyInfo || Section.bHasAdjacencyInfo);
 
 
@@ -239,11 +247,11 @@ void FRuntimeMeshComponentSceneProxy::GetDynamicMeshElements(const TArray<const 
 		{
 			const FSceneView* View = Views[ViewIndex];
 
-			#if ENGINE_MINOR_VERSION >= 26
+#ifdef ABOVE_426
 				bool bForceDynamicPath = IsRichView(*Views[ViewIndex]->Family) || Views[ViewIndex]->Family->EngineShowFlags.Wireframe || IsSelected();
-			#else
+#else
 				bool bForceDynamicPath = IsRichView(*Views[ViewIndex]->Family) || Views[ViewIndex]->Family->EngineShowFlags.Wireframe || IsSelected() || !IsStaticPathAvailable();
-			#endif
+#endif
 
 			if (IsShown(View) && (VisibilityMap & (1 << ViewIndex)))
 			{
@@ -356,7 +364,11 @@ void FRuntimeMeshComponentSceneProxy::GetDynamicRayTracingInstances(struct FRayT
 
 
 					RayTracingInstance.Materials.Add(MeshBatch);
+#if ENGINE_MAJOR_VERSION == 5
+					RayTracingInstance.BuildInstanceMaskAndFlags(ERHIFeatureLevel::SM5); //TODO: Actually get the feature level
+#else
 					RayTracingInstance.BuildInstanceMaskAndFlags();
+#endif
 					OutRayTracingInstances.Add(RayTracingInstance);
 				}
 			}
@@ -468,6 +480,8 @@ int32 FRuntimeMeshComponentSceneProxy::GetLOD(const FSceneView* View) const
 	return ComputeStaticMeshLOD(ProxyBounds.Origin, ProxyBounds.SphereRadius, *View, 0, InvScreenSizeScale);
 }
 
-
+#ifdef ABOVE_426
+#undef ABOVE_426
+#endif
 
 #undef RMC_LOG_VERBOSE

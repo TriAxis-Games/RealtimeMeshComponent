@@ -7,6 +7,7 @@
 #include "RuntimeMeshRenderable.h"
 #include "RuntimeMeshSlicer.generated.h"
 
+class URuntimeMeshComponent;
 /** Options for creating cap geometry when slicing */
 UENUM()
 enum class ERuntimeMeshSliceCapOption : uint8
@@ -39,6 +40,23 @@ public:
 	*/
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
 	static void SliceRuntimeMesh(URuntimeMeshComponent* InRuntimeMesh, FVector PlanePosition, FVector PlaneNormal, bool bCreateOtherHalf,
+		URuntimeMeshComponent*& OutOtherHalfRuntimeMesh, ERuntimeMeshSliceCapOption CapOption, UMaterialInterface* CapMaterial)
+	{
+		SliceRuntimeMesh(InRuntimeMesh, FVector3f(PlanePosition), FVector3f(PlaneNormal), bCreateOtherHalf,
+			OutOtherHalfRuntimeMesh, CapOption, CapMaterial);
+	}
+
+	/**
+	*	Slice the RuntimeMeshComponent (including simple convex collision) using a plane. Optionally create 'cap' geometry.
+	*	@param	InRuntimeMesh			RuntimeMeshComponent to slice
+	*	@param	PlanePosition			Point on the plane to use for slicing, in world space
+	*	@param	PlaneNormal				Normal of plane used for slicing. Geometry on the positive side of the plane will be kept.
+	*	@param	bCreateOtherHalf		If true, an additional RuntimeMeshComponent (OutOtherHalfRuntimeMesh) will be created using the other half of the sliced geometry
+	*	@param	OutOtherHalfRuntimeMesh	If bCreateOtherHalf is set, this is the new component created. Its owner will be the same as the supplied InRuntimeMesh.
+	*	@param	CapOption				If and how to create 'cap' geometry on the slicing plane
+	*	@param	CapMaterial				If creating a new section for the cap, assign this material to that section
+	*/
+	static void SliceRuntimeMesh(URuntimeMeshComponent* InRuntimeMesh, FVector3f PlanePosition, FVector3f PlaneNormal, bool bCreateOtherHalf,
 		URuntimeMeshComponent*& OutOtherHalfRuntimeMesh, ERuntimeMeshSliceCapOption CapOption, UMaterialInterface* CapMaterial);
 
 
@@ -51,6 +69,7 @@ public:
 	*	@param	NewSourceSection		Resulting mesh data for origin section
 	*	@param	DestinationSection		Mesh data sliced from source
 	*/
+	//TODO : Implement this
 	UFUNCTION(BlueprintCallable, Category = "Components|RuntimeMesh")
 	static bool SliceRuntimeMeshData(FRuntimeMeshRenderableMeshData& SourceSection, const FPlane& SlicePlane, ERuntimeMeshSliceCapOption CapOption,	FRuntimeMeshRenderableMeshData& NewSourceSection, 
 		FRuntimeMeshRenderableMeshData& NewSourceSectionCap, bool bCreateDestination, FRuntimeMeshRenderableMeshData& DestinationSection, FRuntimeMeshRenderableMeshData& NewDestinationSectionCap);

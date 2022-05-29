@@ -217,7 +217,7 @@ FReply FRuntimeMeshComponentDetails::ClickedOnConvertToStaticMesh()
 						int32 NumVertices = MeshData.Positions.Num();
 						for (int32 Index = 0; Index < NumVertices; Index++)
 						{
-							RawMesh.VertexPositions.Add(MeshData.Positions.GetPosition<float>(Index));
+							RawMesh.VertexPositions.Add(MeshData.Positions.GetFPosition(Index));
 						}
 
 						// Copy wedges
@@ -228,14 +228,14 @@ FReply FRuntimeMeshComponentDetails::ClickedOnConvertToStaticMesh()
 							RawMesh.WedgeIndices.Add(VertexIndex + VertexBase);
 
 							FVector3f TangentX, TangentY, TangentZ;
-							MeshData.Tangents.GetTangents<float>(VertexIndex, TangentX, TangentY, TangentZ);
+							MeshData.Tangents.GetFTangents(VertexIndex, TangentX, TangentY, TangentZ);
 							RawMesh.WedgeTangentX.Add(TangentX);
 							RawMesh.WedgeTangentY.Add(TangentY);
 							RawMesh.WedgeTangentZ.Add(TangentZ);
 
 							for (int32 UVIndex = 0; UVIndex < Section.NumTexCoords; UVIndex++)
 							{
-								RawMesh.WedgeTexCoords[UVIndex].Add(MeshData.TexCoords.GetTexCoord(VertexIndex, UVIndex));
+								RawMesh.WedgeTexCoords[UVIndex].Add(MeshData.TexCoords.GetFTexCoord(VertexIndex, UVIndex));
 							}
 
 							RawMesh.WedgeColors.Add(MeshData.Colors.GetColor(VertexIndex));
@@ -266,10 +266,15 @@ FReply FRuntimeMeshComponentDetails::ClickedOnConvertToStaticMesh()
 				if (RawMesh.IsValid())
 				{
 					// Add source to new StaticMesh
+#if ENGINE_MAJOR_VERSION == 5
+					StaticMesh->SetNumSourceModels(1);
+					FStaticMeshSourceModel* SrcModel = &StaticMesh->GetSourceModel(0);
+#else
 #ifdef ABOVE_423
 					FStaticMeshSourceModel* SrcModel = new (StaticMesh->GetSourceModels()) FStaticMeshSourceModel();
 #else
 					FStaticMeshSourceModel* SrcModel = new (StaticMesh->SourceModels) FStaticMeshSourceModel();
+#endif
 #endif
 					SrcModel->BuildSettings.bRecomputeNormals = false;
 					SrcModel->BuildSettings.bRecomputeTangents = false;
@@ -282,9 +287,13 @@ FReply FRuntimeMeshComponentDetails::ClickedOnConvertToStaticMesh()
 					SrcModel->RawMeshBulkData->SaveRawMesh(RawMesh);
 
 					SrcModel->ScreenSize = LOD.Properties.ScreenSize;
-
+					
+#if ENGINE_MAJOR_VERSION == 5
+					int32 NumMaterials = StaticMesh->GetStaticMaterials().Num();
+#else
 					// Set the materials used for this static mesh
 					int32 NumMaterials = StaticMesh->StaticMaterials.Num();
+#endif
 
 					// Set up the SectionInfoMap to enable collision
 					for (int32 SectionIdx = 0; SectionIdx < NumMaterials; SectionIdx++)
@@ -303,12 +312,21 @@ FReply FRuntimeMeshComponentDetails::ClickedOnConvertToStaticMesh()
 					}
 				}
 			}
-
+#if ENGINE_MAJOR_VERSION == 5
+			// Set the materials used for this static mesh
+			StaticMesh->SetStaticMaterials(Materials);
+			// Configure body setup for working collision.
+			StaticMesh->CreateBodySetup();
+			UBodySetup* setup = StaticMesh->GetBodySetup();
+			setup->CollisionTraceFlag = CTF_UseComplexAsSimple;
+			StaticMesh->SetBodySetup(setup);
+#else
+			// Set the materials used for this static mesh
 			StaticMesh->StaticMaterials = Materials;
-
 			// Configure body setup for working collision.
 			StaticMesh->CreateBodySetup();
 			StaticMesh->BodySetup->CollisionTraceFlag = CTF_UseComplexAsSimple;
+#endif
 
 			// Build mesh from source
 			StaticMesh->Build(false);

@@ -19,16 +19,16 @@
 #pragma warning(pop)
 
 /** Util that returns 1 if on positive side of plane, -1 if negative, or 0 if split by plane */
-int32 RMCBoxPlaneCompare(FBox InBox, const FPlane& InPlane)
+int32 RMCBoxPlaneCompare(FBox3f InBox, const FPlane4f& InPlane)
 {
-	FVector BoxCenter, BoxExtents;
+	FVector3f BoxCenter, BoxExtents;
 	InBox.GetCenterAndExtents(BoxCenter, BoxExtents);
 
 	// Find distance of box center from plane
 	float BoxCenterDist = InPlane.PlaneDot(BoxCenter);
 
 	// See size of box in plane normal direction
-	float BoxSize = FVector::BoxPushOut(InPlane, BoxExtents);
+	float BoxSize = FVector3f::BoxPushOut(InPlane, BoxExtents);
 
 	if (BoxCenterDist > BoxSize)
 	{
@@ -78,32 +78,32 @@ int32 AddInterpolatedVert(FRuntimeMeshRenderableMeshData& Source, FRuntimeMeshRe
 		return CopyVertexToNewMeshData(Source, Destination, Vertex1);
 	}
 
-	FVector LeftPosition = Source.Positions.GetPosition(Vertex0);
-	FVector RightPosition = Source.Positions.GetPosition(Vertex1);
-	int32 NewIndex = Destination.Positions.Add(FMath::Lerp(LeftPosition, RightPosition, Alpha));
+	FVector3f LeftPosition = Source.Positions.GetFPosition(Vertex0);
+	FVector3f RightPosition = Source.Positions.GetFPosition(Vertex1);
+	int32 NewIndex = Destination.Positions.AddF(FMath::Lerp(LeftPosition, RightPosition, Alpha));
 
 	if (Source.Tangents.Num() > MaxVertex)
 	{
-		FVector LeftTangentX, LeftTangentY, LeftTangentZ;
-		FVector RightTangentX, RightTangentY, RightTangentZ;
-		Source.Tangents.GetTangents(Vertex0, LeftTangentX, LeftTangentY, LeftTangentZ);
-		Source.Tangents.GetTangents(Vertex1, RightTangentX, RightTangentY, RightTangentZ);
+		FVector3f LeftTangentX, LeftTangentY, LeftTangentZ;
+		FVector3f RightTangentX, RightTangentY, RightTangentZ;
+		Source.Tangents.GetFTangents(Vertex0, LeftTangentX, LeftTangentY, LeftTangentZ);
+		Source.Tangents.GetFTangents(Vertex1, RightTangentX, RightTangentY, RightTangentZ);
 
-		Destination.Tangents.Add(
+		Destination.Tangents.AddF(
 			FMath::Lerp(LeftTangentX, RightTangentX, Alpha),
 			FMath::Lerp(LeftTangentY, RightTangentY, Alpha),
 			FMath::Lerp(LeftTangentZ, RightTangentZ, Alpha));
 	}
 	else if (Source.Tangents.Num() > 0)
 	{
-		FVector TangentX, TangentY, TangentZ;
-		Source.Tangents.GetTangents(Vertex0, TangentX, TangentY, TangentZ);
+		FVector3f TangentX, TangentY, TangentZ;
+		Source.Tangents.GetFTangents(Vertex0, TangentX, TangentY, TangentZ);
 
-		Destination.Tangents.Add(TangentX, TangentY, TangentZ);
+		Destination.Tangents.AddF(TangentX, TangentY, TangentZ);
 	}
 	else
 	{
-		Destination.Tangents.Add(FVector::RightVector, FVector::ForwardVector, FVector::UpVector);
+		Destination.Tangents.AddF(FVector3f::RightVector, FVector3f::ForwardVector, FVector3f::UpVector);
 	}
 
 
@@ -128,13 +128,13 @@ int32 AddInterpolatedVert(FRuntimeMeshRenderableMeshData& Source, FRuntimeMeshRe
 
 	if (Source.TexCoords.Num() > MaxVertex)
 	{
-		FVector2D LeftTexCoord = Source.TexCoords.GetTexCoord(Vertex0);
-		FVector2D RightTexCoord = Source.TexCoords.GetTexCoord(Vertex1);
-		Destination.TexCoords.Add(FMath::Lerp(LeftTexCoord, RightTexCoord, Alpha));
+		FVector2f LeftTexCoord = Source.TexCoords.GetFTexCoord(Vertex0);
+		FVector2f RightTexCoord = Source.TexCoords.GetFTexCoord(Vertex1);
+		Destination.TexCoords.AddF(FMath::Lerp(LeftTexCoord, RightTexCoord, Alpha));
 	}
 	else
 	{
-		Destination.TexCoords.Add(Source.TexCoords.Num() > 0 ? Source.TexCoords.GetTexCoord(0) : FVector2D::ZeroVector);
+		Destination.TexCoords.AddF(Source.TexCoords.Num() > 0 ? Source.TexCoords.GetFTexCoord(0) : FVector2f::ZeroVector);
 	}
 
 	return NewIndex;
@@ -159,7 +159,7 @@ void Transform2DPolygonTo3D(const FUtilPoly2D& InPoly, const FMatrix& InMatrix, 
 }
 
 /** Given a polygon, decompose into triangles. */
-bool TriangulatePoly(FRuntimeMeshRenderableMeshData& MeshData, int32 VertBase, const FVector& PolyNormal)
+bool TriangulatePoly(FRuntimeMeshRenderableMeshData& MeshData, int32 VertBase, const FVector3f& PolyNormal)
 {
 	// Can't work if not enough verts for 1 triangle
 	int32 NumVerts = MeshData.Positions.Num() - VertBase;
@@ -194,13 +194,13 @@ bool TriangulatePoly(FRuntimeMeshRenderableMeshData& MeshData, int32 VertBase, c
 			const int32 BIndex = EarVertexIndex;
 			const int32 CIndex = (EarVertexIndex + 1) % VertIndices.Num();
 
-			const FVector AVertPos = MeshData.Positions.GetPosition(VertIndices[AIndex]);
-			const FVector BVertPos = MeshData.Positions.GetPosition(VertIndices[BIndex]);
-			const FVector CVertPos = MeshData.Positions.GetPosition(VertIndices[CIndex]);
+			const FVector3f AVertPos = MeshData.Positions.GetFPosition(VertIndices[AIndex]);
+			const FVector3f BVertPos = MeshData.Positions.GetFPosition(VertIndices[BIndex]);
+			const FVector3f CVertPos = MeshData.Positions.GetFPosition(VertIndices[CIndex]);
 
 			// Check that this vertex is convex (cross product must be positive)
-			const FVector ABEdge = BVertPos - AVertPos;
-			const FVector ACEdge = CVertPos - AVertPos;
+			const FVector3f ABEdge = BVertPos - AVertPos;
+			const FVector3f ACEdge = CVertPos - AVertPos;
 			const float TriangleDeterminant = (ABEdge ^ ACEdge) | PolyNormal;
 			if (TriangleDeterminant > 0.f)
 			{
@@ -211,7 +211,7 @@ bool TriangulatePoly(FRuntimeMeshRenderableMeshData& MeshData, int32 VertBase, c
 			// Look through all verts before this in array to see if any are inside triangle
 			for (int32 VertexIndex = 0; VertexIndex < VertIndices.Num(); VertexIndex++)
 			{
-				const FVector TestVertPos = MeshData.Positions.GetPosition(VertIndices[VertexIndex]);
+				const FVector3f TestVertPos = MeshData.Positions.GetFPosition(VertIndices[VertexIndex]);
 
 				if (VertexIndex != AIndex &&
 					VertexIndex != BIndex &&
@@ -247,7 +247,7 @@ bool TriangulatePoly(FRuntimeMeshRenderableMeshData& MeshData, int32 VertBase, c
 	return true;
 }
 
-void SliceConvexShape(const FRuntimeMeshCollisionConvexMesh& InConvex, const FPlane& SlicePlane, FRuntimeMeshCollisionConvexMesh& OutConvex, FRuntimeMeshCollisionConvexMesh& OutOtherConvex)
+void SliceConvexShape(const FRuntimeMeshCollisionConvexMesh& InConvex, const FPlane4f& SlicePlane, FRuntimeMeshCollisionConvexMesh& OutConvex, FRuntimeMeshCollisionConvexMesh& OutOtherConvex)
 {
 	OutConvex.VertexBuffer.Empty();
 	OutOtherConvex.VertexBuffer.Empty();
@@ -257,9 +257,9 @@ void SliceConvexShape(const FRuntimeMeshCollisionConvexMesh& InConvex, const FPl
 
 
 	// Find duplicate vertices
-	TArray<FVector> CleanVertices;
+	TArray<FVector3f> CleanVertices;
 	TArray<int32> CleanVertexRemap;
-	TMap<FVector, int32> CleanVertexMap;
+	TMap<FVector3f, int32> CleanVertexMap;
 
 	CleanVertices.SetNum(OutConvex.VertexBuffer.Num());
 	CleanVertexRemap.SetNum(Mesh.nvertices);
@@ -267,7 +267,7 @@ void SliceConvexShape(const FRuntimeMeshCollisionConvexMesh& InConvex, const FPl
 	// We need to purge the duplicate vertices here
 	for (uint32 Index = 0; Index < Mesh.nvertices; Index++)
 	{
-		FVector Position = reinterpret_cast<FVector&>(Mesh.vertices[Index]);
+		FVector3f Position = reinterpret_cast<FVector3f&>(Mesh.vertices[Index]);
 
 		if (CleanVertexMap.Contains(Position))
 		{
@@ -297,7 +297,7 @@ void SliceConvexShape(const FRuntimeMeshCollisionConvexMesh& InConvex, const FPl
 	// Now we need to split the existing points between the two hulls
 	for (int32 BaseVertIndex = 0; BaseVertIndex < NumBaseVerts; BaseVertIndex++)
 	{
-		FVector Position = CleanVertices[BaseVertIndex];
+		FVector3f Position = CleanVertices[BaseVertIndex];
 
 		// Calc distance from plane
 		VertDistance[BaseVertIndex] = SlicePlane.PlaneDot(Position);
@@ -364,9 +364,9 @@ void SliceConvexShape(const FRuntimeMeshCollisionConvexMesh& InConvex, const FPl
 				Alpha = FMath::Clamp(Alpha, 0.0f, 1.0f);
 
 				// Calculate and add position
-				FVector LeftPosition = CleanVertices[A];
-				FVector RightPosition = CleanVertices[B];
-				FVector NewPosition = FMath::Lerp(LeftPosition, RightPosition, Alpha);
+				FVector3f LeftPosition = CleanVertices[A];
+				FVector3f RightPosition = CleanVertices[B];
+				FVector3f NewPosition = FMath::Lerp(LeftPosition, RightPosition, Alpha);
 
 				OutConvex.VertexBuffer.Add(NewPosition);
 				OutOtherConvex.VertexBuffer.Add(NewPosition);
@@ -383,7 +383,7 @@ void SliceConvexShape(const FRuntimeMeshCollisionConvexMesh& InConvex, const FPl
 
 
 
-void URuntimeMeshSlicer::SliceRuntimeMesh(URuntimeMeshComponent* InRuntimeMesh, FVector PlanePosition, FVector PlaneNormal, bool bCreateOtherHalf,
+void URuntimeMeshSlicer::SliceRuntimeMesh(URuntimeMeshComponent* InRuntimeMesh, FVector3f PlanePosition, FVector3f PlaneNormal, bool bCreateOtherHalf,
 	URuntimeMeshComponent*& OutOtherHalfRuntimeMesh, ERuntimeMeshSliceCapOption CapOption, UMaterialInterface* CapMaterial)
 {
 	if (InRuntimeMesh == nullptr)
@@ -398,12 +398,12 @@ void URuntimeMeshSlicer::SliceRuntimeMesh(URuntimeMeshComponent* InRuntimeMesh, 
 	}
 
 	// Transform plane from world to local space
-	FTransform ComponentToWorld = InRuntimeMesh->GetComponentToWorld();
-	FVector LocalPlanePos = ComponentToWorld.InverseTransformPosition(PlanePosition);
-	FVector LocalPlaneNormal = ComponentToWorld.InverseTransformVectorNoScale(PlaneNormal);
+	FTransform3f ComponentToWorld = FTransform3f(InRuntimeMesh->GetComponentTransform());
+	FVector3f LocalPlanePos = ComponentToWorld.InverseTransformPosition(PlanePosition);
+	FVector3f LocalPlaneNormal = ComponentToWorld.InverseTransformVectorNoScale(PlaneNormal);
 	LocalPlaneNormal = LocalPlaneNormal.GetSafeNormal(); // Ensure normalized
 
-	FPlane SlicePlane(LocalPlanePos, LocalPlaneNormal);
+	FPlane4f SlicePlane(LocalPlanePos, LocalPlaneNormal);
 
 	bool bSlicedAny = false;
 
@@ -461,7 +461,7 @@ void URuntimeMeshSlicer::SliceRuntimeMesh(URuntimeMeshComponent* InRuntimeMesh, 
 
 		FBoxSphereBounds Bounds = SourceProvider->GetSectionBounds(LODIndex, SectionId);
 
-		int32 BoxCompare = RMCBoxPlaneCompare(Bounds.GetBox(), SlicePlane);
+		int32 BoxCompare = RMCBoxPlaneCompare(FBox3f(Bounds.GetBox()), SlicePlane);
 
 		// Box not affected, leave alone (Everything is on the wanted side of the plane, do nothing)
 		if (BoxCompare == 1)
@@ -513,7 +513,7 @@ void URuntimeMeshSlicer::SliceRuntimeMesh(URuntimeMeshComponent* InRuntimeMesh, 
 			// Build vertex buffer 
 			for (int32 BaseVertIndex = 0; BaseVertIndex < NumBaseVerts; BaseVertIndex++)
 			{
-				FVector Position = SourceSection.Positions.GetPosition(BaseVertIndex);
+				FVector3f Position = SourceSection.Positions.GetFPosition(BaseVertIndex);
 
 				// Calc distance from plane
 				VertDistance[BaseVertIndex] = SlicePlane.PlaneDot(Position);
@@ -649,11 +649,11 @@ void URuntimeMeshSlicer::SliceRuntimeMesh(URuntimeMeshComponent* InRuntimeMesh, 
 							check(ClippedEdges < 2);
 							if (ClippedEdges == 0)
 							{
-								NewClipEdge.V0 = NewSourceSection.Positions.GetPosition(InterpVertIndex);
+								NewClipEdge.V0 = NewSourceSection.Positions.GetFPosition(InterpVertIndex);
 							}
 							else
 							{
-								NewClipEdge.V1 = NewSourceSection.Positions.GetPosition(InterpVertIndex);
+								NewClipEdge.V1 = NewSourceSection.Positions.GetFPosition(InterpVertIndex);
 							}
 
 							ClippedEdges++;
@@ -736,7 +736,7 @@ void URuntimeMeshSlicer::SliceRuntimeMesh(URuntimeMeshComponent* InRuntimeMesh, 
 		// Project 3D edges onto slice plane to form 2D edges
 		TArray<FUtilEdge2D> Edges2D;
 		FUtilPoly2DSet PolySet;
-		FGeomTools::ProjectEdges(Edges2D, PolySet.PolyToWorld, ClipEdges, SlicePlane);
+		FGeomTools::ProjectEdges(Edges2D, PolySet.PolyToWorld, ClipEdges, FPlane(SlicePlane));
 
 		// Find 2D closed polygons from this edge soup
 		FGeomTools::Buid2DPolysFromEdges(PolySet.Polys, Edges2D, FColor(255, 255, 255, 255));
@@ -772,16 +772,16 @@ void URuntimeMeshSlicer::SliceRuntimeMesh(URuntimeMeshComponent* InRuntimeMesh, 
 			{
 				NewDestiantionCap.Positions.Add(NewSourceCap.Positions.GetPosition(VertIdx));
 
-				FVector TangentX, TangentY, TangentZ;
-				NewSourceCap.Tangents.GetTangents(VertIdx, TangentX, TangentY, TangentZ);
+				FVector3f TangentX, TangentY, TangentZ;
+				NewSourceCap.Tangents.GetFTangents(VertIdx, TangentX, TangentY, TangentZ);
 				TangentX *= -1.0f;
 				TangentY *= -1.0f;
 				TangentZ *= -1.0f;
-				NewDestiantionCap.Tangents.Add(TangentX, TangentY, TangentZ);
+				NewDestiantionCap.Tangents.AddF(TangentX, TangentY, TangentZ);
 
 				NewDestiantionCap.Colors.Add(NewSourceCap.Colors.GetColor(VertIdx));
 
-				NewDestiantionCap.TexCoords.Add(NewSourceCap.TexCoords.GetTexCoord(VertIdx));
+				NewDestiantionCap.TexCoords.AddF(NewSourceCap.TexCoords.GetFTexCoord(VertIdx)); //TODO : This will not work for multiple channels
 			}
 
 			// Find offset between main cap verts and other cap verts

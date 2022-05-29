@@ -98,8 +98,8 @@ public:
 		return *((FVector3f*)&Data[Index * GetStride()]);
 	}
 
-	UE_DEPRECATED(5.0, "Use GetFPosition instead.")
-	const FVector& GetPosition(int32 Index) const
+	UE_DEPRECATED(5.0, "Use GetFPosition instead. References have been broken.")
+	const FVector GetPosition(int32 Index) const
 	{
 		return FVector(GetFPosition(Index));
 	}
@@ -555,6 +555,7 @@ public:
 		return Index / GetStride();
 	}
 
+	UE_DEPRECATED(5.0, "Use AddF instead.")
 	int32 Add(const FVector2D& InTexCoord, int32 ChannelId = 0)
 	{
 		return AddF(FVector2f(InTexCoord), ChannelId);
@@ -596,6 +597,7 @@ public:
 		return Index;
 	}
 
+	UE_DEPRECATED(5.0, "Use AddF instead.")
 	int32 Add(const TArray<FVector2D>& InTexCoords)
 	{
 		TArray<FVector2f> InTextCoords2f(InTexCoords);
@@ -628,6 +630,7 @@ public:
 		}
 	}
 
+	UE_DEPRECATED(5.0, "Use FillFIn instead.")
 	void FillIn(int32 StartIndex, const TArray<FVector2D>& InChannelData, int32 ChannelId = 0)
 	{
 		TArray<FVector2f> InChannelData2f(InChannelData);
@@ -647,8 +650,9 @@ public:
 			*((FVector2DHalf*)&Data[(Index * ElementSize * ChannelCount) + (ChannelId * ElementSize)]) = NewTexCoord;
 		}
 	}
-	
-	void SetFTexCoord(int32 Index, const FVector2D& NewTexCoord, int32 ChannelId = 0)
+
+	UE_DEPRECATED(5.0, "Use SetFTexCoord instead.")
+	void SetTexCoord(int32 Index, const FVector2D& NewTexCoord, int32 ChannelId = 0)
 	{
 		SetFTexCoord(Index, FVector2f(NewTexCoord), ChannelId);
 	}
@@ -667,6 +671,7 @@ public:
 		}
 	}
 
+	UE_DEPRECATED(5.0, "Use GetFTexCoord instead.")
 	const FVector2D GetTexCoord(int32 Index, int32 ChannelId = 0) const
 	{
 		return FVector2D(GetFTexCoord(Index, ChannelId));
@@ -1314,70 +1319,70 @@ namespace __RuntimeMeshNatVisRenderableTypes
 
 	struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshTexCoordHighPrecision1
 	{
-		FVector2D UV0;
+		FVector2f UV0;
 	};
 
 	struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshTexCoordHighPrecision2
 	{
-		FVector2D UV0;
-		FVector2D UV1;
+		FVector2f UV0;
+		FVector2f UV1;
 	};
 
 	struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshTexCoordHighPrecision3
 	{
-		FVector2D UV0;
-		FVector2D UV1;
-		FVector2D UV2;
+		FVector2f UV0;
+		FVector2f UV1;
+		FVector2f UV2;
 	};
 
 	struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshTexCoordHighPrecision4
 	{
-		FVector2D UV0;
-		FVector2D UV1;
-		FVector2D UV2;
-		FVector2D UV3;
+		FVector2f UV0;
+		FVector2f UV1;
+		FVector2f UV2;
+		FVector2f UV3;
 	};
 
 	struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshTexCoordHighPrecision5
 	{
-		FVector2D UV0;
-		FVector2D UV1;
-		FVector2D UV2;
-		FVector2D UV3;
-		FVector2D UV4;
+		FVector2f UV0;
+		FVector2f UV1;
+		FVector2f UV2;
+		FVector2f UV3;
+		FVector2f UV4;
 	};
 
 	struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshTexCoordHighPrecision6
 	{
-		FVector2D UV0;
-		FVector2D UV1;
-		FVector2D UV2;
-		FVector2D UV3;
-		FVector2D UV4;
-		FVector2D UV5;
+		FVector2f UV0;
+		FVector2f UV1;
+		FVector2f UV2;
+		FVector2f UV3;
+		FVector2f UV4;
+		FVector2f UV5;
 	};
 
 	struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshTexCoordHighPrecision7
 	{
-		FVector2D UV0;
-		FVector2D UV1;
-		FVector2D UV2;
-		FVector2D UV3;
-		FVector2D UV4;
-		FVector2D UV5;
-		FVector2D UV6;
+		FVector2f UV0;
+		FVector2f UV1;
+		FVector2f UV2;
+		FVector2f UV3;
+		FVector2f UV4;
+		FVector2f UV5;
+		FVector2f UV6;
 	};
 
 	struct RUNTIMEMESHCOMPONENT_API FRuntimeMeshTexCoordHighPrecision8
 	{
-		FVector2D UV0;
-		FVector2D UV1;
-		FVector2D UV2;
-		FVector2D UV3;
-		FVector2D UV4;
-		FVector2D UV5;
-		FVector2D UV6;
-		FVector2D UV7;
+		FVector2f UV0;
+		FVector2f UV1;
+		FVector2f UV2;
+		FVector2f UV3;
+		FVector2f UV4;
+		FVector2f UV5;
+		FVector2f UV6;
+		FVector2f UV7;
 	};
 
 }
