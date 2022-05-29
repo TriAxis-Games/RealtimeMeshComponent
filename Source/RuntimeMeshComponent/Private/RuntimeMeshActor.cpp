@@ -5,12 +5,14 @@
 #include "RuntimeMeshComponentPlugin.h"
 #include "Engine/CollisionProfile.h"
 
-
+#if ENGINE_MAJOR_VERSION == 5 || (ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION >= 24)
+#define ABOVE_424
+#endif
 
 ARuntimeMeshActor::ARuntimeMeshActor(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 24
+#ifdef ABOVE_424
 	SetCanBeDamaged(false);
 #else
 	bCanBeDamaged = false;
@@ -58,3 +60,6 @@ EComponentMobility::Type ARuntimeMeshActor::GetMobility()
 	return EComponentMobility::Static;
 }
 
+#ifdef ABOVE_424
+#undef ABOVE_424
+#endif

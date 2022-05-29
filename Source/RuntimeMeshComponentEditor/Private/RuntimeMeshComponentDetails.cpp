@@ -13,12 +13,13 @@
 #include "DetailWidgetRow.h"
 #include "RawMesh.h"
 #include "Engine/StaticMesh.h"
-#include "Widgets/Input/SCheckBox.h"
-#include "Widgets/Input/SComboBox.h"
 #include "RuntimeMeshProvider.h"
 #include "RuntimeMeshActor.h"
 
 #define LOCTEXT_NAMESPACE "RuntimeMeshComponentDetails"
+#if (ENGINE_MAJOR_VERSION == 5 || (ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION >= 23))
+#define ABOVE_423
+#endif
 
 TSharedRef<IDetailCustomization> FRuntimeMeshComponentDetails::MakeInstance()
 {
@@ -158,11 +159,17 @@ FReply FRuntimeMeshComponentDetails::ClickedOnConvertToStaticMesh()
 			// Create StaticMesh object
 			UStaticMesh* StaticMesh = NewObject<UStaticMesh>(Package, MeshName, RF_Public | RF_Standalone);
 			StaticMesh->InitResources();
-
+#if ENGINE_MAJOR_VERSION == 4
 			StaticMesh->LightingGuid = FGuid::NewGuid();
 
 			// Copy the material slots
 			TArray<FStaticMaterial>& Materials = StaticMesh->StaticMaterials;
+#else
+			StaticMesh->SetLightingGuid(FGuid::NewGuid());
+
+			// Copy the material slots
+			TArray<FStaticMaterial>& Materials = StaticMesh->GetStaticMaterials();
+#endif
 			const auto RMCMaterialSlots = RuntimeMesh->GetMaterialSlots();
 			Materials.SetNum(RMCMaterialSlots.Num());
 			for (int32 Index = 0; Index < RMCMaterialSlots.Num(); Index++)
@@ -210,7 +217,7 @@ FReply FRuntimeMeshComponentDetails::ClickedOnConvertToStaticMesh()
 						int32 NumVertices = MeshData.Positions.Num();
 						for (int32 Index = 0; Index < NumVertices; Index++)
 						{
-							RawMesh.VertexPositions.Add(MeshData.Positions.GetPosition(Index));
+							RawMesh.VertexPositions.Add(MeshData.Positions.GetPosition<float>(Index));
 						}
 
 						// Copy wedges
@@ -220,8 +227,8 @@ FReply FRuntimeMeshComponentDetails::ClickedOnConvertToStaticMesh()
 							int32 VertexIndex = MeshData.Triangles.GetVertexIndex(Index);
 							RawMesh.WedgeIndices.Add(VertexIndex + VertexBase);
 
-							FVector TangentX, TangentY, TangentZ;
-							MeshData.Tangents.GetTangents(VertexIndex, TangentX, TangentY, TangentZ);
+							FVector3f TangentX, TangentY, TangentZ;
+							MeshData.Tangents.GetTangents<float>(VertexIndex, TangentX, TangentY, TangentZ);
 							RawMesh.WedgeTangentX.Add(TangentX);
 							RawMesh.WedgeTangentY.Add(TangentY);
 							RawMesh.WedgeTangentZ.Add(TangentZ);
@@ -259,7 +266,7 @@ FReply FRuntimeMeshComponentDetails::ClickedOnConvertToStaticMesh()
 				if (RawMesh.IsValid())
 				{
 					// Add source to new StaticMesh
-#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 23
+#ifdef ABOVE_423
 					FStaticMeshSourceModel* SrcModel = new (StaticMesh->GetSourceModels()) FStaticMeshSourceModel();
 #else
 					FStaticMeshSourceModel* SrcModel = new (StaticMesh->SourceModels) FStaticMeshSourceModel();
@@ -282,7 +289,7 @@ FReply FRuntimeMeshComponentDetails::ClickedOnConvertToStaticMesh()
 					// Set up the SectionInfoMap to enable collision
 					for (int32 SectionIdx = 0; SectionIdx < NumMaterials; SectionIdx++)
 					{
-#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 23
+#ifdef ABOVE_423
 						FMeshSectionInfoMap& SectionInfoMap = StaticMesh->GetSectionInfoMap();
 #else
 						FMeshSectionInfoMap& SectionInfoMap = StaticMesh->SectionInfoMap;
@@ -318,6 +325,8 @@ FReply FRuntimeMeshComponentDetails::ClickedOnConvertToStaticMesh()
 
 	return FReply::Handled();
 }
-
+#ifdef ABOVE_423
+#undef ABOVE_423
+#endif
 
 #undef LOCTEXT_NAMESPACE

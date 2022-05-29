@@ -33,7 +33,7 @@ private:
 	struct Corner;
 	struct Triangle;
 
-	static FORCEINLINE uint32 HashValue(const FVector& Vec)
+	static FORCEINLINE uint32 HashValue(const FVector3f& Vec)
 	{
 		return 31337 * GetTypeHash(Vec.X) + 13 * GetTypeHash(Vec.Y) + 3 * GetTypeHash(Vec.Z);
 	}
@@ -44,15 +44,15 @@ private:
 	}
 
 	using EdgeDictionary = TMap<Edge, Edge>;
-	using PositionDictionary = TMap<FVector, Corner>;
+	using PositionDictionary = TMap<FVector3f, Corner>;
 
 	struct Vertex
 	{
-		FVector Position;
+		FVector3f Position;
 		FVector2D TexCoord;
 
 		Vertex() { }
-		Vertex(const FVector& InPosition, const FVector2D& InTexCoord)
+		Vertex(const FVector3f& InPosition, const FVector2D& InTexCoord)
 			: Position(InPosition), TexCoord(InTexCoord)
 		{ }
 

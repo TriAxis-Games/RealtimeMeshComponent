@@ -123,7 +123,6 @@ enum class ERuntimeMeshThreadingPriority : uint8
 	TimeCritical,
 };
 
-
 /**
 *	Struct used to specify a tangent vector for a vertex
 *	The Y tangent is computed from the cross product of the vertex normal (Tangent Z) and the TangentX member.
@@ -154,6 +153,12 @@ public:
 	{}
 
 	FRuntimeMeshTangent(FVector3f InTangentX, bool bInFlipTangentY = false)
+		: TangentX(InTangentX)
+		, bFlipTangentY(bInFlipTangentY)
+	{}
+
+	UE_DEPRECATED(5.0, "Use of the FVector initialiser causes unnecessary conversions")
+	FRuntimeMeshTangent(FVector InTangentX, bool bInFlipTangentY = false)
 		: TangentX(InTangentX)
 		, bFlipTangentY(bInFlipTangentY)
 	{}
@@ -238,7 +243,7 @@ template<typename OwningType>
 FThreadSafeCounter FRuntimeMeshObjectId<OwningType>::ObjectIdCounter;
 
 
-#if ENGINE_MAJOR_VERSION <= 4 && ENGINE_MINOR_VERSION < 24
+#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION < 24
 
 
 /** Keeps a FRWLock read-locked while this scope lives */
