@@ -203,7 +203,11 @@ public:
 	template<bool bIsInRenderThread>
 	static FVertexBufferRHIRef CreateRHIBuffer(FRHIResourceCreateInfo& CreateInfo, uint32 SizeInBytes, bool bDynamicBuffer)
 	{
+#if ENGINE_MAJOR_VERSION == 5
+		const EBufferUsageFlags Flags = (bDynamicBuffer ? BUF_Dynamic : BUF_Static) | BUF_ShaderResource;
+#else
 		const int32 Flags = (bDynamicBuffer ? BUF_Dynamic : BUF_Static) | BUF_ShaderResource;
+#endif
 		CreateInfo.bWithoutNativeResource = SizeInBytes <= 0;
 		if (bIsInRenderThread)
 		{
@@ -221,8 +225,11 @@ public:
 	{
 		const uint32 SizeInBytes = InStream.GetResourceDataSize();
 
+#if ENGINE_MAJOR_VERSION == 5
+		FRHIResourceCreateInfo CreateInfo(TEXT("RMC RHI Create Info"), &InStream);
+#else
 		FRHIResourceCreateInfo CreateInfo(&InStream);
-
+#endif
 		return CreateRHIBuffer<bIsInRenderThread>(CreateInfo, SizeInBytes, bDynamicBuffer);
 	}
 
@@ -551,7 +558,11 @@ public:
 	template<bool bIsInRenderThread>
 	static FIndexBufferRHIRef CreateRHIBuffer(FRHIResourceCreateInfo& CreateInfo, uint32 IndexSize, uint32 SizeInBytes, bool bDynamicBuffer)
 	{
+#if ENGINE_MAJOR_VERSION == 5
+		const EBufferUsageFlags Flags = (bDynamicBuffer ? BUF_Dynamic : BUF_Static) | BUF_ShaderResource;
+#else
 		const int32 Flags = (bDynamicBuffer ? BUF_Dynamic : BUF_Static) | BUF_ShaderResource;
+#endif
 		CreateInfo.bWithoutNativeResource = SizeInBytes <= 0;
 		if (bIsInRenderThread)
 		{
@@ -570,8 +581,12 @@ public:
 	{
 		const uint32 SizeInBytes = InStream.GetResourceDataSize();
 
+#if ENGINE_MAJOR_VERSION == 5
+		FRHIResourceCreateInfo CreateInfo(TEXT("RMC RHI Create Info"), &InStream);
+#else
 		FRHIResourceCreateInfo CreateInfo(&InStream);
-
+#endif
+		
 		return CreateRHIBuffer<bIsInRenderThread>(CreateInfo, InStream.GetStride(), SizeInBytes, bDynamicBuffer);
 	}
 

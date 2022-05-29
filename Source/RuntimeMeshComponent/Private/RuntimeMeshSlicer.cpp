@@ -19,16 +19,16 @@
 #pragma warning(pop)
 
 /** Util that returns 1 if on positive side of plane, -1 if negative, or 0 if split by plane */
-int32 RMCBoxPlaneCompare(FBox3f InBox, const FPlane4f& InPlane)
+int32 RMCBoxPlaneCompare(FBox InBox, const FPlane& InPlane)
 {
-	FVector3f BoxCenter, BoxExtents;
+	FVector BoxCenter, BoxExtents;
 	InBox.GetCenterAndExtents(BoxCenter, BoxExtents);
 
 	// Find distance of box center from plane
-	float BoxCenterDist = InPlane.PlaneDot(BoxCenter);
+	double BoxCenterDist = InPlane.PlaneDot(BoxCenter);
 
 	// See size of box in plane normal direction
-	float BoxSize = FVector3f::BoxPushOut(InPlane, BoxExtents);
+	double BoxSize = FVector::BoxPushOut(InPlane, BoxExtents);
 
 	if (BoxCenterDist > BoxSize)
 	{
@@ -247,19 +247,20 @@ bool TriangulatePoly(FRuntimeMeshRenderableMeshData& MeshData, int32 VertBase, c
 	return true;
 }
 
-void SliceConvexShape(const FRuntimeMeshCollisionConvexMesh& InConvex, const FPlane4f& SlicePlane, FRuntimeMeshCollisionConvexMesh& OutConvex, FRuntimeMeshCollisionConvexMesh& OutOtherConvex)
+void SliceConvexShape(const FRuntimeMeshCollisionConvexMesh& InConvex, const FPlane& SlicePlane, FRuntimeMeshCollisionConvexMesh& OutConvex, FRuntimeMeshCollisionConvexMesh& OutOtherConvex)
 {
 	OutConvex.VertexBuffer.Empty();
 	OutOtherConvex.VertexBuffer.Empty();
-
+	TArray<FVector3f> Data3f(InConvex.VertexBuffer);
 	// We need to compute the convex hull so we can get the boundary edges
-	qh_mesh_t Mesh = qh_quickhull3d(reinterpret_cast<const qh_vertex_t*>(InConvex.VertexBuffer.GetData()), InConvex.VertexBuffer.Num());
+	//TODO : Make quickhull run at 64bits
+	qh_mesh_t Mesh = qh_quickhull3d(reinterpret_cast<const qh_vertex_t*>(Data3f.GetData()), Data3f.Num());
 
 
 	// Find duplicate vertices
-	TArray<FVector3f> CleanVertices;
+	TArray<FVector> CleanVertices;
 	TArray<int32> CleanVertexRemap;
-	TMap<FVector3f, int32> CleanVertexMap;
+	TMap<FVector, int32> CleanVertexMap;
 
 	CleanVertices.SetNum(OutConvex.VertexBuffer.Num());
 	CleanVertexRemap.SetNum(Mesh.nvertices);
@@ -267,7 +268,7 @@ void SliceConvexShape(const FRuntimeMeshCollisionConvexMesh& InConvex, const FPl
 	// We need to purge the duplicate vertices here
 	for (uint32 Index = 0; Index < Mesh.nvertices; Index++)
 	{
-		FVector3f Position = reinterpret_cast<FVector3f&>(Mesh.vertices[Index]);
+		FVector Position = FVector(reinterpret_cast<FVector3f&>(Mesh.vertices[Index]));
 
 		if (CleanVertexMap.Contains(Position))
 		{
@@ -297,7 +298,7 @@ void SliceConvexShape(const FRuntimeMeshCollisionConvexMesh& InConvex, const FPl
 	// Now we need to split the existing points between the two hulls
 	for (int32 BaseVertIndex = 0; BaseVertIndex < NumBaseVerts; BaseVertIndex++)
 	{
-		FVector3f Position = CleanVertices[BaseVertIndex];
+		FVector Position = CleanVertices[BaseVertIndex];
 
 		// Calc distance from plane
 		VertDistance[BaseVertIndex] = SlicePlane.PlaneDot(Position);
@@ -364,9 +365,9 @@ void SliceConvexShape(const FRuntimeMeshCollisionConvexMesh& InConvex, const FPl
 				Alpha = FMath::Clamp(Alpha, 0.0f, 1.0f);
 
 				// Calculate and add position
-				FVector3f LeftPosition = CleanVertices[A];
-				FVector3f RightPosition = CleanVertices[B];
-				FVector3f NewPosition = FMath::Lerp(LeftPosition, RightPosition, Alpha);
+				FVector LeftPosition = CleanVertices[A];
+				FVector RightPosition = CleanVertices[B];
+				FVector NewPosition = FMath::Lerp(LeftPosition, RightPosition, Alpha);
 
 				OutConvex.VertexBuffer.Add(NewPosition);
 				OutOtherConvex.VertexBuffer.Add(NewPosition);
@@ -383,7 +384,7 @@ void SliceConvexShape(const FRuntimeMeshCollisionConvexMesh& InConvex, const FPl
 
 
 
-void URuntimeMeshSlicer::SliceRuntimeMesh(URuntimeMeshComponent* InRuntimeMesh, FVector3f PlanePosition, FVector3f PlaneNormal, bool bCreateOtherHalf,
+void URuntimeMeshSlicer::SliceRuntimeMesh(URuntimeMeshComponent* InRuntimeMesh, FVector PlanePosition, FVector PlaneNormal, bool bCreateOtherHalf,
 	URuntimeMeshComponent*& OutOtherHalfRuntimeMesh, ERuntimeMeshSliceCapOption CapOption, UMaterialInterface* CapMaterial)
 {
 	if (InRuntimeMesh == nullptr)
@@ -398,12 +399,13 @@ void URuntimeMeshSlicer::SliceRuntimeMesh(URuntimeMeshComponent* InRuntimeMesh, 
 	}
 
 	// Transform plane from world to local space
-	FTransform3f ComponentToWorld = FTransform3f(InRuntimeMesh->GetComponentTransform());
-	FVector3f LocalPlanePos = ComponentToWorld.InverseTransformPosition(PlanePosition);
-	FVector3f LocalPlaneNormal = ComponentToWorld.InverseTransformVectorNoScale(PlaneNormal);
+	FTransform ComponentToWorld = InRuntimeMesh->GetComponentTransform();
+	FVector LocalPlanePos = ComponentToWorld.InverseTransformPosition(PlanePosition);
+	FVector LocalPlaneNormal = ComponentToWorld.InverseTransformVectorNoScale(PlaneNormal);
 	LocalPlaneNormal = LocalPlaneNormal.GetSafeNormal(); // Ensure normalized
 
-	FPlane4f SlicePlane(LocalPlanePos, LocalPlaneNormal);
+	FPlane SlicePlane(LocalPlanePos, LocalPlaneNormal);
+	FPlane4f SlicePlane4f(SlicePlane);
 
 	bool bSlicedAny = false;
 
@@ -461,7 +463,7 @@ void URuntimeMeshSlicer::SliceRuntimeMesh(URuntimeMeshComponent* InRuntimeMesh, 
 
 		FBoxSphereBounds Bounds = SourceProvider->GetSectionBounds(LODIndex, SectionId);
 
-		int32 BoxCompare = RMCBoxPlaneCompare(FBox3f(Bounds.GetBox()), SlicePlane);
+		int32 BoxCompare = RMCBoxPlaneCompare(Bounds.GetBox(), SlicePlane);
 
 		// Box not affected, leave alone (Everything is on the wanted side of the plane, do nothing)
 		if (BoxCompare == 1)
@@ -516,7 +518,7 @@ void URuntimeMeshSlicer::SliceRuntimeMesh(URuntimeMeshComponent* InRuntimeMesh, 
 				FVector3f Position = SourceSection.Positions.GetFPosition(BaseVertIndex);
 
 				// Calc distance from plane
-				VertDistance[BaseVertIndex] = SlicePlane.PlaneDot(Position);
+				VertDistance[BaseVertIndex] = SlicePlane4f.PlaneDot(Position);
 
 				// See if vert is being kept in this section
 				if (VertDistance[BaseVertIndex] > 0.f)
@@ -758,7 +760,7 @@ void URuntimeMeshSlicer::SliceRuntimeMesh(URuntimeMeshComponent* InRuntimeMesh, 
 			Transform2DPolygonTo3D(PolySet.Polys[PolyIdx], PolySet.PolyToWorld, NewSourceCap);
 
 			// Triangulate this polygon
-			TriangulatePoly(NewSourceCap, PolyVertBase, LocalPlaneNormal);
+			TriangulatePoly(NewSourceCap, PolyVertBase, FVector3f(LocalPlaneNormal));
 		}
 
 		// If creating the other half, copy cap geom into other half sections
@@ -770,7 +772,7 @@ void URuntimeMeshSlicer::SliceRuntimeMesh(URuntimeMeshComponent* InRuntimeMesh, 
 			// Copy verts from cap section into other cap section
 			for (int32 VertIdx = CapVertBase; VertIdx < NewSourceCap.Positions.Num(); VertIdx++)
 			{
-				NewDestiantionCap.Positions.Add(NewSourceCap.Positions.GetPosition(VertIdx));
+				NewDestiantionCap.Positions.AddF(NewSourceCap.Positions.GetFPosition(VertIdx));
 
 				FVector3f TangentX, TangentY, TangentZ;
 				NewSourceCap.Tangents.GetFTangents(VertIdx, TangentX, TangentY, TangentZ);
