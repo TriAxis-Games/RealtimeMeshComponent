@@ -137,7 +137,7 @@ public:
 
 	/** Direction of X tangent for this vertex */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Tangent)
-	FVector TangentX;
+	FVector3f TangentX;
 
 	/** Bool that indicates whether we should flip the Y tangent when we compute it using cross product */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Tangent)
@@ -153,11 +153,47 @@ public:
 		, bFlipTangentY(bInFlipTangentY)
 	{}
 
-	FRuntimeMeshTangent(FVector InTangentX, bool bInFlipTangentY = false)
+	FRuntimeMeshTangent(FVector3f InTangentX, bool bInFlipTangentY = false)
 		: TangentX(InTangentX)
 		, bFlipTangentY(bInFlipTangentY)
 	{}
 };
+
+//TODO: Remove this when it exists in engine
+/**
+* Constructs a basis matrix for the axis vectors and returns the sign of the determinant
+*
+* @param XAxis - x axis (tangent)
+* @param YAxis - y axis (binormal)
+* @param ZAxis - z axis (normal)
+* @return sign of determinant either -1 or +1 
+*/
+FORCEINLINE float GetBasisDeterminantSign( const FVector3f& XAxis, const FVector3f& YAxis, const FVector3f& ZAxis )
+{
+	FMatrix44f Basis(
+		FPlane4f(XAxis,0),
+		FPlane4f(YAxis,0),
+		FPlane4f(ZAxis,0),
+		FPlane4f(0,0,0,1)
+		);
+	return (Basis.Determinant() < 0) ? -1.0f : +1.0f;
+}
+
+/**
+ * Given 2 axes of a basis stored as a packed type, regenerates the y-axis tangent vector and scales by z.W
+ * @param XAxis - x axis (tangent)
+ * @param ZAxis - z axis (normal), the sign of the determinant is stored in ZAxis.W
+ * @return y axis (binormal)
+ */
+template<typename VectorType>
+FORCEINLINE FVector3f GenerateYAxisf(const VectorType& XAxis, const VectorType& ZAxis)
+{
+	static_assert(	ARE_TYPES_EQUAL(VectorType, FPackedNormal) ||
+					ARE_TYPES_EQUAL(VectorType, FPackedRGBA16N), "ERROR: Must be FPackedNormal or FPackedRGBA16N");
+	FVector3f x = XAxis.ToFVector3f();
+	FVector4f z = ZAxis.ToFVector4f();
+	return (FVector3f(z) ^ x) * z.W;
+}
 
 
 struct FRuntimeMeshMisc
