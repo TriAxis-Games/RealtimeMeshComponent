@@ -365,7 +365,7 @@ void FRuntimeMeshComponentSceneProxy::GetDynamicRayTracingInstances(struct FRayT
 
 					RayTracingInstance.Materials.Add(MeshBatch);
 #if ENGINE_MAJOR_VERSION == 5
-					RayTracingInstance.BuildInstanceMaskAndFlags(ERHIFeatureLevel::SM5); //TODO: Actually get the feature level
+					RayTracingInstance.BuildInstanceMaskAndFlags(GMaxRHIFeatureLevel);
 #else
 					RayTracingInstance.BuildInstanceMaskAndFlags();
 #endif
