@@ -125,7 +125,7 @@ bool URuntimeMeshStaticMeshConverter::CopyStaticMeshSectionToRenderableMeshData(
 	int32 SectionId, FRuntimeMeshRenderableMeshData& OutMeshData, FRuntimeMeshSectionProperties& OutProperties)
 {
 	// Check valid static mesh
-	if (StaticMesh == nullptr || StaticMesh->IsPendingKill())
+	if (StaticMesh == nullptr || !IsValid(StaticMesh))
 	{
 		return false;
 	}
