@@ -7,9 +7,6 @@
 #if RHI_RAYTRACING
 #include "RayTracingInstance.h"
 #endif
-#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION <= 23
-#define BELOW_423
-#endif
 
 DECLARE_DWORD_COUNTER_STAT(TEXT("RuntimeMeshSectionProxy - Num Triangles"), STAT_RuntimeMeshSectionProxy_NumTriangles, STATGROUP_RuntimeMesh);
 
@@ -40,20 +37,11 @@ void FRuntimeMeshSectionProxyBuffers::UpdateRayTracingGeometry()
 	if (IsRayTracingEnabled())
 	{
 		FRayTracingGeometryInitializer Initializer;
-#ifdef BELOW_423
-		Initializer.PositionVertexBuffer = nullptr;
-#endif
+		Initializer.DebugName = FName(TEXT("RMC RT Initializer"));
+		
 		Initializer.IndexBuffer = nullptr;
-#ifdef BELOW_423
-		Initializer.BaseVertexIndex = 0;
-		Initializer.VertexBufferStride = 12;
-		Initializer.VertexBufferByteOffset = 0;
-#endif
-		Initializer.TotalPrimitiveCount = 0;
-
-#ifdef BELOW_423
-		Initializer.VertexBufferElementType = VET_Float3;
-#endif
+		Initializer.TotalPrimitiveCount = 0; 
+		
 		Initializer.GeometryType = RTGT_Triangles;
 		Initializer.bFastBuild = true;
 		Initializer.bAllowUpdate = false;
@@ -61,25 +49,18 @@ void FRuntimeMeshSectionProxyBuffers::UpdateRayTracingGeometry()
 		RayTracingGeometry.SetInitializer(Initializer);
 		RayTracingGeometry.InitResource();
 
-#ifdef BELOW_423
-		RayTracingGeometry.Initializer.PositionVertexBuffer = PositionBuffer.VertexBufferRHI;
-#endif
 		RayTracingGeometry.Initializer.IndexBuffer = IndexBuffer.IndexBufferRHI;
-		RayTracingGeometry.Initializer.TotalPrimitiveCount = IndexBuffer.Num() / 3;
+		RayTracingGeometry.Initializer.TotalPrimitiveCount = IndexBuffer.Num() / 3; // should be the total number of triangles
 
-#ifndef BELOW_423
 		FRayTracingGeometrySegment Segment;
+		Segment.VertexBufferStride = sizeof(FVector3f); //could also be PositionBuffer.Stride()
+		Segment.VertexBufferElementType = VET_Float3;
 		Segment.VertexBuffer = PositionBuffer.VertexBufferRHI;
-		Segment.NumPrimitives = IndexBuffer.Num() / 3;
+		Segment.NumPrimitives = IndexBuffer.Num() / 3; //number of triangles
+		Segment.MaxVertices = PositionBuffer.Num();
 		RayTracingGeometry.Initializer.Segments.Add(Segment);
-#endif
 
 		RayTracingGeometry.UpdateRHI();
 	}
 #endif
 }
-
-
-#ifdef BELOW_423
-#undef BELOW_423
-#endif
