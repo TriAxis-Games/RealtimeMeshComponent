@@ -759,7 +759,7 @@ public:
                 FMessageLog("RuntimeMesh").Error(Message);
 			}
 		}
-		if (Vertices.Num() %3 != 0)
+		/*if (Vertices.Num() %3 != 0)
 		{
 			status = false;
 			if (bPrintErrorMessage)
@@ -770,7 +770,7 @@ public:
 					"Supplied collision mesh doesn't contain a multiple of 3 vertices. Supplied Vertices: {NumVerts}"), Arguments);
 				FMessageLog("RuntimeMesh").Error(Message);
 			}
-		}
+		}*/
 		return status;
 	}
 
