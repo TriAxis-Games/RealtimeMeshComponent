@@ -433,13 +433,15 @@ void URuntimeMesh::SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMateri
 		if (SlotNameLookup.Contains(SlotName))
 		{
 			// If the indices match then just go with it
-			if (SlotNameLookup[SlotName] == MaterialSlot)
+			int32 ExistingSlot = SlotNameLookup[SlotName];
+			if (ExistingSlot == MaterialSlot)
 			{
-				MaterialSlots[SlotNameLookup[SlotName]].Material = InMaterial;
+				MaterialSlots[ExistingSlot].Material = InMaterial;
 			}
 			else
 			{
-				MaterialSlots[SlotNameLookup[SlotName]].SlotName = NAME_None;
+				//TODO: Possibly unused material. Should it be removed ?
+				MaterialSlots[ExistingSlot].SlotName = NAME_None;
 			}
 		}
 
@@ -549,8 +551,8 @@ bool URuntimeMesh::GetPhysicsTriMeshData(struct FTriMeshCollisionData* Collision
 	if (MeshProviderPtr)
 	{
 		FRuntimeMeshCollisionData CollisionMesh;
-
-		if (MeshProviderPtr->GetCollisionMesh(CollisionMesh))
+		bool bResult = MeshProviderPtr->GetCollisionMesh(CollisionMesh);
+		if (bResult && CollisionMesh.HasValidMeshData(bResult))
 		{
 			CollisionData->Vertices = CollisionMesh.Vertices.TakeContents();
 			CollisionData->Indices = CollisionMesh.Triangles.TakeContents();
@@ -851,7 +853,7 @@ void URuntimeMesh::HandleFullLODUpdate(const FRuntimeMeshProxyPtr& RenderProxyRe
 	{
 		FRuntimeMeshSectionData& Section = Entry.Value;
 
-		if (bResult && Section.MeshData.HasValidMeshData())
+		if (bResult && Section.MeshData.HasValidMeshData(bResult))
 		{
 			LOD.Sections.FindOrAdd(Entry.Key) = Section.Properties;
 
@@ -872,6 +874,10 @@ void URuntimeMesh::HandleFullLODUpdate(const FRuntimeMeshProxyPtr& RenderProxyRe
 		}
 		else
 		{
+			if (bResult)
+			{
+				UE_LOG(RuntimeMeshLog, Warning, TEXT("Could not handle section in Full LOD Update, Invalid Data: LOD:%d, Section:%d"), LODId, Entry.Key);
+			}
 			// Clear existing section
 			RenderProxyRef->ClearSection_GameThread(LODId, Entry.Key);
 			bRequiresProxyRecreate = true;
@@ -907,7 +913,7 @@ void URuntimeMesh::HandleSingleSectionUpdate(const FRuntimeMeshProxyPtr& RenderP
 		Properties.bWants32BitIndices);
 	bool bResult = MeshProviderPtr->GetSectionMeshForLOD(LODId, SectionId, MeshData);
 	
-	if (bResult && MeshData.HasValidMeshData())
+	if (bResult && MeshData.HasValidMeshData(bResult)) //only print error if GetSection returned true
 	{
 		// Update section
 		TSharedPtr<FRuntimeMeshSectionUpdateData> UpdateData = MakeShared<FRuntimeMeshSectionUpdateData>(MoveTemp(MeshData));
@@ -924,6 +930,11 @@ void URuntimeMesh::HandleSingleSectionUpdate(const FRuntimeMeshProxyPtr& RenderP
 	}
 	else
 	{
+		if (bResult)
+		{
+			UE_LOG(RuntimeMeshLog, Warning, TEXT("Could not Handle Single Section Update, Invalid Data: LOD:%d Section:%d"), LODId, SectionId);
+		}
+		
 		// Clear section
 		RenderProxyRef->ClearSection_GameThread(LODId, SectionId);
 		bRequiresProxyRecreate |= Properties.UpdateFrequency == ERuntimeMeshUpdateFrequency::Infrequent;
