@@ -109,7 +109,7 @@ FPrimitiveViewRelevance FRuntimeMeshComponentSceneProxy::GetViewRelevance(const 
 	Result.bRenderCustomDepth = ShouldRenderCustomDepth();
 	MaterialRelevance.SetPrimitiveViewRelevance(Result);
 	Result.bTranslucentSelfShadow = bCastVolumetricTranslucentShadow;
-#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 25
+#if ENGINE_MAJOR_VERSION >= 4 && (ENGINE_MINOR_VERSION >= 25 || ENGINE_MAJOR_VERSION == 5)
 	Result.bVelocityRelevance = IsMovable() && Result.bOpaque && Result.bRenderInMainPass;
 #else
 	Result.bVelocityRelevance = IsMovable() && Result.bOpaqueRelevance && Result.bRenderInMainPass;
