@@ -58,7 +58,7 @@ void FRuntimeMeshVertexFactory::Init(FLocalVertexFactory::FDataType VertexStruct
 		ENQUEUE_RENDER_COMMAND(InitRuntimeMeshVertexFactory)(
 			[this, VertexStructure](FRHICommandListImmediate & RHICmdList)
 			{
-				Init(VertexStructure);
+				SetData(VertexStructure);
 			}
 		);
 	}
