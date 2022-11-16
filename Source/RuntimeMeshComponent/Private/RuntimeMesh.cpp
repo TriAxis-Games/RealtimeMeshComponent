@@ -887,7 +887,7 @@ void URuntimeMesh::HandleSingleSectionUpdate(const FRuntimeMeshProxyPtr& RenderP
 		TSharedPtr<FRuntimeMeshSectionUpdateData> UpdateData = MakeShared<FRuntimeMeshSectionUpdateData>(MoveTemp(MeshData));
 
 		// Push the data to the gpu from this thread if we're not on the game thread and the current RHI supports async
-		if (GRHISupportsAsyncTextureCreation && GIsThreadedRendering && !IsInGameThread())
+		if (GRHISupportsAsyncTextureCreation && GIsThreadedRendering && IsInRenderingThread() && !IsInGameThread())
 		{
 			UpdateData->CreateRHIBuffers<false>(Properties.UpdateFrequency == ERuntimeMeshUpdateFrequency::Frequent);
 		}
