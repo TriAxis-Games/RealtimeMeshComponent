@@ -345,11 +345,11 @@ public:
 	virtual void Serialize(FArchive& Ar) override;
 	virtual void BeginDestroy() override;
 private:
-	static const TArray<FVector2D> EmptyUVs;
+	static const TArray<FVector2f> EmptyUVs;
 
 	template<typename TangentType, typename ColorType>
-	static FRuntimeMeshRenderableMeshData FillMeshData(FRuntimeMeshSectionProperties& Properties, const TArray<FVector>& Vertices, const TArray<FVector>& Normals, const TArray<TangentType>& Tangents,
-		const TArray<ColorType>& VertexColors, const TArray<FVector2D>& UV0, const TArray<FVector2D>& UV1, const TArray<FVector2D>& UV2, const TArray<FVector2D>& UV3, const TArray<int32>& Triangles)
+	static FRuntimeMeshRenderableMeshData FillMeshData(FRuntimeMeshSectionProperties& Properties, const TArray<FVector3f>& Vertices, const TArray<FVector3f>& Normals, const TArray<TangentType>& Tangents,
+		const TArray<ColorType>& VertexColors, const TArray<FVector2f>& UV0, const TArray<FVector2f>& UV1, const TArray<FVector2f>& UV2, const TArray<FVector2f>& UV3, const TArray<int32>& Triangles)
 	{
 		Properties.bWants32BitIndices = Vertices.Num() > MAX_uint16;
 		Properties.bUseHighPrecisionTexCoords = true;
@@ -360,15 +360,15 @@ private:
 
 
 		FRuntimeMeshRenderableMeshData SectionData(Properties);
-		SectionData.Positions.Append(Vertices);
-		SectionData.Tangents.Append(Normals, Tangents);
+		SectionData.Positions.AppendF(Vertices);
+		SectionData.Tangents.AppendF(Normals, Tangents);
 		if (SectionData.Tangents.Num() < SectionData.Positions.Num())
 		{
 			int32 Count = SectionData.Tangents.Num();
 			SectionData.Tangents.SetNum(SectionData.Positions.Num());
 			for (int32 Index = Count; Index < SectionData.Tangents.Num(); Index++)
 			{
-				SectionData.Tangents.SetTangents(Index, FVector(1, 0, 0), FVector(0, 1, 0), FVector(0, 0, 1));
+				SectionData.Tangents.SetFTangents(Index, FVector3f(1, 0, 0), FVector3f(0, 1, 0), FVector3f(0, 0, 1));
 			}
 		}
 		SectionData.Colors.Append(VertexColors);
@@ -378,10 +378,10 @@ private:
 		}
 
 		int32 StartIndexTexCoords = SectionData.TexCoords.Num();
-		SectionData.TexCoords.FillIn(StartIndexTexCoords, UV0, 0);
-		SectionData.TexCoords.FillIn(StartIndexTexCoords, UV1, 1);
-		SectionData.TexCoords.FillIn(StartIndexTexCoords, UV2, 2);
-		SectionData.TexCoords.FillIn(StartIndexTexCoords, UV3, 3);
+		SectionData.TexCoords.FillFIn(StartIndexTexCoords, UV0, 0);
+		SectionData.TexCoords.FillFIn(StartIndexTexCoords, UV1, 1);
+		SectionData.TexCoords.FillFIn(StartIndexTexCoords, UV2, 2);
+		SectionData.TexCoords.FillFIn(StartIndexTexCoords, UV3, 3);
 
 		if (SectionData.TexCoords.Num() < SectionData.Positions.Num())
 		{

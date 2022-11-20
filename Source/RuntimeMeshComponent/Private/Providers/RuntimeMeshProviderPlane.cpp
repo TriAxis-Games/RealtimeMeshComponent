@@ -38,7 +38,7 @@ void URuntimeMeshProviderPlane::Initialize()
 		Properties.bIsVisible = true;
 		Properties.MaterialSlot = 0;
 		Properties.UpdateFrequency = ERuntimeMeshUpdateFrequency::Infrequent;
-		Properties.bWants32BitIndices = VertsAB[LODIndex] * VertsAC[LODIndex] > 1 << 16; //Use 32 bit indices if more than 2^16 verts are needed
+		Properties.bWants32BitIndices = VertsAB[LODIndex] * VertsAC[LODIndex] > (1 << 16); //Use 32 bit indices if more than 2^16 verts are needed
 
 		CreateSection(LODIndex, 0, Properties);
 	}
@@ -53,22 +53,22 @@ bool URuntimeMeshProviderPlane::GetSectionMeshForLOD(int32 LODIndex, int32 Secti
 
 	int32 NumVertsAB = VertsAB[LODIndex];
 	int32 NumVertsAC = VertsAC[LODIndex];
-	FVector ABDirection = (LocationB - LocationA) / (NumVertsAB - 1);
-	FVector ACDirection = (LocationC - LocationA) / (NumVertsAB - 1);
-	FVector Normal = (ABDirection ^ ACDirection).GetUnsafeNormal();
-	FVector Tangent = ABDirection.GetUnsafeNormal();
+	const FVector3f ABDirection = FVector3f(LocationB - LocationA) / (NumVertsAB - 1);
+	const FVector3f ACDirection = FVector3f(LocationC - LocationA) / (NumVertsAB - 1);
+	const FVector3f Normal = (ABDirection ^ ACDirection).GetUnsafeNormal();
+	const FVector3f Tangent = ABDirection.GetUnsafeNormal();
 	FColor Color = FColor::White;
 	for (int32 ACIndex = 0; ACIndex < NumVertsAC; ACIndex++)
 	{
 		for (int32 ABIndex = 0; ABIndex < NumVertsAB; ABIndex++)
 		{
-			FVector Location = LocationA + ABDirection * ABIndex + ACDirection * ACIndex;
-			FVector2D TexCoord = FVector2D((float)ABIndex / (float)(NumVertsAB - 1), (float)ACIndex / (float)(NumVertsAC - 1));
+			FVector3f Location = FVector3f(LocationA) + ABDirection * ABIndex + ACDirection * ACIndex;
+			FVector2f TexCoord = FVector2f((float)ABIndex / (float)(NumVertsAB - 1), (float)ACIndex / (float)(NumVertsAC - 1));
 			//UE_LOG(LogTemp, Log, TEXT("TexCoord for vertex %i:%i : %s"), ABIndex, ACIndex, *TexCoord.ToString());
-			MeshData.Positions.Add(Location);
-			MeshData.Tangents.Add(Normal, Tangent);
+			MeshData.Positions.AddF(Location);
+			MeshData.Tangents.AddF(Normal, Tangent);
 			MeshData.Colors.Add(Color);
-			MeshData.TexCoords.Add(TexCoord);
+			MeshData.TexCoords.AddF(TexCoord);
 			if (ABIndex != NumVertsAB - 1 && ACIndex != NumVertsAC - 1)
 			{
 				int32 AIndex = ABIndex + ACIndex * NumVertsAB;
@@ -96,8 +96,8 @@ FRuntimeMeshCollisionSettings URuntimeMeshProviderPlane::GetCollisionSettings()
 FBoxSphereBounds URuntimeMeshProviderPlane::GetBounds()
 {
 	FScopeLock Lock(&PropertySyncRoot);
-	FVector LocationD = LocationB - LocationA + LocationC; // C + BA
-	FVector points[4] = { LocationA, LocationB, LocationC, LocationD };
+	FVector3d LocationD = LocationB - LocationA + LocationC; // C + BA
+	FVector3d points[4] = { LocationA, LocationB, LocationC, LocationD };
 	FBox BoundingBox = FBox(points, 4);
 	return FBoxSphereBounds(BoundingBox);
 }
@@ -107,7 +107,7 @@ bool URuntimeMeshProviderPlane::IsThreadSafe()
 	return true;
 }
 
-int32 URuntimeMeshProviderPlane::GetMaximumPossibleLOD()
+int32 URuntimeMeshProviderPlane::GetMaximumPossibleLOD() const
 {
 	return FMath::Min3(VertsAB.Num() - 1, VertsAC.Num() - 1, ScreenSize.Num());
 }

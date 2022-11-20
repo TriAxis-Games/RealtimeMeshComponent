@@ -151,7 +151,7 @@ bool URuntimeMeshProviderCollision::GetCollisionMesh(FRuntimeMeshCollisionData& 
 		CollisionData.Vertices.SetNum(FirstVertex + NumVertices);
 		for (int32 Index = 0; Index < NumVertices; Index++)
 		{
-			CollisionData.Vertices.SetPosition(FirstVertex + Index, CachedSection.Vertices.GetPosition(Index));
+			CollisionData.Vertices.SetPosition(FirstVertex + Index, FVector(CachedSection.Vertices.GetFPosition(Index)));
 		}
 
 		// Copy tex coords

@@ -5,7 +5,7 @@
 #include "Dialogs/DlgPickAssetPath.h"
 #include "IAssetTools.h"
 #include "AssetToolsModule.h"
-#include "AssetRegistryModule.h"
+#include "AssetRegistry/AssetRegistryModule.h"
 #include "PhysicsEngine/PhysicsSettings.h"
 #include "PhysicsEngine/BodySetup.h"
 #include "IDetailCustomization.h"

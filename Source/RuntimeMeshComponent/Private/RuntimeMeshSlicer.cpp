@@ -3,9 +3,6 @@
 #include "RuntimeMeshSlicer.h"
 #include "CoreMinimal.h"
 #include "GeomTools.h"
-#include "Logging/TokenizedMessage.h"
-#include "Logging/MessageLog.h"
-#include "PhysicsEngine/ConvexElem.h"
 #include "../Public/RuntimeMeshComponent.h"
 #include "../Public/Providers/RuntimeMeshProviderStatic.h"
 
@@ -48,18 +45,18 @@ int32 CopyVertexToNewMeshData(const FRuntimeMeshRenderableMeshData& Source, FRun
 {
 	check(Source.Positions.Num() > Index);
 
-	int32 NewIndex = Destination.Positions.Add(Source.Positions.GetPosition(Index));
+	int32 NewIndex = Destination.Positions.AddF(Source.Positions.GetFPosition(Index));
 
-	FVector TangentX, TangentY, TangentZ;
+	FVector3f TangentX, TangentY, TangentZ;
 	if (Source.Triangles.Num() > Index)
 	{
-		Source.Tangents.GetTangents(Index, TangentX, TangentY, TangentZ);
+		Source.Tangents.GetFTangents(Index, TangentX, TangentY, TangentZ);
 	}
-	Destination.Tangents.Add(TangentX, TangentY, TangentZ);
+	Destination.Tangents.AddF(TangentX, TangentY, TangentZ);
 
 	Destination.Colors.Add(Source.Colors.Num() > Index ? Source.Colors.GetColor(Index) : FColor::White);
 
-	Destination.TexCoords.Add(Source.TexCoords.Num() > Index ? Source.TexCoords.GetTexCoord(Index) : FVector2D(0, 0));
+	Destination.TexCoords.AddF(Source.TexCoords.Num() > Index ? Source.TexCoords.GetFTexCoord(Index) : FVector2f(0, 0));
 
 	return NewIndex;
 }
@@ -141,20 +138,20 @@ int32 AddInterpolatedVert(FRuntimeMeshRenderableMeshData& Source, FRuntimeMeshRe
 }
 
 /** Transform triangle from 2D to 3D static-mesh triangle. */
-void Transform2DPolygonTo3D(const FUtilPoly2D& InPoly, const FMatrix& InMatrix, FRuntimeMeshRenderableMeshData& OutMeshData)
+void Transform2DPolygonTo3D(const FUtilPoly2D& InPoly, const FMatrix44f& InMatrix, FRuntimeMeshRenderableMeshData& OutMeshData)
 {
-	FVector TangentX = -InMatrix.GetUnitAxis(EAxis::X);
-	FVector TangentY = -InMatrix.GetUnitAxis(EAxis::Y);
-	FVector TangentZ = -InMatrix.GetUnitAxis(EAxis::Z);
+	FVector3f TangentX = -InMatrix.GetUnitAxis(EAxis::X);
+	FVector3f TangentY = -InMatrix.GetUnitAxis(EAxis::Y);
+	FVector3f TangentZ = -InMatrix.GetUnitAxis(EAxis::Z);
 
 	for (int32 VertexIndex = 0; VertexIndex < InPoly.Verts.Num(); VertexIndex++)
 	{
 		const FUtilVertex2D& InVertex = InPoly.Verts[VertexIndex];
 
-		OutMeshData.Positions.Add(InMatrix.TransformPosition(FVector(InVertex.Pos.X, InVertex.Pos.Y, 0.f)));
-		OutMeshData.Tangents.Add(TangentX, TangentY, TangentZ);
+		OutMeshData.Positions.AddF(InMatrix.TransformPosition(FVector3f(InVertex.Pos.X, InVertex.Pos.Y, 0.f)));
+		OutMeshData.Tangents.AddF(TangentX, TangentY, TangentZ);
 		OutMeshData.Colors.Add(InVertex.Color);
-		OutMeshData.TexCoords.Add(InVertex.UV);
+		OutMeshData.TexCoords.AddF(FVector2f(InVertex.UV));
 	}
 }
 
@@ -747,6 +744,8 @@ void URuntimeMeshSlicer::SliceRuntimeMesh(URuntimeMeshComponent* InRuntimeMesh, 
 		int32 CapVertBase = NewSourceCap.Positions.Num();
 		int32 CapIndexBase = NewSourceCap.Triangles.Num();
 
+		const FMatrix44f PolyToWorld(PolySet.PolyToWorld);
+
 		// Triangulate each poly
 		for (int32 PolyIdx = 0; PolyIdx < PolySet.Polys.Num(); PolyIdx++)
 		{
@@ -757,7 +756,7 @@ void URuntimeMeshSlicer::SliceRuntimeMesh(URuntimeMeshComponent* InRuntimeMesh, 
 			int32 PolyVertBase = NewSourceCap.Positions.Num();
 
 			// Transform from 2D poly verts to 3D
-			Transform2DPolygonTo3D(PolySet.Polys[PolyIdx], PolySet.PolyToWorld, NewSourceCap);
+			Transform2DPolygonTo3D(PolySet.Polys[PolyIdx], PolyToWorld, NewSourceCap);
 
 			// Triangulate this polygon
 			TriangulatePoly(NewSourceCap, PolyVertBase, FVector3f(LocalPlaneNormal));

@@ -109,7 +109,7 @@ void URuntimeMeshProviderStaticMesh::UpdateRenderingFromStaticMesh()
 	// Setup the LODs and sections
 
 	// Check valid static mesh
-	if (StaticMesh == nullptr || StaticMesh->IsPendingKill())
+	if (StaticMesh == nullptr || IsValid(StaticMesh))
 	{
 		ConfigureLODs({ FRuntimeMeshLODProperties() });
 		MarkCollisionDirty();

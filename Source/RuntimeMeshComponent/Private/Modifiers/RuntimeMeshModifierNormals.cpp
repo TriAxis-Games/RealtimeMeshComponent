@@ -38,7 +38,7 @@ void URuntimeMeshModifierNormals::CalculateNormalsTangents(FRuntimeMeshRenderabl
 	TMultiMap<uint32, uint32> VertToTriSmoothMap;
 
 	// Normal/tangents for each face
-	TArray<FVector> FaceTangentX, FaceTangentY, FaceTangentZ;
+	TArray<FVector3f> FaceTangentX, FaceTangentY, FaceTangentZ;
 	FaceTangentX.AddUninitialized(NumTris);
 	FaceTangentY.AddUninitialized(NumTris);
 	FaceTangentZ.AddUninitialized(NumTris);
@@ -47,7 +47,7 @@ void URuntimeMeshModifierNormals::CalculateNormalsTangents(FRuntimeMeshRenderabl
 	for (int32 TriIdx = 0; TriIdx < NumTris; TriIdx++)
 	{
 		uint32 CornerIndex[3];
-		FVector P[3];
+		FVector3f P[3];
 
 		for (int32 CornerIdx = 0; CornerIdx < 3; CornerIdx++)
 		{
@@ -55,7 +55,7 @@ void URuntimeMeshModifierNormals::CalculateNormalsTangents(FRuntimeMeshRenderabl
 			uint32 VertIndex = FMath::Min(MeshData.Triangles.GetVertexIndex((TriIdx * 3) + CornerIdx), (uint32)NumVertices - 1);
 
 			CornerIndex[CornerIdx] = VertIndex;
-			P[CornerIdx] = MeshData.Positions.GetPosition(VertIndex);
+			P[CornerIdx] = MeshData.Positions.GetFPosition(VertIndex);
 
 			// Find/add this vert to index buffer
 			TArray<uint32> VertOverlaps;
@@ -85,16 +85,16 @@ void URuntimeMeshModifierNormals::CalculateNormalsTangents(FRuntimeMeshRenderabl
 		}
 
 		// Calculate triangle edge vectors and normal
-		const FVector Edge21 = P[1] - P[2];
-		const FVector Edge20 = P[0] - P[2];
-		const FVector TriNormal = (Edge21 ^ Edge20).GetSafeNormal();
+		const FVector3f Edge21 = P[1] - P[2];
+		const FVector3f Edge20 = P[0] - P[2];
+		const FVector3f TriNormal = (Edge21 ^ Edge20).GetSafeNormal();
 
 		// If we have UVs, use those to calculate
 		if (NumUVs == NumVertices)
 		{
-			const FVector2D T1 = MeshData.TexCoords.GetTexCoord(CornerIndex[0]);
-			const FVector2D T2 = MeshData.TexCoords.GetTexCoord(CornerIndex[1]);
-			const FVector2D T3 = MeshData.TexCoords.GetTexCoord(CornerIndex[2]);
+			const FVector2f T1 = MeshData.TexCoords.GetFTexCoord(CornerIndex[0]);
+			const FVector2f T2 = MeshData.TexCoords.GetFTexCoord(CornerIndex[1]);
+			const FVector2f T3 = MeshData.TexCoords.GetFTexCoord(CornerIndex[2]);
 
 			// 			float X1 = P[1].X - P[0].X;
 			// 			float X2 = P[2].X - P[0].X;
@@ -117,25 +117,25 @@ void URuntimeMeshModifierNormals::CalculateNormalsTangents(FRuntimeMeshRenderabl
 
 
 
-			FMatrix	ParameterToLocal(
-				FPlane(P[1].X - P[0].X, P[1].Y - P[0].Y, P[1].Z - P[0].Z, 0),
-				FPlane(P[2].X - P[0].X, P[2].Y - P[0].Y, P[2].Z - P[0].Z, 0),
-				FPlane(P[0].X, P[0].Y, P[0].Z, 0),
-				FPlane(0, 0, 0, 1)
+			FMatrix44f	ParameterToLocal(
+				FPlane4f(P[1].X - P[0].X, P[1].Y - P[0].Y, P[1].Z - P[0].Z, 0),
+				FPlane4f(P[2].X - P[0].X, P[2].Y - P[0].Y, P[2].Z - P[0].Z, 0),
+				FPlane4f(P[0].X, P[0].Y, P[0].Z, 0),
+				FPlane4f(0, 0, 0, 1)
 				);
 
-			FMatrix ParameterToTexture(
-				FPlane(T2.X - T1.X, T2.Y - T1.Y, 0, 0),
-				FPlane(T3.X - T1.X, T3.Y - T1.Y, 0, 0),
-				FPlane(T1.X, T1.Y, 1, 0),
-				FPlane(0, 0, 0, 1)
+			FMatrix44f ParameterToTexture(
+				FPlane4f(T2.X - T1.X, T2.Y - T1.Y, 0, 0),
+				FPlane4f(T3.X - T1.X, T3.Y - T1.Y, 0, 0),
+				FPlane4f(T1.X, T1.Y, 1, 0),
+				FPlane4f(0, 0, 0, 1)
 				);
 
 			// Use InverseSlow to catch singular matrices.  Inverse can miss this sometimes.
-			const FMatrix TextureToLocal = ParameterToTexture.Inverse() * ParameterToLocal;
+			const FMatrix44f TextureToLocal = ParameterToTexture.Inverse() * ParameterToLocal;
 
-			FaceTangentX[TriIdx] = TextureToLocal.TransformVector(FVector(1, 0, 0)).GetSafeNormal();
-			FaceTangentY[TriIdx] = TextureToLocal.TransformVector(FVector(0, 1, 0)).GetSafeNormal();
+			FaceTangentX[TriIdx] = TextureToLocal.TransformVector(FVector3f(1, 0, 0)).GetSafeNormal();
+			FaceTangentY[TriIdx] = TextureToLocal.TransformVector(FVector3f(0, 1, 0)).GetSafeNormal();
 		}
 		else
 		{
@@ -148,7 +148,7 @@ void URuntimeMeshModifierNormals::CalculateNormalsTangents(FRuntimeMeshRenderabl
 
 
 	// Arrays to accumulate tangents into
-	TArray<FVector> VertexTangentXSum, VertexTangentYSum, VertexTangentZSum;
+	TArray<FVector3f> VertexTangentXSum, VertexTangentYSum, VertexTangentZSum;
 	VertexTangentXSum.AddZeroed(NumVertices);
 	VertexTangentYSum.AddZeroed(NumVertices);
 	VertexTangentZSum.AddZeroed(NumVertices);
@@ -181,9 +181,9 @@ void URuntimeMeshModifierNormals::CalculateNormalsTangents(FRuntimeMeshRenderabl
 	// Finally, normalize tangents and build output arrays	
 	for (int VertxIdx = 0; VertxIdx < NumVertices; VertxIdx++)
 	{
-		FVector& TangentX = VertexTangentXSum[VertxIdx];
-		FVector& TangentY = VertexTangentYSum[VertxIdx];
-		FVector& TangentZ = VertexTangentZSum[VertxIdx];
+		FVector3f& TangentX = VertexTangentXSum[VertxIdx];
+		FVector3f& TangentY = VertexTangentYSum[VertxIdx];
+		FVector3f& TangentZ = VertexTangentZSum[VertxIdx];
 
 		TangentX.Normalize();
 		//TangentY.Normalize();
@@ -194,8 +194,8 @@ void URuntimeMeshModifierNormals::CalculateNormalsTangents(FRuntimeMeshRenderabl
 		TangentX.Normalize();
 		TangentY.Normalize();
 
-		MeshData.Tangents.SetNormal(VertxIdx, TangentZ);
-		MeshData.Tangents.SetTangent(VertxIdx, TangentX);
+		MeshData.Tangents.SetFNormal(VertxIdx, TangentZ);
+		MeshData.Tangents.SetFTangent(VertxIdx, TangentX);
 	}
 }
 
@@ -234,7 +234,7 @@ TMultiMap<uint32, uint32> URuntimeMeshModifierNormals::FindDuplicateVerticesMap(
 			}
 
 			uint32 OtherVertIdx = VertexSorter[SubIndex].Index;
-			if (PositionStream.GetPosition(SrcVertIdx).Equals(PositionStream.GetPosition(OtherVertIdx), Tollerance))
+			if (PositionStream.GetFPosition(SrcVertIdx).Equals(PositionStream.GetFPosition(OtherVertIdx), Tollerance))
 			{
 				IndexMap.AddUnique(SrcVertIdx, OtherVertIdx);
 				IndexMap.AddUnique(OtherVertIdx, SrcVertIdx);

@@ -69,5 +69,5 @@ protected:
 
 private:
 
-	int32 GetMaximumPossibleLOD();
+	int32 GetMaximumPossibleLOD() const;
 };

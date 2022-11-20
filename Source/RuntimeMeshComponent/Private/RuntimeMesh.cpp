@@ -4,7 +4,9 @@
 #include "RuntimeMeshComponentPlugin.h"
 #include "PhysicsEngine/BodySetup.h"
 #include "PhysicsEngine/PhysicsSettings.h"
+#if ENGINE_MAJOR_VERSION < 5
 #include "IPhysXCookingModule.h"
+#endif
 #include "RuntimeMeshComponent.h"
 #include "RuntimeMeshProxy.h"
 #include "Providers/RuntimeMeshProviderStatic.h"
@@ -843,8 +845,12 @@ void URuntimeMesh::HandleFullLODUpdate(const FRuntimeMeshProxyPtr& RenderProxyRe
 
 			TSharedPtr<FRuntimeMeshSectionUpdateData> UpdateData = MakeShared<FRuntimeMeshSectionUpdateData>(MoveTemp(Section.MeshData));
 
+			if (IsInRenderingThread())
+			{
+				UpdateData->CreateRHIBuffers<true>(Section.Properties.UpdateFrequency == ERuntimeMeshUpdateFrequency::Frequent);
+			}
 			// Push the data to the gpu from this thread if we're not on the game thread and the current RHI supports async
-			if (GRHISupportsAsyncTextureCreation && GIsThreadedRendering && !IsInGameThread())
+			else if (GRHISupportsAsyncTextureCreation && GIsThreadedRendering && !IsInGameThread())
 			{
 				UpdateData->CreateRHIBuffers<false>(Section.Properties.UpdateFrequency == ERuntimeMeshUpdateFrequency::Frequent);
 			}
@@ -895,8 +901,12 @@ void URuntimeMesh::HandleSingleSectionUpdate(const FRuntimeMeshProxyPtr& RenderP
 		// Update section
 		TSharedPtr<FRuntimeMeshSectionUpdateData> UpdateData = MakeShared<FRuntimeMeshSectionUpdateData>(MoveTemp(MeshData));
 
+		if (IsInRenderingThread())
+		{
+			UpdateData->CreateRHIBuffers<true>(Properties.UpdateFrequency == ERuntimeMeshUpdateFrequency::Frequent);
+		}
 		// Push the data to the gpu from this thread if we're not on the game thread and the current RHI supports async
-		if (GRHISupportsAsyncTextureCreation && GIsThreadedRendering && !IsInGameThread())
+		else if (GRHISupportsAsyncTextureCreation && GIsThreadedRendering && !IsInGameThread())
 		{
 			UpdateData->CreateRHIBuffers<false>(Properties.UpdateFrequency == ERuntimeMeshUpdateFrequency::Frequent);
 		}

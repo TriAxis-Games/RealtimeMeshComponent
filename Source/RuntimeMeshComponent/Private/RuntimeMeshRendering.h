@@ -523,7 +523,7 @@ class FRuntimeMeshIndexBuffer : public FIndexBuffer
 {
 	static constexpr int32 CalculateStride(bool bShouldUseHighPrecision)
 	{
-		return bShouldUseHighPrecision ? sizeof(int32) : sizeof(uint16);
+		return bShouldUseHighPrecision ? sizeof(uint32) : sizeof(uint16);
 	}
 
 private:

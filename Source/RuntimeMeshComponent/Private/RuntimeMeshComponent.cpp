@@ -4,7 +4,9 @@
 #include "RuntimeMeshComponentPlugin.h"
 #include "PhysicsEngine/BodySetup.h"
 #include "PhysicsEngine/PhysicsSettings.h"
+#if ENGINE_MAJOR_VERSION < 5
 #include "IPhysXCookingModule.h"
+#endif
 #include "RuntimeMeshCore.h"
 #include "RuntimeMeshRenderable.h"
 #include "RuntimeMeshSectionProxy.h"
