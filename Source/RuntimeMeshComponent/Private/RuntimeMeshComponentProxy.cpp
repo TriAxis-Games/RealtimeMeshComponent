@@ -87,7 +87,7 @@ void FRuntimeMeshComponentSceneProxy::CreateRenderThreadResources()
 	// Make sure the proxy has been updated.
 	RuntimeMeshProxy->FlushPendingUpdates();
 
-	FPrimitiveSceneProxy::CreateRenderThreadResources();
+	FPrimitiveSceneProxy::CreateRenderThreadResources(); //does nothing (UE5.1)
 }
 
 FPrimitiveViewRelevance FRuntimeMeshComponentSceneProxy::GetViewRelevance(const FSceneView* View) const

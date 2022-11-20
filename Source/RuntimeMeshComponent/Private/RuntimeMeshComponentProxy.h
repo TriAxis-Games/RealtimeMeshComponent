@@ -54,6 +54,11 @@ public:
 		return UMaterial::GetDefaultMaterial(MD_Surface);
 	}
 
+	/**
+	 *	Called when the rendering thread adds the proxy to the scene.
+	 *	This function allows for generating renderer-side resources.
+	 *	Called in the rendering thread.
+	 */
 	void CreateRenderThreadResources() override;
 
 	virtual bool CanBeOccluded() const override

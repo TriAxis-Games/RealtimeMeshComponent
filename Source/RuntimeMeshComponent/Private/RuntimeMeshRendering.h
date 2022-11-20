@@ -3,6 +3,8 @@
 #pragma once
 
 #include "Engine/Engine.h"
+#include "RenderingThread.h"
+
 #include "RuntimeMeshCore.h"
 #include "RuntimeMeshRenderable.h"
 #include "RuntimeMeshComponentPlugin.h" // For RuntimeMeshLog
@@ -10,7 +12,6 @@
 
 class FRuntimeMeshVertexBuffer;
 class FRuntimeMeshIndexBuffer;
-
 
 class FRuntimeMeshBufferUpdateData : public FResourceArrayInterface
 {
@@ -201,9 +202,9 @@ public:
 public:
 
 	template<bool bIsInRenderThread>
-	static FBufferRHIRef CreateRHIBuffer(FRHIResourceCreateInfo& CreateInfo, uint32 SizeInBytes, bool bDynamicBuffer)
+	static FBufferRHIRef CreateRHIBuffer(FRHIResourceCreateInfo& CreateInfo, uint32 SizeInBytes, uint32 Stride, bool bDynamicBuffer)
 	{
-#if ENGINE_MAJOR_VERSION == 5
+#if ENGINE_MAJOR_VERSION >= 5
 		const EBufferUsageFlags Flags = (bDynamicBuffer ? BUF_Dynamic : BUF_Static) | BUF_ShaderResource | BUF_VertexBuffer;
 #else
 		const int32 Flags = (bDynamicBuffer ? BUF_Dynamic : BUF_Static) | BUF_ShaderResource;
@@ -215,7 +216,12 @@ public:
 		}
 		else
 		{
+#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 1
+			FRHIAsyncCommandList CommandList;
+			return CommandList->CreateBuffer(SizeInBytes, Flags | EBufferUsageFlags::VertexBuffer, Stride, ERHIAccess::SRVMask, CreateInfo);
+#else
 			return RHIAsyncCreateVertexBuffer(SizeInBytes, Flags, CreateInfo);
+#endif
 		}
 		return nullptr;
 	}
@@ -230,7 +236,7 @@ public:
 #else
 		FRHIResourceCreateInfo CreateInfo(&InStream);
 #endif
-		return CreateRHIBuffer<bIsInRenderThread>(CreateInfo, SizeInBytes, bDynamicBuffer);
+		return CreateRHIBuffer<bIsInRenderThread>(CreateInfo, SizeInBytes, InStream.GetStride(), bDynamicBuffer);
 	}
 
 
@@ -240,7 +246,6 @@ public:
 		check(VertexBufferRHI && IntermediateBuffer);
 
 		Batcher.QueueUpdateRequest(VertexBufferRHI, IntermediateBuffer);
-
 		if (ShaderResourceView)
 		{
 			Batcher.QueueUpdateRequest(ShaderResourceView, VertexBufferRHI, GetElementDatumSize(), GetElementFormat());
@@ -255,6 +260,7 @@ public:
 		VertexBufferRHI = InVertexBufferRHI;
 		if (VertexBufferRHI.IsValid() && RHISupportsManualVertexFetch(GMaxRHIShaderPlatform))
 		{
+			
 		 	ShaderResourceView = RHICreateShaderResourceView(VertexBufferRHI, GetElementDatumSize(), GetElementFormat());
 		}
 	}
@@ -556,7 +562,7 @@ public:
 
 
 	template<bool bIsInRenderThread>
-	static FBufferRHIRef CreateRHIBuffer(FRHIResourceCreateInfo& CreateInfo, uint32 IndexSize, uint32 SizeInBytes, bool bDynamicBuffer)
+	static FBufferRHIRef CreateRHIBuffer(FRHIResourceCreateInfo& CreateInfo, uint32 SizeInBytes, uint32 Stride, bool bDynamicBuffer)
 	{
 #if ENGINE_MAJOR_VERSION == 5
 		const EBufferUsageFlags Flags = (bDynamicBuffer ? BUF_Dynamic : BUF_Static) | BUF_ShaderResource | BUF_IndexBuffer;
@@ -566,11 +572,16 @@ public:
 		CreateInfo.bWithoutNativeResource = SizeInBytes <= 0;
 		if (bIsInRenderThread)
 		{
-			return RHICreateIndexBuffer(IndexSize, SizeInBytes, Flags, CreateInfo);
+			return RHICreateIndexBuffer(Stride, SizeInBytes, Flags, CreateInfo);
 		}
 		else
 		{
-			return RHIAsyncCreateIndexBuffer(IndexSize, SizeInBytes, Flags, CreateInfo);
+#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 1
+			FRHIAsyncCommandList CommandList;
+			return CommandList->CreateBuffer(SizeInBytes, Flags, Stride, ERHIAccess::SRVMask, CreateInfo);
+#else
+			return RHIAsyncCreateIndexBuffer(Stride, SizeInBytes, Flags, CreateInfo);
+#endif
 		}
 		return nullptr;
 
@@ -587,7 +598,7 @@ public:
 		FRHIResourceCreateInfo CreateInfo(&InStream);
 #endif
 		
-		return CreateRHIBuffer<bIsInRenderThread>(CreateInfo, InStream.GetStride(), SizeInBytes, bDynamicBuffer);
+		return CreateRHIBuffer<bIsInRenderThread>(CreateInfo, SizeInBytes, InStream.GetStride(), bDynamicBuffer);
 	}
 
 
@@ -621,7 +632,7 @@ public:
 #else
 			FRHIResourceCreateInfo CreateInfo();
 #endif
-			IndexBufferRHI = CreateRHIBuffer<true>(CreateInfo, IndexSize, 0, bIsDynamicBuffer);
+			IndexBufferRHI = CreateRHIBuffer<true>(CreateInfo, 0, IndexSize, bIsDynamicBuffer);
 		}
 	}
 
