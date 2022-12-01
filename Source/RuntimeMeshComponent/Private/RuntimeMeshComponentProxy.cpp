@@ -92,10 +92,10 @@ FPrimitiveViewRelevance FRuntimeMeshComponentSceneProxy::GetViewRelevance(const 
 	Result.bDrawRelevance = IsShown(View);
 	Result.bShadowRelevance = IsShadowCast(View);
 
-	#if ENGINE_MINOR_VERSION >= 26
+	#if ENGINE_MAJOR_VERSION >= 5 || (ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION >= 26)
 		bool bForceDynamicPath = IsRichView(*View->Family) || IsSelected() || View->Family->EngineShowFlags.Wireframe;
 	#else
-		bool bForceDynamicPath = IsRichView(*View->Family) || IsSelected() || View->Family->EngineShowFlags.Wireframe;
+		bool bForceDynamicPath = !IsStaticPathAvailable() || IsRichView(*View->Family) || IsSelected() || View->Family->EngineShowFlags.Wireframe;
 	#endif
 	Result.bStaticRelevance = !bForceDynamicPath && RuntimeMeshProxy->ShouldRenderStatic();
 	Result.bDynamicRelevance = bForceDynamicPath || RuntimeMeshProxy->ShouldRenderDynamic();
@@ -239,10 +239,10 @@ void FRuntimeMeshComponentSceneProxy::GetDynamicMeshElements(const TArray<const 
 		{
 			const FSceneView* View = Views[ViewIndex];
 
-			#if ENGINE_MINOR_VERSION >= 26
+			#if ENGINE_MAJOR_VERSION >= 5 || (ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION >= 26)
 				bool bForceDynamicPath = IsRichView(*Views[ViewIndex]->Family) || Views[ViewIndex]->Family->EngineShowFlags.Wireframe || IsSelected();
 			#else
-				bool bForceDynamicPath = IsRichView(*Views[ViewIndex]->Family) || Views[ViewIndex]->Family->EngineShowFlags.Wireframe || IsSelected();
+				bool bForceDynamicPath = !IsStaticPathAvailable() || IsRichView(*Views[ViewIndex]->Family) || Views[ViewIndex]->Family->EngineShowFlags.Wireframe || IsSelected();
 			#endif
 
 			if (IsShown(View) && (VisibilityMap & (1 << ViewIndex)))
