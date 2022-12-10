@@ -1,6 +1,8 @@
 # Runtime Mesh Component for Unreal Engine 4
 ---
 ### Here you will find the current version of the RMC. At present it only supports UE4.23 and newer.  
+### If you want to use RMC with UE5, use branch RMC4.5-dev as it is retrocompatible with providers written for UE4 and works in 5.1+. It won't work with DX12 on 5.1 though (the garbage collector on DX12 in UE5.1 is broken, your game will crash after some time).
+### Branch RMC4-UE5 is mostly outdated now but still works on 5.0.
 ### If you require support for UE4.20-4.22 you'll need to use the v4 release found here: https://github.com/KoderzUnreal/RuntimeMeshComponent/releases/tag/v4.0
 ---
 
