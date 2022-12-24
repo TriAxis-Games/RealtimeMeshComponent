@@ -67,6 +67,15 @@ public:
 
 	virtual void DrawStaticElements(FStaticPrimitiveDrawInterface* PDI) override;
 
+	/** Sets up a collision FMeshBatch for a specific LOD and element. Used to show complex collision in debug viewmodes */
+	virtual bool GetCollisionMeshElement(
+			int32 LODIndex,
+			int32 BatchIndex,
+			int32 ElementIndex,
+			uint8 InDepthPriorityGroup,
+			const FMaterialRenderProxy* RenderProxy,
+			FMeshBatch& OutMeshBatch) const;
+	
 	virtual void GetDynamicMeshElements(const TArray<const FSceneView*>& Views, const FSceneViewFamily& ViewFamily, uint32 VisibilityMap, FMeshElementCollector& Collector) const override;
 
 

@@ -218,13 +218,85 @@ void FRuntimeMeshComponentSceneProxy::DrawStaticElements(FStaticPrimitiveDrawInt
 	}
 }
 
+bool FRuntimeMeshComponentSceneProxy::GetCollisionMeshElement(
+	int32 LODIndex,
+	int32 BatchIndex,
+	int32 SectionIndex,
+	uint8 InDepthPriorityGroup,
+	const FMaterialRenderProxy* RenderProxy,
+	FMeshBatch& OutMeshBatch) const
+{
+	/*const FRuntimeMeshLODData& LOD = RuntimeMeshProxy->GetLOD(LODIndex);
+	const FRuntimeMeshSectionProxy& Section = LOD.Sections[SectionIndex];
+	const FRuntimeMeshVertexFactory& VFs = Section.Buffers->VertexFactory;
+	const FVertexFactory* VertexFactory = &VFs;
+
+
+	const bool bWireframe = false;
+	const bool bRequiresAdjacencyInformation = false;
+	const bool bUseReversedIndices = false;
+	const bool bAllowPreCulledIndices = true;
+	const bool bDitheredLODTransition = false;
+
+	FMeshBatchElement& OutMeshBatchElement = OutMeshBatch.Elements[0];
+	OutMeshBatch.Type = PT_TriangleList;
+	OutMeshBatch.VertexFactory = VertexFactory;
+
+	{
+		OutMeshBatchElement.VertexFactoryUserData = VFs.GetUniformBuffer();
+		OutMeshBatchElement.IndexBuffer = &Section.Buffers->IndexBuffer;
+		OutMeshBatchElement.NumPrimitives = Section.NumTriangles;
+		OutMeshBatchElement.MaxScreenSize = 0.0f;
+		OutMeshBatchElement.MinScreenSize = -1.0f;
+		OutMeshBatch.bDitheredLODTransition = false;
+	}
+
+	if (OutMeshBatchElement.NumPrimitives > 0)
+	{
+		OutMeshBatch.LODIndex = LODIndex;
+#if STATICMESH_ENABLE_DEBUG_RENDERING
+		OutMeshBatch.VisualizeLODIndex = LODIndex;
+#endif
+		OutMeshBatch.ReverseCulling = false;
+		OutMeshBatch.CastShadow = false;
+		OutMeshBatch.DepthPriorityGroup = (ESceneDepthPriorityGroup)InDepthPriorityGroup;
+		OutMeshBatch.LCI = NULL;
+		OutMeshBatch.VertexFactory = VertexFactory;
+		OutMeshBatch.MaterialRenderProxy = RenderProxy;
+
+		OutMeshBatchElement.MinVertexIndex = Section.MinVertexIndex;
+		OutMeshBatchElement.MaxVertexIndex = Section.MaxVertexIndex;
+#if STATICMESH_ENABLE_DEBUG_RENDERING
+		OutMeshBatchElement.VisualizeElementIndex = SectionIndex;
+#endif
+
+		return true;
+	}
+	else*/
+	{
+		return false;
+	}
+}
+
 void FRuntimeMeshComponentSceneProxy::GetDynamicMeshElements(const TArray<const FSceneView*>& Views, const FSceneViewFamily& ViewFamily, uint32 VisibilityMap, FMeshElementCollector& Collector) const
 {
 	SCOPE_CYCLE_COUNTER(STAT_RuntimeMeshComponentSceneProxy_GetDynamicMeshElements);
 
 	// Set up wireframe material (if needed)
 	const bool bWireframe = AllowDebugViewmodes() && ViewFamily.EngineShowFlags.Wireframe;
-
+	const bool bProxyIsSelected = IsSelected();
+	const FEngineShowFlags& EngineShowFlags = ViewFamily.EngineShowFlags;
+	ECollisionTraceFlag CollisionTraceFlag = ECollisionTraceFlag::CTF_UseDefault;
+	bool bDrawSimpleCollision = false, bDrawComplexCollision = false;
+	if (IsValid(BodySetup))
+	{
+		CollisionTraceFlag = BodySetup->GetCollisionTraceFlag();
+		bDrawSimpleCollision = EngineShowFlags.CollisionPawn;
+		bDrawComplexCollision = EngineShowFlags.CollisionVisibility;
+	}
+	
+	bool bInCollisionView = bDrawSimpleCollision || bDrawComplexCollision;
+	
 	FColoredMaterialRenderProxy* WireframeMaterialInstance = nullptr;
 	if (bWireframe)
 	{
@@ -233,17 +305,17 @@ void FRuntimeMeshComponentSceneProxy::GetDynamicMeshElements(const TArray<const 
 		Collector.RegisterOneFrameMaterialProxy(WireframeMaterialInstance);
 	}
 
-	if (RuntimeMeshProxy->HasValidLODs())
+	if (RuntimeMeshProxy->HasValidLODs() && !bInCollisionView)
 	{
 		for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
 		{
 			const FSceneView* View = Views[ViewIndex];
 
-			#if ENGINE_MINOR_VERSION >= 26
-				bool bForceDynamicPath = IsRichView(*Views[ViewIndex]->Family) || Views[ViewIndex]->Family->EngineShowFlags.Wireframe || IsSelected();
-			#else
-				bool bForceDynamicPath = IsRichView(*Views[ViewIndex]->Family) || Views[ViewIndex]->Family->EngineShowFlags.Wireframe || IsSelected() || !IsStaticPathAvailable();
-			#endif
+#if ENGINE_MINOR_VERSION >= 26
+			bool bForceDynamicPath = IsRichView(*View->Family) || View->Family->EngineShowFlags.Wireframe || bProxyIsSelected;
+#else
+			bool bForceDynamicPath = IsRichView(*View->Family) || View->Family->EngineShowFlags.Wireframe || bProxyIsSelected || !IsStaticPathAvailable();
+#endif
 
 			if (IsShown(View) && (VisibilityMap & (1 << ViewIndex)))
 			{
@@ -297,6 +369,119 @@ void FRuntimeMeshComponentSceneProxy::GetDynamicMeshElements(const TArray<const 
 		}
 #endif
 	}
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST) //Collision debug view in editor
+	FColor SimpleCollisionColor = FColor(255, 107, 2, 255);
+	//FColor ComplexCollisionColor = FColor(0, 255, 255, 255);
+
+	for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
+	{
+		if (VisibilityMap & (1 << ViewIndex))
+		{
+			//Complex collision
+			/*if(AllowDebugViewmodes() && false)
+			{
+				// Should we draw the mesh wireframe to indicate we are using the mesh as collision
+				bool bDrawComplexWireframeCollision = (EngineShowFlags.Collision && IsCollisionEnabled() && CollisionTraceFlag == ECollisionTraceFlag::CTF_UseComplexAsSimple);
+				// Requested drawing complex in wireframe, but check that we are not using simple as complex
+				bDrawComplexWireframeCollision |= bDrawComplexCollision && bWireframe;
+
+				// If drawing complex collision as solid or wireframe
+				if(bDrawComplexWireframeCollision || (bInCollisionView && bDrawComplexCollision))
+				{
+					// If we have at least one valid LOD to draw
+					if(RuntimeMeshProxy->HasValidLODs())
+					{
+						// Get LOD used for collision
+						int32 DrawLOD = RuntimeMeshProxy->GetMinLOD();//FMath::Clamp(LODForCollision, 0, RenderData->LODResources.Num() - 1);
+						const FRuntimeMeshLODData& LODModel = RuntimeMeshProxy->GetLOD(DrawLOD);
+
+						UMaterial* MaterialToUse = UMaterial::GetDefaultMaterial(MD_Surface);
+						FLinearColor DrawCollisionColor = GetWireframeColor();
+						// Collision view modes draw collision mesh as solid
+						if(bInCollisionView)
+						{
+							MaterialToUse = GEngine->ShadedLevelColorationUnlitMaterial;
+						}
+						// Wireframe, choose color based on complex or simple
+						else
+						{
+							MaterialToUse = GEngine->WireframeMaterial;
+							DrawCollisionColor = (CollisionTraceFlag == ECollisionTraceFlag::CTF_UseComplexAsSimple) ? SimpleCollisionColor : ComplexCollisionColor;
+						}
+
+						// Iterate over sections of that LOD
+						for (int32 SectionIndex = 0; SectionIndex < LODModel.Sections.Num(); SectionIndex++)
+						{
+							// If this section has collision enabled
+							if (LODModel.Sections[SectionIndex].bIsValid)
+							{
+
+								// Create colored proxy
+								FColoredMaterialRenderProxy* CollisionMaterialInstance = new FColoredMaterialRenderProxy(MaterialToUse->GetRenderProxy(), DrawCollisionColor);
+								Collector.RegisterOneFrameMaterialProxy(CollisionMaterialInstance);
+
+								// Iterate over batches
+								int32 nummeshbatches = 1; //GetNumMeshBatches();
+								for (int32 BatchIndex = 0; BatchIndex < nummeshbatches; BatchIndex++)
+								{
+									FMeshBatch& CollisionElement = Collector.AllocateMesh();
+									if (GetCollisionMeshElement(DrawLOD, BatchIndex, SectionIndex, SDPG_World, CollisionMaterialInstance, CollisionElement))
+									{
+										Collector.AddMesh(ViewIndex, CollisionElement);
+										INC_DWORD_STAT_BY(STAT_StaticMeshTriangles, CollisionElement.GetNumPrimitives());
+									}
+								}
+							}
+						}
+					}
+				}
+			}*/
+
+			// Draw simple collision as wireframe if 'show collision', collision is enabled, and we are not using the complex as the simple
+			const bool bDrawSimpleWireframeCollision = (EngineShowFlags.Collision);
+
+			if((bDrawSimpleCollision || bDrawSimpleWireframeCollision) && BodySetup)
+			{
+				if(FMath::Abs(GetLocalToWorld().Determinant()) < SMALL_NUMBER)
+				{
+					// Catch this here or otherwise GeomTransform below will assert
+					// This spams so commented out
+					//UE_LOG(LogStaticMesh, Log, TEXT("Zero scaling not supported (%s)"), *StaticMesh->GetPathName());
+				}
+				else
+				{
+					const bool bDrawSolid = !bDrawSimpleWireframeCollision;
+
+					if(AllowDebugViewmodes() && bDrawSolid)
+					{
+						// Make a material for drawing solid collision stuff
+						auto SolidMaterialInstance = new FColoredMaterialRenderProxy(
+							GEngine->ShadedLevelColorationUnlitMaterial->GetRenderProxy(),
+							SimpleCollisionColor
+							);
+
+						Collector.RegisterOneFrameMaterialProxy(SolidMaterialInstance);
+
+						FTransform GeomTransform(GetLocalToWorld());
+						BodySetup->AggGeom.GetAggGeom(GeomTransform, SimpleCollisionColor, SolidMaterialInstance, true, true, DrawsVelocity(), ViewIndex, Collector);
+					}
+					// wireframe
+					else
+					{
+						FTransform GeomTransform(GetLocalToWorld());
+						BodySetup->AggGeom.GetAggGeom(GeomTransform, GetSelectionColor(SimpleCollisionColor, bProxyIsSelected, IsHovered()).ToFColor(true), NULL, false, false, DrawsVelocity(), ViewIndex, Collector);
+					}
+				}
+			}
+
+			if(EngineShowFlags.MassProperties && DebugMassData.Num() > 0)
+			{
+				DebugMassData[0].DrawDebugMass(Collector.GetPDI(ViewIndex), FTransform(GetLocalToWorld()));
+			}
+		}
+	}
+#endif
+	
 }
 
 
