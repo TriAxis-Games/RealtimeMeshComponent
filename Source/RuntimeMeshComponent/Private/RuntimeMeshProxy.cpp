@@ -509,7 +509,7 @@ void FRuntimeMeshProxy::ApplyMeshToSection(int32 LODIndex, int32 SectionId, FRun
 
 	if (bShouldRecreateBuffers)
 	{
-		Section.Buffers = MakeShared<FRuntimeMeshSectionProxyBuffers>(false, false);
+		Section.Buffers = MakeShared<FRuntimeMeshSectionProxyBuffers, ESPMode::ThreadSafe>(false, false);
 		Section.Buffers->InitFromRHIReferences(MeshData, Batcher);
 	}
 	else

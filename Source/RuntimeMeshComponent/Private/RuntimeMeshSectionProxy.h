@@ -23,7 +23,7 @@ struct FRuntimeMeshSectionNullBufferElement
 };
 
 
-struct FRuntimeMeshSectionProxyBuffers : public TSharedFromThis<FRuntimeMeshSectionProxyBuffers>
+struct FRuntimeMeshSectionProxyBuffers : public TSharedFromThis<FRuntimeMeshSectionProxyBuffers, ESPMode::ThreadSafe>
 {
 	/** Vertex factory for this section */
 	FRuntimeMeshVertexFactory VertexFactory;
@@ -112,7 +112,7 @@ struct FRuntimeMeshSectionProxyBuffers : public TSharedFromThis<FRuntimeMeshSect
 
 struct FRuntimeMeshSectionProxy
 {
-	TSharedPtr<FRuntimeMeshSectionProxyBuffers> Buffers;
+	TSharedPtr<FRuntimeMeshSectionProxyBuffers, ESPMode::ThreadSafe> Buffers;
 
 	uint32 FirstIndex;
 	uint32 NumTriangles;
