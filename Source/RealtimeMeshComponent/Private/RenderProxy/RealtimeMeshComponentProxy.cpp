@@ -182,7 +182,7 @@ namespace RealtimeMesh
 
 						bool bCastRayTracedShadow = false; //IsShadowCast(Context.ReferenceView);
 						
-						if (LOD.IsValid() && LOD->GetDrawMask().IsSet(ERealtimeMeshDrawMask::DrawDynamic) ||
+						if ((LOD.IsValid() && LOD->GetDrawMask().IsSet(ERealtimeMeshDrawMask::DrawDynamic)) ||
 							(bForceDynamicPath && LOD->GetDrawMask().IsSet(ERealtimeMeshDrawMask::DrawStatic)))
 						{
 							LODMask.SetLOD(LODIndex);

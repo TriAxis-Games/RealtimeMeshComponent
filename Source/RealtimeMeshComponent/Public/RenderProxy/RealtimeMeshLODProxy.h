@@ -29,6 +29,8 @@ namespace RealtimeMesh
 		FRealtimeMeshLODProxy(const FRealtimeMeshClassFactoryRef& InClassFactory, const FRealtimeMeshProxyRef& InProxy,
 					FRealtimeMeshLODKey InKey, const FRealtimeMeshLODProxyInitializationParametersRef& InInitParams);		
 
+		virtual ~FRealtimeMeshLODProxy() = default;
+		
 		FRealtimeMeshLODKey GetKey() const { return Key; }
 		const FRealtimeMeshLODConfig& GetConfig() const { return Config; }
 		FRealtimeMeshDrawMask GetDrawMask() const { return DrawMask; }

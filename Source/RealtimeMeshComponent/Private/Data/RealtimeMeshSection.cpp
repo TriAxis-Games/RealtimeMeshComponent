@@ -5,6 +5,7 @@
 #include "RenderProxy/RealtimeMeshSectionProxy.h"
 #include "RenderProxy/RealtimeMeshLODProxy.h"
 #include "RenderProxy/RealtimeMeshSectionGroupProxy.h"
+#include "RenderProxy/RealtimeMeshProxy.h"
 
 
 namespace RealtimeMesh

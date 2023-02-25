@@ -3,7 +3,7 @@
 #pragma once
 
 #include "RealtimeMeshDataTypes.h"
-#include "RenderProxy/RealtimeMEshGPUBuffer.h"
+#include "RenderProxy/RealtimeMeshGPUBuffer.h"
 
 namespace RealtimeMesh
 {

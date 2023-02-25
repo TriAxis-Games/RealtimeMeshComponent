@@ -795,7 +795,7 @@ FRealtimeMeshSectionKey URealtimeMeshSimple::CreateMeshSectionInGroup(FRealtimeM
 	return FRealtimeMeshSectionKey();
 }
 
-FRealtimeMeshSectionKey URealtimeMeshSimple::CreateSectionWithMesh(FRealtimeMeshLODKey LODKey, const FRealtimeMeshSectionConfig& Config,
+FRealtimeMeshSectionKey URealtimeMeshSimple::CreateMeshSection(FRealtimeMeshLODKey LODKey, const FRealtimeMeshSectionConfig& Config,
                                                                    const FRealtimeMeshSimpleVertexData& Vertices, const TArray<int32>& Triangles, bool bShouldCreateCollision)
 {
 	if (const auto LOD = MeshRef->GetLOD(LODKey))
@@ -821,7 +821,7 @@ FRealtimeMeshSectionKey URealtimeMeshSimple::CreateSectionWithMesh(FRealtimeMesh
 	}
 }
 
-void URealtimeMeshSimple::UpdateSectionWithMesh(FRealtimeMeshSectionKey SectionKey, const FRealtimeMeshSimpleVertexData& Vertices, const TArray<int32>& Triangles)
+void URealtimeMeshSimple::UpdateMeshSection(FRealtimeMeshSectionKey SectionKey, const FRealtimeMeshSimpleVertexData& Vertices, const TArray<int32>& Triangles)
 {	
 	if (const auto LOD = MeshRef->GetLOD(SectionKey.GetLODKey()))
 	{

@@ -5,7 +5,6 @@
 #include "RealtimeMeshCore.h"
 #include "RealtimeMesh.h"
 #include "Components/MeshComponent.h"
-#include "Interfaces/Interface_CollisionDataProvider.h"
 #include "RealtimeMeshComponent.generated.h"
 
 
@@ -13,7 +12,7 @@
 *	Component that allows you to specify custom triangle mesh geometry for rendering and collision.
 */
 UCLASS(ClassGroup=(Rendering, Common), HideCategories=(Object, Activation, "Components|Activation"), ShowCategories=(Mobility), Meta = (BlueprintSpawnableComponent))
-class REALTIMEMESHCOMPONENT_API URealtimeMeshComponent : public UMeshComponent, public IInterface_CollisionDataProvider
+class REALTIMEMESHCOMPONENT_API URealtimeMeshComponent : public UMeshComponent
 {
 	GENERATED_BODY()
 

@@ -458,20 +458,23 @@ namespace RealtimeMesh
 		check(IsValidRef(GetDeclaration()));
 	}
 
-	IMPLEMENT_VERTEX_FACTORY_PARAMETER_TYPE(FRealtimeMeshLocalVertexFactory, SF_Vertex, FRealtimeMeshVertexFactoryShaderParameters);
+}
+
+using namespace RealtimeMesh;
+
+IMPLEMENT_VERTEX_FACTORY_PARAMETER_TYPE(FRealtimeMeshLocalVertexFactory, SF_Vertex, FRealtimeMeshVertexFactoryShaderParameters);
 #if RHI_RAYTRACING
-	IMPLEMENT_VERTEX_FACTORY_PARAMETER_TYPE(FRealtimeMeshLocalVertexFactory, SF_RayHitGroup, FRealtimeMeshVertexFactoryShaderParameters);
-	IMPLEMENT_VERTEX_FACTORY_PARAMETER_TYPE(FRealtimeMeshLocalVertexFactory, SF_Compute, FRealtimeMeshVertexFactoryShaderParameters);
+IMPLEMENT_VERTEX_FACTORY_PARAMETER_TYPE(FRealtimeMeshLocalVertexFactory, SF_RayHitGroup, FRealtimeMeshVertexFactoryShaderParameters);
+IMPLEMENT_VERTEX_FACTORY_PARAMETER_TYPE(FRealtimeMeshLocalVertexFactory, SF_Compute, FRealtimeMeshVertexFactoryShaderParameters);
 #endif // RHI_RAYTRACING
 
-	IMPLEMENT_VERTEX_FACTORY_TYPE(FRealtimeMeshLocalVertexFactory,"/Engine/Private/LocalVertexFactory.ush",
-		  EVertexFactoryFlags::UsedWithMaterials
-		| EVertexFactoryFlags::SupportsDynamicLighting
-		| EVertexFactoryFlags::SupportsPrecisePrevWorldPos
-		| EVertexFactoryFlags::SupportsPositionOnly
-		| EVertexFactoryFlags::SupportsCachingMeshDrawCommands
-		| EVertexFactoryFlags::SupportsPrimitiveIdStream
-		| EVertexFactoryFlags::SupportsRayTracing
-		| EVertexFactoryFlags::SupportsRayTracingDynamicGeometry
-	);
-}
+IMPLEMENT_VERTEX_FACTORY_TYPE(FRealtimeMeshLocalVertexFactory,"/Engine/Private/LocalVertexFactory.ush",
+	  EVertexFactoryFlags::UsedWithMaterials
+	| EVertexFactoryFlags::SupportsDynamicLighting
+	| EVertexFactoryFlags::SupportsPrecisePrevWorldPos
+	| EVertexFactoryFlags::SupportsPositionOnly
+	| EVertexFactoryFlags::SupportsCachingMeshDrawCommands
+	| EVertexFactoryFlags::SupportsPrimitiveIdStream
+	| EVertexFactoryFlags::SupportsRayTracing
+	| EVertexFactoryFlags::SupportsRayTracingDynamicGeometry
+);

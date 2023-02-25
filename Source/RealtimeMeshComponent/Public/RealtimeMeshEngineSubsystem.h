@@ -2,11 +2,10 @@
 
 #pragma once
 
-#include "EditorSubsystem.h"
-#include "RealtimeMeshComponent.h"
+#include "CoreMinimal.h"
+#include "Subsystems/EngineSubsystem.h"
 #include "RealtimeMeshEngineSubsystem.generated.h"
 
-#if WITH_EDITOR
 
 class ARealtimeMeshActor;
 
@@ -30,17 +29,12 @@ class REALTIMEMESHCOMPONENT_API URealtimeMeshEngineSubsystem : public UEngineSub
 public:
 	virtual bool ShouldCreateSubsystem(UObject* Outer) const override;
 
-#if WITH_EDITOR
 	virtual bool RegisterGeneratedMeshActor(ARealtimeMeshActor* Actor) { return false; }
 	virtual void UnregisterGeneratedMeshActor(ARealtimeMeshActor* Actor) { }
-#endif
 
 	static URealtimeMeshEngineSubsystem* GetInstance();
 private:
 };
-
-
-#endif
 
 
 

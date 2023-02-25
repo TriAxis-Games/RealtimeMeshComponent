@@ -16,10 +16,10 @@ public:
 	static const FRealtimeMeshStreamRange Empty;
 
 	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="RealtimeMesh|Streams")
 	FInt32Range Vertices;
 	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="RealtimeMesh|Streams")
 	FInt32Range Indices;
 	
 	FRealtimeMeshStreamRange() = default;
@@ -130,11 +130,11 @@ struct REALTIMEMESHCOMPONENT_API FRealtimeMeshTangent
 public:
 
 	/** Direction of X tangent for this vertex */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Tangent)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="RealtimeMesh|Tangent")
 	FVector TangentX;
 
 	/** Bool that indicates whether we should flip the Y tangent when we compute it using cross product */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Tangent)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="RealtimeMesh|Tangent")
 	bool bFlipTangentY;
 
 	FRealtimeMeshTangent()

@@ -2,8 +2,8 @@
 
 #pragma once
 
-#include "RealtimeMeshConfig.h"
 #include "RealtimeMeshCore.h"
+#include "RealtimeMeshConfig.h"
 #include "RealtimeMeshDataBuilder.h"
 
 namespace RealtimeMesh

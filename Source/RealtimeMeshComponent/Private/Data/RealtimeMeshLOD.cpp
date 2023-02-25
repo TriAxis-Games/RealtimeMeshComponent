@@ -4,6 +4,7 @@
 #include "Data/RealtimeMeshData.h"
 #include "Data/RealtimeMeshSectionGroup.h"
 #include "RenderProxy/RealtimeMeshLODProxy.h"
+#include "RenderProxy/RealtimeMeshProxy.h"
 
 #define LOCTEXT_NAMESPACE "RealtimeMesh"
 

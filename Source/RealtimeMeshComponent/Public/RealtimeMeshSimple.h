@@ -9,6 +9,7 @@
 #include "Data/RealtimeMeshLOD.h"
 #include "Data/RealtimeMeshSection.h"
 #include "Data/RealtimeMeshSectionGroup.h"
+#include "Interface_CollisionDataProviderCore.h"
 #include "RealtimeMeshSimple.generated.h"
 
 
@@ -198,11 +199,11 @@ public:
 		const FRealtimeMeshStreamRange& StreamRange, bool bShouldCreateCollision = false);
 
 	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh", meta = (AutoCreateRefTerm = "Config, Vertices, Triangles"))
-	FRealtimeMeshSectionKey CreateSectionWithMesh(FRealtimeMeshLODKey LODKey, const FRealtimeMeshSectionConfig& Config, const FRealtimeMeshSimpleVertexData& Vertices,
+	FRealtimeMeshSectionKey CreateMeshSection(FRealtimeMeshLODKey LODKey, const FRealtimeMeshSectionConfig& Config, const FRealtimeMeshSimpleVertexData& Vertices,
 		const TArray<int32>& Triangles, bool bShouldCreateCollision = false);
 	
 	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh", meta = (AutoCreateRefTerm = "Vertices, Triangles"))	
-	void UpdateSectionWithMesh(FRealtimeMeshSectionKey SectionKey, const FRealtimeMeshSimpleVertexData& Vertices, const TArray<int32>& Triangles);
+	void UpdateMeshSection(FRealtimeMeshSectionKey SectionKey, const FRealtimeMeshSimpleVertexData& Vertices, const TArray<int32>& Triangles);
 	
 	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh")
 	FRealtimeMeshSectionConfig GetSectionConfig(FRealtimeMeshSectionKey SectionKey) const;

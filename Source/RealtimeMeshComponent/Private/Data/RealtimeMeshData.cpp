@@ -2,7 +2,6 @@
 
 #include "Data/RealtimeMeshData.h"
 
-#include "ContentBrowserPluginFilters.h"
 #include "Data/RealtimeMeshLOD.h"
 #include "Data/RealtimeMeshSectionGroup.h"
 #include "RenderProxy/RealtimeMeshProxy.h"

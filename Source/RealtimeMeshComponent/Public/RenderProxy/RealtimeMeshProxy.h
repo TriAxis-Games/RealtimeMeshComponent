@@ -4,9 +4,9 @@
 
 #include "RealtimeMeshCore.h"
 #include "RealtimeMeshProxyUtils.h"
+#include "Data/RealtimeMeshConfig.h"
 #include "HAL/ThreadSafeBool.h"
 #include "Containers/Queue.h"
-#include "Data/RealtimeMeshConfig.h"
 
 enum class ERealtimeMeshSectionDrawType : uint8;
 

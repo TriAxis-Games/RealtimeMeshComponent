@@ -2,6 +2,8 @@
 
 
 #include "RealtimeMeshCollision.h"
+#include "PhysicsEngine/BodySetup.h"
+#include "Interface_CollisionDataProviderCore.h"
 
 
 namespace RealtimeMesh::CollisionHelpers
@@ -516,7 +518,7 @@ void FRealtimeMeshSimpleGeometry::CopyToBodySetup(UBodySetup* BodySetup) const
 		BodySphere.SetName(Sphere.Name);
 	}
 
-	for (const auto Box : Boxes)
+	for (const auto& Box : Boxes)
 	{
 		auto& BodyBox = BodySetup->AggGeom.BoxElems.AddDefaulted_GetRef();
 		BodyBox.X = Box.Extents.X;
@@ -528,7 +530,7 @@ void FRealtimeMeshSimpleGeometry::CopyToBodySetup(UBodySetup* BodySetup) const
 		BodyBox.SetName(Box.Name);
 	}
 
-	for (const auto Capsule : Capsules)
+	for (const auto& Capsule : Capsules)
 	{
 		auto& BodyCapsule = BodySetup->AggGeom.SphylElems.AddDefaulted_GetRef();
 		BodyCapsule.Radius = Capsule.Radius;
@@ -539,7 +541,7 @@ void FRealtimeMeshSimpleGeometry::CopyToBodySetup(UBodySetup* BodySetup) const
 		BodyCapsule.SetName(Capsule.Name);
 	}
 
-	for (const auto TaperedCapsule : TaperedCapsules)
+	for (const auto& TaperedCapsule : TaperedCapsules)
 	{
 		auto& BodyTaperedCapsule = BodySetup->AggGeom.TaperedCapsuleElems.AddDefaulted_GetRef();
 		BodyTaperedCapsule.Radius0 = TaperedCapsule.RadiusA;
@@ -551,7 +553,7 @@ void FRealtimeMeshSimpleGeometry::CopyToBodySetup(UBodySetup* BodySetup) const
 		BodyTaperedCapsule.SetName(TaperedCapsule.Name);
 	}
 
-	for (const auto Convex : ConvexHulls)
+	for (const auto& Convex : ConvexHulls)
 	{
 		auto& BodyConvex = BodySetup->AggGeom.ConvexElems.AddDefaulted_GetRef();
 		BodyConvex.VertexData = Convex.Vertices;

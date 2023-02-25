@@ -4,10 +4,8 @@
 
 #include "RealtimeMeshCollision.h"
 #include "Data/RealtimeMeshData.h"
+#include "Interfaces/Interface_CollisionDataProvider.h"
 #include "RealtimeMesh.generated.h"
-
-
-#define LOCTEXT_NAMESPACE "RealtimeMesh"
 
 
 UCLASS(Blueprintable, Abstract, ClassGroup = Rendering, HideCategories = (Object, Activation, Cooking))
@@ -145,6 +143,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh")
 	UMaterialInterface* GetMaterial(int32 SlotIndex) const;
 
+	// Cook collision, either asynchronously or synchronously depending on config
+	void UpdateCollision(bool bForceCookNow = false);
+	
 	//	Begin UObject interface
 	virtual void PostInitProperties() override;
 	virtual void BeginDestroy() override;
@@ -173,8 +174,6 @@ public:
 private: // Collision
 	// Helper to create new body setup objects
 	UBodySetup* CreateNewBodySetup();
-	// Mark collision data as dirty, and re-create on instance if necessary
-	void UpdateCollision2(bool bForceCookNow = false);
 	// Once async physics cook is done, create needed state, and then call the user event
 	void FinishPhysicsAsyncCook(bool bSuccess, UBodySetup* FinishedBodySetup);
 
@@ -185,9 +184,5 @@ public:
 	virtual void HandleBoundsUpdated(const RealtimeMesh::FRealtimeMeshRef& IncomingMesh);
 	virtual void HandleMeshRenderingDataChanged(const RealtimeMesh::FRealtimeMeshRef& IncomingMesh, bool bShouldProxyRecreate);
 
-	friend class URealtimeMeshEngineSubsystem;
 };
 
-
-
-#undef LOCTEXT_NAMESPACE

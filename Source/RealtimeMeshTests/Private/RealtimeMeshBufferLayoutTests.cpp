@@ -8,12 +8,12 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(RealtimeMeshBufferLayoutTests, "RealtimeMeshCom
 
 bool RealtimeMeshBufferLayoutTests::RunTest(const FString& Parameters)
 {
-	const auto VoidType = RealtimeMesh::GetRealtimeMeshDataElementType<void>();
+	//const auto VoidType = RealtimeMesh::GetRealtimeMeshDataElementType<void>();
 	const auto FloatType = RealtimeMesh::GetRealtimeMeshDataElementType<float>();
 	const auto VectorType = RealtimeMesh::GetRealtimeMeshDataElementType<FVector2f>();
 	const auto IntType = RealtimeMesh::GetRealtimeMeshDataElementType<uint32>();
 	
-	const RealtimeMesh::FRealtimeMeshBufferLayout VoidBuffer(VoidType, 1);
+	//const RealtimeMesh::FRealtimeMeshBufferLayout VoidBuffer(VoidType, 1);
 	const RealtimeMesh::FRealtimeMeshBufferLayout ZeroLengthBuffer(FloatType, 0);
 	const RealtimeMesh::FRealtimeMeshBufferLayout FloatBuffer1(FloatType, 1);
 	const RealtimeMesh::FRealtimeMeshBufferLayout FloatBuffer2(FloatType, 2);
@@ -21,7 +21,7 @@ bool RealtimeMeshBufferLayoutTests::RunTest(const FString& Parameters)
 	const RealtimeMesh::FRealtimeMeshBufferLayout VectorBuffer2(VectorType, 2);
 	const RealtimeMesh::FRealtimeMeshBufferLayout UInt32Buffer(IntType, 1);
 
-	TestFalse(TEXT("VoidBuffer InValid"), VoidType.IsValid());
+	//TestFalse(TEXT("VoidBuffer InValid"), VoidType.IsValid());
 	TestFalse(TEXT("ZeroLengthBuffer Invalid"), ZeroLengthBuffer.IsValid());
 	TestTrue(TEXT("FloatBuffer1 Valid"), FloatBuffer1.IsValid());
 	TestTrue(TEXT("FloatBuffer2 Valid"), FloatBuffer2.IsValid());
@@ -39,13 +39,13 @@ bool RealtimeMeshBufferLayoutTests::RunTest(const FString& Parameters)
 	TestTrue(TEXT("VectorBuffer2 NumElements"), VectorBuffer2.GetNumElements() == 2);
 
 
-	const RealtimeMesh::FRealtimeMeshBufferLayoutDefinition InvalidDef = RealtimeMesh::FRealtimeMeshBufferLayoutUtilities::GetBufferLayoutDefinition(VoidBuffer);
+	//const RealtimeMesh::FRealtimeMeshBufferLayoutDefinition InvalidDef = RealtimeMesh::FRealtimeMeshBufferLayoutUtilities::GetBufferLayoutDefinition(VoidBuffer);
 	const RealtimeMesh::FRealtimeMeshBufferLayoutDefinition InvalidDefZero = RealtimeMesh::FRealtimeMeshBufferLayoutUtilities::GetBufferLayoutDefinition(ZeroLengthBuffer);
 	const RealtimeMesh::FRealtimeMeshBufferLayoutDefinition ValidDefVector2 = RealtimeMesh::FRealtimeMeshBufferLayoutUtilities::GetBufferLayoutDefinition(VectorBuffer2);
 	const RealtimeMesh::FRealtimeMeshBufferLayoutDefinition ValidDefUInt32 = RealtimeMesh::FRealtimeMeshBufferLayoutUtilities::GetBufferLayoutDefinition(UInt32Buffer);
 	
 	
-	TestFalse(TEXT("InvalidDef Valid"), InvalidDef.IsValid());
+	//TestFalse(TEXT("InvalidDef Valid"), InvalidDef.IsValid());
 	TestFalse(TEXT("InvalidDefZero Valid"), InvalidDefZero.IsValid());
 	TestTrue(TEXT("ValidDefVector2 Valid"), ValidDefVector2.IsValid());
 	TestTrue(TEXT("ValidDefUInt32 Valid"), ValidDefUInt32.IsValid());

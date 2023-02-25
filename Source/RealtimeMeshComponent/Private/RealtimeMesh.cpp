@@ -2,9 +2,10 @@
 
 #include "RealtimeMesh.h"
 #include "RealtimeMeshComponent.h"
-#include "RealtimeMeshEngineSubsystem.h"
 #include "Data/RealtimeMeshData.h"
 #include "Data/RealtimeMeshLOD.h"
+#include "Interface_CollisionDataProviderCore.h"
+#include "PhysicsEngine/BodySetup.h"
 
 #define LOCTEXT_NAMESPACE "RealtimeMesh"
 
@@ -226,7 +227,7 @@ void URealtimeMesh::Tick(float DeltaTime)
 {
 	if (GetMesh()->IsCollisionDirty())
 	{
-		UpdateCollision2();
+		UpdateCollision();
 	}
 }
 
@@ -268,7 +269,7 @@ UBodySetup* URealtimeMesh::CreateNewBodySetup()
 	return NewBodySetup;
 }
 
-void URealtimeMesh::UpdateCollision2(bool bForceCookNow)
+void URealtimeMesh::UpdateCollision(bool bForceCookNow)
 {
 	check(IsInGameThread());
 	FRealtimeMeshCollisionConfiguration CollisionConfig = GetMesh()->GetCollisionConfig();

@@ -2,10 +2,11 @@
 
 #pragma once
 
-#include "RealtimeMeshCollision.h"
-#include "RealtimeMeshConfig.h"
 #include "RealtimeMeshCore.h"
-#include "RenderProxy/RealtimeMeshProxy.h"
+#include "RealtimeMeshConfig.h"
+#include "RealtimeMeshCollision.h"
+
+struct FTriMeshCollisionData;
 
 namespace RealtimeMesh
 {
@@ -89,7 +90,7 @@ namespace RealtimeMesh
 		bool HasRenderProxy() const;
 		FRealtimeMeshProxyPtr GetRenderProxy(bool bCreateIfNotExists = false) const;
 		
-		virtual bool GetPhysicsTriMeshData(struct FTriMeshCollisionData* CollisionData, bool InUseAllTriData) { return false; }
+		virtual bool GetPhysicsTriMeshData(FTriMeshCollisionData* CollisionData, bool InUseAllTriData) { return false; }
 		virtual bool ContainsPhysicsTriMeshData(bool InUseAllTriData) const { return false; }
 	protected:
 		void CreateRenderProxy(bool bForceRecreate = false) const;

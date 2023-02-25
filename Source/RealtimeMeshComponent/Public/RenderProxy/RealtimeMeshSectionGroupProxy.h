@@ -4,7 +4,6 @@
 
 #include "RealtimeMeshGPUBuffer.h"
 #include "RealtimeMeshProxyUtils.h"
-#include "RealtimeMeshSectionProxy.h"
 #include "RealtimeMeshVertexFactory.h"
 
 namespace RealtimeMesh

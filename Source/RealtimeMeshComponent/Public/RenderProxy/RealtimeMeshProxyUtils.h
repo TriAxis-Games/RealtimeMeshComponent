@@ -3,7 +3,6 @@
 #pragma once
 
 #include "RealtimeMeshCore.h"
-#include "RealtimeMeshProxy.h"
 
 
 namespace RealtimeMesh

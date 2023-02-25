@@ -3,9 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "RealtimeMesh.h"
 #include "RealtimeMeshSectionProxy.h"
-#include "Materials/Material.h"
 
 class UBodySetup;
 class URealtimeMeshComponent;

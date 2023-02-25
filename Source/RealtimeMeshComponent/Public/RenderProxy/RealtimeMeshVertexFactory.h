@@ -3,10 +3,10 @@
 #pragma once
 
 #include "RealtimeMeshGPUBuffer.h"
+#include "Data/RealtimeMeshConfig.h"
 #include "ShaderParameters.h"
 #include "Components.h"
 #include "VertexFactory.h"
-#include "Data/RealtimeMeshConfig.h"
 
 
 struct FRealtimeMeshStreamRange;
