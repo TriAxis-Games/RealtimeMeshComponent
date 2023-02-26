@@ -19,14 +19,6 @@
       "Name": "RealtimeMeshComponent",
       "Type": "Runtime",
       "LoadingPhase": "PostConfigInit",
-      "WhitelistPlatforms": [
-        "Win64",
-        "Linux",
-        "Mac",
-        "XboxOne",
-        "PS4",
-        "Android"
-      ]
     },
     {
       "Name": "RealtimeMeshTests",
@@ -36,16 +28,6 @@
     {
       "Name": "RealtimeMeshEditor",
       "Type": "Editor",
-      "LoadingPhase": "Default"
-    },
-    {
-      "Name": "RealtimeMeshComposable",
-      "Type": "Runtime",
-      "LoadingPhase": "Default"
-    },
-    {
-      "Name": "RealtimeDynamicMesh",
-      "Type": "Runtime",
       "LoadingPhase": "Default"
     }
   ]

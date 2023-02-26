@@ -198,10 +198,13 @@ void URealtimeMesh::Serialize(FArchive& Ar)
 {
 	Super::Serialize(Ar);
 
-	Ar.UsingCustomVersion(RealtimeMesh::FRealtimeMeshVersion::GUID);
+	if (!HasAnyFlags(RF_ClassDefaultObject | RF_ArchetypeObject))
+	{
+		Ar.UsingCustomVersion(RealtimeMesh::FRealtimeMeshVersion::GUID);
 	
-	// Serialize the mesh data
-	GetMesh()->Serialize(Ar);
+		// Serialize the mesh data
+		GetMesh()->Serialize(Ar);
+	}
 }
 
 void URealtimeMesh::PostDuplicate(bool bDuplicateForPIE)

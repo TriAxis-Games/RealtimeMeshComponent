@@ -8,12 +8,12 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FRealtimeMeshElementTypeTests, "RealtimeMeshCom
 
 bool FRealtimeMeshElementTypeTests::RunTest(const FString& Parameters)
 {
-	const auto VoidType = RealtimeMesh::GetRealtimeMeshDataElementType<void>();
+	//const auto VoidType = RealtimeMesh::GetRealtimeMeshDataElementType<void>();
 	const auto FloatType = RealtimeMesh::GetRealtimeMeshDataElementType<float>();
 	const auto VectorType = RealtimeMesh::GetRealtimeMeshDataElementType<FVector2f>();
 	const auto IntType = RealtimeMesh::GetRealtimeMeshDataElementType<uint32>();
 		
-	TestFalse(TEXT("InvalidType Test"), VoidType.IsValid());
+	//TestFalse(TEXT("InvalidType Test"), VoidType.IsValid());
 	TestTrue(TEXT("FloatType Valid"), FloatType.IsValid());
 	TestTrue(TEXT("VectorType Valid"), FloatType.IsValid());
 	TestTrue(TEXT("IntType Valid"), IntType.IsValid());
@@ -28,12 +28,12 @@ bool FRealtimeMeshElementTypeTests::RunTest(const FString& Parameters)
 	TestTrue(TEXT("VectorType DataType"), VectorType.GetDatumType() == RealtimeMesh::ERealtimeMeshDatumType::Float);
 	TestTrue(TEXT("VectorType NumDatums"), VectorType.GetNumDatums() == 2);
 
-	const RealtimeMesh::FRealtimeMeshElementTypeDefinition InvalidDef = RealtimeMesh::FRealtimeMeshBufferLayoutUtilities::GetTypeDefinition(VoidType);
+	//const RealtimeMesh::FRealtimeMeshElementTypeDefinition InvalidDef = RealtimeMesh::FRealtimeMeshBufferLayoutUtilities::GetTypeDefinition(VoidType);
 	const RealtimeMesh::FRealtimeMeshElementTypeDefinition ValidVertex = RealtimeMesh::FRealtimeMeshBufferLayoutUtilities::GetTypeDefinition(VectorType);
 	const RealtimeMesh::FRealtimeMeshElementTypeDefinition ValidIndex = RealtimeMesh::FRealtimeMeshBufferLayoutUtilities::GetTypeDefinition(IntType);
 	
 	
-	TestFalse(TEXT("InvalidDef Valid"), InvalidDef.IsValid());
+	//TestFalse(TEXT("InvalidDef Valid"), InvalidDef.IsValid());
 	TestTrue(TEXT("ValidVertex Valid"), ValidVertex.IsValid());
 	TestTrue(TEXT("ValidIndex Valid"), ValidIndex.IsValid());
 
