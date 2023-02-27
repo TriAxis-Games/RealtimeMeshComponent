@@ -74,14 +74,11 @@ namespace RealtimeMesh
 		MarkStateDirty();		
 	}
 
-	void FRealtimeMeshProxy::PopulateSectionMeshBatches(ERealtimeMeshSectionDrawType DrawType, bool bForceAllDynamic, uint8 LODIndex, const FLODMask& LODMask,
-	                                                    const TRange<float>& ScreenSizeLimits, bool bIsMovable, bool bIsLocalToWorldDeterminantNegative, bool bCastRayTracedShadow, FMaterialRenderProxy* WireframeMaterial,
-	                                                    FRHIUniformBuffer* UniformBuffer, const TMap<int32, TTuple<FMaterialRenderProxy*, bool>>& Materials, TFunction<FMeshBatch&()> BatchAllocator,
-	                                                    TFunction<void(FMeshBatch&, float)> BatchSubmitter, TFunction<void(const TSharedRef<FRenderResource>&)> ResourceSubmitter) const
+	void FRealtimeMeshProxy::CreateMeshBatches(int32 LODIndex, const FRealtimeMeshBatchCreationParams& Params, const TMap<int32, TTuple<FMaterialRenderProxy*, bool>>& Materials,
+		const FMaterialRenderProxy* WireframeMaterial, ERealtimeMeshSectionDrawType DrawType, bool bForceAllDynamic) const
 	{
 		const auto& LOD = LODs[LODIndex];		
-		LOD->PopulateMeshBatches(DrawType, bForceAllDynamic, LODMask, ScreenSizeLimits, bIsMovable, bIsLocalToWorldDeterminantNegative, bCastRayTracedShadow, WireframeMaterial,
-		                         UniformBuffer, Materials, BatchAllocator, BatchSubmitter, ResourceSubmitter);
+		LOD->CreateMeshBatches(Params, Materials, WireframeMaterial, DrawType, bForceAllDynamic);
 	}
 
 	void FRealtimeMeshProxy::EnqueueRenderingCommand(TUniqueFunction<void(const FRealtimeMeshProxyRef&)>&& InCommand)

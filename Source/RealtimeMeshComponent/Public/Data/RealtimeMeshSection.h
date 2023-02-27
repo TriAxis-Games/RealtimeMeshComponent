@@ -61,6 +61,7 @@ namespace RealtimeMesh
 		virtual bool IsCastingShadow() const;		
 		virtual void SetCastShadow(bool bCastShadow);
 		
+		void MarkRenderStateDirty(bool bShouldRecreateProxies);
 
 		virtual void OnStreamsChanged(const TArray<FRealtimeMeshStreamKey>& AddedOrUpdatedStreams, const TArray<FRealtimeMeshStreamKey>& RemovedStreams);
 

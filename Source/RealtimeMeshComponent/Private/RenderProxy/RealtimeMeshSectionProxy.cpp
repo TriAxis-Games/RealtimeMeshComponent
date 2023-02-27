@@ -37,60 +37,64 @@ namespace RealtimeMesh
 		MarkStateDirty();
 	}
 
-	bool FRealtimeMeshSectionProxy::CreateMeshBatch(const TSharedRef<const FRealtimeMeshSectionGroupProxy>& SectionGroup, const FLODMask& LODMask,
-	    const TRange<float>& ScreenSizeLimits, bool bIsMovable, bool bIsLocalToWorldDeterminantNegative, FRHIUniformBuffer* UniformBuffer,
-	    const FMaterialRenderProxy* Material, bool bIsWireframe, bool bSupportsDithering, bool bCastRayTracedShadow, TFunctionRef<FMeshBatch&()> BatchAllocator,
-	    TFunctionRef<void(FMeshBatch&, float)> BatchSubmitter, TFunctionRef<void(const TSharedRef<FRenderResource>&)> ResourceSubmitter) const
+#if RHI_RAYTRACING
+	bool FRealtimeMeshSectionProxy::CreateMeshBatch(const FRealtimeMeshBatchCreationParams& Params, const FRealtimeMeshVertexFactoryRef& VertexFactory,
+		const FMaterialRenderProxy* Material, bool bIsWireframe, bool bSupportsDithering, const FRayTracingGeometry* RayTracingGeometry) const
+#else
+	bool FRealtimeMeshSectionProxy::CreateMeshBatch(const FRealtimeMeshBatchCreationParams& Params, const FRealtimeMeshVertexFactoryRef& VertexFactory,
+		const FMaterialRenderProxy* Material, bool bIsWireframe, bool bSupportsDithering) const
+#endif
 	{
-		const FRealtimeMeshVertexFactoryRef VertexFactory = SectionGroup->GetVertexFactory().ToSharedRef();
-
-		if (VertexFactory->GatherVertexBufferResources(ResourceSubmitter))
+		if (!VertexFactory->GatherVertexBufferResources(Params.ResourceSubmitter))
 		{
-			// TODO: Rework this with parent section group as FMeshBatch should be shared and the sections should create FMeshBatchElements
-			
-			FMeshBatch& MeshBatch = BatchAllocator();
-			MeshBatch.LODIndex = FRealtimeMeshKeyHelpers::GetLODIndex(Key);
-	#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-			MeshBatch.VisualizeLODIndex = MeshBatch.LODIndex;
-	#endif
-
-			MeshBatch.SegmentIndex = FRealtimeMeshKeyHelpers::GetSectionGroupIndex(Key);
-			MeshBatch.DepthPriorityGroup = SDPG_World;
-			MeshBatch.bCanApplyViewModeOverrides = false;
-
-			MeshBatch.bDitheredLODTransition = !bIsMovable && LODMask.IsDithered() && bSupportsDithering;
-			MeshBatch.bWireframe = bIsWireframe;
-
-			MeshBatch.MaterialRenderProxy = Material;
-			MeshBatch.ReverseCulling = bIsLocalToWorldDeterminantNegative;
-
-			bool bDepthOnly = false;
-			bool bMatrixInverted = false;
-
-
-			ResourceSubmitter(VertexFactory);
-			MeshBatch.VertexFactory = &VertexFactory.Get();
-			MeshBatch.Type = VertexFactory->GetPrimitiveType();
-
-			MeshBatch.CastShadow = true;// DrawMask.ShouldRenderShadow();
-			MeshBatch.CastRayTracedShadow = bCastRayTracedShadow; //= IsShadowCast(Context.ReferenceView);
-
-			FMeshBatchElement& BatchElement = MeshBatch.Elements[0];
-			BatchElement.UserIndex = FRealtimeMeshKeyHelpers::GetSectionIndex(Key);
-		
-			BatchElement.PrimitiveUniformBuffer = UniformBuffer;
-			BatchElement.IndexBuffer = &VertexFactory->GetIndexBuffer(bDepthOnly, bMatrixInverted, ResourceSubmitter);
-			BatchElement.FirstIndex = 0;
-			BatchElement.NumPrimitives = StreamRange.NumPrimitives(REALTIME_MESH_NUM_INDICES_PER_PRIMITIVE);
-			BatchElement.MinVertexIndex = StreamRange.GetMinVertex();
-			BatchElement.MaxVertexIndex = StreamRange.GetMaxVertex();
-
-			BatchElement.MinScreenSize = ScreenSizeLimits.GetLowerBoundValue();
-			BatchElement.MaxScreenSize = ScreenSizeLimits.GetUpperBoundValue();
-
-
-			BatchSubmitter(MeshBatch, ScreenSizeLimits.GetLowerBoundValue());
+			return false;
 		}
+		
+		FMeshBatch& MeshBatch = Params.BatchAllocator();
+		MeshBatch.LODIndex = FRealtimeMeshKeyHelpers::GetLODIndex(Key);
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+		MeshBatch.VisualizeLODIndex = MeshBatch.LODIndex;
+#endif
+
+		MeshBatch.SegmentIndex = FRealtimeMeshKeyHelpers::GetSectionGroupIndex(Key);
+		MeshBatch.DepthPriorityGroup = SDPG_World;
+		MeshBatch.bCanApplyViewModeOverrides = false;
+
+		MeshBatch.bDitheredLODTransition = !Params.bIsMovable && Params.LODMask.IsDithered() && bSupportsDithering;
+		MeshBatch.bWireframe = bIsWireframe;
+
+		MeshBatch.MaterialRenderProxy = Material;
+		MeshBatch.ReverseCulling = Params.bIsLocalToWorldDeterminantNegative;
+
+		bool bDepthOnly = false;
+		bool bMatrixInverted = false;
+
+		Params.ResourceSubmitter(VertexFactory);
+		MeshBatch.VertexFactory = &VertexFactory.Get();
+		MeshBatch.Type = VertexFactory->GetPrimitiveType();
+
+		MeshBatch.CastShadow = DrawMask.ShouldRenderShadow();
+		MeshBatch.CastRayTracedShadow = Params.bCastRayTracedShadow;
+
+		FMeshBatchElement& BatchElement = MeshBatch.Elements[0];
+		BatchElement.UserIndex = FRealtimeMeshKeyHelpers::GetSectionIndex(Key);
+	
+		BatchElement.PrimitiveUniformBuffer = Params.UniformBuffer;
+		BatchElement.IndexBuffer = &VertexFactory->GetIndexBuffer(bDepthOnly, bMatrixInverted, Params.ResourceSubmitter);
+		BatchElement.FirstIndex = 0;
+		BatchElement.NumPrimitives = StreamRange.NumPrimitives(REALTIME_MESH_NUM_INDICES_PER_PRIMITIVE);
+		BatchElement.MinVertexIndex = StreamRange.GetMinVertex();
+		BatchElement.MaxVertexIndex = StreamRange.GetMaxVertex();
+
+		BatchElement.MinScreenSize = Params.ScreenSizeLimits.GetLowerBoundValue();
+		BatchElement.MaxScreenSize = Params.ScreenSizeLimits.GetUpperBoundValue();
+
+#if RHI_RAYTRACING
+		Params.BatchSubmitter(MeshBatch, Params.ScreenSizeLimits.GetLowerBoundValue(), RayTracingGeometry);
+#else
+		Params.BatchSubmitter(MeshBatch, Params.ScreenSizeLimits.GetLowerBoundValue());
+#endif
+		
 		return true;
 	}
 

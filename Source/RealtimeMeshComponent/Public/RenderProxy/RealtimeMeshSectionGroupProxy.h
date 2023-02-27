@@ -45,6 +45,8 @@ namespace RealtimeMesh
 		FRealtimeMeshSectionProxyPtr GetSection(FRealtimeMeshSectionKey SectionKey) const;
 		TSharedPtr<FRealtimeMeshGPUBuffer> GetStream(FRealtimeMeshStreamKey StreamKey) const;
 
+		virtual bool ShouldCreateRayTracingData() const { return Key.GetLODKey() == 0; }
+
 		void CreateSection(FRealtimeMeshSectionKey SectionKey, const FRealtimeMeshSectionProxyInitializationParametersRef& InitParams);
 		void RemoveSection(FRealtimeMeshSectionKey SectionKey);
 		void RemoveAllSections();
@@ -52,15 +54,14 @@ namespace RealtimeMesh
 		void CreateOrUpdateStreams(const TArray<FRealtimeMeshSectionGroupStreamUpdateDataRef>& InStreams);
 		void RemoveStream(const TArray<FRealtimeMeshStreamKey>& InStreams);
 
-		void PopulateMeshBatches(ERealtimeMeshSectionDrawType DrawType, bool bForceAllDynamic, const FLODMask& LODMask,
-		    const TRange<float>& ScreenSizeLimits, bool bIsMovable, bool bIsLocalToWorldDeterminantNegative, bool bCastRayTracedShadow, FMaterialRenderProxy* WireframeMaterial,
-		    FRHIUniformBuffer* UniformBuffer, const TMap<int32, TTuple<FMaterialRenderProxy*, bool>>& Materials, TFunctionRef<FMeshBatch&()> BatchAllocator,
-		    TFunctionRef<void(FMeshBatch&, float)> BatchSubmitter, TFunctionRef<void(const TSharedRef<FRenderResource>&)> ResourceSubmitter) const;
-
+		void CreateMeshBatches(const FRealtimeMeshBatchCreationParams& Params, const TMap<int32, TTuple<FMaterialRenderProxy*, bool>>& Materials, const FMaterialRenderProxy* WireframeMaterial, ERealtimeMeshSectionDrawType DrawType, bool bForceAllDynamic) const;
+		
 
 		void MarkStateDirty();
 		virtual bool HandleUpdates(bool bShouldForceUpdate);
 		virtual void Reset();
+
+		void UpdateRayTracingInfo();
 
 	private:
 		

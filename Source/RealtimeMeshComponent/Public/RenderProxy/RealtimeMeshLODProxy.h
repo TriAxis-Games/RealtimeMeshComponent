@@ -44,13 +44,8 @@ namespace RealtimeMesh
 		void RemoveSectionGroup(FRealtimeMeshSectionGroupKey SectionGroupKey);
 		void RemoveAllSectionGroups();
 
-		void PopulateMeshBatches(ERealtimeMeshSectionDrawType DrawType, bool bForceAllDynamic, const FLODMask& LODMask,
-		                         const TRange<float>& ScreenSizeLimits, bool bIsMovable, bool bIsLocalToWorldDeterminantNegative, bool bCastRayTracedShadow,
-		                         FMaterialRenderProxy* WireframeMaterial,
-		                         FRHIUniformBuffer* UniformBuffer, const TMap<int32, TTuple<FMaterialRenderProxy*, bool>>& Materials,
-		                         TFunctionRef<FMeshBatch&()> BatchAllocator,
-		                         TFunctionRef<void(FMeshBatch&, float)> BatchSubmitter,
-		                         TFunctionRef<void(const TSharedRef<FRenderResource>&)> ResourceSubmitter) const;
+		void CreateMeshBatches(const FRealtimeMeshBatchCreationParams& Params, const TMap<int32, TTuple<FMaterialRenderProxy*, bool>>& Materials,
+			const FMaterialRenderProxy* WireframeMaterial, ERealtimeMeshSectionDrawType DrawType, bool bForceAllDynamic) const;
 
 
 		void MarkStateDirty();

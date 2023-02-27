@@ -62,6 +62,8 @@ namespace RealtimeMesh
 		});
 
 		ConfigUpdatedEvent.Broadcast(this->AsShared());
+
+		MarkRenderStateDirty(true);
 	}
 
 	FRealtimeMeshSectionGroupKey FRealtimeMeshLODData::CreateSectionGroup()
@@ -82,6 +84,8 @@ namespace RealtimeMesh
 		});
 
 		SectionGroupAddedEvent.Broadcast(this->AsShared(), SectionGroupKey);
+
+		MarkRenderStateDirty(true);
 		return SectionGroupKey;
 	}
 
@@ -100,6 +104,8 @@ namespace RealtimeMesh
 			});
 
 			SectionGroupRemovedEvent.Broadcast(this->AsShared(), SectionGroupKey);
+
+			MarkRenderStateDirty(true);
 		}
 		else
 		{
@@ -129,6 +135,16 @@ namespace RealtimeMesh
 		for (const auto SectionGroup : RemovedSectionGroups)
 		{
 			SectionGroupRemovedEvent.Broadcast(this->AsShared(), SectionGroup);
+		}
+
+		MarkRenderStateDirty(true);
+	}
+
+	void FRealtimeMeshLODData::MarkRenderStateDirty(bool bShouldRecreateProxies)
+	{
+		if (const auto Mesh = MeshWeak.Pin())
+		{
+			Mesh->MarkRenderStateDirty(bShouldRecreateProxies);
 		}
 	}
 

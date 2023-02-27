@@ -115,13 +115,10 @@ namespace RealtimeMesh
 		MarkStateDirty();
 	}
 
-	void FRealtimeMeshSectionGroupProxy::PopulateMeshBatches(ERealtimeMeshSectionDrawType DrawType, bool bForceAllDynamic, const FLODMask& LODMask,
-		const TRange<float>& ScreenSizeLimits, bool bIsMovable, bool bIsLocalToWorldDeterminantNegative, bool bCastRayTracedShadow, FMaterialRenderProxy* WireframeMaterial,
-		FRHIUniformBuffer* UniformBuffer, const TMap<int32, TTuple<FMaterialRenderProxy*, bool>>& Materials, TFunctionRef<FMeshBatch&()> BatchAllocator,
-		TFunctionRef<void(FMeshBatch&, float)> BatchSubmitter, TFunctionRef<void(const TSharedRef<FRenderResource>&)> ResourceSubmitter) const
+	void FRealtimeMeshSectionGroupProxy::CreateMeshBatches(const FRealtimeMeshBatchCreationParams& Params, const TMap<int32, TTuple<FMaterialRenderProxy*, bool>>& Materials, const FMaterialRenderProxy* WireframeMaterial, ERealtimeMeshSectionDrawType DrawType, bool bForceAllDynamic) const
 	{
 		const ERealtimeMeshDrawMask DrawTypeMask = bForceAllDynamic ? ERealtimeMeshDrawMask::DrawPassMask :
-			                                           DrawType == ERealtimeMeshSectionDrawType::Dynamic ? ERealtimeMeshDrawMask::DrawDynamic :	ERealtimeMeshDrawMask::DrawStatic;
+													   DrawType == ERealtimeMeshSectionDrawType::Dynamic ? ERealtimeMeshDrawMask::DrawDynamic :	ERealtimeMeshDrawMask::DrawStatic;
 
 		check(DrawMask.IsAnySet(DrawTypeMask));
 
@@ -131,9 +128,10 @@ namespace RealtimeMesh
 			{
 				check(GetVertexFactory() && GetVertexFactory().IsValid() && GetVertexFactory()->IsInitialized());
 
+				const bool bIsWireframe = WireframeMaterial != nullptr;
+				
 				FMaterialRenderProxy* SectionMaterial = nullptr;
 				bool bSupportsDithering = false;
-				bool bIsWireframe = WireframeMaterial != nullptr;
 
 				if (!bIsWireframe)
 				{
@@ -149,8 +147,11 @@ namespace RealtimeMesh
 					}
 				}
 
-				Section->CreateMeshBatch(this->AsShared(), LODMask, ScreenSizeLimits, bIsMovable, bIsLocalToWorldDeterminantNegative, UniformBuffer,
-				    bIsWireframe ? WireframeMaterial : SectionMaterial, bIsWireframe, bSupportsDithering, bCastRayTracedShadow, BatchAllocator, BatchSubmitter, ResourceSubmitter);
+#if RHI_RAYTRACING
+				Section->CreateMeshBatch(Params, GetVertexFactory().ToSharedRef(), SectionMaterial, bIsWireframe, bSupportsDithering, &RayTracingGeometry);
+#else
+				Section->CreateMeshBatch(Params, GetVertexFactory().ToSharedRef(), SectionMaterial, bIsWireframe, bSupportsDithering);
+#endif
 			}
 		}
 	}
@@ -165,36 +166,7 @@ namespace RealtimeMesh
 		// Handle the vertex factory first so sections can query it
 		if (bIsStateDirty || bShouldForceUpdate)
 		{		
-			VertexFactory->Initialize(Streams);
-
-			// #if RHI_RAYTRACING
-			// if (bShouldSupportRayTracing && IsRayTracingEnabled())
-			// {
-			// 	FRayTracingGeometryInitializer Initializer;
-			// 	// TODO: Get better debug name
-			// 	Initializer.DebugName = TEXT("RealtimeMeshComponent");;
-			// 	Initializer.IndexBuffer = nullptr;
-			// 	Initializer.TotalPrimitiveCount = 0;
-			// 	Initializer.GeometryType = RTGT_Triangles;
-			// 	Initializer.bFastBuild = true;
-			// 	Initializer.bAllowUpdate = false;
-			// 	
-			// 	RayTracingGeometry.SetInitializer(Initializer);
-			// 	RayTracingGeometry.InitResource();
-			// 	
-			// 	RayTracingGeometry.Initializer.IndexBuffer = IndexBuffer.IndexBufferRHI;
-			// 	RayTracingGeometry.Initializer.TotalPrimitiveCount = IndexBuffer.Indices.Num() / 3;
-			// 	
-			// 	FRayTracingGeometrySegment Segment;
-			// 	Segment.VertexBuffer = VertexBuffers.PositionVertexBuffer.VertexBufferRHI;
-			// 	Segment.NumPrimitives = RayTracingGeometry.Initializer.TotalPrimitiveCount;
-			// 	Segment.MaxVertices = VertexBuffers.PositionVertexBuffer.GetNumVertices();
-			// 	RayTracingGeometry.Initializer.Segments.Add(Segment);
-			// 	
-			// 	RayTracingGeometry.UpdateRHI();
-			// }
-			// #endif
-			
+			VertexFactory->Initialize(Streams);			
 		}
 		
 		// Handle all Section updates
@@ -202,6 +174,8 @@ namespace RealtimeMesh
 		{
 			bIsStateDirty |= Section->HandleUpdates(bShouldForceUpdate);
 		}
+
+		bool bHadSectionUpdates = false;
 
 		// Handle remaining state updates
 		if (bIsStateDirty || bShouldForceUpdate)
@@ -215,9 +189,12 @@ namespace RealtimeMesh
 			}
 
 			DrawMask = NewDrawMask;
-			return true;
+			bHadSectionUpdates = true;
 		}
-		return false;
+
+		UpdateRayTracingInfo();
+
+		return bHadSectionUpdates;
 	}
 
 	void FRealtimeMeshSectionGroupProxy::Reset()
@@ -244,9 +221,53 @@ namespace RealtimeMesh
 		DrawMask = FRealtimeMeshDrawMask();
 		bIsStateDirty = false;
 	}
-	
+
+	void FRealtimeMeshSectionGroupProxy::UpdateRayTracingInfo()
+	{
+#if RHI_RAYTRACING
+		RayTracingGeometry.ReleaseResource();
+		if (DrawMask.HasAnyFlags() && VertexFactory.IsValid() && ShouldCreateRayTracingData() && IsRayTracingEnabled())
+		{
+			auto PositionStream = StaticCastSharedPtr<FRealtimeMeshVertexBuffer>(Streams.FindChecked(
+				FRealtimeMeshStreamKey(ERealtimeMeshStreamType::Vertex, FRealtimeMeshLocalVertexFactory::PositionStreamName)));
+			auto IndexStream = StaticCastSharedPtr<FRealtimeMeshIndexBuffer>(Streams.FindChecked(
+				FRealtimeMeshStreamKey(ERealtimeMeshStreamType::Index, FRealtimeMeshLocalVertexFactory::TrianglesStreamName)));
+      			
+			FRayTracingGeometryInitializer Initializer;
+			// TODO: Get better debug name
+			Initializer.DebugName = TEXT("RealtimeMeshComponent");
+			Initializer.IndexBuffer = IndexStream->IndexBufferRHI;
+			Initializer.TotalPrimitiveCount = IndexStream->Num() / 3;
+			Initializer.GeometryType = RTGT_Triangles;
+			Initializer.bFastBuild = true;
+			Initializer.bAllowUpdate = false;
+
+			for (const auto& Section : Sections)
+			{
+				if (Section->GetDrawMask().IsAnySet(ERealtimeMeshDrawMask::DrawDynamic | ERealtimeMeshDrawMask::DrawStatic))
+				{
+					check(GetVertexFactory() && GetVertexFactory().IsValid() && GetVertexFactory()->IsInitialized());
+
+					FRayTracingGeometrySegment Segment;
+					Segment.VertexBuffer = PositionStream->VertexBufferRHI;
+					Segment.VertexBufferOffset = Section->GetStreamRange().GetMinVertex();
+					Segment.MaxVertices = Section->GetStreamRange().NumVertices();
+					Segment.FirstPrimitive = Section->GetStreamRange().GetMinIndex() / 3;
+					Segment.NumPrimitives = Section->GetStreamRange().NumPrimitives(3);
+					Segment.bEnabled = true;
+					Initializer.Segments.Add(Segment);
+				}
+			}			
+			
+			RayTracingGeometry.SetInitializer(Initializer);
+			RayTracingGeometry.InitResource();
+			check(RayTracingGeometry.RayTracingGeometryRHI.IsValid());
+		}
+#endif
+	}
+
 	void FRealtimeMeshSectionGroupProxy::CreateOrUpdateStreamImplementation(TRHIResourceUpdateBatcher<FRealtimeMeshGPUBuffer::RHIUpdateBatchSize>& Batcher,
-		const FRealtimeMeshSectionGroupStreamUpdateDataRef& StreamData)
+	                                                                        const FRealtimeMeshSectionGroupStreamUpdateDataRef& StreamData)
 	{
 		// If we didn't create the buffers async, create them now
 		StreamData->InitializeIfRequired();

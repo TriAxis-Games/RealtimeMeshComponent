@@ -89,7 +89,7 @@ namespace RealtimeMesh
 
 		return TUniformBufferRef<FLocalVertexFactoryUniformShaderParameters>::CreateUniformBufferImmediate(UniformParameters, UniformBuffer_MultiFrame);
 	}
-
+	
 	FIndexBuffer& FRealtimeMeshLocalVertexFactory::GetIndexBuffer(bool& bDepthOnly, bool& bMatrixInverted, TFunctionRef<void(const TSharedRef<FRenderResource>&)> ResourceSubmitter) const
 	{
 		if (bDepthOnly)

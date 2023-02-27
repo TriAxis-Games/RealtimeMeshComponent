@@ -59,7 +59,9 @@ namespace RealtimeMesh
 		FRealtimeMeshSectionGroupKey CreateSectionGroup();
 		void RemoveSectionGroup(FRealtimeMeshSectionGroupKey SectionGroupKey);
 		void RemoveAllSectionGroups();
-
+		
+		virtual void MarkRenderStateDirty(bool bShouldRecreateProxies);
+		
 		FRealtimeMeshLODProxyInitializationParametersRef GetInitializationParams() const;
 		
 		virtual bool Serialize(FArchive& Ar);

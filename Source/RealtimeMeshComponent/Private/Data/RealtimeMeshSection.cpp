@@ -63,6 +63,8 @@ namespace RealtimeMesh
 		FWriteScopeLock ScopeLock(Lock);
 		Config = InConfig;
 		StreamRange = InStreamRange;
+
+		MarkRenderStateDirty(true);
 	}
 
 	void FRealtimeMeshSectionData::UpdateBounds(const FBoxSphereBounds3f& InBounds)
@@ -86,6 +88,8 @@ namespace RealtimeMesh
 		});
 
 		ConfigUpdatedEvent.Broadcast(this->AsShared());
+		
+		MarkRenderStateDirty(true);
 	}
 
 	void FRealtimeMeshSectionData::UpdateStreamRange(const FRealtimeMeshStreamRange& InRange)
@@ -100,6 +104,8 @@ namespace RealtimeMesh
 		});
 
 		StreamRangeUpdatedEvent.Broadcast(this->AsShared());
+		
+		MarkRenderStateDirty(true);
 	}
 
 	bool FRealtimeMeshSectionData::IsVisible() const
@@ -122,6 +128,8 @@ namespace RealtimeMesh
 		});
 
 		ConfigUpdatedEvent.Broadcast(this->AsShared());
+		
+		MarkRenderStateDirty(true);
 	}
 
 	bool FRealtimeMeshSectionData::IsCastingShadow() const
@@ -144,10 +152,20 @@ namespace RealtimeMesh
 		});
 
 		ConfigUpdatedEvent.Broadcast(this->AsShared());
+		
+		MarkRenderStateDirty(true);
+	}
+
+	void FRealtimeMeshSectionData::MarkRenderStateDirty(bool bShouldRecreateProxies)
+	{
+		if (const auto Mesh = MeshWeak.Pin())
+		{
+			Mesh->MarkRenderStateDirty(bShouldRecreateProxies);
+		}
 	}
 
 	void FRealtimeMeshSectionData::OnStreamsChanged(const TArray<FRealtimeMeshStreamKey>& AddedOrUpdatedStreams,
-		const TArray<FRealtimeMeshStreamKey>& RemovedStreams)
+	                                                const TArray<FRealtimeMeshStreamKey>& RemovedStreams)
 	{
 	}
 

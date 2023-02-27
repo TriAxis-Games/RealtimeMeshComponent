@@ -55,23 +55,23 @@ namespace RealtimeMesh
 		FORCEINLINE FRealtimeMeshDrawMask& operator&=(const FRealtimeMeshDrawMask& Other) { MaskValue &= Other.MaskValue; return *this; }
 	};
 
-
 	struct REALTIMEMESHCOMPONENT_API FRealtimeMeshBatchCreationParams
 	{
-		TSharedRef<const FRealtimeMeshSectionGroupProxy>& SectionGroup;
-		TFunctionRef<void(const TSharedRef<FRenderResource>&)> ResourceSubmitter;
-		TFunctionRef<void(FMeshBatch&, float)> BatchSubmitter;
-		TFunctionRef<FMeshBatch&()> BatchAllocator;
-
+		TFunction<void(const TSharedRef<FRenderResource>&)> ResourceSubmitter;
+		TFunction<FMeshBatch&()> BatchAllocator;
+#if RHI_RAYTRACING
+		TFunction<void(FMeshBatch&, float, const FRayTracingGeometry*)> BatchSubmitter;
+#else
+		TFunction<void(FMeshBatch&, float)> BatchSubmitter;
+#endif
+		
 		FRHIUniformBuffer* UniformBuffer;
-		const FMaterialRenderProxy* Material;
 
+		TRange<float> ScreenSizeLimits;
 		FLODMask LODMask;
-		TRange<float>& ScreenSizeLimits;
+		
 		uint32 bIsMovable : 1;
 		uint32 bIsLocalToWorldDeterminantNegative : 1;
-		uint32 bIsWireframe : 1;
-		uint32 bSupportsDithering : 1;
 		uint32 bCastRayTracedShadow : 1;
 	};
 

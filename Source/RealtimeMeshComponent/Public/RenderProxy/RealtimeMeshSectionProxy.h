@@ -33,6 +33,7 @@ namespace RealtimeMesh
 		const FRealtimeMeshSectionConfig& GetConfig() const { return Config; }
 		int32 GetMaterialSlot() const { return Config.MaterialSlot; }
 		FRealtimeMeshDrawMask GetDrawMask() const { return DrawMask; }
+		FRealtimeMeshStreamRange GetStreamRange() const { return StreamRange; }
 
 		// FORCE INLINE bool ShouldRenderDynamicPathRayTracing() const { return ShouldRender(); }
 
@@ -41,12 +42,13 @@ namespace RealtimeMesh
 
 		void UpdateStreamRange(const FRealtimeMeshStreamRange& InStreamRange);
 
-
-		bool CreateMeshBatch(const TSharedRef<const FRealtimeMeshSectionGroupProxy>& SectionGroup, const FLODMask& LODMask, const TRange<float>& ScreenSizeLimits,
-		                     bool bIsMovable, bool bIsLocalToWorldDeterminantNegative,
-		                     FRHIUniformBuffer* UniformBuffer, const FMaterialRenderProxy* Material, bool bIsWireframe, bool bSupportsDithering, bool bCastRayTracedShadow,
-		                     TFunctionRef<FMeshBatch&()> BatchAllocator, TFunctionRef<void(FMeshBatch&, float)> BatchSubmitter,
-		                     TFunctionRef<void(const TSharedRef<FRenderResource>&)> ResourceSubmitter) const;
+#if RHI_RAYTRACING
+		bool CreateMeshBatch(const FRealtimeMeshBatchCreationParams& Params, const FRealtimeMeshVertexFactoryRef& VertexFactory,
+			const FMaterialRenderProxy* Material, bool bIsWireframe, bool bSupportsDithering, const FRayTracingGeometry* RayTracingGeometry) const;
+#else
+		bool CreateMeshBatch(const FRealtimeMeshBatchCreationParams& Params, const FRealtimeMeshVertexFactoryRef& VertexFactory,
+			const FMaterialRenderProxy* Material, bool bIsWireframe, bool bSupportsDithering) const;
+#endif
 
 		void MarkStateDirty();
 		virtual bool HandleUpdates(bool bShouldForceUpdate);

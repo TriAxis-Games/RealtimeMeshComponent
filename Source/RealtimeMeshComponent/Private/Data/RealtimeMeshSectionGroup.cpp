@@ -74,6 +74,8 @@ namespace RealtimeMesh
 
 		// Broadcast stream updated event
 		BroadcastStreamsChanged({ StreamKey }, {});
+		
+		MarkRenderStateDirty(true);
 	}
 
 	void FRealtimeMeshSectionGroup::ClearStream(FRealtimeMeshStreamKey StreamKey)
@@ -85,6 +87,8 @@ namespace RealtimeMesh
 
 		// Broadcast stream updated event
 		BroadcastStreamsChanged({ StreamKey }, {});
+		
+		MarkRenderStateDirty(true);
 	}
 
 	void FRealtimeMeshSectionGroup::RemoveStream(FRealtimeMeshStreamKey StreamKey)
@@ -96,6 +100,8 @@ namespace RealtimeMesh
 			
 		// Broadcast stream removed event
 		BroadcastStreamsChanged({}, { StreamKey });
+		
+		MarkRenderStateDirty(true);
 	}
 
 	void FRealtimeMeshSectionGroup::SetAllStreams(const TArray<FRealtimeMeshStreamKey>& UpdatedStreamKeys, const TArray<FRealtimeMeshStreamKey>& RemovedStreamKeys,
@@ -109,6 +115,8 @@ namespace RealtimeMesh
 		
 		// Broadcast all stream added/removed events
 		BroadcastStreamsChanged(UpdatedStreamKeys, RemovedStreamKeys);
+		
+		MarkRenderStateDirty(true);
 	}
 
 	FRealtimeMeshSectionKey FRealtimeMeshSectionGroup::CreateSection(const FRealtimeMeshSectionConfig& InConfig, const FRealtimeMeshStreamRange& InStreamRange)
@@ -134,6 +142,8 @@ namespace RealtimeMesh
 
 		BroadcastSectionsChanged({SectionKey}, {});
 
+		MarkRenderStateDirty(true);
+
 		return SectionKey;
 	}
 
@@ -151,6 +161,8 @@ namespace RealtimeMesh
 			});
 
 			BroadcastSectionsChanged({}, {SectionKey});
+		
+			MarkRenderStateDirty(true);
 		}
 		else
 		{
@@ -177,6 +189,16 @@ namespace RealtimeMesh
 
 		// Broadcast all stream removed events
 		BroadcastSectionsChanged({}, RemovedSections);
+		
+		MarkRenderStateDirty(true);
+	}
+
+	void FRealtimeMeshSectionGroup::MarkRenderStateDirty(bool bShouldRecreateProxies)
+	{
+		if (const auto Mesh = MeshWeak.Pin())
+		{
+			Mesh->MarkRenderStateDirty(bShouldRecreateProxies);
+		}
 	}
 
 

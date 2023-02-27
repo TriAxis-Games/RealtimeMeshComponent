@@ -128,11 +128,26 @@ namespace RealtimeMesh
 					const auto LODScreenSizes = RealtimeMeshProxy->GetScreenSizeLimits(LODIndex);
 
 					FMeshBatch MeshBatch;
-					RealtimeMeshProxy->PopulateSectionMeshBatches(ERealtimeMeshSectionDrawType::Static, false, LODIndex, LODMask, LODScreenSizes,
-						IsMovable(), IsLocalToWorldDeterminantNegative(), bCastRayTracedShadow, nullptr, GetUniformBuffer(), Materials,
-						[&MeshBatch]()-> FMeshBatch& { MeshBatch = FMeshBatch(); return MeshBatch; },
-						[&PDI](const FMeshBatch& Batch, float MinScreenSize) { PDI->DrawMesh(Batch, MinScreenSize); },
-						[this](const TSharedRef<FRenderResource>& Resource) { InUseBuffers.Add(Resource); });
+					FRealtimeMeshBatchCreationParams Params
+					{
+							[this](const TSharedRef<FRenderResource>& Resource) { InUseBuffers.Add(Resource); },
+							[&MeshBatch]()-> FMeshBatch& { MeshBatch = FMeshBatch(); return MeshBatch; },		
+#if RHI_RAYTRACING
+							[&PDI](const FMeshBatch& Batch, float MinScreenSize, const FRayTracingGeometry*) { PDI->DrawMesh(Batch, MinScreenSize); },					
+#else
+							[&PDI](const FMeshBatch& Batch, float MinScreenSize) { PDI->DrawMesh(Batch, MinScreenSize); },					
+#endif
+							GetUniformBuffer(),
+							LODScreenSizes,
+							LODMask,
+							IsMovable(),
+							IsLocalToWorldDeterminantNegative(),
+							bCastRayTracedShadow
+						};
+
+					RealtimeMeshProxy->CreateMeshBatches(LODIndex, Params, Materials, nullptr, ERealtimeMeshSectionDrawType::Static, false);
+
+					
 				}
 			}
 		}
@@ -189,11 +204,24 @@ namespace RealtimeMesh
 
 							const auto LODScreenSizes = RealtimeMeshProxy->GetScreenSizeLimits(LODIndex);
 
-							RealtimeMeshProxy->PopulateSectionMeshBatches(ERealtimeMeshSectionDrawType::Dynamic, bForceDynamicPath, LODIndex, LODMask, LODScreenSizes,
-								IsMovable(), IsLocalToWorldDeterminantNegative(), bCastRayTracedShadow, WireframeMaterialInstance, GetUniformBuffer(), Materials,
-								[&Collector]()-> FMeshBatch& { return Collector.AllocateMesh(); },
+							FRealtimeMeshBatchCreationParams Params
+							{
+								[](const TSharedRef<FRenderResource>&) { },
+								[&Collector]()-> FMeshBatch& { return Collector.AllocateMesh(); },								
+#if RHI_RAYTRACING
+								[&Collector, ViewIndex](FMeshBatch& Batch, float, const FRayTracingGeometry*) { Collector.AddMesh(ViewIndex, Batch); },
+#else
 								[&Collector, ViewIndex](FMeshBatch& Batch, float) { Collector.AddMesh(ViewIndex, Batch); },
-								[](const TSharedRef<FRenderResource>&) { });
+#endif
+								GetUniformBuffer(),
+								LODScreenSizes,
+								LODMask,
+								IsMovable(),
+								IsLocalToWorldDeterminantNegative(),
+								bCastRayTracedShadow
+							};
+
+							RealtimeMeshProxy->CreateMeshBatches(LODIndex, Params, Materials, WireframeMaterialInstance, ERealtimeMeshSectionDrawType::Dynamic, bForceDynamicPath);
 						}
 					}
 				}
@@ -226,51 +254,59 @@ namespace RealtimeMesh
 #if RHI_RAYTRACING
 	void FRealtimeMeshComponentSceneProxy::GetDynamicRayTracingInstances(struct FRayTracingMaterialGatheringContext& Context, TArray<struct FRayTracingInstance>& OutRayTracingInstances)
 	{
-		//this->RayTracingGeometries
-		//SCOPE_CYCLE_COUNTER(STAT_RealtimeMeshComponentSceneProxy_GetDynamicRayTracingInstances);
+		SCOPE_CYCLE_COUNTER(STAT_RealtimeMeshComponentSceneProxy_GetDynamicRayTracingInstances);
 
-		//// TODO: Should this use any LOD determination logic? Or always use a specific LOD?
-		//int32 LODIndex = 0;
-		//
-		//if (RealtimeMeshProxy->HasValidLODs())
-		//{
-		//	auto& LOD = RealtimeMeshProxy->GetLOD(LODIndex);
-
-		//	for (const auto& SectionEntry : LOD.Sections)
-		//	{
-		//		int32 SectionId = SectionEntry.Key;
-		//		auto& Section = SectionEntry.Value;
-
-		//		if (Section.ShouldRenderDynamicPathRayTracing())
-		//		{
-		//			UMaterialInterface* SectionMat = GetMaterialSlot(Section.MaterialSlot);
-		//			check(SectionMat);
-
-		//			FRayTracingGeometry* SectionRayTracingGeometry = &Section.Buffers->RayTracingGeometry;
-
-		//			if (SectionRayTracingGeometry->RayTracingGeometryRHI->IsValid())
-		//			{
-		//				check(SectionRayTracingGeometry->Initializer.TotalPrimitiveCount > 0);
-		//				check(SectionRayTracingGeometry->Initializer.IndexBuffer.IsValid());
-
-		//				FRayTracingInstance RayTracingInstance;
-		//				RayTracingInstance.Geometry = SectionRayTracingGeometry;
-		//				RayTracingInstance.InstanceTransforms.Add(GetLocalToWorld());
-
-		//				FMeshBatch MeshBatch;
-		//				CreateMeshBatch(MeshBatch, Section, LODIndex, SectionId, SectionMat, nullptr, true);
+		// Make sure all pending changes have been processed
+		RealtimeMeshProxy->HandleUpdates(false);
+		
+		// TODO: Should this use any LOD determination logic? Or always use a specific LOD?
+		const int32 LODIndex = 0;
 
 
-		//				MeshBatch.CastRayTracedShadow = IsShadowCast(Context.ReferenceView);
+		
+		if (RealtimeMeshProxy->GetDrawMask().HasAnyFlags())
+		{
+			if (auto LOD = RealtimeMeshProxy->GetLOD(LODIndex))
+			{
+				if (LOD.IsValid() && LOD->GetDrawMask().IsAnySet(ERealtimeMeshDrawMask::DrawDynamic | ERealtimeMeshDrawMask::DrawStatic))
+				{
+					FLODMask LODMask;
+					LODMask.SetLOD(LODIndex);
 
+					const auto LODScreenSizes = RealtimeMeshProxy->GetScreenSizeLimits(LODIndex);
+				
+					FMeshBatch MeshBatch;
+					FRealtimeMeshBatchCreationParams Params
+					{
+						[](const TSharedRef<FRenderResource>&) {  },
+						[MeshBatch = &MeshBatch]()-> FMeshBatch& { *MeshBatch = FMeshBatch(); return *MeshBatch; },	
+						[&OutRayTracingInstances, LocalToWorld = GetLocalToWorld(), FeatureLevel = GetScene().GetFeatureLevel()](const FMeshBatch& Batch, float MinScreenSize, const FRayTracingGeometry* RayTracingGeometry)
+						{
+							check(RayTracingGeometry->Initializer.TotalPrimitiveCount > 0);
+							check(RayTracingGeometry->Initializer.IndexBuffer.IsValid());
+							checkf(RayTracingGeometry->RayTracingGeometryRHI, TEXT("Ray tracing instance must have a valid geometry."));
+							FRayTracingInstance RayTracingInstance;
+							RayTracingInstance.Geometry = RayTracingGeometry;
+							RayTracingInstance.InstanceTransforms.Add(LocalToWorld);
+							
+							RayTracingInstance.Materials.Add(Batch);
+							RayTracingInstance.BuildInstanceMaskAndFlags(FeatureLevel);
+							OutRayTracingInstances.Add(RayTracingInstance);
+						},
+						GetUniformBuffer(),
+						LODScreenSizes,
+						LODMask,
+						IsMovable(),
+						IsLocalToWorldDeterminantNegative(),
+						IsShadowCast(Context.ReferenceView)
+					};
 
-		//				RayTracingInstance.Materials.Add(MeshBatch);
-		//				RayTracingInstance.BuildInstanceMaskAndFlags();
-		//				OutRayTracingInstances.Add(RayTracingInstance);
-		//			}
-		//		}
-		//	}
-		//}
+					RealtimeMeshProxy->CreateMeshBatches(LODIndex, Params, Materials, nullptr, ERealtimeMeshSectionDrawType::Dynamic, true /* bForceDynamicPath */);
+				}		
+			}
+		}
+
+		check(true);
 	}
 #endif // RHI_RAYTRACING
 

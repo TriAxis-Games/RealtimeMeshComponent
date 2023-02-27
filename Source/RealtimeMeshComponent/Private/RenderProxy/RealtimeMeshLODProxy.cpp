@@ -67,10 +67,8 @@ namespace RealtimeMesh
 		MarkStateDirty();
 	}
 
-	void FRealtimeMeshLODProxy::PopulateMeshBatches(ERealtimeMeshSectionDrawType DrawType, bool bForceAllDynamic, const FLODMask& LODMask,
-        const TRange<float>& ScreenSizeLimits, bool bIsMovable, bool bIsLocalToWorldDeterminantNegative, bool bCastRayTracedShadow, FMaterialRenderProxy* WireframeMaterial,
-        FRHIUniformBuffer* UniformBuffer, const TMap<int32, TTuple<FMaterialRenderProxy*, bool>>& Materials, TFunctionRef<FMeshBatch&()> BatchAllocator,
-        TFunctionRef<void(FMeshBatch&, float)> BatchSubmitter, TFunctionRef<void(const TSharedRef<FRenderResource>&)> ResourceSubmitter) const
+	void FRealtimeMeshLODProxy::CreateMeshBatches(const FRealtimeMeshBatchCreationParams& Params, const TMap<int32, TTuple<FMaterialRenderProxy*, bool>>& Materials,
+		const FMaterialRenderProxy* WireframeMaterial, ERealtimeMeshSectionDrawType DrawType, bool bForceAllDynamic) const
 	{
 		const ERealtimeMeshDrawMask DrawTypeMask = bForceAllDynamic ? ERealtimeMeshDrawMask::DrawPassMask :
 			DrawType == ERealtimeMeshSectionDrawType::Dynamic ? ERealtimeMeshDrawMask::DrawDynamic :	ERealtimeMeshDrawMask::DrawStatic;
@@ -81,8 +79,7 @@ namespace RealtimeMesh
 			{
 				if (SectionGroup->GetDrawMask().IsAnySet(DrawTypeMask))
 				{
-					SectionGroup->PopulateMeshBatches(DrawType, bForceAllDynamic, LODMask, ScreenSizeLimits, bIsMovable, bIsLocalToWorldDeterminantNegative, bCastRayTracedShadow,
-						WireframeMaterial, UniformBuffer, Materials, BatchAllocator, BatchSubmitter, ResourceSubmitter);
+					SectionGroup->CreateMeshBatches(Params, Materials, WireframeMaterial, DrawType, bForceAllDynamic);
 				}
 			}
 		}
