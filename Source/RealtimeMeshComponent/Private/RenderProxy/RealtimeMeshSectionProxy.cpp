@@ -75,7 +75,9 @@ namespace RealtimeMesh
 		MeshBatch.Type = VertexFactory->GetPrimitiveType();
 
 		MeshBatch.CastShadow = DrawMask.ShouldRenderShadow();
+#if RHI_RAYTRACING
 		MeshBatch.CastRayTracedShadow = Params.bCastRayTracedShadow;
+#endif
 
 		FMeshBatchElement& BatchElement = MeshBatch.Elements[0];
 		BatchElement.UserIndex = FRealtimeMeshKeyHelpers::GetSectionIndex(Key);
