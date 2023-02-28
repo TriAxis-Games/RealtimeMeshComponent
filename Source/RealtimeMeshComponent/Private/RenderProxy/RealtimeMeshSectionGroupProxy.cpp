@@ -96,10 +96,14 @@ namespace RealtimeMesh
 	{
 		TRHIResourceUpdateBatcher<FRealtimeMeshGPUBuffer::RHIUpdateBatchSize> Batcher;
 
+		TArray<FRealtimeMeshStreamKey> UpdatedStreams;
 		for (const auto& Stream : InStreams)
 		{
+			UpdatedStreams.Add(Stream->GetStreamKey());
 			CreateOrUpdateStreamImplementation(Batcher, Stream);
 		}
+
+		AlertSectionsOfStreamUpdates(UpdatedStreams, { });
 		
 		MarkStateDirty();
 	}
@@ -111,6 +115,8 @@ namespace RealtimeMesh
 			Streams[Stream]->ReleaseUnderlyingResource();
 			Streams.Remove(Stream);
 		}
+		
+		AlertSectionsOfStreamUpdates({ }, InStreams);
 
 		MarkStateDirty();
 	}
@@ -145,12 +151,13 @@ namespace RealtimeMesh
 					{
 						SectionMaterial = UMaterial::GetDefaultMaterial(MD_Surface)->GetRenderProxy();
 					}
+					ensure(SectionMaterial);
 				}
 
 #if RHI_RAYTRACING
-				Section->CreateMeshBatch(Params, GetVertexFactory().ToSharedRef(), SectionMaterial, bIsWireframe, bSupportsDithering, &RayTracingGeometry);
+				Section->CreateMeshBatch(Params, GetVertexFactory().ToSharedRef(), bIsWireframe? WireframeMaterial : SectionMaterial, bIsWireframe, bSupportsDithering, &RayTracingGeometry);
 #else
-				Section->CreateMeshBatch(Params, GetVertexFactory().ToSharedRef(), SectionMaterial, bIsWireframe, bSupportsDithering);
+				Section->CreateMeshBatch(Params, GetVertexFactory().ToSharedRef(), bIsWireframe? WireframeMaterial : SectionMaterial, bIsWireframe, bSupportsDithering);
 #endif
 			}
 		}
@@ -192,7 +199,10 @@ namespace RealtimeMesh
 			bHadSectionUpdates = true;
 		}
 
-		UpdateRayTracingInfo();
+		if (bHadSectionUpdates)
+		{
+			UpdateRayTracingInfo();
+		}
 
 		return bHadSectionUpdates;
 	}
@@ -237,7 +247,7 @@ namespace RealtimeMesh
 			// TODO: Get better debug name
 			Initializer.DebugName = TEXT("RealtimeMeshComponent");
 			Initializer.IndexBuffer = IndexStream->IndexBufferRHI;
-			Initializer.TotalPrimitiveCount = IndexStream->Num() / 3;
+			Initializer.TotalPrimitiveCount = 0;
 			Initializer.GeometryType = RTGT_Triangles;
 			Initializer.bFastBuild = true;
 			Initializer.bAllowUpdate = false;
@@ -255,6 +265,7 @@ namespace RealtimeMesh
 					Segment.FirstPrimitive = Section->GetStreamRange().GetMinIndex() / 3;
 					Segment.NumPrimitives = Section->GetStreamRange().NumPrimitives(3);
 					Segment.bEnabled = true;
+					Initializer.TotalPrimitiveCount += Segment.NumPrimitives;
 					Initializer.Segments.Add(Segment);
 				}
 			}			
@@ -302,5 +313,14 @@ namespace RealtimeMesh
 	{
 		const int32 SectionIndex = FRealtimeMeshKeyHelpers::GetSectionIndex(SectionKey);
 		Sections.Insert(SectionIndex, ClassFactory->CreateSectionProxy(ProxyWeak.Pin().ToSharedRef(), SectionKey, InitParams));
+	}
+		
+	void FRealtimeMeshSectionGroupProxy::AlertSectionsOfStreamUpdates(const TArray<FRealtimeMeshStreamKey>& AddedOrUpdatedStreams,
+		const TArray<FRealtimeMeshStreamKey>& RemovedStreams)
+	{
+		for (const auto& Section : Sections)
+		{
+			Section->OnStreamsUpdated(AddedOrUpdatedStreams, RemovedStreams);
+		}
 	}
 }

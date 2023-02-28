@@ -4,6 +4,10 @@
 
 #include "RealtimeMeshDataTypes.h"
 #include "RenderProxy/RealtimeMeshGPUBuffer.h"
+#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION == 0
+// Included for TMakeUnsigned in 5.0
+#include "Containers/RingBuffer.h"
+#endif
 
 namespace RealtimeMesh
 {

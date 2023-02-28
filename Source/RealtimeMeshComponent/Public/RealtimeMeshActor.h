@@ -38,8 +38,9 @@ public:
 	 * be rebuilt. GeneratedDynamicMeshActor BP subclasses should rebuild their 
 	 * meshes on this event, instead of doing so directly from the Construction Script.
 	 */
-	UFUNCTION(BlueprintImplementableEvent, CallInEditor, Category = "Events")
+	UFUNCTION(BlueprintNativeEvent, CallInEditor, Category = "Events")
 	void OnGenerateMesh();
+	virtual void OnGenerateMesh_Implementation() { }
 
 
 	/**

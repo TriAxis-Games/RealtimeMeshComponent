@@ -13,6 +13,7 @@
 DECLARE_CYCLE_STAT(TEXT("RealtimeMeshComponent - Collision Data Received"), STAT_RealtimeMeshComponent_NewCollisionMeshReceived, STATGROUP_RealtimeMesh);
 DECLARE_CYCLE_STAT(TEXT("RealtimeMeshComponent - Create Scene Proxy"), STAT_RealtimeMeshComponent_CreateSceneProxy, STATGROUP_RealtimeMesh);
 
+PRAGMA_DISABLE_OPTIMIZATION
 
 URealtimeMeshComponent::URealtimeMeshComponent()
 {
@@ -51,12 +52,12 @@ void URealtimeMeshComponent::SetRealtimeMesh(URealtimeMesh* NewMesh)
 	}
 }
 
-URealtimeMesh* URealtimeMeshComponent::InitializeRealtimeMesh(TSubclassOf<URealtimeMesh> MeshClass, UObject* CustomOuter)
+URealtimeMesh* URealtimeMeshComponent::InitializeRealtimeMesh(TSubclassOf<URealtimeMesh> MeshClass)
 {
 	URealtimeMesh* NewMesh = nullptr;
 	if (MeshClass)
 	{
-		NewMesh = NewObject<URealtimeMesh>(IsValid(CustomOuter)? CustomOuter : this, MeshClass);		
+		NewMesh = NewObject<URealtimeMesh>(IsValid(GetOuter())? GetOuter() : this, MeshClass);		
 		SetRealtimeMesh(NewMesh);
 	}
 	SetRealtimeMesh(NewMesh);
@@ -255,3 +256,4 @@ void URealtimeMeshComponent::UpdateCollision()
 	FNavigationSystem::UpdateComponentData(*this);
 }
 
+PRAGMA_ENABLE_OPTIMIZATION

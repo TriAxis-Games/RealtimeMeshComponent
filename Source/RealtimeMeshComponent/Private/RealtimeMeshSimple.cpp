@@ -14,151 +14,151 @@ namespace RealtimeMesh
 	namespace RealtimeMeshSimpleInternal
 	{
 		template<typename TangentType, typename TexCoordType, typename IndexType>
-		TSharedRef<RealtimeMesh::FRealtimeMeshVertexDataBuilder> BuildMeshData(FName ComponentName, const TArray<int32>& Triangles,
-			const FRealtimeMeshSimpleVertexData& Vertices, bool bRemoveDegenerates)
+		TSharedRef<RealtimeMesh::FRealtimeMeshVertexDataBuilder> BuildMeshData(FName ComponentName,
+			const FRealtimeMeshSimpleMeshData& MeshData, bool bRemoveDegenerates)
 		{
 			const auto Builder = MakeShared<RealtimeMesh::FRealtimeMeshVertexDataBuilder>();
 
 			// Build position buffer
 			const auto PositionBuffer = Builder->CreateVertexStream<FVector3f>(RealtimeMesh::FRealtimeMeshLocalVertexFactory::PositionStreamName);
-			PositionBuffer->Append<FVector3f>(Vertices.Positions.Num(), [&Vertices](int32 Index) -> FVector3f { return FVector3f(Vertices.Positions[Index]); });
+			PositionBuffer->Append<FVector3f>(MeshData.Positions.Num(), [&MeshData](int32 Index) -> FVector3f { return FVector3f(MeshData.Positions[Index]); });
 
 			// Build tangents buffer
 			{
-				const int32 TangentsToCopy = FMath::Min(Vertices.Positions.Num(), FMath::Max(Vertices.Tangents.Num(), Vertices.Normals.Num()));
+				const int32 TangentsToCopy = FMath::Min(MeshData.Positions.Num(), FMath::Max(MeshData.Tangents.Num(), MeshData.Normals.Num()));
 				using TangentsBufferType = RealtimeMesh::FRealtimeMeshTangents<TangentType>;
 				auto TangentsBuffer = Builder->CreateVertexStream<TangentsBufferType>(RealtimeMesh::FRealtimeMeshLocalVertexFactory::TangentsStreamName);
-				TangentsBuffer->template Append<TangentsBufferType>(TangentsToCopy, [&Vertices](int32 Index) -> TangentsBufferType
+				TangentsBuffer->template Append<TangentsBufferType>(TangentsToCopy, [&MeshData](int32 Index) -> TangentsBufferType
 				{
-					const FVector Normal = Vertices.Normals.IsValidIndex(Index)? Vertices.Normals[Index] : FVector::ZAxisVector;
-					const FVector Tangent = Vertices.Tangents.IsValidIndex(Index)? Vertices.Tangents[Index] : FVector::XAxisVector;
-					const FVector Binormal = Vertices.Binormals.IsValidIndex(Index)? Vertices.Binormals[Index] : FVector::CrossProduct(Normal, Tangent);
+					const FVector Normal = MeshData.Normals.IsValidIndex(Index)? MeshData.Normals[Index] : FVector::ZAxisVector;
+					const FVector Tangent = MeshData.Tangents.IsValidIndex(Index)? MeshData.Tangents[Index] : FVector::XAxisVector;
+					const FVector Binormal = MeshData.Binormals.IsValidIndex(Index)? MeshData.Binormals[Index] : FVector::CrossProduct(Normal, Tangent);
 					const float TangentYSign = GetBasisDeterminantSign(Tangent, Binormal, Normal);
 			
 					return TangentsBufferType(FVector4(Normal), FVector4(Tangent, TangentYSign));
 				});
 
-				if (TangentsToCopy < Vertices.Positions.Num())
+				if (TangentsToCopy < MeshData.Positions.Num())
 				{
-					TangentsBuffer->AddZeroed(Vertices.Positions.Num() - TangentsToCopy);
+					TangentsBuffer->AddZeroed(MeshData.Positions.Num() - TangentsToCopy);
 				}
 			}
 
 			// Build color buffer from linear colors
 			{
 				const auto ColorBuffer = Builder->CreateVertexStream<FColor>(RealtimeMesh::FRealtimeMeshLocalVertexFactory::ColorStreamName);
-				if (Vertices.LinearColors.Num() > 0)
+				if (MeshData.LinearColors.Num() > 0)
 				{
-					ColorBuffer->Append<FColor>(Vertices.Positions.Num(), [&Vertices](int32 Index) -> FColor
+					ColorBuffer->Append<FColor>(MeshData.Positions.Num(), [&MeshData](int32 Index) -> FColor
 					{
-						return Vertices.LinearColors.IsValidIndex(Index)? Vertices.LinearColors[Index].ToFColor(false) : FColor::White;
+						return MeshData.LinearColors.IsValidIndex(Index)? MeshData.LinearColors[Index].ToFColor(false) : FColor::White;
 					});
 				}
 				else
 				{
-					ColorBuffer->Append<FColor>(Vertices.Positions.Num(), [&Vertices](int32 Index) -> FColor
+					ColorBuffer->Append<FColor>(MeshData.Positions.Num(), [&MeshData](int32 Index) -> FColor
 					{
-						return Vertices.Colors.IsValidIndex(Index)? Vertices.Colors[Index] : FColor::White;
+						return MeshData.Colors.IsValidIndex(Index)? MeshData.Colors[Index] : FColor::White;
 					});			
 				}
 			}
 
 			// Build tex coord buffer
 			{
-				if (Vertices.UV3.Num() > 0)
+				if (MeshData.UV3.Num() > 0)
 				{
-					const int32 TexCoordsToCopy = FMath::Min(Vertices.Positions.Num(), FMath::Max(FMath::Max(Vertices.UV0.Num(), Vertices.UV1.Num()), FMath::Max(Vertices.UV2.Num(), Vertices.UV3.Num())));
+					const int32 TexCoordsToCopy = FMath::Min(MeshData.Positions.Num(), FMath::Max(FMath::Max(MeshData.UV0.Num(), MeshData.UV1.Num()), FMath::Max(MeshData.UV2.Num(), MeshData.UV3.Num())));
 					using TexCoordBufferType = RealtimeMesh::FRealtimeMeshTexCoord<TexCoordType, 4>;
 					auto TexCoordBuffer = Builder->CreateVertexStream<TexCoordBufferType>(RealtimeMesh::FRealtimeMeshLocalVertexFactory::TexCoordsStreamName);
-					TexCoordBuffer->template Append<TexCoordBufferType>(TexCoordsToCopy, [&Vertices](int32 Index) -> TexCoordBufferType
+					TexCoordBuffer->template Append<TexCoordBufferType>(TexCoordsToCopy, [&MeshData](int32 Index) -> TexCoordBufferType
 					{
 						TexCoordBufferType NewUVs;
-						NewUVs[0] = Vertices.UV0.IsValidIndex(Index)? FVector2f(Vertices.UV0[Index]) : FVector2f::ZeroVector;
-						NewUVs[1] = Vertices.UV1.IsValidIndex(Index)? FVector2f(Vertices.UV1[Index]) : FVector2f::ZeroVector;
-						NewUVs[2] = Vertices.UV2.IsValidIndex(Index)? FVector2f(Vertices.UV2[Index]) : FVector2f::ZeroVector;
-						NewUVs[3] = Vertices.UV3.IsValidIndex(Index)? FVector2f(Vertices.UV3[Index]) : FVector2f::ZeroVector;
+						NewUVs[0] = MeshData.UV0.IsValidIndex(Index)? FVector2f(MeshData.UV0[Index]) : FVector2f::ZeroVector;
+						NewUVs[1] = MeshData.UV1.IsValidIndex(Index)? FVector2f(MeshData.UV1[Index]) : FVector2f::ZeroVector;
+						NewUVs[2] = MeshData.UV2.IsValidIndex(Index)? FVector2f(MeshData.UV2[Index]) : FVector2f::ZeroVector;
+						NewUVs[3] = MeshData.UV3.IsValidIndex(Index)? FVector2f(MeshData.UV3[Index]) : FVector2f::ZeroVector;
 						return NewUVs;
 					});
 
-					if (TexCoordsToCopy < Vertices.Positions.Num())
+					if (TexCoordsToCopy < MeshData.Positions.Num())
 					{
-						TexCoordBuffer->AddZeroed(Vertices.Positions.Num() - TexCoordsToCopy);
+						TexCoordBuffer->AddZeroed(MeshData.Positions.Num() - TexCoordsToCopy);
 					}
 				}
-				else if (Vertices.UV2.Num() > 0)
+				else if (MeshData.UV2.Num() > 0)
 				{
-					const int32 TexCoordsToCopy = FMath::Min(Vertices.Positions.Num(), FMath::Max(FMath::Max(Vertices.UV0.Num(), Vertices.UV1.Num()), Vertices.UV2.Num()));
+					const int32 TexCoordsToCopy = FMath::Min(MeshData.Positions.Num(), FMath::Max(FMath::Max(MeshData.UV0.Num(), MeshData.UV1.Num()), MeshData.UV2.Num()));
 					using TexCoordBufferType = RealtimeMesh::FRealtimeMeshTexCoord<TexCoordType, 3>;
 					auto TexCoordBuffer = Builder->CreateVertexStream<TexCoordBufferType>(RealtimeMesh::FRealtimeMeshLocalVertexFactory::TexCoordsStreamName);
-					TexCoordBuffer->template Append<TexCoordBufferType>(TexCoordsToCopy, [&Vertices](int32 Index) -> TexCoordBufferType
+					TexCoordBuffer->template Append<TexCoordBufferType>(TexCoordsToCopy, [&MeshData](int32 Index) -> TexCoordBufferType
 					{
 						TexCoordBufferType NewUVs;
-						NewUVs[0] = Vertices.UV0.IsValidIndex(Index)? FVector2f(Vertices.UV0[Index]) : FVector2f::ZeroVector;
-						NewUVs[1] = Vertices.UV1.IsValidIndex(Index)? FVector2f(Vertices.UV1[Index]) : FVector2f::ZeroVector;
-						NewUVs[2] = Vertices.UV2.IsValidIndex(Index)? FVector2f(Vertices.UV2[Index]) : FVector2f::ZeroVector;
+						NewUVs[0] = MeshData.UV0.IsValidIndex(Index)? FVector2f(MeshData.UV0[Index]) : FVector2f::ZeroVector;
+						NewUVs[1] = MeshData.UV1.IsValidIndex(Index)? FVector2f(MeshData.UV1[Index]) : FVector2f::ZeroVector;
+						NewUVs[2] = MeshData.UV2.IsValidIndex(Index)? FVector2f(MeshData.UV2[Index]) : FVector2f::ZeroVector;
 						return NewUVs;
 					});	
 
-					if (TexCoordsToCopy < Vertices.Positions.Num())
+					if (TexCoordsToCopy < MeshData.Positions.Num())
 					{
-						TexCoordBuffer->AddZeroed(Vertices.Positions.Num() - TexCoordsToCopy);
+						TexCoordBuffer->AddZeroed(MeshData.Positions.Num() - TexCoordsToCopy);
 					}	
 				}
-				else if (Vertices.UV1.Num() > 0)
+				else if (MeshData.UV1.Num() > 0)
 				{
-					const int32 TexCoordsToCopy = FMath::Min(Vertices.Positions.Num(), FMath::Max(Vertices.UV0.Num(), Vertices.UV1.Num()));
+					const int32 TexCoordsToCopy = FMath::Min(MeshData.Positions.Num(), FMath::Max(MeshData.UV0.Num(), MeshData.UV1.Num()));
 					using TexCoordBufferType = RealtimeMesh::FRealtimeMeshTexCoord<TexCoordType, 2>;
 					auto TexCoordBuffer = Builder->CreateVertexStream<TexCoordBufferType>(RealtimeMesh::FRealtimeMeshLocalVertexFactory::TexCoordsStreamName);
-					TexCoordBuffer->template Append<TexCoordBufferType>(TexCoordsToCopy, [&Vertices](int32 Index) -> TexCoordBufferType
+					TexCoordBuffer->template Append<TexCoordBufferType>(TexCoordsToCopy, [&MeshData](int32 Index) -> TexCoordBufferType
 					{
 						TexCoordBufferType NewUVs;
-						NewUVs[0] = Vertices.UV0.IsValidIndex(Index)? FVector2f(Vertices.UV0[Index]) : FVector2f::ZeroVector;
-						NewUVs[1] = Vertices.UV1.IsValidIndex(Index)? FVector2f(Vertices.UV1[Index]) : FVector2f::ZeroVector;
+						NewUVs[0] = MeshData.UV0.IsValidIndex(Index)? FVector2f(MeshData.UV0[Index]) : FVector2f::ZeroVector;
+						NewUVs[1] = MeshData.UV1.IsValidIndex(Index)? FVector2f(MeshData.UV1[Index]) : FVector2f::ZeroVector;
 						return NewUVs;
 					});
 
-					if (TexCoordsToCopy < Vertices.Positions.Num())
+					if (TexCoordsToCopy < MeshData.Positions.Num())
 					{
-						TexCoordBuffer->AddZeroed(Vertices.Positions.Num() - TexCoordsToCopy);
+						TexCoordBuffer->AddZeroed(MeshData.Positions.Num() - TexCoordsToCopy);
 					}
 				}
 				else
 				{
-					const int32 TexCoordsToCopy = FMath::Min(Vertices.Positions.Num(), Vertices.UV0.Num());
+					const int32 TexCoordsToCopy = FMath::Min(MeshData.Positions.Num(), MeshData.UV0.Num());
 					using TexCoordBufferType = RealtimeMesh::FRealtimeMeshTexCoord<TexCoordType, 1>;
 					auto TexCoordBuffer = Builder->CreateVertexStream<TexCoordBufferType>(RealtimeMesh::FRealtimeMeshLocalVertexFactory::TexCoordsStreamName);
-					TexCoordBuffer->template Append<TexCoordBufferType>(Vertices.Positions.Num(), [&Vertices](int32 Index) -> TexCoordBufferType
+					TexCoordBuffer->template Append<TexCoordBufferType>(MeshData.Positions.Num(), [&MeshData](int32 Index) -> TexCoordBufferType
 					{
 						TexCoordBufferType NewUVs;
-						NewUVs[0] = Vertices.UV0.IsValidIndex(Index)? FVector2f(Vertices.UV0[Index]) : FVector2f::ZeroVector;
+						NewUVs[0] = MeshData.UV0.IsValidIndex(Index)? FVector2f(MeshData.UV0[Index]) : FVector2f::ZeroVector;
 						return NewUVs;
 					});	
 
-					if (TexCoordsToCopy < Vertices.Positions.Num())
+					if (TexCoordsToCopy < MeshData.Positions.Num())
 					{
-						TexCoordBuffer->AddZeroed(Vertices.Positions.Num() - TexCoordsToCopy);
+						TexCoordBuffer->AddZeroed(MeshData.Positions.Num() - TexCoordsToCopy);
 					}	
 				}
 			}
 			
-			const TArray<int32>* FinalTriangles = &Triangles;
+			const TArray<int32>* FinalTriangles = &MeshData.Triangles;
 			TArray<int32> CleanTriangles;
 			if (bRemoveDegenerates)
 			{
 				// Get triangle indices, clamping to vertex range
-				const int32 MaxIndex = Vertices.Positions.Num() - 1;
-				const auto GetTriIndices = [&Triangles, MaxIndex](int32 Idx)
+				const int32 MaxIndex = MeshData.Positions.Num() - 1;
+				const auto GetTriIndices = [&MeshData, MaxIndex](int32 Idx)
 				{
-					return TTuple<int32, int32, int32>(FMath::Min(Triangles[Idx    ], MaxIndex),
-													   FMath::Min(Triangles[Idx + 1], MaxIndex),
-													   FMath::Min(Triangles[Idx + 2], MaxIndex));
+					return TTuple<int32, int32, int32>(FMath::Min(MeshData.Triangles[Idx    ], MaxIndex),
+													   FMath::Min(MeshData.Triangles[Idx + 1], MaxIndex),
+													   FMath::Min(MeshData.Triangles[Idx + 2], MaxIndex));
 				};
 			
-				const int32 NumTriIndices = (Triangles.Num() / 3) * 3; // Ensure number of triangle indices is multiple of three
+				const int32 NumTriIndices = (MeshData.Triangles.Num() / 3) * 3; // Ensure number of triangle indices is multiple of three
 			
 				// Detect degenerate triangles, i.e. non-unique vertex indices within the same triangle
 				
-				CleanTriangles.Reserve(Triangles.Num());		
+				CleanTriangles.Reserve(MeshData.Triangles.Num());		
 				int32 NumDegenerateTriangles = 0;
 				for (int32 IndexIdx = 0; IndexIdx < NumTriIndices; IndexIdx += 3)
 				{
@@ -180,7 +180,7 @@ namespace RealtimeMesh
 				if (NumDegenerateTriangles > 0)
 				{
 					UE_LOG(LogTemp, Warning, TEXT("Detected %d degenerate triangle%s with non-unique vertex indices for created mesh section in '%s'; degenerate triangles will be dropped."),
-						   NumDegenerateTriangles, NumDegenerateTriangles > 1 ? "s" : "", *ComponentName.ToString());
+						   NumDegenerateTriangles, NumDegenerateTriangles > 1 ? TEXT("s") : TEXT(""), *ComponentName.ToString());
 				}
 				check(NumDegenerateTriangles == 0);
 				
@@ -199,43 +199,43 @@ namespace RealtimeMesh
 		}
 
 		template<typename TangentType, typename TexCoordType>
-		inline TSharedRef<RealtimeMesh::FRealtimeMeshVertexDataBuilder> BuildMeshData(FName ComponentName, const TArray<int32>& Triangles,
-			const FRealtimeMeshSimpleVertexData& Vertices, bool bRemoveDegenerates)
+		inline TSharedRef<RealtimeMesh::FRealtimeMeshVertexDataBuilder> BuildMeshData(FName ComponentName,
+			const FRealtimeMeshSimpleMeshData& MeshData, bool bRemoveDegenerates)
 		{
-			if (Vertices.Positions.Num() > TNumericLimits<uint16>::Max())
+			if (MeshData.Positions.Num() > TNumericLimits<uint16>::Max())
 			{
-				return BuildMeshData<TangentType, TexCoordType, uint32>(ComponentName, Triangles, Vertices, bRemoveDegenerates);
+				return BuildMeshData<TangentType, TexCoordType, uint32>(ComponentName, MeshData, bRemoveDegenerates);
 			}
 			else
 			{
-				return BuildMeshData<TangentType, TexCoordType, uint16>(ComponentName, Triangles, Vertices, bRemoveDegenerates);
+				return BuildMeshData<TangentType, TexCoordType, uint16>(ComponentName, MeshData, bRemoveDegenerates);
 			}
 		}
 		
 		template<typename TangentType>
-		inline TSharedRef<RealtimeMesh::FRealtimeMeshVertexDataBuilder> BuildMeshData(FName ComponentName, const TArray<int32>& Triangles, const FRealtimeMeshSimpleVertexData& Vertices,
+		inline TSharedRef<RealtimeMesh::FRealtimeMeshVertexDataBuilder> BuildMeshData(FName ComponentName, const FRealtimeMeshSimpleMeshData& MeshData,
 			bool bRemoveDegenerates)
 		{
-			if (Vertices.bUseHighPrecisionTexCoords)
+			if (MeshData.bUseHighPrecisionTexCoords)
 			{
-				return BuildMeshData<TangentType, FVector2f>(ComponentName, Triangles, Vertices, bRemoveDegenerates);
+				return BuildMeshData<TangentType, FVector2f>(ComponentName, MeshData, bRemoveDegenerates);
 			}
 			else
 			{
-				return BuildMeshData<TangentType, FVector2DHalf>(ComponentName, Triangles, Vertices, bRemoveDegenerates);
+				return BuildMeshData<TangentType, FVector2DHalf>(ComponentName, MeshData, bRemoveDegenerates);
 			}
 		}
 		
-		inline TSharedRef<RealtimeMesh::FRealtimeMeshVertexDataBuilder> BuildMeshData(FName ComponentName, const TArray<int32>& Triangles,
-			const FRealtimeMeshSimpleVertexData& Vertices, bool bRemoveDegenerates)
+		inline TSharedRef<RealtimeMesh::FRealtimeMeshVertexDataBuilder> BuildMeshData(FName ComponentName,
+			const FRealtimeMeshSimpleMeshData& MeshData, bool bRemoveDegenerates)
 		{
-			if (Vertices.bUseHighPrecisionTangents)
+			if (MeshData.bUseHighPrecisionTangents)
 			{
-				return BuildMeshData<FPackedRGBA16N>(ComponentName, Triangles, Vertices, bRemoveDegenerates);
+				return BuildMeshData<FPackedRGBA16N>(ComponentName, MeshData, bRemoveDegenerates);
 			}
 			else
 			{
-				return BuildMeshData<FPackedNormal>(ComponentName, Triangles, Vertices, bRemoveDegenerates);
+				return BuildMeshData<FPackedNormal>(ComponentName, MeshData, bRemoveDegenerates);
 			}
 		}
 	}
@@ -293,6 +293,17 @@ namespace RealtimeMesh
 		}
 	}
 
+	void FRealtimeMeshSectionSimple::UpdateStreamRange(const FRealtimeMeshStreamRange& InRange)
+	{
+		FRealtimeMeshSectionData::UpdateStreamRange(InRange);
+		
+		UpdateBounds(RecalculateBounds());
+		if (const auto Mesh = MeshWeak.Pin())
+		{
+			Mesh->MarkCollisionDirty();
+		}
+	}
+
 	bool FRealtimeMeshSectionSimple::GetPhysicsTriMeshData(FTriMeshCollisionData* CollisionData, bool InUseAllTriData)
 	{
 		if (bShouldCreateMeshCollision)
@@ -314,7 +325,8 @@ namespace RealtimeMesh
 						const int32 StartVertexIndex = CollisionData->Vertices.Num();
 					
 						// Copy in the vertices
-						CollisionData->Vertices.Append(PositionStream->GetArrayView<FVector3f>());
+						auto PositionsView = PositionStream->GetArrayView<FVector3f>();
+						CollisionData->Vertices.Append(PositionsView.GetData(), PositionsView.Num());
 
 						if (CollisionData->UVs.Num() < 1)
 						{
@@ -326,11 +338,21 @@ namespace RealtimeMesh
 						{
 							if (TexCoordsStream->GetLayout() == RealtimeMesh::GetRealtimeMeshBufferLayout<FVector2DHalf>())
 							{
-								CollisionData->UVs[0].Append(TexCoordsStream->GetArrayView<FVector2DHalf>().Left(PositionStream->Num()));
+								const auto TexCoordsView = TexCoordsStream->GetArrayView<FVector2DHalf>().Left(PositionStream->Num());
+								CollisionData->UVs[0].SetNum(TexCoordsView.Num());
+								for (int32 TexCoordIdx = 0; TexCoordIdx < TexCoordsView.Num(); TexCoordIdx++)
+								{
+									CollisionData->UVs[0][TexCoordIdx] = FVector2D(TexCoordsView[TexCoordIdx]);
+								}
 							}
 							else
-							{								
-								CollisionData->UVs[0].Append(TexCoordsStream->GetArrayView<FVector2f>().Left(PositionStream->Num()));
+							{
+								const auto TexCoordsView = TexCoordsStream->GetArrayView<FVector2f>().Left(PositionStream->Num());
+								CollisionData->UVs[0].SetNum(TexCoordsView.Num());
+								for (int32 TexCoordIdx = 0; TexCoordIdx < TexCoordsView.Num(); TexCoordIdx++)
+								{
+									CollisionData->UVs[0][TexCoordIdx] = FVector2D(TexCoordsView[TexCoordIdx]);
+								}
 							}
 							NumRemainingTexCoords -= TexCoordsStream->Num();
 						}
@@ -417,13 +439,13 @@ namespace RealtimeMesh
 		{
 			const auto Stream = SectionGroup->GetStream(FRealtimeMeshStreamKey(
 				ERealtimeMeshStreamType::Vertex, FRealtimeMeshLocalVertexFactory::PositionStreamName));
-			if (Stream && GetStreamRange().GetMaxVertex() < Stream->Num())
+			if (Stream && GetStreamRange().NumVertices() > 0 && GetStreamRange().GetMaxVertex() < Stream->Num())
 			{
 				auto TestLayout = GetRealtimeMeshBufferLayout<FVector3f>();
 				if (Stream->GetLayout() == TestLayout)
 				{
-					const FVector3f* Points = Stream->GetData<FVector3f>();
-					Bounds = FBoxSphereBounds3f(Points, Stream->Num());
+					const FVector3f* Points = Stream->GetData<FVector3f>() + GetStreamRange().GetMinVertex();
+					Bounds = FBoxSphereBounds3f(Points, GetStreamRange().NumVertices());
 				}
 			}
 		}
@@ -465,24 +487,24 @@ namespace RealtimeMesh
 		FRealtimeMeshSectionGroup::CreateOrUpdateStream(StreamKey, UpdateData);
 	}
 
-	void FRealtimeMeshSectionGroupSimple::SetStreamData(const FRealtimeMeshSimpleVertexData& Vertices, const TArray<int32>& Triangles)
+	void FRealtimeMeshSectionGroupSimple::SetStreamData(const FRealtimeMeshSimpleMeshData& MeshData)
 	{
-		if (Vertices.Positions.Num() < 3)
+		if (MeshData.Positions.Num() < 3)
 		{
 			FMessageLog("RealtimeMesh").Error(FText::Format(
 				LOCTEXT("RealtimeMeshSectionGroupSimple_SetStreamData_InvalidVertexCount", "Invalid vertex count {0} for mesh {1}"),
-				Vertices.Positions.Num(), FText::FromName(GetMeshName())));
+				MeshData.Positions.Num(), FText::FromName(GetMeshName())));
 			return;
 		}
-		if (Triangles.Num() < 3)
+		if (MeshData.Triangles.Num() < 3)
 		{
 			FMessageLog("RealtimeMesh").Error(FText::Format(
 				LOCTEXT("RealtimeMeshSectionGroupSimple_SetStreamData_InvalidTriangleCount", "Invalid triangle count {0} for mesh {1}"),
-				Triangles.Num(), FText::FromName(GetMeshName())));
+				MeshData.Triangles.Num(), FText::FromName(GetMeshName())));
 			return;
 		}
 
-		const auto UpdateData = RealtimeMeshSimpleInternal::BuildMeshData(GetMeshName(), Triangles, Vertices, false /*RemoveDegenerates*/);
+		const auto UpdateData = RealtimeMeshSimpleInternal::BuildMeshData(GetMeshName(), MeshData, false /*RemoveDegenerates*/);
 		SetAllStreams(UpdateData->GetBuffers());		
 	}
 
@@ -704,7 +726,7 @@ void URealtimeMeshSimple::Reset(bool bCreateNewMeshData)
 	Super::Reset(bCreateNewMeshData);
 }
 
-FRealtimeMeshSectionGroupKey URealtimeMeshSimple::CreateSectionGroup(FRealtimeMeshLODKey LODKey)
+FRealtimeMeshSectionGroupKey URealtimeMeshSimple::CreateSectionGroup(const FRealtimeMeshLODKey& LODKey)
 {
 	if (const auto LOD = GetMesh()->GetLOD(LODKey))
 	{
@@ -715,14 +737,14 @@ FRealtimeMeshSectionGroupKey URealtimeMeshSimple::CreateSectionGroup(FRealtimeMe
 	return FRealtimeMeshSectionGroupKey();
 }
 
-FRealtimeMeshSectionGroupKey URealtimeMeshSimple::CreateSectionGroupWithMesh(FRealtimeMeshLODKey LODKey, const FRealtimeMeshSimpleVertexData& Vertices, const TArray<int32>& Triangles)
+FRealtimeMeshSectionGroupKey URealtimeMeshSimple::CreateSectionGroupWithMesh(const FRealtimeMeshLODKey& LODKey, const FRealtimeMeshSimpleMeshData& MeshData)
 {
 	if (const auto LOD = MeshRef->GetLOD(LODKey))
 	{
 		const FRealtimeMeshSectionGroupKey SectionGroupKey = LOD->CreateSectionGroup();
 		const auto SectionGroup = StaticCastSharedPtr<RealtimeMesh::FRealtimeMeshSectionGroupSimple>(LOD->GetSectionGroup(SectionGroupKey));
 		check(SectionGroup);
-		SectionGroup->SetStreamData(Vertices, Triangles);
+		SectionGroup->SetStreamData(MeshData);
 
 		return SectionGroupKey;
 	}
@@ -733,14 +755,13 @@ FRealtimeMeshSectionGroupKey URealtimeMeshSimple::CreateSectionGroupWithMesh(FRe
 	return FRealtimeMeshSectionGroupKey();
 }
 
-void URealtimeMeshSimple::UpdateSectionGroupMesh(FRealtimeMeshSectionGroupKey SectionGroupKey, const FRealtimeMeshSimpleVertexData& Vertices,
-	const TArray<int32>& Triangles)
+void URealtimeMeshSimple::UpdateSectionGroupMesh(const FRealtimeMeshSectionGroupKey& SectionGroupKey, const FRealtimeMeshSimpleMeshData& MeshData)
 {
 	if (const auto LOD = MeshRef->GetLOD(SectionGroupKey.GetLODKey()))
 	{
 		if (const auto SectionGroup = LOD->GetSectionGroupAs<RealtimeMesh::FRealtimeMeshSectionGroupSimple>(SectionGroupKey))
 		{
-			SectionGroup->SetStreamData(Vertices, Triangles);
+			SectionGroup->SetStreamData(MeshData);
 		}
 		else
 		{
@@ -757,7 +778,7 @@ void URealtimeMeshSimple::UpdateSectionGroupMesh(FRealtimeMeshSectionGroupKey Se
 	}
 }
 
-void URealtimeMeshSimple::RemoveSectionGroup(FRealtimeMeshSectionGroupKey SectionGroupKey)
+void URealtimeMeshSimple::RemoveSectionGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey)
 {
 	if (const auto LOD = GetMesh()->GetLOD(SectionGroupKey.GetLODKey()))
 	{
@@ -769,7 +790,7 @@ void URealtimeMeshSimple::RemoveSectionGroup(FRealtimeMeshSectionGroupKey Sectio
 	}
 }
 
-FRealtimeMeshSectionKey URealtimeMeshSimple::CreateMeshSectionInGroup(FRealtimeMeshSectionGroupKey SectionGroupKey, const FRealtimeMeshSectionConfig& Config,
+FRealtimeMeshSectionKey URealtimeMeshSimple::CreateSectionInGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey, const FRealtimeMeshSectionConfig& Config,
                                                                       const FRealtimeMeshStreamRange& StreamRange, bool bShouldCreateCollision)
 {
 	if (const auto LOD = GetMesh()->GetLOD(SectionGroupKey.GetLODKey()))
@@ -795,15 +816,15 @@ FRealtimeMeshSectionKey URealtimeMeshSimple::CreateMeshSectionInGroup(FRealtimeM
 	return FRealtimeMeshSectionKey();
 }
 
-FRealtimeMeshSectionKey URealtimeMeshSimple::CreateMeshSection(FRealtimeMeshLODKey LODKey, const FRealtimeMeshSectionConfig& Config,
-                                                                   const FRealtimeMeshSimpleVertexData& Vertices, const TArray<int32>& Triangles, bool bShouldCreateCollision)
+FRealtimeMeshSectionKey URealtimeMeshSimple::CreateMeshSection(const FRealtimeMeshLODKey& LODKey, const FRealtimeMeshSectionConfig& Config,
+                                                                   const FRealtimeMeshSimpleMeshData& MeshData, bool bShouldCreateCollision)
 {
 	if (const auto LOD = MeshRef->GetLOD(LODKey))
 	{
 		const FRealtimeMeshSectionGroupKey SectionGroupKey = LOD->CreateSectionGroup();
 		const auto SectionGroup = StaticCastSharedPtr<RealtimeMesh::FRealtimeMeshSectionGroupSimple>(LOD->GetSectionGroup(SectionGroupKey));
 		check(SectionGroup);
-		SectionGroup->SetStreamData(Vertices, Triangles);
+		SectionGroup->SetStreamData(MeshData);
 		
 		const FRealtimeMeshSectionKey SectionKey = SectionGroup->CreateSection(Config, SectionGroup->GetBaseRange());
 		const auto& Section = SectionGroup->GetSectionAs<RealtimeMesh::FRealtimeMeshSectionSimple>(SectionKey);
@@ -821,7 +842,7 @@ FRealtimeMeshSectionKey URealtimeMeshSimple::CreateMeshSection(FRealtimeMeshLODK
 	}
 }
 
-void URealtimeMeshSimple::UpdateMeshSection(FRealtimeMeshSectionKey SectionKey, const FRealtimeMeshSimpleVertexData& Vertices, const TArray<int32>& Triangles)
+void URealtimeMeshSimple::UpdateSectionMesh(const FRealtimeMeshSectionKey& SectionKey, const FRealtimeMeshSimpleMeshData& MeshData)
 {	
 	if (const auto LOD = MeshRef->GetLOD(SectionKey.GetLODKey()))
 	{
@@ -831,7 +852,7 @@ void URealtimeMeshSimple::UpdateMeshSection(FRealtimeMeshSectionKey SectionKey, 
 			{
 				if (const auto Section = SectionGroup->GetSection(SectionKey))
 				{
-					SectionGroup->SetStreamData(Vertices, Triangles);
+					SectionGroup->SetStreamData(MeshData);
 					Section->UpdateStreamRange(SectionGroup->GetBaseRange());
 				}
 				else
@@ -863,7 +884,40 @@ void URealtimeMeshSimple::UpdateMeshSection(FRealtimeMeshSectionKey SectionKey, 
 	}
 }
 
-FRealtimeMeshSectionConfig URealtimeMeshSimple::GetSectionConfig(FRealtimeMeshSectionKey SectionKey) const
+void URealtimeMeshSimple::UpdateSectionSegment(const FRealtimeMeshSectionKey& SectionKey,
+	const FRealtimeMeshStreamRange& StreamRange)
+{
+	if (const auto LOD = MeshRef->GetLOD(SectionKey.GetLODKey()))
+	{
+		if (const auto SectionGroup = LOD->GetSectionGroupAs<RealtimeMesh::FRealtimeMeshSectionGroupSimple>(SectionKey.GetSectionGroupKey()))
+		{
+			if (const auto Section = SectionGroup->GetSection(SectionKey))
+			{
+				Section->UpdateStreamRange(StreamRange);
+			}
+			else
+			{
+				FMessageLog("RealtimeMesh").Error(
+					FText::Format(LOCTEXT("UpdateSectionInvalid", "Attempted to update invalid section {0} in Mesh:{1}"),
+						FText::FromString(SectionKey.ToString()), FText::FromName(GetFName())));
+			}
+		}
+		else
+		{
+			FMessageLog("RealtimeMesh").Error(
+				FText::Format(LOCTEXT("UpdateSectionInvalidSectionGroup", "Attempted to update section {0} in invalid section group in Mesh:{1}"),
+					FText::FromString(SectionKey.ToString()), FText::FromName(GetFName())));
+		}
+	}
+	else
+	{
+		FMessageLog("RealtimeMesh").Error(
+			FText::Format(LOCTEXT("UpdateSectionInvalidLOD", "Attempted to update section in invalid LOD {0} in Mesh:{1}"),
+				FText::FromString(SectionKey.GetLODKey().ToString()), FText::FromName(GetFName())));
+	}
+}
+
+FRealtimeMeshSectionConfig URealtimeMeshSimple::GetSectionConfig(const FRealtimeMeshSectionKey& SectionKey) const
 {
 	if (const auto LOD = GetMesh()->GetLOD(SectionKey.GetLODKey()))
 	{
@@ -890,7 +944,7 @@ FRealtimeMeshSectionConfig URealtimeMeshSimple::GetSectionConfig(FRealtimeMeshSe
 	return FRealtimeMeshSectionConfig();
 }
 
-void URealtimeMeshSimple::UpdateSectionConfig(FRealtimeMeshSectionKey SectionKey, const FRealtimeMeshSectionConfig& Config)
+void URealtimeMeshSimple::UpdateSectionConfig(const FRealtimeMeshSectionKey& SectionKey, const FRealtimeMeshSectionConfig& Config)
 {
 	if (const auto LOD = GetMesh()->GetLOD(SectionKey.GetLODKey()))
 	{
@@ -916,7 +970,7 @@ void URealtimeMeshSimple::UpdateSectionConfig(FRealtimeMeshSectionKey SectionKey
 	}
 }
 
-bool URealtimeMeshSimple::IsSectionVisible(FRealtimeMeshSectionKey SectionKey) const
+bool URealtimeMeshSimple::IsSectionVisible(const FRealtimeMeshSectionKey& SectionKey) const
 {
 	if (const auto LOD = GetMesh()->GetLOD(SectionKey.GetLODKey()))
 	{
@@ -943,7 +997,7 @@ bool URealtimeMeshSimple::IsSectionVisible(FRealtimeMeshSectionKey SectionKey) c
 	return false;
 }
 
-void URealtimeMeshSimple::SetSectionVisibility(FRealtimeMeshSectionKey SectionKey, bool bIsVisible)
+void URealtimeMeshSimple::SetSectionVisibility(const FRealtimeMeshSectionKey& SectionKey, bool bIsVisible)
 {
 	if (const auto LOD = GetMesh()->GetLOD(SectionKey.GetLODKey()))
 	{
@@ -969,7 +1023,7 @@ void URealtimeMeshSimple::SetSectionVisibility(FRealtimeMeshSectionKey SectionKe
 	}
 }
 
-bool URealtimeMeshSimple::IsSectionCastingShadow(FRealtimeMeshSectionKey SectionKey) const
+bool URealtimeMeshSimple::IsSectionCastingShadow(const FRealtimeMeshSectionKey& SectionKey) const
 {
 	if (const auto LOD = GetMesh()->GetLOD(SectionKey.GetLODKey()))
 	{
@@ -996,7 +1050,7 @@ bool URealtimeMeshSimple::IsSectionCastingShadow(FRealtimeMeshSectionKey Section
 	return false;
 }
 
-void URealtimeMeshSimple::SetSectionCastShadow(FRealtimeMeshSectionKey SectionKey, bool bCastShadow)
+void URealtimeMeshSimple::SetSectionCastShadow(const FRealtimeMeshSectionKey& SectionKey, bool bCastShadow)
 {
 	if (const auto LOD = GetMesh()->GetLOD(SectionKey.GetLODKey()))
 	{
@@ -1022,7 +1076,7 @@ void URealtimeMeshSimple::SetSectionCastShadow(FRealtimeMeshSectionKey SectionKe
 	}
 }
 
-void URealtimeMeshSimple::RemoveSection(FRealtimeMeshSectionKey SectionKey)
+void URealtimeMeshSimple::RemoveSection(const FRealtimeMeshSectionKey& SectionKey)
 {
 	if (const auto LOD = GetMesh()->GetLOD(SectionKey.GetLODKey()))
 	{

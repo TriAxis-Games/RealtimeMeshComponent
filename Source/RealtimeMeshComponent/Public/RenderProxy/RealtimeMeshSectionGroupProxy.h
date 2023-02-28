@@ -69,6 +69,9 @@ namespace RealtimeMesh
 			const FRealtimeMeshSectionGroupStreamUpdateDataRef& StreamData);
 
 		void CreateSectionImplementation(FRealtimeMeshSectionKey SectionKey, const FRealtimeMeshSectionProxyInitializationParametersRef& InitParams);
+
+		void AlertSectionsOfStreamUpdates(const TArray<FRealtimeMeshStreamKey>& AddedOrUpdatedStreams,
+		const TArray<FRealtimeMeshStreamKey>& RemovedStreams);
 	};
 
 }

@@ -57,6 +57,7 @@ namespace RealtimeMesh
 
 	FRealtimeMeshComponentSceneProxy::~FRealtimeMeshComponentSceneProxy()
 	{
+		check(true);
 	}
 
 	bool FRealtimeMeshComponentSceneProxy::CanBeOccluded() const

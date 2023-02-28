@@ -63,6 +63,7 @@ namespace RealtimeMesh
 		MeshBatch.bDitheredLODTransition = !Params.bIsMovable && Params.LODMask.IsDithered() && bSupportsDithering;
 		MeshBatch.bWireframe = bIsWireframe;
 
+		ensure(Material);
 		MeshBatch.MaterialRenderProxy = Material;
 		MeshBatch.ReverseCulling = Params.bIsLocalToWorldDeterminantNegative;
 
@@ -81,7 +82,7 @@ namespace RealtimeMesh
 	
 		BatchElement.PrimitiveUniformBuffer = Params.UniformBuffer;
 		BatchElement.IndexBuffer = &VertexFactory->GetIndexBuffer(bDepthOnly, bMatrixInverted, Params.ResourceSubmitter);
-		BatchElement.FirstIndex = 0;
+		BatchElement.FirstIndex = StreamRange.GetMinIndex();
 		BatchElement.NumPrimitives = StreamRange.NumPrimitives(REALTIME_MESH_NUM_INDICES_PER_PRIMITIVE);
 		BatchElement.MinVertexIndex = StreamRange.GetMinVertex();
 		BatchElement.MaxVertexIndex = StreamRange.GetMaxVertex();

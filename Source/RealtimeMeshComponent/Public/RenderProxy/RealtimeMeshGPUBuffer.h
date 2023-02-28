@@ -43,6 +43,8 @@ namespace RealtimeMesh
 			{
 				FRHIResourceCreateInfo CreateInfo(TEXT("RealtimeMeshBuffer-Temp"), Resource.Get());
 				CreateInfo.bWithoutNativeResource = Resource == nullptr || BufferLayout.GetStride() == 0 || GetNumElements() == 0;
+
+#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 1
 				FRHIAsyncCommandList CommandList;
 
 				if (StreamKey.IsVertexStream())
@@ -56,6 +58,19 @@ namespace RealtimeMesh
 					Buffer = CommandList->CreateBuffer(Resource->GetResourceDataSize(), UsageFlags | BUF_IndexBuffer | BUF_ShaderResource,
 						BufferLayout.GetStride(), ERHIAccess::SRVMask, CreateInfo);
 				}
+#else
+				if (StreamKey.IsVertexStream())
+				{
+					Buffer = RHIAsyncCreateVertexBuffer(Resource->GetResourceDataSize(), UsageFlags | BUF_VertexBuffer | BUF_ShaderResource,
+						ERHIAccess::SRVMask, CreateInfo);
+				}
+				else
+				{
+					check(StreamKey.IsIndexStream());
+					Buffer = RHIAsyncCreateIndexBuffer(BufferLayout.GetStride(), Resource->GetResourceDataSize(), UsageFlags | BUF_IndexBuffer | BUF_ShaderResource,
+						ERHIAccess::SRVMask, CreateInfo);
+				}
+#endif
 			}
 		}
 

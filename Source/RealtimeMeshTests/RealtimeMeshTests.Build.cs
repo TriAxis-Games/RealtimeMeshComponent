@@ -11,7 +11,8 @@ public class RealtimeMeshTests : ModuleRules
         PublicDependencyModuleNames.AddRange(
             new string[]
             {
-                "Core",
+                "Core", 
+                "RealtimeMeshComponent",
             }
         );
 

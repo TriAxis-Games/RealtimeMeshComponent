@@ -3,10 +3,6 @@
 #include "RealtimeMeshEditorSubsystem.h"
 #include "RealtimeMeshActor.h"
 #include "Editor.h"
-#include UE_INLINE_GENERATED_CPP_BY_NAME(RealtimeMeshEditorSubsystem)
-
-
-
 
 bool URealtimeMeshEditorEngineSubsystem::bIsShuttingDown = false;
 

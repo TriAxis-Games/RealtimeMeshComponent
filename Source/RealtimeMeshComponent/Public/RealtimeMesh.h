@@ -48,22 +48,6 @@ private:
 	UPROPERTY(Transient)
 	TArray<UBodySetup*> AsyncBodySetupQueue;
 	
-	// UPROPERTY()
-	// TArray<FRealtimeMeshCollisionSourceSectionInfo> CollisionSource;
-	//
-	// // // Do we need to update our collision?
-	// // bool bCollisionIsDirty;
-	// //
-	//
-	// //
-	//
-	// //
-	// // Queue of pending collision cooks
-	//
-	// UPROPERTY(Transient)
-	// TUniquePtr<TArray<FRealtimeMeshCollisionSourceSectionInfo>> PendingSourceInfo;
-
-	
 public:
 	virtual RealtimeMesh::FRealtimeMeshRef GetMesh() const
 	{
@@ -120,7 +104,7 @@ public:
 	
 	
 	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh")
-	void SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial);
+	void SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial = nullptr);
 	
 	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh")
 	int32 GetMaterialIndex(FName MaterialSlotName) const;

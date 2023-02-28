@@ -8,7 +8,8 @@
 #define LOCTEXT_NAMESPACE "RealtimeMesh"
 
 
-USTRUCT(BlueprintType)
+USTRUCT(BlueprintType, meta=(
+	HasNativeMake="RealtimeMeshComponent.RealtimeMeshBlueprintFunctionLibrary.MakeStreamRange"))
 struct REALTIMEMESHCOMPONENT_API FRealtimeMeshStreamRange
 {
 	GENERATED_BODY()
@@ -178,14 +179,15 @@ struct REALTIMEMESHCOMPONENT_API FRealtimeMeshSectionConfig
 {
 	GENERATED_BODY()
 public:
-	FRealtimeMeshSectionConfig()
-		: MaterialSlot(0)
-		, DrawType(ERealtimeMeshSectionDrawType::Static)
+	FRealtimeMeshSectionConfig(ERealtimeMeshSectionDrawType InDrawType = ERealtimeMeshSectionDrawType::Static, int32 InMaterialSlot = 0)
+		: MaterialSlot(InMaterialSlot)
+		, DrawType(InDrawType)
 		, bIsVisible(true)
 		, bCastsShadow(true)
 		, bIsMainPassRenderable(true)
 		, bForceOpaque(false)
 	{
+		
 	}
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="RealtimeMesh|Section|Config")
@@ -215,9 +217,9 @@ struct REALTIMEMESHCOMPONENT_API FRealtimeMeshLODConfig
 {
 	GENERATED_BODY()
 public:
-	FRealtimeMeshLODConfig()
+	FRealtimeMeshLODConfig(float InScreenSize = 0.0f)
 		: bIsVisible(true)
-		, ScreenSize(0.0f)
+		, ScreenSize(InScreenSize)
 	{
 	}
 
@@ -253,7 +255,9 @@ namespace RealtimeMesh
 	struct FRealtimeMeshKeyHelpers;
 }
 
-USTRUCT(BlueprintType)
+USTRUCT(BlueprintType, meta=(
+	HasNativeBreak="RealtimeMeshComponent.RealtimeMeshBlueprintFunctionLibrary.BreakLODKey",
+	HasNativeMake="RealtimeMeshComponent.RealtimeMeshBlueprintFunctionLibrary.MakeLODKey"))
 struct REALTIMEMESHCOMPONENT_API FRealtimeMeshLODKey
 {
 	GENERATED_BODY()
@@ -276,7 +280,7 @@ public:
 	friend FArchive& operator<<(FArchive& Ar, FRealtimeMeshLODKey& Key);
 };
 
-USTRUCT(BlueprintType)
+USTRUCT(BlueprintType, meta=(HasNativeMake="RealtimeMeshComponent.RealtimeMeshBlueprintFunctionLibrary.MakeSectionGroupKey"))
 struct REALTIMEMESHCOMPONENT_API FRealtimeMeshSectionGroupKey : public FRealtimeMeshLODKey
 {
 	GENERATED_BODY()
@@ -315,7 +319,7 @@ public:
 	static FRealtimeMeshSectionGroupKey Invalid;
 };
 
-USTRUCT(BlueprintType)
+USTRUCT(BlueprintType, meta=(HasNativeMake="RealtimeMeshComponent.RealtimeMeshBlueprintFunctionLibrary.MakeSectionKey"))
 struct REALTIMEMESHCOMPONENT_API FRealtimeMeshSectionKey : public FRealtimeMeshSectionGroupKey
 {
 	GENERATED_BODY()

@@ -53,7 +53,7 @@ namespace RealtimeMesh
 		void MarkStateDirty();
 		virtual bool HandleUpdates(bool bShouldForceUpdate);
 		virtual void Reset();
-	protected:
+		
 		void OnStreamsUpdated(const TArray<FRealtimeMeshStreamKey>& AddedOrUpdatedStreams, const TArray<FRealtimeMeshStreamKey>& RemovedStreams);
 		
 	};

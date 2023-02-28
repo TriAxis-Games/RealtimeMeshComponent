@@ -31,7 +31,13 @@ public:
 	void SetRealtimeMesh(URealtimeMesh* NewMesh);
 
 	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMeshComponent", meta=(DeterminesOutputType="MeshClass"))
-	URealtimeMesh* InitializeRealtimeMesh(TSubclassOf<URealtimeMesh> MeshClass, UObject* CustomOuter = nullptr);
+	URealtimeMesh* InitializeRealtimeMesh(TSubclassOf<URealtimeMesh> MeshClass);
+
+	template<typename MeshType>
+	MeshType* InitializeRealtimeMesh(TSubclassOf<URealtimeMesh> MeshClass = MeshType::StaticClass())
+	{
+		return CastChecked<MeshType>(InitializeRealtimeMesh(MeshClass));
+	}
 
 	/** Clears the geometry for ALL collision only sections */
 	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMeshComponent")

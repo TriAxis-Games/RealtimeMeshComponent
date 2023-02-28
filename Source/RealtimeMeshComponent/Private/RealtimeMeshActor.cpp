@@ -18,6 +18,10 @@ ARealtimeMeshActor::ARealtimeMeshActor()
 	//RealtimeMeshComponent->CollisionType = ECollisionTraceFlag::CTF_UseDefault;
 
 	SetRootComponent(RealtimeMeshComponent);
+
+#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION == 0
+	RegisterWithGenerationManager();
+#endif
 }
 
 
@@ -37,13 +41,18 @@ void ARealtimeMeshActor::OnConstruction(const FTransform& Transform)
 void ARealtimeMeshActor::PostLoad()
 {
 	Super::PostLoad();
+	
+#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 1
 	RegisterWithGenerationManager();
+#endif
 }
 
 void ARealtimeMeshActor::PostActorCreated()
 {
 	Super::PostActorCreated();
+#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 1
 	RegisterWithGenerationManager();
+#endif
 }
 
 void ARealtimeMeshActor::Destroyed()

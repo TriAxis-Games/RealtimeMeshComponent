@@ -190,7 +190,11 @@ namespace RealtimeMesh
 	class FRWScopeLockEx
 	{
 	public:
-		UE_NODISCARD_CTOR explicit FRWScopeLockEx(FRWLock& InLockObject,FRWScopeLockType InLockType)
+		
+#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 1
+		UE_NODISCARD_CTOR 
+#endif
+		explicit FRWScopeLockEx(FRWLock& InLockObject,FRWScopeLockType InLockType)
 			: LockObject(InLockObject)
 			, LockType(InLockType)
 		{

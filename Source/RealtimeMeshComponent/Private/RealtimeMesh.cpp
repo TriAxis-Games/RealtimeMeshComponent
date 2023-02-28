@@ -198,7 +198,7 @@ void URealtimeMesh::Serialize(FArchive& Ar)
 {
 	Super::Serialize(Ar);
 
-	if (!HasAnyFlags(RF_ClassDefaultObject | RF_ArchetypeObject))
+	if (!IsTemplate())
 	{
 		Ar.UsingCustomVersion(RealtimeMesh::FRealtimeMeshVersion::GUID);
 	
