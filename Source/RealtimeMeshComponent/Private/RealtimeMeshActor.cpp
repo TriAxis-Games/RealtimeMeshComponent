@@ -113,7 +113,7 @@ void ARealtimeMeshActor::PostEditUndo()
 void ARealtimeMeshActor::RegisterWithGenerationManager()
 {
 	// Ignore generation on CDO, or if we duplicated to PIE from editor
-	if (HasAnyFlags(RF_ClassDefaultObject) || GetPackage()->GetPIEInstanceID() != INDEX_NONE)
+	if (HasAnyFlags(RF_ClassDefaultObject))
 	{
 		return;
 	}
@@ -121,7 +121,7 @@ void ARealtimeMeshActor::RegisterWithGenerationManager()
 	if (bIsRegisteredWithGenerationManager == false)
 	{
 		// this could fail if the subsystem is not initialized yet, or if it is shutting down
-		if (URealtimeMeshEngineSubsystem* Subsystem = URealtimeMeshEngineSubsystem::GetInstance())
+		if (URealtimeMeshSubsystem* Subsystem = URealtimeMeshSubsystem::GetInstance(GetWorld()))
 		{
 			bIsRegisteredWithGenerationManager = Subsystem->RegisterGeneratedMeshActor(this);
 		}
@@ -133,7 +133,7 @@ void ARealtimeMeshActor::UnregisterWithGenerationManager()
 {
 	if (bIsRegisteredWithGenerationManager)
 	{
-		if (URealtimeMeshEngineSubsystem* Subsystem = URealtimeMeshEngineSubsystem::GetInstance())
+		if (URealtimeMeshSubsystem* Subsystem = URealtimeMeshSubsystem::GetInstance(GetWorld()))
 		{
 			Subsystem->UnregisterGeneratedMeshActor(this);
 		}
