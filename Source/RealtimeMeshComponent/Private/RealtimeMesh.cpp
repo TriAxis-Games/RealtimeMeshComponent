@@ -276,9 +276,9 @@ void URealtimeMesh::UpdateCollision(bool bForceCookNow)
 {
 	check(IsInGameThread());
 	FRealtimeMeshCollisionConfiguration CollisionConfig = GetMesh()->GetCollisionConfig();
-	
-	const bool bShouldCookAsync = !bForceCookNow && (!GIsEditor || GIsPlayInEditorWorld) && CollisionConfig.bUseAsyncCook;
 
+	const bool bShouldCookAsync = !bForceCookNow && (!GetWorld() || GetWorld()->IsGameWorld()) && CollisionConfig.bUseAsyncCook;
+	
 	if (bShouldCookAsync)
 	{
 		// Abort all previous ones still standing

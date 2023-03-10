@@ -13,8 +13,6 @@
 DECLARE_CYCLE_STAT(TEXT("RealtimeMeshComponent - Collision Data Received"), STAT_RealtimeMeshComponent_NewCollisionMeshReceived, STATGROUP_RealtimeMesh);
 DECLARE_CYCLE_STAT(TEXT("RealtimeMeshComponent - Create Scene Proxy"), STAT_RealtimeMeshComponent_CreateSceneProxy, STATGROUP_RealtimeMesh);
 
-PRAGMA_DISABLE_OPTIMIZATION
-
 URealtimeMeshComponent::URealtimeMeshComponent()
 {
 	SetNetAddressable();
@@ -213,12 +211,12 @@ void URealtimeMeshComponent::UnbindFromEvents(URealtimeMesh* RealtimeMesh)
 }
 
 
-inline void URealtimeMeshComponent::HandleBoundsUpdated(URealtimeMesh* IncomingMesh)
+void URealtimeMeshComponent::HandleBoundsUpdated(URealtimeMesh* IncomingMesh)
 {
 	UpdateBounds();
 }
 
-inline void URealtimeMeshComponent::HandleMeshRenderingDataChanged(URealtimeMesh* IncomingMesh, bool bShouldProxyRecreate)
+void URealtimeMeshComponent::HandleMeshRenderingDataChanged(URealtimeMesh* IncomingMesh, bool bShouldProxyRecreate)
 {
 	if (bShouldProxyRecreate)
 	{
@@ -255,5 +253,3 @@ void URealtimeMeshComponent::UpdateCollision()
 	// Now update the navigation.
 	FNavigationSystem::UpdateComponentData(*this);
 }
-
-PRAGMA_ENABLE_OPTIMIZATION

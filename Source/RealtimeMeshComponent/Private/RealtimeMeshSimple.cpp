@@ -694,6 +694,7 @@ namespace RealtimeMesh
 
 	bool FRealtimeMeshDataSimple::GetPhysicsTriMeshData(FTriMeshCollisionData* CollisionData, bool InUseAllTriData)
 	{
+		CollisionData->bFlipNormals = true;
 		CollisionData->bDeformableMesh = false;
 		CollisionData->bFastCook = CollisionConfig.bShouldFastCookMeshes;
 		
