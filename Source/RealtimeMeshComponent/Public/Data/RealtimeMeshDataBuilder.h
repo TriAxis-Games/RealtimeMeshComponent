@@ -392,7 +392,7 @@ namespace RealtimeMesh
 			SizeType Index = AddUninitialized(Count);
 			VertexType* DataPtr = GetDataAtVertex<VertexType>(Index);
 			
-			while (Index != ArrayMax)
+			while (Index < ArrayNum)
 			{
 				DataPtr[Index] = Generator(Index);				
 				Index++;
@@ -404,7 +404,7 @@ namespace RealtimeMesh
 		{
 			SizeType Index = AddUninitialized(Count);
 			VertexType* DataPtr = GetDataAtVertex<VertexType>(Index);
-			while (Index != ArrayMax)
+			while (Index < ArrayNum)
 			{
 				DataPtr[Index] = Generator(Index);				
 				Index++;
