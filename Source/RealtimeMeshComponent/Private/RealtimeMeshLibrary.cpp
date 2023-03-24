@@ -143,15 +143,16 @@ FRealtimeMeshSimpleMeshData& URealtimeMeshBlueprintFunctionLibrary::AppendCapsul
     FRealtimeMeshSimpleMeshData& MeshData, const FTransform& Transform, float Radius, float CylinderLength,
     int32 HemisphereSteps, int32 CircleSteps, int32 CylinderSteps)
 {
-    checkf(Radius >= FMathf::ZeroTolerance
+    constexpr float ZeroTolerance = 1e-6;
+    checkf(Radius >= ZeroTolerance
         , TEXT("AppendCapsuleMesh: Radius %f, must be bigger or equal %f")
         , Radius
-        , FMathf::ZeroTolerance
+        , ZeroTolerance
         )
-    checkf(CylinderLength >= FMathf::ZeroTolerance
+    checkf(CylinderLength >= ZeroTolerance
         , TEXT("AppendCapsuleMesh: CylinderLength %f, must be bigger or equal %f")
         , CylinderLength
-        , FMathf::ZeroTolerance
+        , ZeroTolerance
         )
     checkf(HemisphereSteps >= 2
         , TEXT("AppendCapsuleMesh: HemisphereSteps %d, must be bigger or queal 2")
