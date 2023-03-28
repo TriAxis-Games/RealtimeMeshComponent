@@ -2,10 +2,6 @@
 
 #include "RealtimeMeshLibrary.h"
 
-#include <MeshExport.h>
-
-#include "IndexTypes.h"
-#include "IntVectorTypes.h"
 #include "MathUtil.h"
 #include "RealtimeMeshSimple.h"
 
@@ -155,7 +151,7 @@ FRealtimeMeshSimpleMeshData& URealtimeMeshBlueprintFunctionLibrary::AppendCapsul
         , ZeroTolerance
         )
     checkf(HemisphereSteps >= 2
-        , TEXT("AppendCapsuleMesh: HemisphereSteps %d, must be bigger or queal 2")
+        , TEXT("AppendCapsuleMesh: HemisphereSteps %d, must be bigger or equal 2")
         , HemisphereSteps
         )
     checkf(CircleSteps >= 3
@@ -166,142 +162,161 @@ FRealtimeMeshSimpleMeshData& URealtimeMeshBlueprintFunctionLibrary::AppendCapsul
         , TEXT("AppendCapsuleMesh: CylinderSteps %d, must be bigger or equal 1")
         , CylinderSteps
         )
-    // num vertical steps excluding poles: 2 * HemisphereSteps - 2 + CylinderSteps - 1
-    const int32 NumHeightSteps = 2 * HemisphereSteps - 2 + CylinderSteps + 1;
-    const int32 NumVertices = NumHeightSteps * CircleSteps + 2;
+    // duplicate vertices at the seam
+    const int32 CircleStepsDupl = CircleSteps + 1;
+    const int32 NumHeightSteps = 2 * HemisphereSteps + CylinderSteps + 1;
+    // duplicate vertices at the poles, but don't duplicate again at the circle seam
+    const int32 NumVerticesPoles = 2 * CircleSteps;
+    const int32 NumVerticesWOPoles = (NumHeightSteps - 2) * CircleStepsDupl;
+    const int32 NumVertices = NumVerticesWOPoles + NumVerticesPoles;
     // 3 entries in Tris for every triangle: 3 *
-    // for the number of rectangles: * CircleSteps
-    // for the number of triangles: * 2
-    // for the poles: + 2 * CircleSteps
-    const int32 NumTris = 3 * (NumHeightSteps * CircleSteps * 2 + 2 * CircleSteps);
+    // for the number of triangles per rectangle: * 2
+    // for the number of rectangles: (NumHeightSteps - 2) * CircleSteps)
+    // for the number of triangles at the poles: 2 * CircleSteps
+    const int32 NumTris = 3 * (2 * (NumHeightSteps - 3) * CircleSteps + 2 * CircleSteps);
 
     const int32 StartVertex = MeshData.Positions.Num();
     MeshData.Normals.SetNumZeroed(StartVertex);
     MeshData.Tangents.SetNumZeroed(StartVertex);
+    MeshData.Binormals.SetNumZeroed(StartVertex);
+    MeshData.UV0.SetNumZeroed(StartVertex);
 
     MeshData.Positions.Reserve(StartVertex + NumVertices);
     MeshData.Normals.Reserve(StartVertex + NumVertices);
     MeshData.Tangents.Reserve(StartVertex + NumVertices);
-    
+    MeshData.Binormals.Reserve(StartVertex + NumVertices);
+    MeshData.UV0.Reserve(StartVertex + NumVertices);
     MeshData.Triangles.Reserve(StartVertex + NumTris);
 
     {
-        auto AddVertex = [&MeshData, &Transform](FVector Pos, FVector Normal)
+        auto AddVertex = [&MeshData, &Transform]
+            ( const FVector& Pos
+            , const FVector& Normal
+            , const FVector& Tangent
+            , const FVector& Binormal
+            )
         {
             MeshData.Positions.Add(Transform.TransformPosition(Pos));
             MeshData.Normals.Add(Transform.TransformVectorNoScale(Normal));
+            MeshData.Tangents.Add(Transform.TransformVectorNoScale(Tangent));
+            MeshData.Binormals.Add(Transform.TransformVectorNoScale(Binormal));
         };
         
         const double DeltaPhi   = FMathd::HalfPi / static_cast<double>(HemisphereSteps);
         const double DeltaTheta = FMathd::TwoPi  / static_cast<double>(CircleSteps);
+        const FVector Offset = FVector(0, 0, CylinderLength) / 2.;
 
-        FVector Offset = FVector(0, 0, CylinderLength) / 2.;
-
-        // northern hemisphere, skipping the pole
-        for (int32 p = 1; p < HemisphereSteps; ++p)
+        // northern hemisphere, duplicate vertices at the pole
+        for (int32 p = 0; p < HemisphereSteps; ++p)
         {
-            for (int32 t = 0; t < CircleSteps; ++t)
+            for (int32 t = 0; t < CircleStepsDupl; ++t)
             {
+                if(p == 0 && t == CircleSteps)
+                {
+                    // skip circle step duplicate at the north pole
+                    continue;
+                }
                 FVector Normal = SphericalToCartesian(1., t * DeltaTheta, p * DeltaPhi);
-                AddVertex(Normal * Radius + Offset, Normal);
+                FVector Tangent = SphericalToCartesian(1., t * DeltaTheta + FMathd::HalfPi, FMathd::HalfPi);
+                FVector Binormal = SphericalToCartesian(1., t * DeltaTheta, p * DeltaPhi + FMathd::HalfPi);
+                AddVertex(Normal * Radius + Offset, Normal, Tangent, Binormal);
             }
         }
 
         // cylinder section
         for (int32 h = 0; h < CylinderSteps + 1; ++h)
         {
-            for(int32 t = 0; t < CircleSteps; ++t)
+            for(int32 t = 0; t < CircleStepsDupl; ++t)
             {
                 FVector Normal = SphericalToCartesian(1., t * DeltaTheta, FMathd::HalfPi);
+                FVector Tangent = SphericalToCartesian(1., t * DeltaTheta + FMathd::HalfPi, FMathd::HalfPi);
+                FVector Binormal = -FVector::UnitZ();
                 AddVertex
                     (Normal * Radius + Offset * (1. - 2. * static_cast<double>(h) / CylinderSteps)
                     , Normal
+                    , Tangent
+                    , Binormal
                     );
             }
         }
 
-        // southern hemisphere, skipping the pole
-        for (int32 p = 1; p < HemisphereSteps; ++p)
+        // southern hemisphere, duplicate vertices at the pole
+        for (int32 p = 1; p <= HemisphereSteps; ++p)
         {
-            for (int32 t = 0; t < CircleSteps; ++t)
+            for (int32 t = 0; t < CircleStepsDupl; ++t)
             {
+                if(p == HemisphereSteps && t == CircleSteps)
+                {
+                    // skip circle step duplicate at the south pole
+                    continue;
+                }
                 FVector Normal = SphericalToCartesian(1., t * DeltaTheta, FMathd::HalfPi + p * DeltaPhi);
-                AddVertex(Normal * Radius - Offset, Normal);
+                FVector Tangent = SphericalToCartesian(1., t * DeltaTheta + FMathd::HalfPi, FMathd::HalfPi);
+                FVector Binormal = SphericalToCartesian(1., t * DeltaTheta, p * DeltaPhi + FMathd::Pi);
+                AddVertex(Normal * Radius - Offset, Normal, Tangent, Binormal);
             }
         }
-        // north-pole
-        AddVertex( FVector::UnitZ() * Radius + Offset,  FVector::UnitZ());
-        // south-pole
-        AddVertex(-FVector::UnitZ() * Radius - Offset, -FVector::UnitZ());
     }
 
     {
-        MeshData.UV0.SetNum(StartVertex + NumVertices, false);
-        
         // generate the UV's
-        const float DeltaH   = 1.0 / static_cast<float>(NumHeightSteps);
+        const float DeltaH   = 1.0 / static_cast<float>(NumHeightSteps - 1);
         const float DeltaTheta = 1.0 / static_cast<float>(CircleSteps);
-        int32 UVid = StartVertex;
 
-        for(int p = 1; p < NumHeightSteps + 1; ++p)
+        for(int p = 0; p < NumHeightSteps; ++p)
         {
-            for (int t = 0; t < CircleSteps; ++t)
+            for (int t = 0; t < CircleStepsDupl; ++t)
             {
-                MeshData.UV0[UVid++] = FVector2D(t * DeltaTheta, p * DeltaH);
+                if((p == 0 || p == NumHeightSteps - 1) && t == CircleSteps)
+                {
+                    // no circle step duplicate vertex at the poles
+                    continue;
+                }
+                MeshData.UV0.Emplace(t * DeltaTheta, p * DeltaH);
             }
-            // TODO: how to set multiple uvs for same vertex
-            // MeshData.UV0[UVid++] = FVector2D(0, p * DeltaPhi);
         }
-        // TODO: how to set multiple uvs for same vertex
-        // north-pole
-        MeshData.UV0[UVid++] = FVector2D(1., 0.0);
-        // south-pole
-        MeshData.UV0[UVid] = FVector2D(1., 1.0);
+        check(MeshData.UV0.Num() == StartVertex + NumVertices)
     }
         
     {
-        int32 Corners[4] =   { 0, 1, CircleSteps + 1, CircleSteps};
-        for (int32 p = 0; p < NumHeightSteps - 1; ++p)
+        for(int32 t = 0; t < CircleSteps; t++)
         {
-            for (int32 t = 0; t < CircleSteps - 1; ++t)
-            {
-                ConvertQuadToTriangles
-                    (MeshData.Triangles
-                    , Corners[0]
-                    , Corners[1]
-                    , Corners[2]
-                    , Corners[3]
-                    );
-                for (int32& i : Corners) ++i; 
-            }
-            ConvertQuadToTriangles
-                ( MeshData.Triangles
-                , Corners[0]
-                , Corners[1] - CircleSteps
-                , Corners[2] - CircleSteps
-                , Corners[3]
-                );
-            for (int32& i : Corners) ++i;
-        }
-    }
-
-    {
-        // Triangles that connect to north pole
-        for (int32 t = 0; t < CircleSteps; ++t)
-        {
-            MeshData.Triangles.Add(NumVertices - 2);
-            MeshData.Triangles.Add((t + 1) % CircleSteps);
+            MeshData.Triangles.Add(t + CircleSteps);
             MeshData.Triangles.Add(t);
+            MeshData.Triangles.Add(t + CircleSteps + 1);
         }
 
-        // Triangles that connect to South pole
-        const int32 Offset   = NumVertices - 2 - CircleSteps;
-        for (int32 t = 0; t < CircleSteps; ++t)
+        for(int32 h = 0; h < NumHeightSteps - 3; ++h)
         {
-            MeshData.Triangles.Add(NumVertices - 1);
-            MeshData.Triangles.Add(t + Offset);
-            MeshData.Triangles.Add((t + 1) % CircleSteps + Offset);
+            for(int32 t = 0; t < CircleSteps; t++)
+            {
+                const int32 i = StartVertex + CircleSteps + h * CircleStepsDupl + t;
+                // useful check whenever vertix calculation above changes;
+                // currently works fine, thus redundant
+                // checkf
+                //     (i + CircleStepsDupl + 1 < NumVertices - CircleSteps
+                //     , TEXT("Expected: Highest i %d < NumVertices - CirclesSteps %d")
+                //     , i + CircleStepsDupl + 1
+                //     , NumVertices - CircleSteps
+                //     )
+                ConvertQuadToTriangles
+                    ( MeshData.Triangles
+                    , i
+                    , i + 1
+                    , i + CircleStepsDupl + 1
+                    , i + CircleStepsDupl
+                    );
+            }
         }
+        const int32 Offset = NumVertices - CircleSteps;
+        for(int32 t = 0; t < CircleSteps; ++t)
+        {
+            MeshData.Triangles.Add(Offset + t);
+            MeshData.Triangles.Add(Offset + t - CircleStepsDupl);
+            MeshData.Triangles.Add(Offset + t - CircleStepsDupl + 1);
+        }
+        check(MeshData.Triangles.Num() % 3 == 0)
+        check(MeshData.Triangles.Num() == NumTris)
     }
     
     return MeshData;
