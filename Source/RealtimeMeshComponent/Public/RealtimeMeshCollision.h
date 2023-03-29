@@ -240,7 +240,7 @@ public:
 
 
 UCLASS()
-class URealtimeMeshSimpleGeometryFunctionLibrary : public UBlueprintFunctionLibrary
+class REALTIMEMESHCOMPONENT_API URealtimeMeshSimpleGeometryFunctionLibrary : public UBlueprintFunctionLibrary
 {
 	GENERATED_BODY()
 
