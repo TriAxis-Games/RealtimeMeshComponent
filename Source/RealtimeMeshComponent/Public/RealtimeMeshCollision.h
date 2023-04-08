@@ -169,7 +169,7 @@ public:
 
 
 USTRUCT(BlueprintType)
-struct FRealtimeMeshSimpleGeometry
+struct REALTIMEMESHCOMPONENT_API FRealtimeMeshSimpleGeometry
 {
 	GENERATED_BODY()
 private:
@@ -240,7 +240,7 @@ public:
 
 
 UCLASS()
-class URealtimeMeshSimpleGeometryFunctionLibrary : public UBlueprintFunctionLibrary
+class REALTIMEMESHCOMPONENT_API URealtimeMeshSimpleGeometryFunctionLibrary : public UBlueprintFunctionLibrary
 {
 	GENERATED_BODY()
 
