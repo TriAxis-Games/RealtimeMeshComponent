@@ -249,8 +249,6 @@ namespace RealtimeMesh
 			}
 		}
 		
-		UE_LOG(LogTemp, Warning, TEXT("RMSection Saving:%d NumSections:%d"), Ar.IsSaving()? 1 : 0, Sections.Num());
-		
 		Ar << LocalBounds;
 		Ar << InUseRange;
 		return true;

@@ -194,8 +194,6 @@ namespace RealtimeMesh
 			}
 		}
 		
-		UE_LOG(LogTemp, Warning, TEXT("RMSectionGroup Saving:%d NumSectionGroups:%d"), Ar.IsSaving()? 1 : 0, SectionGroups.Num());
-		
 		Ar << Config;
 		Ar << LocalBounds;
 		return true;
