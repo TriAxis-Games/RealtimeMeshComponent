@@ -14,7 +14,7 @@ class REALTIMEMESHCOMPONENT_API ARealtimeMeshActor : public AActor
 
 protected:
 	UPROPERTY(Category = "RealtimeMeshActor", VisibleAnywhere, BlueprintReadOnly, meta = (ExposeFunctionCategories = "Mesh,Rendering,Physics,Components|StaticMesh", AllowPrivateAccess = "true"))
-	TObjectPtr<class URealtimeMeshComponent> RealtimeMeshComponent;
+	TObjectPtr<URealtimeMeshComponent> RealtimeMeshComponent;
 
 public:
 	
