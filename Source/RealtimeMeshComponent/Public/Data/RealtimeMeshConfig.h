@@ -264,11 +264,11 @@ struct REALTIMEMESHCOMPONENT_API FRealtimeMeshLODKey
 	friend struct RealtimeMesh::FRealtimeMeshKeyHelpers;
 protected:
 	UPROPERTY(VisibleAnywhere, Category="RealtimeMesh|Key")
-	int8 LODIndex;
+	uint8 LODIndex;
 
 public:
 	FRealtimeMeshLODKey() : LODIndex(INDEX_NONE) { }
-	FRealtimeMeshLODKey(int8 InLODIndex) : LODIndex(InLODIndex) { }
+	FRealtimeMeshLODKey(uint8 InLODIndex) : LODIndex(InLODIndex) { }
 
 	bool IsValid() const { return LODIndex != INDEX_NONE; }
 
@@ -287,14 +287,14 @@ struct REALTIMEMESHCOMPONENT_API FRealtimeMeshSectionGroupKey : public FRealtime
 	friend struct RealtimeMesh::FRealtimeMeshKeyHelpers;
 protected:
 	UPROPERTY(VisibleAnywhere, Category="RealtimeMesh|Key")
-	int8 SectionGroupIndex;
+	uint8 SectionGroupIndex;
 
 public:
 	FRealtimeMeshSectionGroupKey()
 		: SectionGroupIndex(INDEX_NONE) { }
-	FRealtimeMeshSectionGroupKey(int8 InLODIndex, int8 InSectionGroupIndex)
+	FRealtimeMeshSectionGroupKey(uint8 InLODIndex, uint8 InSectionGroupIndex)
 		: FRealtimeMeshLODKey(InLODIndex), SectionGroupIndex(InSectionGroupIndex) { }
-	FRealtimeMeshSectionGroupKey(FRealtimeMeshLODKey InLODKey, int8 InSectionGroupIndex)
+	FRealtimeMeshSectionGroupKey(FRealtimeMeshLODKey InLODKey, uint8 InSectionGroupIndex)
 		: FRealtimeMeshLODKey(InLODKey), SectionGroupIndex(InSectionGroupIndex) { }
 
 	bool IsValid() const { return LODIndex != INDEX_NONE && SectionGroupIndex != INDEX_NONE; }
@@ -326,13 +326,13 @@ struct REALTIMEMESHCOMPONENT_API FRealtimeMeshSectionKey : public FRealtimeMeshS
 	friend struct RealtimeMesh::FRealtimeMeshKeyHelpers;
 protected:
 	UPROPERTY(VisibleAnywhere, Category="RealtimeMesh|Key")
-	int16 SectionIndex;
+	uint16 SectionIndex;
 public:
 	FRealtimeMeshSectionKey()
 		: SectionIndex(INDEX_NONE) { }
-	FRealtimeMeshSectionKey(int8 InLODIndex, int8 InSectionGroupIndex, int16 InSectionKey)
+	FRealtimeMeshSectionKey(uint8 InLODIndex, uint8 InSectionGroupIndex, uint16 InSectionKey)
 		: FRealtimeMeshSectionGroupKey(InLODIndex, InSectionGroupIndex), SectionIndex(InSectionKey) { }
-	FRealtimeMeshSectionKey(FRealtimeMeshSectionGroupKey InSectionGroupKey, int16 InSectionKey)
+	FRealtimeMeshSectionKey(FRealtimeMeshSectionGroupKey InSectionGroupKey, uint16 InSectionKey)
 		: FRealtimeMeshSectionGroupKey(InSectionGroupKey), SectionIndex(InSectionKey) { }
 
 	bool IsValid() const { return LODIndex != INDEX_NONE && SectionGroupIndex != INDEX_NONE && SectionIndex != INDEX_NONE; }
@@ -361,9 +361,9 @@ namespace RealtimeMesh
 	
 	struct FRealtimeMeshKeyHelpers
 	{
-		static int32 GetLODIndex(const FRealtimeMeshLODKey& LODKey) { return LODKey.LODIndex; }
-		static int32 GetSectionGroupIndex(const FRealtimeMeshSectionGroupKey& SectionGroupKey) { return SectionGroupKey.SectionGroupIndex; }
-		static int32 GetSectionIndex(const FRealtimeMeshSectionKey& SectionKey) { return SectionKey.SectionIndex; }
+		static uint32 GetLODIndex(const FRealtimeMeshLODKey& LODKey) { return LODKey.LODIndex; }
+		static uint32 GetSectionGroupIndex(const FRealtimeMeshSectionGroupKey& SectionGroupKey) { return SectionGroupKey.SectionGroupIndex; }
+		static uint32 GetSectionIndex(const FRealtimeMeshSectionKey& SectionKey) { return SectionKey.SectionIndex; }
 	};
 
 	class REALTIMEMESHCOMPONENT_API FRealtimeMeshClassFactory : public TSharedFromThis<FRealtimeMeshClassFactory>

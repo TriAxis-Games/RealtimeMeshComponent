@@ -123,6 +123,7 @@ namespace RealtimeMesh
 	{
 		FRWScopeLockEx ScopeLock(Lock, SLT_Write);
 		const auto Allocation = Sections.AddUninitialized();
+		check(Allocation.Index <= UINT16_MAX);
 		FRealtimeMeshSectionKey SectionKey = FRealtimeMeshSectionKey(Key, Allocation.Index);
 		new(Allocation) FRealtimeMeshSectionDataRef(ClassFactory->CreateSection(MeshWeak.Pin().ToSharedRef(), SectionKey, InConfig, InStreamRange));
 		const auto& Section = Sections[FRealtimeMeshKeyHelpers::GetSectionIndex(SectionKey)];
