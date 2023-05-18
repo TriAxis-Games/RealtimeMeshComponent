@@ -1,6 +1,8 @@
 ﻿// Copyright TriAxis Games, L.L.C. All Rights Reserved.
 
 #include "RenderProxy/RealtimeMeshSectionGroupProxy.h"
+
+#include "MaterialDomain.h"
 #include "RenderProxy/RealtimeMeshLODProxy.h"
 #include "RenderProxy/RealtimeMeshProxy.h"
 #include "RenderProxy/RealtimeMeshSectionProxy.h"

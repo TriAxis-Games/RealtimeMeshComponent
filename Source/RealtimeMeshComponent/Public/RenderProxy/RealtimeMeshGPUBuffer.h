@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "DataDrivenShaderPlatformInfo.h"
+#include "RHIResourceUpdates.h"
 #include "Data/RealtimeMeshDataTypes.h"
 #include "Containers/ResourceArray.h"
 

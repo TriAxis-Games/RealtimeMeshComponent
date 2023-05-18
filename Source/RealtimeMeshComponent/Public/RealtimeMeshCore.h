@@ -7,7 +7,7 @@
 #include "StaticMeshResources.h"
 
 // This version of the RMC is only supported by engine version 5.0.0 and above
-static_assert(ENGINE_MAJOR_VERSION >= 5 && ENGINE_MINOR_VERSION >= 0);
+static_assert(ENGINE_MAJOR_VERSION >= 5 && ENGINE_MINOR_VERSION >= 2);
 
 DECLARE_STATS_GROUP(TEXT("RealtimeMesh"), STATGROUP_RealtimeMesh, STATCAT_Advanced);
 
@@ -81,7 +81,7 @@ namespace RealtimeMesh
 		
 		friend inline uint32 GetTypeHash(const FRealtimeMeshStreamKey& StreamKey)
 		{
-			return ::GetTypeHash(StreamKey.StreamType) + 23 * ::GetTypeHash(StreamKey.StreamName);
+			return GetTypeHashHelper(StreamKey.StreamType) + 23 * GetTypeHashHelper(StreamKey.StreamName);
 		}
 
 		FString ToString() const

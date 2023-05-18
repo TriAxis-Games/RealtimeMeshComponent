@@ -5,6 +5,9 @@
 =============================================================================*/
 
 #include "RenderProxy/RealtimeMeshVertexFactory.h"
+#include "DataDrivenShaderPlatformInfo.h"
+#include "MaterialDomain.h"
+#include "MeshDrawShaderBindings.h"
 #include "SceneView.h"
 #include "MeshBatch.h"
 #include "SpeedTreeWind.h"

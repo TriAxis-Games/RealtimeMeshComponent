@@ -61,7 +61,7 @@ namespace RealtimeMesh
 		
 		friend FORCEINLINE uint32 GetTypeHash(const FRealtimeMeshElementType& Element)
 		{
-			return ::HashCombine(::GetTypeHash(Element.Type), ::GetTypeHash(Element.NumDatums << 2 | Element.bNormalized << 1 | Element.bShouldConvertToFloat));
+			return ::HashCombine(GetTypeHashHelper(Element.Type), GetTypeHashHelper(Element.NumDatums << 2 | Element.bNormalized << 1 | Element.bShouldConvertToFloat));
 		}
 		
 		friend FArchive& operator<<(FArchive& Ar, FRealtimeMeshElementType& ElementType)
@@ -156,7 +156,7 @@ namespace RealtimeMesh
 	private:
 		void InitHash()
 		{
-			uint32 NewHash = ::GetTypeHash(NumElements);
+			uint32 NewHash = GetTypeHashHelper(NumElements);
 			for (int32 Index = 0; Index < Elements.Num(); Index++)
 			{
 				NewHash = HashCombine(NewHash, GetTypeHash(Elements[Index]));

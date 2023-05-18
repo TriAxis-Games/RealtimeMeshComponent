@@ -6,10 +6,12 @@
 #include "Materials/Material.h"
 #include "PhysicsEngine/BodySetup.h"
 //#include "TessellationRendering.h"
+#include "MaterialDomain.h"
 #include "PrimitiveSceneProxy.h"
 #include "UnrealEngine.h"
 #include "SceneManagement.h"
 #include "RayTracingInstance.h"
+#include "Materials/MaterialRenderProxy.h"
 #include "RenderProxy/RealtimeMeshLODProxy.h"
 
 
@@ -291,7 +293,11 @@ namespace RealtimeMesh
 							RayTracingInstance.InstanceTransforms.Add(LocalToWorld);
 							
 							RayTracingInstance.Materials.Add(Batch);
-							RayTracingInstance.BuildInstanceMaskAndFlags(FeatureLevel);
+							// API Change: Removed the need to call BuildInstanceMaskAndFlags and
+							// BuildRayTracingInstanceMaskAndFlags functions manually in GetXXRayTracingInstance. They
+							// will be called in the renderer module. All functions manually called have been removed.
+							// Removed the RENDER_API public API for those functions in RayTracingInstance.h.
+							// RayTracingInstance.BuildInstanceMaskAndFlags(FeatureLevel);
 							OutRayTracingInstances.Add(RayTracingInstance);
 						},
 						GetUniformBuffer(),
