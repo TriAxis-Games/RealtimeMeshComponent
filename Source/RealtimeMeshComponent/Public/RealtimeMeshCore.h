@@ -31,6 +31,12 @@ struct FRealtimeMeshStreamRange;
 struct FRealtimeMeshLODConfig;
 
 
+#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION < 2
+template <typename T>
+FORCEINLINE uint32 GetTypeHashHelper(const T& V) { return GetTypeHash(V); }
+#endif
+
+
 namespace RealtimeMesh
 {
 	template<typename InElementType>
@@ -80,8 +86,8 @@ namespace RealtimeMesh
 		FORCEINLINE bool operator!=(const FRealtimeMeshStreamKey& Other) const { return StreamType != Other.StreamType || StreamName != Other.StreamName; }
 		
 		friend inline uint32 GetTypeHash(const FRealtimeMeshStreamKey& StreamKey)
-		{
-			return ::GetTypeHash(StreamKey.StreamType) + 23 * ::GetTypeHash(StreamKey.StreamName);
+		{			
+			return GetTypeHashHelper(StreamKey.StreamType) + 23 * GetTypeHashHelper(StreamKey.StreamName);
 		}
 
 		FString ToString() const
