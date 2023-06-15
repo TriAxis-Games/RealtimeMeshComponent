@@ -18,9 +18,9 @@ namespace RealtimeMesh
 	const TMap<FRealtimeMeshElementType, FRealtimeMeshElementTypeDefinition> FRealtimeMeshBufferLayoutUtilities::SupportedTypeDefinitions =
 	{
 		{ FRealtimeMeshElementType(ERealtimeMeshDatumType::Float, 1, false, true), FRealtimeMeshElementTypeDefinition(VET_Float1, IET_None, PF_R32_FLOAT, sizeof(float), alignof(float)) },
-		{ FRealtimeMeshElementType(ERealtimeMeshDatumType::Float, 2, false, true), FRealtimeMeshElementTypeDefinition(VET_Float2, IET_None, PF_G32R32F, sizeof(FVector2f), alignof(float)) },
-		{ FRealtimeMeshElementType(ERealtimeMeshDatumType::Float, 3, false, true), FRealtimeMeshElementTypeDefinition(VET_Float3, IET_None, PF_R32G32B32F, sizeof(FVector3f), alignof(float)) },
-		{ FRealtimeMeshElementType(ERealtimeMeshDatumType::Float, 4, false, true), FRealtimeMeshElementTypeDefinition(VET_Float4, IET_None, PF_A32B32G32R32F, sizeof(FVector4f), alignof(float)) },	
+		{ FRealtimeMeshElementType(ERealtimeMeshDatumType::Float, 2, false, true), FRealtimeMeshElementTypeDefinition(VET_Float2, IET_None, PF_R32_FLOAT, sizeof(FVector2f), alignof(float)) },
+		{ FRealtimeMeshElementType(ERealtimeMeshDatumType::Float, 3, false, true), FRealtimeMeshElementTypeDefinition(VET_Float3, IET_None, PF_R32_FLOAT, sizeof(FVector3f), alignof(float)) },
+		{ FRealtimeMeshElementType(ERealtimeMeshDatumType::Float, 4, false, true), FRealtimeMeshElementTypeDefinition(VET_Float4, IET_None, PF_R32_FLOAT, sizeof(FVector4f), alignof(float)) },
 		{ FRealtimeMeshElementType(ERealtimeMeshDatumType::Int8, 4, true, true), FRealtimeMeshElementTypeDefinition(VET_PackedNormal, IET_None, PF_R8G8B8A8_SNORM, sizeof(FPackedNormal), alignof(FPackedNormal)) },	
 		{ FRealtimeMeshElementType(ERealtimeMeshDatumType::UInt8, 4, false, false), FRealtimeMeshElementTypeDefinition(VET_UByte4, IET_None, PF_R8G8B8A8_UINT, sizeof(uint8)*4, alignof(uint8)) },
 		{ FRealtimeMeshElementType(ERealtimeMeshDatumType::UInt8, 4, true, true), FRealtimeMeshElementTypeDefinition(VET_UByte4N, IET_None, PF_R8G8B8A8_UINT, sizeof(uint8)*4, alignof(uint8)) },	
@@ -41,7 +41,8 @@ namespace RealtimeMesh
 		{ FRealtimeMeshElementType(ERealtimeMeshDatumType::Int32, 1, false, false), FRealtimeMeshElementTypeDefinition(VET_None, IET_Int32, PF_R32_SINT, sizeof(int32), alignof(int32)) },		
 		{ FRealtimeMeshElementType(ERealtimeMeshDatumType::UInt32, 1, false, false), FRealtimeMeshElementTypeDefinition(VET_UInt, IET_UInt32, PF_R32_UINT, sizeof(uint32), alignof(uint32)) },	
 	};
-	
+
+	TMap<FRealtimeMeshElementConversionKey, FRealtimeMeshElementConverters> FRealtimeMeshBufferLayoutUtilities::TypeConversionMap;
 	
 
 	FName FRealtimeMeshBufferLayoutUtilities::GetRealtimeMeshDatumTypeName(ERealtimeMeshDatumType Datum)
@@ -165,4 +166,128 @@ namespace RealtimeMesh
 	{
 		return FRealtimeMeshBufferLayoutDefinition(BufferLayout, GetTypeDefinition(BufferLayout.GetElementType()));
 	}
+
+	const FRealtimeMeshElementConverters& FRealtimeMeshBufferLayoutUtilities::GetTypeConverter(const FRealtimeMeshElementType& FromType, const FRealtimeMeshElementType& ToType)
+	{
+		return TypeConversionMap.FindChecked(FRealtimeMeshElementConversionKey(FromType, ToType));		
+	}
+
+	void FRealtimeMeshBufferLayoutUtilities::RegisterTypeConverter(const FRealtimeMeshElementType& FromType, const FRealtimeMeshElementType& ToType,
+		FRealtimeMeshElementConverters Converters)
+	{
+		TypeConversionMap.Add(FRealtimeMeshElementConversionKey(FromType, ToType), Converters);
+	}
+
+	void FRealtimeMeshBufferLayoutUtilities::UnregisterTypeConverter(const FRealtimeMeshElementType& FromType, const FRealtimeMeshElementType& ToType)
+	{
+		TypeConversionMap.Remove(FRealtimeMeshElementConversionKey(FromType, ToType));
+	}
+
+
+
+
+
+
+
+
+
+
+	// UInt16 
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER_TRIVIAL(uint16, uint16);
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER_TRIVIAL(uint16, int16);
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER_TRIVIAL(uint16, uint32);
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER_TRIVIAL(uint16, int32);
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER_TRIVIAL(uint16, float);
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER_TRIVIAL(uint16, FFloat16);
+
+	
+	// Int16
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER_TRIVIAL(int16, uint16);
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER_TRIVIAL(int16, int16);
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER_TRIVIAL(int16, uint32);
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER_TRIVIAL(int16, int32);
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER_TRIVIAL(int16, float);
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER_TRIVIAL(int16, FFloat16);
+
+	// UInt32
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER_TRIVIAL(uint32, uint16);
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER_TRIVIAL(uint32, int16);
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER_TRIVIAL(uint32, uint32);
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER_TRIVIAL(uint32, int32);
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER_TRIVIAL(uint32, float);
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER_TRIVIAL(uint32, FFloat16);
+
+	// Int32
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER_TRIVIAL(int32, uint16);
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER_TRIVIAL(int32, int16);
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER_TRIVIAL(int32, uint32);
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER_TRIVIAL(int32, int32);
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER_TRIVIAL(int32, float);
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER_TRIVIAL(int32, FFloat16);
+
+	// float
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER_TRIVIAL(float, float);
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER_TRIVIAL(float, FFloat16);
+
+	// FFloat16
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER_TRIVIAL(FFloat16, float);
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER_TRIVIAL(FFloat16, FFloat16);
+	
+	// FVector2DHalf
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER_TRIVIAL(FVector2DHalf, FVector2DHalf);
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER_TRIVIAL(FVector2DHalf, FVector2f);
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER_TRIVIAL(FVector2DHalf, FVector2d);
+	
+	// FVector2f
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER_TRIVIAL(FVector2f, FVector2DHalf);
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER_TRIVIAL(FVector2f, FVector2f);
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER_TRIVIAL(FVector2f, FVector2d);	
+	
+	// FVector2d
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER_TRIVIAL(FVector2d, FVector2DHalf);
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER_TRIVIAL(FVector2d, FVector2f);
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER_TRIVIAL(FVector2d, FVector2d);
+
+	// FVector3f
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER_TRIVIAL(FVector3f, FVector3f);
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER_TRIVIAL(FVector3f, FVector3d);
+	
+	// FVector3d
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER_TRIVIAL(FVector3d, FVector3f);
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER_TRIVIAL(FVector3d, FVector3d);
+
+	// FVector4f
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER_TRIVIAL(FVector4f, FVector4f);
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER_TRIVIAL(FVector4f, FVector4d);
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER_TRIVIAL(FVector4f, FPackedNormal);
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER_TRIVIAL(FVector4f, FPackedRGBA16N);
+	
+	// FVector4d
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER_TRIVIAL(FVector4d, FVector4f);
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER_TRIVIAL(FVector4d, FVector4d);
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER_TRIVIAL(FVector4d, FPackedNormal);
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER_TRIVIAL(FVector4d, FPackedRGBA16N);
+
+
+	// FPackedNormal
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER(FPackedNormal, FVector4f,	{ *static_cast<FVector4f*>(Destination) = (*static_cast<FPackedNormal*>(Source)).ToFVector4f(); });
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER(FPackedNormal, FVector4d, { *static_cast<FVector4d*>(Destination) = (*static_cast<FPackedNormal*>(Source)).ToFVector4(); });
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER_TRIVIAL(FPackedNormal, FPackedNormal);
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER(FPackedNormal, FPackedRGBA16N, { *static_cast<FPackedRGBA16N*>(Destination) = (*static_cast<FPackedNormal*>(Source)).ToFVector4f(); });
+	
+	// FPackedRGBA16N	
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER(FPackedRGBA16N, FVector4f, { *static_cast<FVector4f*>(Destination) = (*static_cast<FPackedRGBA16N*>(Source)).ToFVector4f(); });
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER(FPackedRGBA16N, FVector4d, { *static_cast<FVector4d*>(Destination) = (*static_cast<FPackedRGBA16N*>(Source)).ToFVector4(); });
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER(FPackedRGBA16N, FPackedNormal, { *static_cast<FPackedNormal*>(Destination) = (*static_cast<FPackedRGBA16N*>(Source)).ToFVector4f(); });
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER_TRIVIAL(FPackedRGBA16N, FPackedRGBA16N);
+
+	// FColor
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER_TRIVIAL(FColor, FColor);
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER(FColor, FLinearColor, { *static_cast<FLinearColor*>(Destination) = FLinearColor::FromSRGBColor(*static_cast<FColor*>(Source)); })
+	
+	// FLinearColor
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER_TRIVIAL(FLinearColor, FLinearColor);
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER(FLinearColor, FColor, { *static_cast<FColor*>(Destination) = static_cast<FLinearColor*>(Source)->ToFColorSRGB(); })
+		
+	
 }

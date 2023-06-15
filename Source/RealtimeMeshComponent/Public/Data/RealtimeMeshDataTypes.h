@@ -259,10 +259,43 @@ namespace RealtimeMesh
 		static const FRealtimeMeshBufferLayoutDefinition Invalid;
 	};
 
+	struct REALTIMEMESHCOMPONENT_API FRealtimeMeshElementConversionKey
+	{
+		const FRealtimeMeshElementType FromType;
+		const FRealtimeMeshElementType ToType;
+
+		FRealtimeMeshElementConversionKey(const FRealtimeMeshElementType& InFromType, const FRealtimeMeshElementType& InToType)
+			: FromType(InFromType), ToType(InToType)
+		{
+		}
+
+		bool operator==(const FRealtimeMeshElementConversionKey& OtherKey) const
+		{
+			return FromType == OtherKey.FromType && ToType == OtherKey.ToType;
+		}
+
+		friend uint32 GetTypeHash(const FRealtimeMeshElementConversionKey& Key)
+		{
+			return HashCombine(GetTypeHash(Key.FromType), GetTypeHash(Key.ToType));
+		}
+	};
+	
+	struct REALTIMEMESHCOMPONENT_API FRealtimeMeshElementConverters
+	{
+		const TFunction<void(void*, void*)> SingleElementConverter;
+		const TFunction<void(void*, void*, uint32 Num, uint32 Stride)> ArrayElementConverter;
+
+		FRealtimeMeshElementConverters(const TFunction<void(void*, void*)> InSingleElementConverter, const TFunction<void(void*, void*, uint32 Num, uint32 Stride)> InArrayElementConverter)
+			: SingleElementConverter(InSingleElementConverter), ArrayElementConverter(InArrayElementConverter)
+		{
+		}
+	};
+
 	struct REALTIMEMESHCOMPONENT_API FRealtimeMeshBufferLayoutUtilities
 	{
 	private:
 		static const TMap<FRealtimeMeshElementType, FRealtimeMeshElementTypeDefinition> SupportedTypeDefinitions;
+		static TMap<FRealtimeMeshElementConversionKey, FRealtimeMeshElementConverters> TypeConversionMap;
 	public:
 		static FName GetRealtimeMeshDatumTypeName(ERealtimeMeshDatumType Datum);
 		static int32 GetRealtimeMeshDatumTypeSize(ERealtimeMeshDatumType Datum);
@@ -278,7 +311,10 @@ namespace RealtimeMesh
 
 		static const FRealtimeMeshElementTypeDefinition& GetTypeDefinition(const FRealtimeMeshElementType& VertexType);
 		static FRealtimeMeshBufferLayoutDefinition GetBufferLayoutDefinition(const FRealtimeMeshBufferLayout& BufferLayout);
-		
+
+		static const FRealtimeMeshElementConverters& GetTypeConverter(const FRealtimeMeshElementType& FromType, const FRealtimeMeshElementType& ToType);
+		static void RegisterTypeConverter(const FRealtimeMeshElementType& FromType, const FRealtimeMeshElementType& ToType, FRealtimeMeshElementConverters Converters);
+		static void UnregisterTypeConverter(const FRealtimeMeshElementType& FromType, const FRealtimeMeshElementType& ToType);
 	};
 
 
@@ -305,6 +341,15 @@ namespace RealtimeMesh
 		return FRealtimeMeshElementTypeTraits<ElementType>::ElementTypeDefinition;
 	}
 
+	inline TFunctionRef<void(void*, void*)> GetRealtimeMeshElementTypeConverter(const FRealtimeMeshElementType& FromType, const FRealtimeMeshElementType& ToType)
+	{
+		return FRealtimeMeshBufferLayoutUtilities::GetTypeConverter(FromType, ToType).SingleElementConverter;
+	}
+	
+	inline TFunctionRef<void(void*, void*, uint32 Num, uint32 Stride)> GetRealtimeMeshArrayTypeConverter(const FRealtimeMeshElementType& FromType, const FRealtimeMeshElementType& ToType)
+	{
+		return FRealtimeMeshBufferLayoutUtilities::GetTypeConverter(FromType, ToType).ArrayElementConverter;		
+	}
 
 #define RMC_DEFINE_ELEMENT_TYPE(ElementType, DatumType, NumDatums, bNormalized, bShouldConvertToFloat) \
 	template<> struct FRealtimeMeshElementTypeTraits<ElementType> \
@@ -330,9 +375,16 @@ namespace RealtimeMesh
 	RMC_DEFINE_ELEMENT_TYPE(FVector2DHalf, ERealtimeMeshDatumType::Half, 2, false, true);
 
 	RMC_DEFINE_ELEMENT_TYPE(FColor, ERealtimeMeshDatumType::UInt8, 4, true, true);
+	RMC_DEFINE_ELEMENT_TYPE(FLinearColor, ERealtimeMeshDatumType::Float, 4, true, true);
 
 	RMC_DEFINE_ELEMENT_TYPE(FPackedNormal, ERealtimeMeshDatumType::Int8, 4, true, true);
 	RMC_DEFINE_ELEMENT_TYPE(FPackedRGBA16N, ERealtimeMeshDatumType::Int16, 4, true, true);
+
+	// These are mostly just used for external data conversion with BP for example. Not actual mesh rendering
+	RMC_DEFINE_ELEMENT_TYPE(double, ERealtimeMeshDatumType::Double, 1, false, true);
+	RMC_DEFINE_ELEMENT_TYPE(FVector2d, ERealtimeMeshDatumType::Double, 2, false, true);
+	RMC_DEFINE_ELEMENT_TYPE(FVector3d, ERealtimeMeshDatumType::Double, 3, false, true);
+	RMC_DEFINE_ELEMENT_TYPE(FVector4d, ERealtimeMeshDatumType::Double, 4, false, true);
 
 	template <typename Type>
 	struct TIsRealtimeMeshBaseElementType
@@ -345,10 +397,48 @@ namespace RealtimeMesh
 	static_assert(FRealtimeMeshElementTypeTraits<FPackedRGBA16N>::IsValid);
 	static_assert(FRealtimeMeshElementTypeTraits<FVector2f>::IsValid);
 	static_assert(FRealtimeMeshElementTypeTraits<FColor>::IsValid);
+	static_assert(FRealtimeMeshElementTypeTraits<FLinearColor>::IsValid);
 	static_assert(!FRealtimeMeshElementTypeTraits<void>::IsValid);
-	static_assert(!FRealtimeMeshElementTypeTraits<double>::IsValid);
+
+
+	
+	template<typename FromType, typename ToType>
+	class FRealtimeMeshTypeConverterRegistration : FNoncopyable
+	{
+		static_assert(FRealtimeMeshElementTypeTraits<FromType>::IsValid);
+		static_assert(FRealtimeMeshElementTypeTraits<ToType>::IsValid);
+	public:
+		FRealtimeMeshTypeConverterRegistration(FRealtimeMeshElementConverters Converters)
+		{
+			FRealtimeMeshBufferLayoutUtilities::RegisterTypeConverter(GetRealtimeMeshDataElementType<FromType>(), GetRealtimeMeshDataElementType<ToType>(), Converters);
+		}
+
+		~FRealtimeMeshTypeConverterRegistration()
+		{
+			FRealtimeMeshBufferLayoutUtilities::UnregisterTypeConverter(GetRealtimeMeshDataElementType<FromType>(), GetRealtimeMeshDataElementType<ToType>());
+		}
+	};
 	
 
+#define RMC_DEFINE_ELEMENT_TYPE_CONVERTER(FromElementType, ToElementType, ElementConverter) \
+	FRealtimeMeshTypeConverterRegistration<FromElementType, ToElementType> GRegister##FromElementType##To##ToElementType(FRealtimeMeshElementConverters( \
+			[](void* Source, void* Destination) ElementConverter, \
+			[](void* SourceArr, void* DestinationArr, uint32 Count, uint32 Stride) { \
+				for (uint32 Index = 0; Index < Count; Index++) \
+				{ \
+					void* Source = static_cast<FromElementType*>(SourceArr) + Index * Stride; \
+					void* Destination = static_cast<ToElementType*>(DestinationArr) + Index * Stride; \
+					ElementConverter; \
+				} \
+			} \
+		) \
+	);
+
+#define RMC_DEFINE_ELEMENT_TYPE_CONVERTER_TRIVIAL(FromElementType, ToElementType) \
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER(FromElementType, ToElementType, { *static_cast<ToElementType*>(Destination) = ToElementType(*static_cast<FromElementType*>(Source)); });
+
+
+	
 
 	template<typename TangentType>
 	struct FRealtimeMeshTangents
@@ -433,6 +523,33 @@ namespace RealtimeMesh
 
 	using FRealtimeMeshTangentsHighPrecision = FRealtimeMeshTangents<FPackedRGBA16N>;
 	using FRealtimeMeshTangentsNormalPrecision = FRealtimeMeshTangents<FPackedNormal>;
+
+
+	template<typename ChannelType>
+	FRealtimeMeshBufferLayout GetRealtimeMeshTexCoordFormatHelper(int32 NumChannels)
+	{
+		return
+			NumChannels >= 8? GetRealtimeMeshBufferLayout<FRealtimeMeshTexCoord<ChannelType, 8>>() :
+			NumChannels >= 7? GetRealtimeMeshBufferLayout<FRealtimeMeshTexCoord<ChannelType, 7>>() :
+			NumChannels >= 6? GetRealtimeMeshBufferLayout<FRealtimeMeshTexCoord<ChannelType, 6>>() :
+			NumChannels >= 5? GetRealtimeMeshBufferLayout<FRealtimeMeshTexCoord<ChannelType, 5>>() :
+			NumChannels >= 4? GetRealtimeMeshBufferLayout<FRealtimeMeshTexCoord<ChannelType, 4>>() :
+			NumChannels >= 3? GetRealtimeMeshBufferLayout<FRealtimeMeshTexCoord<ChannelType, 3>>() :
+			NumChannels >= 2? GetRealtimeMeshBufferLayout<FRealtimeMeshTexCoord<ChannelType, 2>>() :
+			GetRealtimeMeshBufferLayout<FRealtimeMeshTexCoord<ChannelType, 1>>();
+	}
+	
+
+	inline FRealtimeMeshBufferLayout GetRealtimeMeshTexCoordFormatHelper(bool bUseHighPrecision, int32 NumChannels)
+	{
+		return bUseHighPrecision? GetRealtimeMeshTexCoordFormatHelper<FVector2f>(NumChannels) : GetRealtimeMeshTexCoordFormatHelper<FVector2DHalf>(NumChannels);
+	}
+
+
+	inline FRealtimeMeshBufferLayout GetRealtimeMeshTangentFormatHelper(bool bUseHighPrecision)
+	{
+		return bUseHighPrecision? GetRealtimeMeshBufferLayout<FRealtimeMeshTangentsHighPrecision>() : GetRealtimeMeshBufferLayout<FRealtimeMeshTangentsNormalPrecision>();
+	}
 	
 	
 	

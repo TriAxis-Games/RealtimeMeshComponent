@@ -88,7 +88,7 @@ namespace RealtimeMesh
 				else
 				{
 					check(StreamKey.IsIndexStream());
-					Buffer = RHICreateIndexBuffer(BufferLayout.GetStride(), Resource->GetResourceDataSize(), UsageFlags | BUF_IndexBuffer | BUF_ShaderResource, CreateInfo);
+					Buffer = RHICreateIndexBuffer(BufferLayout.GetStride(), Resource->GetResourceDataSize(), UsageFlags | BUF_IndexBuffer, CreateInfo);
 				}
 			}
 		}
@@ -132,6 +132,7 @@ namespace RealtimeMesh
 		virtual ERealtimeMeshStreamType GetStreamType() const = 0;
 		virtual void InitializeResources() = 0;
 		virtual void ReleaseUnderlyingResource() = 0;
+		virtual bool IsResourceInitialized() const = 0;
 
 		FORCEINLINE const FRealtimeMeshBufferLayoutDefinition& GetBufferLayout() const { return BufferLayout; }
 		FORCEINLINE EPixelFormat GetElementFormat() const { return BufferLayout.GetElementTypeDefinition().GetPixelFormat(); }
@@ -186,6 +187,8 @@ namespace RealtimeMesh
 
 		virtual void ReleaseUnderlyingResource() override { ReleaseResource(); }
 
+		virtual bool IsResourceInitialized() const override { return IsInitialized(); }
+
 		/** Gets the format of the vertex */
 		FORCEINLINE EVertexElementType GetVertexType() const { return GetBufferLayout().GetElementTypeDefinition().GetVertexType(); }
 
@@ -194,21 +197,30 @@ namespace RealtimeMesh
 			FRHIResourceCreateInfo CreateInfo(TEXT("RealtimeMeshBuffer-Vertex-Init"));
 			CreateInfo.bWithoutNativeResource = true;
 			VertexBufferRHI = RHICreateVertexBuffer(0, BUF_VertexBuffer | BUF_Static, CreateInfo);
-			ShaderResourceViewRHI = RHISupportsManualVertexFetch(GMaxRHIShaderPlatform)
-				? RHICreateShaderResourceView(FShaderResourceViewInitializer(nullptr, PF_R32_FLOAT))
-				: nullptr;
+			if (VertexBufferRHI && RHISupportsManualVertexFetch(GMaxRHIShaderPlatform))
+			{
+				ShaderResourceViewRHI = RHICreateShaderResourceView(FShaderResourceViewInitializer(nullptr, PF_R32G32B32F));
+			}
 		}
 		
 		virtual void ApplyBufferUpdate(TRHIResourceUpdateBatcher<RHIUpdateBatchSize>& Batcher, 
 		                               const FRealtimeMeshSectionGroupStreamUpdateDataRef& UpdateData) override
 		{
 			check(IsInitialized());
+
 			FRealtimeMeshGPUBuffer::ApplyBufferUpdate(Batcher, UpdateData);
 			{
 				Batcher.QueueUpdateRequest(VertexBufferRHI, UpdateData->GetBuffer());
 				if (ShaderResourceViewRHI)
 				{
-					Batcher.QueueUpdateRequest(ShaderResourceViewRHI, VertexBufferRHI, GetElementStride(), GetElementFormat());
+					if (UpdateData->GetBuffer().IsValid())
+					{
+						Batcher.QueueUpdateRequest(ShaderResourceViewRHI, VertexBufferRHI, GetElementStride(), GetElementFormat());
+					}
+					else
+					{
+						Batcher.QueueUpdateRequest(ShaderResourceViewRHI, nullptr, 0, 0);
+					}
 				}
 			}
 		}
@@ -232,6 +244,8 @@ namespace RealtimeMesh
 
 		virtual void ReleaseUnderlyingResource() override { ReleaseResource(); }
 
+		virtual bool IsResourceInitialized() const override { return IsInitialized(); }
+
 		/** Gets the format of the index buffer */
 		FORCEINLINE bool IsUsing32BitIndices() const { return FRealtimeMeshBufferLayoutUtilities::Is32BitIndex(GetBufferLayout().GetElementTypeDefinition()); }
 
@@ -250,5 +264,5 @@ namespace RealtimeMesh
 			Batcher.QueueUpdateRequest(IndexBufferRHI, UpdateData->GetBuffer());
 		}
 	};
-	
+		
 }

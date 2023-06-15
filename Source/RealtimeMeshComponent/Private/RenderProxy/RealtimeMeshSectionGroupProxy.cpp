@@ -284,6 +284,7 @@ namespace RealtimeMesh
 		StreamData->InitializeIfRequired();
 
 		TSharedPtr<FRealtimeMeshGPUBuffer, ESPMode::ThreadSafe> GPUBuffer;
+
 		
 		// If we have the stream already, just update it
 		if (const TSharedPtr<FRealtimeMeshGPUBuffer, ESPMode::ThreadSafe>* FoundBuffer = Streams.Find(StreamData->GetStreamKey()))
@@ -303,6 +304,8 @@ namespace RealtimeMesh
 			Streams.Add(StreamData->GetStreamKey(), GPUBuffer);
 		}
 
+		check(GPUBuffer);
+		check(GPUBuffer->IsResourceInitialized());
 		GPUBuffer->ApplyBufferUpdate(Batcher, StreamData);		
 
 		MarkStateDirty();

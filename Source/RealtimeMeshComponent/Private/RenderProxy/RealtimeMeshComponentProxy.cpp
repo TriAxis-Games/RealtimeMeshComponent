@@ -257,7 +257,7 @@ namespace RealtimeMesh
 	{
 		SCOPE_CYCLE_COUNTER(STAT_RealtimeMeshComponentSceneProxy_GetDynamicRayTracingInstances);
 
-		// Make sure all pending changes have been processed
+		/*// Make sure all pending changes have been processed
 		RealtimeMeshProxy->HandleUpdates(false);
 		
 		// TODO: Should this use any LOD determination logic? Or always use a specific LOD?
@@ -302,10 +302,10 @@ namespace RealtimeMesh
 						IsShadowCast(Context.ReferenceView)
 					};
 
-					RealtimeMeshProxy->CreateMeshBatches(LODIndex, Params, Materials, nullptr, ERealtimeMeshSectionDrawType::Dynamic, true /* bForceDynamicPath */);
+					RealtimeMeshProxy->CreateMeshBatches(LODIndex, Params, Materials, nullptr, ERealtimeMeshSectionDrawType::Dynamic, true /* bForceDynamicPath #1#);
 				}		
 			}
-		}
+		}*/
 
 		check(true);
 	}
