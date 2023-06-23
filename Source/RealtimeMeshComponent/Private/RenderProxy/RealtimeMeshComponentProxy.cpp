@@ -5,7 +5,6 @@
 #include "RealtimeMeshComponent.h"
 #include "Materials/Material.h"
 #include "PhysicsEngine/BodySetup.h"
-//#include "TessellationRendering.h"
 #include "PrimitiveSceneProxy.h"
 #include "UnrealEngine.h"
 #include "SceneManagement.h"
@@ -289,7 +288,9 @@ namespace RealtimeMesh
 							RayTracingInstance.InstanceTransforms.Add(LocalToWorld);
 							
 							RayTracingInstance.Materials.Add(Batch);
+#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION < 2
 							RayTracingInstance.BuildInstanceMaskAndFlags(FeatureLevel);
+#endif
 							OutRayTracingInstances.Add(RayTracingInstance);
 						},
 						GetUniformBuffer(),
