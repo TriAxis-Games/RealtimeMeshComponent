@@ -19,7 +19,8 @@ class REALTIMEMESHCOMPONENT_API URealtimeMeshComponent : public UMeshComponent
 private:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = RealtimeMesh, Meta = (AllowPrivateAccess = "true", DisplayName = "Runtime Mesh"))
-	URealtimeMesh* RealtimeMeshReference;
+	TObjectPtr<URealtimeMesh> RealtimeMeshReference;
+
 
 public:
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "RealtimeMesh")

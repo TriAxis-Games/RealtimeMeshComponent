@@ -68,7 +68,7 @@ namespace RealtimeMesh
 	void FRealtimeMeshComponentSceneProxy::CreateRenderThreadResources()
 	{
 		// Make sure the proxy has been updated.
-		RealtimeMeshProxy->HandleUpdates(false);
+		RealtimeMeshProxy->HandleUpdates();
 
 		FPrimitiveSceneProxy::CreateRenderThreadResources();
 	}
@@ -82,7 +82,7 @@ namespace RealtimeMesh
 	FPrimitiveViewRelevance FRealtimeMeshComponentSceneProxy::GetViewRelevance(const FSceneView* View) const
 	{
 		// Make sure all pending changes have been processed
-		RealtimeMeshProxy->HandleUpdates(false);
+		//RealtimeMeshProxy->HandleUpdates(false);
 		
 		FPrimitiveViewRelevance Result;
 		Result.bDrawRelevance = IsShown(View);
@@ -109,7 +109,7 @@ namespace RealtimeMesh
 		const auto ValidLODRange = RealtimeMeshProxy->GetValidLODRange();
 		
 		// Make sure all pending changes have been processed
-		RealtimeMeshProxy->HandleUpdates(false);
+		//RealtimeMeshProxy->HandleUpdates(false);
 
 		
 		if (!ValidLODRange.IsEmpty())
@@ -159,7 +159,7 @@ namespace RealtimeMesh
 		SCOPE_CYCLE_COUNTER(STAT_RealtimeMeshComponentSceneProxy_GetDynamicMeshElements);
 
 		// Make sure all pending changes have been processed
-		RealtimeMeshProxy->HandleUpdates(false);
+		//RealtimeMeshProxy->HandleUpdates(false);
 		
 		// Set up wireframe material (if needed)
 		const bool bWireframe = AllowDebugViewmodes() && ViewFamily.EngineShowFlags.Wireframe;
@@ -257,13 +257,11 @@ namespace RealtimeMesh
 	{
 		SCOPE_CYCLE_COUNTER(STAT_RealtimeMeshComponentSceneProxy_GetDynamicRayTracingInstances);
 
-		/*// Make sure all pending changes have been processed
-		RealtimeMeshProxy->HandleUpdates(false);
+		// Make sure all pending changes have been processed
+		//RealtimeMeshProxy->HandleUpdates(false);
 		
 		// TODO: Should this use any LOD determination logic? Or always use a specific LOD?
 		const int32 LODIndex = 0;
-
-
 		
 		if (RealtimeMeshProxy->GetDrawMask().HasAnyFlags())
 		{
@@ -302,10 +300,10 @@ namespace RealtimeMesh
 						IsShadowCast(Context.ReferenceView)
 					};
 
-					RealtimeMeshProxy->CreateMeshBatches(LODIndex, Params, Materials, nullptr, ERealtimeMeshSectionDrawType::Dynamic, true /* bForceDynamicPath #1#);
+					RealtimeMeshProxy->CreateMeshBatches(LODIndex, Params, Materials, nullptr, ERealtimeMeshSectionDrawType::Dynamic, true /* bForceDynamicPath */);
 				}		
 			}
-		}*/
+		}
 
 		check(true);
 	}

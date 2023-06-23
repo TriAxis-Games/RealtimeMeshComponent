@@ -21,6 +21,11 @@ namespace RealtimeMesh
 		}
 	}
 
+	FRealtimeMeshLODProxy::~FRealtimeMeshLODProxy()
+	{
+		check(IsInRenderingThread());
+	}
+
 	FRealtimeMeshSectionGroupProxyPtr FRealtimeMeshLODProxy::GetSectionGroup(FRealtimeMeshSectionGroupKey SectionKey) const
 	{ 
 		if (SectionKey.IsPartOf(Key) && SectionGroups.IsValidIndex(FRealtimeMeshKeyHelpers::GetSectionGroupIndex(SectionKey)))
@@ -90,40 +95,37 @@ namespace RealtimeMesh
 		bIsStateDirty = true;
 	}
 
-	bool FRealtimeMeshLODProxy::HandleUpdates(bool bShouldForceUpdate)
+	bool FRealtimeMeshLODProxy::HandleUpdates()
 	{
 		// Handle all SectionGroup updates
 		for (const auto& SectionGroup : SectionGroups)
 		{
-			bIsStateDirty |= SectionGroup->HandleUpdates(bShouldForceUpdate);
+			bIsStateDirty |= SectionGroup->HandleUpdates();
 		}
 		
-		if (bIsStateDirty)
+		if (!bIsStateDirty)
 		{
-			bIsStateDirty = false;
-
-			FRealtimeMeshDrawMask NewDrawMask;
-			if (Config.bIsVisible && Config.ScreenSize >= 0)
-			{
-				for (TSparseArray<FRealtimeMeshSectionGroupProxyRef>::TIterator It(SectionGroups); It; ++It)
-				{
-					NewDrawMask |= (*It)->GetDrawMask();
-				}
-			}
-
-			DrawMask = NewDrawMask;
-			return true;			
+			return false;
 		}
-		return false;
+		
+		FRealtimeMeshDrawMask NewDrawMask;
+		if (Config.bIsVisible && Config.ScreenSize >= 0)
+		{
+			for (TSparseArray<FRealtimeMeshSectionGroupProxyRef>::TIterator It(SectionGroups); It; ++It)
+			{
+				NewDrawMask |= (*It)->GetDrawMask();
+			}
+		}
+		
+		const bool bStateChanged = DrawMask != NewDrawMask;
+		DrawMask = NewDrawMask;		
+		bIsStateDirty = false;
+		return bStateChanged;
 	}
 	
 	void FRealtimeMeshLODProxy::Reset()
 	{
 		// Reset all the section groups
-		for (auto& SectionGroup : SectionGroups)
-		{
-			SectionGroup->Reset();
-		}
 		SectionGroups.Empty();
 		
 		Config = FRealtimeMeshLODConfig();

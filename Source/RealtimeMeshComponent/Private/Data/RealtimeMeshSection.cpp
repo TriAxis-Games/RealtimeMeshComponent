@@ -164,9 +164,9 @@ namespace RealtimeMesh
 		}
 	}
 
-	void FRealtimeMeshSectionData::OnStreamsChanged(const TArray<FRealtimeMeshStreamKey>& AddedOrUpdatedStreams,
-	                                                const TArray<FRealtimeMeshStreamKey>& RemovedStreams)
+	void FRealtimeMeshSectionData::OnStreamsChanged(const TArray<FRealtimeMeshStreamKey>& AddedOrUpdatedStreams, const TArray<FRealtimeMeshStreamKey>& RemovedStreams)
 	{
+		// We don't really do anything here, it's mostly to support things like collision updates and such in derived mesh types
 	}
 
 	bool FRealtimeMeshSectionData::Serialize(FArchive& Ar)

@@ -17,12 +17,16 @@
 
 
 
-
-USTRUCT(BlueprintType)
+USTRUCT(BlueprintType, meta=(HasNativeMake="RealtimeMeshComponent.RealtimeMeshSimpleBlueprintFunctionLibrary.MakeRealtimeMeshSimpleStream"))
 struct REALTIMEMESHCOMPONENT_API FRealtimeMeshSimpleMeshData
 {
 	GENERATED_BODY();
 public:
+
+	FRealtimeMeshSimpleMeshData()
+		: bUseHighPrecisionTangents(false)
+		, bUseHighPrecisionTexCoords(false)
+	{ }
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RealtimeMesh")
 	TArray<int32> Triangles;
@@ -63,6 +67,33 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RealtimeMesh", AdvancedDisplay)
 	bool bUseHighPrecisionTexCoords;
 };
+
+UCLASS(meta=(ScriptName="RealtimeMeshSimpleLibrary"))
+class REALTIMEMESHCOMPONENT_API URealtimeMeshSimpleBlueprintFunctionLibrary : public UBlueprintFunctionLibrary
+{
+	GENERATED_BODY()
+
+public:
+	UFUNCTION(BlueprintCallable, Category = "RealtimeMesh|Simple",
+		meta=(AdvancedDisplay="Triangles,Positions,Normals,Tangents,Binormals,LinearColors,UV0,UV1,UV2,UV3,Colors,bUseHighPrecisionTangents,bUseHighPrecisionTexCoords",
+		AutoCreateRefTerm="Triangles,Positions,Normals,Tangents,Binormals,LinearColors,UV0,UV1,UV2,UV3,Colors"))
+	static FRealtimeMeshSimpleMeshData MakeRealtimeMeshSimpleStream(
+		const TArray<int32>& Triangles,
+		const TArray<FVector>& Positions,
+		const TArray<FVector>& Normals,
+		const TArray<FVector>& Tangents,
+		const TArray<FVector>& Binormals,
+		const TArray<FLinearColor>& LinearColors,
+		const TArray<FVector2D>& UV0,
+		const TArray<FVector2D>& UV1,
+		const TArray<FVector2D>& UV2,
+		const TArray<FVector2D>& UV3,
+		const TArray<FColor>& Colors,
+		bool bUseHighPrecisionTangents,
+		bool bUseHighPrecisionTexCoords);
+};
+
+
 
 
 namespace RealtimeMesh
@@ -154,16 +185,22 @@ namespace RealtimeMesh
 		{
 			return MakeShared<FRealtimeMeshLODSimple>(this->AsShared(), InMesh, InKey, InConfig);
 		}
+
+		virtual FRealtimeMeshRef CreateRealtimeMesh() const override;
 	};
 
-	class REALTIMEMESHCOMPONENT_API FRealtimeMeshDataSimple : public FRealtimeMesh
+	class REALTIMEMESHCOMPONENT_API FRealtimeMeshSimple : public FRealtimeMesh
 	{
 	public:
-		FRealtimeMeshDataSimple() : FRealtimeMesh(MakeShared<FRealtimeMeshClassFactorySimple>()) {
-		TypeName = "RealtimeMesh-Simple"; }
+		FRealtimeMeshSimple(const FRealtimeMeshClassFactoryRef& InClassFactory) : FRealtimeMesh(InClassFactory)
+		{
+			TypeName = "RealtimeMesh-Simple";
+		}
 					
 		virtual bool GetPhysicsTriMeshData(struct FTriMeshCollisionData* CollisionData, bool InUseAllTriData) override;
 		virtual bool ContainsPhysicsTriMeshData(bool InUseAllTriData) const override;
+
+		virtual void Reset() override;
 	};
 }
 
@@ -176,13 +213,9 @@ class REALTIMEMESHCOMPONENT_API URealtimeMeshSimple : public URealtimeMesh
 {
 	GENERATED_UCLASS_BODY()
 protected:
-	TSharedRef<RealtimeMesh::FRealtimeMeshDataSimple> MeshRef;
-	
-
 	
 public:
-	virtual RealtimeMesh::FRealtimeMeshRef GetMesh() const override { return MeshRef; }
-	TSharedRef<RealtimeMesh::FRealtimeMeshDataSimple> GetMeshData() const { return MeshRef; };
+	TSharedRef<RealtimeMesh::FRealtimeMeshSimple> GetMeshData() const { return StaticCastSharedRef<RealtimeMesh::FRealtimeMeshSimple>(GetMesh()); };
 
 	virtual void Reset(bool bCreateNewMeshData) override;
 

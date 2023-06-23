@@ -55,8 +55,7 @@ URealtimeMesh* URealtimeMeshComponent::InitializeRealtimeMesh(TSubclassOf<URealt
 	URealtimeMesh* NewMesh = nullptr;
 	if (MeshClass)
 	{
-		NewMesh = NewObject<URealtimeMesh>(IsValid(GetOuter())? GetOuter() : this, MeshClass);		
-		SetRealtimeMesh(NewMesh);
+		NewMesh = NewObject<URealtimeMesh>(IsValid(GetOuter())? GetOuter() : this, MeshClass);
 	}
 	SetRealtimeMesh(NewMesh);
 	return NewMesh;

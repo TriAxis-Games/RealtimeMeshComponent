@@ -33,12 +33,7 @@ namespace RealtimeMesh
 	public:
 		FRealtimeMeshProxy(const FRealtimeMeshClassFactoryRef& InClassFactory, const FRealtimeMeshRef& InMesh);
 
-		virtual ~FRealtimeMeshProxy()
-		{
-			// The mesh proxy can only be safely destroyed from the rendering thread.
-			// This is so that all the resources can be safely freed correctly.
-			check(IsInRenderingThread());
-		}
+		virtual ~FRealtimeMeshProxy();
 
 		virtual void InitializeRenderThreadResources(const FRealtimeMeshProxyInitializationParametersRef& InitParams);
 		
@@ -61,7 +56,7 @@ namespace RealtimeMesh
 		void EnqueueRenderingCommand(TUniqueFunction<void(const FRealtimeMeshProxyRef&)>&& InCommand);
 
 		void MarkStateDirty();
-		virtual bool HandleUpdates(bool bShouldForceUpdate);
+		virtual bool HandleUpdates();
 		virtual void Reset();
 
 	protected:

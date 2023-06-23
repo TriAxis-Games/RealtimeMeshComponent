@@ -178,8 +178,7 @@ namespace RealtimeMesh
 	public:
 		FRealtimeMeshVertexBuffer() : FRealtimeMeshGPUBuffer(TEXT("RealtimeMesh-VertexBuffer"))
 		{
-		}
-
+		}		
 		virtual FString GetFriendlyName() const override { return GetBufferName(); }
 
 		virtual ERealtimeMeshStreamType GetStreamType() const override { return ERealtimeMeshStreamType::Vertex; }

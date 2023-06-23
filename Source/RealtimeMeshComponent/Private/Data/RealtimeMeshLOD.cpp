@@ -70,7 +70,7 @@ namespace RealtimeMesh
 	{
 		FRWScopeLockEx ScopeLock(Lock, SLT_Write);
 		const auto Allocation = SectionGroups.AddUninitialized();
-		check(Allocation.Index <= UINT8_MAX);
+		check(Allocation.Index <+ UINT8_MAX);
 		FRealtimeMeshSectionGroupKey SectionGroupKey = FRealtimeMeshSectionGroupKey(Key, Allocation.Index);
 		new(Allocation) FRealtimeMeshSectionGroupRef(ClassFactory->CreateSectionGroup(MeshWeak.Pin().ToSharedRef(), SectionGroupKey));
 		const auto& SectionGroup = SectionGroups[FRealtimeMeshKeyHelpers::GetSectionGroupIndex(SectionGroupKey)];

@@ -9,7 +9,7 @@
 #define LOCTEXT_NAMESPACE "RealtimeMesh"
 
 namespace RealtimeMesh
-{	
+{
 	FRealtimeMesh::FRealtimeMesh(const FRealtimeMeshClassFactoryRef& InClassFactory)
 		: ClassFactory(InClassFactory)
 		, LocalBounds(FVector3f::ZeroVector, FVector3f::OneVector, 1)
@@ -177,14 +177,30 @@ namespace RealtimeMesh
 
 	void FRealtimeMesh::Reset()
 	{
-		FWriteScopeLock ScopeLock(RenderDataLock);
-
-		if (RenderProxy)
 		{
-			RenderProxy.Reset();
+			FWriteScopeLock ScopeLock(RenderDataLock);
+
+			if (RenderProxy)
+			{
+				RenderProxy.Reset();
+			}
+
+			LODs.Empty();
+			Config = FRealtimeMeshConfig();
+		}
+		{
+			FWriteScopeLock ScopeLock(BoundsLock);
+			LocalBounds = FBoxSphereBounds3f(FSphere3f(FVector3f::ZeroVector, 1));
+		}
+		{
+			FWriteScopeLock ScopeLock(CollisionLock);
+			CollisionConfig = FRealtimeMeshCollisionConfiguration();
+			SimpleGeometry = FRealtimeMeshSimpleGeometry();
 		}
 		
 		MarkRenderStateDirty(true);
+		MarkCollisionDirty();
+		UpdateBounds();
 	}
 
 	FRealtimeMeshProxyInitializationParametersRef FRealtimeMesh::GetInitializationParams() const

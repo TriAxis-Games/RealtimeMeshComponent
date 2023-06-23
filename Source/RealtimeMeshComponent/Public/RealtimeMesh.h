@@ -31,11 +31,14 @@ protected:
 	void BroadcastRenderDataChangedEvent(bool bShouldRecreateProxies) { RenderDataChangedEvent.Broadcast(this, bShouldRecreateProxies); }
 	void BroadcastCollisionBodyUpdatedEvent(UBodySetup* NewBodySetup);
 
+	void InitializeFromFactory(const RealtimeMesh::FRealtimeMeshClassFactoryRef& InClassFactory, bool bBindEvents = true);
+	virtual void BindEvents();
 	virtual void UnbindEvents();
-
-	//virtual RealtimeMesh::FRealtimeMeshClassFactoryRef GetClassFactory() const PURE_VIRTUAL(URealtimeMesh::GetClassFactory, return MakeShared<RealtimeMesh::FRealtimeMeshClassFactory>(););
-
-private:
+protected:
+	// Class factory to use to create all the 
+	RealtimeMesh::FRealtimeMeshClassFactoryPtr ClassFactory;
+	RealtimeMesh::FRealtimeMeshPtr MeshRef;
+	
 	UPROPERTY()
 	TArray<FRealtimeMeshMaterialSlot> MaterialSlots;
 	
@@ -47,14 +50,10 @@ private:
 	
 	UPROPERTY(Transient)
 	TArray<UBodySetup*> AsyncBodySetupQueue;
+
 	
 public:
-	virtual RealtimeMesh::FRealtimeMeshRef GetMesh() const
-	{
-		// We should not ever bee here
-		check(false);
-		return RealtimeMesh::FRealtimeMeshRef(static_cast<RealtimeMesh::FRealtimeMesh*>(nullptr));
-	}
+	RealtimeMesh::FRealtimeMeshRef GetMesh() const { return MeshRef.ToSharedRef(); }
 
 	UBodySetup* GetBodySetup() const { return BodySetup; }
 

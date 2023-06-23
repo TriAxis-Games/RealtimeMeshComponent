@@ -27,7 +27,7 @@ namespace RealtimeMesh
 
 	protected:
 		const FRealtimeMeshClassFactoryRef ClassFactory;
-		mutable FRealtimeMeshProxyPtr RenderProxy;	
+		mutable FRealtimeMeshProxyPtr RenderProxy;
 		TFixedLODArray<FRealtimeMeshLODDataRef> LODs;
 		FRealtimeMeshConfig Config;
 		FBoxSphereBounds3f LocalBounds;

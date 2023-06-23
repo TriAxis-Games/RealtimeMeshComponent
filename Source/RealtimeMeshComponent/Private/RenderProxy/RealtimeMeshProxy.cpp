@@ -15,6 +15,13 @@ namespace RealtimeMesh
 	{
 	}
 
+	FRealtimeMeshProxy::~FRealtimeMeshProxy()
+	{
+		// The mesh proxy can only be safely destroyed from the rendering thread.
+		// This is so that all the resources can be safely freed correctly.
+		check(IsInRenderingThread());
+	}
+
 	void FRealtimeMeshProxy::InitializeRenderThreadResources(const FRealtimeMeshProxyInitializationParametersRef& InitParams)
 	{
 		LODs.Reserve(InitParams->LODs.Num());
@@ -93,7 +100,7 @@ namespace RealtimeMesh
 			{
 				if (const auto Pinned = ThisWeakRef.Pin())
 				{
-					Pinned->HandleUpdates(false);
+					Pinned->HandleUpdates();
 				}
 			});
 		}
@@ -104,7 +111,7 @@ namespace RealtimeMesh
 		bIsStateDirty = true;
 	}
 
-	bool FRealtimeMeshProxy::HandleUpdates(bool bShouldForceUpdate)
+	bool FRealtimeMeshProxy::HandleUpdates()
 	{
 		bool bHadUpdates = false;
 		
@@ -118,73 +125,73 @@ namespace RealtimeMesh
 			Cmd(ThisRef);
 			bHadUpdates = true;
 		}
+
+		if (!bHadUpdates)
+		{
+			return false;
+		}
 		
 		// Handle all LOD updates next
 		for (const auto& LOD : LODs)
 		{
-			bIsStateDirty |= LOD->HandleUpdates(bShouldForceUpdate);
+			bIsStateDirty |= LOD->HandleUpdates();
 		}
-		
-		if (bIsStateDirty)
+
+		if (!bIsStateDirty)
 		{
-			bIsStateDirty = false;
-
-			FRealtimeMeshDrawMask NewMask;
-			TArray<TRange<float>> NewScreenSizeRangeByLOD;
-			TRange<int8> NewValidLODRange = TRange<int8>::Empty();
-			TRangeBound<float> MaxScreenSize = TNumericLimits<float>::Max();
-
-			for (int32 LODIndex = 0; LODIndex < LODs.Num(); LODIndex++)
-			{
-				const auto& LOD = LODs[LODIndex];
-				
-				const auto LODDrawMask = LOD->GetDrawMask();				
-				NewMask |= LODDrawMask;
-				
-				TRangeBound<float> NewScreenSize = MaxScreenSize;
-				if (LODDrawMask.HasAnyFlags())
-				{
-					NewScreenSize = LOD->GetScreenSize();
-					if (NewScreenSize.GetValue() > MaxScreenSize.GetValue())
-					{
-						NewScreenSize = MaxScreenSize;
-					}
-
-					if (!NewValidLODRange.IsEmpty())
-					{
-						NewValidLODRange.SetUpperBound(TRangeBound<int8>::Inclusive(LODIndex));
-					}
-					else
-					{
-						NewValidLODRange = TRange<int8>(TRangeBound<int8>::Inclusive(LODIndex), TRangeBound<int8>::Inclusive(LODIndex));
-					}
-				}
-				NewScreenSizeRangeByLOD.Add(TRange<float>(NewScreenSize, MaxScreenSize));
-				MaxScreenSize = NewScreenSize;					
-			}
-
-			DrawMask = NewMask;
-			ScreenSizeRangeByLOD = MoveTemp(NewScreenSizeRangeByLOD);
-			ValidLODRange = NewValidLODRange;
-
-			check(!DrawMask.HasAnyFlags() || !ValidLODRange.IsEmpty());
-
-			bHadUpdates = true;
+			return false;
 		}
 
-		return bHadUpdates;
+		FRealtimeMeshDrawMask NewMask;
+		TArray<TRange<float>> NewScreenSizeRangeByLOD;
+		TRange<int8> NewValidLODRange = TRange<int8>::Empty();
+		TRangeBound<float> MaxScreenSize = TNumericLimits<float>::Max();
+
+		for (int32 LODIndex = 0; LODIndex < LODs.Num(); LODIndex++)
+		{
+			const auto& LOD = LODs[LODIndex];
+				
+			const auto LODDrawMask = LOD->GetDrawMask();				
+			NewMask |= LODDrawMask;
+				
+			TRangeBound<float> NewScreenSize = MaxScreenSize;
+			if (LODDrawMask.HasAnyFlags())
+			{
+				NewScreenSize = LOD->GetScreenSize();
+				if (NewScreenSize.GetValue() > MaxScreenSize.GetValue())
+				{
+					NewScreenSize = MaxScreenSize;
+				}
+
+				if (!NewValidLODRange.IsEmpty())
+				{
+					NewValidLODRange.SetUpperBound(TRangeBound<int8>::Inclusive(LODIndex));
+				}
+				else
+				{
+					NewValidLODRange = TRange<int8>(TRangeBound<int8>::Inclusive(LODIndex), TRangeBound<int8>::Inclusive(LODIndex));
+				}
+			}
+			NewScreenSizeRangeByLOD.Add(TRange<float>(NewScreenSize, MaxScreenSize));
+			MaxScreenSize = NewScreenSize;					
+		}                                                                                                                                                                                                                            
+
+		const bool bStateChanged = DrawMask != NewMask || ScreenSizeRangeByLOD != NewScreenSizeRangeByLOD || ValidLODRange != NewValidLODRange;
+		
+		DrawMask = NewMask;
+		ScreenSizeRangeByLOD = MoveTemp(NewScreenSizeRangeByLOD);
+		ValidLODRange = NewValidLODRange;
+		bIsStateDirty = false;
+		
+		check(!DrawMask.HasAnyFlags() || !ValidLODRange.IsEmpty());
+		
+		return bStateChanged;
 	}
 
 	void FRealtimeMeshProxy::Reset()
 	{
 		IsQueuedForUpdate.AtomicSet(false);
 		PendingUpdates.Empty();
-		
-		// Reset and remove all the LODs
-		for (const auto& LOD : LODs)
-		{
-			LOD->Reset();
-		}
 		LODs.Empty();
 
 		DrawMask = FRealtimeMeshDrawMask();

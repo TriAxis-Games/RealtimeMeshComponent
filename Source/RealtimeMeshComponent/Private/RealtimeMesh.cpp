@@ -32,6 +32,26 @@ void URealtimeMesh::BroadcastCollisionBodyUpdatedEvent(UBodySetup* NewBodySetup)
 	CollisionBodyUpdatedEvent.Broadcast(this, NewBodySetup);
 }
 
+void URealtimeMesh::InitializeFromFactory(const RealtimeMesh::FRealtimeMeshClassFactoryRef& InClassFactory, bool bBindEvents)
+{
+	ClassFactory = InClassFactory;
+	if (bBindEvents)
+	{
+		UnbindEvents();
+	}
+	MeshRef = ClassFactory->CreateRealtimeMesh();
+	if (bBindEvents)
+	{
+		BindEvents();
+	}
+}
+
+void URealtimeMesh::BindEvents()
+{
+	GetMesh()->OnBoundsChanged().AddUObject(this, &URealtimeMesh::HandleBoundsUpdated);
+	GetMesh()->OnRenderDataChanged().AddUObject(this, &URealtimeMesh::HandleMeshRenderingDataChanged);
+}
+
 void URealtimeMesh::UnbindEvents()
 {
 	GetMesh()->OnBoundsChanged().RemoveAll(this);
@@ -47,11 +67,10 @@ void URealtimeMesh::Reset(bool bCreateNewMeshData)
 	}
 	else
 	{
-		// TODO: pull the mesh data creation into the factory so we can recreate it here
+		InitializeFromFactory(ClassFactory.ToSharedRef());
 	}
 
-	BodySetup = nullptr;
-	
+	BodySetup = nullptr;	
 
 	BroadcastBoundsChangedEvent();
 	BroadcastRenderDataChangedEvent(true);
@@ -182,9 +201,7 @@ void URealtimeMesh::PostInitProperties()
 
 	if (!HasAnyFlags(RF_ClassDefaultObject))
 	{
-		GetMesh()->OnBoundsChanged().AddUObject(this, &URealtimeMesh::HandleBoundsUpdated);
-		GetMesh()->OnRenderDataChanged().AddUObject(this, &URealtimeMesh::HandleMeshRenderingDataChanged);
-
+		BindEvents();
 		GetMesh()->SetMeshName(this->GetFName());
 	}
 }
@@ -228,6 +245,8 @@ bool URealtimeMesh::ContainsPhysicsTriMeshData(bool InUseAllTriData) const
 
 void URealtimeMesh::Tick(float DeltaTime)
 {
+	// TODO: Should we use FWorldDelegates::OnWorldPreSendAllEndOfFrameUpdates? instead of tick
+	// or maybe FWorldDelegates::OnWorldPostActorTick?
 	if (GetMesh()->IsCollisionDirty())
 	{
 		UpdateCollision();
@@ -241,7 +260,7 @@ ETickableTickType URealtimeMesh::GetTickableTickType() const
 
 bool URealtimeMesh::IsTickable() const
 {
-	return IsAllowedToTick() && GetMesh()->IsCollisionDirty();
+	return MeshRef.IsValid() && IsAllowedToTick() && GetMesh()->IsCollisionDirty();
 }
 
 bool URealtimeMesh::IsAllowedToTick() const

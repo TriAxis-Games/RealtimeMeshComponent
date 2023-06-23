@@ -35,27 +35,25 @@ namespace RealtimeMesh
 		FRealtimeMeshDrawMask GetDrawMask() const { return DrawMask; }
 		FRealtimeMeshStreamRange GetStreamRange() const { return StreamRange; }
 
-		// FORCE INLINE bool ShouldRenderDynamicPathRayTracing() const { return ShouldRender(); }
-
-
 		void UpdateConfig(const FRealtimeMeshSectionConfig& NewConfig);
-
 		void UpdateStreamRange(const FRealtimeMeshStreamRange& InStreamRange);
 
+		bool CreateMeshBatch(
+			const FRealtimeMeshBatchCreationParams& Params,
+			const FRealtimeMeshVertexFactoryRef& VertexFactory,
+			const FMaterialRenderProxy* Material,
+			bool bIsWireframe,
+			bool bSupportsDithering
 #if RHI_RAYTRACING
-		bool CreateMeshBatch(const FRealtimeMeshBatchCreationParams& Params, const FRealtimeMeshVertexFactoryRef& VertexFactory,
-			const FMaterialRenderProxy* Material, bool bIsWireframe, bool bSupportsDithering, const FRayTracingGeometry* RayTracingGeometry) const;
-#else
-		bool CreateMeshBatch(const FRealtimeMeshBatchCreationParams& Params, const FRealtimeMeshVertexFactoryRef& VertexFactory,
-			const FMaterialRenderProxy* Material, bool bIsWireframe, bool bSupportsDithering) const;
+			, const FRayTracingGeometry* RayTracingGeometry
 #endif
+			) const;
 
 		void MarkStateDirty();
-		virtual bool HandleUpdates(bool bShouldForceUpdate);
+		virtual bool HandleUpdates();
 		virtual void Reset();
 		
-		void OnStreamsUpdated(const TArray<FRealtimeMeshStreamKey>& AddedOrUpdatedStreams, const TArray<FRealtimeMeshStreamKey>& RemovedStreams);
-		
+		void OnStreamsUpdated(const TArray<FRealtimeMeshStreamKey>& AddedOrUpdatedStreams, const TArray<FRealtimeMeshStreamKey>& RemovedStreams);		
 	};
 
 }

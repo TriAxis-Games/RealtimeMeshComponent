@@ -22,7 +22,6 @@ namespace RealtimeMesh
 	FRealtimeMeshSectionProxy::~FRealtimeMeshSectionProxy()
 	{
 		check(IsInRenderingThread());
-		Reset();
 	}
 
 	void FRealtimeMeshSectionProxy::UpdateConfig(const FRealtimeMeshSectionConfig& NewConfig)
@@ -36,14 +35,17 @@ namespace RealtimeMesh
 		StreamRange = InStreamRange;
 		MarkStateDirty();
 	}
-
+	
+	bool FRealtimeMeshSectionProxy::CreateMeshBatch(
+		const FRealtimeMeshBatchCreationParams& Params,
+		const FRealtimeMeshVertexFactoryRef& VertexFactory,
+		const FMaterialRenderProxy* Material,
+		bool bIsWireframe,
+		bool bSupportsDithering
 #if RHI_RAYTRACING
-	bool FRealtimeMeshSectionProxy::CreateMeshBatch(const FRealtimeMeshBatchCreationParams& Params, const FRealtimeMeshVertexFactoryRef& VertexFactory,
-		const FMaterialRenderProxy* Material, bool bIsWireframe, bool bSupportsDithering, const FRayTracingGeometry* RayTracingGeometry) const
-#else
-	bool FRealtimeMeshSectionProxy::CreateMeshBatch(const FRealtimeMeshBatchCreationParams& Params, const FRealtimeMeshVertexFactoryRef& VertexFactory,
-		const FMaterialRenderProxy* Material, bool bIsWireframe, bool bSupportsDithering) const
+		, const FRayTracingGeometry* RayTracingGeometry
 #endif
+		) const
 	{
 		if (!VertexFactory->GatherVertexBufferResources(Params.ResourceSubmitter))
 		{
@@ -106,59 +108,61 @@ namespace RealtimeMesh
 		bIsStateDirty = true;
 	}
 
-	bool FRealtimeMeshSectionProxy::HandleUpdates(bool bShouldForceUpdate)
+	bool FRealtimeMeshSectionProxy::HandleUpdates()
 	{
-		if (bIsStateDirty || bShouldForceUpdate)
+		if (!bIsStateDirty)
 		{
-			bIsStateDirty = false;
-
-			// First evaluate whether we have valid mesh data to render			
-			bool bHasValidMeshData = StreamRange.NumPrimitives(REALTIME_MESH_NUM_INDICES_PER_PRIMITIVE) > 0 && StreamRange.NumVertices() > 0;
-			if (bHasValidMeshData)
-			{
-				// Flip it here so if we don't get this series for whatever reason we're invalid after.
-				bHasValidMeshData = false;
-				if (const FRealtimeMeshProxyPtr Proxy = ProxyWeak.Pin())
-				{
-					if (const FRealtimeMeshLODProxyPtr LOD = Proxy->GetLOD(Key.GetLODKey()))
-					{
-						if (const FRealtimeMeshSectionGroupProxyPtr SectionGroup = LOD->GetSectionGroup(Key.GetSectionGroupKey()))
-						{
-							bHasValidMeshData = SectionGroup->GetVertexFactory()->IsValidStreamRange(StreamRange);
-						}
-					}
-				}
-			}
-			
-			FRealtimeMeshDrawMask NewDrawMask;
-
-			// Then build the draw mask if it is valid
-			if (bHasValidMeshData)
-			{
-				if (Config.bIsVisible)
-				{					
-					if (Config.bIsMainPassRenderable)
-					{
-						NewDrawMask.SetFlag(ERealtimeMeshDrawMask::DrawMainPass);
-					}
-
-					if (Config.bCastsShadow)
-					{
-						NewDrawMask.SetFlag(ERealtimeMeshDrawMask::DrawShadowPass);
-					}
-				}
-
-				if (NewDrawMask.HasAnyFlags())
-				{
-					NewDrawMask.SetFlag(Config.DrawType == ERealtimeMeshSectionDrawType::Static? ERealtimeMeshDrawMask::DrawStatic : ERealtimeMeshDrawMask::DrawDynamic);
-				}
-			}
-
-			const bool bStateChanged = DrawMask != NewDrawMask;
-			DrawMask = NewDrawMask;
-			return bStateChanged;
+			return false;
 		}
-		return false;
+
+		// First evaluate whether we have valid mesh data to render			
+		bool bHasValidMeshData = StreamRange.NumPrimitives(REALTIME_MESH_NUM_INDICES_PER_PRIMITIVE) > 0 &&
+			StreamRange.NumVertices() >= REALTIME_MESH_NUM_INDICES_PER_PRIMITIVE;
+		
+		if (bHasValidMeshData)
+		{
+			// Flip it here so if we don't get this series for whatever reason we're invalid after.
+			bHasValidMeshData = false;
+			if (const FRealtimeMeshProxyPtr Proxy = ProxyWeak.Pin())
+			{
+				if (const FRealtimeMeshLODProxyPtr LOD = Proxy->GetLOD(Key.GetLODKey()))
+				{
+					if (const FRealtimeMeshSectionGroupProxyPtr SectionGroup = LOD->GetSectionGroup(Key.GetSectionGroupKey()))
+					{
+						bHasValidMeshData = SectionGroup->GetVertexFactory()->IsValidStreamRange(StreamRange);
+					}
+				}
+			}
+		}
+		
+		FRealtimeMeshDrawMask NewDrawMask;
+
+		// Then build the draw mask if it is valid
+		if (bHasValidMeshData)
+		{
+			if (Config.bIsVisible)
+			{					
+				if (Config.bIsMainPassRenderable)
+				{
+					NewDrawMask.SetFlag(ERealtimeMeshDrawMask::DrawMainPass);
+				}
+
+				if (Config.bCastsShadow)
+				{
+					NewDrawMask.SetFlag(ERealtimeMeshDrawMask::DrawShadowPass);
+				}
+			}
+
+			if (NewDrawMask.HasAnyFlags())
+			{
+				NewDrawMask.SetFlag(Config.DrawType == ERealtimeMeshSectionDrawType::Static? ERealtimeMeshDrawMask::DrawStatic : ERealtimeMeshDrawMask::DrawDynamic);
+			}
+		}
+
+		const bool bStateChanged = DrawMask != NewDrawMask;
+		DrawMask = NewDrawMask;		
+		bIsStateDirty = false;
+		return bStateChanged;
 	}
 
 	void FRealtimeMeshSectionProxy::Reset()
@@ -169,8 +173,7 @@ namespace RealtimeMesh
 		bIsStateDirty = false;
 	}
 
-	void FRealtimeMeshSectionProxy::OnStreamsUpdated(const TArray<FRealtimeMeshStreamKey>& AddedOrUpdatedStreams,
-		const TArray<FRealtimeMeshStreamKey>& RemovedStreams)
+	void FRealtimeMeshSectionProxy::OnStreamsUpdated(const TArray<FRealtimeMeshStreamKey>& AddedOrUpdatedStreams, const TArray<FRealtimeMeshStreamKey>& RemovedStreams)
 	{
 		MarkStateDirty();
 	}

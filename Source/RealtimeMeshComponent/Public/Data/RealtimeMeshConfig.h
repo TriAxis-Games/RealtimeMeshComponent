@@ -270,7 +270,7 @@ public:
 	FRealtimeMeshLODKey() : LODIndex(INDEX_NONE) { }
 	FRealtimeMeshLODKey(uint8 InLODIndex) : LODIndex(InLODIndex) { }
 
-	bool IsValid() const { return LODIndex != INDEX_NONE; }
+	bool IsValid() const { return LODIndex != (uint8)INDEX_NONE; }
 
 	bool operator==(const FRealtimeMeshLODKey& Other) const { return LODIndex == Other.LODIndex; }
 	bool operator!=(const FRealtimeMeshLODKey& Other) const { return LODIndex != Other.LODIndex; }
@@ -297,7 +297,7 @@ public:
 	FRealtimeMeshSectionGroupKey(FRealtimeMeshLODKey InLODKey, uint8 InSectionGroupIndex)
 		: FRealtimeMeshLODKey(InLODKey), SectionGroupIndex(InSectionGroupIndex) { }
 
-	bool IsValid() const { return LODIndex != INDEX_NONE && SectionGroupIndex != INDEX_NONE; }
+	bool IsValid() const { return LODIndex != (uint8)INDEX_NONE && SectionGroupIndex != (uint8)INDEX_NONE; }
 
 	FRealtimeMeshLODKey GetLODKey() const { return FRealtimeMeshLODKey(*this); }
 	bool IsPartOf(const FRealtimeMeshLODKey& InLOD) const { return GetLODKey() == InLOD; }
@@ -315,8 +315,6 @@ public:
 	FString ToString() const { return TEXT("[LODKey:") + FString::FromInt(LODIndex) + TEXT(", SectionGroupKey:") + FString::FromInt(SectionGroupIndex) + TEXT("]"); }
 	
 	friend FArchive& operator<<(FArchive& Ar, FRealtimeMeshSectionGroupKey& Key);
-	
-	static FRealtimeMeshSectionGroupKey Invalid;
 };
 
 USTRUCT(BlueprintType, meta=(HasNativeMake="RealtimeMeshComponent.RealtimeMeshBlueprintFunctionLibrary.MakeSectionKey"))
@@ -335,7 +333,7 @@ public:
 	FRealtimeMeshSectionKey(FRealtimeMeshSectionGroupKey InSectionGroupKey, uint16 InSectionKey)
 		: FRealtimeMeshSectionGroupKey(InSectionGroupKey), SectionIndex(InSectionKey) { }
 
-	bool IsValid() const { return LODIndex != INDEX_NONE && SectionGroupIndex != INDEX_NONE && SectionIndex != INDEX_NONE; }
+	bool IsValid() const { return LODIndex != (uint8)INDEX_NONE && SectionGroupIndex != (uint8)INDEX_NONE && SectionIndex != (uint16)INDEX_NONE; }
 
 	FRealtimeMeshSectionGroupKey GetSectionGroupKey() const { return FRealtimeMeshSectionGroupKey(*this); }
 	bool IsPartOf(const FRealtimeMeshSectionGroupKey& InSectionGroup) const { return GetSectionGroupKey() == InSectionGroup; }
@@ -370,6 +368,7 @@ namespace RealtimeMesh
 	{
 	public:
 		virtual ~FRealtimeMeshClassFactory() { }
+		
 		virtual FRealtimeMeshVertexFactoryRef CreateVertexFactory(ERHIFeatureLevel::Type InFeatureLevel) const;
 		virtual FRealtimeMeshSectionProxyRef CreateSectionProxy(const FRealtimeMeshProxyRef& InProxy, FRealtimeMeshSectionKey InKey, const FRealtimeMeshSectionProxyInitializationParametersRef& InitParams) const;
 		virtual FRealtimeMeshSectionGroupProxyRef CreateSectionGroupProxy(const FRealtimeMeshProxyRef& InProxy, FRealtimeMeshSectionGroupKey InKey, const FRealtimeMeshSectionGroupProxyInitializationParametersRef& InitParams) const;
@@ -379,7 +378,10 @@ namespace RealtimeMesh
 		virtual FRealtimeMeshSectionDataRef CreateSection(const FRealtimeMeshRef& InMesh, FRealtimeMeshSectionKey InKey, const FRealtimeMeshSectionConfig& InConfig, const FRealtimeMeshStreamRange& InStreamRange) const;
 		virtual FRealtimeMeshSectionGroupRef CreateSectionGroup(const FRealtimeMeshRef& InMesh, FRealtimeMeshSectionGroupKey InKey) const;
 		virtual FRealtimeMeshLODDataRef CreateLOD(const FRealtimeMeshRef& InMesh, FRealtimeMeshLODKey InKey, const FRealtimeMeshLODConfig& InConfig) const;
+
+		virtual FRealtimeMeshRef CreateRealtimeMesh() const { check(false && "Cannot create abstract FRealtimeMesh"); return MakeShareable(static_cast<FRealtimeMesh*>(nullptr)); }
 	};
+	using FRealtimeMeshClassFactoryPtr = TSharedPtr<const FRealtimeMeshClassFactory, ESPMode::ThreadSafe>;
 	using FRealtimeMeshClassFactoryRef = TSharedRef<const FRealtimeMeshClassFactory, ESPMode::ThreadSafe>;
 }
 

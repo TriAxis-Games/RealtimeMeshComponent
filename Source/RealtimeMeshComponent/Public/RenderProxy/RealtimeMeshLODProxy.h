@@ -29,7 +29,7 @@ namespace RealtimeMesh
 		FRealtimeMeshLODProxy(const FRealtimeMeshClassFactoryRef& InClassFactory, const FRealtimeMeshProxyRef& InProxy,
 					FRealtimeMeshLODKey InKey, const FRealtimeMeshLODProxyInitializationParametersRef& InInitParams);		
 
-		virtual ~FRealtimeMeshLODProxy() = default;
+		virtual ~FRealtimeMeshLODProxy();
 		
 		FRealtimeMeshLODKey GetKey() const { return Key; }
 		const FRealtimeMeshLODConfig& GetConfig() const { return Config; }
@@ -49,7 +49,7 @@ namespace RealtimeMesh
 
 
 		void MarkStateDirty();
-		virtual bool HandleUpdates(bool bShouldForceUpdate);
+		virtual bool HandleUpdates();
 		virtual void Reset();
 	};
 }

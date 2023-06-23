@@ -35,13 +35,28 @@ namespace RealtimeMesh
 	FRealtimeMeshSectionGroupProxy::~FRealtimeMeshSectionGroupProxy()
 	{
 		check(IsInRenderingThread());
-		
-		Reset();
-	}
+#if RHI_RAYTRACING
+		RayTracingGeometry.ReleaseResource();
+#endif
+		if (VertexFactory)
+		{
+			VertexFactory->ReleaseResource();
+			VertexFactory.Reset();
+		}
 
-	TSharedPtr<FRealtimeMeshVertexFactory> FRealtimeMeshSectionGroupProxy::GetVertexFactory() const
-	{
-		return VertexFactory;
+		// Reset the streams and release all resources.
+		for (const auto& Stream : Streams)
+		{
+			Stream.Value->ReleaseUnderlyingResource();
+		}
+		Streams.Empty();
+
+		// Reset the sections and clear them
+		for (const auto& Section : Sections)
+		{
+			Section->Reset();
+		}
+		Sections.Empty();
 	}
 
 	FRealtimeMeshSectionProxyPtr FRealtimeMeshSectionGroupProxy::GetSection(FRealtimeMeshSectionKey SectionKey) const
@@ -63,8 +78,7 @@ namespace RealtimeMesh
 		check(SectionKey.IsPartOf(Key));
 		check(!Sections.IsValidIndex(FRealtimeMeshKeyHelpers::GetSectionIndex(SectionKey)));
 
-		CreateSectionImplementation(SectionKey, InitParams);
-		
+		CreateSectionImplementation(SectionKey, InitParams);		
 		MarkStateDirty();		
 	}
 
@@ -75,20 +89,13 @@ namespace RealtimeMesh
 
 		const int32 SectionIndex = FRealtimeMeshKeyHelpers::GetSectionIndex(SectionKey);
 
-		Sections[SectionIndex]->Reset();
-		Sections.RemoveAt(SectionIndex);
-		
+		Sections.RemoveAt(SectionIndex);		
 		MarkStateDirty();	
 	}
 
 	void FRealtimeMeshSectionGroupProxy::RemoveAllSections()
 	{
-		for (const auto& Section : Sections)
-		{
-			Section->Reset();
-		}
 		Sections.Empty();
-
 		MarkStateDirty();
 	}
 
@@ -103,8 +110,7 @@ namespace RealtimeMesh
 			CreateOrUpdateStreamImplementation(Batcher, Stream);
 		}
 
-		AlertSectionsOfStreamUpdates(UpdatedStreams, { });
-		
+		AlertSectionsOfStreamUpdates(UpdatedStreams, { });		
 		MarkStateDirty();
 	}
 
@@ -117,14 +123,16 @@ namespace RealtimeMesh
 		}
 		
 		AlertSectionsOfStreamUpdates({ }, InStreams);
-
 		MarkStateDirty();
 	}
 
 	void FRealtimeMeshSectionGroupProxy::CreateMeshBatches(const FRealtimeMeshBatchCreationParams& Params, const TMap<int32, TTuple<FMaterialRenderProxy*, bool>>& Materials, const FMaterialRenderProxy* WireframeMaterial, ERealtimeMeshSectionDrawType DrawType, bool bForceAllDynamic) const
 	{
-		const ERealtimeMeshDrawMask DrawTypeMask = bForceAllDynamic ? ERealtimeMeshDrawMask::DrawPassMask :
-													   DrawType == ERealtimeMeshSectionDrawType::Dynamic ? ERealtimeMeshDrawMask::DrawDynamic :	ERealtimeMeshDrawMask::DrawStatic;
+		const ERealtimeMeshDrawMask DrawTypeMask = bForceAllDynamic ?
+			ERealtimeMeshDrawMask::DrawPassMask :
+			DrawType == ERealtimeMeshSectionDrawType::Dynamic ?
+				ERealtimeMeshDrawMask::DrawDynamic :
+				ERealtimeMeshDrawMask::DrawStatic;
 
 		check(DrawMask.IsAnySet(DrawTypeMask));
 
@@ -168,10 +176,10 @@ namespace RealtimeMesh
 		bIsStateDirty = true;
 	}
 
-	bool FRealtimeMeshSectionGroupProxy::HandleUpdates(bool bShouldForceUpdate)
+	bool FRealtimeMeshSectionGroupProxy::HandleUpdates()
 	{
 		// Handle the vertex factory first so sections can query it
-		if (bIsStateDirty || bShouldForceUpdate)
+		if (bIsStateDirty)
 		{		
 			VertexFactory->Initialize(Streams);			
 		}
@@ -179,40 +187,38 @@ namespace RealtimeMesh
 		// Handle all Section updates
 		for (const auto& Section : Sections)
 		{
-			bIsStateDirty |= Section->HandleUpdates(bShouldForceUpdate);
+			bIsStateDirty |= Section->HandleUpdates();
 		}
 
-		bool bHadSectionUpdates = false;
-
-		// Handle remaining state updates
-		if (bIsStateDirty || bShouldForceUpdate)
+		if (!bIsStateDirty)
 		{
-			bIsStateDirty = false;
-
-			FRealtimeMeshDrawMask NewDrawMask;
-			for (const auto& Section : Sections)
-			{
-				NewDrawMask |= Section->GetDrawMask();
-			}
-
-			DrawMask = NewDrawMask;
-			bHadSectionUpdates = true;
+			return false;
 		}
 
-		if (bHadSectionUpdates)
+		UpdateRayTracingInfo();
+		
+		FRealtimeMeshDrawMask NewDrawMask;
+		for (const auto& Section : Sections)
 		{
-			UpdateRayTracingInfo();
+			NewDrawMask |= Section->GetDrawMask();
 		}
-
-		return bHadSectionUpdates;
+		
+		const bool bStateChanged = DrawMask != NewDrawMask;
+		DrawMask = NewDrawMask;		
+		bIsStateDirty = false;
+		return bStateChanged;
 	}
 
 	void FRealtimeMeshSectionGroupProxy::Reset()
-	{		
-		VertexFactory->ReleaseResource();
+	{
 #if RHI_RAYTRACING
 		RayTracingGeometry.ReleaseResource();
 #endif
+		if (VertexFactory)
+		{
+			VertexFactory->ReleaseResource();
+			VertexFactory.Reset();
+		}
 
 		// Reset the streams and release all resources.
 		for (const auto& Stream : Streams)
@@ -238,9 +244,9 @@ namespace RealtimeMesh
 		RayTracingGeometry.ReleaseResource();
 		if (DrawMask.HasAnyFlags() && VertexFactory.IsValid() && ShouldCreateRayTracingData() && IsRayTracingEnabled())
 		{
-			auto PositionStream = StaticCastSharedPtr<FRealtimeMeshVertexBuffer>(Streams.FindChecked(
+			const auto PositionStream = StaticCastSharedPtr<FRealtimeMeshVertexBuffer>(Streams.FindChecked(
 				FRealtimeMeshStreamKey(ERealtimeMeshStreamType::Vertex, FRealtimeMeshLocalVertexFactory::PositionStreamName)));
-			auto IndexStream = StaticCastSharedPtr<FRealtimeMeshIndexBuffer>(Streams.FindChecked(
+			const auto IndexStream = StaticCastSharedPtr<FRealtimeMeshIndexBuffer>(Streams.FindChecked(
 				FRealtimeMeshStreamKey(ERealtimeMeshStreamType::Index, FRealtimeMeshLocalVertexFactory::TrianglesStreamName)));
       			
 			FRayTracingGeometryInitializer Initializer;

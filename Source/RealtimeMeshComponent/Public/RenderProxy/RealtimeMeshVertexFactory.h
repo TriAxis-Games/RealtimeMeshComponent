@@ -21,8 +21,7 @@ namespace RealtimeMesh
 
 
 	class REALTIMEMESHCOMPONENT_API FRealtimeMeshVertexFactory : public FVertexFactory
-	{
-	
+	{		
 	public:
 		FRealtimeMeshVertexFactory(ERHIFeatureLevel::Type InFeatureLevel) 
 			: FVertexFactory(InFeatureLevel)

@@ -39,7 +39,7 @@ namespace RealtimeMesh
 		virtual ~FRealtimeMeshSectionGroupProxy();
 		
 		FRealtimeMeshSectionGroupKey GetKey() const { return Key; }
-		TSharedPtr<FRealtimeMeshVertexFactory> GetVertexFactory() const;
+		TSharedPtr<FRealtimeMeshVertexFactory> GetVertexFactory() const { return VertexFactory; }
 		FRealtimeMeshDrawMask GetDrawMask() const { return DrawMask; }
 
 		FRealtimeMeshSectionProxyPtr GetSection(FRealtimeMeshSectionKey SectionKey) const;
@@ -58,7 +58,7 @@ namespace RealtimeMesh
 		
 
 		void MarkStateDirty();
-		virtual bool HandleUpdates(bool bShouldForceUpdate);
+		virtual bool HandleUpdates();
 		virtual void Reset();
 
 		void UpdateRayTracingInfo();
