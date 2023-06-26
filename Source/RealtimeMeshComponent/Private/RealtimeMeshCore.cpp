@@ -5,6 +5,7 @@
 #include "Data/RealtimeMeshSectionGroup.h"
 #include "Data/RealtimeMeshLOD.h"
 #include "Data/RealtimeMeshSection.h"
+#include "Data/RealtimeMeshData.h"
 #include "RenderProxy/RealtimeMeshLODProxy.h"
 #include "RenderProxy/RealtimeMeshProxy.h"
 #include "RenderProxy/RealtimeMeshSectionGroupProxy.h"
@@ -66,5 +67,10 @@ namespace RealtimeMesh
 	FRealtimeMeshLODDataRef FRealtimeMeshClassFactory::CreateLOD(const FRealtimeMeshRef& InMesh, FRealtimeMeshLODKey InKey, const FRealtimeMeshLODConfig& InConfig) const
 	{
 		return MakeShared<FRealtimeMeshLODData>(this->AsShared(), InMesh, InKey, InConfig);
+	}
+
+	FRealtimeMeshRef FRealtimeMeshClassFactory::CreateRealtimeMesh() const
+	{
+		check(false && "Cannot create abstract FRealtimeMesh"); return MakeShareable(static_cast<FRealtimeMesh*>(nullptr));
 	}
 }

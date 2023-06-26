@@ -379,7 +379,7 @@ namespace RealtimeMesh
 		virtual FRealtimeMeshSectionGroupRef CreateSectionGroup(const FRealtimeMeshRef& InMesh, FRealtimeMeshSectionGroupKey InKey) const;
 		virtual FRealtimeMeshLODDataRef CreateLOD(const FRealtimeMeshRef& InMesh, FRealtimeMeshLODKey InKey, const FRealtimeMeshLODConfig& InConfig) const;
 
-		virtual FRealtimeMeshRef CreateRealtimeMesh() const { check(false && "Cannot create abstract FRealtimeMesh"); return MakeShareable(static_cast<FRealtimeMesh*>(nullptr)); }
+		virtual FRealtimeMeshRef CreateRealtimeMesh() const;
 	};
 	using FRealtimeMeshClassFactoryPtr = TSharedPtr<const FRealtimeMeshClassFactory, ESPMode::ThreadSafe>;
 	using FRealtimeMeshClassFactoryRef = TSharedRef<const FRealtimeMeshClassFactory, ESPMode::ThreadSafe>;
