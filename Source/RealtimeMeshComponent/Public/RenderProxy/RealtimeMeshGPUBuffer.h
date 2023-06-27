@@ -214,6 +214,7 @@ namespace RealtimeMesh
 			FRealtimeMeshGPUBuffer::ApplyBufferUpdate(Batcher, UpdateData);
 			{
 				Batcher.QueueUpdateRequest(VertexBufferRHI, UpdateData->GetBuffer());
+
 				if (ShaderResourceViewRHI)
 				{
 					if (UpdateData->GetBuffer().IsValid())

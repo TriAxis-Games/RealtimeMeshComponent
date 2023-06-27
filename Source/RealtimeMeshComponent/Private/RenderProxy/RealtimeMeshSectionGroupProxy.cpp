@@ -295,9 +295,18 @@ namespace RealtimeMesh
 		// If we have the stream already, just update it
 		if (const TSharedPtr<FRealtimeMeshGPUBuffer, ESPMode::ThreadSafe>* FoundBuffer = Streams.Find(StreamData->GetStreamKey()))
 		{
-			GPUBuffer = *FoundBuffer;
+			// We only stream in place if the existing buffer is zero or the same size as the new one
+			if (FoundBuffer->Get()->Num() == 0 || FoundBuffer->Get()->Num() == StreamData->GetNumElements())
+			{
+				GPUBuffer = *FoundBuffer;
+			}
+			else
+			{
+				(*FoundBuffer)->ReleaseUnderlyingResource();
+			}
 		}
-		else
+
+		if (!GPUBuffer)
 		{
 			GPUBuffer = StreamData->GetStreamKey().GetStreamType() == ERealtimeMeshStreamType::Vertex
 				 ? StaticCastSharedRef<FRealtimeMeshGPUBuffer>(MakeShared<FRealtimeMeshVertexBuffer>())

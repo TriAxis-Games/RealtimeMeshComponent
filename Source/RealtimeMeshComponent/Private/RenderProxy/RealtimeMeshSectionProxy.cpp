@@ -91,6 +91,10 @@ namespace RealtimeMesh
 		BatchElement.MinVertexIndex = StreamRange.GetMinVertex();
 		BatchElement.MaxVertexIndex = StreamRange.GetMaxVertex();
 
+		check(BatchElement.FirstIndex >= 0 && BatchElement.NumPrimitives <= (static_cast<const FRealtimeMeshIndexBuffer*>(BatchElement.IndexBuffer)->Num() - BatchElement.FirstIndex) / 3);
+		check(BatchElement.FirstIndex >= 0 && (int32)BatchElement.NumPrimitives <= StreamRange.NumPrimitives(REALTIME_MESH_NUM_INDICES_PER_PRIMITIVE))
+		check(BatchElement.MinVertexIndex >= 0 && (int32)BatchElement.MaxVertexIndex <= StreamRange.GetMaxVertex())
+
 		BatchElement.MinScreenSize = Params.ScreenSizeLimits.GetLowerBoundValue();
 		BatchElement.MaxScreenSize = Params.ScreenSizeLimits.GetUpperBoundValue();
 
