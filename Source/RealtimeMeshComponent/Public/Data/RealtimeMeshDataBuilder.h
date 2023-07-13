@@ -383,12 +383,15 @@ namespace RealtimeMesh
 		template<typename VertexType>
 		void Append(int32 Count, VertexType* NewElements)
 		{
+			if (Count == 0) return;
 			Append(MakeArrayView(NewElements, Count));			
 		}
 		
 		template<typename VertexType, typename GeneratorFunc>
 		void Append(int32 Count, GeneratorFunc Generator)
 		{
+			if (Count == 0) return;
+
 			SizeType Index = AddUninitialized(Count);
 			VertexType* DataPtr = GetDataAtVertex<VertexType>(Index);
 			
@@ -402,6 +405,8 @@ namespace RealtimeMesh
 		template<typename VertexType, typename GeneratorFunc>
 		void AppendBy(int32 Count, GeneratorFunc Generator)
 		{
+			if (Count == 0) return;
+
 			SizeType Index = AddUninitialized(Count);
 			VertexType* DataPtr = GetDataAtVertex<VertexType>(Index);
 			while (Index < ArrayNum)
