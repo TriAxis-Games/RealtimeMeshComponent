@@ -9,6 +9,7 @@
 #include "UnrealEngine.h"
 #include "SceneManagement.h"
 #include "RayTracingInstance.h"
+#include "Materials/MaterialRenderProxy.h"
 #include "RenderProxy/RealtimeMeshLODProxy.h"
 #if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 2
 #include "MaterialDomain.h"
