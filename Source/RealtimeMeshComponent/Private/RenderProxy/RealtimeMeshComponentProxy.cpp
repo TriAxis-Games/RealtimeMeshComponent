@@ -289,7 +289,7 @@ namespace RealtimeMesh
 							FRayTracingInstance RayTracingInstance;
 							RayTracingInstance.Geometry = RayTracingGeometry;
 							RayTracingInstance.InstanceTransforms.Add(LocalToWorld);
-							
+
 							RayTracingInstance.Materials.Add(Batch);
 #if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION < 2
 							RayTracingInstance.BuildInstanceMaskAndFlags(FeatureLevel);
