@@ -1,49 +1,54 @@
 ﻿// Copyright TriAxis Games, L.L.C. All Rights Reserved.
 
-#include "Data/RealtimeMeshData.h"
+#include "..\..\Public\Data\RealtimeMeshData.h"
 
 #include "Data/RealtimeMeshLOD.h"
 #include "Data/RealtimeMeshSectionGroup.h"
+#include "Data/RealtimeMeshStateUpdate.h"
 #include "RenderProxy/RealtimeMeshProxy.h"
+#include "RenderProxy/RealtimeMeshProxyCommandBatch.h"
+#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 2
+#include "Logging/MessageLog.h"
+#endif
 
 #define LOCTEXT_NAMESPACE "RealtimeMesh"
 
 namespace RealtimeMesh
 {
-	FRealtimeMesh::FRealtimeMesh(const FRealtimeMeshClassFactoryRef& InClassFactory)
-		: ClassFactory(InClassFactory)
-		, LocalBounds(FVector3f::ZeroVector, FVector3f::OneVector, 1)
-		, bIsCollisionDirty(true)
+	FRealtimeMesh::FRealtimeMesh(const FRealtimeMeshSharedResourcesRef& InSharedResources)
+		: SharedResources(InSharedResources)
 	{
-		TypeName = "RealtimeMesh-Base";
+		SharedResources->OnLODBoundsChanged().AddRaw(this, &FRealtimeMesh::HandleLODBoundsChanged);
 	}
 
 	int32 FRealtimeMesh::GetNumLODs() const
 	{
-		FReadScopeLock Lock(RenderDataLock);
+		FRealtimeMeshScopeGuardRead ScopeGuard(SharedResources->GetGuard());
 		return LODs.Num();
 	}
 
 	FRealtimeMeshLODDataPtr FRealtimeMesh::GetLOD(FRealtimeMeshLODKey LODKey) const
 	{
-		FReadScopeLock Lock(RenderDataLock);
-		return LODs.IsValidIndex(FRealtimeMeshKeyHelpers::GetLODIndex(LODKey))? LODs[FRealtimeMeshKeyHelpers::GetLODIndex(LODKey)] : FRealtimeMeshLODDataPtr();
+		FRealtimeMeshScopeGuardRead ScopeGuard(SharedResources->GetGuard());
+		return LODs.IsValidIndex(LODKey) ? LODs[LODKey] : FRealtimeMeshLODDataPtr();
 	}
 
 	FRealtimeMeshSectionGroupPtr FRealtimeMesh::GetSectionGroup(FRealtimeMeshSectionGroupKey SectionGroupKey) const
 	{
-		if (const FRealtimeMeshLODDataPtr LOD = GetLOD(SectionGroupKey.GetLODKey()))
+		FRealtimeMeshScopeGuardRead ScopeGuard(SharedResources->GetGuard());
+		if (const FRealtimeMeshLODDataPtr LOD = GetLOD(SectionGroupKey.LOD()))
 		{
 			return LOD->GetSectionGroup(SectionGroupKey);
 		}
 		return nullptr;
 	}
-	
-	FRealtimeMeshSectionDataPtr FRealtimeMesh::GetSection(FRealtimeMeshSectionKey SectionKey) const
+
+	FRealtimeMeshSectionPtr FRealtimeMesh::GetSection(FRealtimeMeshSectionKey SectionKey) const
 	{
-		if (const FRealtimeMeshLODDataPtr LOD = GetLOD(SectionKey.GetLODKey()))
+		FRealtimeMeshScopeGuardRead ScopeGuard(SharedResources->GetGuard());
+		if (const FRealtimeMeshLODDataPtr LOD = GetLOD(SectionKey.LOD()))
 		{
-			if (const FRealtimeMeshSectionGroupPtr SectionGroup = LOD->GetSectionGroup(SectionKey.GetSectionGroupKey()))
+			if (const FRealtimeMeshSectionGroupPtr SectionGroup = LOD->GetSectionGroup(SectionKey.SectionGroup()))
 			{
 				return SectionGroup->GetSection(SectionKey);
 			}
@@ -53,199 +58,243 @@ namespace RealtimeMesh
 
 	FBoxSphereBounds3f FRealtimeMesh::GetLocalBounds() const
 	{
-		FReadScopeLock ScopeLock(BoundsLock);
-		return LocalBounds;
+		FRealtimeMeshScopeGuardRead ScopeGuard(SharedResources->GetGuard());
+		return Bounds.GetBounds([&]() { return CalculateBounds(); });
 	}
 
-	FRealtimeMeshCollisionConfiguration FRealtimeMesh::GetCollisionConfig() const
+	TFuture<ERealtimeMeshCollisionUpdateResult> FRealtimeMesh::UpdateCollision(FRealtimeMeshCollisionData&& InCollisionData)
 	{
-		return CollisionConfig;
+		const auto Promise = MakeShared<TPromise<ERealtimeMeshCollisionUpdateResult>>();
+		auto CollisionData = MakeShared<FRealtimeMeshCollisionData>(MoveTemp(InCollisionData));
+
+		auto Handler = [Promise, SharedResources = SharedResources, CollisionData]() mutable
+		{
+			FRealtimeMeshScopeGuardWrite ScopeGuard(SharedResources->GetGuard());
+			if (ensure(SharedResources->GetCollisionUpdateHandler().IsBound()))
+			{
+				SharedResources->GetCollisionUpdateHandler().Execute(Promise, CollisionData, false);
+			}
+			else
+			{
+				Promise->SetValue(ERealtimeMeshCollisionUpdateResult::Error);
+			}
+		};
+
+		if (IsInGameThread())
+		{
+			Handler();
+		}
+		else
+		{
+			AsyncTask(ENamedThreads::GameThread, MoveTemp(Handler));
+		}
+		return Promise->GetFuture();
 	}
 
-	void FRealtimeMesh::SetCollisionConfig(const FRealtimeMeshCollisionConfiguration& InCollisionConfig)
+	TFuture<ERealtimeMeshProxyUpdateStatus> FRealtimeMesh::InitializeLODs(const TFixedLODArray<FRealtimeMeshLODConfig>& InLODConfigs)
 	{
-		CollisionConfig = InCollisionConfig;
-		CollisionDataUpdatedEvent.Broadcast(this->AsShared());
+		FRealtimeMeshProxyCommandBatch Commands(SharedResources->GetOwner());
+		InitializeLODs(Commands, InLODConfigs);
+		return Commands.Commit();
 	}
 
-	FRealtimeMeshSimpleGeometry FRealtimeMesh::GetSimpleGeometry() const
+	void FRealtimeMesh::InitializeLODs(FRealtimeMeshProxyCommandBatch& Commands, const TFixedLODArray<FRealtimeMeshLODConfig>& InLODConfigs)
 	{
-		return SimpleGeometry;
-	}
+		FRealtimeMeshScopeGuardWrite ScopeGuard(SharedResources->GetGuard());
 
-	void FRealtimeMesh::SetSimpleGeometry(const FRealtimeMeshSimpleGeometry& InSimpleGeometry)
-	{
-		SimpleGeometry = InSimpleGeometry;
-		CollisionDataUpdatedEvent.Broadcast(this->AsShared());
-	}
-
-	void FRealtimeMesh::InitializeLODs(const TFixedLODArray<FRealtimeMeshLODConfig>& InLODConfigs)
-	{
 		if (InLODConfigs.Num() == 0)
 		{
 			FMessageLog("RealtimeMesh").Error(LOCTEXT("RealtimeMeshLODCountError", "RealtimeMesh must have at least one LOD"));
 			return;
 		}
-				
-		FRWScopeLockEx Lock(RenderDataLock, SLT_Write);
+
+		if (Commands)
+		{
+			Commands.AddMeshTask([](FRealtimeMeshProxy& Proxy)
+			{
+				Proxy.Reset();
+			}, true /* Always need to dirty render state with this */);
+		}
 
 		check(InLODConfigs.Num() > 0);
 		LODs.Empty(InLODConfigs.Num());
 		for (int32 Index = 0; Index < InLODConfigs.Num(); Index++)
 		{
-			LODs.Add(ClassFactory->CreateLOD(this->AsShared(), Index, InLODConfigs[Index]));
-			LODs[Index]->OnBoundsUpdated().AddThreadSafeSP(this->AsShared(), &FRealtimeMesh::HandleLODBoundsChanged);
-		}
-		
-		Lock.Release();		
+			LODs.Add(SharedResources->CreateLOD(Index));
 
-		if (RenderProxy)
-		{
-			CreateRenderProxy(true);
+			if (Commands)
+			{
+				Commands.AddMeshTask([LODIndex = Index](FRealtimeMeshProxy& Proxy)
+				{
+					Proxy.AddLODIfNotExists(LODIndex);
+				});
+			}
+			LODs[Index]->Initialize(Commands, InLODConfigs[Index]);
+
+			SharedResources->BroadcastLODChanged(FRealtimeMeshLODKey(Index), ERealtimeMeshChangeType::Added);
 		}
 	}
 
-	FRealtimeMeshLODKey FRealtimeMesh::AddLOD(const FRealtimeMeshLODConfig& LODConfig)
-	{		
-		FRWScopeLockEx Lock(RenderDataLock, SLT_Write);
+	TFuture<ERealtimeMeshProxyUpdateStatus> FRealtimeMesh::AddLOD(const FRealtimeMeshLODConfig& LODConfig, FRealtimeMeshLODKey* OutLODKey)
+	{
+		FRealtimeMeshProxyCommandBatch Commands(SharedResources->GetOwner());
+		AddLOD(Commands, LODConfig, OutLODKey);
+		return Commands.Commit();
+	}
+
+	void FRealtimeMesh::AddLOD(FRealtimeMeshProxyCommandBatch& Commands, const FRealtimeMeshLODConfig& LODConfig, FRealtimeMeshLODKey* OutLODKey)
+	{
+		FRealtimeMeshScopeGuardWrite ScopeGuard(SharedResources->GetGuard());
 
 		if (LODs.Num() >= REALTIME_MESH_MAX_LODS)
 		{
 			FMessageLog("RealtimeMesh").Error(FText::Format(LOCTEXT("RealtimeMeshLODCountError", "RealtimeMesh must have at most {0} LODs"),
-				FText::AsNumber(REALTIME_MESH_MAX_LODS)));
-			return FRealtimeMeshLODKey();
+			                                                FText::AsNumber(REALTIME_MESH_MAX_LODS)));
+			if (OutLODKey)
+			{
+				*OutLODKey = FRealtimeMeshLODKey();
+			}
+			return;
 		}
-		
-		FRealtimeMeshLODKey NewLODKey = LODs.Add(ClassFactory->CreateLOD(this->AsShared(), LODs.Num(), LODConfig));
-		FRealtimeMeshLODProxyInitializationParametersRef LODInitParams = LODs[FRealtimeMeshKeyHelpers::GetLODIndex(NewLODKey)]->GetInitializationParams();
-		
-		Lock.Release();
-		
-		DoOnRenderProxy([NewLODKey, LODInitParams](const FRealtimeMeshProxyRef& Proxy)
+
+		const int32 NewLODIndex = LODs.Num();
+		const auto NewLOD = SharedResources->CreateLOD(NewLODIndex);
+		LODs.Add(NewLOD);
+
+		if (Commands)
 		{
-			Proxy->AddLOD(NewLODKey, LODInitParams);
-		});
+			Commands.AddMeshTask([NewLODIndex](FRealtimeMeshProxy& Proxy)
+			{
+				Proxy.AddLODIfNotExists(NewLODIndex);
+			}, true /* Always need to dirty render state with this */);
+		}
+		NewLOD->Initialize(Commands, LODConfig);
 
-		MarkRenderStateDirty(true);
+		if (OutLODKey)
+		{
+			*OutLODKey = NewLODIndex;
+		}
 
-		return NewLODKey;
+		SharedResources->BroadcastLODChanged(FRealtimeMeshLODKey(NewLODIndex), ERealtimeMeshChangeType::Added);
 	}
 
-	void FRealtimeMesh::RemoveTrailingLOD()
+	TFuture<ERealtimeMeshProxyUpdateStatus> FRealtimeMesh::RemoveTrailingLOD(FRealtimeMeshLODKey* OutNewLastLODKey)
 	{
-		FRWScopeLockEx Lock(RenderDataLock, SLT_Write);
+		FRealtimeMeshProxyCommandBatch Commands(SharedResources->GetOwner());
+		RemoveTrailingLOD(Commands, OutNewLastLODKey);
+		return Commands.Commit();
+	}
+
+	void FRealtimeMesh::RemoveTrailingLOD(FRealtimeMeshProxyCommandBatch& Commands, FRealtimeMeshLODKey* OutNewLastLODKey)
+	{
+		FRealtimeMeshScopeGuardWrite ScopeGuard(SharedResources->GetGuard());
 
 		if (LODs.Num() < 2)
 		{
 			FMessageLog("RealtimeMesh").Error(LOCTEXT("RealtimeMeshLODCountError", "RealtimeMesh must have at least one LOD"));
+			if (OutNewLastLODKey)
+			{
+				*OutNewLastLODKey = FRealtimeMeshLODKey(LODs.Num() - 1);
+			}
 			return;
 		}
-		
-		LODs.RemoveAt(LODs.Num() - 1);
-		
-		Lock.Release();
-		
-		DoOnRenderProxy([](const FRealtimeMeshProxyRef& Proxy)
-		{
-			Proxy->RemoveTrailingLOD();
-		});
 
-		MarkRenderStateDirty(true);
+		const int32 RemovedLODIndex = LODs.Num() - 1;
+		LODs.RemoveAt(RemovedLODIndex);
+
+		if (Commands)
+		{
+			Commands.AddMeshTask([RemovedLODIndex](FRealtimeMeshProxy& Proxy)
+			{
+				Proxy.RemoveLOD(RemovedLODIndex);
+			}, true /* Always need to dirty render state with this */);
+		}
+
+		if (OutNewLastLODKey)
+		{
+			*OutNewLastLODKey = LODs.Num() - 1;
+		}
+
+		SharedResources->BroadcastLODChanged(FRealtimeMeshLODKey(RemovedLODIndex), ERealtimeMeshChangeType::Removed);
 	}
 
 	bool FRealtimeMesh::HasRenderProxy() const
 	{
-		FReadScopeLock ReadLock(RenderDataLock);
+		FRealtimeMeshScopeGuardRead ScopeGuard(SharedResources->GetGuard());
 		return RenderProxy.IsValid();
 	}
 
 	FRealtimeMeshProxyPtr FRealtimeMesh::GetRenderProxy(bool bCreateIfNotExists) const
 	{
-		FRWScopeLockEx Lock(RenderDataLock, SLT_ReadOnly);
+		FRealtimeMeshScopeGuardReadWrite ScopeGuard(SharedResources->GetGuard(), ERealtimeMeshGuardLockType::Read);
 		if (RenderProxy.IsValid() || !bCreateIfNotExists)
 		{
 			return RenderProxy;
 		}
-		Lock.Release();
+		ScopeGuard.Unlock();
 
 		// We hold this lock the entire time we initialize proxy so any proxy calls get delayed until after we grab the starting state
-		Lock.Lock(SLT_Write);
+
+		ScopeGuard.Lock(ERealtimeMeshGuardLockType::Write);
 		CreateRenderProxy();
-		
+
 		return RenderProxy;
 	}
 
-	void FRealtimeMesh::Reset()
+	TFuture<ERealtimeMeshProxyUpdateStatus> FRealtimeMesh::Reset(bool bRemoveRenderProxy)
 	{
-		{
-			FWriteScopeLock ScopeLock(RenderDataLock);
+		FRealtimeMeshProxyCommandBatch Commands(SharedResources->GetOwner());
+		Reset(Commands, bRemoveRenderProxy);
+		return Commands.Commit();
+	}
 
-			if (RenderProxy)
+	void FRealtimeMesh::Reset(FRealtimeMeshProxyCommandBatch& Commands, bool bRemoveRenderProxy)
+	{
+		FRealtimeMeshScopeGuardWrite ScopeGuard(SharedResources->GetGuard());
+		if (RenderProxy)
+		{
+			if (bRemoveRenderProxy)
 			{
 				RenderProxy.Reset();
 			}
+			else
+			{
+				if (Commands)
+				{
+					Commands.AddMeshTask([](FRealtimeMeshProxy& Proxy)
+					{
+						Proxy.Reset();
+					}, true /* Always need to dirty render state with this */);
+				}
+			}
+		}
 
-			LODs.Empty();
-			Config = FRealtimeMeshConfig();
-		}
-		{
-			FWriteScopeLock ScopeLock(BoundsLock);
-			LocalBounds = FBoxSphereBounds3f(FSphere3f(FVector3f::ZeroVector, 1));
-		}
-		{
-			FWriteScopeLock ScopeLock(CollisionLock);
-			CollisionConfig = FRealtimeMeshCollisionConfiguration();
-			SimpleGeometry = FRealtimeMeshSimpleGeometry();
-		}
-		
+		Config = FRealtimeMeshConfig();
+		LODs.Empty();
+		Bounds.Reset();
+
+		// TODO: Best way to handle this?
 		MarkRenderStateDirty(true);
-		MarkCollisionDirty();
-		UpdateBounds();
-	}
 
-	FRealtimeMeshProxyInitializationParametersRef FRealtimeMesh::GetInitializationParams() const
-	{
-		auto InitParams = MakeShared<FRealtimeMeshProxyInitializationParameters>();
-		InitParams->LODs.Reserve(LODs.Num());
-
-		for (int32 Index = 0; Index < LODs.Num(); Index++)
-		{
-			InitParams->LODs.Add(LODs[Index]->GetInitializationParams());
-		}
-
-		return InitParams;
-	}
-
-	void FRealtimeMesh::MarkCollisionDirty()
-	{
-		bIsCollisionDirty = true;
-		CollisionDataUpdatedEvent.Broadcast(this->AsShared());
-	}
-
-	void FRealtimeMesh::DoOnRenderProxy(TUniqueFunction<void(const FRealtimeMeshProxyRef&)>&& Function) const
-	{
-		if (RenderProxy)
-		{
-			RenderProxy->EnqueueRenderingCommand(Forward<TUniqueFunction<void(const FRealtimeMeshProxyRef&)>>(Function));
-		}
+		SharedResources->BroadcastMeshConfigChanged();
+		SharedResources->BroadcastMeshBoundsChanged();
 	}
 
 	bool FRealtimeMesh::Serialize(FArchive& Ar)
 	{
-		FWriteScopeLock ScopeLock(RenderDataLock);
-		
+		FRealtimeMeshScopeGuardWrite ScopeGuard(SharedResources->GetGuard());
+
 		int32 NumLODs = LODs.Num();
 		Ar << NumLODs;
 
-		if (Ar.IsLoading())			
+		if (Ar.IsLoading())
 		{
 			LODs.Empty(NumLODs);
 			for (int32 Index = 0; Index < NumLODs; Index++)
 			{
-				LODs.Add(ClassFactory->CreateLOD(this->AsShared(), FRealtimeMeshLODKey(Index), FRealtimeMeshLODConfig()));
-				LODs[Index]->Serialize(Ar);			
-				LODs[Index]->OnBoundsUpdated().AddThreadSafeSP(this->AsShared(), &FRealtimeMesh::HandleLODBoundsChanged);
-			}			
+				LODs.Add(SharedResources->CreateLOD(Index));
+				LODs[Index]->Serialize(Ar);
+			}
 		}
 		else
 		{
@@ -254,70 +303,87 @@ namespace RealtimeMesh
 				(*It)->Serialize(Ar);
 			}
 		}
-		
+
 		Ar << Config;
-		Ar << LocalBounds;
-		Ar << SimpleGeometry;
-		Ar << CollisionConfig;
+		Ar << Bounds;
+
+		if (Ar.CustomVer(FRealtimeMeshVersion::GUID) < FRealtimeMeshVersion::CollisionUpdateFlowRestructure)
+		{
+			FRealtimeMeshSimpleGeometry SimpleGeom;
+			FRealtimeMeshCollisionConfiguration CollisionConfig;
+			Ar << SimpleGeom;
+			Ar << CollisionConfig;
+		}
 
 		if (Ar.IsLoading() && RenderProxy)
 		{
+			// ReSharper disable once CppExpressionWithoutSideEffects
 			CreateRenderProxy(true);
 			MarkRenderStateDirty(true);
-			MarkCollisionDirty();
 		}
-		
+
 		return true;
 	}
-	
-	void FRealtimeMesh::CreateRenderProxy(bool bForceRecreate) const
+
+	void FRealtimeMesh::InitializeProxy(FRealtimeMeshProxyCommandBatch& Commands) const
+	{
+		if (Commands)
+		{
+			Commands.AddMeshTask([Config = Config](FRealtimeMeshProxy& Proxy)
+			{
+				Proxy.Reset();
+			}, true);
+
+			// Update existing LODs
+			for (int32 Index = 0; Index < LODs.Num(); Index++)
+			{
+				Commands.AddMeshTask([Index](FRealtimeMeshProxy& Proxy)
+				{
+					Proxy.AddLODIfNotExists(Index);
+				}, true /* Always need to dirty render state with this */);
+				LODs[Index]->InitializeProxy(Commands);
+			}
+		}
+	}
+
+	FRealtimeMeshProxyRef FRealtimeMesh::CreateRenderProxy(bool bForceRecreate) const
 	{
 		if (bForceRecreate || !RenderProxy.IsValid())
 		{
-			RenderProxy = ClassFactory->CreateRealtimeMeshProxy(const_cast<FRealtimeMesh*>(this)->AsShared());
+			FRealtimeMeshScopeGuardWrite ScopeGuard(SharedResources->GetGuard());
+			RenderProxy = SharedResources->CreateRealtimeMeshProxy();
 
-			auto InitParams = GetInitializationParams();
-			RenderProxy->EnqueueRenderingCommand([InitParams](const FRealtimeMeshProxyRef& Proxy)
-			{
-				Proxy->InitializeRenderThreadResources(InitParams);
-			});
+			FRealtimeMeshProxyCommandBatch Commands(SharedResources->GetOwner());
+
+			InitializeProxy(Commands);
+
+			Commands.Commit();
 		}
+		return RenderProxy.ToSharedRef();
 	}
 
-	void FRealtimeMesh::UpdateBounds()
+	FBoxSphereBounds3f FRealtimeMesh::CalculateBounds() const
 	{
+		FRealtimeMeshScopeGuardRead ScopeGuard(SharedResources->GetGuard());
+		TOptional<FBoxSphereBounds3f> NewBounds;
+		for (const auto& LOD : LODs)
 		{
-			FReadScopeLock RenderScopeLock(RenderDataLock);
-			FWriteScopeLock BoundsScopeLock(BoundsLock);
-				
-			FBoxSphereBounds3f Bounds;
-			bool bIsFirst = true;
-
-			// Combine the bounds from all the LODs
-			for (const auto& LOD : LODs)
+			if (!NewBounds.IsSet())
 			{
-				if (LOD->HasSectionGroups())
-				{
-					Bounds = bIsFirst? LOD->GetLocalBounds() : LOD->GetLocalBounds() + Bounds;
-				}
-				bIsFirst = false;
+				NewBounds = LOD->GetLocalBounds();
+				continue;
 			}
-
-			if (bIsFirst)
-			{
-				// Fallback so we don't have a zero size bounds
-				Bounds = FBoxSphereBounds3f(FSphere3f(FVector3f::ZeroVector, 1));
-			}
-
-			LocalBounds = Bounds;
+			NewBounds = *NewBounds + LOD->GetLocalBounds();
 		}
 
-		BroadcastBoundsChangedEvent();		
+		return NewBounds.IsSet() ? *NewBounds : FBoxSphereBounds3f(FSphere3f(FVector3f::ZeroVector, 1.0f));
 	}
 
-	void FRealtimeMesh::HandleLODBoundsChanged(const FRealtimeMeshLODDataRef& LOD)
+	void FRealtimeMesh::HandleLODBoundsChanged(const FRealtimeMeshLODKey& LODKey)
 	{
-		UpdateBounds();
+		FRealtimeMeshScopeGuardWrite ScopeGuard(SharedResources->GetGuard());
+		Bounds.ClearCachedValue();
+		SharedResources->BroadcastMeshBoundsChanged();
 	}
 }
 

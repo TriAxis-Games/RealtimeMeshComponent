@@ -1,5 +1,6 @@
 ﻿// Copyright TriAxis Games, L.L.C. All Rights Reserved.
 
+// ReSharper disable CppUEBlueprintCallableFunctionUnused
 #pragma once
 
 #include "CoreMinimal.h"
@@ -13,34 +14,35 @@ USTRUCT(BlueprintType)
 struct FRealtimeMeshCollisionConfiguration
 {
 	GENERATED_BODY()
+
 public:
 	FRealtimeMeshCollisionConfiguration()
 		: bUseComplexAsSimpleCollision(true)
-		, bUseAsyncCook(true)
-		, bShouldFastCookMeshes(false)
+		  , bUseAsyncCook(true)
+		  , bShouldFastCookMeshes(false)
+		  , bFlipNormals(false)
+		  , bDeformableMesh(false)
 	{
 	}
-	
-	UPROPERTY(Category="Collision|Configuration", EditAnywhere, BlueprintReadWrite)
+
+	UPROPERTY(Category="RealtimeMesh|Collision", EditAnywhere, BlueprintReadWrite)
 	bool bUseComplexAsSimpleCollision;
-	
-	UPROPERTY(Category="Collision|Configuration", EditAnywhere, BlueprintReadWrite)
+
+	UPROPERTY(Category="RealtimeMesh|Collision", EditAnywhere, BlueprintReadWrite)
 	bool bUseAsyncCook;
 
-	UPROPERTY(Category="Collision|Configuration", EditAnywhere, BlueprintReadWrite)
+	UPROPERTY(Category="RealtimeMesh|Collision", EditAnywhere, BlueprintReadWrite)
 	bool bShouldFastCookMeshes;
 
+	UPROPERTY(Category="RealtimeMesh|Collision", EditAnywhere, BlueprintReadWrite)
+	bool bFlipNormals;
 
-	friend FArchive& operator<<(FArchive& Ar, FRealtimeMeshCollisionConfiguration& Config)
-	{
-		Ar << Config.bUseComplexAsSimpleCollision;
-		Ar << Config.bUseAsyncCook;
-		Ar << Config.bShouldFastCookMeshes;
-		return Ar;
-	}
+	UPROPERTY(Category="RealtimeMesh|Collision", EditAnywhere, BlueprintReadWrite)
+	bool bDeformableMesh;
+
+
+	friend FArchive& operator<<(FArchive& Ar, FRealtimeMeshCollisionConfiguration& Config);
 };
-
-
 
 
 USTRUCT(BlueprintType)
@@ -51,21 +53,21 @@ struct FRealtimeMeshCollisionShape
 public:
 	FRealtimeMeshCollisionShape()
 		: Name(NAME_None)
-		, Center(FVector::ZeroVector)
-		, Rotation(FRotator::ZeroRotator)
-		, bContributesToMass(true)
+		  , Center(FVector::ZeroVector)
+		  , Rotation(FRotator::ZeroRotator)
+		  , bContributesToMass(true)
 	{
 	}
-	
+
 	UPROPERTY(Category="RealtimeMesh|Collision", EditAnywhere, BlueprintReadWrite)
 	FName Name;
-	
+
 	UPROPERTY(Category="RealtimeMesh|Collision", EditAnywhere, BlueprintReadWrite)
 	FVector Center;
-	
+
 	UPROPERTY(Category="RealtimeMesh|Collision", EditAnywhere, BlueprintReadWrite)
 	FRotator Rotation;
-	
+
 	UPROPERTY(Category="RealtimeMesh|Collision", EditAnywhere, BlueprintReadWrite)
 	bool bContributesToMass;
 
@@ -77,12 +79,13 @@ USTRUCT(BlueprintType)
 struct FRealtimeMeshCollisionSphere : public FRealtimeMeshCollisionShape
 {
 	GENERATED_BODY()
-public:	
+
+public:
 	FRealtimeMeshCollisionSphere()
 		: Radius(0.5f)
 	{
 	}
-	
+
 	UPROPERTY(Category="RealtimeMesh|Collision", EditAnywhere, BlueprintReadWrite)
 	float Radius;
 
@@ -93,6 +96,7 @@ USTRUCT(BlueprintType)
 struct FRealtimeMeshCollisionBox : public FRealtimeMeshCollisionShape
 {
 	GENERATED_BODY()
+
 public:
 	FRealtimeMeshCollisionBox()
 		: Extents(0.5f, 0.5f, 0.5f)
@@ -110,16 +114,17 @@ USTRUCT(BlueprintType)
 struct FRealtimeMeshCollisionCapsule : public FRealtimeMeshCollisionShape
 {
 	GENERATED_BODY()
+
 public:
 	FRealtimeMeshCollisionCapsule()
 		: Radius(0.5f)
-		, Length(0.5f)
+		  , Length(0.5f)
 	{
 	}
-		
+
 	UPROPERTY(Category="RealtimeMesh|Collision", EditAnywhere, BlueprintReadWrite)
 	float Radius;
-	
+
 	UPROPERTY(Category="RealtimeMesh|Collision", EditAnywhere, BlueprintReadWrite)
 	float Length;
 
@@ -130,21 +135,21 @@ USTRUCT(BlueprintType)
 struct FRealtimeMeshCollisionTaperedCapsule : public FRealtimeMeshCollisionShape
 {
 	GENERATED_BODY()
-public:
 
+public:
 	FRealtimeMeshCollisionTaperedCapsule()
 		: RadiusA(0.5f)
-		, RadiusB(0.5f)
-		, Length(0.5f)
+		  , RadiusB(0.5f)
+		  , Length(0.5f)
 	{
 	}
-	
+
 	UPROPERTY(Category="RealtimeMesh|Collision", EditAnywhere, BlueprintReadWrite)
 	float RadiusA;
-	
+
 	UPROPERTY(Category="RealtimeMesh|Collision", EditAnywhere, BlueprintReadWrite)
 	float RadiusB;
-	
+
 	UPROPERTY(Category="RealtimeMesh|Collision", EditAnywhere, BlueprintReadWrite)
 	float Length;
 
@@ -155,12 +160,15 @@ USTRUCT(BlueprintType)
 struct FRealtimeMeshCollisionConvex : public FRealtimeMeshCollisionShape
 {
 	GENERATED_BODY()
+
 public:
-	FRealtimeMeshCollisionConvex() { }
-	
+	FRealtimeMeshCollisionConvex()
+	{
+	}
+
 	UPROPERTY(Category="RealtimeMesh|Collision", EditAnywhere, BlueprintReadWrite)
 	TArray<FVector> Vertices;
-	
+
 	UPROPERTY(Category="RealtimeMesh|Collision", EditAnywhere, BlueprintReadWrite)
 	FBox BoundingBox;
 
@@ -172,6 +180,7 @@ USTRUCT(BlueprintType)
 struct REALTIMEMESHCOMPONENT_API FRealtimeMeshSimpleGeometry
 {
 	GENERATED_BODY()
+
 private:
 	TSparseArray<FRealtimeMeshCollisionSphere> Spheres;
 	TMap<FName, int32> SpheresNameMap;
@@ -236,9 +245,6 @@ public:
 };
 
 
-
-
-
 UCLASS()
 class REALTIMEMESHCOMPONENT_API URealtimeMeshSimpleGeometryFunctionLibrary : public UBlueprintFunctionLibrary
 {
@@ -249,11 +255,14 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Realtime Mesh|Spheres")
 	static FRealtimeMeshSimpleGeometry& AddSphere(UPARAM(ref) FRealtimeMeshSimpleGeometry& SimpleGeometry, const FRealtimeMeshCollisionSphere& InSphere, int32& OutIndex);
 	UFUNCTION(BlueprintCallable, Category = "Realtime Mesh|Spheres")
-	static FRealtimeMeshSimpleGeometry& InsertSphere(UPARAM(ref) FRealtimeMeshSimpleGeometry& SimpleGeometry, int32 Index, const FRealtimeMeshCollisionSphere& InSphere, bool& Success);
+	static FRealtimeMeshSimpleGeometry& InsertSphere(UPARAM(ref) FRealtimeMeshSimpleGeometry& SimpleGeometry, int32 Index, const FRealtimeMeshCollisionSphere& InSphere,
+	                                                 bool& Success);
 	UFUNCTION(BlueprintCallable, Category = "Realtime Mesh|Spheres")
-	static FRealtimeMeshSimpleGeometry& GetSphereByName(UPARAM(ref) FRealtimeMeshSimpleGeometry& SimpleGeometry, FName SphereName, bool& Success, FRealtimeMeshCollisionSphere& OutSphere);
+	static FRealtimeMeshSimpleGeometry& GetSphereByName(UPARAM(ref) FRealtimeMeshSimpleGeometry& SimpleGeometry, FName SphereName, bool& Success,
+	                                                    FRealtimeMeshCollisionSphere& OutSphere);
 	UFUNCTION(BlueprintCallable, Category = "Realtime Mesh|Spheres")
-	static FRealtimeMeshSimpleGeometry& UpdateSphere(UPARAM(ref) FRealtimeMeshSimpleGeometry& SimpleGeometry, int32 Index, const FRealtimeMeshCollisionSphere& InSphere, bool& Success);
+	static FRealtimeMeshSimpleGeometry& UpdateSphere(UPARAM(ref) FRealtimeMeshSimpleGeometry& SimpleGeometry, int32 Index, const FRealtimeMeshCollisionSphere& InSphere,
+	                                                 bool& Success);
 	UFUNCTION(BlueprintCallable, Category = "Realtime Mesh|Spheres")
 	static FRealtimeMeshSimpleGeometry& RemoveSphere(UPARAM(ref) FRealtimeMeshSimpleGeometry& SimpleGeometry, int32 Index, bool& Success);
 	UFUNCTION(BlueprintCallable, Category = "Realtime Mesh|Spheres")
@@ -277,11 +286,14 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Realtime Mesh|Capsules")
 	static FRealtimeMeshSimpleGeometry& AddCapsule(UPARAM(ref) FRealtimeMeshSimpleGeometry& SimpleGeometry, const FRealtimeMeshCollisionCapsule& InCapsule, int32& OutIndex);
 	UFUNCTION(BlueprintCallable, Category = "Realtime Mesh|Capsules")
-	static FRealtimeMeshSimpleGeometry& InsertCapsule(UPARAM(ref) FRealtimeMeshSimpleGeometry& SimpleGeometry, int32 Index, const FRealtimeMeshCollisionCapsule& InCapsule, bool& Success);
+	static FRealtimeMeshSimpleGeometry& InsertCapsule(UPARAM(ref) FRealtimeMeshSimpleGeometry& SimpleGeometry, int32 Index, const FRealtimeMeshCollisionCapsule& InCapsule,
+	                                                  bool& Success);
 	UFUNCTION(BlueprintCallable, Category = "Realtime Mesh|Capsules")
-	static FRealtimeMeshSimpleGeometry& GetCapsuleByName(UPARAM(ref) FRealtimeMeshSimpleGeometry& SimpleGeometry, FName CapsuleName, bool& Success, FRealtimeMeshCollisionCapsule& OutCapsule);
+	static FRealtimeMeshSimpleGeometry& GetCapsuleByName(UPARAM(ref) FRealtimeMeshSimpleGeometry& SimpleGeometry, FName CapsuleName, bool& Success,
+	                                                     FRealtimeMeshCollisionCapsule& OutCapsule);
 	UFUNCTION(BlueprintCallable, Category = "Realtime Mesh|Capsules")
-	static FRealtimeMeshSimpleGeometry& UpdateCapsule(UPARAM(ref) FRealtimeMeshSimpleGeometry& SimpleGeometry, int32 Index, const FRealtimeMeshCollisionCapsule& InCapsule, bool& Success);
+	static FRealtimeMeshSimpleGeometry& UpdateCapsule(UPARAM(ref) FRealtimeMeshSimpleGeometry& SimpleGeometry, int32 Index, const FRealtimeMeshCollisionCapsule& InCapsule,
+	                                                  bool& Success);
 	UFUNCTION(BlueprintCallable, Category = "Realtime Mesh|Capsules")
 	static FRealtimeMeshSimpleGeometry& RemoveCapsule(UPARAM(ref) FRealtimeMeshSimpleGeometry& SimpleGeometry, int32 Index, bool& Success);
 	UFUNCTION(BlueprintCallable, Category = "Realtime Mesh|Capsules")
@@ -289,13 +301,17 @@ public:
 
 	// Tapered Capsule Functions
 	UFUNCTION(BlueprintCallable, Category = "Realtime Mesh|Tapered Capsules")
-	static FRealtimeMeshSimpleGeometry& AddTaperedCapsule(UPARAM(ref) FRealtimeMeshSimpleGeometry& SimpleGeometry, const FRealtimeMeshCollisionTaperedCapsule& InTaperedCapsule, int32& OutIndex);
+	static FRealtimeMeshSimpleGeometry& AddTaperedCapsule(UPARAM(ref) FRealtimeMeshSimpleGeometry& SimpleGeometry, const FRealtimeMeshCollisionTaperedCapsule& InTaperedCapsule,
+	                                                      int32& OutIndex);
 	UFUNCTION(BlueprintCallable, Category = "Realtime Mesh|Tapered Capsules")
-	static FRealtimeMeshSimpleGeometry& InsertTaperedCapsule(UPARAM(ref) FRealtimeMeshSimpleGeometry& SimpleGeometry, int32 Index, const FRealtimeMeshCollisionTaperedCapsule& InTaperedCapsule, bool& Success);
+	static FRealtimeMeshSimpleGeometry& InsertTaperedCapsule(UPARAM(ref) FRealtimeMeshSimpleGeometry& SimpleGeometry, int32 Index,
+	                                                         const FRealtimeMeshCollisionTaperedCapsule& InTaperedCapsule, bool& Success);
 	UFUNCTION(BlueprintCallable, Category = "Realtime Mesh|Tapered Capsules")
-	static FRealtimeMeshSimpleGeometry& GetTaperedCapsuleByName(UPARAM(ref) FRealtimeMeshSimpleGeometry& SimpleGeometry, FName TaperedCapsuleName, bool& Success, FRealtimeMeshCollisionTaperedCapsule& OutTaperedCapsule);
+	static FRealtimeMeshSimpleGeometry& GetTaperedCapsuleByName(UPARAM(ref) FRealtimeMeshSimpleGeometry& SimpleGeometry, FName TaperedCapsuleName, bool& Success,
+	                                                            FRealtimeMeshCollisionTaperedCapsule& OutTaperedCapsule);
 	UFUNCTION(BlueprintCallable, Category = "Realtime Mesh|Tapered Capsules")
-	static FRealtimeMeshSimpleGeometry& UpdateTaperedCapsule(UPARAM(ref) FRealtimeMeshSimpleGeometry& SimpleGeometry, int32 Index, const FRealtimeMeshCollisionTaperedCapsule& InTaperedCapsule, bool& Success);
+	static FRealtimeMeshSimpleGeometry& UpdateTaperedCapsule(UPARAM(ref) FRealtimeMeshSimpleGeometry& SimpleGeometry, int32 Index,
+	                                                         const FRealtimeMeshCollisionTaperedCapsule& InTaperedCapsule, bool& Success);
 	UFUNCTION(BlueprintCallable, Category = "Realtime Mesh|Tapered Capsules")
 	static FRealtimeMeshSimpleGeometry& RemoveTaperedCapsule(UPARAM(ref) FRealtimeMeshSimpleGeometry& SimpleGeometry, int32 Index, bool& Success);
 	UFUNCTION(BlueprintCallable, Category = "Realtime Mesh|Tapered Capsules")
@@ -305,72 +321,58 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Realtime Mesh|Convex Hulls")
 	static FRealtimeMeshSimpleGeometry& AddConvex(UPARAM(ref) FRealtimeMeshSimpleGeometry& SimpleGeometry, const FRealtimeMeshCollisionConvex& InConvexHull, int32& OutIndex);
 	UFUNCTION(BlueprintCallable, Category = "Realtime Mesh|Convex Hulls")
-	static FRealtimeMeshSimpleGeometry& InsertConvex(UPARAM(ref) FRealtimeMeshSimpleGeometry& SimpleGeometry, int32 Index, const FRealtimeMeshCollisionConvex& InConvexHull, bool& Success);
+	static FRealtimeMeshSimpleGeometry& InsertConvex(UPARAM(ref) FRealtimeMeshSimpleGeometry& SimpleGeometry, int32 Index, const FRealtimeMeshCollisionConvex& InConvexHull,
+	                                                 bool& Success);
 	UFUNCTION(BlueprintCallable, Category = "Realtime Mesh|Convex Hulls")
-	static FRealtimeMeshSimpleGeometry& GetConvexByName(UPARAM(ref) FRealtimeMeshSimpleGeometry& SimpleGeometry, FName ConvexHullName, bool& Success, FRealtimeMeshCollisionConvex& OutConvexHull);
+	static FRealtimeMeshSimpleGeometry& GetConvexByName(UPARAM(ref) FRealtimeMeshSimpleGeometry& SimpleGeometry, FName ConvexHullName, bool& Success,
+	                                                    FRealtimeMeshCollisionConvex& OutConvexHull);
 	UFUNCTION(BlueprintCallable, Category = "Realtime Mesh|Convex Hulls")
-	static FRealtimeMeshSimpleGeometry& UpdateConvex(UPARAM(ref) FRealtimeMeshSimpleGeometry& SimpleGeometry, int32 Index, const FRealtimeMeshCollisionConvex& InConvexHull, bool& Success);
+	static FRealtimeMeshSimpleGeometry& UpdateConvex(UPARAM(ref) FRealtimeMeshSimpleGeometry& SimpleGeometry, int32 Index, const FRealtimeMeshCollisionConvex& InConvexHull,
+	                                                 bool& Success);
 	UFUNCTION(BlueprintCallable, Category = "Realtime Mesh|Convex Hulls")
 	static FRealtimeMeshSimpleGeometry& RemoveConvex(UPARAM(ref) FRealtimeMeshSimpleGeometry& SimpleGeometry, int32 Index, bool& Success);
 	UFUNCTION(BlueprintCallable, Category = "Realtime Mesh|Convex Hulls")
 	static FRealtimeMeshSimpleGeometry& RemoveConvexByName(UPARAM(ref) FRealtimeMeshSimpleGeometry& SimpleGeometry, FName ConvexHullName, bool& Success);
-	
 };
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-USTRUCT(BlueprintType)
-struct FRealtimeMeshCollisionTriangleMesh
+struct REALTIMEMESHCOMPONENT_API FRealtimeMeshTriMeshData
 {
-	GENERATED_BODY()
-public:
-	
-	UPROPERTY(Category="Collision|TriangleMesh", EditAnywhere, BlueprintReadWrite)
-	TArray<FVector> Vertices;
-	
-	UPROPERTY(Category="Collision|TriangleMesh", EditAnywhere, BlueprintReadWrite)
-	TArray<int32> Indices;
+private:
+	TArray<FVector3f> Vertices;
+	TArray<FTriIndices> Triangles;
+	TArray<uint16> Materials;
+	TArray<TArray<FVector2D>> UVs;
 
-	UPROPERTY(Category="Collision|TriangleMesh", EditAnywhere, BlueprintReadWrite)
-	TArray<int32> MaterialIndices;
+public:
+	const TArray<FVector3f>& GetVertices() const { return Vertices; }
+	TArray<FVector3f>& GetVertices() { return Vertices; }
+
+
+	const TArray<FTriIndices>& GetTriangles() const { return Triangles; }
+	TArray<FTriIndices>& GetTriangles() { return Triangles; }
+	const TArray<uint16>& GetMaterials() const { return Materials; }
+	TArray<uint16>& GetMaterials() { return Materials; }
+	const TArray<TArray<FVector2D>>& GetUVs() const { return UVs; }
+	TArray<TArray<FVector2D>>& GetUVs() { return UVs; }
+
+	friend FArchive& operator<<(FArchive& Ar, FRealtimeMeshTriMeshData& MeshData);
 };
+
+
+struct REALTIMEMESHCOMPONENT_API FRealtimeMeshCollisionData
+{
+	FRealtimeMeshCollisionConfiguration Config;
+	FRealtimeMeshSimpleGeometry SimpleGeometry;
+	FRealtimeMeshTriMeshData ComplexGeometry;
+};
+
+UENUM()
+enum class ERealtimeMeshCollisionUpdateResult : uint8
+{
+	Unknown,
+	Updated,
+	Ignored,
+	Error,
+};
+

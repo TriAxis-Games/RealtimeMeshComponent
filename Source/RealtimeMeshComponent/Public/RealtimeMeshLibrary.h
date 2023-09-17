@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "RealtimeMeshSimple.h"
-#include "Data/RealtimeMeshConfig.h"
+#include "RealtimeMeshConfig.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "RealtimeMeshLibrary.generated.h"
 
@@ -20,18 +20,33 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "RealtimeMesh|Key")
 	static FRealtimeMeshLODKey MakeLODKey(int32 LODIndex);
-	
+
+
 	UFUNCTION(BlueprintPure, Category = "RealtimeMesh|Key")
-	static FRealtimeMeshSectionGroupKey MakeSectionGroupKey(FRealtimeMeshLODKey LODKey, int32 SectionGroupIndex);
-	
+	static FRealtimeMeshSectionGroupKey MakeSectionGroupKeyUnique(const FRealtimeMeshLODKey& LODKey);
+
 	UFUNCTION(BlueprintPure, Category = "RealtimeMesh|Key")
-	static FRealtimeMeshSectionKey MakeSectionKey(FRealtimeMeshSectionGroupKey SectionGroupKey, int32 SectionIndex);
+	static FRealtimeMeshSectionGroupKey MakeSectionGroupKeyIndexed(const FRealtimeMeshLODKey& LODKey, int32 SectionGroupIndex);
+
+	UFUNCTION(BlueprintPure, Category = "RealtimeMesh|Key")
+	static FRealtimeMeshSectionGroupKey MakeSectionGroupKeyNamed(const FRealtimeMeshLODKey& LODKey, FName GroupName);
+
+
+	UFUNCTION(BlueprintPure, Category = "RealtimeMesh|Key")
+	static FRealtimeMeshSectionKey MakeSectionKeyUnique(const FRealtimeMeshSectionGroupKey& SectionGroupKey);
+
+	UFUNCTION(BlueprintPure, Category = "RealtimeMesh|Key")
+	static FRealtimeMeshSectionKey MakeSectionKeyIndexed(const FRealtimeMeshSectionGroupKey& SectionGroupKey, int32 SectionIndex);
+
+	UFUNCTION(BlueprintPure, Category = "RealtimeMesh|Key")
+	static FRealtimeMeshSectionKey MakeSectionKeyNamed(const FRealtimeMeshSectionGroupKey& SectionGroupKey, FName SectionName);
 
 	UFUNCTION(BlueprintPure, Category = "RealtimeMesh|Key")
 	static void BreakLODKey(const FRealtimeMeshLODKey& LODKey, int32& LODIndex);
 
 	UFUNCTION(BlueprintPure, Category = "RealtimeMesh|Stream")
-	static FRealtimeMeshStreamRange MakeStreamRange(int32 VerticesLowerInclusive = 0, int32 VerticesUpperExclusive = 0, int32 IndicesLowerInclusive = 0, int32 IndicesUpperExclusive = 0);
+	static FRealtimeMeshStreamRange MakeStreamRange(int32 VerticesLowerInclusive = 0, int32 VerticesUpperExclusive = 0, int32 IndicesLowerInclusive = 0,
+	                                                int32 IndicesUpperExclusive = 0);
 
 	/** Generate vertex and index buffer for a simple box, given the supplied dimensions. Normals, UVs and tangents are also generated for each vertex. */
 	UFUNCTION(BlueprintCallable, Category = "RealtimeMesh|MeshGeneration")
@@ -39,6 +54,6 @@ public:
 
 	/** Generate vertex and index buffer for a simple box, given the supplied dimensions. Normals, UVs and tangents are also generated for each vertex. */
 	UFUNCTION(BlueprintCallable, Category = "RealtimeMesh|MeshGeneration", meta=(AutoCreateRefTerm="Transform"))
-	static FRealtimeMeshSimpleMeshData& AppendMesh(UPARAM(Ref) FRealtimeMeshSimpleMeshData& TargetMeshData, const FRealtimeMeshSimpleMeshData& MeshDataToAdd, const FTransform& Transform);
-	
+	static FRealtimeMeshSimpleMeshData& AppendMesh(UPARAM(Ref) FRealtimeMeshSimpleMeshData& TargetMeshData, const FRealtimeMeshSimpleMeshData& MeshDataToAdd,
+	                                               const FTransform& Transform);
 };

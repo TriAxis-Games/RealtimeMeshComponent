@@ -17,15 +17,13 @@ class REALTIMEMESHCOMPONENT_API URealtimeMeshComponent : public UMeshComponent
 	GENERATED_BODY()
 
 private:
-
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = RealtimeMesh, Meta = (AllowPrivateAccess = "true", DisplayName = "Runtime Mesh"))
 	TObjectPtr<URealtimeMesh> RealtimeMeshReference;
-
 
 public:
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "RealtimeMesh")
 	bool KeepMomentumOnCollisionUpdate = false;
-	
+
 	URealtimeMeshComponent();
 
 	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMeshComponent")
@@ -34,7 +32,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMeshComponent", meta=(DeterminesOutputType="MeshClass"))
 	URealtimeMesh* InitializeRealtimeMesh(TSubclassOf<URealtimeMesh> MeshClass);
 
-	template<typename MeshType>
+	template <typename MeshType>
 	MeshType* InitializeRealtimeMesh(TSubclassOf<URealtimeMesh> MeshClass = MeshType::StaticClass())
 	{
 		return CastChecked<MeshType>(InitializeRealtimeMesh(MeshClass));
@@ -50,8 +48,8 @@ public:
 		}
 		return nullptr;
 	}
-public:
 
+public:
 	void GetStreamingRenderAssetInfo(FStreamingTextureLevelContext& LevelContext, TArray<FStreamingRenderAssetPrimitiveInfo>& OutStreamingRenderAssets) const
 	{
 		//@TODO: Need to support this for proper texture streaming
@@ -60,14 +58,16 @@ public:
 
 	virtual void OnRegister() override;
 	virtual void OnUnregister() override;
-	
-	
+
+
 	//~ Begin USceneComponent Interface.
 	virtual FBoxSphereBounds CalcBounds(const FTransform& LocalToWorld) const override;
+
 	virtual bool IsSupportedForNetworking() const override
 	{
 		return true;
 	}
+
 	//~ Begin USceneComponent Interface.
 
 	//~ Begin UPrimitiveComponent Interface.
@@ -75,7 +75,6 @@ public:
 	virtual class UBodySetup* GetBodySetup() override;
 	//~ End UPrimitiveComponent Interface.
 public:
-
 	//~ Begin UMeshComponent Interface
 	virtual int32 GetMaterialIndex(FName MaterialSlotName) const override;
 	virtual TArray<FName> GetMaterialSlotNames() const override;
@@ -90,7 +89,6 @@ public:
 
 
 private:
-
 	virtual void BindToEvents(URealtimeMesh* RealtimeMesh);
 	virtual void UnbindFromEvents(URealtimeMesh* RealtimeMesh);
 

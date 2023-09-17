@@ -17,7 +17,7 @@ public class RealtimeMeshComponent : ModuleRules
         PublicDependencyModuleNames.AddRange(
             new string[]
             {
-                "Core", "CoreUObject",
+                "Core", "CoreUObject", "GeometryCore",
             }
             );
 

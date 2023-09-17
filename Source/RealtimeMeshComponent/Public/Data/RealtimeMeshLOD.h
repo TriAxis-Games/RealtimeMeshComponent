@@ -4,73 +4,59 @@
 
 #include "RealtimeMeshConfig.h"
 #include "RealtimeMeshCore.h"
+#include "RealtimeMeshSectionGroup.h"
 
 namespace RealtimeMesh
 {
 	class REALTIMEMESHCOMPONENT_API FRealtimeMeshLODData : public TSharedFromThis<FRealtimeMeshLODData>
 	{
-	public:
-		DECLARE_EVENT_OneParam(FRealtimeMeshLODData, FConfigUpdatedEvent, const FRealtimeMeshLODDataRef&);
-		DECLARE_EVENT_OneParam(FRealtimeMeshLODData, FBoundsUpdatedEvent, const FRealtimeMeshLODDataRef&);
-		DECLARE_EVENT_TwoParams(FRealtimeMeshLODData, FSectionGroupAdded, const FRealtimeMeshLODDataRef&, FRealtimeMeshSectionGroupKey);
-		DECLARE_EVENT_TwoParams(FRealtimeMeshLODData, FSectionGroupRemoved, const FRealtimeMeshLODDataRef&, FRealtimeMeshSectionGroupKey);
-	private:
-		FConfigUpdatedEvent ConfigUpdatedEvent;
-		FBoundsUpdatedEvent BoundsUpdatedEvent;
-		FSectionGroupAdded SectionGroupAddedEvent;
-		FSectionGroupRemoved SectionGroupRemovedEvent;
-	public:
-		FConfigUpdatedEvent& OnConfigUpdated() { return ConfigUpdatedEvent; }
-		FBoundsUpdatedEvent& OnBoundsUpdated() { return BoundsUpdatedEvent; }
-		FSectionGroupAdded& OnSectionGroupAdded() { return SectionGroupAddedEvent; }
-		FSectionGroupRemoved& OnSectionGroupRemoved() { return SectionGroupRemovedEvent; }
-
 	protected:
-		const FRealtimeMeshClassFactoryRef ClassFactory;
-		const FRealtimeMeshWeakPtr MeshWeak;
+		const FRealtimeMeshSharedResourcesRef SharedResources;
 		const FRealtimeMeshLODKey Key;
-		TSparseArray<FRealtimeMeshSectionGroupRef> SectionGroups;
+		TSet<FRealtimeMeshSectionGroupRef, FRealtimeMeshSectionGroupRefKeyFuncs> SectionGroups;
 		FRealtimeMeshLODConfig Config;
-		FBoxSphereBounds3f LocalBounds;
-		mutable FRWLock Lock;
+		FRealtimeMeshBounds Bounds;
 
-		FName TypeName;
 	public:
-		FRealtimeMeshLODData(const FRealtimeMeshClassFactoryRef& InClassFactory, const FRealtimeMeshRef& InMesh,
-			FRealtimeMeshLODKey InID, const FRealtimeMeshLODConfig& InConfig);
-		virtual ~FRealtimeMeshLODData() = default;
+		FRealtimeMeshLODData(const FRealtimeMeshSharedResourcesRef& InSharedResources, const FRealtimeMeshLODKey& InKey);
+		virtual ~FRealtimeMeshLODData();
 
-		FName GetMeshName() const;
-
-		FRealtimeMeshLODKey GetID() const { return Key; }
+		FRealtimeMeshLODKey GetKey() const { return Key; }
 		bool HasSectionGroups() const;
 
-		FRealtimeMeshSectionGroupPtr GetSectionGroup(FRealtimeMeshSectionGroupKey SectionGroupKey) const;
-		template<typename SectionGroupType>
-		TSharedPtr<SectionGroupType> GetSectionGroupAs(FRealtimeMeshSectionGroupKey SectionGroupKey) const
+		template <typename SectionGroupType>
+		TSharedPtr<SectionGroupType> GetSectionGroupAs(const FRealtimeMeshSectionGroupKey& SectionGroupKey) const
 		{
 			return StaticCastSharedPtr<SectionGroupType>(GetSectionGroup(SectionGroupKey));
 		}
 
+		FRealtimeMeshSectionGroupPtr GetSectionGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey) const;
+
 		FBoxSphereBounds3f GetLocalBounds() const;
 
-		void UpdateConfig(const FRealtimeMeshLODConfig& InConfig);
+		virtual void Initialize(FRealtimeMeshProxyCommandBatch& Commands, const FRealtimeMeshLODConfig& InConfig);
+		TFuture<ERealtimeMeshProxyUpdateStatus> Reset();
+		virtual void Reset(FRealtimeMeshProxyCommandBatch& Commands);
 
-		FRealtimeMeshSectionGroupKey CreateSectionGroup();
-		void RemoveSectionGroup(FRealtimeMeshSectionGroupKey SectionGroupKey);
-		void RemoveAllSectionGroups();
-		
-		virtual void MarkRenderStateDirty(bool bShouldRecreateProxies);
-		
-		FRealtimeMeshLODProxyInitializationParametersRef GetInitializationParams() const;
-		
+		TFuture<ERealtimeMeshProxyUpdateStatus> UpdateConfig(const FRealtimeMeshLODConfig& InConfig);
+		virtual void UpdateConfig(FRealtimeMeshProxyCommandBatch& Commands, const FRealtimeMeshLODConfig& InConfig);
+
+		TFuture<ERealtimeMeshProxyUpdateStatus> CreateOrUpdateSectionGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey);
+		virtual void CreateOrUpdateSectionGroup(FRealtimeMeshProxyCommandBatch& Commands, const FRealtimeMeshSectionGroupKey& SectionGroupKey);
+		TFuture<ERealtimeMeshProxyUpdateStatus> RemoveSectionGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey);
+		virtual void RemoveSectionGroup(FRealtimeMeshProxyCommandBatch& Commands, const FRealtimeMeshSectionGroupKey& SectionGroupKey);
+
 		virtual bool Serialize(FArchive& Ar);
+
+		virtual void InitializeProxy(FRealtimeMeshProxyCommandBatch& Commands);
+		/*virtual void ApplyStateUpdate(FRealtimeMeshProxyCommandBatch& UpdateGraph, FRealtimeMeshLODUpdateContext& Update);*/
+
+		TSet<FRealtimeMeshSectionGroupKey> GetSectionGroupKeys() const;
+
 	protected:
-		FName GetParentName() const;
-		void DoOnValidProxy(TUniqueFunction<void(const FRealtimeMeshLODProxyRef&)>&& Function) const;
+		virtual FBoxSphereBounds3f CalculateBounds() const;
+		void HandleSectionGroupBoundsChanged(const FRealtimeMeshSectionGroupKey& RealtimeMeshSectionGroupKey);
 
-		virtual void UpdateBounds();
-
-		void HandleSectionGroupBoundsChanged(const FRealtimeMeshSectionGroupRef& InSectionGroup);
+		virtual bool ShouldRecreateProxyOnChange() { return true; }
 	};
 }

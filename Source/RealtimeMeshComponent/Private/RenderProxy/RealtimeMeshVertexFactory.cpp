@@ -5,13 +5,18 @@
 =============================================================================*/
 
 #include "RenderProxy/RealtimeMeshVertexFactory.h"
+
+#include "MaterialDomain.h"
 #include "SceneView.h"
 #include "MeshBatch.h"
 #include "SpeedTreeWind.h"
 #include "Rendering/ColorVertexBuffer.h"
 #include "MeshMaterialShader.h"
-#include "Data/RealtimeMeshConfig.h"
+#include "RealtimeMeshConfig.h"
 #include "ProfilingDebugging/LoadTimeTracker.h"
+#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 2
+#include "MeshDrawShaderBindings.h"
+#endif
 
 namespace RealtimeMesh
 {
@@ -19,7 +24,8 @@ namespace RealtimeMesh
 
 	class FRealtimeMeshSpeedTreeWindNullUniformBuffer : public TUniformBuffer<FSpeedTreeUniformParameters>
 	{
-		typedef TUniformBuffer< FSpeedTreeUniformParameters > Super;
+		typedef TUniformBuffer<FSpeedTreeUniformParameters> Super;
+
 	public:
 		virtual void InitDynamicRHI() override;
 	};
@@ -29,7 +35,7 @@ namespace RealtimeMesh
 		FSpeedTreeUniformParameters Parameters;
 		FMemory::Memzero(Parameters);
 		SetContentsNoUpdate(Parameters);
-	
+
 		Super::InitDynamicRHI();
 	}
 
@@ -43,7 +49,7 @@ namespace RealtimeMesh
 		constexpr FColorVertexBuffer* OverrideColorVertexBuffer = nullptr;
 		constexpr int32 BaseVertexIndex = 0;
 		constexpr int32 PreSkinBaseVertexIndex = 0;
-	
+
 		UniformParameters.LODLightmapDataIndex = LODLightmapDataIndex;
 		int32 ColorIndexMask = 0;
 
@@ -89,26 +95,27 @@ namespace RealtimeMesh
 
 		return TUniformBufferRef<FLocalVertexFactoryUniformShaderParameters>::CreateUniformBufferImmediate(UniformParameters, UniformBuffer_MultiFrame);
 	}
-	
-	FIndexBuffer& FRealtimeMeshLocalVertexFactory::GetIndexBuffer(bool& bDepthOnly, bool& bMatrixInverted, TFunctionRef<void(const TSharedRef<FRenderResource>&)> ResourceSubmitter) const
+
+	FIndexBuffer& FRealtimeMeshLocalVertexFactory::GetIndexBuffer(bool& bDepthOnly, bool& bMatrixInverted,
+	                                                              TFunctionRef<void(const TSharedRef<FRenderResource>&)> ResourceSubmitter) const
 	{
 		if (bDepthOnly)
 		{
 			if (bMatrixInverted)
 			{
 				if (const auto ReversedDepth = ReversedDepthOnlyIndexBuffer.Pin())
-				{					
+				{
 					ResourceSubmitter(ReversedDepth.ToSharedRef());
 					return *ReversedDepth.Get();
 				}
 			}
-			
+
 			if (const auto DepthOnly = DepthOnlyIndexBuffer.Pin())
 			{
 				ResourceSubmitter(DepthOnly.ToSharedRef());
 				bMatrixInverted = false;
 				return *DepthOnly.Get();
-			}		
+			}
 		}
 
 		if (bMatrixInverted)
@@ -120,11 +127,11 @@ namespace RealtimeMesh
 				return *Reversed.Get();
 			}
 		}
-			
+
 		const auto Normal = IndexBuffer.Pin();
 		check(Normal.IsValid());
 		ResourceSubmitter(Normal.ToSharedRef());
-	
+
 		bMatrixInverted = false;
 		bDepthOnly = false;
 		return *Normal.Get();
@@ -141,43 +148,43 @@ namespace RealtimeMesh
 
 		InUseVertexBuffers.Empty();
 		bool bIsValid = true;
-		
+
 		FInt32Range ValidVertexRange(0, TNumericLimits<int32>::Max());
 		FInt32Range ValidIndexRange(0, TNumericLimits<int32>::Max());
-		
+
 		// Bind Position
 		BindVertexBuffer(bIsValid, ValidVertexRange, InUseVertexBuffers, DataType.PositionComponent, Buffers,
-			PositionStreamName, EVertexStreamUsage::Default);
-		BindVertexBufferSRV(bIsValid, DataType.PositionComponentSRV, Buffers, PositionStreamName);
-	
+		                 FRealtimeMeshStreams::PositionStreamName, EVertexStreamUsage::Default);
+		BindVertexBufferSRV(bIsValid, DataType.PositionComponentSRV, Buffers, FRealtimeMeshStreams::PositionStreamName);
+
 		// Bind Tangents
 		BindVertexBuffer(bIsValid, ValidVertexRange, InUseVertexBuffers, DataType.TangentBasisComponents[0], Buffers,
-			TangentsStreamName, EVertexStreamUsage::ManualFetch, false, TangentElementName);
+		                 FRealtimeMeshStreams::TangentsStreamName, EVertexStreamUsage::ManualFetch, false, FRealtimeMeshStreams::TangentElementName, 0);
 		BindVertexBuffer(bIsValid, ValidVertexRange, InUseVertexBuffers, DataType.TangentBasisComponents[1], Buffers,
-			TangentsStreamName, EVertexStreamUsage::ManualFetch, false, NormalElementName);
-		BindVertexBufferSRV(bIsValid, DataType.TangentsSRV, Buffers, TangentsStreamName);
+		                 FRealtimeMeshStreams::TangentsStreamName, EVertexStreamUsage::ManualFetch, false, FRealtimeMeshStreams::NormalElementName, 1);
+		BindVertexBufferSRV(bIsValid, DataType.TangentsSRV, Buffers, FRealtimeMeshStreams::TangentsStreamName);
 
 		// Bind Color
 		BindVertexBuffer(bIsValid, ValidVertexRange, InUseVertexBuffers, DataType.ColorComponent, Buffers,
-			ColorStreamName, EVertexStreamUsage::ManualFetch);
-		BindVertexBufferSRV(bIsValid, DataType.ColorComponentsSRV, Buffers, ColorStreamName);
+		                 FRealtimeMeshStreams::ColorStreamName, EVertexStreamUsage::ManualFetch, true, NAME_None, 0, true);
+		BindVertexBufferSRV(bIsValid, DataType.ColorComponentsSRV, Buffers, FRealtimeMeshStreams::ColorStreamName);
 
 		// Bind TexCoords
 		DataType.NumTexCoords = 1;
 		DataType.TextureCoordinates.SetNum(1);
 		BindVertexBuffer(bIsValid, ValidVertexRange, InUseVertexBuffers, DataType.TextureCoordinates[0], Buffers,
-			TexCoordsStreamName, EVertexStreamUsage::ManualFetch);	
-		BindVertexBufferSRV(bIsValid, DataType.TextureCoordinatesSRV, Buffers, TexCoordsStreamName);	
+		                 FRealtimeMeshStreams::TexCoordsStreamName, EVertexStreamUsage::ManualFetch);
+		BindVertexBufferSRV(bIsValid, DataType.TextureCoordinatesSRV, Buffers, FRealtimeMeshStreams::TexCoordsStreamName);
 
 		// Bind all index buffers
-		BindIndexBuffer(bIsValid, ValidIndexRange, IndexBuffer, Buffers, TrianglesStreamName);
-		BindIndexBuffer(bIsValid, ValidIndexRange, ReversedIndexBuffer, Buffers, ReversedTrianglesStreamName, true);
-		BindIndexBuffer(bIsValid, ValidIndexRange, DepthOnlyIndexBuffer, Buffers, DepthOnlyTrianglesStreamName, true);
-		BindIndexBuffer(bIsValid, ValidIndexRange, ReversedDepthOnlyIndexBuffer, Buffers, ReversedDepthOnlyTrianglesStreamName, true);
-		
+		BindIndexBuffer(bIsValid, ValidIndexRange, IndexBuffer, Buffers, FRealtimeMeshStreams::TrianglesStreamName);
+		//BindIndexBuffer(bIsValid, ValidIndexRange, ReversedIndexBuffer, Buffers, FRealtimeMeshStreamNames::ReversedTrianglesStreamName, true);
+		//BindIndexBuffer(bIsValid, ValidIndexRange, DepthOnlyIndexBuffer, Buffers, FRealtimeMeshStreamNames::DepthOnlyTrianglesStreamName, true);
+		//BindIndexBuffer(bIsValid, ValidIndexRange, ReversedDepthOnlyIndexBuffer, Buffers, FRealtimeMeshStreamNames::ReversedDepthOnlyTrianglesStreamName, true);
+
 		// Update our valid range to the sum of the valid ranges
 		ValidRange = FRealtimeMeshStreamRange(ValidVertexRange, ValidIndexRange);
-		
+
 		ReleaseResource();
 
 		if (bIsValid)
@@ -233,7 +240,7 @@ namespace RealtimeMesh
 		const FRHIUniformBuffer* VertexFactoryUniformBuffer = static_cast<FRHIUniformBuffer*>(BatchElement.VertexFactoryUserData);
 
 		const FRealtimeMeshLocalVertexFactory* LocalVertexFactory = static_cast<const FRealtimeMeshLocalVertexFactory*>(VertexFactory);
-	
+
 		if (LocalVertexFactory->SupportsManualVertexFetch(FeatureLevel) || UseGPUScene(GMaxRHIShaderPlatform, FeatureLevel))
 		{
 			if (!VertexFactoryUniformBuffer)
@@ -254,13 +261,13 @@ namespace RealtimeMesh
 			if (!LocalVertexFactory->SupportsManualVertexFetch(FeatureLevel))
 			{
 				LocalVertexFactory->GetColorOverrideStream(OverrideColorVertexBuffer, VertexStreams);
-			}	
+			}
 		}
 
 		if (bAnySpeedTreeParamIsBound)
 		{
 			QUICK_SCOPE_CYCLE_COUNTER(STAT_FLocalVertexFactoryShaderParameters_SetMesh_SpeedTree);
-			const FRHIUniformBuffer* SpeedTreeUniformBuffer = Scene? Scene->GetSpeedTreeUniformBuffer(VertexFactory) : nullptr;
+			const FRHIUniformBuffer* SpeedTreeUniformBuffer = Scene ? Scene->GetSpeedTreeUniformBuffer(VertexFactory) : nullptr;
 			if (SpeedTreeUniformBuffer == nullptr)
 			{
 				SpeedTreeUniformBuffer = GSpeedTreeWindNullUniformBuffer.GetUniformBufferRHI();
@@ -288,7 +295,7 @@ namespace RealtimeMesh
 			return !!WITH_EDITOR;
 		}
 
-		return true; 
+		return true;
 	}
 
 	void FRealtimeMeshLocalVertexFactory::ModifyCompilationEnvironment(const FVertexFactoryShaderPermutationParameters& Parameters, FShaderCompilerEnvironment& OutEnvironment)
@@ -302,20 +309,24 @@ namespace RealtimeMesh
 		{
 			OutEnvironment.SetDefine(TEXT("MANUAL_VERTEX_FETCH"), TEXT("1"));
 		}
-		const bool bVFSupportsPrimtiveSceneData = Parameters.VertexFactoryType->SupportsPrimitiveIdStream() && UseGPUScene(Parameters.Platform, GetMaxSupportedFeatureLevel(Parameters.Platform));
+		const bool bVFSupportsPrimtiveSceneData = Parameters.VertexFactoryType->SupportsPrimitiveIdStream() && UseGPUScene(
+			Parameters.Platform, GetMaxSupportedFeatureLevel(Parameters.Platform));
 		OutEnvironment.SetDefine(TEXT("VF_SUPPORTS_PRIMITIVE_SCENE_DATA"), bVFSupportsPrimtiveSceneData);
 		OutEnvironment.SetDefine(TEXT("RAY_TRACING_DYNAMIC_MESH_IN_LOCAL_SPACE"), TEXT("1"));
-
 	}
 
-	void FRealtimeMeshLocalVertexFactory::ValidateCompiledResult(const FVertexFactoryType* Type, EShaderPlatform Platform, const FShaderParameterMap& ParameterMap, TArray<FString>& OutErrors)
+	void FRealtimeMeshLocalVertexFactory::ValidateCompiledResult(const FVertexFactoryType* Type, EShaderPlatform Platform, const FShaderParameterMap& ParameterMap,
+	                                                             TArray<FString>& OutErrors)
 	{
-		if (Type->SupportsPrimitiveIdStream() 
-			&& UseGPUScene(Platform, GetMaxSupportedFeatureLevel(Platform)) 
+		if (Type->SupportsPrimitiveIdStream()
+			&& UseGPUScene(Platform, GetMaxSupportedFeatureLevel(Platform))
 			&& !IsMobilePlatform(Platform) // On mobile VS may use PrimtiveUB while GPUScene is enabled
 			&& ParameterMap.ContainsParameterAllocation(FPrimitiveUniformShaderParameters::StaticStructMetadata.GetShaderVariableName()))
 		{
-			OutErrors.AddUnique(*FString::Printf(TEXT("Shader attempted to bind the Primitive uniform buffer even though Vertex Factory %s computes a PrimitiveId per-instance.  This will break auto-instancing.  Shaders should use GetPrimitiveData(Parameters).Member instead of Primitive.Member."), Type->GetName()));
+			OutErrors.AddUnique(*FString::Printf(
+				TEXT(
+					"Shader attempted to bind the Primitive uniform buffer even though Vertex Factory %s computes a PrimitiveId per-instance.  This will break auto-instancing.  Shaders should use GetPrimitiveData(Parameters).Member instead of Primitive.Member."),
+				Type->GetName()));
 		}
 	}
 
@@ -373,18 +384,18 @@ namespace RealtimeMesh
 		FVertexDeclarationElementList Elements;
 		if (Data.PositionComponent.VertexBuffer != nullptr)
 		{
-			Elements.Add(AccessStreamComponent(Data.PositionComponent,0));
+			Elements.Add(AccessStreamComponent(Data.PositionComponent, 0));
 		}
 
 		AddPrimitiveIdStreamElement(EVertexInputStreamType::Default, Elements, 13, 8);
 
 		// Only the tangent and normal are used by the stream; the bitangent is derived in the shader.
-		uint8 TangentBasisAttributes[2] = { 1, 2 };
-		for (int32 AxisIndex = 0;AxisIndex < 2;AxisIndex++)
+		uint8 TangentBasisAttributes[2] = {1, 2};
+		for (int32 AxisIndex = 0; AxisIndex < 2; AxisIndex++)
 		{
 			if (Data.TangentBasisComponents[AxisIndex].VertexBuffer != nullptr)
 			{
-				Elements.Add(AccessStreamComponent(Data.TangentBasisComponents[AxisIndex],TangentBasisAttributes[AxisIndex]));
+				Elements.Add(AccessStreamComponent(Data.TangentBasisComponents[AxisIndex], TangentBasisAttributes[AxisIndex]));
 			}
 		}
 
@@ -397,7 +408,7 @@ namespace RealtimeMesh
 		ColorStreamIndex = -1;
 		if (Data.ColorComponent.VertexBuffer)
 		{
-			Elements.Add(AccessStreamComponent(Data.ColorComponent,3));
+			Elements.Add(AccessStreamComponent(Data.ColorComponent, 3));
 			ColorStreamIndex = Elements.Last().StreamIndex;
 		}
 		else
@@ -417,7 +428,7 @@ namespace RealtimeMesh
 				Elements.Add(AccessStreamComponent(
 					Data.TextureCoordinates[CoordinateIndex],
 					BaseTexCoordAttribute + CoordinateIndex
-					));
+				));
 			}
 
 			for (int32 CoordinateIndex = Data.TextureCoordinates.Num(); CoordinateIndex < MAX_STATIC_TEXCOORDS / 2; ++CoordinateIndex)
@@ -425,23 +436,23 @@ namespace RealtimeMesh
 				Elements.Add(AccessStreamComponent(
 					Data.TextureCoordinates[Data.TextureCoordinates.Num() - 1],
 					BaseTexCoordAttribute + CoordinateIndex
-					));
+				));
 			}
 		}
 
 		// Only used with FGPUSkinPassthroughVertexFactory on platforms that do not use ManualVertexFetch
 		if (Data.PreSkinPositionComponent.VertexBuffer != nullptr)
 		{
-			Elements.Add(AccessStreamComponent(Data.PreSkinPositionComponent,14));
+			Elements.Add(AccessStreamComponent(Data.PreSkinPositionComponent, 14));
 		}
 
 		if (Data.LightMapCoordinateComponent.VertexBuffer)
 		{
-			Elements.Add(AccessStreamComponent(Data.LightMapCoordinateComponent,15));
+			Elements.Add(AccessStreamComponent(Data.LightMapCoordinateComponent, 15));
 		}
 		else if (Data.TextureCoordinates.Num())
 		{
-			Elements.Add(AccessStreamComponent(Data.TextureCoordinates[0],15));
+			Elements.Add(AccessStreamComponent(Data.TextureCoordinates[0], 15));
 		}
 
 		check(Streams.Num() > 0);
@@ -457,7 +468,6 @@ namespace RealtimeMesh
 
 		check(IsValidRef(GetDeclaration()));
 	}
-
 }
 
 using namespace RealtimeMesh;
@@ -465,16 +475,17 @@ using namespace RealtimeMesh;
 IMPLEMENT_VERTEX_FACTORY_PARAMETER_TYPE(FRealtimeMeshLocalVertexFactory, SF_Vertex, FRealtimeMeshVertexFactoryShaderParameters);
 #if RHI_RAYTRACING
 IMPLEMENT_VERTEX_FACTORY_PARAMETER_TYPE(FRealtimeMeshLocalVertexFactory, SF_RayHitGroup, FRealtimeMeshVertexFactoryShaderParameters);
+
 IMPLEMENT_VERTEX_FACTORY_PARAMETER_TYPE(FRealtimeMeshLocalVertexFactory, SF_Compute, FRealtimeMeshVertexFactoryShaderParameters);
 #endif // RHI_RAYTRACING
 
-IMPLEMENT_VERTEX_FACTORY_TYPE(FRealtimeMeshLocalVertexFactory,"/Engine/Private/LocalVertexFactory.ush",
-	  EVertexFactoryFlags::UsedWithMaterials
-	| EVertexFactoryFlags::SupportsDynamicLighting
-	| EVertexFactoryFlags::SupportsPrecisePrevWorldPos
-	| EVertexFactoryFlags::SupportsPositionOnly
-	| EVertexFactoryFlags::SupportsCachingMeshDrawCommands
-	| EVertexFactoryFlags::SupportsPrimitiveIdStream
-	| EVertexFactoryFlags::SupportsRayTracing
-	| EVertexFactoryFlags::SupportsRayTracingDynamicGeometry
+IMPLEMENT_VERTEX_FACTORY_TYPE(FRealtimeMeshLocalVertexFactory, "/Engine/Private/LocalVertexFactory.ush",
+                              EVertexFactoryFlags::UsedWithMaterials
+                              | EVertexFactoryFlags::SupportsDynamicLighting
+                              | EVertexFactoryFlags::SupportsPrecisePrevWorldPos
+                              | EVertexFactoryFlags::SupportsPositionOnly
+                              | EVertexFactoryFlags::SupportsCachingMeshDrawCommands
+                              | EVertexFactoryFlags::SupportsPrimitiveIdStream
+                              | EVertexFactoryFlags::SupportsRayTracing
+                              | EVertexFactoryFlags::SupportsRayTracingDynamicGeometry
 );

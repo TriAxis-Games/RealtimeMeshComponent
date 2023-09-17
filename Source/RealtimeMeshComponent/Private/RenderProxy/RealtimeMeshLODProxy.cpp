@@ -1,36 +1,33 @@
 ﻿// Copyright TriAxis Games, L.L.C. All Rights Reserved.
 
 #include "RenderProxy/RealtimeMeshLODProxy.h"
+
+#include "RealtimeMeshShared.h"
 #include "RenderProxy/RealtimeMeshSectionGroupProxy.h"
 #include "RenderProxy/RealtimeMeshSectionProxy.h"
 
 namespace RealtimeMesh
 {
-	FRealtimeMeshLODProxy::FRealtimeMeshLODProxy(const FRealtimeMeshClassFactoryRef& InClassFactory, const FRealtimeMeshProxyRef& InProxy,
-					FRealtimeMeshLODKey InKey, const FRealtimeMeshLODProxyInitializationParametersRef& InInitParams)
-		: ClassFactory(InClassFactory)
-		, ProxyWeak(InProxy)
-		, Key(InKey)
-		, Config(InInitParams->Config)
-		, bIsStateDirty(true)
-	{		
-		// Setup all the buffer sets
-		for (TSparseArray<FRealtimeMeshSectionGroupProxyInitializationParametersRef>::TConstIterator It(InInitParams->SectionGroups); It; ++It)
-		{
-			SectionGroups.Insert(It.GetIndex(), ClassFactory->CreateSectionGroupProxy(InProxy, FRealtimeMeshSectionGroupKey(Key, It.GetIndex()), *It));
-		}
+	FRealtimeMeshLODProxy::FRealtimeMeshLODProxy(const FRealtimeMeshSharedResourcesRef& InSharedResources, const FRealtimeMeshLODKey& InKey)
+		: SharedResources(InSharedResources)
+		  , Key(InKey)
+		  , bIsStateDirty(true)
+	{
 	}
 
 	FRealtimeMeshLODProxy::~FRealtimeMeshLODProxy()
 	{
 		check(IsInRenderingThread());
+		Reset();
 	}
 
-	FRealtimeMeshSectionGroupProxyPtr FRealtimeMeshLODProxy::GetSectionGroup(FRealtimeMeshSectionGroupKey SectionKey) const
-	{ 
-		if (SectionKey.IsPartOf(Key) && SectionGroups.IsValidIndex(FRealtimeMeshKeyHelpers::GetSectionGroupIndex(SectionKey)))
+	FRealtimeMeshSectionGroupProxyPtr FRealtimeMeshLODProxy::GetSectionGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey) const
+	{
+		check(SectionGroupKey.IsPartOf(Key));
+
+		if (SectionGroupMap.Contains(SectionGroupKey))
 		{
-			return SectionGroups[FRealtimeMeshKeyHelpers::GetSectionGroupIndex(SectionKey)];
+			return SectionGroups[SectionGroupMap[SectionGroupKey]];
 		}
 		return FRealtimeMeshSectionGroupProxyPtr();
 	}
@@ -41,46 +38,44 @@ namespace RealtimeMesh
 		MarkStateDirty();
 	}
 
-	void FRealtimeMeshLODProxy::CreateSectionGroup(FRealtimeMeshSectionGroupKey SectionGroupKey,
-		const FRealtimeMeshSectionGroupProxyInitializationParametersRef& InitParams)
+	void FRealtimeMeshLODProxy::CreateSectionGroupIfNotExists(const FRealtimeMeshSectionGroupKey& SectionGroupKey)
 	{
 		check(SectionGroupKey.IsPartOf(Key));
-		check(!SectionGroups.IsValidIndex(FRealtimeMeshKeyHelpers::GetSectionGroupIndex(SectionGroupKey)));
 
-		const int32 SectionGroupIndex = FRealtimeMeshKeyHelpers::GetSectionGroupIndex(SectionGroupKey);
-		SectionGroups.Insert(SectionGroupIndex, ClassFactory->CreateSectionGroupProxy(ProxyWeak.Pin().ToSharedRef(),
-			FRealtimeMeshSectionGroupKey(Key, SectionGroupIndex), InitParams));
-
-		MarkStateDirty();
+		// Does this section already exist
+		if (!SectionGroupMap.Contains(SectionGroupKey))
+		{
+			const int32 SectionGroupIndex = SectionGroups.Add(SharedResources->CreateSectionGroupProxy(SectionGroupKey));
+			SectionGroupMap.Add(SectionGroupKey, SectionGroupIndex);
+			MarkStateDirty();
+		}
 	}
 
-	void FRealtimeMeshLODProxy::RemoveSectionGroup(FRealtimeMeshSectionGroupKey SectionGroupKey)
+	void FRealtimeMeshLODProxy::RemoveSectionGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey)
 	{
 		check(SectionGroupKey.IsPartOf(Key));
-		check(SectionGroups.IsValidIndex(FRealtimeMeshKeyHelpers::GetSectionGroupIndex(SectionGroupKey)));
 
-		const int32 SectionGroupIndex = FRealtimeMeshKeyHelpers::GetSectionGroupIndex(SectionGroupKey);
-		SectionGroups.RemoveAt(SectionGroupIndex);
-		
-		MarkStateDirty();
-	}
-
-	void FRealtimeMeshLODProxy::RemoveAllSectionGroups()
-	{
-		SectionGroups.Empty();
-
-		MarkStateDirty();
+		if (SectionGroupMap.Contains(SectionGroupKey))
+		{
+			const int32 SectionGroupIndex = SectionGroupMap[SectionGroupKey];
+			SectionGroups.RemoveAt(SectionGroupIndex);
+			RebuildSectionGroupMap();
+			MarkStateDirty();
+		}
 	}
 
 	void FRealtimeMeshLODProxy::CreateMeshBatches(const FRealtimeMeshBatchCreationParams& Params, const TMap<int32, TTuple<FMaterialRenderProxy*, bool>>& Materials,
-		const FMaterialRenderProxy* WireframeMaterial, ERealtimeMeshSectionDrawType DrawType, bool bForceAllDynamic) const
+	                                              const FMaterialRenderProxy* WireframeMaterial, ERealtimeMeshSectionDrawType DrawType, bool bForceAllDynamic) const
 	{
-		const ERealtimeMeshDrawMask DrawTypeMask = bForceAllDynamic ? ERealtimeMeshDrawMask::DrawPassMask :
-			DrawType == ERealtimeMeshSectionDrawType::Dynamic ? ERealtimeMeshDrawMask::DrawDynamic :	ERealtimeMeshDrawMask::DrawStatic;
+		const ERealtimeMeshDrawMask DrawTypeMask = bForceAllDynamic
+			                                           ? ERealtimeMeshDrawMask::DrawPassMask
+			                                           : DrawType == ERealtimeMeshSectionDrawType::Dynamic
+			                                           ? ERealtimeMeshDrawMask::DrawDynamic
+			                                           : ERealtimeMeshDrawMask::DrawStatic;
 
 		if (DrawMask.IsAnySet(DrawTypeMask))
 		{
-			for (const auto& SectionGroup : SectionGroups)			
+			for (const auto& SectionGroup : SectionGroups)
 			{
 				if (SectionGroup->GetDrawMask().IsAnySet(DrawTypeMask))
 				{
@@ -89,47 +84,57 @@ namespace RealtimeMesh
 			}
 		}
 	}
-	
+
+	bool FRealtimeMeshLODProxy::UpdateCachedState(bool bShouldForceUpdate)
+	{
+		// Handle all SectionGroup updates
+		for (const auto& SectionGroup : SectionGroups)
+		{
+			bIsStateDirty |= SectionGroup->UpdateCachedState(bIsStateDirty || bShouldForceUpdate);
+		}
+
+		if (!bIsStateDirty && !bShouldForceUpdate)
+		{
+			return false;
+		}
+
+		FRealtimeMeshDrawMask NewDrawMask;
+		if (Config.bIsVisible && Config.ScreenSize >= 0)
+		{
+			for (const auto& SectionGroup : SectionGroups)
+			{
+				NewDrawMask |= SectionGroup->GetDrawMask();
+			}
+		}
+
+		const bool bStateChanged = DrawMask != NewDrawMask;
+		DrawMask = NewDrawMask;
+		bIsStateDirty = false;
+		return bStateChanged;
+	}
+
 	void FRealtimeMeshLODProxy::MarkStateDirty()
 	{
 		bIsStateDirty = true;
 	}
 
-	bool FRealtimeMeshLODProxy::HandleUpdates()
+	void FRealtimeMeshLODProxy::RebuildSectionGroupMap()
 	{
-		// Handle all SectionGroup updates
-		for (const auto& SectionGroup : SectionGroups)
+		SectionGroupMap.Empty();
+		for (auto It = SectionGroups.CreateIterator(); It; ++It)
 		{
-			bIsStateDirty |= SectionGroup->HandleUpdates();
+			SectionGroupMap.Add((*It)->GetKey(), It.GetIndex());
 		}
-		
-		if (!bIsStateDirty)
-		{
-			return false;
-		}
-		
-		FRealtimeMeshDrawMask NewDrawMask;
-		if (Config.bIsVisible && Config.ScreenSize >= 0)
-		{
-			for (TSparseArray<FRealtimeMeshSectionGroupProxyRef>::TIterator It(SectionGroups); It; ++It)
-			{
-				NewDrawMask |= (*It)->GetDrawMask();
-			}
-		}
-		
-		const bool bStateChanged = DrawMask != NewDrawMask;
-		DrawMask = NewDrawMask;		
-		bIsStateDirty = false;
-		return bStateChanged;
 	}
-	
+
 	void FRealtimeMeshLODProxy::Reset()
 	{
 		// Reset all the section groups
 		SectionGroups.Empty();
-		
+		SectionGroupMap.Empty();
+
 		Config = FRealtimeMeshLODConfig();
 		DrawMask = FRealtimeMeshDrawMask();
-		bIsStateDirty = false;
+		bIsStateDirty = true;
 	}
 }

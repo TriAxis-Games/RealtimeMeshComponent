@@ -3,24 +3,38 @@
 #pragma once
 
 #include "RealtimeMeshCollision.h"
-#include "Data/RealtimeMeshData.h"
+#include "Data\RealtimeMeshData.h"
 #include "Interfaces/Interface_CollisionDataProvider.h"
+#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 2
+#include "Tickable.h"
+#endif
 #include "RealtimeMesh.generated.h"
 
 
 UCLASS(Blueprintable, Abstract, ClassGroup = Rendering, HideCategories = (Object, Activation, Cooking))
-class REALTIMEMESHCOMPONENT_API URealtimeMesh : public UObject, public FTickableGameObject, public IInterface_CollisionDataProvider
+class REALTIMEMESHCOMPONENT_API URealtimeMesh : public UObject, public IInterface_CollisionDataProvider
 {
 	GENERATED_UCLASS_BODY()
+private:
+	struct FRealtimeMeshCollisionUpdate
+	{
+		FRealtimeMeshTriMeshData TriMeshData;
+		int32 UpdateKey;
+		bool bFastCook;
+	};
 
 public:
 	DECLARE_EVENT_OneParam(URealtimeMesh, FBoundsChangedEvent, URealtimeMesh*);
+
 	DECLARE_EVENT_TwoParams(URealtimeMesh, FRenderDataChangedEvent, URealtimeMesh*, bool /*bShouldProxyRecreate*/);
+
 	DECLARE_EVENT_TwoParams(URealtimeMesh, FCollisionBodyUpdated, URealtimeMesh*, UBodySetup*);
+
 private:
-	FBoundsChangedEvent BoundsChangedEvent;		
+	FBoundsChangedEvent BoundsChangedEvent;
 	FRenderDataChangedEvent RenderDataChangedEvent;
 	FCollisionBodyUpdated CollisionBodyUpdatedEvent;
+
 public:
 	FBoundsChangedEvent& OnBoundsChanged() { return BoundsChangedEvent; }
 	FRenderDataChangedEvent& OnRenderDataChanged() { return RenderDataChangedEvent; }
@@ -31,29 +45,40 @@ protected:
 	void BroadcastRenderDataChangedEvent(bool bShouldRecreateProxies) { RenderDataChangedEvent.Broadcast(this, bShouldRecreateProxies); }
 	void BroadcastCollisionBodyUpdatedEvent(UBodySetup* NewBodySetup);
 
-	void InitializeFromFactory(const RealtimeMesh::FRealtimeMeshClassFactoryRef& InClassFactory, bool bBindEvents = true);
-	virtual void BindEvents();
-	virtual void UnbindEvents();
+	void Initialize(const TSharedRef<RealtimeMesh::FRealtimeMeshSharedResources>& InSharedResources);
+
 protected:
 	// Class factory to use to create all the 
-	RealtimeMesh::FRealtimeMeshClassFactoryPtr ClassFactory;
+	RealtimeMesh::FRealtimeMeshSharedResourcesPtr SharedResources;
 	RealtimeMesh::FRealtimeMeshPtr MeshRef;
-	
+
 	UPROPERTY()
 	TArray<FRealtimeMeshMaterialSlot> MaterialSlots;
-	
+
 	UPROPERTY()
 	TMap<FName, int32> SlotNameLookup;
 
 	UPROPERTY(Transient)
-	UBodySetup* BodySetup;
-	
-	UPROPERTY(Transient)
-	TArray<UBodySetup*> AsyncBodySetupQueue;
+	TObjectPtr<UBodySetup> BodySetup;
 
-	
+	/* Collision data that is pending async cook */
+	UPROPERTY(Transient)
+	TObjectPtr<UBodySetup> PendingBodySetup;
+
+	/* Collision data to cook for any pending async cook */
+	TOptional<FRealtimeMeshCollisionUpdate> PendingCollisionUpdate;
+
+	/* Counter for generating version identifier for collision updates */
+	int32 CollisionUpdateVersionCounter;
+
+	/* Currently applied collision version, used for ignoring old cooks in async */
+	int32 CurrentCollisionVersion;
+
 public:
 	RealtimeMesh::FRealtimeMeshRef GetMesh() const { return MeshRef.ToSharedRef(); }
+
+	template <typename MeshType>
+	TSharedRef<MeshType> GetMeshAs() const { return StaticCastSharedRef<MeshType>(MeshRef.ToSharedRef()); }
 
 	UBodySetup* GetBodySetup() const { return BodySetup; }
 
@@ -69,7 +94,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh")
 	virtual FBoxSphereBounds GetLocalBounds() const;
 
-	
+
 	/**
 	 * This event will be fired to notify the BP that the generated Mesh should
 	 * be rebuilt. GeneratedDynamicMeshActor BP subclasses should rebuild their 
@@ -81,54 +106,39 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh")
 	FRealtimeMeshLODKey AddLOD(const FRealtimeMeshLODConfig& Config);
-	
+
 	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh")
 	void UpdateLODConfig(FRealtimeMeshLODKey LODKey, const FRealtimeMeshLODConfig& Config);
-	
+
 	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh")
 	void RemoveTrailingLOD();
 
 
 	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh")
-	FRealtimeMeshCollisionConfiguration GetCollisionConfig() const;
-	
-	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh")
-	void SetCollisionConfig(const FRealtimeMeshCollisionConfiguration& InCollisionConfig);
-	
-	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh")
-	FRealtimeMeshSimpleGeometry GetSimpleGeometry() const;
-	
-	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh")
-	void SetSimpleGeometry(const FRealtimeMeshSimpleGeometry& InSimpleGeometry);
-	
-	
-	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh")
 	void SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial = nullptr);
-	
+
 	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh")
 	int32 GetMaterialIndex(FName MaterialSlotName) const;
-	
+
 	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh")
 	bool IsMaterialSlotNameValid(FName MaterialSlotName) const;
-	
+
 	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh")
 	FRealtimeMeshMaterialSlot GetMaterialSlot(int32 SlotIndex) const;
-	
+
 	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh")
 	int32 GetNumMaterials() const;
-	
+
 	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh")
 	TArray<FName> GetMaterialSlotNames() const;
-	
+
 	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh")
 	TArray<FRealtimeMeshMaterialSlot> GetMaterialSlots() const;
-	
+
 	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh")
 	UMaterialInterface* GetMaterial(int32 SlotIndex) const;
 
-	// Cook collision, either asynchronously or synchronously depending on config
-	void UpdateCollision(bool bForceCookNow = false);
-	
+public:
 	//	Begin UObject interface
 	virtual void PostInitProperties() override;
 	virtual void BeginDestroy() override;
@@ -143,29 +153,19 @@ public:
 	virtual void GetMeshId(FString& OutMeshId) override { OutMeshId = GetName(); }
 	//	End IInterface_CollisionDataProvider interface
 
+protected:
+	virtual void HandleBoundsUpdated();
+	virtual void HandleMeshRenderingDataChanged();
 
-	// Begin FTickableGameObject interface
-	virtual void Tick( float DeltaTime ) override;
-	virtual ETickableTickType GetTickableTickType() const override;
-	virtual bool IsTickable() const override;
-	virtual bool IsAllowedToTick() const override;
-	virtual bool IsTickableWhenPaused() const { return true; }
-	virtual bool IsTickableInEditor() const { return true; }
-	virtual TStatId GetStatId() const override;
-	// End FTickableObjectBase interface
+	virtual void ProcessEndOfFrameUpdates();
 
-private: // Collision
-	// Helper to create new body setup objects
-	UBodySetup* CreateNewBodySetup();
-	// Once async physics cook is done, create needed state, and then call the user event
-	void FinishPhysicsAsyncCook(bool bSuccess, UBodySetup* FinishedBodySetup);
+	void MarkForEndOfFrameUpdate();
 
+protected: // Collision
+	void InitiateCollisionUpdate(const TSharedRef<TPromise<ERealtimeMeshCollisionUpdateResult>>& Promise, const TSharedRef<FRealtimeMeshCollisionData>& CollisionUpdate,
+	                             bool bForceSyncUpdate);
+	void FinishPhysicsAsyncCook(bool bSuccess, TSharedRef<TPromise<ERealtimeMeshCollisionUpdateResult>> Promise, UBodySetup* FinishedBodySetup, int32 UpdateKey);
 
-private: // Render Proxy
-
-public:
-	virtual void HandleBoundsUpdated(const RealtimeMesh::FRealtimeMeshRef& IncomingMesh);
-	virtual void HandleMeshRenderingDataChanged(const RealtimeMesh::FRealtimeMeshRef& IncomingMesh, bool bShouldProxyRecreate);
-
+	
+	friend struct FRealtimeMeshEndOfFrameUpdateManager;
 };
-

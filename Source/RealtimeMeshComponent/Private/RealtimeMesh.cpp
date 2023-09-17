@@ -2,10 +2,14 @@
 
 #include "RealtimeMesh.h"
 #include "RealtimeMeshComponent.h"
-#include "Data/RealtimeMeshData.h"
+#include "..\Public\Data\RealtimeMeshData.h"
 #include "Data/RealtimeMeshLOD.h"
 #include "Interface_CollisionDataProviderCore.h"
+#include "Misc/LazySingleton.h"
 #include "PhysicsEngine/BodySetup.h"
+#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 2
+#include "Engine/World.h"
+#endif
 
 #define LOCTEXT_NAMESPACE "RealtimeMesh"
 
@@ -24,6 +28,8 @@ DECLARE_CYCLE_STAT(TEXT("RealtimeMeshDelayedActions - Finalize Collision Cooked 
 
 URealtimeMesh::URealtimeMesh(const FObjectInitializer& ObjectInitializer)
 	: UObject(ObjectInitializer)
+	  , CollisionUpdateVersionCounter(0)
+	  , CurrentCollisionVersion(INDEX_NONE)
 {
 }
 
@@ -32,31 +38,26 @@ void URealtimeMesh::BroadcastCollisionBodyUpdatedEvent(UBodySetup* NewBodySetup)
 	CollisionBodyUpdatedEvent.Broadcast(this, NewBodySetup);
 }
 
-void URealtimeMesh::InitializeFromFactory(const RealtimeMesh::FRealtimeMeshClassFactoryRef& InClassFactory, bool bBindEvents)
+void URealtimeMesh::Initialize(const TSharedRef<RealtimeMesh::FRealtimeMeshSharedResources>& InSharedResources)
 {
-	ClassFactory = InClassFactory;
-	if (bBindEvents)
+	if (SharedResources)
 	{
-		UnbindEvents();
+		SharedResources->OnMeshBoundsChanged().RemoveAll(this);
+		SharedResources->OnMeshRenderDataChanged().RemoveAll(this);
 	}
-	MeshRef = ClassFactory->CreateRealtimeMesh();
-	if (bBindEvents)
-	{
-		BindEvents();
-	}
+
+	SharedResources = InSharedResources;
+
+	SharedResources->OnMeshBoundsChanged().AddUObject(this, &URealtimeMesh::HandleBoundsUpdated);
+	SharedResources->OnMeshRenderDataChanged().AddUObject(this, &URealtimeMesh::HandleMeshRenderingDataChanged);
+
+	SharedResources->GetEndOfFrameRequestHandler() = RealtimeMesh::FRealtimeMeshRequestEndOfFrameUpdateDelegate::CreateUObject(this, &URealtimeMesh::MarkForEndOfFrameUpdate);
+	SharedResources->GetCollisionUpdateHandler() = RealtimeMesh::FRealtimeMeshCollisionUpdateDelegate::CreateUObject(this, &URealtimeMesh::InitiateCollisionUpdate);
+
+	MeshRef = SharedResources->CreateRealtimeMesh();
+	SharedResources->SetOwnerMesh(MeshRef.ToSharedRef());
 }
 
-void URealtimeMesh::BindEvents()
-{
-	GetMesh()->OnBoundsChanged().AddUObject(this, &URealtimeMesh::HandleBoundsUpdated);
-	GetMesh()->OnRenderDataChanged().AddUObject(this, &URealtimeMesh::HandleMeshRenderingDataChanged);
-}
-
-void URealtimeMesh::UnbindEvents()
-{
-	GetMesh()->OnBoundsChanged().RemoveAll(this);
-	GetMesh()->OnRenderDataChanged().RemoveAll(this);
-}
 
 void URealtimeMesh::Reset(bool bCreateNewMeshData)
 {
@@ -67,10 +68,10 @@ void URealtimeMesh::Reset(bool bCreateNewMeshData)
 	}
 	else
 	{
-		InitializeFromFactory(ClassFactory.ToSharedRef());
+		Initialize(SharedResources->CreateSharedResources());
 	}
 
-	BodySetup = nullptr;	
+	BodySetup = nullptr;
 
 	BroadcastBoundsChangedEvent();
 	BroadcastRenderDataChangedEvent(true);
@@ -83,10 +84,11 @@ FBoxSphereBounds URealtimeMesh::GetLocalBounds() const
 }
 
 
-
 FRealtimeMeshLODKey URealtimeMesh::AddLOD(const FRealtimeMeshLODConfig& Config)
 {
-	return GetMesh()->AddLOD(Config);
+	FRealtimeMeshLODKey LODKey;
+	GetMesh()->AddLOD(Config, &LODKey);
+	return LODKey;
 }
 
 void URealtimeMesh::UpdateLODConfig(FRealtimeMeshLODKey LODKey, const FRealtimeMeshLODConfig& Config)
@@ -104,26 +106,6 @@ void URealtimeMesh::UpdateLODConfig(FRealtimeMeshLODKey LODKey, const FRealtimeM
 void URealtimeMesh::RemoveTrailingLOD()
 {
 	GetMesh()->RemoveTrailingLOD();
-}
-
-FRealtimeMeshCollisionConfiguration URealtimeMesh::GetCollisionConfig() const
-{
-	return GetMesh()->GetCollisionConfig();
-}
-
-void URealtimeMesh::SetCollisionConfig(const FRealtimeMeshCollisionConfiguration& InCollisionConfig)
-{
-	GetMesh()->SetCollisionConfig(InCollisionConfig);
-}
-
-FRealtimeMeshSimpleGeometry URealtimeMesh::GetSimpleGeometry() const
-{
-	return GetMesh()->GetSimpleGeometry();
-}
-
-void URealtimeMesh::SetSimpleGeometry(const FRealtimeMeshSimpleGeometry& InSimpleGeometry)
-{
-	GetMesh()->SetSimpleGeometry(InSimpleGeometry);
 }
 
 
@@ -199,10 +181,9 @@ void URealtimeMesh::PostInitProperties()
 {
 	UObject::PostInitProperties();
 
-	if (!HasAnyFlags(RF_ClassDefaultObject))
+	if (!IsTemplate() && SharedResources)
 	{
-		BindEvents();
-		GetMesh()->SetMeshName(this->GetFName());
+		SharedResources->SetMeshName(this->GetFName());
 	}
 }
 
@@ -218,7 +199,7 @@ void URealtimeMesh::Serialize(FArchive& Ar)
 	if (!IsTemplate())
 	{
 		Ar.UsingCustomVersion(RealtimeMesh::FRealtimeMeshVersion::GUID);
-	
+
 		// Serialize the mesh data
 		GetMesh()->Serialize(Ar);
 	}
@@ -232,150 +213,205 @@ void URealtimeMesh::PostDuplicate(bool bDuplicateForPIE)
 bool URealtimeMesh::GetPhysicsTriMeshData(struct FTriMeshCollisionData* CollisionData, bool InUseAllTriData)
 {
 	SCOPE_CYCLE_COUNTER(STAT_RealtimeMesh_GetPhysicsTriMesh);
-	
-	return GetMesh()->GetPhysicsTriMeshData(CollisionData, InUseAllTriData);
+
+	RealtimeMesh::FRealtimeMeshScopeGuardRead ScopeGuard(SharedResources->GetGuard());
+	if (PendingCollisionUpdate.IsSet())
+	{
+		const auto& MeshData = PendingCollisionUpdate.GetValue().TriMeshData;
+
+		CollisionData->Vertices = MeshData.GetVertices();
+		CollisionData->Indices = MeshData.GetTriangles();
+		CollisionData->UVs = MeshData.GetUVs();
+		CollisionData->MaterialIndices = MeshData.GetMaterials();
+
+
+		CollisionData->bFlipNormals = true;
+		CollisionData->bDeformableMesh = false;
+		CollisionData->bFastCook = PendingCollisionUpdate.GetValue().bFastCook;
+		CollisionData->bDisableActiveEdgePrecompute = false;
+		return true;
+	}
+
+	return false;
 }
 
 bool URealtimeMesh::ContainsPhysicsTriMeshData(bool InUseAllTriData) const
 {
 	SCOPE_CYCLE_COUNTER(STAT_RealtimeMesh_HasPhysicsTriMesh);
 
-	return GetMesh()->ContainsPhysicsTriMeshData(InUseAllTriData);
+	return PendingCollisionUpdate.IsSet() && PendingCollisionUpdate.GetValue().TriMeshData.GetTriangles().Num() > 0;
 }
 
-void URealtimeMesh::Tick(float DeltaTime)
-{
-	// TODO: Should we use FWorldDelegates::OnWorldPreSendAllEndOfFrameUpdates? instead of tick
-	// or maybe FWorldDelegates::OnWorldPostActorTick?
-	if (GetMesh()->IsCollisionDirty())
-	{
-		UpdateCollision();
-	}
-}
-
-ETickableTickType URealtimeMesh::GetTickableTickType() const
-{
-	return ETickableTickType::Conditional;
-}
-
-bool URealtimeMesh::IsTickable() const
-{
-	return MeshRef.IsValid() && IsAllowedToTick() && GetMesh()->IsCollisionDirty();
-}
-
-bool URealtimeMesh::IsAllowedToTick() const
-{
-	return !HasAllFlags(RF_ClassDefaultObject | RF_ArchetypeObject);
-}
-
-TStatId URealtimeMesh::GetStatId() const
-{
-	RETURN_QUICK_DECLARE_CYCLE_STAT(URealtimeMesh, STATGROUP_Tickables);
-}
-
-UBodySetup* URealtimeMesh::CreateNewBodySetup()
-{
-	UBodySetup* NewBodySetup = NewObject<UBodySetup>(this, NAME_None, (IsTemplate() ? RF_Public : RF_NoFlags));
-	NewBodySetup->BodySetupGuid = FGuid::NewGuid();
-
-
-	const FRealtimeMeshCollisionConfiguration CollisionConfig = GetMesh()->GetCollisionConfig();
-	
-	NewBodySetup->bGenerateMirroredCollision = false;
-	NewBodySetup->bDoubleSidedGeometry = true;
-	NewBodySetup->CollisionTraceFlag = CollisionConfig.bUseComplexAsSimpleCollision ? CTF_UseComplexAsSimple : CTF_UseDefault;
-
-	const FRealtimeMeshSimpleGeometry SimpleGeometry = GetMesh()->GetSimpleGeometry();
-	SimpleGeometry.CopyToBodySetup(NewBodySetup);
-	
-	return NewBodySetup;
-}
-
-void URealtimeMesh::UpdateCollision(bool bForceCookNow)
+void URealtimeMesh::InitiateCollisionUpdate(const TSharedRef<TPromise<ERealtimeMeshCollisionUpdateResult>>& Promise, const TSharedRef<FRealtimeMeshCollisionData>& CollisionUpdate,
+                                            bool bForceSyncUpdate)
 {
 	check(IsInGameThread());
-	FRealtimeMeshCollisionConfiguration CollisionConfig = GetMesh()->GetCollisionConfig();
+	check(SharedResources && MeshRef);
 
-	const bool bShouldCookAsync = !bForceCookNow && (!GetWorld() || GetWorld()->IsGameWorld()) && CollisionConfig.bUseAsyncCook;
-	
-	if (bShouldCookAsync)
+	RealtimeMesh::FRealtimeMeshScopeGuardWrite Guard(SharedResources->GetGuard());
+
+	const int32 UpdateKey = CollisionUpdateVersionCounter++;
+	PendingCollisionUpdate = {MoveTemp(CollisionUpdate->ComplexGeometry), UpdateKey};
+
+	UBodySetup* NewBodySetup = NewObject<UBodySetup>(this, NAME_None, (IsTemplate() ? RF_Public : RF_NoFlags));
+	NewBodySetup->BodySetupGuid = FGuid::NewGuid();
+	CollisionUpdate->SimpleGeometry.CopyToBodySetup(BodySetup);
+
+	NewBodySetup->bGenerateMirroredCollision = false;
+	NewBodySetup->bDoubleSidedGeometry = true;
+	NewBodySetup->CollisionTraceFlag = CollisionUpdate->Config.bUseComplexAsSimpleCollision ? CTF_UseComplexAsSimple : CTF_UseDefault;
+
+	// Abort any pending update.
+	if (PendingBodySetup)
 	{
-		// Abort all previous ones still standing
-		for (const auto& OldBody : AsyncBodySetupQueue)
-		{
-			OldBody->AbortPhysicsMeshAsyncCreation();
-		}
+		PendingBodySetup->AbortPhysicsMeshAsyncCreation();
+		PendingBodySetup = nullptr;
+	}
 
-		UBodySetup* NewBodySetup = CreateNewBodySetup();
+	if (!bForceSyncUpdate && (!GetWorld() || GetWorld()->IsGameWorld()) && CollisionUpdate->Config.bUseAsyncCook)
+	{
+		// Copy source info and reset pending
+		PendingBodySetup = NewBodySetup;
 
 		// Kick the cook off asynchronously
 		NewBodySetup->CreatePhysicsMeshesAsync(
-			FOnAsyncPhysicsCookFinished::CreateUObject(this, &URealtimeMesh::FinishPhysicsAsyncCook, NewBodySetup));
-
-		// Copy source info and reset pending
-		AsyncBodySetupQueue.Add(NewBodySetup);
+			FOnAsyncPhysicsCookFinished::CreateUObject(this, &URealtimeMesh::FinishPhysicsAsyncCook, Promise, NewBodySetup, UpdateKey));
 	}
 	else
 	{
-		AsyncBodySetupQueue.Empty();
-		UBodySetup* NewBodySetup = CreateNewBodySetup();
-
 		// Update meshes
 		NewBodySetup->bHasCookedCollisionData = true;
 		NewBodySetup->InvalidatePhysicsData();
 		NewBodySetup->CreatePhysicsMeshes();
 
-		// Copy source info and reset pending
-		AsyncBodySetupQueue.Empty();
-
 		BodySetup = NewBodySetup;
-		BroadcastCollisionBodyUpdatedEvent(BodySetup);
-	}
 
-	GetMesh()->ClearCollisionDirtyFlag();
+		Promise->SetValue(ERealtimeMeshCollisionUpdateResult::Updated);
+	}
 }
 
-void URealtimeMesh::FinishPhysicsAsyncCook(bool bSuccess, UBodySetup* FinishedBodySetup)
+void URealtimeMesh::FinishPhysicsAsyncCook(bool bSuccess, TSharedRef<TPromise<ERealtimeMeshCollisionUpdateResult>> Promise, UBodySetup* FinishedBodySetup, int32 UpdateKey)
 {
 	check(IsInGameThread());
-	
-	const int32 FoundIdx = AsyncBodySetupQueue.IndexOfByKey(FinishedBodySetup);
+	check(SharedResources && MeshRef);
 
-	if (FoundIdx != INDEX_NONE)
+	RealtimeMesh::FRealtimeMeshScopeGuardWrite Guard(SharedResources->GetGuard());
+
+	bool bSendEvent = false;
+
+	// Apply body setup if newer and succeeded build
+	if (bSuccess)
 	{
-		if (bSuccess)
+		if (UpdateKey > CurrentCollisionVersion)
 		{
-			// The new body was found in the array meaning it's newer so use it
 			BodySetup = FinishedBodySetup;
-
-			// Remove all older bodies
-			AsyncBodySetupQueue.RemoveAt(0, FoundIdx + 1);
-
-			BroadcastCollisionBodyUpdatedEvent(BodySetup);
+			CurrentCollisionVersion = UpdateKey;
+			Promise->SetValue(ERealtimeMeshCollisionUpdateResult::Updated);
+			bSendEvent = true;
 		}
 		else
 		{
-			AsyncBodySetupQueue.RemoveAt(FoundIdx);
+			Promise->SetValue(ERealtimeMeshCollisionUpdateResult::Ignored);
 		}
 	}
-}
-
-
-void URealtimeMesh::HandleBoundsUpdated(const RealtimeMesh::FRealtimeMeshRef& IncomingMesh)
-{
-	if (ensure(IncomingMesh == GetMesh()))
+	else
 	{
-		BroadcastBoundsChangedEvent();
+		CurrentCollisionVersion = UpdateKey;
+		Promise->SetValue(ERealtimeMeshCollisionUpdateResult::Error);
+	}
+
+	if (PendingBodySetup == FinishedBodySetup)
+	{
+		PendingBodySetup = nullptr;
+	}
+
+	Guard.Unlock();
+
+	if (bSendEvent)
+	{
+		BroadcastCollisionBodyUpdatedEvent(BodySetup);
 	}
 }
 
-void URealtimeMesh::HandleMeshRenderingDataChanged(const RealtimeMesh::FRealtimeMeshRef& IncomingMesh, bool bShouldProxyRecreate)
+
+void URealtimeMesh::HandleBoundsUpdated()
+{
+	BroadcastBoundsChangedEvent();
+}
+
+void URealtimeMesh::HandleMeshRenderingDataChanged()
 {
 	Modify(true);
-	if (ensure(IncomingMesh == GetMesh()))
+	BroadcastRenderDataChangedEvent(true);
+}
+
+
+struct FRealtimeMeshEndOfFrameUpdateManager
+{
+private:
+	FCriticalSection SyncRoot;
+	TSet<TWeakObjectPtr<URealtimeMesh>> MeshesToUpdate;
+	FDelegateHandle EndOfFrameUpdateHandle;
+
+	void OnPreSendAllEndOfFrameUpdates(UWorld* World)
 	{
-		BroadcastRenderDataChangedEvent(bShouldProxyRecreate);
+		SyncRoot.Lock();
+		auto MeshesCopy = MoveTemp(MeshesToUpdate);
+		SyncRoot.Unlock();
+
+		for (const auto& Mesh : MeshesCopy)
+		{
+			if (Mesh.IsValid())
+			{
+				Mesh->ProcessEndOfFrameUpdates();
+			}
+		}
 	}
+
+public:
+	~FRealtimeMeshEndOfFrameUpdateManager()
+	{
+		if (EndOfFrameUpdateHandle.IsValid())
+		{
+			FWorldDelegates::OnWorldPreSendAllEndOfFrameUpdates.Remove(EndOfFrameUpdateHandle);
+			EndOfFrameUpdateHandle.Reset();
+		}
+	}
+
+	void MarkComponentForUpdate(URealtimeMesh* RealtimeMesh)
+	{
+		FScopeLock Lock(&SyncRoot);
+		if (!EndOfFrameUpdateHandle.IsValid())
+		{
+			EndOfFrameUpdateHandle = FWorldDelegates::OnWorldPreSendAllEndOfFrameUpdates.AddRaw(this, &FRealtimeMeshEndOfFrameUpdateManager::OnPreSendAllEndOfFrameUpdates);
+		}
+		MeshesToUpdate.Add(RealtimeMesh);
+	}
+
+	void ClearComponentForUpdate(URealtimeMesh* RealtimeMesh)
+	{
+		FScopeLock Lock(&SyncRoot);
+		MeshesToUpdate.Remove(RealtimeMesh);
+	}
+
+	static FRealtimeMeshEndOfFrameUpdateManager& Get()
+	{
+		return TLazySingleton<FRealtimeMeshEndOfFrameUpdateManager>::Get();
+	}
+};
+
+
+void URealtimeMesh::ProcessEndOfFrameUpdates()
+{
+	if (MeshRef)
+	{
+		MeshRef->ProcessEndOfFrameUpdates();
+	}
+}
+
+void URealtimeMesh::MarkForEndOfFrameUpdate()
+{
+	FRealtimeMeshEndOfFrameUpdateManager::Get().MarkComponentForUpdate(this);
 }
 
 #undef LOCTEXT_NAMESPACE

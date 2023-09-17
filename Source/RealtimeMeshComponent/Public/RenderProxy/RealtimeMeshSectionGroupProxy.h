@@ -2,76 +2,58 @@
 
 #pragma once
 
+#include "RealtimeMeshConfig.h"
 #include "RealtimeMeshGPUBuffer.h"
-#include "RealtimeMeshProxyUtils.h"
+#include "RealtimeMeshProxyShared.h"
 #include "RealtimeMeshVertexFactory.h"
 
 namespace RealtimeMesh
 {
-	struct REALTIMEMESHCOMPONENT_API FRealtimeMeshSectionGroupProxyInitializationParameters
-	{
-		TArray<FRealtimeMeshSectionGroupStreamUpdateDataRef, TInlineAllocator<8>> Streams;
-		TSparseArray<FRealtimeMeshSectionProxyInitializationParametersRef> Sections;
-	};
-
-	using FRealtimeMeshSectionGroupProxyStreamMap = TMap<FRealtimeMeshStreamKey, TSharedPtr<FRealtimeMeshGPUBuffer>>;
-
-	
 	class REALTIMEMESHCOMPONENT_API FRealtimeMeshSectionGroupProxy : public TSharedFromThis<FRealtimeMeshSectionGroupProxy>
 	{
 	private:
-		FRealtimeMeshClassFactoryRef ClassFactory;
-		FRealtimeMeshProxyWeakPtr ProxyWeak;	
-		FRealtimeMeshSectionGroupKey Key;
+		const FRealtimeMeshSharedResourcesRef SharedResources;
+		const FRealtimeMeshSectionGroupKey Key;
 		TSharedPtr<FRealtimeMeshVertexFactory> VertexFactory;
-		TSparseArray<FRealtimeMeshSectionProxyRef> Sections;
-		FRealtimeMeshSectionGroupProxyStreamMap Streams;
+		TArray<FRealtimeMeshSectionProxyRef> Sections;
+		TMap<FRealtimeMeshSectionKey, uint32> SectionMap;
+		FRealtimeMeshStreamProxyMap Streams;
 #if RHI_RAYTRACING
 		FRayTracingGeometry RayTracingGeometry;
 #endif
 
 		FRealtimeMeshDrawMask DrawMask;
 		uint32 bIsStateDirty : 1;
-		
+
 	public:
-		FRealtimeMeshSectionGroupProxy(const FRealtimeMeshClassFactoryRef& InClassFactory, const FRealtimeMeshProxyRef& InProxy,
-			FRealtimeMeshSectionGroupKey InKey, const FRealtimeMeshSectionGroupProxyInitializationParametersRef& InInitParams);
+		FRealtimeMeshSectionGroupProxy(const FRealtimeMeshSharedResourcesRef& InSharedResources, const FRealtimeMeshSectionGroupKey& InKey);
 		virtual ~FRealtimeMeshSectionGroupProxy();
-		
+
 		FRealtimeMeshSectionGroupKey GetKey() const { return Key; }
 		TSharedPtr<FRealtimeMeshVertexFactory> GetVertexFactory() const { return VertexFactory; }
 		FRealtimeMeshDrawMask GetDrawMask() const { return DrawMask; }
 
-		FRealtimeMeshSectionProxyPtr GetSection(FRealtimeMeshSectionKey SectionKey) const;
-		TSharedPtr<FRealtimeMeshGPUBuffer> GetStream(FRealtimeMeshStreamKey StreamKey) const;
+		FRealtimeMeshSectionProxyPtr GetSection(const FRealtimeMeshSectionKey& SectionKey) const;
+		TSharedPtr<FRealtimeMeshGPUBuffer> GetStream(const FRealtimeMeshStreamKey& StreamKey) const;
 
-		virtual bool ShouldCreateRayTracingData() const { return Key.GetLODKey() == 0; }
+		virtual bool ShouldCreateRayTracingData() const { return Key.LOD().Index() == 0; }
 
-		void CreateSection(FRealtimeMeshSectionKey SectionKey, const FRealtimeMeshSectionProxyInitializationParametersRef& InitParams);
-		void RemoveSection(FRealtimeMeshSectionKey SectionKey);
-		void RemoveAllSections();
+		virtual void CreateSectionIfNotExists(const FRealtimeMeshSectionKey& SectionKey);
+		virtual void RemoveSection(const FRealtimeMeshSectionKey& SectionKey);
 
-		void CreateOrUpdateStreams(const TArray<FRealtimeMeshSectionGroupStreamUpdateDataRef>& InStreams);
-		void RemoveStream(const TArray<FRealtimeMeshStreamKey>& InStreams);
+		virtual void CreateOrUpdateStream(const FRealtimeMeshSectionGroupStreamUpdateDataRef& InStream);
+		virtual void RemoveStream(const FRealtimeMeshStreamKey& StreamKey);
 
-		void CreateMeshBatches(const FRealtimeMeshBatchCreationParams& Params, const TMap<int32, TTuple<FMaterialRenderProxy*, bool>>& Materials, const FMaterialRenderProxy* WireframeMaterial, ERealtimeMeshSectionDrawType DrawType, bool bForceAllDynamic) const;
-		
+		virtual void CreateMeshBatches(const FRealtimeMeshBatchCreationParams& Params, const TMap<int32, TTuple<FMaterialRenderProxy*, bool>>& Materials,
+		                               const FMaterialRenderProxy* WireframeMaterial, ERealtimeMeshSectionDrawType DrawType, bool bForceAllDynamic) const;
 
-		void MarkStateDirty();
-		virtual bool HandleUpdates();
+		virtual bool UpdateCachedState(bool bShouldForceUpdate);
 		virtual void Reset();
 
-		void UpdateRayTracingInfo();
+	protected:
+		virtual void UpdateRayTracingInfo();
 
-	private:
-		
-		void CreateOrUpdateStreamImplementation(TRHIResourceUpdateBatcher<FRealtimeMeshGPUBuffer::RHIUpdateBatchSize>& Batcher,
-			const FRealtimeMeshSectionGroupStreamUpdateDataRef& StreamData);
-
-		void CreateSectionImplementation(FRealtimeMeshSectionKey SectionKey, const FRealtimeMeshSectionProxyInitializationParametersRef& InitParams);
-
-		void AlertSectionsOfStreamUpdates(const TArray<FRealtimeMeshStreamKey>& AddedOrUpdatedStreams,
-		const TArray<FRealtimeMeshStreamKey>& RemovedStreams);
+		void MarkStateDirty();
+		void RebuildSectionMap();
 	};
-
 }

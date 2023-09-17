@@ -3,7 +3,7 @@
 #pragma once
 
 #include "RealtimeMeshGPUBuffer.h"
-#include "Data/RealtimeMeshConfig.h"
+#include "RealtimeMeshConfig.h"
 #include "ShaderParameters.h"
 #include "Components.h"
 #include "VertexFactory.h"
@@ -17,17 +17,18 @@ struct FMeshBatchElement;
 
 namespace RealtimeMesh
 {
-	extern REALTIMEMESHCOMPONENT_API TUniformBufferRef<FLocalVertexFactoryUniformShaderParameters> CreateRealtimeMeshVFUniformBuffer(const class FRealtimeMeshLocalVertexFactory* VertexFactory, uint32 LODLightmapDataIndex);
+	extern REALTIMEMESHCOMPONENT_API TUniformBufferRef<FLocalVertexFactoryUniformShaderParameters> CreateRealtimeMeshVFUniformBuffer(
+		const class FRealtimeMeshLocalVertexFactory* VertexFactory, uint32 LODLightmapDataIndex);
 
 
 	class REALTIMEMESHCOMPONENT_API FRealtimeMeshVertexFactory : public FVertexFactory
-	{		
+	{
 	public:
-		FRealtimeMeshVertexFactory(ERHIFeatureLevel::Type InFeatureLevel) 
+		FRealtimeMeshVertexFactory(ERHIFeatureLevel::Type InFeatureLevel)
 			: FVertexFactory(InFeatureLevel)
 		{
 		}
-	
+
 		virtual EPrimitiveType GetPrimitiveType() const { return PT_TriangleList; }
 
 		virtual FIndexBuffer& GetIndexBuffer(bool& bDepthOnly, bool& bMatrixInverted, TFunctionRef<void(const TSharedRef<FRenderResource>&)> ResourceSubmitter) const = 0;
@@ -40,15 +41,17 @@ namespace RealtimeMesh
 		virtual FRHIUniformBuffer* GetUniformBuffer() const = 0;
 
 		virtual bool GatherVertexBufferResources(TFunctionRef<void(const TSharedRef<FRenderResource>&)> ResourceSubmitter) const = 0;
+
 	protected:
-		static TSharedPtr<FRealtimeMeshGPUBuffer> FindBuffer(const FRealtimeMeshGPUBufferMap& Buffers, ERealtimeMeshStreamType StreamType, FName BufferName)
+		static TSharedPtr<FRealtimeMeshGPUBuffer> FindBuffer(const FRealtimeMeshStreamProxyMap& Buffers, ERealtimeMeshStreamType StreamType, FName BufferName)
 		{
 			const FRealtimeMeshStreamKey Key(StreamType, BufferName);
 			const TSharedPtr<FRealtimeMeshGPUBuffer>* FoundBuffer = Buffers.Find(Key);
-			return FoundBuffer? *FoundBuffer : TSharedPtr<FRealtimeMeshGPUBuffer>();			
+			return FoundBuffer ? *FoundBuffer : TSharedPtr<FRealtimeMeshGPUBuffer>();
 		}
-		
-		static void BindVertexBufferSRV(bool& bIsValid, FRHIShaderResourceView*& OutStreamSRV, const FRealtimeMeshGPUBufferMap& Buffers, FName BufferName, bool bIsOptional = false)
+
+		static void BindVertexBufferSRV(bool& bIsValid, FRHIShaderResourceView*& OutStreamSRV, const FRealtimeMeshStreamProxyMap& Buffers, FName BufferName,
+		                                bool bIsOptional = false)
 		{
 			const TSharedPtr<FRealtimeMeshGPUBuffer> FoundBuffer = FindBuffer(Buffers, ERealtimeMeshStreamType::Vertex, BufferName);
 
@@ -62,8 +65,11 @@ namespace RealtimeMesh
 			const TSharedPtr<FRealtimeMeshVertexBuffer> VertexBuffer = StaticCastSharedPtr<FRealtimeMeshVertexBuffer>(FoundBuffer);
 			OutStreamSRV = VertexBuffer->ShaderResourceViewRHI;
 		}
-		static void BindVertexBuffer(bool& bIsValid, FInt32Range& ValidRange, TSet<TWeakPtr<FRealtimeMeshVertexBuffer>>& InUseBuffers, FVertexStreamComponent& OutStreamComponent, const FRealtimeMeshGPUBufferMap& Buffers,
-			FName BufferName, EVertexStreamUsage Usage, bool bIsOptional = false, FName ElementName = NAME_None)
+
+		static void BindVertexBuffer(bool& bIsValid, FInt32Range& ValidRange, TSet<TWeakPtr<FRealtimeMeshVertexBuffer>>& InUseBuffers, FVertexStreamComponent& OutStreamComponent,
+		                             const FRealtimeMeshStreamProxyMap& Buffers,
+		                             FName BufferName, EVertexStreamUsage Usage, bool bIsOptional = false, FName ElementName = NAME_None, uint8 ElementDefaultIndex = 0,
+		                             bool bAllowZeroStride = false)
 		{
 			const TSharedPtr<FRealtimeMeshGPUBuffer> FoundBuffer = FindBuffer(Buffers, ERealtimeMeshStreamType::Vertex, BufferName);
 
@@ -81,26 +87,35 @@ namespace RealtimeMesh
 			const TSharedPtr<FRealtimeMeshVertexBuffer> VertexBuffer = StaticCastSharedPtr<FRealtimeMeshVertexBuffer>(FoundBuffer);
 
 			uint16 ElementOffset = 0;
-			// Try to grab the offset to the element if needed
-			if (ElementName != NAME_None && !VertexBuffer->TryGetElementOffset(ElementName, ElementOffset))
+			// Try to grab the offset to the element if we have a name
+			if (ElementName == NAME_None || !VertexBuffer->TryGetElementOffset(ElementName, ElementOffset))
 			{
-				// If the buffer isn't optional, invalidate the result
-				bIsValid &= bIsOptional;
-				if (!bIsOptional)
-				{
-					ValidRange = FInt32Range(0, 0);
-				}
-				return;
+				ElementOffset = ElementDefaultIndex * VertexBuffer->GetElementStride();
 			}
 
-			InUseBuffers.Add(VertexBuffer);
-			
-			OutStreamComponent = FVertexStreamComponent(VertexBuffer.Get(), ElementOffset, VertexBuffer->GetStride(), VertexBuffer->GetVertexType(), Usage);
+			const bool bIsElementValid = static_cast<uint32>(ElementOffset + VertexBuffer->GetElementStride()) <= VertexBuffer->GetStride();
+			bIsValid &= bIsOptional || bIsElementValid;
 
-			// Update the valid range
-			ValidRange = FInt32Range::Intersection(ValidRange, FInt32Range(0, VertexBuffer->Num()));
+			if (bIsElementValid)
+			{
+				InUseBuffers.Add(VertexBuffer);
+
+				const bool bIsZeroStride = bAllowZeroStride && VertexBuffer->Num() == 1;
+				const int32 Stride = bIsZeroStride ? 0 : VertexBuffer->GetStride();
+
+				OutStreamComponent = FVertexStreamComponent(VertexBuffer.Get(), ElementOffset, Stride, VertexBuffer->GetVertexType(), Usage);
+
+				// Update the valid range
+				// In the case of a zero stride buffer, where 1 element applies to the entire range, we don't need to intersect the buffers
+				if (!bIsZeroStride)
+				{
+					ValidRange = FInt32Range::Intersection(ValidRange, FInt32Range(0, VertexBuffer->Num()));
+				}
+			}
 		}
-		static void BindIndexBuffer(bool& bIsValid, FInt32Range& ValidRange, TWeakPtr<FRealtimeMeshIndexBuffer>& OutIndexBuffer, const FRealtimeMeshGPUBufferMap& Buffers, FName BufferName, bool bIsOptional = false)
+
+		static void BindIndexBuffer(bool& bIsValid, FInt32Range& ValidRange, TWeakPtr<FRealtimeMeshIndexBuffer>& OutIndexBuffer, const FRealtimeMeshStreamProxyMap& Buffers,
+		                            FName BufferName, bool bIsOptional = false)
 		{
 			const TSharedPtr<FRealtimeMeshGPUBuffer> FoundBuffer = FindBuffer(Buffers, ERealtimeMeshStreamType::Index, BufferName);
 
@@ -114,7 +129,7 @@ namespace RealtimeMesh
 				}
 				return;
 			}
-			
+
 			const TSharedPtr<FRealtimeMeshIndexBuffer> IndexBuffer = StaticCastSharedPtr<FRealtimeMeshIndexBuffer>(FoundBuffer);
 			OutIndexBuffer = IndexBuffer;
 
@@ -124,47 +139,22 @@ namespace RealtimeMesh
 	};
 
 
-
 	/**
 	 * A basic vertex factory which closely resembles the functionality of LocalVertexFactory to show how to make custom vertex factories for the RMC
 	 */
 	class REALTIMEMESHCOMPONENT_API FRealtimeMeshLocalVertexFactory : public FRealtimeMeshVertexFactory
 	{
 		DECLARE_VERTEX_FACTORY_TYPE(FRealtimeMeshLocalVertexFactory);
-	public:
-		inline static const FName PositionStreamName = FName(TEXT("Position"));
-		inline static const FName TangentsStreamName = FName(TEXT("Tangents"));
-		inline static const FName ColorStreamName = FName(TEXT("Color"));
-		inline static const FName TexCoordsStreamName = FName(TEXT("TexCoords"));
-
-		inline static const FName NormalElementName = FName("Normal");
-		inline static const FName TangentElementName = FName("Tangent");
-
-		inline static const FName TexCoord0ElementName = FName("TexCoord", 0);
-		inline static const FName TexCoord1ElementName = FName("TexCoord", 1);
-		inline static const FName TexCoord2ElementName = FName("TexCoord", 2);
-		inline static const FName TexCoord3ElementName = FName("TexCoord", 3);
-		inline static const FName TexCoord4ElementName = FName("TexCoord", 4);
-		inline static const FName TexCoord5ElementName = FName("TexCoord", 5);
-		inline static const FName TexCoord6ElementName = FName("TexCoord", 6);
-		inline static const FName TexCoord7ElementName = FName("TexCoord", 7);
-	
-		inline static const FName TrianglesStreamName = FName(TEXT("Triangles"));
-		inline static const FName DepthOnlyTrianglesStreamName = FName(TEXT("DepthOnlyTriangles"));
-
-		inline static const FName ReversedTrianglesStreamName = FName(TEXT("ReversedTriangles"));
-		inline static const FName ReversedDepthOnlyTrianglesStreamName = FName(TEXT("ReversedDepthOnlyTriangles"));
 
 	public:
-
 		FRealtimeMeshLocalVertexFactory(ERHIFeatureLevel::Type InFeatureLevel)
 			: FRealtimeMeshVertexFactory(InFeatureLevel)
-			, IndexBuffer(nullptr)
-			, DepthOnlyIndexBuffer(nullptr)
-			, ReversedIndexBuffer(nullptr)
-			, ReversedDepthOnlyIndexBuffer(nullptr)
-			, ValidRange(FRealtimeMeshStreamRange::Empty)
-			, ColorStreamIndex(INDEX_NONE)
+			  , IndexBuffer(nullptr)
+			  , DepthOnlyIndexBuffer(nullptr)
+			  , ReversedIndexBuffer(nullptr)
+			  , ReversedDepthOnlyIndexBuffer(nullptr)
+			  , ValidRange(FRealtimeMeshStreamRange::Empty)
+			  , ColorStreamIndex(INDEX_NONE)
 		{
 #if ENGINE_MAJOR_VERSION <= 5 && ENGINE_MINOR_VERSION <= 0
 			bSupportsManualVertexFetch = true;
@@ -209,24 +199,27 @@ namespace RealtimeMesh
 
 		// FRenderResource interface.
 		virtual void InitRHI() override;
+
 		virtual void ReleaseRHI() override
 		{
 			UniformBuffer.SafeRelease();
 			FVertexFactory::ReleaseRHI();
 		}
-	
+
 
 		FORCEINLINE_DEBUGGABLE void SetColorOverrideStream(FRHICommandList& RHICmdList, const FVertexBuffer* ColorVertexBuffer) const
 		{
 			checkf(ColorVertexBuffer->IsInitialized(), TEXT("Color Vertex buffer was not initialized! Name %s"), *ColorVertexBuffer->GetFriendlyName());
-			checkf(IsInitialized() && EnumHasAnyFlags(EVertexStreamUsage::Overridden, Data.ColorComponent.VertexStreamUsage) && ColorStreamIndex > 0, TEXT("Per-mesh colors with bad stream setup! Name %s"), *ColorVertexBuffer->GetFriendlyName());
+			checkf(IsInitialized() && EnumHasAnyFlags(EVertexStreamUsage::Overridden, Data.ColorComponent.VertexStreamUsage) && ColorStreamIndex > 0,
+			       TEXT("Per-mesh colors with bad stream setup! Name %s"), *ColorVertexBuffer->GetFriendlyName());
 			RHICmdList.SetStreamSource(ColorStreamIndex, ColorVertexBuffer->VertexBufferRHI, 0);
 		}
 
 		void GetColorOverrideStream(const FVertexBuffer* ColorVertexBuffer, FVertexInputStreamArray& VertexStreams) const
 		{
 			checkf(ColorVertexBuffer->IsInitialized(), TEXT("Color Vertex buffer was not initialized! Name %s"), *ColorVertexBuffer->GetFriendlyName());
-			checkf(IsInitialized() && EnumHasAnyFlags(EVertexStreamUsage::Overridden, Data.ColorComponent.VertexStreamUsage) && ColorStreamIndex > 0, TEXT("Per-mesh colors with bad stream setup! Name %s"), *ColorVertexBuffer->GetFriendlyName());
+			checkf(IsInitialized() && EnumHasAnyFlags(EVertexStreamUsage::Overridden, Data.ColorComponent.VertexStreamUsage) && ColorStreamIndex > 0,
+			       TEXT("Per-mesh colors with bad stream setup! Name %s"), *ColorVertexBuffer->GetFriendlyName());
 
 			VertexStreams.Add(FVertexInputStream(ColorStreamIndex, 0, ColorVertexBuffer->VertexBufferRHI));
 		}
@@ -240,7 +233,7 @@ namespace RealtimeMesh
 		{
 			return Data.PreSkinPositionComponentSRV ? Data.PreSkinPositionComponentSRV : GNullColorVertexBuffer.VertexBufferSRV.GetReference();
 		}
-	
+
 		inline FRHIShaderResourceView* GetTangentsSRV() const
 		{
 			return Data.TangentsSRV;
@@ -265,7 +258,7 @@ namespace RealtimeMesh
 		{
 			return Data.LightMapCoordinateIndex;
 		}
-	
+
 		inline const int GetNumTexcoords() const
 		{
 			return Data.NumTexCoords;
@@ -290,22 +283,22 @@ namespace RealtimeMesh
 		TWeakPtr<FRealtimeMeshIndexBuffer> ReversedDepthOnlyIndexBuffer;
 
 		FRealtimeMeshStreamRange ValidRange;
-	
+
 		int32 ColorStreamIndex;
 	};
-
 
 
 	/** Shader parameter class used by FRealtimeMeshVertexFactory only - no derived classes. */
 	class REALTIMEMESHCOMPONENT_API FRealtimeMeshVertexFactoryShaderParameters : public FVertexFactoryShaderParameters
 	{
 		DECLARE_TYPE_LAYOUT(FRealtimeMeshVertexFactoryShaderParameters, NonVirtual);
+
 	public:
 		void Bind(const FShaderParameterMap& ParameterMap);
 
 		void GetElementShaderBindings(const FSceneInterface* Scene, const FSceneView* View, const FMeshMaterialShader* Shader,
-									  const EVertexInputStreamType InputStreamType, ERHIFeatureLevel::Type FeatureLevel, const FVertexFactory* VertexFactory,
-									  const FMeshBatchElement& BatchElement, FMeshDrawSingleShaderBindings& ShaderBindings, FVertexInputStreamArray& VertexStreams) const;
+		                              const EVertexInputStreamType InputStreamType, ERHIFeatureLevel::Type FeatureLevel, const FVertexFactory* VertexFactory,
+		                              const FMeshBatchElement& BatchElement, FMeshDrawSingleShaderBindings& ShaderBindings, FVertexInputStreamArray& VertexStreams) const;
 
 		// SpeedTree LOD parameter
 		LAYOUT_FIELD(FShaderParameter, LODParameter);

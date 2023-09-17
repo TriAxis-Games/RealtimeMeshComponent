@@ -5,102 +5,121 @@
 #include "RealtimeMeshCore.h"
 #include "RealtimeMeshConfig.h"
 #include "RealtimeMeshCollision.h"
+#include "RealtimeMeshShared.h"
 
 struct FTriMeshCollisionData;
 
 namespace RealtimeMesh
 {
+	struct FRealtimeMeshProxyCommandBatch;
+	struct FRealtimeMeshUpdateContext;
+
+
 	class REALTIMEMESHCOMPONENT_API FRealtimeMesh : public TSharedFromThis<FRealtimeMesh, ESPMode::ThreadSafe>
 	{
-	public:
-		DECLARE_EVENT_OneParam(FRealtimeMesh, FBoundsChangedEvent, const FRealtimeMeshRef&);
-		DECLARE_EVENT_TwoParams(FRealtimeMesh, FRenderDataChangedEvent, const FRealtimeMeshRef&, bool /*bShouldProxyRecreate*/);
-		DECLARE_EVENT_OneParam(FRealtimeMesh, FCollisionDataUpdated, const FRealtimeMeshRef&);
-	private:
-		FBoundsChangedEvent BoundsChangedEvent;		
-		FRenderDataChangedEvent RenderDataChangedEvent;
-		FCollisionDataUpdated CollisionDataUpdatedEvent;
-	public:
-		FBoundsChangedEvent& OnBoundsChanged() { return BoundsChangedEvent; }
-		FRenderDataChangedEvent& OnRenderDataChanged() { return RenderDataChangedEvent; }
-		FCollisionDataUpdated OnCollisionDataUpdated() { return CollisionDataUpdatedEvent; }
-
 	protected:
-		const FRealtimeMeshClassFactoryRef ClassFactory;
+		const FRealtimeMeshSharedResourcesRef SharedResources;
 		mutable FRealtimeMeshProxyPtr RenderProxy;
 		TFixedLODArray<FRealtimeMeshLODDataRef> LODs;
 		FRealtimeMeshConfig Config;
-		FBoxSphereBounds3f LocalBounds;
-		FRealtimeMeshCollisionConfiguration CollisionConfig;
-		FRealtimeMeshSimpleGeometry SimpleGeometry;
-		
+		FRealtimeMeshBounds Bounds;
+
+		//FRealtimeMeshCollisionConfiguration CollisionConfig;
+		//FRealtimeMeshSimpleGeometry SimpleGeometry;
+
 		// Name of the mesh, given by the parent URealtimeMesh for debug messaging.
-		FName MeshName;
+		/*FName MeshName;*/
 
-		bool bIsCollisionDirty;
-		
-		mutable FRWLock RenderDataLock;
+		//bool bIsCollisionDirty;
+
+		/*mutable FRealtimeMeshGuard Guard;*/
+
+		/*mutable FRWLock RenderDataLock;
 		mutable FRWLock CollisionLock;
-		mutable FRWLock BoundsLock;
+		mutable FRWLock BoundsLock;*/
 
-		FName TypeName;
+		/*FName TypeName;*/
 	public:
-		
-		FRealtimeMesh(const FRealtimeMeshClassFactoryRef& InClassFactory);
+		FRealtimeMesh(const FRealtimeMeshSharedResourcesRef& InSharedResources);
 		virtual ~FRealtimeMesh() = default;
-		
-		FName GetMeshName() const { return MeshName; }
-		void SetMeshName(FName InMeshName) { MeshName = InMeshName; }
+
+		const FRealtimeMeshSharedResourcesRef& GetSharedResources() const { return SharedResources; }
+
+		/*FName GetMeshName() const { return MeshName; }*/
+		/*void SetMeshName(FName InMeshName) { MeshName = InMeshName; }*/
 
 		int32 GetNumLODs() const;
 
 		virtual FBoxSphereBounds3f GetLocalBounds() const;
-		bool IsCollisionDirty() const { return bIsCollisionDirty; }
-		void ClearCollisionDirtyFlag() { bIsCollisionDirty = false; }
+		//bool IsCollisionDirty() const { return bIsCollisionDirty; }
+		//void ClearCollisionDirtyFlag() { bIsCollisionDirty = false; }
 
-		FRealtimeMeshCollisionConfiguration GetCollisionConfig() const;
+
+		/*FRealtimeMeshCollisionConfiguration GetCollisionConfig() const;
 		void SetCollisionConfig(const FRealtimeMeshCollisionConfiguration& InCollisionConfig);
 		FRealtimeMeshSimpleGeometry GetSimpleGeometry() const;
-		void SetSimpleGeometry(const FRealtimeMeshSimpleGeometry& InSimpleGeometry);
+		void SetSimpleGeometry(const FRealtimeMeshSimpleGeometry& InSimpleGeometry);*/
 
 		FRealtimeMeshLODDataPtr GetLOD(FRealtimeMeshLODKey LODKey) const;
-		template<typename LODType>
+
+		template <typename LODType>
 		TSharedPtr<LODType, ESPMode::ThreadSafe> GetLODAs(FRealtimeMeshLODKey LODKey) const
 		{
 			return StaticCastSharedPtr<LODType>(GetLOD(LODKey));
 		}
+
 		FRealtimeMeshSectionGroupPtr GetSectionGroup(FRealtimeMeshSectionGroupKey SectionGroupKey) const;
-		FRealtimeMeshSectionDataPtr GetSection(FRealtimeMeshSectionKey SectionKey) const;
-		
-		virtual void InitializeLODs(const TFixedLODArray<FRealtimeMeshLODConfig>& InLODConfigs);		
-		virtual FRealtimeMeshLODKey AddLOD(const FRealtimeMeshLODConfig& LODConfig);		
-		virtual void RemoveTrailingLOD();
+		template <typename SectionGroupType>
+		TSharedPtr<SectionGroupType> GetSectionGroupAs(const FRealtimeMeshSectionGroupKey& SectionGroupKey) const
+		{
+			return StaticCastSharedPtr<SectionGroupType>(GetSectionGroup(SectionGroupKey));
+		}
+		FRealtimeMeshSectionPtr GetSection(FRealtimeMeshSectionKey SectionKey) const;
+		template <typename SectionType>
+		TSharedPtr<SectionType> GetSectionAs(const FRealtimeMeshSectionKey& SectionKey) const
+		{
+			return StaticCastSharedPtr<SectionType>(GetSection(SectionKey));
+		}
 
-		virtual void Reset();
-		
+		TFuture<ERealtimeMeshProxyUpdateStatus> InitializeLODs(const TFixedLODArray<FRealtimeMeshLODConfig>& InLODConfigs);
+		void InitializeLODs(FRealtimeMeshProxyCommandBatch& Commands, const TFixedLODArray<FRealtimeMeshLODConfig>& InLODConfigs);
+		TFuture<ERealtimeMeshProxyUpdateStatus> AddLOD(const FRealtimeMeshLODConfig& LODConfig, FRealtimeMeshLODKey* OutLODKey = nullptr);
+		virtual void AddLOD(FRealtimeMeshProxyCommandBatch& Commands, const FRealtimeMeshLODConfig& LODConfig, FRealtimeMeshLODKey* OutLODKey = nullptr);
+		TFuture<ERealtimeMeshProxyUpdateStatus> RemoveTrailingLOD(FRealtimeMeshLODKey* OutNewLastLODKey = nullptr);
+		virtual void RemoveTrailingLOD(FRealtimeMeshProxyCommandBatch& Commands, FRealtimeMeshLODKey* OutNewLastLODKey = nullptr);
+
+		TFuture<ERealtimeMeshProxyUpdateStatus> Reset(bool bRemoveRenderProxy = false);
+		virtual void Reset(FRealtimeMeshProxyCommandBatch& Commands, bool bRemoveRenderProxy = false);
+
 		virtual bool Serialize(FArchive& Ar);
-		
-		virtual FRealtimeMeshProxyInitializationParametersRef GetInitializationParams() const;
 
-		virtual void MarkRenderStateDirty(bool bShouldRecreateProxies) { BroadcastRenderDataChangedEvent(bShouldRecreateProxies); }
-		virtual void MarkCollisionDirty();
+		virtual void MarkRenderStateDirty(bool bShouldRecreateProxies)
+		{
+			SharedResources->BroadcastMeshRenderDataChanged();
+			if (bShouldRecreateProxies)
+			{
+				SharedResources->BroadcastMeshRequestedProxyRecreate();
+			}
+		}
 
-		void DoOnRenderProxy(TUniqueFunction<void(const FRealtimeMeshProxyRef&)>&& Function) const;
-		
 		bool HasRenderProxy() const;
 		FRealtimeMeshProxyPtr GetRenderProxy(bool bCreateIfNotExists = false) const;
-		
-		virtual bool GetPhysicsTriMeshData(FTriMeshCollisionData* CollisionData, bool InUseAllTriData) { return false; }
-		virtual bool ContainsPhysicsTriMeshData(bool InUseAllTriData) const { return false; }
+
+		virtual void InitializeProxy(FRealtimeMeshProxyCommandBatch& Commands) const;
+
 	protected:
-		void CreateRenderProxy(bool bForceRecreate = false) const;
-		void UpdateBounds();
+		virtual void ProcessEndOfFrameUpdates()
+		{
+		}
 
-		void BroadcastBoundsChangedEvent() { BoundsChangedEvent.Broadcast(this->AsShared()); }
-		void BroadcastRenderDataChangedEvent(bool bShouldRecreateProxies) { RenderDataChangedEvent.Broadcast(this->AsShared(), bShouldRecreateProxies); }
+		/*TFuture<ERealtimeMeshProxyUpdateStatus> ApplyStateUpdate(FRealtimeMeshUpdateContext& Update);*/
+		void HandleLODBoundsChanged(const FRealtimeMeshLODKey& LODKey);
 
+		FRealtimeMeshProxyRef CreateRenderProxy(bool bForceRecreate = false) const;
+		virtual FBoxSphereBounds3f CalculateBounds() const;
 
-		void HandleLODBoundsChanged(const FRealtimeMeshLODDataRef& LOD);
+		TFuture<ERealtimeMeshCollisionUpdateResult> UpdateCollision(FRealtimeMeshCollisionData&& InCollisionData);
+
+		friend class URealtimeMesh;
 	};
 }
-

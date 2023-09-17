@@ -16,14 +16,14 @@ bool URealtimeMeshSubsystem::ShouldCreateSubsystem(UObject* Outer) const
 }
 
 void URealtimeMeshSubsystem::Initialize(FSubsystemCollectionBase& Collection)
-{	
+{
 	Super::Initialize(Collection);
-	bInitialized = true;
+	bInitialized = true;	
 }
 
 void URealtimeMeshSubsystem::Deinitialize()
 {
-	bInitialized = false;	
+	bInitialized = false;
 	Super::Deinitialize();
 }
 
@@ -38,7 +38,7 @@ bool URealtimeMeshSubsystem::IsTickableInEditor() const
 }
 
 void URealtimeMeshSubsystem::Tick(float DeltaTime)
-{	
+{
 	Super::Tick(DeltaTime);
 
 	// Rebuild all valid generated actors, if necessary
@@ -76,6 +76,6 @@ void URealtimeMeshSubsystem::UnregisterGeneratedMeshActor(ARealtimeMeshActor* Ac
 
 inline URealtimeMeshSubsystem* URealtimeMeshSubsystem::GetInstance(UWorld* World)
 {
-	
-	return World? World->GetSubsystem<URealtimeMeshSubsystem>() : nullptr;
+	return World ? World->GetSubsystem<URealtimeMeshSubsystem>() : nullptr;
 }
+

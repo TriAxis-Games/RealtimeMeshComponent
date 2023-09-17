@@ -13,12 +13,15 @@ class REALTIMEMESHCOMPONENT_API ARealtimeMeshActor : public AActor
 	GENERATED_BODY()
 
 protected:
-	UPROPERTY(Category = "RealtimeMeshActor", VisibleAnywhere, BlueprintReadOnly, meta = (ExposeFunctionCategories = "Mesh,Rendering,Physics,Components|StaticMesh", AllowPrivateAccess = "true"))
+	UPROPERTY(Category = "RealtimeMeshActor", VisibleAnywhere, BlueprintReadOnly,
+		meta = (ExposeFunctionCategories = "Mesh,Rendering,Physics,Components|StaticMesh", AllowPrivateAccess = "true"))
 	TObjectPtr<class URealtimeMeshComponent> RealtimeMeshComponent;
 
 public:
-	
-	/** If true, the RealtimeMeshComponent will be "Frozen" in its current state, and automatic rebuilding will be disabled. However the DynamicMesh can still be modified by explicitly-called functions/etc. */
+	/**
+	 * If true, the RealtimeMeshComponent will be "Frozen" in its current state, and automatic rebuilding
+	 * will be disabled. However the DynamicMesh can still be modified by explicitly-called functions/etc.
+	 */
 	UPROPERTY(Category = "RealtimeMeshActor", EditAnywhere, BlueprintReadWrite)
 	bool bFrozen = false;
 
@@ -29,7 +32,7 @@ public:
 public:
 	ARealtimeMeshActor();
 	virtual ~ARealtimeMeshActor() override;
-	
+
 	UFUNCTION(Category = DynamicMeshActor, BlueprintCallable)
 	URealtimeMeshComponent* GetRealtimeMeshComponent() const { return RealtimeMeshComponent; }
 
@@ -40,7 +43,10 @@ public:
 	 */
 	UFUNCTION(BlueprintNativeEvent, CallInEditor, Category = "Events")
 	void OnGenerateMesh();
-	virtual void OnGenerateMesh_Implementation() { }
+
+	virtual void OnGenerateMesh_Implementation()
+	{
+	}
 
 
 	/**
@@ -49,10 +55,7 @@ public:
 	 */
 	virtual void ExecuteRebuildGeneratedMeshIfPending();
 
-	
-
 public:
-
 	//~ Begin UObject/AActor Interface
 	virtual void PostLoad() override;
 	virtual void PostActorCreated() override;
@@ -66,7 +69,6 @@ public:
 #if WITH_EDITOR
 	virtual void PostEditUndo() override;
 #endif
-
 
 protected:
 	// this internal flag is set in OnConstruction, and will cause ExecuteRebuildGeneratedMesh to

@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "RealtimeMeshCore.h"
+#include "CoreMinimal.h"
 #include "RealtimeMeshConfig.generated.h"
 
 #define LOCTEXT_NAMESPACE "RealtimeMesh"
@@ -13,16 +13,17 @@ USTRUCT(BlueprintType, meta=(
 struct REALTIMEMESHCOMPONENT_API FRealtimeMeshStreamRange
 {
 	GENERATED_BODY()
+
 public:
 	static const FRealtimeMeshStreamRange Empty;
 
-	
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="RealtimeMesh|Streams")
 	FInt32Range Vertices;
-	
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="RealtimeMesh|Streams")
 	FInt32Range Indices;
-	
+
 	FRealtimeMeshStreamRange() = default;
 
 	FRealtimeMeshStreamRange(const FInt32Range& VerticesRange, const FInt32Range& IndicesRange)
@@ -36,7 +37,7 @@ public:
 	}
 
 	FRealtimeMeshStreamRange(const FInt32RangeBound& VerticesLower, const FInt32RangeBound& VerticesUpper,
-	                            const FInt32RangeBound& IndicesLower, const FInt32RangeBound& IndicesUpper)
+	                         const FInt32RangeBound& IndicesLower, const FInt32RangeBound& IndicesUpper)
 		: Vertices(VerticesLower, VerticesUpper), Indices(IndicesLower, IndicesUpper)
 	{
 	}
@@ -87,6 +88,7 @@ public:
 	{
 		return Vertices == Other.Vertices && Indices == Other.Indices;
 	}
+
 	bool operator!=(const FRealtimeMeshStreamRange& Other) const
 	{
 		return Vertices != Other.Vertices || Indices != Other.Indices;
@@ -100,25 +102,27 @@ public:
 	friend FArchive& operator<<(FArchive& Ar, FRealtimeMeshStreamRange& Range);
 };
 
-
 USTRUCT(BlueprintType)
 struct REALTIMEMESHCOMPONENT_API FRealtimeMeshMaterialSlot
 {
 	GENERATED_BODY()
-public:
 
+public:
 	UPROPERTY()
 	FName SlotName;
-	
+
 	UPROPERTY()
 	UMaterialInterface* Material;
 
-	FRealtimeMeshMaterialSlot() : SlotName(NAME_None), Material(nullptr) { }
+	FRealtimeMeshMaterialSlot() : SlotName(NAME_None), Material(nullptr)
+	{
+	}
 
 	FRealtimeMeshMaterialSlot(const FName& InSlotName, UMaterialInterface* InMaterial)
-		: SlotName(InSlotName), Material(InMaterial) { }
+		: SlotName(InSlotName), Material(InMaterial)
+	{
+	}
 };
-
 
 /**
 *	Struct used to specify a tangent vector for a vertex
@@ -128,8 +132,8 @@ USTRUCT(BlueprintType)
 struct REALTIMEMESHCOMPONENT_API FRealtimeMeshTangent
 {
 	GENERATED_BODY()
-public:
 
+public:
 	/** Direction of X tangent for this vertex */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="RealtimeMesh|Tangent")
 	FVector TangentX;
@@ -140,27 +144,30 @@ public:
 
 	FRealtimeMeshTangent()
 		: TangentX(FVector::XAxisVector)
-		, bFlipTangentY(false)
-	{}
+		  , bFlipTangentY(false)
+	{
+	}
 
 	FRealtimeMeshTangent(float X, float Y, float Z)
 		: TangentX(X, Y, Z)
-		, bFlipTangentY(false)
-	{}
+		  , bFlipTangentY(false)
+	{
+	}
 
 	FRealtimeMeshTangent(FVector InTangentX, bool bInFlipTangentY)
 		: TangentX(InTangentX)
-		, bFlipTangentY(bInFlipTangentY)
-	{}
+		  , bFlipTangentY(bInFlipTangentY)
+	{
+	}
 
 	FRealtimeMeshTangent(FVector InTangentX, FVector InTangentY, FVector InTangentZ)
 		: TangentX(InTangentX)
-		, bFlipTangentY(GetBasisDeterminantSign(InTangentX, InTangentY, InTangentZ) < 0)
-	{}
-	
+		  , bFlipTangentY(GetBasisDeterminantSign(InTangentX, InTangentY, InTangentZ) < 0)
+	{
+	}
+
 	friend FArchive& operator<<(FArchive& Ar, FRealtimeMeshTangent& Tangent);
 };
-
 
 /* The rendering path to use for this section.
  * Static has lower overhead but requires a proxy recreation on change for all components
@@ -173,21 +180,20 @@ enum class ERealtimeMeshSectionDrawType : uint8
 	Dynamic,
 };
 
-
 USTRUCT(BlueprintType)
 struct REALTIMEMESHCOMPONENT_API FRealtimeMeshSectionConfig
 {
 	GENERATED_BODY()
+
 public:
 	FRealtimeMeshSectionConfig(ERealtimeMeshSectionDrawType InDrawType = ERealtimeMeshSectionDrawType::Static, int32 InMaterialSlot = 0)
 		: MaterialSlot(InMaterialSlot)
-		, DrawType(InDrawType)
-		, bIsVisible(true)
-		, bCastsShadow(true)
-		, bIsMainPassRenderable(true)
-		, bForceOpaque(false)
+		  , DrawType(InDrawType)
+		  , bIsVisible(true)
+		  , bCastsShadow(true)
+		  , bIsMainPassRenderable(true)
+		  , bForceOpaque(false)
 	{
-		
 	}
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="RealtimeMesh|Section|Config")
@@ -207,19 +213,19 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="RealtimeMesh|Section|Config", AdvancedDisplay)
 	bool bForceOpaque;
-	
+
 	friend FArchive& operator<<(FArchive& Ar, FRealtimeMeshSectionConfig& Config);
 };
-
 
 USTRUCT(BlueprintType)
 struct REALTIMEMESHCOMPONENT_API FRealtimeMeshLODConfig
 {
 	GENERATED_BODY()
+
 public:
 	FRealtimeMeshLODConfig(float InScreenSize = 0.0f)
 		: bIsVisible(true)
-		, ScreenSize(InScreenSize)
+		  , ScreenSize(InScreenSize)
 	{
 	}
 
@@ -228,16 +234,15 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="RealtimeMesh|LOD|Config")
 	float ScreenSize;
-		
+
 	friend FArchive& operator<<(FArchive& Ar, FRealtimeMeshLODConfig& Config);
 };
-
-
 
 USTRUCT(BlueprintType)
 struct REALTIMEMESHCOMPONENT_API FRealtimeMeshConfig
 {
 	GENERATED_BODY()
+
 public:
 	FRealtimeMeshConfig()
 		: ForcedLOD(INDEX_NONE)
@@ -246,144 +251,188 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="RealtimeMesh|LOD|Config")
 	int32 ForcedLOD;
-		
+
 	friend FArchive& operator<<(FArchive& Ar, FRealtimeMeshConfig& Config);
 };
 
-namespace RealtimeMesh
-{
-	struct FRealtimeMeshKeyHelpers;
-}
-
-USTRUCT(BlueprintType, meta=(
-	HasNativeBreak="RealtimeMeshComponent.RealtimeMeshBlueprintFunctionLibrary.BreakLODKey",
-	HasNativeMake="RealtimeMeshComponent.RealtimeMeshBlueprintFunctionLibrary.MakeLODKey"))
+USTRUCT(BlueprintType)
 struct REALTIMEMESHCOMPONENT_API FRealtimeMeshLODKey
 {
 	GENERATED_BODY()
-	friend struct RealtimeMesh::FRealtimeMeshKeyHelpers;
-protected:
-	UPROPERTY(VisibleAnywhere, Category="RealtimeMesh|Key")
-	uint8 LODIndex;
+
+private:
+	int8 LODIndex;
 
 public:
-	FRealtimeMeshLODKey() : LODIndex(INDEX_NONE) { }
-	FRealtimeMeshLODKey(uint8 InLODIndex) : LODIndex(InLODIndex) { }
+	FRealtimeMeshLODKey() : LODIndex(INDEX_NONE)
+	{
+	}
 
-	bool IsValid() const { return LODIndex != (uint8)INDEX_NONE; }
+	FRealtimeMeshLODKey(int32 InLODIndex) : LODIndex(InLODIndex)
+	{
+	}
 
-	bool operator==(const FRealtimeMeshLODKey& Other) const { return LODIndex == Other.LODIndex; }
-	bool operator!=(const FRealtimeMeshLODKey& Other) const { return LODIndex != Other.LODIndex; }
+	operator int32() const { return LODIndex; }
+	int32 Index() const { return LODIndex; }
+
+	bool operator==(const FRealtimeMeshLODKey& Other) const
+	{
+		return LODIndex == Other.LODIndex;
+	}
+
+	bool operator!=(const FRealtimeMeshLODKey& Other) const
+	{
+		return LODIndex != Other.LODIndex;
+	}
+
+	friend FORCEINLINE uint32 GetTypeHash(const FRealtimeMeshLODKey& LOD)
+	{
+		return GetTypeHash(LOD.LODIndex);;
+	}
+
+	friend FORCEINLINE FArchive& operator<<(FArchive& Ar, FRealtimeMeshLODKey& Key);
 
 	FString ToString() const { return TEXT("[LODKey:") + FString::FromInt(LODIndex) + TEXT("]"); }
-	
-	friend FArchive& operator<<(FArchive& Ar, FRealtimeMeshLODKey& Key);
+
+	friend struct FRealtimeMeshSectionGroupKey;
+	friend struct FRealtimeMeshSectionKey;
 };
 
-USTRUCT(BlueprintType, meta=(HasNativeMake="RealtimeMeshComponent.RealtimeMeshBlueprintFunctionLibrary.MakeSectionGroupKey"))
-struct REALTIMEMESHCOMPONENT_API FRealtimeMeshSectionGroupKey : public FRealtimeMeshLODKey
+USTRUCT(BlueprintType)
+struct REALTIMEMESHCOMPONENT_API FRealtimeMeshSectionGroupKey
 {
 	GENERATED_BODY()
-	friend struct RealtimeMesh::FRealtimeMeshKeyHelpers;
-protected:
-	UPROPERTY(VisibleAnywhere, Category="RealtimeMesh|Key")
-	uint8 SectionGroupIndex;
+
+private:
+	FName GroupName;
+	int8 LODIndex;
+
+	FRealtimeMeshSectionGroupKey(uint32 InLODIndex, FName InGroupName)
+		: GroupName(InGroupName)
+		  , LODIndex(InLODIndex)
+	{
+	}
 
 public:
-	FRealtimeMeshSectionGroupKey()
-		: SectionGroupIndex(INDEX_NONE) { }
-	FRealtimeMeshSectionGroupKey(uint8 InLODIndex, uint8 InSectionGroupIndex)
-		: FRealtimeMeshLODKey(InLODIndex), SectionGroupIndex(InSectionGroupIndex) { }
-	FRealtimeMeshSectionGroupKey(FRealtimeMeshLODKey InLODKey, uint8 InSectionGroupIndex)
-		: FRealtimeMeshLODKey(InLODKey), SectionGroupIndex(InSectionGroupIndex) { }
+	FRealtimeMeshSectionGroupKey() : GroupName(NAME_None), LODIndex(INDEX_NONE)
+	{
+	}
 
-	bool IsValid() const { return LODIndex != (uint8)INDEX_NONE && SectionGroupIndex != (uint8)INDEX_NONE; }
+	bool IsValid() const { return LODIndex >= 0 && LODIndex < 8 && GroupName != NAME_None; }
 
-	FRealtimeMeshLODKey GetLODKey() const { return FRealtimeMeshLODKey(*this); }
-	bool IsPartOf(const FRealtimeMeshLODKey& InLOD) const { return GetLODKey() == InLOD; }
-	
+	const FName& Name() const { return GroupName; }
+
+	FRealtimeMeshLODKey LOD() const { return FRealtimeMeshLODKey(LODIndex); }
+
+	operator FRealtimeMeshLODKey() const { return FRealtimeMeshLODKey(LODIndex); }
+
+	bool IsPartOf(const FRealtimeMeshLODKey& InLOD) const
+	{
+		return LOD() == InLOD;
+	}
+
 	bool operator==(const FRealtimeMeshSectionGroupKey& Other) const
 	{
-		return LODIndex == Other.LODIndex && SectionGroupIndex == Other.SectionGroupIndex;
+		return LODIndex == Other.LODIndex && GroupName == Other.GroupName;
 	}
 
 	bool operator!=(const FRealtimeMeshSectionGroupKey& Other) const
 	{
-		return LODIndex != Other.LODIndex || SectionGroupIndex != Other.SectionGroupIndex;
+		return LODIndex != Other.LODIndex || GroupName != Other.GroupName;
 	}
 
-	FString ToString() const { return TEXT("[LODKey:") + FString::FromInt(LODIndex) + TEXT(", SectionGroupKey:") + FString::FromInt(SectionGroupIndex) + TEXT("]"); }
-	
-	friend FArchive& operator<<(FArchive& Ar, FRealtimeMeshSectionGroupKey& Key);
+	friend FORCEINLINE uint32 GetTypeHash(const FRealtimeMeshSectionGroupKey& Group)
+	{
+		return HashCombine(GetTypeHash(Group.GroupName), GetTypeHash(Group.LODIndex));
+	}
+
+	friend FORCEINLINE FArchive& operator<<(FArchive& Ar, FRealtimeMeshSectionGroupKey& Key);
+
+	FString ToString() const { return TEXT("[LODKey:") + FString::FromInt(LODIndex) + TEXT(", SectionGroupKey:") + GroupName.ToString() + TEXT("]"); }
+
+	static FRealtimeMeshSectionGroupKey Create(const FRealtimeMeshLODKey& LODKey, FName GroupName);
+	static FRealtimeMeshSectionGroupKey Create(const FRealtimeMeshLODKey& LODKey, int32 GroupID);
+	static FRealtimeMeshSectionGroupKey CreateUnique(const FRealtimeMeshLODKey& LODKey);
+
+	friend struct FRealtimeMeshSectionKey;
 };
 
-USTRUCT(BlueprintType, meta=(HasNativeMake="RealtimeMeshComponent.RealtimeMeshBlueprintFunctionLibrary.MakeSectionKey"))
-struct REALTIMEMESHCOMPONENT_API FRealtimeMeshSectionKey : public FRealtimeMeshSectionGroupKey
+USTRUCT(BlueprintType)
+struct REALTIMEMESHCOMPONENT_API FRealtimeMeshSectionKey
 {
 	GENERATED_BODY()
-	friend struct RealtimeMesh::FRealtimeMeshKeyHelpers;
-protected:
-	UPROPERTY(VisibleAnywhere, Category="RealtimeMesh|Key")
-	uint16 SectionIndex;
+
+private:
+	FName GroupName;
+	FName SectionName;
+	int8 LODIndex;
+
+	FRealtimeMeshSectionKey(uint32 InLODIndex, FName InGroupName, FName InSectionName)
+		: GroupName(InGroupName)
+		  , SectionName(InSectionName)
+		  , LODIndex(InLODIndex)
+	{
+	}
+
 public:
-	FRealtimeMeshSectionKey()
-		: SectionIndex(INDEX_NONE) { }
-	FRealtimeMeshSectionKey(uint8 InLODIndex, uint8 InSectionGroupIndex, uint16 InSectionKey)
-		: FRealtimeMeshSectionGroupKey(InLODIndex, InSectionGroupIndex), SectionIndex(InSectionKey) { }
-	FRealtimeMeshSectionKey(FRealtimeMeshSectionGroupKey InSectionGroupKey, uint16 InSectionKey)
-		: FRealtimeMeshSectionGroupKey(InSectionGroupKey), SectionIndex(InSectionKey) { }
+	FRealtimeMeshSectionKey() : GroupName(NAME_None), SectionName(NAME_None), LODIndex(INDEX_NONE)
+	{
+	}
 
-	bool IsValid() const { return LODIndex != (uint8)INDEX_NONE && SectionGroupIndex != (uint8)INDEX_NONE && SectionIndex != (uint16)INDEX_NONE; }
+	bool IsValid() const { return LODIndex >= 0 && LODIndex < 8 && GroupName != NAME_None && SectionName != NAME_None; }
 
-	FRealtimeMeshSectionGroupKey GetSectionGroupKey() const { return FRealtimeMeshSectionGroupKey(*this); }
-	bool IsPartOf(const FRealtimeMeshSectionGroupKey& InSectionGroup) const { return GetSectionGroupKey() == InSectionGroup; }
-	
+	const FName& Name() const { return SectionName; }
+
+	FRealtimeMeshLODKey LOD() const { return FRealtimeMeshLODKey(LODIndex); }
+	FRealtimeMeshSectionGroupKey SectionGroup() const { return FRealtimeMeshSectionGroupKey(LODIndex, GroupName); }
+
+	operator FRealtimeMeshLODKey() const { return LOD(); }
+	operator FRealtimeMeshSectionGroupKey() const { return SectionGroup(); }
+
+	bool IsPartOf(const FRealtimeMeshLODKey& InLOD) const
+	{
+		return LOD() == InLOD;
+	}
+
+	bool IsPartOf(const FRealtimeMeshSectionGroupKey& InSectionGroup) const
+	{
+		return SectionGroup() == InSectionGroup;
+	}
+
 	bool operator==(const FRealtimeMeshSectionKey& Other) const
 	{
-		return LODIndex == Other.LODIndex && SectionGroupIndex == Other.SectionGroupIndex && SectionIndex == Other.SectionIndex;;
+		return LODIndex == Other.LODIndex && GroupName == Other.GroupName && SectionName == Other.SectionName;
 	}
 
 	bool operator!=(const FRealtimeMeshSectionKey& Other) const
 	{
-		return LODIndex != Other.LODIndex || SectionGroupIndex != Other.SectionGroupIndex || SectionIndex != Other.SectionIndex;
+		return LODIndex != Other.LODIndex || GroupName != Other.GroupName || SectionName != Other.SectionName;
 	}
 
-	FString ToString() const { return TEXT("[LODKey:") + FString::FromInt(LODIndex) + TEXT(", SectionGroupKey:") + FString::FromInt(SectionGroupIndex) + TEXT(", SectionKey:") + FString::FromInt(SectionIndex) + TEXT("]"); }
+	friend FORCEINLINE uint32 GetTypeHash(const FRealtimeMeshSectionKey& Section)
+	{
+		return HashCombine(GetTypeHash(Section.SectionName), HashCombine(GetTypeHash(Section.GroupName), GetTypeHash(Section.LODIndex)));
+	}
 
-	friend FArchive& operator<<(FArchive& Ar, FRealtimeMeshSectionKey& Key);
+	friend FORCEINLINE FArchive& operator<<(FArchive& Ar, FRealtimeMeshSectionKey& Key);
+
+	FString ToString() const
+	{
+		return TEXT("[LODKey:") + FString::FromInt(LODIndex) + TEXT(", SectionGroupKey:") + GroupName.ToString() + TEXT(", SectionKey:") + SectionName.ToString() + TEXT("]");
+	}
+
+	static FRealtimeMeshSectionKey Create(const FRealtimeMeshSectionGroupKey& SectionGroupKey, FName SectionName);
+	static FRealtimeMeshSectionKey Create(const FRealtimeMeshSectionGroupKey& SectionGroupKey, int32 SectionID);
+	static FRealtimeMeshSectionKey CreateUnique(const FRealtimeMeshSectionGroupKey& SectionGroupKey);
 };
 
 
-namespace RealtimeMesh
+UENUM()
+enum class ERealtimeMeshProxyUpdateStatus : uint8
 {
-	
-	struct FRealtimeMeshKeyHelpers
-	{
-		static uint32 GetLODIndex(const FRealtimeMeshLODKey& LODKey) { return LODKey.LODIndex; }
-		static uint32 GetSectionGroupIndex(const FRealtimeMeshSectionGroupKey& SectionGroupKey) { return SectionGroupKey.SectionGroupIndex; }
-		static uint32 GetSectionIndex(const FRealtimeMeshSectionKey& SectionKey) { return SectionKey.SectionIndex; }
-	};
-
-	class REALTIMEMESHCOMPONENT_API FRealtimeMeshClassFactory : public TSharedFromThis<FRealtimeMeshClassFactory>
-	{
-	public:
-		virtual ~FRealtimeMeshClassFactory() { }
-		
-		virtual FRealtimeMeshVertexFactoryRef CreateVertexFactory(ERHIFeatureLevel::Type InFeatureLevel) const;
-		virtual FRealtimeMeshSectionProxyRef CreateSectionProxy(const FRealtimeMeshProxyRef& InProxy, FRealtimeMeshSectionKey InKey, const FRealtimeMeshSectionProxyInitializationParametersRef& InitParams) const;
-		virtual FRealtimeMeshSectionGroupProxyRef CreateSectionGroupProxy(const FRealtimeMeshProxyRef& InProxy, FRealtimeMeshSectionGroupKey InKey, const FRealtimeMeshSectionGroupProxyInitializationParametersRef& InitParams) const;
-		virtual FRealtimeMeshLODProxyRef CreateLODProxy(const FRealtimeMeshProxyRef& InProxy, FRealtimeMeshLODKey InKey, const FRealtimeMeshLODProxyInitializationParametersRef& InitParams) const;
-		virtual FRealtimeMeshProxyRef CreateRealtimeMeshProxy(const TSharedRef<FRealtimeMesh>& InMesh) const;
-
-		virtual FRealtimeMeshSectionDataRef CreateSection(const FRealtimeMeshRef& InMesh, FRealtimeMeshSectionKey InKey, const FRealtimeMeshSectionConfig& InConfig, const FRealtimeMeshStreamRange& InStreamRange) const;
-		virtual FRealtimeMeshSectionGroupRef CreateSectionGroup(const FRealtimeMeshRef& InMesh, FRealtimeMeshSectionGroupKey InKey) const;
-		virtual FRealtimeMeshLODDataRef CreateLOD(const FRealtimeMeshRef& InMesh, FRealtimeMeshLODKey InKey, const FRealtimeMeshLODConfig& InConfig) const;
-
-		virtual FRealtimeMeshRef CreateRealtimeMesh() const;
-	};
-	using FRealtimeMeshClassFactoryPtr = TSharedPtr<const FRealtimeMeshClassFactory, ESPMode::ThreadSafe>;
-	using FRealtimeMeshClassFactoryRef = TSharedRef<const FRealtimeMeshClassFactory, ESPMode::ThreadSafe>;
-}
-
+	NoProxy,
+	NoUpdate,
+	Updated,
+};
 
 #undef LOCTEXT_NAMESPACE

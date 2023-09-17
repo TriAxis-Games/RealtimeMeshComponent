@@ -1,21 +1,15 @@
 ﻿// Copyright TriAxis Games, L.L.C. All Rights Reserved.
 
 #include "RenderProxy/RealtimeMeshSectionProxy.h"
-#include "RenderProxy/RealtimeMeshLODProxy.h"
-#include "RenderProxy/RealtimeMeshProxy.h"
 #include "RenderProxy/RealtimeMeshSectionGroupProxy.h"
 #include "RenderProxy/RealtimeMeshVertexFactory.h"
 
 namespace RealtimeMesh
 {
-	FRealtimeMeshSectionProxy::FRealtimeMeshSectionProxy(const FRealtimeMeshClassFactoryRef& InClassFactory, const FRealtimeMeshProxyRef& InProxy,
-		FRealtimeMeshSectionKey InKey, const FRealtimeMeshSectionProxyInitializationParametersRef& InInitParams)
-		: ClassFactory(InClassFactory)
-		, ProxyWeak(InProxy)
-		, Key(InKey)
-		, Config(InInitParams->Config)
-		, StreamRange(InInitParams->StreamRange)
-		, bIsStateDirty(true)
+	FRealtimeMeshSectionProxy::FRealtimeMeshSectionProxy(const FRealtimeMeshSharedResourcesRef& InSharedResources, const FRealtimeMeshSectionKey InKey)
+		: SharedResources(InSharedResources)
+		  , Key(InKey)
+		  , bIsStateDirty(true)
 	{
 	}
 
@@ -35,7 +29,7 @@ namespace RealtimeMesh
 		StreamRange = InStreamRange;
 		MarkStateDirty();
 	}
-	
+
 	bool FRealtimeMeshSectionProxy::CreateMeshBatch(
 		const FRealtimeMeshBatchCreationParams& Params,
 		const FRealtimeMeshVertexFactoryRef& VertexFactory,
@@ -45,20 +39,21 @@ namespace RealtimeMesh
 #if RHI_RAYTRACING
 		, const FRayTracingGeometry* RayTracingGeometry
 #endif
-		) const
+	) const
 	{
 		if (!VertexFactory->GatherVertexBufferResources(Params.ResourceSubmitter))
 		{
 			return false;
 		}
-		
+
 		FMeshBatch& MeshBatch = Params.BatchAllocator();
-		MeshBatch.LODIndex = FRealtimeMeshKeyHelpers::GetLODIndex(Key);
+		MeshBatch.LODIndex = Key.LOD();
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 		MeshBatch.VisualizeLODIndex = MeshBatch.LODIndex;
 #endif
 
-		MeshBatch.SegmentIndex = FRealtimeMeshKeyHelpers::GetSectionGroupIndex(Key);
+		// TODO: Map section index down
+		//MeshBatch.SegmentIndex = Key.SectionGroup();
 		MeshBatch.DepthPriorityGroup = SDPG_World;
 		MeshBatch.bCanApplyViewModeOverrides = false;
 
@@ -82,8 +77,8 @@ namespace RealtimeMesh
 #endif
 
 		FMeshBatchElement& BatchElement = MeshBatch.Elements[0];
-		BatchElement.UserIndex = FRealtimeMeshKeyHelpers::GetSectionIndex(Key);
-	
+		//BatchElement.UserIndex = Key;
+
 		BatchElement.PrimitiveUniformBuffer = Params.UniformBuffer;
 		BatchElement.IndexBuffer = &VertexFactory->GetIndexBuffer(bDepthOnly, bMatrixInverted, Params.ResourceSubmitter);
 		BatchElement.FirstIndex = StreamRange.GetMinIndex();
@@ -91,9 +86,9 @@ namespace RealtimeMesh
 		BatchElement.MinVertexIndex = StreamRange.GetMinVertex();
 		BatchElement.MaxVertexIndex = StreamRange.GetMaxVertex();
 
-		check(BatchElement.FirstIndex >= 0 && BatchElement.NumPrimitives <= (static_cast<const FRealtimeMeshIndexBuffer*>(BatchElement.IndexBuffer)->Num() - BatchElement.FirstIndex) / 3);
-		check(BatchElement.FirstIndex >= 0 && (int32)BatchElement.NumPrimitives <= StreamRange.NumPrimitives(REALTIME_MESH_NUM_INDICES_PER_PRIMITIVE))
-		check(BatchElement.MinVertexIndex >= 0 && (int32)BatchElement.MaxVertexIndex <= StreamRange.GetMaxVertex())
+		check(BatchElement.NumPrimitives <= (static_cast<const FRealtimeMeshIndexBuffer*>(BatchElement.IndexBuffer)->Num() - BatchElement.FirstIndex) / 3);
+		check((int32)BatchElement.NumPrimitives <= StreamRange.NumPrimitives(REALTIME_MESH_NUM_INDICES_PER_PRIMITIVE))
+		check((int32)BatchElement.MaxVertexIndex <= StreamRange.GetMaxVertex())
 
 		BatchElement.MinScreenSize = Params.ScreenSizeLimits.GetLowerBoundValue();
 		BatchElement.MaxScreenSize = Params.ScreenSizeLimits.GetUpperBoundValue();
@@ -103,18 +98,13 @@ namespace RealtimeMesh
 #else
 		Params.BatchSubmitter(MeshBatch, Params.ScreenSizeLimits.GetLowerBoundValue());
 #endif
-		
+
 		return true;
 	}
 
-	void FRealtimeMeshSectionProxy::MarkStateDirty()
+	bool FRealtimeMeshSectionProxy::UpdateCachedState(bool bShouldForceUpdate, FRealtimeMeshSectionGroupProxy& ParentGroup)
 	{
-		bIsStateDirty = true;
-	}
-
-	bool FRealtimeMeshSectionProxy::HandleUpdates()
-	{
-		if (!bIsStateDirty)
+		if (!bIsStateDirty && !bShouldForceUpdate)
 		{
 			return false;
 		}
@@ -122,30 +112,20 @@ namespace RealtimeMesh
 		// First evaluate whether we have valid mesh data to render			
 		bool bHasValidMeshData = StreamRange.NumPrimitives(REALTIME_MESH_NUM_INDICES_PER_PRIMITIVE) > 0 &&
 			StreamRange.NumVertices() >= REALTIME_MESH_NUM_INDICES_PER_PRIMITIVE;
-		
+
 		if (bHasValidMeshData)
 		{
 			// Flip it here so if we don't get this series for whatever reason we're invalid after.
-			bHasValidMeshData = false;
-			if (const FRealtimeMeshProxyPtr Proxy = ProxyWeak.Pin())
-			{
-				if (const FRealtimeMeshLODProxyPtr LOD = Proxy->GetLOD(Key.GetLODKey()))
-				{
-					if (const FRealtimeMeshSectionGroupProxyPtr SectionGroup = LOD->GetSectionGroup(Key.GetSectionGroupKey()))
-					{
-						bHasValidMeshData = SectionGroup->GetVertexFactory()->IsValidStreamRange(StreamRange);
-					}
-				}
-			}
+			bHasValidMeshData = ParentGroup.GetVertexFactory()->IsValidStreamRange(StreamRange);
 		}
-		
+
 		FRealtimeMeshDrawMask NewDrawMask;
 
 		// Then build the draw mask if it is valid
 		if (bHasValidMeshData)
 		{
 			if (Config.bIsVisible)
-			{					
+			{
 				if (Config.bIsMainPassRenderable)
 				{
 					NewDrawMask.SetFlag(ERealtimeMeshDrawMask::DrawMainPass);
@@ -159,14 +139,19 @@ namespace RealtimeMesh
 
 			if (NewDrawMask.HasAnyFlags())
 			{
-				NewDrawMask.SetFlag(Config.DrawType == ERealtimeMeshSectionDrawType::Static? ERealtimeMeshDrawMask::DrawStatic : ERealtimeMeshDrawMask::DrawDynamic);
+				NewDrawMask.SetFlag(Config.DrawType == ERealtimeMeshSectionDrawType::Static ? ERealtimeMeshDrawMask::DrawStatic : ERealtimeMeshDrawMask::DrawDynamic);
 			}
 		}
 
 		const bool bStateChanged = DrawMask != NewDrawMask;
-		DrawMask = NewDrawMask;		
+		DrawMask = NewDrawMask;
 		bIsStateDirty = false;
 		return bStateChanged;
+	}
+
+	void FRealtimeMeshSectionProxy::MarkStateDirty()
+	{
+		bIsStateDirty = true;
 	}
 
 	void FRealtimeMeshSectionProxy::Reset()
@@ -174,11 +159,6 @@ namespace RealtimeMesh
 		Config = FRealtimeMeshSectionConfig();
 		StreamRange = FRealtimeMeshStreamRange();
 		DrawMask = FRealtimeMeshDrawMask();
-		bIsStateDirty = false;
-	}
-
-	void FRealtimeMeshSectionProxy::OnStreamsUpdated(const TArray<FRealtimeMeshStreamKey>& AddedOrUpdatedStreams, const TArray<FRealtimeMeshStreamKey>& RemovedStreams)
-	{
-		MarkStateDirty();
+		bIsStateDirty = true;
 	}
 }

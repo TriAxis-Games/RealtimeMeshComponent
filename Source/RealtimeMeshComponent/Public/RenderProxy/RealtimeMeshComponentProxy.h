@@ -4,6 +4,9 @@
 
 #include "CoreMinimal.h"
 #include "RealtimeMeshSectionProxy.h"
+#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 2
+#include "PrimitiveSceneProxy.h"
+#endif
 
 class UBodySetup;
 class URealtimeMeshComponent;
@@ -32,8 +35,8 @@ namespace RealtimeMesh
 		FMaterialRelevance MaterialRelevance;
 
 		bool bAnyMaterialUsesDithering;
-	public:
 
+	public:
 		/*Constructor, copies the whole mesh data to feed to UE */
 		FRealtimeMeshComponentSceneProxy(URealtimeMeshComponent* Component, const FRealtimeMeshProxyRef& InRealtimeMeshProxy);
 
@@ -54,7 +57,8 @@ namespace RealtimeMesh
 
 		virtual void DrawStaticElements(FStaticPrimitiveDrawInterface* PDI) override;
 
-		virtual void GetDynamicMeshElements(const TArray<const FSceneView*>& Views, const FSceneViewFamily& ViewFamily, uint32 VisibilityMap, FMeshElementCollector& Collector) const override;
+		virtual void GetDynamicMeshElements(const TArray<const FSceneView*>& Views, const FSceneViewFamily& ViewFamily, uint32 VisibilityMap,
+		                                    FMeshElementCollector& Collector) const override;
 
 
 #if RHI_RAYTRACING
@@ -66,24 +70,20 @@ namespace RealtimeMesh
 
 #endif // RHI_RAYTRACING
 
-
 	protected:
-	
 		SIZE_T GetAllocatedSize(void) const;
-	
+
 		FMaterialRenderProxy* GetMaterialSlot(int32 MaterialSlotId) const;
 
 
 		// void CreateMeshBatch(TArray<TSharedRef<FRealtimeMeshRenderingBuffers>>* InUseBuffers, FMeshBatch& MeshBatch, const FRealtimeMeshLODProxy& LOD, const FLODMask& LODMask, const TScreenSizeLimits& ScreenSizeLimits,
 		// 	int32 SectionID, const FMaterialRenderProxy* WireframeMaterial, const FMaterialRenderProxy* SectionMaterial, bool bSupportsDithering) const;
 
-	
+
 		int8 GetCurrentFirstLOD() const;
 
 		int8 ComputeTemporalStaticMeshLOD(const FVector4& Origin, const float SphereRadius, const FSceneView& View, int32 MinLOD, float FactorScale, int32 SampleIndex) const;
 		int8 ComputeStaticMeshLOD(const FVector4& Origin, const float SphereRadius, const FSceneView& View, int32 MinLOD, float FactorScale) const;
 		FLODMask GetLODMask(const FSceneView* View) const;
-
 	};
-	
 }

@@ -2,71 +2,100 @@
 
 #pragma once
 
-#include "RealtimeMeshConfig.h"
 #include "RealtimeMeshCore.h"
+#include "RealtimeMeshConfig.h"
+#include "RealtimeMeshShared.h"
 
 namespace RealtimeMesh
 {
-	class REALTIMEMESHCOMPONENT_API FRealtimeMeshSectionData : public TSharedFromThis<FRealtimeMeshSectionData>
-	{
-	public:
-		DECLARE_EVENT_OneParam(FRealtimeMeshSectionData, FConfigUpdatedEvent, const FRealtimeMeshSectionDataRef&);
-		DECLARE_EVENT_OneParam(FRealtimeMeshSectionData, FSegmentUpdatedEvent, const FRealtimeMeshSectionDataRef&);
-		DECLARE_EVENT_OneParam(FRealtimeMeshSectionData, FBoundsUpdatedEvent, const FRealtimeMeshSectionDataRef&);
-	private:
-		FConfigUpdatedEvent ConfigUpdatedEvent;
-		FSegmentUpdatedEvent StreamRangeUpdatedEvent;
-		FBoundsUpdatedEvent BoundsUpdatedEvent;
-	public:
-		FConfigUpdatedEvent& OnConfigUpdated() { return ConfigUpdatedEvent; }
-		FSegmentUpdatedEvent& OnStreamRangeUpdated() { return StreamRangeUpdatedEvent; }
-		FBoundsUpdatedEvent& OnBoundsUpdated() { return BoundsUpdatedEvent; }
+	struct FRealtimeMeshProxyCommandBatch;
+	struct FRealtimeMeshSectionUpdateContext;
 
+	class REALTIMEMESHCOMPONENT_API FRealtimeMeshSection : public TSharedFromThis<FRealtimeMeshSection>
+	{
 	protected:
-		const FRealtimeMeshClassFactoryRef ClassFactory;
-		const FRealtimeMeshWeakPtr MeshWeak;
+		const FRealtimeMeshSharedResourcesRef SharedResources;
 		const FRealtimeMeshSectionKey Key;
+
+	private:
 		FRealtimeMeshSectionConfig Config;
 		FRealtimeMeshStreamRange StreamRange;
-		FBoxSphereBounds3f LocalBounds;
-		mutable FRWLock Lock;
+		FRealtimeMeshBounds Bounds;
+
 	public:
-		FRealtimeMeshSectionData(const FRealtimeMeshClassFactoryRef& InClassFactory, const FRealtimeMeshRef& InMesh, FRealtimeMeshSectionKey InKey,
-		                         const FRealtimeMeshSectionConfig& InConfig, const FRealtimeMeshStreamRange& InStreamRange);
-		virtual ~FRealtimeMeshSectionData() = default;
+		FRealtimeMeshSection(const FRealtimeMeshSharedResourcesRef& InSharedResources, const FRealtimeMeshSectionKey& InKey);
+		virtual ~FRealtimeMeshSection() = default;
 
-		FName GetMeshName() const;
-
-		FRealtimeMeshSectionGroupPtr GetSectionGroup() const;
-		template<typename SectionGroupType>
+		template <typename SectionGroupType>
 		TSharedPtr<SectionGroupType> GetSectionGroupAs() const
 		{
 			return StaticCastSharedPtr<SectionGroupType>(GetSectionGroup());
 		}
-		
+
+		FRealtimeMeshSectionGroupPtr GetSectionGroup() const;
+
 		FRealtimeMeshSectionKey GetKey() const { return Key; }
 		FRealtimeMeshSectionConfig GetConfig() const;
 		FRealtimeMeshStreamRange GetStreamRange() const;
 		FBoxSphereBounds3f GetLocalBounds() const;
+		bool IsVisible() const { return GetConfig().bIsVisible; }
+		bool IsCastingShadow() const { return GetConfig().bCastsShadow; }
 
-		virtual void Initialize(const FRealtimeMeshSectionConfig& InConfig, const FRealtimeMeshStreamRange& InStreamRange);
-		virtual FRealtimeMeshSectionProxyInitializationParametersRef GetInitializationParams() const;
+		virtual void Initialize(FRealtimeMeshProxyCommandBatch& Commands, const FRealtimeMeshSectionConfig& InConfig, const FRealtimeMeshStreamRange& InRange);
+		TFuture<ERealtimeMeshProxyUpdateStatus> Reset();
+		virtual void Reset(FRealtimeMeshProxyCommandBatch& Commands);
 
-		virtual void UpdateBounds(const FBoxSphereBounds3f& InBounds);
-		virtual void UpdateConfig(const FRealtimeMeshSectionConfig& InConfig);
-		virtual void UpdateStreamRange(const FRealtimeMeshStreamRange& InRange);
+		void SetOverrideBounds(const FBoxSphereBounds3f& InBounds);
+		bool HasOverrideBounds() const { return Bounds.HasUserSetBounds(); }
+		void ClearOverrideBounds();
 
-		virtual bool IsVisible() const;		
-		virtual void SetVisibility(bool bIsVisible);		
-		virtual bool IsCastingShadow() const;		
-		virtual void SetCastShadow(bool bCastShadow);
-		
-		void MarkRenderStateDirty(bool bShouldRecreateProxies);
+		TFuture<ERealtimeMeshProxyUpdateStatus> UpdateConfig(const FRealtimeMeshSectionConfig& InConfig);
+		virtual void UpdateConfig(FRealtimeMeshProxyCommandBatch& Commands, const FRealtimeMeshSectionConfig& InConfig);
+		TFuture<ERealtimeMeshProxyUpdateStatus> UpdateConfig(TFunction<void(FRealtimeMeshSectionConfig&)> EditFunc);
+		virtual void UpdateConfig(FRealtimeMeshProxyCommandBatch& Commands, TFunction<void(FRealtimeMeshSectionConfig&)> EditFunc);
+		TFuture<ERealtimeMeshProxyUpdateStatus> UpdateStreamRange(const FRealtimeMeshStreamRange& InRange);
+		virtual void UpdateStreamRange(FRealtimeMeshProxyCommandBatch& Commands, const FRealtimeMeshStreamRange& InRange);
 
-		virtual void OnStreamsChanged(const TArray<FRealtimeMeshStreamKey>& AddedOrUpdatedStreams, const TArray<FRealtimeMeshStreamKey>& RemovedStreams);
+		TFuture<ERealtimeMeshProxyUpdateStatus> SetVisibility(bool bIsVisible);
+		virtual void SetVisibility(FRealtimeMeshProxyCommandBatch& Commands, bool bIsVisible);
+		TFuture<ERealtimeMeshProxyUpdateStatus> SetCastShadow(bool bCastShadow);
+		virtual void SetCastShadow(FRealtimeMeshProxyCommandBatch& Commands, bool bCastShadow);
+
 
 		virtual bool Serialize(FArchive& Ar);
+
+		virtual void InitializeProxy(FRealtimeMeshProxyCommandBatch& Commands);
+		/*virtual void ApplyStateUpdate(FRealtimeMeshProxyCommandBatch& Commands, FRealtimeMeshSectionUpdateContext& Update);*/
 	protected:
-		void DoOnValidProxy(TUniqueFunction<void(const FRealtimeMeshSectionProxyRef&)>&& Function) const;
+		void MarkBoundsDirtyIfNotOverridden() const;
+
+		virtual FBoxSphereBounds3f CalculateBounds() const;
+
+		virtual bool ShouldRecreateProxyOnChange() const { return Config.DrawType == ERealtimeMeshSectionDrawType::Static; }
+	};
+
+	struct FRealtimeMeshSectionRefKeyFuncs : BaseKeyFuncs<TSharedRef<FRealtimeMeshSection>, FRealtimeMeshSectionKey, false>
+	{
+		/**
+		 * @return The key used to index the given element.
+		 */
+		static KeyInitType GetSetKey(ElementInitType Element)
+		{
+			return Element->GetKey();
+		}
+
+		/**
+		 * @return True if the keys match.
+		 */
+		static bool Matches(KeyInitType A, KeyInitType B)
+		{
+			return A == B;
+		}
+
+		/** Calculates a hash index for a key. */
+		static uint32 GetKeyHash(KeyInitType Key)
+		{
+			return GetTypeHash(Key);
+		}
 	};
 }

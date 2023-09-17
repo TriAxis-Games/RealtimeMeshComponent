@@ -5,7 +5,7 @@
 #include "Data/RealtimeMeshSectionGroup.h"
 #include "Data/RealtimeMeshLOD.h"
 #include "Data/RealtimeMeshSection.h"
-#include "Data/RealtimeMeshData.h"
+#include "..\Public\Data\RealtimeMeshData.h"
 #include "RenderProxy/RealtimeMeshLODProxy.h"
 #include "RenderProxy/RealtimeMeshProxy.h"
 #include "RenderProxy/RealtimeMeshSectionGroupProxy.h"
@@ -20,57 +20,66 @@ namespace RealtimeMesh
 		Ar << Key.StreamType;
 		return Ar;
 	}
-	
-	FRealtimeMeshVertexFactoryRef FRealtimeMeshClassFactory::CreateVertexFactory(ERHIFeatureLevel::Type InFeatureLevel) const
+
+
+	ERHIFeatureLevel::Type FRealtimeMeshSharedResources::GetFeatureLevel() const
 	{
-		return MakeShareable(new FRealtimeMeshLocalVertexFactory(InFeatureLevel), FRealtimeMeshRenderThreadDeleter<FRealtimeMeshLocalVertexFactory>());
+		if (const auto ProxyPinned = Proxy.Pin()) { return ProxyPinned->GetRHIFeatureLevel(); }
+		return GMaxRHIFeatureLevel;
 	}
 
-	FRealtimeMeshSectionProxyRef FRealtimeMeshClassFactory::CreateSectionProxy(const FRealtimeMeshProxyRef& InProxy, FRealtimeMeshSectionKey InKey,
-		const FRealtimeMeshSectionProxyInitializationParametersRef& InitParams) const
+	FRealtimeMeshVertexFactoryRef FRealtimeMeshSharedResources::CreateVertexFactory() const
 	{
-		return MakeShareable(new FRealtimeMeshSectionProxy(this->AsShared(), InProxy, InKey, InitParams),
-			FRealtimeMeshRenderThreadDeleter<FRealtimeMeshSectionProxy>());
+		return MakeShareable(new FRealtimeMeshLocalVertexFactory(GetFeatureLevel()), FRealtimeMeshRenderThreadDeleter<FRealtimeMeshLocalVertexFactory>());
 	}
 
-	TSharedRef<FRealtimeMeshSectionGroupProxy> FRealtimeMeshClassFactory::CreateSectionGroupProxy(const FRealtimeMeshProxyRef& InProxy,
-		FRealtimeMeshSectionGroupKey InKey, const FRealtimeMeshSectionGroupProxyInitializationParametersRef& InitParams) const
+	FRealtimeMeshSectionProxyRef FRealtimeMeshSharedResources::CreateSectionProxy(const FRealtimeMeshSectionKey& InKey) const
 	{
-		return MakeShareable(new FRealtimeMeshSectionGroupProxy(this->AsShared(), InProxy, InKey, InitParams),
-			FRealtimeMeshRenderThreadDeleter<FRealtimeMeshSectionGroupProxy>());
+		return MakeShareable(new FRealtimeMeshSectionProxy(ConstCastSharedRef<FRealtimeMeshSharedResources>(this->AsShared()), InKey),
+		                     FRealtimeMeshRenderThreadDeleter<FRealtimeMeshSectionProxy>());
 	}
 
-	TSharedRef<FRealtimeMeshLODProxy> FRealtimeMeshClassFactory::CreateLODProxy(const FRealtimeMeshProxyRef& InProxy, FRealtimeMeshLODKey InKey,
-		const FRealtimeMeshLODProxyInitializationParametersRef& InitParams) const
+	TSharedRef<FRealtimeMeshSectionGroupProxy> FRealtimeMeshSharedResources::CreateSectionGroupProxy(const FRealtimeMeshSectionGroupKey& InKey) const
 	{
-		return MakeShareable(new FRealtimeMeshLODProxy(this->AsShared(), InProxy, InKey, InitParams),
-			FRealtimeMeshRenderThreadDeleter<FRealtimeMeshLODProxy>());
+		return MakeShareable(new FRealtimeMeshSectionGroupProxy(ConstCastSharedRef<FRealtimeMeshSharedResources>(this->AsShared()), InKey),
+		                     FRealtimeMeshRenderThreadDeleter<FRealtimeMeshSectionGroupProxy>());
 	}
 
-	TSharedRef<FRealtimeMeshProxy> FRealtimeMeshClassFactory::CreateRealtimeMeshProxy(const TSharedRef<FRealtimeMesh>& InMesh) const
+	TSharedRef<FRealtimeMeshLODProxy> FRealtimeMeshSharedResources::CreateLODProxy(const FRealtimeMeshLODKey& InKey) const
 	{
-		return MakeShareable(new FRealtimeMeshProxy(this->AsShared(), InMesh),
-			FRealtimeMeshRenderThreadDeleter<FRealtimeMeshProxy>());
-	}
-	
-	FRealtimeMeshSectionDataRef FRealtimeMeshClassFactory::CreateSection(const FRealtimeMeshRef& InMesh, FRealtimeMeshSectionKey InKey,
-		const FRealtimeMeshSectionConfig& InConfig, const FRealtimeMeshStreamRange& InStreamRange) const
-	{
-		return MakeShared<FRealtimeMeshSectionData>(this->AsShared(), InMesh, InKey, InConfig, InStreamRange);
+		return MakeShareable(new FRealtimeMeshLODProxy(ConstCastSharedRef<FRealtimeMeshSharedResources>(this->AsShared()), InKey),
+		                     FRealtimeMeshRenderThreadDeleter<FRealtimeMeshLODProxy>());
 	}
 
-	TSharedRef<FRealtimeMeshSectionGroup> FRealtimeMeshClassFactory::CreateSectionGroup(const FRealtimeMeshRef& InMesh, FRealtimeMeshSectionGroupKey InKey) const
+	TSharedRef<FRealtimeMeshProxy> FRealtimeMeshSharedResources::CreateRealtimeMeshProxy() const
 	{
-		return MakeShared<FRealtimeMeshSectionGroup>(this->AsShared(), InMesh, InKey);
-	}
-	
-	FRealtimeMeshLODDataRef FRealtimeMeshClassFactory::CreateLOD(const FRealtimeMeshRef& InMesh, FRealtimeMeshLODKey InKey, const FRealtimeMeshLODConfig& InConfig) const
-	{
-		return MakeShared<FRealtimeMeshLODData>(this->AsShared(), InMesh, InKey, InConfig);
+		return MakeShareable(new FRealtimeMeshProxy(ConstCastSharedRef<FRealtimeMeshSharedResources>(this->AsShared())),
+		                     FRealtimeMeshRenderThreadDeleter<FRealtimeMeshProxy>());
 	}
 
-	FRealtimeMeshRef FRealtimeMeshClassFactory::CreateRealtimeMesh() const
+	FRealtimeMeshSectionRef FRealtimeMeshSharedResources::CreateSection(const FRealtimeMeshSectionKey& InKey) const
 	{
-		check(false && "Cannot create abstract FRealtimeMesh"); return MakeShareable(static_cast<FRealtimeMesh*>(nullptr));
+		return MakeShared<FRealtimeMeshSection>(ConstCastSharedRef<FRealtimeMeshSharedResources>(this->AsShared()), InKey);
+	}
+
+	TSharedRef<FRealtimeMeshSectionGroup> FRealtimeMeshSharedResources::CreateSectionGroup(const FRealtimeMeshSectionGroupKey& InKey) const
+	{
+		return MakeShared<FRealtimeMeshSectionGroup>(ConstCastSharedRef<FRealtimeMeshSharedResources>(this->AsShared()), InKey);
+	}
+
+	FRealtimeMeshLODDataRef FRealtimeMeshSharedResources::CreateLOD(const FRealtimeMeshLODKey& InKey) const
+	{
+		return MakeShared<FRealtimeMeshLODData>(ConstCastSharedRef<FRealtimeMeshSharedResources>(this->AsShared()), InKey);
+	}
+
+	FRealtimeMeshRef FRealtimeMeshSharedResources::CreateRealtimeMesh() const
+	{
+		check(false && "Cannot create abstract FRealtimeMesh");
+		return MakeShareable(static_cast<FRealtimeMesh*>(nullptr));
+	}
+
+	FRealtimeMeshSharedResourcesRef FRealtimeMeshSharedResources::CreateSharedResources() const
+	{
+		return MakeShared<FRealtimeMeshSharedResources>();
 	}
 }

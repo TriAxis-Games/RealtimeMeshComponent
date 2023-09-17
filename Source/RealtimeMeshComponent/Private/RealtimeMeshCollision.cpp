@@ -4,17 +4,18 @@
 #include "RealtimeMeshCollision.h"
 #include "PhysicsEngine/BodySetup.h"
 #include "Interface_CollisionDataProviderCore.h"
+#include "RealtimeMeshCore.h"
 
 
 namespace RealtimeMesh::CollisionHelpers
-{	
+{
 	static void AddToNameMap(TMap<FName, int32>& NameMap, const FName& Name, int32 Index)
 	{
 		if (Name != NAME_None)
 		{
 			if (!NameMap.Contains(Name))
 			{
-				NameMap.Add(Name, Index);				
+				NameMap.Add(Name, Index);
 			}
 			else
 			{
@@ -51,13 +52,26 @@ namespace RealtimeMesh::CollisionHelpers
 			else
 			{
 				UE_LOG(LogTemp, Warning, TEXT("Name %s does not exist in the map"), *Name.ToString());
-			}			
+			}
 		}
 	}
 }
 
 using namespace RealtimeMesh::CollisionHelpers;
 
+FArchive& operator<<(FArchive& Ar, FRealtimeMeshCollisionConfiguration& Config)
+{
+	Ar << Config.bUseComplexAsSimpleCollision;
+	Ar << Config.bUseAsyncCook;
+	Ar << Config.bShouldFastCookMeshes;
+
+	if (Ar.CustomVer(RealtimeMesh::FRealtimeMeshVersion::GUID) >= RealtimeMesh::FRealtimeMeshVersion::CollisionUpdateFlowRestructure)
+	{
+		Ar << Config.bFlipNormals;
+		Ar << Config.bDeformableMesh;
+	}
+	return Ar;
+}
 
 FArchive& operator<<(FArchive& Ar, FRealtimeMeshCollisionShape& Shape)
 {
@@ -107,6 +121,20 @@ FArchive& operator<<(FArchive& Ar, FRealtimeMeshCollisionConvex& Shape)
 	return Ar;
 }
 
+static FArchive& operator<<(FArchive& Ar, FTriIndices& Indices)
+{
+	Ar << Indices.v0 << Indices.v1 << Indices.v2;
+	return Ar;
+}
+
+FArchive& operator<<(FArchive& Ar, FRealtimeMeshTriMeshData& MeshData)
+{
+	Ar << MeshData.Vertices;
+	Ar << MeshData.Triangles;
+	Ar << MeshData.Materials;
+	Ar << MeshData.UVs;
+	return Ar;
+}
 
 
 // Sphere Functions
@@ -571,35 +599,35 @@ FRealtimeMeshSimpleGeometry& URealtimeMeshSimpleGeometryFunctionLibrary::AddSphe
 }
 
 FRealtimeMeshSimpleGeometry& URealtimeMeshSimpleGeometryFunctionLibrary::InsertSphere(FRealtimeMeshSimpleGeometry& SimpleGeometry,
-	int32 Index, const FRealtimeMeshCollisionSphere& InSphere, bool& OutSuccess)
+                                                                                      int32 Index, const FRealtimeMeshCollisionSphere& InSphere, bool& OutSuccess)
 {
 	OutSuccess = SimpleGeometry.InsertSphere(Index, InSphere);
 	return SimpleGeometry;
 }
 
 FRealtimeMeshSimpleGeometry& URealtimeMeshSimpleGeometryFunctionLibrary::GetSphereByName(FRealtimeMeshSimpleGeometry& SimpleGeometry,
-	FName SphereName, bool& OutSuccess, FRealtimeMeshCollisionSphere& OutSphere)
+                                                                                         FName SphereName, bool& OutSuccess, FRealtimeMeshCollisionSphere& OutSphere)
 {
 	OutSuccess = SimpleGeometry.GetSphereByName(SphereName, OutSphere);
 	return SimpleGeometry;
 }
 
 FRealtimeMeshSimpleGeometry& URealtimeMeshSimpleGeometryFunctionLibrary::UpdateSphere(FRealtimeMeshSimpleGeometry& SimpleGeometry,
-	int32 Index, const FRealtimeMeshCollisionSphere& InSphere, bool& OutSuccess)
+                                                                                      int32 Index, const FRealtimeMeshCollisionSphere& InSphere, bool& OutSuccess)
 {
 	OutSuccess = SimpleGeometry.UpdateSphere(Index, InSphere);
 	return SimpleGeometry;
 }
 
 FRealtimeMeshSimpleGeometry& URealtimeMeshSimpleGeometryFunctionLibrary::RemoveSphere(FRealtimeMeshSimpleGeometry& SimpleGeometry,
-	int32 Index, bool& OutSuccess)
+                                                                                      int32 Index, bool& OutSuccess)
 {
 	OutSuccess = SimpleGeometry.RemoveSphere(Index);
 	return SimpleGeometry;
 }
 
 FRealtimeMeshSimpleGeometry& URealtimeMeshSimpleGeometryFunctionLibrary::RemoveSphereByName(FRealtimeMeshSimpleGeometry& SimpleGeometry,
-	FName SphereName, bool& OutSuccess)
+                                                                                            FName SphereName, bool& OutSuccess)
 {
 	OutSuccess = SimpleGeometry.RemoveSphere(SphereName);
 	return SimpleGeometry;
@@ -609,42 +637,42 @@ FRealtimeMeshSimpleGeometry& URealtimeMeshSimpleGeometryFunctionLibrary::RemoveS
 // Box Functions
 
 FRealtimeMeshSimpleGeometry& URealtimeMeshSimpleGeometryFunctionLibrary::AddBox(FRealtimeMeshSimpleGeometry& SimpleGeometry,
-	const FRealtimeMeshCollisionBox& InBox, int32& OutIndex)
+                                                                                const FRealtimeMeshCollisionBox& InBox, int32& OutIndex)
 {
 	OutIndex = SimpleGeometry.AddBox(InBox);
 	return SimpleGeometry;
 }
 
 FRealtimeMeshSimpleGeometry& URealtimeMeshSimpleGeometryFunctionLibrary::InsertBox(FRealtimeMeshSimpleGeometry& SimpleGeometry,
-	int32 Index, const FRealtimeMeshCollisionBox& InBox, bool& OutSuccess)
+                                                                                   int32 Index, const FRealtimeMeshCollisionBox& InBox, bool& OutSuccess)
 {
 	OutSuccess = SimpleGeometry.InsertBox(Index, InBox);
 	return SimpleGeometry;
 }
 
 FRealtimeMeshSimpleGeometry& URealtimeMeshSimpleGeometryFunctionLibrary::GetBoxByName(FRealtimeMeshSimpleGeometry& SimpleGeometry,
-	FName BoxName, bool& OutSuccess, FRealtimeMeshCollisionBox& OutBox)
+                                                                                      FName BoxName, bool& OutSuccess, FRealtimeMeshCollisionBox& OutBox)
 {
 	OutSuccess = SimpleGeometry.GetBoxByName(BoxName, OutBox);
 	return SimpleGeometry;
 }
 
 FRealtimeMeshSimpleGeometry& URealtimeMeshSimpleGeometryFunctionLibrary::UpdateBox(FRealtimeMeshSimpleGeometry& SimpleGeometry,
-	int32 Index, const FRealtimeMeshCollisionBox& InBox, bool& OutSuccess)
+                                                                                   int32 Index, const FRealtimeMeshCollisionBox& InBox, bool& OutSuccess)
 {
 	OutSuccess = SimpleGeometry.UpdateBox(Index, InBox);
 	return SimpleGeometry;
 }
 
 FRealtimeMeshSimpleGeometry& URealtimeMeshSimpleGeometryFunctionLibrary::RemoveBox(FRealtimeMeshSimpleGeometry& SimpleGeometry,
-	int32 Index, bool& OutSuccess)
+                                                                                   int32 Index, bool& OutSuccess)
 {
 	OutSuccess = SimpleGeometry.RemoveBox(Index);
 	return SimpleGeometry;
 }
 
 FRealtimeMeshSimpleGeometry& URealtimeMeshSimpleGeometryFunctionLibrary::RemoveBoxByName(FRealtimeMeshSimpleGeometry& SimpleGeometry,
-	FName BoxName, bool& OutSuccess)
+                                                                                         FName BoxName, bool& OutSuccess)
 {
 	OutSuccess = SimpleGeometry.RemoveBox(BoxName);
 	return SimpleGeometry;
@@ -654,42 +682,42 @@ FRealtimeMeshSimpleGeometry& URealtimeMeshSimpleGeometryFunctionLibrary::RemoveB
 // Capsule Functions
 
 FRealtimeMeshSimpleGeometry& URealtimeMeshSimpleGeometryFunctionLibrary::AddCapsule(FRealtimeMeshSimpleGeometry& SimpleGeometry,
-	const FRealtimeMeshCollisionCapsule& InCapsule, int32& OutIndex)
+                                                                                    const FRealtimeMeshCollisionCapsule& InCapsule, int32& OutIndex)
 {
 	OutIndex = SimpleGeometry.AddCapsule(InCapsule);
 	return SimpleGeometry;
 }
 
 FRealtimeMeshSimpleGeometry& URealtimeMeshSimpleGeometryFunctionLibrary::InsertCapsule(FRealtimeMeshSimpleGeometry& SimpleGeometry,
-	int32 Index, const FRealtimeMeshCollisionCapsule& InCapsule, bool& OutSuccess)
+                                                                                       int32 Index, const FRealtimeMeshCollisionCapsule& InCapsule, bool& OutSuccess)
 {
 	OutSuccess = SimpleGeometry.InsertCapsule(Index, InCapsule);
 	return SimpleGeometry;
 }
 
 FRealtimeMeshSimpleGeometry& URealtimeMeshSimpleGeometryFunctionLibrary::GetCapsuleByName(FRealtimeMeshSimpleGeometry& SimpleGeometry,
-	FName CapsuleName, bool& OutSuccess, FRealtimeMeshCollisionCapsule& OutCapsule)
+                                                                                          FName CapsuleName, bool& OutSuccess, FRealtimeMeshCollisionCapsule& OutCapsule)
 {
 	OutSuccess = SimpleGeometry.GetCapsuleByName(CapsuleName, OutCapsule);
 	return SimpleGeometry;
 }
 
 FRealtimeMeshSimpleGeometry& URealtimeMeshSimpleGeometryFunctionLibrary::UpdateCapsule(FRealtimeMeshSimpleGeometry& SimpleGeometry,
-	int32 Index, const FRealtimeMeshCollisionCapsule& InCapsule, bool& OutSuccess)
+                                                                                       int32 Index, const FRealtimeMeshCollisionCapsule& InCapsule, bool& OutSuccess)
 {
 	OutSuccess = SimpleGeometry.UpdateCapsule(Index, InCapsule);
 	return SimpleGeometry;
 }
 
 FRealtimeMeshSimpleGeometry& URealtimeMeshSimpleGeometryFunctionLibrary::RemoveCapsule(FRealtimeMeshSimpleGeometry& SimpleGeometry,
-	int32 Index, bool& OutSuccess)
+                                                                                       int32 Index, bool& OutSuccess)
 {
 	OutSuccess = SimpleGeometry.RemoveCapsule(Index);
 	return SimpleGeometry;
 }
 
 FRealtimeMeshSimpleGeometry& URealtimeMeshSimpleGeometryFunctionLibrary::RemoveCapsuleByName(FRealtimeMeshSimpleGeometry& SimpleGeometry,
-	FName CapsuleName, bool& OutSuccess)
+                                                                                             FName CapsuleName, bool& OutSuccess)
 {
 	OutSuccess = SimpleGeometry.RemoveCapsule(CapsuleName);
 	return SimpleGeometry;
@@ -699,42 +727,45 @@ FRealtimeMeshSimpleGeometry& URealtimeMeshSimpleGeometryFunctionLibrary::RemoveC
 // Tapered Capsule Functions
 
 FRealtimeMeshSimpleGeometry& URealtimeMeshSimpleGeometryFunctionLibrary::AddTaperedCapsule(FRealtimeMeshSimpleGeometry& SimpleGeometry,
-	const FRealtimeMeshCollisionTaperedCapsule& InTaperedCapsule, int32& OutIndex)
+                                                                                           const FRealtimeMeshCollisionTaperedCapsule& InTaperedCapsule, int32& OutIndex)
 {
 	OutIndex = SimpleGeometry.AddTaperedCapsule(InTaperedCapsule);
 	return SimpleGeometry;
 }
 
 FRealtimeMeshSimpleGeometry& URealtimeMeshSimpleGeometryFunctionLibrary::InsertTaperedCapsule(FRealtimeMeshSimpleGeometry& SimpleGeometry,
-	int32 Index, const FRealtimeMeshCollisionTaperedCapsule& InTaperedCapsule, bool& OutSuccess)
+                                                                                              int32 Index, const FRealtimeMeshCollisionTaperedCapsule& InTaperedCapsule,
+                                                                                              bool& OutSuccess)
 {
 	OutSuccess = SimpleGeometry.InsertTaperedCapsule(Index, InTaperedCapsule);
 	return SimpleGeometry;
 }
 
 FRealtimeMeshSimpleGeometry& URealtimeMeshSimpleGeometryFunctionLibrary::GetTaperedCapsuleByName(FRealtimeMeshSimpleGeometry& SimpleGeometry,
-	FName TaperedCapsuleName, bool& OutSuccess, FRealtimeMeshCollisionTaperedCapsule& OutTaperedCapsule)
+                                                                                                 FName TaperedCapsuleName, bool& OutSuccess,
+                                                                                                 FRealtimeMeshCollisionTaperedCapsule& OutTaperedCapsule)
 {
 	OutSuccess = SimpleGeometry.GetTaperedCapsuleByName(TaperedCapsuleName, OutTaperedCapsule);
 	return SimpleGeometry;
 }
 
 FRealtimeMeshSimpleGeometry& URealtimeMeshSimpleGeometryFunctionLibrary::UpdateTaperedCapsule(FRealtimeMeshSimpleGeometry& SimpleGeometry,
-	int32 Index, const FRealtimeMeshCollisionTaperedCapsule& InTaperedCapsule, bool& OutSuccess)
+                                                                                              int32 Index, const FRealtimeMeshCollisionTaperedCapsule& InTaperedCapsule,
+                                                                                              bool& OutSuccess)
 {
 	OutSuccess = SimpleGeometry.UpdateTaperedCapsule(Index, InTaperedCapsule);
 	return SimpleGeometry;
 }
 
 FRealtimeMeshSimpleGeometry& URealtimeMeshSimpleGeometryFunctionLibrary::RemoveTaperedCapsule(FRealtimeMeshSimpleGeometry& SimpleGeometry,
-	int32 Index, bool& OutSuccess)
+                                                                                              int32 Index, bool& OutSuccess)
 {
 	OutSuccess = SimpleGeometry.RemoveTaperedCapsule(Index);
 	return SimpleGeometry;
 }
 
 FRealtimeMeshSimpleGeometry& URealtimeMeshSimpleGeometryFunctionLibrary::RemoveTaperedCapsuleByName(FRealtimeMeshSimpleGeometry& SimpleGeometry,
-	FName TaperedCapsuleName, bool& OutSuccess)
+                                                                                                    FName TaperedCapsuleName, bool& OutSuccess)
 {
 	OutSuccess = SimpleGeometry.RemoveTaperedCapsule(TaperedCapsuleName);
 	return SimpleGeometry;
@@ -744,48 +775,43 @@ FRealtimeMeshSimpleGeometry& URealtimeMeshSimpleGeometryFunctionLibrary::RemoveT
 // Convex Functions
 
 FRealtimeMeshSimpleGeometry& URealtimeMeshSimpleGeometryFunctionLibrary::AddConvex(FRealtimeMeshSimpleGeometry& SimpleGeometry,
-	const FRealtimeMeshCollisionConvex& InConvex, int32& OutIndex)
+                                                                                   const FRealtimeMeshCollisionConvex& InConvex, int32& OutIndex)
 {
 	OutIndex = SimpleGeometry.AddConvexHull(InConvex);
 	return SimpleGeometry;
 }
 
 FRealtimeMeshSimpleGeometry& URealtimeMeshSimpleGeometryFunctionLibrary::InsertConvex(FRealtimeMeshSimpleGeometry& SimpleGeometry,
-	int32 Index, const FRealtimeMeshCollisionConvex& InConvex, bool& OutSuccess)
+                                                                                      int32 Index, const FRealtimeMeshCollisionConvex& InConvex, bool& OutSuccess)
 {
 	OutSuccess = SimpleGeometry.InsertConvexHull(Index, InConvex);
 	return SimpleGeometry;
 }
 
 FRealtimeMeshSimpleGeometry& URealtimeMeshSimpleGeometryFunctionLibrary::GetConvexByName(FRealtimeMeshSimpleGeometry& SimpleGeometry,
-	FName ConvexName, bool& OutSuccess, FRealtimeMeshCollisionConvex& OutConvex)
+                                                                                         FName ConvexName, bool& OutSuccess, FRealtimeMeshCollisionConvex& OutConvex)
 {
 	OutSuccess = SimpleGeometry.GetConvexHullByName(ConvexName, OutConvex);
 	return SimpleGeometry;
 }
 
 FRealtimeMeshSimpleGeometry& URealtimeMeshSimpleGeometryFunctionLibrary::UpdateConvex(FRealtimeMeshSimpleGeometry& SimpleGeometry,
-	int32 Index, const FRealtimeMeshCollisionConvex& InConvex, bool& OutSuccess)
+                                                                                      int32 Index, const FRealtimeMeshCollisionConvex& InConvex, bool& OutSuccess)
 {
 	OutSuccess = SimpleGeometry.UpdateConvexHull(Index, InConvex);
 	return SimpleGeometry;
 }
 
 FRealtimeMeshSimpleGeometry& URealtimeMeshSimpleGeometryFunctionLibrary::RemoveConvex(FRealtimeMeshSimpleGeometry& SimpleGeometry,
-	int32 Index, bool& OutSuccess)
+                                                                                      int32 Index, bool& OutSuccess)
 {
 	OutSuccess = SimpleGeometry.RemoveConvexHull(Index);
 	return SimpleGeometry;
 }
 
 FRealtimeMeshSimpleGeometry& URealtimeMeshSimpleGeometryFunctionLibrary::RemoveConvexByName(FRealtimeMeshSimpleGeometry& SimpleGeometry,
-	FName ConvexName, bool& OutSuccess)
+                                                                                            FName ConvexName, bool& OutSuccess)
 {
 	OutSuccess = SimpleGeometry.RemoveConvexHull(ConvexName);
 	return SimpleGeometry;
 }
-
-
-
-
-

@@ -30,11 +30,11 @@ void ARealtimeMeshLatentUpdateTestActor::OnGenerateMesh_Implementation()
 	StaticSectionKey = RealtimeMesh->CreateMeshSection(0, FRealtimeMeshSectionConfig(ERealtimeMeshSectionDrawType::Static, 0), EmptyMeshData, true);
 	
 	// Create a section group passing it our mesh data
-	GroupKey = RealtimeMesh->CreateSectionGroupWithMesh(0, EmptyMeshData);
+	GroupKey = RealtimeMesh->CreateSectionGroup(0, EmptyMeshData);
 
 	// Create both sections on the same mesh data
-	SectionInGroupA = RealtimeMesh->CreateSectionInGroup(GroupKey, FRealtimeMeshSectionConfig(ERealtimeMeshSectionDrawType::Static, 0), FRealtimeMeshStreamRange(), true);
-	SectionInGroupB = RealtimeMesh->CreateSectionInGroup(GroupKey, FRealtimeMeshSectionConfig(ERealtimeMeshSectionDrawType::Static, 0), FRealtimeMeshStreamRange(), true);
+	SectionInGroupA = RealtimeMesh->CreateSection(GroupKey, FRealtimeMeshSectionConfig(ERealtimeMeshSectionDrawType::Static, 0), FRealtimeMeshStreamRange(), true);
+	SectionInGroupB = RealtimeMesh->CreateSection(GroupKey, FRealtimeMeshSectionConfig(ERealtimeMeshSectionDrawType::Static, 0), FRealtimeMeshStreamRange(), true);
 }
 
 void ARealtimeMeshLatentUpdateTestActor::BeginPlay()
@@ -47,7 +47,7 @@ void ARealtimeMeshLatentUpdateTestActor::BeginPlay()
 		// This just adds a simple box, you can instead create your own mesh data
 		URealtimeMeshBlueprintFunctionLibrary::AppendBoxMesh(FVector(100, 100, 200), FTransform::Identity, MeshData);
 
-		RealtimeMesh->UpdateSectionMesh(StaticSectionKey, MeshData);
+		RealtimeMesh->UpdateStandaloneSection(StaticSectionKey, MeshData);
 
 	}
 	
@@ -58,7 +58,7 @@ void ARealtimeMeshLatentUpdateTestActor::BeginPlay()
 		URealtimeMeshBlueprintFunctionLibrary::AppendBoxMesh(FVector(200, 100, 100), FTransform::Identity, MeshData);
 		URealtimeMeshBlueprintFunctionLibrary::AppendBoxMesh(FVector(100, 200, 100), FTransform::Identity, MeshData);
 
-		RealtimeMesh->UpdateSectionGroupMesh(GroupKey, MeshData);
+		RealtimeMesh->UpdateSectionGroup(GroupKey, MeshData);
 		RealtimeMesh->UpdateSectionSegment(SectionInGroupA, FRealtimeMeshStreamRange(0, 24, 0, 36));
 		RealtimeMesh->UpdateSectionSegment(SectionInGroupB, FRealtimeMeshStreamRange(24, 48, 36, 72));
 

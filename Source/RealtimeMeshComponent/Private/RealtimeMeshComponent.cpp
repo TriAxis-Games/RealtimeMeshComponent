@@ -9,7 +9,6 @@
 #include "NavigationSystem.h"
 
 
-
 DECLARE_CYCLE_STAT(TEXT("RealtimeMeshComponent - Collision Data Received"), STAT_RealtimeMeshComponent_NewCollisionMeshReceived, STATGROUP_RealtimeMesh);
 DECLARE_CYCLE_STAT(TEXT("RealtimeMeshComponent - Create Scene Proxy"), STAT_RealtimeMeshComponent_CreateSceneProxy, STATGROUP_RealtimeMesh);
 
@@ -25,7 +24,7 @@ void URealtimeMeshComponent::SetRealtimeMesh(URealtimeMesh* NewMesh)
 	{
 		return;
 	}
-	
+
 	bool bUpdatedMesh = false;
 	// Unlink from any existing runtime mesh
 	if (IsValid(RealtimeMeshReference))
@@ -55,14 +54,11 @@ URealtimeMesh* URealtimeMeshComponent::InitializeRealtimeMesh(TSubclassOf<URealt
 	URealtimeMesh* NewMesh = nullptr;
 	if (MeshClass)
 	{
-		NewMesh = NewObject<URealtimeMesh>(IsValid(GetOuter())? GetOuter() : this, MeshClass);
+		NewMesh = NewObject<URealtimeMesh>(IsValid(GetOuter()) ? GetOuter() : this, MeshClass);
 	}
 	SetRealtimeMesh(NewMesh);
 	return NewMesh;
 }
-
-
-
 
 
 void URealtimeMeshComponent::OnRegister()
@@ -119,10 +115,9 @@ UBodySetup* URealtimeMeshComponent::GetBodySetup()
 	{
 		return GetRealtimeMesh()->GetBodySetup();
 	}
-	
+
 	return nullptr;
 }
-
 
 
 int32 URealtimeMeshComponent::GetMaterialIndex(FName MaterialSlotName) const
@@ -171,7 +166,7 @@ void URealtimeMeshComponent::GetUsedMaterials(TArray<UMaterialInterface*>& OutMa
 int32 URealtimeMeshComponent::GetNumMaterials() const
 {
 	const int32 NumOverrideMaterials = GetNumOverrideMaterials();
-	const int32 NumMaterialSlots = GetRealtimeMesh() != nullptr ? GetRealtimeMesh()->GetNumMaterials() : 0;	
+	const int32 NumMaterialSlots = GetRealtimeMesh() != nullptr ? GetRealtimeMesh()->GetNumMaterials() : 0;
 	return FMath::Max(NumOverrideMaterials, NumMaterialSlots);
 }
 
@@ -184,7 +179,7 @@ UMaterialInterface* URealtimeMeshComponent::GetMaterial(int32 ElementIndex) cons
 	{
 		return Mat;
 	}
-	
+
 	// fallback to RM sections material
 	if (const URealtimeMesh* Mesh = GetRealtimeMesh())
 	{
@@ -206,7 +201,7 @@ void URealtimeMeshComponent::UnbindFromEvents(URealtimeMesh* RealtimeMesh)
 {
 	RealtimeMesh->OnBoundsChanged().RemoveAll(this);
 	RealtimeMesh->OnRenderDataChanged().RemoveAll(this);
-	RealtimeMesh->OnCollisionBodyUpdated().RemoveAll(this);		
+	RealtimeMesh->OnCollisionBodyUpdated().RemoveAll(this);
 }
 
 
@@ -238,7 +233,7 @@ void URealtimeMeshComponent::UpdateCollision()
 
 		// Recreate the physics state
 		RecreatePhysicsState();
-			
+
 		// Apply Velocities
 		SetPhysicsLinearVelocity(PrevLinearVelocity, false);
 		SetPhysicsAngularVelocityInDegrees(PrevAngularVelocity, false);
@@ -248,7 +243,7 @@ void URealtimeMeshComponent::UpdateCollision()
 		//First recreate the physics state
 		RecreatePhysicsState();
 	}
-	
+
 	// Now update the navigation.
 	FNavigationSystem::UpdateComponentData(*this);
 }

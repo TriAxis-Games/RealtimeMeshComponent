@@ -3,30 +3,23 @@
 #pragma once
 
 #include "RealtimeMeshCore.h"
-#include "RealtimeMeshProxyUtils.h"
-#include "Data/RealtimeMeshConfig.h"
+#include "RealtimeMeshConfig.h"
+#include "RealtimeMeshProxyShared.h"
 
 namespace RealtimeMesh
 {
-	struct REALTIMEMESHCOMPONENT_API FRealtimeMeshSectionProxyInitializationParameters
-	{
-		FRealtimeMeshSectionConfig Config;
-		FRealtimeMeshStreamRange StreamRange;
-	};
-	
 	class REALTIMEMESHCOMPONENT_API FRealtimeMeshSectionProxy : public TSharedFromThis<FRealtimeMeshSectionProxy>
 	{
 	private:
-		FRealtimeMeshClassFactoryRef ClassFactory;
-		FRealtimeMeshProxyWeakPtr ProxyWeak;	
-		FRealtimeMeshSectionKey Key;	
+		const FRealtimeMeshSharedResourcesRef SharedResources;
+		const FRealtimeMeshSectionKey Key;
 		FRealtimeMeshSectionConfig Config;
 		FRealtimeMeshStreamRange StreamRange;
 		FRealtimeMeshDrawMask DrawMask;
 		uint32 bIsStateDirty : 1;
 
 	public:
-		FRealtimeMeshSectionProxy(const FRealtimeMeshClassFactoryRef& InClassFactory, const FRealtimeMeshProxyRef& InProxy, FRealtimeMeshSectionKey InKey, const FRealtimeMeshSectionProxyInitializationParametersRef& InInitParams);
+		FRealtimeMeshSectionProxy(const FRealtimeMeshSharedResourcesRef& InSharedResources, const FRealtimeMeshSectionKey InKey);
 		virtual ~FRealtimeMeshSectionProxy();
 
 		FRealtimeMeshSectionKey GetKey() const { return Key; }
@@ -35,10 +28,10 @@ namespace RealtimeMesh
 		FRealtimeMeshDrawMask GetDrawMask() const { return DrawMask; }
 		FRealtimeMeshStreamRange GetStreamRange() const { return StreamRange; }
 
-		void UpdateConfig(const FRealtimeMeshSectionConfig& NewConfig);
-		void UpdateStreamRange(const FRealtimeMeshStreamRange& InStreamRange);
+		virtual void UpdateConfig(const FRealtimeMeshSectionConfig& NewConfig);
+		virtual void UpdateStreamRange(const FRealtimeMeshStreamRange& InStreamRange);
 
-		bool CreateMeshBatch(
+		virtual bool CreateMeshBatch(
 			const FRealtimeMeshBatchCreationParams& Params,
 			const FRealtimeMeshVertexFactoryRef& VertexFactory,
 			const FMaterialRenderProxy* Material,
@@ -47,13 +40,12 @@ namespace RealtimeMesh
 #if RHI_RAYTRACING
 			, const FRayTracingGeometry* RayTracingGeometry
 #endif
-			) const;
+		) const;
 
-		void MarkStateDirty();
-		virtual bool HandleUpdates();
+		virtual bool UpdateCachedState(bool bShouldForceUpdate, FRealtimeMeshSectionGroupProxy& ParentGroup);
 		virtual void Reset();
-		
-		void OnStreamsUpdated(const TArray<FRealtimeMeshStreamKey>& AddedOrUpdatedStreams, const TArray<FRealtimeMeshStreamKey>& RemovedStreams);		
-	};
 
+	protected:
+		void MarkStateDirty();
+	};
 }
