@@ -1,12 +1,11 @@
 ﻿// Copyright TriAxis Games, L.L.C. All Rights Reserved.
 
 #include "Data/RealtimeMeshLOD.h"
-#include "RealtimeMeshShared.h"
+#include "Data/RealtimeMeshShared.h"
 #include "Data/RealtimeMeshSectionGroup.h"
-#include "Data/RealtimeMeshStateUpdate.h"
 #include "RenderProxy/RealtimeMeshLODProxy.h"
 #include "RenderProxy/RealtimeMeshProxyCommandBatch.h"
-#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 2
+#if RMC_ENGINE_ABOVE_5_2
 #include "Logging/MessageLog.h"
 #endif
 

@@ -6,8 +6,8 @@
 
 namespace RealtimeMesh
 {
-	using FRealtimeMeshSingleElementDataConverter = TFunction<void(void*, void*)>;
-	using FRealtimeMeshMultiElementDataConverter = TFunction<void(void*, void*, uint32 Num, uint32 Stride)>;
+	using FRealtimeMeshElementDataConverter = TFunction<void(const void*, void*)>;
+	using FRealtimeMeshContiguousElementDataConverter = TFunction<void(const void*, void*, uint32)>;
 
 	
 	struct REALTIMEMESHCOMPONENT_API FRealtimeMeshElementConversionKey
@@ -33,22 +33,35 @@ namespace RealtimeMesh
 
 	struct REALTIMEMESHCOMPONENT_API FRealtimeMeshElementConverters
 	{
-		const FRealtimeMeshSingleElementDataConverter SingleElementConverter;
-		const FRealtimeMeshMultiElementDataConverter ArrayElementConverter;
+	private:
+		const FRealtimeMeshElementDataConverter ElementConverter;
+		const FRealtimeMeshContiguousElementDataConverter ContiguousArrayConverter;
 
-		FRealtimeMeshElementConverters(const FRealtimeMeshSingleElementDataConverter& InSingleElementConverter,
-		                               const FRealtimeMeshMultiElementDataConverter& InArrayElementConverter)
-			: SingleElementConverter(InSingleElementConverter), ArrayElementConverter(InArrayElementConverter)
+	public:
+		FRealtimeMeshElementConverters(const FRealtimeMeshElementDataConverter& InElementConverter,
+		                               const FRealtimeMeshContiguousElementDataConverter& InContiguousArrayConverter)
+			: ElementConverter(InElementConverter)
+			, ContiguousArrayConverter(InContiguousArrayConverter)
 		{
+		}
+
+		void ConvertSingleElement(const void* Input, void* Output) const
+		{
+			ElementConverter(Input, Output);
+		}
+		void ConvertContiguousArray(const void* Input, void* Output, uint32 NumElements) const
+		{
+			ContiguousArrayConverter(Input, Output, NumElements);
 		}
 	};
 
-	struct FRealtimeMeshTypeConversionUtilities
+	struct REALTIMEMESHCOMPONENT_API FRealtimeMeshTypeConversionUtilities
 	{
 	private:
 		static TMap<FRealtimeMeshElementConversionKey, FRealtimeMeshElementConverters> TypeConversionMap;
 
 	public:
+		static bool CanConvert(const FRealtimeMeshElementType& FromType, const FRealtimeMeshElementType& ToType);
 		static const FRealtimeMeshElementConverters& GetTypeConverter(const FRealtimeMeshElementType& FromType, const FRealtimeMeshElementType& ToType);
 		static void RegisterTypeConverter(const FRealtimeMeshElementType& FromType, const FRealtimeMeshElementType& ToType,
 		                                  const FRealtimeMeshElementConverters& Converters);
@@ -76,12 +89,18 @@ namespace RealtimeMesh
 
 #define RMC_DEFINE_ELEMENT_TYPE_CONVERTER(FromElementType, ToElementType, ElementConverter) \
 	FRealtimeMeshTypeConverterRegistration<FromElementType, ToElementType> GRegister##FromElementType##To##ToElementType(FRealtimeMeshElementConverters( \
-			[](void* Source, void* Destination) ElementConverter, \
-			[](void* SourceArr, void* DestinationArr, uint32 Count, uint32 Stride) { \
+			[](const void* SourceElement, void* DestinationElement) { \
+				const FromElementType& Source = *static_cast<const FromElementType*>(SourceElement); \
+				ToElementType& Destination = *static_cast<ToElementType*>(DestinationElement); \
+				ElementConverter \
+			}, \
+			[](const void* SourceArr, void* DestinationArr, uint32 Count) { \
+				const FromElementType* SourceArrT = static_cast<const FromElementType*>(SourceArr); \
+				ToElementType* DestinationArrT = static_cast<ToElementType*>(DestinationArr); \
 				for (uint32 Index = 0; Index < Count; Index++) \
 				{ \
-					void* Source = static_cast<FromElementType*>(SourceArr) + Index * Stride; \
-					void* Destination = static_cast<ToElementType*>(DestinationArr) + Index * Stride; \
+					const FromElementType& Source = SourceArrT[Index]; \
+					ToElementType& Destination = DestinationArrT[Index]; \
 					ElementConverter; \
 				} \
 			} \
@@ -89,5 +108,5 @@ namespace RealtimeMesh
 	);
 
 #define RMC_DEFINE_ELEMENT_TYPE_CONVERTER_TRIVIAL(FromElementType, ToElementType) \
-	RMC_DEFINE_ELEMENT_TYPE_CONVERTER(FromElementType, ToElementType, { *static_cast<ToElementType*>(Destination) = ToElementType(*static_cast<FromElementType*>(Source)); });
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER(FromElementType, ToElementType, { Destination = ToElementType(Source); });
 }

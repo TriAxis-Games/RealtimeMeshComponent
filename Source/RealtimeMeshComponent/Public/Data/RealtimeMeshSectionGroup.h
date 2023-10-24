@@ -4,9 +4,9 @@
 
 #include "RealtimeMeshCore.h"
 #include "RealtimeMeshConfig.h"
-#include "RealtimeMeshDataStream.h"
+#include "Mesh/RealtimeMeshDataStream.h"
 #include "RealtimeMeshSection.h"
-#include "RealtimeMeshShared.h"
+#include "Data/RealtimeMeshShared.h"
 
 namespace RealtimeMesh
 {
@@ -24,13 +24,24 @@ namespace RealtimeMesh
 		FRealtimeMeshSectionGroup(const FRealtimeMeshSharedResourcesRef& InSharedResources, const FRealtimeMeshSectionGroupKey& InKey);
 		virtual ~FRealtimeMeshSectionGroup();
 
-		FRealtimeMeshSectionGroupKey GetKey() const { return Key; }
+		const FRealtimeMeshSectionGroupKey& GetKey() const { return Key; }
 		FRealtimeMeshStreamRange GetInUseRange() const;
 		FBoxSphereBounds3f GetLocalBounds() const;
 		bool HasSections() const;
 		int32 NumSections() const;
+		bool HasStreams() const;
 
 		TSet<FRealtimeMeshStreamKey> GetStreams() const { return Streams; }
+		TSet<FRealtimeMeshStreamKey> GetStreamKeys() const;
+		TSet<FRealtimeMeshSectionKey> GetSectionKeys() const
+		{
+			TSet<FRealtimeMeshSectionKey> SectionKeys;
+			for (const auto& Section : Sections)
+			{
+				SectionKeys.Add(Section->GetKey());
+			}
+			return SectionKeys;
+		}
 
 		template <typename SectionType>
 		TSharedPtr<SectionType> GetSectionAs(const FRealtimeMeshSectionKey& SectionKey) const
@@ -48,15 +59,15 @@ namespace RealtimeMesh
 		virtual void SetOverrideBounds(const FBoxSphereBounds3f& InBounds);
 		virtual void ClearOverrideBounds();
 
-		TFuture<ERealtimeMeshProxyUpdateStatus> CreateOrUpdateStream(FRealtimeMeshDataStream&& Stream);
-		virtual void CreateOrUpdateStream(FRealtimeMeshProxyCommandBatch& Commands, FRealtimeMeshDataStream&& Stream);
+		TFuture<ERealtimeMeshProxyUpdateStatus> CreateOrUpdateStream(FRealtimeMeshStream&& Stream);
+		virtual void CreateOrUpdateStream(FRealtimeMeshProxyCommandBatch& Commands, FRealtimeMeshStream&& Stream);
 		TFuture<ERealtimeMeshProxyUpdateStatus> RemoveStream(const FRealtimeMeshStreamKey& StreamKey);
 		virtual void RemoveStream(FRealtimeMeshProxyCommandBatch& Commands, const FRealtimeMeshStreamKey& StreamKey);
 
 		TFuture<ERealtimeMeshProxyUpdateStatus> SetAllStreams(const FRealtimeMeshStreamSet& InStreams);
 		void SetAllStreams(FRealtimeMeshProxyCommandBatch& Commands, const FRealtimeMeshStreamSet& InStreams);
 		TFuture<ERealtimeMeshProxyUpdateStatus> SetAllStreams(FRealtimeMeshStreamSet&& InStreams);
-		void SetAllStreams(FRealtimeMeshProxyCommandBatch& Commands, FRealtimeMeshStreamSet&& InStreams);
+		virtual void SetAllStreams(FRealtimeMeshProxyCommandBatch& Commands, FRealtimeMeshStreamSet&& InStreams);
 
 		TFuture<ERealtimeMeshProxyUpdateStatus> CreateOrUpdateSection(const FRealtimeMeshSectionKey& SectionKey, const FRealtimeMeshSectionConfig& InConfig,
 		                                                              const FRealtimeMeshStreamRange& InStreamRange);
@@ -68,10 +79,7 @@ namespace RealtimeMesh
 		virtual bool Serialize(FArchive& Ar);
 
 		virtual void InitializeProxy(FRealtimeMeshProxyCommandBatch& Commands);
-		/*virtual void ApplyStateUpdate(FRealtimeMeshProxyCommandBatch& Commands, FRealtimeMeshSectionGroupUpdateContext& Update);*/
 
-		TSet<FRealtimeMeshStreamKey> GetStreamKeys() const;
-		TSet<FRealtimeMeshSectionKey> GetSectionKeys() const;
 
 	protected:
 		void InvalidateBounds() const;
@@ -86,7 +94,7 @@ namespace RealtimeMesh
 		/**
 		 * @return The key used to index the given element.
 		 */
-		static KeyInitType GetSetKey(ElementInitType Element)
+		static KeyInitType GetSetKey(const TSharedRef<FRealtimeMeshSectionGroup>& Element)
 		{
 			return Element->GetKey();
 		}

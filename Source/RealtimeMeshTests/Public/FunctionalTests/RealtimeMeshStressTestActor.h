@@ -4,19 +4,19 @@
 
 #include "CoreMinimal.h"
 #include "RealtimeMeshActor.h"
-#include "RealtimeMeshBasicUsageActor.generated.h"
+#include "RealtimeMeshStressTestActor.generated.h"
 
 UCLASS()
-class REALTIMEMESHTESTS_API ARealtimeMeshBasicUsageActor : public ARealtimeMeshActor
+class REALTIMEMESHTESTS_API ARealtimeMeshStressTestActor : public ARealtimeMeshActor
 {
 	GENERATED_BODY()
 
 public:
 	// Sets default values for this actor's properties
-	ARealtimeMeshBasicUsageActor();
+	ARealtimeMeshStressTestActor();
 
 	virtual void OnGenerateMesh_Implementation() override;
 
-	
-	FRealtimeMeshSectionConfig OnAddSectionToPolyGroup(int32 PolyGroupIndex);
+	virtual void TickActor(float DeltaTime, ELevelTick TickType, FActorTickFunction& ThisTickFunction) override;
 };
+

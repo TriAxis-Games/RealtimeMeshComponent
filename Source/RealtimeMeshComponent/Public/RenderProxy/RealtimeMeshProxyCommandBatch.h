@@ -18,8 +18,12 @@ namespace RealtimeMesh
 
 	public:
 		FRealtimeMeshProxyCommandBatch(const FRealtimeMeshSharedResourcesPtr& InSharedResources, bool bInRequiresProxyRecreate = false);
-
 		FRealtimeMeshProxyCommandBatch(const FRealtimeMeshPtr& InMesh, bool bInRequiresProxyRecreate = false);
+
+		FRealtimeMeshProxyCommandBatch(const FRealtimeMeshProxyCommandBatch&) = delete;
+		FRealtimeMeshProxyCommandBatch(FRealtimeMeshProxyCommandBatch&&) = delete;
+		FRealtimeMeshProxyCommandBatch& operator=(const FRealtimeMeshProxyCommandBatch&) = delete;
+		FRealtimeMeshProxyCommandBatch& operator=(FRealtimeMeshProxyCommandBatch&&) = delete;
 
 		operator bool() const { return Mesh.IsValid(); }
 

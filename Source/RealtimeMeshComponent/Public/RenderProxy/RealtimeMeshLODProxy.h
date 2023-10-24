@@ -24,7 +24,7 @@ namespace RealtimeMesh
 		FRealtimeMeshLODProxy(const FRealtimeMeshSharedResourcesRef& InSharedResources, const FRealtimeMeshLODKey& InKey);
 		virtual ~FRealtimeMeshLODProxy();
 
-		FRealtimeMeshLODKey GetKey() const { return Key; }
+		const FRealtimeMeshLODKey& GetKey() const { return Key; }
 		const FRealtimeMeshLODConfig& GetConfig() const { return Config; }
 		FRealtimeMeshDrawMask GetDrawMask() const { return DrawMask; }
 		float GetScreenSize() const { return Config.ScreenSize; }

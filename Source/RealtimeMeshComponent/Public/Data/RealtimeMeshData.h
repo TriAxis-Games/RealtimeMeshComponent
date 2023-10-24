@@ -5,7 +5,8 @@
 #include "RealtimeMeshCore.h"
 #include "RealtimeMeshConfig.h"
 #include "RealtimeMeshCollision.h"
-#include "RealtimeMeshShared.h"
+#include "Data/RealtimeMeshShared.h"
+#include "Async/Async.h"
 
 struct FTriMeshCollisionData;
 

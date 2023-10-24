@@ -49,6 +49,16 @@ public:
 		return nullptr;
 	}
 
+	template<typename RealtimeMeshType>
+	FORCEINLINE RealtimeMeshType* GetRealtimeMeshAs() const
+	{
+		if (RealtimeMeshReference && RealtimeMeshReference->IsValidLowLevel())
+		{
+			return CastChecked<RealtimeMeshType>(RealtimeMeshReference);
+		}
+		return nullptr;
+	}
+
 public:
 	void GetStreamingRenderAssetInfo(FStreamingTextureLevelContext& LevelContext, TArray<FStreamingRenderAssetPrimitiveInfo>& OutStreamingRenderAssets) const
 	{

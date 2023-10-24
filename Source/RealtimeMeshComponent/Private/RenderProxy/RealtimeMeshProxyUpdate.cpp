@@ -1,7 +1,7 @@
 ﻿// Copyright TriAxis Games, L.L.C. All Rights Reserved.
 
 
-#include "RealtimeMeshShared.h"
+#include "Data/RealtimeMeshShared.h"
 #include "Data/RealtimeMeshData.h"
 #include "RenderProxy/RealtimeMeshProxyCommandBatch.h"
 #include "RenderProxy/RealtimeMeshLODProxy.h"
@@ -35,7 +35,7 @@ namespace RealtimeMesh
 
 		auto Promise = MakeShared<TPromise<ERealtimeMeshProxyUpdateStatus>>();
 
-		ENQUEUE_RENDER_COMMAND(FRealtimeMeshProxy_Update)([Promise, ProxyWeak = Mesh->GetRenderProxy(true).ToWeakPtr(), Tasks = MoveTemp(Tasks)](FRHICommandListImmediate&)
+		ENQUEUE_RENDER_COMMAND(FRealtimeMeshProxy_Update)([Promise, ProxyWeak = FRealtimeMeshProxyWeakPtr(Mesh->GetRenderProxy(true)), Tasks = MoveTemp(Tasks)](FRHICommandListImmediate&)
 		{
 			if (const auto& Proxy = ProxyWeak.Pin())
 			{

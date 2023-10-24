@@ -1,9 +1,11 @@
-﻿// Copyright TriAxis Games, L.L.C. All Rights Reserved.
+﻿/*
+// Copyright TriAxis Games, L.L.C. All Rights Reserved.
 
 #pragma once
 
 #include "RealtimeMeshConfig.h"
 #include "RealtimeMeshCore.h"
+#include "Mesh/RealtimeMeshDataStream.h"
 
 namespace RealtimeMesh
 {
@@ -38,3 +40,4 @@ namespace RealtimeMesh
 		//void RemoveSection(uint32 )
 	};
 }
+*/

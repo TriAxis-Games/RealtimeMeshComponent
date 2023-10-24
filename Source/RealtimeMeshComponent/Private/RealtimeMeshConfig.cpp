@@ -12,11 +12,6 @@ FArchive& operator<<(FArchive& Ar, FRealtimeMeshStreamRange& Range)
 	return Ar;
 }
 
-FArchive& operator<<(FArchive& Ar, FRealtimeMeshTangent& Tangent)
-{
-	Ar << Tangent.TangentX << Tangent.bFlipTangentY;
-	return Ar;
-}
 
 FArchive& operator<<(FArchive& Ar, FRealtimeMeshSectionConfig& Config)
 {
@@ -101,7 +96,6 @@ FArchive& operator<<(FArchive& Ar, FRealtimeMeshSectionKey& Key)
 	return Ar;
 }
 
-
 FRealtimeMeshSectionGroupKey FRealtimeMeshSectionGroupKey::Create(const FRealtimeMeshLODKey& LODKey, FName GroupName)
 {
 	return FRealtimeMeshSectionGroupKey(LODKey, GroupName);
@@ -117,6 +111,11 @@ FRealtimeMeshSectionGroupKey FRealtimeMeshSectionGroupKey::CreateUnique(const FR
 	return FRealtimeMeshSectionGroupKey(LODKey, FName("Group_" + FGuid::NewGuid().ToString()));
 }
 
+bool FRealtimeMeshSectionKey::IsPolyGroupKey() const
+{
+	return GroupName.ToString().StartsWith("Section_PolyGroup");
+}
+
 FRealtimeMeshSectionKey FRealtimeMeshSectionKey::Create(const FRealtimeMeshSectionGroupKey& SectionGroupKey, FName SectionName)
 {
 	return FRealtimeMeshSectionKey(SectionGroupKey.LOD(), SectionGroupKey.GroupName, SectionName);
@@ -130,4 +129,9 @@ FRealtimeMeshSectionKey FRealtimeMeshSectionKey::Create(const FRealtimeMeshSecti
 FRealtimeMeshSectionKey FRealtimeMeshSectionKey::CreateUnique(const FRealtimeMeshSectionGroupKey& SectionGroupKey)
 {
 	return FRealtimeMeshSectionKey(SectionGroupKey.LOD(), SectionGroupKey.GroupName, FName("Section_" + FGuid::NewGuid().ToString()));
+}
+
+FRealtimeMeshSectionKey FRealtimeMeshSectionKey::CreateForPolyGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey, int32 PolyGroup)
+{
+	return FRealtimeMeshSectionKey(SectionGroupKey.LOD(), SectionGroupKey.GroupName, FName("Section_PolyGroup", PolyGroup));	
 }

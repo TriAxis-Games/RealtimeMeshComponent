@@ -2,7 +2,6 @@
 
 #pragma once
 
-#include "CoreMinimal.h"
 #include "RealtimeMeshCore.h"
 
 namespace RealtimeMesh
@@ -156,8 +155,8 @@ namespace RealtimeMesh
 	struct FRealtimeMeshScopeGuardRead
 	{
 	public:
-		UE_NODISCARD_CTOR explicit FRealtimeMeshScopeGuardRead(FRealtimeMeshGuard& InGuard, bool bLockImmediately = true);
-		UE_NODISCARD_CTOR explicit FRealtimeMeshScopeGuardRead(const FRealtimeMeshSharedResourcesRef& InSharedResources, bool bLockImmediately = true);
+		RMC_NODISCARD_CTOR explicit FRealtimeMeshScopeGuardRead(FRealtimeMeshGuard& InGuard, bool bLockImmediately = true);
+		RMC_NODISCARD_CTOR explicit FRealtimeMeshScopeGuardRead(const FRealtimeMeshSharedResourcesRef& InSharedResources, bool bLockImmediately = true);
 
 		void Lock()
 		{
@@ -192,8 +191,8 @@ namespace RealtimeMesh
 	struct FRealtimeMeshScopeGuardWrite
 	{
 	public:
-		UE_NODISCARD_CTOR explicit FRealtimeMeshScopeGuardWrite(FRealtimeMeshGuard& InGuard, bool bLockImmediately = true);
-		UE_NODISCARD_CTOR explicit FRealtimeMeshScopeGuardWrite(const FRealtimeMeshSharedResourcesRef& InSharedResources, bool bLockImmediately = true);
+		RMC_NODISCARD_CTOR explicit FRealtimeMeshScopeGuardWrite(FRealtimeMeshGuard& InGuard, bool bLockImmediately = true);
+		RMC_NODISCARD_CTOR explicit FRealtimeMeshScopeGuardWrite(const FRealtimeMeshSharedResourcesRef& InSharedResources, bool bLockImmediately = true);
 
 		void Lock()
 		{
@@ -234,7 +233,7 @@ namespace RealtimeMesh
 	struct FRealtimeMeshScopeGuardReadWrite
 	{
 	public:
-		UE_NODISCARD_CTOR explicit FRealtimeMeshScopeGuardReadWrite(FRealtimeMeshGuard& InGuard, ERealtimeMeshGuardLockType InLockType)
+		RMC_NODISCARD_CTOR explicit FRealtimeMeshScopeGuardReadWrite(FRealtimeMeshGuard& InGuard, ERealtimeMeshGuardLockType InLockType)
 			: Guard(InGuard)
 			  , LockType(ERealtimeMeshGuardLockType::Unlocked)
 		{

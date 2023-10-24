@@ -53,7 +53,7 @@ namespace RealtimeMesh
 #endif
 
 		// TODO: Map section index down
-		//MeshBatch.SegmentIndex = Key.SectionGroup();
+		MeshBatch.SegmentIndex = 0;
 		MeshBatch.DepthPriorityGroup = SDPG_World;
 		MeshBatch.bCanApplyViewModeOverrides = false;
 

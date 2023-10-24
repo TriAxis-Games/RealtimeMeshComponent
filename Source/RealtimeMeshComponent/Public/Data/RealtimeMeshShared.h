@@ -5,6 +5,7 @@
 #include "RealtimeMeshCore.h"
 #include "RealtimeMeshConfig.h"
 #include "RealtimeMeshGuard.h"
+#include "Mesh/RealtimeMeshDataStream.h"
 
 struct FRealtimeMeshSimpleGeometry;
 struct FRealtimeMeshCollisionConfiguration;

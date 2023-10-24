@@ -156,9 +156,6 @@ namespace RealtimeMesh
 			  , ValidRange(FRealtimeMeshStreamRange::Empty)
 			  , ColorStreamIndex(INDEX_NONE)
 		{
-#if ENGINE_MAJOR_VERSION <= 5 && ENGINE_MINOR_VERSION <= 0
-			bSupportsManualVertexFetch = true;
-#endif
 		}
 
 		struct FDataType : public FStaticMeshDataType
@@ -198,8 +195,12 @@ namespace RealtimeMesh
 		virtual bool GatherVertexBufferResources(TFunctionRef<void(const TSharedRef<FRenderResource>&)> ResourceSubmitter) const override;
 
 		// FRenderResource interface.
+#if RMC_ENGINE_ABOVE_5_3
+		virtual void InitRHI(FRHICommandListBase& RHICmdList) override;
+#else
 		virtual void InitRHI() override;
-
+#endif
+		
 		virtual void ReleaseRHI() override
 		{
 			UniformBuffer.SafeRelease();

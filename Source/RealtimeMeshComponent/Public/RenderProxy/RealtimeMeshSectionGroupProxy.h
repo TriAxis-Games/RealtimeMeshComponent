@@ -29,7 +29,7 @@ namespace RealtimeMesh
 		FRealtimeMeshSectionGroupProxy(const FRealtimeMeshSharedResourcesRef& InSharedResources, const FRealtimeMeshSectionGroupKey& InKey);
 		virtual ~FRealtimeMeshSectionGroupProxy();
 
-		FRealtimeMeshSectionGroupKey GetKey() const { return Key; }
+		const FRealtimeMeshSectionGroupKey& GetKey() const { return Key; }
 		TSharedPtr<FRealtimeMeshVertexFactory> GetVertexFactory() const { return VertexFactory; }
 		FRealtimeMeshDrawMask GetDrawMask() const { return DrawMask; }
 

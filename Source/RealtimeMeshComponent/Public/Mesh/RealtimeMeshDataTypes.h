@@ -3,6 +3,41 @@
 #pragma once
 
 #include "RealtimeMeshCore.h"
+#include "RealtimeMeshDataTypes.generated.h"
+
+
+USTRUCT(BlueprintType)
+struct REALTIMEMESHCOMPONENT_API FRealtimeMeshPolygonGroupRange
+{
+	GENERATED_BODY()
+public:
+	FRealtimeMeshPolygonGroupRange()
+		: StartIndex(0)
+		, Count(0)
+		, PolygonGroupIndex(0)
+	{ }
+	
+	FRealtimeMeshPolygonGroupRange(int32 InStartIndex, int32 InCount, int32 InMaterialIndex)
+		: StartIndex(InStartIndex)
+		, Count(InCount)
+		, PolygonGroupIndex(InMaterialIndex)
+	{ }
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RealtimeMesh")
+	int32 StartIndex;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RealtimeMesh")
+	int32 Count;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RealtimeMesh")
+	int32 PolygonGroupIndex;
+
+
+	friend bool operator==(const FRealtimeMeshPolygonGroupRange& Left, const FRealtimeMeshPolygonGroupRange& Right)
+	{
+		return Left.StartIndex == Right.StartIndex && Left.Count == Right.Count && Left.PolygonGroupIndex == Right.PolygonGroupIndex;
+	}
+};
 
 namespace RealtimeMesh
 {
@@ -49,6 +84,17 @@ namespace RealtimeMesh
 
 		TRealtimeMeshTangents(FVector3d InNormal, FVector3d InTangent)
 			: Tangent(InTangent), Normal(InNormal)
+		{
+		}
+
+		TRealtimeMeshTangents(const FVector3f& InNormal, const FVector3f& InBinormal, const FVector3f& InTangent)
+			: Tangent(InTangent), Normal(FVector4f(InNormal, GetBasisDeterminantSign(FVector3d(InTangent), FVector3d(InBinormal), FVector3d(InNormal))))
+		{
+		}
+
+		TRealtimeMeshTangents(const FVector3d& InNormal, const FVector3d& InBinormal, const FVector3d& InTangent)
+			: Tangent(FVector4f(InTangent.X, InTangent.Y, InTangent.Z, 1.0f))
+			, Normal(FVector4f(FVector3f(InNormal), GetBasisDeterminantSign(InTangent, InBinormal, InNormal)))
 		{
 		}
 
@@ -267,6 +313,9 @@ namespace RealtimeMesh
 	using FIndex3US = TIndex3<uint16>;
 
 
+
+	
+
 	enum class ERealtimeMeshDatumType : uint8
 	{
 		Unknown,
@@ -377,6 +426,11 @@ namespace RealtimeMesh
 		uint32 ElementsHash;
 
 	public:
+		FRealtimeMeshBufferLayout()
+			: ElementType(FRealtimeMeshElementType()), NumElements(0)
+		{
+			InitHash();
+		}
 		FRealtimeMeshBufferLayout(FRealtimeMeshElementType InType, int32 InNumElements)
 			: ElementType(InType), NumElements(InNumElements)
 		{
@@ -649,6 +703,14 @@ namespace RealtimeMesh
 		static constexpr int32 NumElements = 3;
 		static constexpr bool IsValid = FRealtimeMeshElementTypeTraits<IndexType>::IsValid;
 	};
+	
+	template <>
+	struct FRealtimeMeshBufferTypeTraits<FRealtimeMeshPolygonGroupRange>
+	{
+		using ElementType = int32;
+		static constexpr int32 NumElements = 3;
+		static constexpr bool IsValid = true;
+	};
 
 	template <typename ElementType>
 	constexpr FRealtimeMeshElementType GetRealtimeMeshDataElementType()
@@ -664,6 +726,12 @@ namespace RealtimeMesh
 		return FRealtimeMeshBufferLayout(
 			GetRealtimeMeshDataElementType<typename FRealtimeMeshBufferTypeTraits<BufferType>::ElementType>(),
 			FRealtimeMeshBufferTypeTraits<BufferType>::NumElements);
+	}
+
+	template <typename ElementType>
+	constexpr FRealtimeMeshBufferLayout GetRealtimeMeshBufferLayout(int32 NumStreamElements)
+	{
+		return FRealtimeMeshBufferLayout(GetRealtimeMeshDataElementType<ElementType>(), NumStreamElements);
 	}
 
 

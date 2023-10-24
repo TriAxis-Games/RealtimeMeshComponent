@@ -5,6 +5,7 @@
 
 #include "RealtimeMeshLibrary.h"
 #include "RealtimeMeshSimple.h"
+#include "Mesh/RealtimeMeshBasicShapeTools.h"
 
 
 ARealtimeMeshLatentUpdateTestActor::ARealtimeMeshLatentUpdateTestActor()
@@ -23,18 +24,11 @@ void ARealtimeMeshLatentUpdateTestActor::OnGenerateMesh_Implementation()
 	// This example create 3 rectangular prisms, one on each axis, with 2 of them grouped in the same vertex buffers, but with different sections
 	// This allows for setting up separate materials even if sections share a single set of buffers.
 	// Here we do a latent mesh submission, so we create the mesh section group and sections first, and then apply the mesh data later
-	
-	FRealtimeMeshSimpleMeshData EmptyMeshData;
+
+	const FRealtimeMeshSimpleMeshData EmptyMeshData;
 	
 	// Create a single section, with its own dedicated section group
-	StaticSectionKey = RealtimeMesh->CreateMeshSection(0, FRealtimeMeshSectionConfig(ERealtimeMeshSectionDrawType::Static, 0), EmptyMeshData, true);
-	
-	// Create a section group passing it our mesh data
-	GroupKey = RealtimeMesh->CreateSectionGroup(0, EmptyMeshData);
-
-	// Create both sections on the same mesh data
-	SectionInGroupA = RealtimeMesh->CreateSection(GroupKey, FRealtimeMeshSectionConfig(ERealtimeMeshSectionDrawType::Static, 0), FRealtimeMeshStreamRange(), true);
-	SectionInGroupB = RealtimeMesh->CreateSection(GroupKey, FRealtimeMeshSectionConfig(ERealtimeMeshSectionDrawType::Static, 0), FRealtimeMeshStreamRange(), true);
+	RealtimeMesh->CreateSectionGroup(FRealtimeMeshSectionGroupKey::Create(0, FName(TEXT("Test"))), EmptyMeshData);
 }
 
 void ARealtimeMeshLatentUpdateTestActor::BeginPlay()
@@ -45,9 +39,9 @@ void ARealtimeMeshLatentUpdateTestActor::BeginPlay()
 		FRealtimeMeshSimpleMeshData MeshData;
 
 		// This just adds a simple box, you can instead create your own mesh data
-		URealtimeMeshBlueprintFunctionLibrary::AppendBoxMesh(FVector(100, 100, 200), FTransform::Identity, MeshData);
+		URealtimeMeshSimpleBasicShapeTools::AppendBoxMesh(FVector(100, 100, 200), FTransform::Identity, MeshData);
 
-		RealtimeMesh->UpdateStandaloneSection(StaticSectionKey, MeshData);
+		RealtimeMesh->UpdateSectionGroup(StaticSectionKey, MeshData);
 
 	}
 	
@@ -55,12 +49,13 @@ void ARealtimeMeshLatentUpdateTestActor::BeginPlay()
 		FRealtimeMeshSimpleMeshData MeshData;
 
 		// This just adds two simple boxes, one after the other
-		URealtimeMeshBlueprintFunctionLibrary::AppendBoxMesh(FVector(200, 100, 100), FTransform::Identity, MeshData);
-		URealtimeMeshBlueprintFunctionLibrary::AppendBoxMesh(FVector(100, 200, 100), FTransform::Identity, MeshData);
+		URealtimeMeshSimpleBasicShapeTools::AppendBoxMesh(FVector(200, 100, 100), FTransform::Identity, MeshData);
+		URealtimeMeshSimpleBasicShapeTools::AppendBoxMesh(FVector(100, 200, 100), FTransform::Identity, MeshData);
 
-		RealtimeMesh->UpdateSectionGroup(GroupKey, MeshData);
-		RealtimeMesh->UpdateSectionSegment(SectionInGroupA, FRealtimeMeshStreamRange(0, 24, 0, 36));
-		RealtimeMesh->UpdateSectionSegment(SectionInGroupB, FRealtimeMeshStreamRange(24, 48, 36, 72));
+		const auto SectionGroupKey = FRealtimeMeshSectionGroupKey::Create(0, FName(TEXT("Test")));
+		RealtimeMesh->UpdateSectionGroup(SectionGroupKey, MeshData);
+		RealtimeMesh->UpdateSectionConfig(FRealtimeMeshSectionKey::CreateForPolyGroup(SectionGroupKey, 0), FRealtimeMeshSectionConfig(ERealtimeMeshSectionDrawType::Static, 0));
+		RealtimeMesh->UpdateSectionConfig(FRealtimeMeshSectionKey::CreateForPolyGroup(SectionGroupKey, 0), FRealtimeMeshSectionConfig(ERealtimeMeshSectionDrawType::Static, 1));
 
 	}
 }

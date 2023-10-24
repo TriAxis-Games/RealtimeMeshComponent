@@ -1,12 +1,17 @@
 ﻿// Copyright TriAxis Games, L.L.C. All Rights Reserved.
 
 
-#include "Data/RealtimeMeshDataConversion.h"
+#include "Mesh/RealtimeMeshDataConversion.h"
 
 
 namespace RealtimeMesh
 {
 	TMap<FRealtimeMeshElementConversionKey, FRealtimeMeshElementConverters> FRealtimeMeshTypeConversionUtilities::TypeConversionMap;
+
+	bool FRealtimeMeshTypeConversionUtilities::CanConvert(const FRealtimeMeshElementType& FromType, const FRealtimeMeshElementType& ToType)
+	{
+		return TypeConversionMap.Contains(FRealtimeMeshElementConversionKey(FromType, ToType));
+	}
 
 	const FRealtimeMeshElementConverters& FRealtimeMeshTypeConversionUtilities::GetTypeConverter(const FRealtimeMeshElementType& FromType, const FRealtimeMeshElementType& ToType)
 	{
@@ -103,22 +108,22 @@ namespace RealtimeMesh
 
 
 	// FPackedNormal
-	RMC_DEFINE_ELEMENT_TYPE_CONVERTER(FPackedNormal, FVector4f, { *static_cast<FVector4f*>(Destination) = (*static_cast<FPackedNormal*>(Source)).ToFVector4f(); });
-	RMC_DEFINE_ELEMENT_TYPE_CONVERTER(FPackedNormal, FVector4d, { *static_cast<FVector4d*>(Destination) = (*static_cast<FPackedNormal*>(Source)).ToFVector4(); });
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER(FPackedNormal, FVector4f, { Destination = Source.ToFVector4f(); });
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER(FPackedNormal, FVector4d, { Destination = Source.ToFVector4(); });
 	RMC_DEFINE_ELEMENT_TYPE_CONVERTER_TRIVIAL(FPackedNormal, FPackedNormal);
-	RMC_DEFINE_ELEMENT_TYPE_CONVERTER(FPackedNormal, FPackedRGBA16N, { *static_cast<FPackedRGBA16N*>(Destination) = (*static_cast<FPackedNormal*>(Source)).ToFVector4f(); });
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER(FPackedNormal, FPackedRGBA16N, { Destination = Source.ToFVector4f(); });
 
 	// FPackedRGBA16N	
-	RMC_DEFINE_ELEMENT_TYPE_CONVERTER(FPackedRGBA16N, FVector4f, { *static_cast<FVector4f*>(Destination) = (*static_cast<FPackedRGBA16N*>(Source)).ToFVector4f(); });
-	RMC_DEFINE_ELEMENT_TYPE_CONVERTER(FPackedRGBA16N, FVector4d, { *static_cast<FVector4d*>(Destination) = (*static_cast<FPackedRGBA16N*>(Source)).ToFVector4(); });
-	RMC_DEFINE_ELEMENT_TYPE_CONVERTER(FPackedRGBA16N, FPackedNormal, { *static_cast<FPackedNormal*>(Destination) = (*static_cast<FPackedRGBA16N*>(Source)).ToFVector4f(); });
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER(FPackedRGBA16N, FVector4f, { Destination = Source.ToFVector4f(); });
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER(FPackedRGBA16N, FVector4d, { Destination = Source.ToFVector4(); });
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER(FPackedRGBA16N, FPackedNormal, { Destination = Source.ToFVector4f(); });
 	RMC_DEFINE_ELEMENT_TYPE_CONVERTER_TRIVIAL(FPackedRGBA16N, FPackedRGBA16N);
 
 	// FColor
 	RMC_DEFINE_ELEMENT_TYPE_CONVERTER_TRIVIAL(FColor, FColor);
-	RMC_DEFINE_ELEMENT_TYPE_CONVERTER(FColor, FLinearColor, { *static_cast<FLinearColor*>(Destination) = FLinearColor::FromSRGBColor(*static_cast<FColor*>(Source)); })
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER(FColor, FLinearColor, { Destination = FLinearColor::FromSRGBColor(Source); })
 
 	// FLinearColor
 	RMC_DEFINE_ELEMENT_TYPE_CONVERTER_TRIVIAL(FLinearColor, FLinearColor);
-	RMC_DEFINE_ELEMENT_TYPE_CONVERTER(FLinearColor, FColor, { *static_cast<FColor*>(Destination) = static_cast<FLinearColor*>(Source)->ToFColorSRGB(); })
+	RMC_DEFINE_ELEMENT_TYPE_CONVERTER(FLinearColor, FColor, { Destination = Source.ToFColorSRGB(); })
 }

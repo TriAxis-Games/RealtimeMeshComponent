@@ -6,42 +6,41 @@
 #include "Runtime/Launch/Resources/Version.h"
 #include "StaticMeshResources.h"
 
+#define RMC_ENGINE_ABOVE_5_0 (ENGINE_MAJOR_VERSION >= 5)
+#define RMC_ENGINE_BELOW_5_1 (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION < 1)
+#define RMC_ENGINE_ABOVE_5_1 (ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 1))
+#define RMC_ENGINE_BELOW_5_2 (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION < 2)
+#define RMC_ENGINE_ABOVE_5_2 (ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 2))
+#define RMC_ENGINE_BELOW_5_3 (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION < 3)
+#define RMC_ENGINE_ABOVE_5_3 (ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 3))
+
 // This version of the RMC is only supported by engine version 5.0.0 and above
-static_assert(ENGINE_MAJOR_VERSION >= 5 && ENGINE_MINOR_VERSION >= 0);
+static_assert(RMC_ENGINE_ABOVE_5_0);
 
 DECLARE_STATS_GROUP(TEXT("RealtimeMesh"), STATGROUP_RealtimeMesh, STATCAT_Advanced);
 
 #define REALTIME_MESH_MAX_TEX_COORDS MAX_STATIC_TEXCOORDS
 #define REALTIME_MESH_MAX_LODS MAX_STATIC_MESH_LODS
 
-#define REALTIME_MESH_ENABLE_DEBUG_RENDERING (!(UE_BUILD_SHIPPING || UE_BUILD_TEST) || WITH_EDITOR)
-
 // Maximum number of elements in a vertex stream 
 #define REALTIME_MESH_MAX_STREAM_ELEMENTS 8
-
-#define REALTIME_MESH_MAX_INLINE_SECTION_ALLOCATION 16
-
 #define REALTIME_MESH_NUM_INDICES_PER_PRIMITIVE 3
 
 static_assert(REALTIME_MESH_MAX_STREAM_ELEMENTS >= REALTIME_MESH_MAX_TEX_COORDS, "REALTIME_MESH_MAX_STREAM_ELEMENTS must be large enough to contain REALTIME_MESH_MAX_TEX_COORDS");
 
-
-struct FRealtimeMeshSectionConfig;
-struct FRealtimeMeshStreamRange;
-struct FRealtimeMeshLODConfig;
-
-
-#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION < 2
-template <typename T>
-FORCEINLINE uint32 GetTypeHashHelper(const T& V) { return GetTypeHash(V); }
+#if RMC_ENGINE_ABOVE_5_1
+#define RMC_NODISCARD_CTOR UE_NODISCARD_CTOR
+#else
+#define RMC_NODISCARD_CTOR
 #endif
 
 
+#if RMC_ENGINE_BELOW_5_2
+template <typename T> FORCEINLINE uint32 GetTypeHashHelper(const T& V) { return GetTypeHash(V); }
+#endif
+
 namespace RealtimeMesh
 {
-	template <typename InElementType>
-	using TFixedLODArray = TArray<InElementType, TFixedAllocator<REALTIME_MESH_MAX_LODS>>;
-
 	// Custom version for runtime mesh serialization
 	namespace FRealtimeMeshVersion
 	{
@@ -51,6 +50,7 @@ namespace RealtimeMesh
 			StreamsNowHoldEntireKey = 1,
 			DataRestructure = 2,
 			CollisionUpdateFlowRestructure = 3,
+			StreamKeySizeChanged = 4,
 
 			// -----<new versions can be added above this line>-------------------------------------------------
 			VersionPlusOne,
@@ -62,68 +62,6 @@ namespace RealtimeMesh
 	}
 
 
-	enum class ERealtimeMeshStreamType
-	{
-		Unknown,
-		Vertex,
-		Index,
-	};
-
-	struct FRealtimeMeshStreamKey
-	{
-	private:
-		ERealtimeMeshStreamType StreamType;
-		FName StreamName;
-
-	public:
-		FRealtimeMeshStreamKey() : StreamType(ERealtimeMeshStreamType::Unknown), StreamName(NAME_None)
-		{
-		}
-
-		FRealtimeMeshStreamKey(ERealtimeMeshStreamType InStreamType, FName InStreamName)
-			: StreamType(InStreamType), StreamName(InStreamName)
-		{
-		}
-
-		FName GetName() const { return StreamName; }
-
-		ERealtimeMeshStreamType GetStreamType() const { return StreamType; }
-		bool IsVertexStream() const { return StreamType == ERealtimeMeshStreamType::Vertex; }
-		bool IsIndexStream() const { return StreamType == ERealtimeMeshStreamType::Index; }
-
-		FORCEINLINE bool operator==(const FRealtimeMeshStreamKey& Other) const { return StreamType == Other.StreamType && StreamName == Other.StreamName; }
-		FORCEINLINE bool operator!=(const FRealtimeMeshStreamKey& Other) const { return StreamType != Other.StreamType || StreamName != Other.StreamName; }
-
-		friend inline uint32 GetTypeHash(const FRealtimeMeshStreamKey& StreamKey)
-		{
-			return GetTypeHashHelper(StreamKey.StreamType) + 23 * GetTypeHashHelper(StreamKey.StreamName);
-		}
-
-		FString ToString() const
-		{
-			FString TypeString;
-
-			switch (StreamType)
-			{
-			case ERealtimeMeshStreamType::Unknown:
-				TypeString += "Unknown";
-				break;
-			case ERealtimeMeshStreamType::Vertex:
-				TypeString += "Vertex";
-				break;
-			case ERealtimeMeshStreamType::Index:
-				TypeString += "Index";
-				break;
-			}
-
-			return TEXT("[") + StreamName.ToString() + TEXT(", Type:") + TypeString + TEXT("]");
-		}
-
-		friend FArchive& operator<<(FArchive& Ar, FRealtimeMeshStreamKey& Key);
-	};
-
-	class FRealtimeMeshGPUBuffer;
-	using FRealtimeMeshStreamProxyMap = TMap<FRealtimeMeshStreamKey, TSharedPtr<FRealtimeMeshGPUBuffer>>;
 
 	/** Deleter function for TSharedPtrs that only allows the object to be destructed on the render thread. */
 	template <typename Type>
@@ -158,13 +96,7 @@ namespace RealtimeMesh
 
 	struct FRealtimeMeshProxyCommandBatch;
 
-
-	struct FRealtimeMeshSectionUpdateContext;
-	struct FRealtimeMeshSectionGroupUpdateContext;
-	struct FRealtimeMeshLODUpdateContext;
-
-	struct FRealtimeMeshDataStream;
-	CREATE_RMC_PTR_TYPES(FRealtimeMeshDataStream);
+	struct FRealtimeMeshStream;
 
 	class FRealtimeMeshVertexFactory;
 	CREATE_RMC_PTR_TYPES(FRealtimeMeshVertexFactory);
@@ -198,44 +130,20 @@ namespace RealtimeMesh
 
 #undef CREATE_RMC_PTR_TYPES
 
+	template <typename InElementType>
+	using TFixedLODArray = TArray<InElementType, TFixedAllocator<REALTIME_MESH_MAX_LODS>>;
 
-	struct FRealtimeMeshStreams
-	{
-		inline static const FName PositionStreamName = FName(TEXT("Position"));
-		inline static const FName TangentsStreamName = FName(TEXT("Tangents"));
-		inline static const FName TexCoordsStreamName = FName(TEXT("TexCoords"));
-		inline static const FName ColorStreamName = FName(TEXT("Color"));
-
-		inline static const FName NormalElementName = FName("Normal");
-		inline static const FName TangentElementName = FName("Tangent");
-
-		inline static const FName TexCoord0ElementName = FName("TexCoord", 0);
-		inline static const FName TexCoord1ElementName = FName("TexCoord", 1);
-		inline static const FName TexCoord2ElementName = FName("TexCoord", 2);
-		inline static const FName TexCoord3ElementName = FName("TexCoord", 3);
-		inline static const FName TexCoord4ElementName = FName("TexCoord", 4);
-		inline static const FName TexCoord5ElementName = FName("TexCoord", 5);
-		inline static const FName TexCoord6ElementName = FName("TexCoord", 6);
-		inline static const FName TexCoord7ElementName = FName("TexCoord", 7);
-
-		inline static const FName TrianglesStreamName = FName(TEXT("Triangles"));
-		inline static const FName DepthOnlyTrianglesStreamName = FName(TEXT("DepthOnlyTriangles"));
-		inline static const FName ReversedTrianglesStreamName = FName(TEXT("ReversedTriangles"));
-		inline static const FName ReversedDepthOnlyTrianglesStreamName = FName(TEXT("ReversedDepthOnlyTriangles"));
-
-		
-		inline static const FRealtimeMeshStreamKey Position = FRealtimeMeshStreamKey(ERealtimeMeshStreamType::Vertex, PositionStreamName);
-		inline static const FRealtimeMeshStreamKey Tangents = FRealtimeMeshStreamKey(ERealtimeMeshStreamType::Vertex, TangentsStreamName);
-		inline static const FRealtimeMeshStreamKey TexCoords = FRealtimeMeshStreamKey(ERealtimeMeshStreamType::Vertex, TexCoordsStreamName);
-		inline static const FRealtimeMeshStreamKey Color = FRealtimeMeshStreamKey(ERealtimeMeshStreamType::Vertex, ColorStreamName);
-
-		inline static const FRealtimeMeshStreamKey Triangles = FRealtimeMeshStreamKey(ERealtimeMeshStreamType::Vertex, TrianglesStreamName);
-		inline static const FRealtimeMeshStreamKey DepthOnlyTriangles = FRealtimeMeshStreamKey(ERealtimeMeshStreamType::Vertex, DepthOnlyTrianglesStreamName);
-		inline static const FRealtimeMeshStreamKey ReversedTriangles = FRealtimeMeshStreamKey(ERealtimeMeshStreamType::Vertex, ReversedTrianglesStreamName);
-		inline static const FRealtimeMeshStreamKey ReversedDepthOnlyTriangles = FRealtimeMeshStreamKey(ERealtimeMeshStreamType::Vertex, ReversedDepthOnlyTrianglesStreamName);
-	};
+	class FRealtimeMeshGPUBuffer;
 }
 
 
 class URealtimeMesh;
 class URealtimeMeshComponent;
+
+UENUM()
+enum class ERealtimeMeshProxyUpdateStatus : uint8
+{
+	NoProxy,
+	NoUpdate,
+	Updated,
+};

@@ -4,6 +4,7 @@
 
 #include "RealtimeMeshActor.h"
 #include "Engine/Engine.h"
+#include "Engine/Level.h"
 
 URealtimeMeshSubsystem::URealtimeMeshSubsystem()
 	: bInitialized(false)

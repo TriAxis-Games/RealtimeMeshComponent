@@ -2,15 +2,74 @@
 
 #pragma once
 
+#include "RealtimeMeshComponentModule.h"
+#include "RealtimeMeshConfig.h"
 #include "RealtimeMeshDataTypes.h"
-#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION == 0
+#include "RealtimeMeshDataConversion.h"
+
+#if RMC_ENGINE_BELOW_5_1
 // Included for TMakeUnsigned in 5.0
 #include "Containers/RingBuffer.h"
 #endif
 
+
+
+
+
+
+
+
 namespace RealtimeMesh
 {
-	struct REALTIMEMESHCOMPONENT_API FRealtimeMeshDataStream : TSharedFromThis<FRealtimeMeshDataStream, ESPMode::ThreadSafe>, public FResourceArrayInterface
+	
+	struct FRealtimeMeshStreams
+	{
+		inline static const FName PositionStreamName = FName(TEXT("Position"));
+		inline static const FName TangentsStreamName = FName(TEXT("Tangents"));
+		inline static const FName TexCoordsStreamName = FName(TEXT("TexCoords"));
+		inline static const FName ColorStreamName = FName(TEXT("Color"));
+
+		inline static const FName NormalElementName = FName("Normal");
+		inline static const FName TangentElementName = FName("Tangent");
+
+		inline static const FName TexCoord0ElementName = FName("TexCoord", 0);
+		inline static const FName TexCoord1ElementName = FName("TexCoord", 1);
+		inline static const FName TexCoord2ElementName = FName("TexCoord", 2);
+		inline static const FName TexCoord3ElementName = FName("TexCoord", 3);
+		inline static const FName TexCoord4ElementName = FName("TexCoord", 4);
+		inline static const FName TexCoord5ElementName = FName("TexCoord", 5);
+		inline static const FName TexCoord6ElementName = FName("TexCoord", 6);
+		inline static const FName TexCoord7ElementName = FName("TexCoord", 7);
+
+		inline static const FName TrianglesStreamName = FName(TEXT("Triangles"));
+		inline static const FName DepthOnlyTrianglesStreamName = FName(TEXT("DepthOnlyTriangles"));
+		inline static const FName ReversedTrianglesStreamName = FName(TEXT("ReversedTriangles"));
+		inline static const FName ReversedDepthOnlyTrianglesStreamName = FName(TEXT("ReversedDepthOnlyTriangles"));
+
+		inline static const FName PolyGroupStreamName = FName(TEXT("PolyGroups"));
+		inline static const FName DepthOnlyPolyGroupStreamName = FName(TEXT("DepthOnlyPolyGroups"));
+		
+		inline static const FName PolyGroupSegmentsStreamName = FName(TEXT("PolyGroupSegments"));
+		inline static const FName DepthOnlyPolyGroupSegmentsStreamName = FName(TEXT("DepthOnlyPolyGroupSegments"));
+		
+		inline static const FRealtimeMeshStreamKey Position = FRealtimeMeshStreamKey(ERealtimeMeshStreamType::Vertex, PositionStreamName);
+		inline static const FRealtimeMeshStreamKey Tangents = FRealtimeMeshStreamKey(ERealtimeMeshStreamType::Vertex, TangentsStreamName);
+		inline static const FRealtimeMeshStreamKey TexCoords = FRealtimeMeshStreamKey(ERealtimeMeshStreamType::Vertex, TexCoordsStreamName);
+		inline static const FRealtimeMeshStreamKey Color = FRealtimeMeshStreamKey(ERealtimeMeshStreamType::Vertex, ColorStreamName);
+
+		inline static const FRealtimeMeshStreamKey Triangles = FRealtimeMeshStreamKey(ERealtimeMeshStreamType::Index, TrianglesStreamName);
+		inline static const FRealtimeMeshStreamKey DepthOnlyTriangles = FRealtimeMeshStreamKey(ERealtimeMeshStreamType::Index, DepthOnlyTrianglesStreamName);
+		inline static const FRealtimeMeshStreamKey ReversedTriangles = FRealtimeMeshStreamKey(ERealtimeMeshStreamType::Index, ReversedTrianglesStreamName);
+		inline static const FRealtimeMeshStreamKey ReversedDepthOnlyTriangles = FRealtimeMeshStreamKey(ERealtimeMeshStreamType::Index, ReversedDepthOnlyTrianglesStreamName);
+		
+		inline static const FRealtimeMeshStreamKey PolyGroups = FRealtimeMeshStreamKey(ERealtimeMeshStreamType::Index, PolyGroupStreamName);
+		inline static const FRealtimeMeshStreamKey DepthOnlyPolyGroups = FRealtimeMeshStreamKey(ERealtimeMeshStreamType::Index, DepthOnlyPolyGroupStreamName);
+		
+		inline static const FRealtimeMeshStreamKey PolyGroupSegments = FRealtimeMeshStreamKey(ERealtimeMeshStreamType::Index, PolyGroupSegmentsStreamName);
+		inline static const FRealtimeMeshStreamKey DepthOnlyPolyGroupSegments = FRealtimeMeshStreamKey(ERealtimeMeshStreamType::Index, DepthOnlyPolyGroupSegmentsStreamName);
+	};
+	
+	struct REALTIMEMESHCOMPONENT_API FRealtimeMeshStream : FResourceArrayInterface
 	{
 		using AllocatorType = TSizedHeapAllocator<32>;
 		using SizeType = AllocatorType::SizeType;
@@ -27,23 +86,15 @@ namespace RealtimeMesh
 		FRealtimeMeshStreamKey StreamKey;
 
 	public:
-		FRealtimeMeshDataStream()
+		FRealtimeMeshStream()
 			: LayoutDefinition(FRealtimeMeshBufferLayoutUtilities::GetBufferLayoutDefinition(FRealtimeMeshBufferLayout::Invalid))
 			  , ArrayNum(0)
 			  , ArrayMax(Allocator.GetInitialCapacity())
 			  , StreamKey(ERealtimeMeshStreamType::Unknown, NAME_None)
 		{
 		}
-
-		FRealtimeMeshDataStream(ERealtimeMeshStreamType StreamType, FName StreamName, const FRealtimeMeshBufferLayout& Layout)
-			: LayoutDefinition(FRealtimeMeshBufferLayoutUtilities::GetBufferLayoutDefinition(Layout))
-			  , ArrayNum(0)
-			  , ArrayMax(Allocator.GetInitialCapacity())
-			  , StreamKey(StreamType, StreamName)
-		{
-		}
-
-		FRealtimeMeshDataStream(const FRealtimeMeshStreamKey& InStreamKey, const FRealtimeMeshBufferLayout& Layout)
+		
+		FRealtimeMeshStream(const FRealtimeMeshStreamKey& InStreamKey, const FRealtimeMeshBufferLayout& Layout)
 			: LayoutDefinition(FRealtimeMeshBufferLayoutUtilities::GetBufferLayoutDefinition(Layout))
 			  , ArrayNum(0)
 			  , ArrayMax(Allocator.GetInitialCapacity())
@@ -51,7 +102,18 @@ namespace RealtimeMesh
 		{
 		}
 
-		FRealtimeMeshDataStream(FRealtimeMeshDataStream&& Other) noexcept
+		explicit FRealtimeMeshStream(const FRealtimeMeshStream& Other) noexcept
+			: LayoutDefinition(Other.LayoutDefinition)
+			  , ArrayNum(0)
+			  , ArrayMax(Allocator.GetInitialCapacity())
+			  , StreamKey(Other.StreamKey)
+		{
+			ResizeAllocation(Other.Num());
+			ArrayNum = Other.Num();
+			FMemory::Memcpy(Allocator.GetAllocation(), Other.Allocator.GetAllocation(), Other.Num() * GetStride());
+		}
+		
+		FRealtimeMeshStream(FRealtimeMeshStream&& Other) noexcept
 			: LayoutDefinition(Other.LayoutDefinition)
 			  , ArrayNum(Other.ArrayNum)
 			  , ArrayMax(Other.ArrayMax)
@@ -65,18 +127,34 @@ namespace RealtimeMesh
 			Other.StreamKey = FRealtimeMeshStreamKey(ERealtimeMeshStreamType::Unknown, NAME_None);
 		}
 
-		FRealtimeMeshDataStream(const FRealtimeMeshDataStream& Other) noexcept
-			: LayoutDefinition(Other.LayoutDefinition)
-			  , ArrayNum(0)
-			  , ArrayMax(Allocator.GetInitialCapacity())
-			  , StreamKey(Other.StreamKey)
+		template<typename StreamType>
+		static FRealtimeMeshStream Create(const FRealtimeMeshStreamKey& InStreamKey)
 		{
-			ResizeAllocation(Other.Num());
-			ArrayNum = Other.Num();
-			FMemory::Memcpy(Allocator.GetAllocation(), Other.Allocator.GetAllocation(), Other.Num() * GetStride());
+			return FRealtimeMeshStream(InStreamKey, GetRealtimeMeshBufferLayout<StreamType>());
 		}
 
-		FRealtimeMeshStreamKey GetStreamKey() const { return StreamKey; }
+		FRealtimeMeshStream& operator=(const FRealtimeMeshStream& Other)
+		{
+			LayoutDefinition = Other.LayoutDefinition;
+			ResizeAllocation(Other.Num(), false);			
+			ArrayNum = Other.Num();
+			FMemory::Memcpy(Allocator.GetAllocation(), Other.Allocator.GetAllocation(), Other.Num() * GetStride());
+			return *this;
+		}
+
+		FRealtimeMeshStream& operator=(FRealtimeMeshStream& Other)
+		{
+			LayoutDefinition = MoveTemp(Other.LayoutDefinition);
+			ArrayNum = Other.ArrayNum;
+			Other.ArrayNum = 0;
+			Allocator.MoveToEmpty(Other.Allocator);
+			return *this;
+		}
+		
+
+	public:
+		const FRealtimeMeshStreamKey& GetStreamKey() const { return StreamKey; }		
+		void SetStreamKey(const FRealtimeMeshStreamKey& InStreamKey) { StreamKey = InStreamKey; }
 		ERealtimeMeshStreamType GetStreamType() const { return StreamKey.GetStreamType(); }
 		FName GetName() const { return StreamKey.GetName(); }
 		const FRealtimeMeshBufferLayout& GetLayout() const { return LayoutDefinition.GetBufferLayout(); }
@@ -86,10 +164,62 @@ namespace RealtimeMesh
 
 		int32 GetStride() const { return LayoutDefinition.GetStride(); }
 		int32 GetElementStride() const { return LayoutDefinition.GetElementTypeDefinition().GetStride(); }
-		int32 GetNumElements() const { return LayoutDefinition.GetBufferLayout().GetNumElements(); };
+		int32 GetNumElements() const { return LayoutDefinition.GetBufferLayout().GetNumElements(); }
 		int32 GetElementOffset(FName ElementName) const { return LayoutDefinition.GetElementOffset(ElementName); }
 		const TMap<FName, uint8>& GetElementOffsets() const { return LayoutDefinition.GetElementOffsets(); }
 
+		
+		template<typename NewDataType>
+		bool IsOfType() const
+		{
+			return GetLayout() == GetRealtimeMeshBufferLayout<NewDataType>();
+		}
+
+		bool ConvertTo(const FRealtimeMeshBufferLayout& NewLayout)
+		{
+			if (LayoutDefinition.GetBufferLayout() == NewLayout)
+			{
+				// Already in this format
+				return true;
+			}
+
+			const FRealtimeMeshElementType FromType = GetLayout().GetElementType();
+			const FRealtimeMeshElementType ToType = NewLayout.GetElementType();
+			const bool bSameNumElements = GetLayout().GetNumElements() == NewLayout.GetNumElements();
+
+			if (Num() == 0)
+			{
+				// Empty stream can just change types
+				LayoutDefinition = FRealtimeMeshBufferLayoutUtilities::GetBufferLayoutDefinition(NewLayout);
+				return true;
+			}
+			else if (FRealtimeMeshTypeConversionUtilities::CanConvert(FromType, ToType) && bSameNumElements)
+			{
+				const auto& Converter = FRealtimeMeshTypeConversionUtilities::GetTypeConverter(FromType, ToType);
+
+				// Move existing data to temp allocator
+				ElementAllocatorType OldData;				
+				OldData.MoveToEmpty(Allocator);
+
+				// Resize allocator to correct size for new data type
+				Allocator.ResizeAllocation(0, ArrayMax, GetStride());
+
+				// Now convert data from the temp array into the new allocation
+				const SIZE_T ElementCount = ArrayNum * GetNumElements();
+				Converter.ConvertContiguousArray(OldData.GetAllocation(), Allocator.GetAllocation(), ElementCount);
+				LayoutDefinition = FRealtimeMeshBufferLayoutUtilities::GetBufferLayoutDefinition(NewLayout);
+				return true;
+			}
+
+			return false;
+		}
+		
+		template<typename NewDataType>
+		bool ConvertTo()
+		{
+			return ConvertTo(GetRealtimeMeshBufferLayout<NewDataType>());
+		}
+		
 		void CopyToArray(TArray<uint8>& OutData) const
 		{
 			OutData.SetNumUninitialized(GetStride() * Num());
@@ -97,16 +227,34 @@ namespace RealtimeMesh
 		}
 
 		template <typename DataType>
-		TArrayView<const DataType> GetArrayView() const
+		TArrayView<DataType> GetArrayView()
+		{
+			check(sizeof(DataType) == GetStride());
+			check(GetRealtimeMeshBufferLayout<DataType>() == GetLayout());
+
+			return MakeArrayView(reinterpret_cast<DataType*>(GetData()), Num());
+		}
+
+		template <typename DataType>
+		TConstArrayView<const DataType> GetArrayView() const
 		{
 			check(sizeof(DataType) == GetStride());
 			check(GetRealtimeMeshBufferLayout<DataType>() == GetLayout());
 
 			return MakeArrayView(reinterpret_cast<const DataType*>(GetData()), Num());
 		}
-
+		
 		template <typename DataType>
-		TArrayView<const DataType> GetElementArrayView() const
+		TArrayView<const DataType> GetElementArrayView()
+		{
+			check(sizeof(DataType) == GetElementStride());
+			check(GetRealtimeMeshDataElementType<DataType>() == GetLayout().GetElementType());
+
+			return MakeArrayView(reinterpret_cast<const DataType*>(GetData()), Num() * GetNumElements());
+		}
+		
+		template <typename DataType>
+		TConstArrayView<const DataType> GetElementArrayView() const
 		{
 			check(sizeof(DataType) == GetElementStride());
 			check(GetRealtimeMeshDataElementType<DataType>() == GetLayout().GetElementType());
@@ -114,16 +262,16 @@ namespace RealtimeMesh
 			return MakeArrayView(reinterpret_cast<const DataType*>(GetData()), Num() * GetNumElements());
 		}
 
-		/*FRealtimeMeshDataStreamRawData GetResourceCopy() const
+		/*FRealtimeMeshStreamRawData GetResourceCopy() const
 		{
-			FRealtimeMeshDataStreamRawData OutData;
+			FRealtimeMeshStreamRawData OutData;
 			CopyToArray(OutData);
 			return OutData;
 		}
 
 		FRealtimeMeshSectionGroupStreamUpdateDataRef GetStreamUpdateData(const FRealtimeMeshStreamKey& InStreamKey) const
 		{
-			auto InitData = MakeUnique<FRealtimeMeshDataStreamRawData>();
+			auto InitData = MakeUnique<FRealtimeMeshStreamRawData>();
 			CopyToArray(*InitData);			
 			return MakeShared<FRealtimeMeshSectionGroupStreamUpdateData>(MoveTemp(InitData), LayoutDefinition, InStreamKey);
 		}*/
@@ -215,7 +363,6 @@ namespace RealtimeMesh
 		FORCEINLINE bool IsValidIndex(int32 Index) const { return Index >= 0 && Index < ArrayNum; }
 		FORCEINLINE bool IsEmpty() const { return ArrayNum == 0; }
 		FORCEINLINE SizeType Max() const { return ArrayMax; }
-
 
 		FORCEINLINE SizeType AddUninitialized()
 		{
@@ -366,7 +513,7 @@ namespace RealtimeMesh
 			*GetDataAtVertex<VertexType>(Index) = InVertex;
 		}
 
-		void Append(const FRealtimeMeshDataStream& Source)
+		void Append(const FRealtimeMeshStream& Source)
 		{
 			check(this != &Source);
 			check(LayoutDefinition.GetBufferLayout() == Source.LayoutDefinition.GetBufferLayout());
@@ -376,7 +523,7 @@ namespace RealtimeMesh
 			FMemory::Memcpy(GetDataRawAtVertex(Index), Source.Allocator.GetAllocation(), Count * GetStride());
 		}
 
-		void Append(FRealtimeMeshDataStream&& Source)
+		void Append(FRealtimeMeshStream&& Source)
 		{
 			CheckInvariants();
 			check(this != &Source);
@@ -428,7 +575,7 @@ namespace RealtimeMesh
 		}
 
 		template <typename VertexType, typename GeneratorFunc>
-		void Append(int32 Count, GeneratorFunc Generator)
+		void AppendGenerated(int32 Count, GeneratorFunc Generator)
 		{
 			SizeType Index = AddUninitialized(Count);
 			VertexType* DataPtr = GetDataAtVertex<VertexType>(Index);
@@ -438,27 +585,72 @@ namespace RealtimeMesh
 				DataPtr[Index] = Generator(Index);
 				Index++;
 			}
+		}
+
+		template <typename VertexType>
+		FORCENOINLINE void SetRange(int32 StartIndex, TArrayView<VertexType> NewElements)
+		{
+			RangeCheck(StartIndex + NewElements.Num() - 1);
+			check(LayoutDefinition.GetBufferLayout() == GetRealtimeMeshBufferLayout<VertexType>());
+
+			FMemory::Memcpy(GetDataRawAtVertex(StartIndex), NewElements.GetData(), NewElements.Num() * GetStride());
+		}
+
+		template <typename VertexType, typename InAllocatorType = FDefaultAllocator>
+		void SetRange(int32 StartIndex, const TArray<VertexType, InAllocatorType>& NewElements)
+		{
+			RangeCheck(StartIndex + NewElements.Num() - 1);
+			check(LayoutDefinition.GetBufferLayout() == GetRealtimeMeshBufferLayout<VertexType>());
+			FMemory::Memcpy(GetDataRawAtVertex(StartIndex), NewElements.GetData(), NewElements.Num() * GetStride());
+		}
+
+		template <typename VertexType>
+		void SetRange(int32 StartIndex, std::initializer_list<VertexType> NewElements)
+		{
+			SetRange(StartIndex, MakeArrayView(NewElements.begin(), NewElements.size()));
+		}
+
+		template <typename VertexType>
+		void SetRange(int32 StartIndex, int32 Count, VertexType* NewElements)
+		{
+			SetRange(StartIndex, MakeArrayView(NewElements, Count));
 		}
 
 		template <typename VertexType, typename GeneratorFunc>
-		void AppendBy(int32 Count, GeneratorFunc Generator)
+		void SetGenerated(int32 StartIndex, int32 Count, GeneratorFunc Generator)
 		{
-			SizeType Index = AddUninitialized(Count);
-			VertexType* DataPtr = GetDataAtVertex<VertexType>(Index);
-			while (Index < ArrayNum)
+			RangeCheck(StartIndex + Count - 1);
+			VertexType* DataPtr = GetDataAtVertex<VertexType>(StartIndex);
+
+			while (StartIndex < ArrayNum)
 			{
-				DataPtr[Index] = Generator(Index);
-				Index++;
+				DataPtr[StartIndex] = Generator(StartIndex);
+				StartIndex++;
 			}
 		}
 
+		template <typename ElementType, typename GeneratorFunc>
+		void SetGeneratedElement(int32 ElementIndex, int32 StartIndex, int32 Count, GeneratorFunc Generator)
+		{
+			RangeCheck(StartIndex + Count - 1);
+			ElementCheck(ElementIndex);
+			
+			ElementType* DataPtr = GetDataAtVertex<ElementType>(StartIndex, ElementIndex);
+
+			while (StartIndex < ArrayNum)
+			{				
+				*DataPtr = Generator(StartIndex);
+				DataPtr += GetNumElements();
+				StartIndex++;
+			}
+		}
 
 		void CountBytes(FArchive& Ar) const
 		{
 			Ar.CountBytes(ArrayNum * GetStride(), ArrayMax * GetStride());
 		}
 
-		friend FArchive& operator<<(FArchive& Ar, FRealtimeMeshDataStream& Stream)
+		friend FArchive& operator<<(FArchive& Ar, FRealtimeMeshStream& Stream)
 		{
 			if (Ar.CustomVer(FRealtimeMeshVersion::GUID) >= FRealtimeMeshVersion::StreamsNowHoldEntireKey)
 			{
@@ -529,22 +721,22 @@ namespace RealtimeMesh
 			if constexpr (AllocatorType::RequireRangeCheck)
 			{
 				checkf((Index >= 0) & (Index < ArrayNum), TEXT("Array index out of bounds: %lld from an array of size %lld"), static_cast<int64>(Index),
-				       static_cast<int64>(ArrayNum)); // & for one branch
+					   static_cast<int64>(ArrayNum)); // & for one branch
 			}
 		}
 
 		FORCEINLINE void ElementCheck(SizeType ElementIndex) const
 		{
 			checkf((ElementIndex >= 0) & (ElementIndex < GetNumElements()), TEXT("Element index out of bounds: %lld from an element list of size %lld"),
-			       static_cast<int64>(ElementIndex), static_cast<int64>(GetNumElements())); // & for one branch
+				   static_cast<int64>(ElementIndex), static_cast<int64>(GetNumElements())); // & for one branch
 		}
 
-		void ResizeAllocation(USizeType NewNum)
+		void ResizeAllocation(USizeType NewNum, bool bKeepElements = true)
 		{
 			if (NewNum != ArrayMax)
 			{
-				Allocator.ResizeAllocation(ArrayNum, NewNum,
-				                           LayoutDefinition.GetStride(), LayoutDefinition.GetElementTypeDefinition().GetAlignment());
+				Allocator.ResizeAllocation(bKeepElements? ArrayNum : 0, NewNum,
+										   LayoutDefinition.GetStride(), LayoutDefinition.GetElementTypeDefinition().GetAlignment());
 				ArrayMax = NewNum;
 			}
 		}
@@ -552,12 +744,12 @@ namespace RealtimeMesh
 		void ResizeAllocationGrow(USizeType NewMinNum)
 		{
 			const SizeType NewAllocationSize = Allocator.CalculateSlackGrow(NewMinNum, ArrayMax,
-			                                                                LayoutDefinition.GetStride(), LayoutDefinition.GetAlignment());
+																			LayoutDefinition.GetStride(), LayoutDefinition.GetAlignment());
 
 			if (NewAllocationSize != ArrayMax)
 			{
 				Allocator.ResizeAllocation(ArrayNum, NewAllocationSize,
-				                           LayoutDefinition.GetStride(), LayoutDefinition.GetAlignment());
+										   LayoutDefinition.GetStride(), LayoutDefinition.GetAlignment());
 				ArrayMax = NewAllocationSize;
 			}
 		}
@@ -565,12 +757,12 @@ namespace RealtimeMesh
 		void ResizeAllocationShrink(USizeType NewNum)
 		{
 			const SizeType NewAllocationSize = Allocator.CalculateSlackShrink(NewNum, ArrayMax,
-			                                                                  LayoutDefinition.GetStride(), LayoutDefinition.GetElementTypeDefinition().GetAlignment());
+																			  LayoutDefinition.GetStride(), LayoutDefinition.GetElementTypeDefinition().GetAlignment());
 
 			if (NewAllocationSize != ArrayMax)
 			{
 				Allocator.ResizeAllocation(ArrayNum, NewAllocationSize,
-				                           LayoutDefinition.GetStride(), LayoutDefinition.GetElementTypeDefinition().GetAlignment());
+										   LayoutDefinition.GetStride(), LayoutDefinition.GetElementTypeDefinition().GetAlignment());
 				ArrayMax = NewAllocationSize;
 			}
 		}
@@ -583,99 +775,38 @@ namespace RealtimeMesh
 				UE_LOG(LogCore, Fatal, TEXT("Invalid value for %s, must not be negative..."), ParameterName);
 			}
 		}
-	};
+	};	
 
-
-	struct FRealtimeMeshDataStreamRefKeyFuncs : BaseKeyFuncs<TSharedRef<FRealtimeMeshDataStream>, FRealtimeMeshStreamKey, false>
+	struct REALTIMEMESHCOMPONENT_API FRealtimeMeshStreamSet
 	{
-		/**
-		 * @return The key used to index the given element.
-		 */
-		static KeyInitType GetSetKey(ElementInitType Element)
-		{
-			return Element->GetStreamKey();
-		}
-
-		/**
-		 * @return True if the keys match.
-		 */
-		static bool Matches(KeyInitType A, KeyInitType B)
-		{
-			return A == B;
-		}
-
-		/** Calculates a hash index for a key. */
-		static uint32 GetKeyHash(KeyInitType Key)
-		{
-			return GetTypeHash(Key);
-		}
-	};
-
-	struct FRealtimeMeshDataStreamPtrKeyFuncs : BaseKeyFuncs<TSharedPtr<FRealtimeMeshDataStream>, FRealtimeMeshStreamKey, false>
-	{
-		/**
-		 * @return The key used to index the given element.
-		 */
-		static KeyInitType GetSetKey(ElementInitType Element)
-		{
-			return Element->GetStreamKey();
-		}
-
-		/**
-		 * @return True if the keys match.
-		 */
-		static bool Matches(KeyInitType A, KeyInitType B)
-		{
-			return A == B;
-		}
-
-		/** Calculates a hash index for a key. */
-		static uint32 GetKeyHash(KeyInitType Key)
-		{
-			return GetTypeHash(Key);
-		}
-	};
-
-	// Helper set for FRealtimeMeshDataStreamPtr to key against the stream key not the pointer
-	using FRealtimeMeshDataStreamPtrSet = TSet<FRealtimeMeshDataStreamPtr, FRealtimeMeshDataStreamPtrKeyFuncs>;
-	// Helper set for FRealtimeMeshDataStreamRef to key against the stream key not the pointer
-	using FRealtimeMeshDataStreamRefSet = TSet<FRealtimeMeshDataStreamRef, FRealtimeMeshDataStreamRefKeyFuncs>;
-
-	struct FRealtimeMeshStreamSet
-	{
-	protected:
-		FRealtimeMeshDataStreamRefSet Streams;
+	private:
+		TMap<FRealtimeMeshStreamKey, TUniquePtr<FRealtimeMeshStream>> Streams;
 
 	public:
-		virtual ~FRealtimeMeshStreamSet() = default;
 		FRealtimeMeshStreamSet() = default;
+		virtual ~FRealtimeMeshStreamSet() = default;
 
+		
 		// We don't allow implicit copying as it leads to unnecessary stream copies
 		explicit FRealtimeMeshStreamSet(const FRealtimeMeshStreamSet& Other)
 		{
-			for (const auto& Stream : Other.Streams)
-			{
-				Streams.Add(MakeShared<FRealtimeMeshDataStream>(Stream.Get()));
-			}
+			CopyFrom(Other);
 		}
-		
-		FRealtimeMeshStreamSet(FRealtimeMeshDataStreamRefSet&& InStreams)
-		{
-			Streams = MoveTemp(InStreams);	
-		}
+		FRealtimeMeshStreamSet(FRealtimeMeshStreamSet&&) = default;
 
+		// We don't allow implicit copying as it leads to unnecessary stream copies
+		// To copy a stream set use CopyFrom or the explicit copy constructor
 		FRealtimeMeshStreamSet& operator=(const FRealtimeMeshStreamSet&) = delete;
 
-		FRealtimeMeshStreamSet(FRealtimeMeshStreamSet&&) = default;
+		// We do allow move operation
 		FRealtimeMeshStreamSet& operator=(FRealtimeMeshStreamSet&&) = default;
 
 		void CopyFrom(const FRealtimeMeshStreamSet& Other)
 		{
-			Streams.Empty();
-			Streams.Reserve(Other.Streams.Num());
+			Streams.Empty(Other.Streams.Num());
 			for (auto SetIt = Other.Streams.CreateConstIterator(); SetIt; ++SetIt)
 			{
-				Streams.Add(MakeShared<FRealtimeMeshDataStream>(SetIt->Get()));
+				Streams.Emplace(SetIt.Value()->GetStreamKey(), MakeUnique<FRealtimeMeshStream>(*SetIt->Value));
 			}
 		}
 
@@ -697,18 +828,54 @@ namespace RealtimeMesh
 			}
 			return RemovedCount;
 		}
-
-		FRealtimeMeshDataStream* Find(const FRealtimeMeshStreamKey& StreamKey)
+		
+		FRealtimeMeshStream* Find(const FRealtimeMeshStreamKey& StreamKey)
 		{
-			const FRealtimeMeshDataStreamRef* Ptr = Streams.Find(StreamKey);
-			return Ptr ? &Ptr->Get() : nullptr;
+			if (const auto* Result = Streams.Find(StreamKey))
+			{
+				return Result->Get();
+			}
+			return nullptr;
+		}
+		const FRealtimeMeshStream* Find(const FRealtimeMeshStreamKey& StreamKey) const
+		{
+			if (const auto* Result = Streams.Find(StreamKey))
+			{
+				return Result->Get();
+			}
+			return nullptr;
+		}
+		FRealtimeMeshStream* FindOrAdd(const FRealtimeMeshStreamKey& StreamKey, const FRealtimeMeshBufferLayout& NewLayout, bool bKeepData = true)
+		{
+			if (auto* Result = Streams.Find(StreamKey))
+			{
+				if (!bKeepData)
+				{
+					(*Result)->Empty();
+				}
+				if (!(*Result)->ConvertTo(NewLayout))
+				{
+					UE_LOG(RealtimeMeshLog, Warning, TEXT("Failed to convert stream %s to new layout: Removing Data"), *StreamKey.ToString());
+				}
+				return Result->Get();
+			}
+			
+			auto& Entry = Streams.FindOrAdd(StreamKey);
+			Entry = MakeUnique<FRealtimeMeshStream>(StreamKey, NewLayout);
+			return Entry.Get();
 		}
 
-		FRealtimeMeshDataStream& FindChecked(const FRealtimeMeshStreamKey& StreamKey)
+		FRealtimeMeshStream& FindChecked(const FRealtimeMeshStreamKey& StreamKey)
 		{
-			const FRealtimeMeshDataStreamRef* Ptr = Streams.Find(StreamKey);
-			check(Ptr);
-			return Ptr->Get();
+			const auto* Result = Streams.Find(StreamKey);
+			check(Result);
+			return *Result->Get();
+		}
+		const FRealtimeMeshStream& FindChecked(const FRealtimeMeshStreamKey& StreamKey) const
+		{
+			const auto* Result = Streams.Find(StreamKey);
+			check(Result);
+			return *Result->Get();
 		}
 
 		bool Contains(const FRealtimeMeshStreamKey& StreamKey) const
@@ -719,10 +886,7 @@ namespace RealtimeMesh
 		TSet<FRealtimeMeshStreamKey> GetStreamKeys() const
 		{
 			TSet<FRealtimeMeshStreamKey> Keys;
-			for (auto SetIt = Streams.CreateConstIterator(); SetIt; ++SetIt)
-			{
-				Keys.Add(SetIt->Get().GetStreamKey());
-			}
+			Streams.GetKeys(Keys);
 			return Keys;
 		}
 
@@ -733,66 +897,79 @@ namespace RealtimeMesh
 
 			for (auto SetIt = Streams.CreateConstIterator(); SetIt; ++SetIt)
 			{
-				if (!Other.Streams.Contains(SetIt->Get().GetStreamKey()))
+				if (!Other.Streams.Contains(SetIt->Key))
 				{
-					Result.Add(SetIt->Get().GetStreamKey());
+					Result.Add(SetIt->Key);
 				}
 			}
 			return Result;
 		}
 
-		FRealtimeMeshDataStreamRef AddStream(ERealtimeMeshStreamType StreamType, FName StreamName, const FRealtimeMeshBufferLayout& InLayout)
+		FRealtimeMeshStream* AddStream(ERealtimeMeshStreamType StreamType, FName StreamName, const FRealtimeMeshBufferLayout& InLayout)
 		{
-			auto NewStream = MakeShared<FRealtimeMeshDataStream>(StreamType, StreamName, InLayout);
-			Streams.Add(NewStream);
-			return NewStream;
+			const FRealtimeMeshStreamKey StreamKey(StreamType, StreamName);
+			auto& Entry = Streams.FindOrAdd(StreamKey);
+			Entry = MakeUnique<FRealtimeMeshStream>(StreamKey, InLayout);
+			return Entry.Get();
+		}
+		
+		FRealtimeMeshStream* AddStream(const FRealtimeMeshStreamKey& StreamKey, const FRealtimeMeshBufferLayout& InLayout)
+		{
+			auto& Entry = Streams.FindOrAdd(StreamKey);
+			Entry = MakeUnique<FRealtimeMeshStream>(StreamKey, InLayout);
+			return Entry.Get();
 		}
 
 		template <typename StreamLayout>
-		FRealtimeMeshDataStreamRef AddStream(ERealtimeMeshStreamType StreamType, FName StreamName)
+		FRealtimeMeshStream* AddStream(ERealtimeMeshStreamType StreamType, FName StreamName)
 		{
-			auto NewStream = MakeShared<FRealtimeMeshDataStream>(StreamType, StreamName, GetRealtimeMeshBufferLayout<StreamLayout>());
-			Streams.Add(NewStream);
-			return NewStream;
+			const FRealtimeMeshStreamKey StreamKey(StreamType, StreamName);
+			auto& Entry = Streams.FindOrAdd(StreamKey);
+			Entry = MakeUnique<FRealtimeMeshStream>(StreamKey, GetRealtimeMeshBufferLayout<StreamLayout>());
+			return Entry.Get();
 		}
 
-		FRealtimeMeshDataStreamRef AddStream(const FRealtimeMeshDataStream& InStream)
+		template <typename StreamLayout>
+		FRealtimeMeshStream* AddStream(const FRealtimeMeshStreamKey& StreamKey)
 		{
-			auto NewStream = MakeShared<FRealtimeMeshDataStream>(InStream);
-			Streams.Add(NewStream);
-			return NewStream;
+			auto& Entry = Streams.FindOrAdd(StreamKey);
+			Entry = MakeUnique<FRealtimeMeshStream>(StreamKey, GetRealtimeMeshBufferLayout<StreamLayout>());
+			return Entry.Get();
 		}
 
-		FRealtimeMeshDataStreamRef AddStream(FRealtimeMeshDataStream&& InStream)
+		FRealtimeMeshStream* AddStream(const FRealtimeMeshStream& Stream)
 		{
-			auto NewStream = MakeShared<FRealtimeMeshDataStream>(MoveTemp(InStream));
-			Streams.Add(NewStream);
-			return NewStream;
+			auto& Entry = Streams.FindOrAdd(Stream.GetStreamKey());
+			Entry = MakeUnique<FRealtimeMeshStream>(Stream);
+			return Entry.Get();
+		}
+
+		FRealtimeMeshStream* AddStream(FRealtimeMeshStream&& Stream)
+		{
+			auto& Entry = Streams.FindOrAdd(Stream.GetStreamKey());
+			Entry = MakeUnique<FRealtimeMeshStream>(MoveTemp(Stream));
+			return Entry.Get();
 		}
 
 
-		/** Creates an iterator for the contents of this set */
-		FORCEINLINE FRealtimeMeshDataStreamRefSet::TIterator CreateIterator()
+		void ForEach(const TFunctionRef<void(FRealtimeMeshStream&)>& Func)
 		{
-			return Streams.CreateIterator();
+			for (auto SetIt = Streams.CreateConstIterator(); SetIt; ++SetIt)
+			{
+				Func(*SetIt->Value.Get());
+			}
 		}
-
-		/** Creates a const iterator for the contents of this set */
-		FORCEINLINE FRealtimeMeshDataStreamRefSet::TConstIterator CreateConstIterator() const
+		
+		void ForEach(const TFunctionRef<void(const FRealtimeMeshStream&)>& Func) const
 		{
-			return Streams.CreateConstIterator();
+			for (auto SetIt = Streams.CreateConstIterator(); SetIt; ++SetIt)
+			{
+				Func(*SetIt->Value.Get());
+			}
 		}
-
-		friend struct TSetPrivateFriend;
-
-	public:
-		/**
-		 * DO NOT USE DIRECTLY
-		 * STL-like iterators to enable range-based for loop support.
-		 */
-		FORCEINLINE FRealtimeMeshDataStreamRefSet::TRangedForIterator begin() { return Streams.begin(); }
-		FORCEINLINE FRealtimeMeshDataStreamRefSet::TRangedForConstIterator begin() const { return Streams.begin(); }
-		FORCEINLINE FRealtimeMeshDataStreamRefSet::TRangedForIterator end() { return Streams.end(); }
-		FORCEINLINE FRealtimeMeshDataStreamRefSet::TRangedForConstIterator end() const { return Streams.end(); }
 	};
+
+
+
+	using FRealtimeMeshStreamProxyMap = TMap<FRealtimeMeshStreamKey, TSharedPtr<FRealtimeMeshGPUBuffer>>;
 }

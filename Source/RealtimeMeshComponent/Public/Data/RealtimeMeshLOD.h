@@ -21,7 +21,7 @@ namespace RealtimeMesh
 		FRealtimeMeshLODData(const FRealtimeMeshSharedResourcesRef& InSharedResources, const FRealtimeMeshLODKey& InKey);
 		virtual ~FRealtimeMeshLODData();
 
-		FRealtimeMeshLODKey GetKey() const { return Key; }
+		const FRealtimeMeshLODKey& GetKey() const { return Key; }
 		bool HasSectionGroups() const;
 
 		template <typename SectionGroupType>

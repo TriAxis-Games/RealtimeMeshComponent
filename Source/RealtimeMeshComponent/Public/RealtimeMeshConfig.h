@@ -2,14 +2,13 @@
 
 #pragma once
 
-#include "CoreMinimal.h"
+#include "RealtimeMeshCore.h"
 #include "RealtimeMeshConfig.generated.h"
 
 #define LOCTEXT_NAMESPACE "RealtimeMesh"
 
 
-USTRUCT(BlueprintType, meta=(
-	HasNativeMake="RealtimeMeshComponent.RealtimeMeshBlueprintFunctionLibrary.MakeStreamRange"))
+USTRUCT(BlueprintType, meta=(HasNativeMake="RealtimeMeshComponent.RealtimeMeshBlueprintFunctionLibrary.MakeStreamRange"))
 struct REALTIMEMESHCOMPONENT_API FRealtimeMeshStreamRange
 {
 	GENERATED_BODY()
@@ -122,51 +121,6 @@ public:
 		: SlotName(InSlotName), Material(InMaterial)
 	{
 	}
-};
-
-/**
-*	Struct used to specify a tangent vector for a vertex
-*	The Y tangent is computed from the cross product of the vertex normal (Tangent Z) and the TangentX member.
-*/
-USTRUCT(BlueprintType)
-struct REALTIMEMESHCOMPONENT_API FRealtimeMeshTangent
-{
-	GENERATED_BODY()
-
-public:
-	/** Direction of X tangent for this vertex */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="RealtimeMesh|Tangent")
-	FVector TangentX;
-
-	/** Bool that indicates whether we should flip the Y tangent when we compute it using cross product */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="RealtimeMesh|Tangent")
-	bool bFlipTangentY;
-
-	FRealtimeMeshTangent()
-		: TangentX(FVector::XAxisVector)
-		  , bFlipTangentY(false)
-	{
-	}
-
-	FRealtimeMeshTangent(float X, float Y, float Z)
-		: TangentX(X, Y, Z)
-		  , bFlipTangentY(false)
-	{
-	}
-
-	FRealtimeMeshTangent(FVector InTangentX, bool bInFlipTangentY)
-		: TangentX(InTangentX)
-		  , bFlipTangentY(bInFlipTangentY)
-	{
-	}
-
-	FRealtimeMeshTangent(FVector InTangentX, FVector InTangentY, FVector InTangentZ)
-		: TangentX(InTangentX)
-		  , bFlipTangentY(GetBasisDeterminantSign(InTangentX, InTangentY, InTangentZ) < 0)
-	{
-	}
-
-	friend FArchive& operator<<(FArchive& Ar, FRealtimeMeshTangent& Tangent);
 };
 
 /* The rendering path to use for this section.
@@ -399,6 +353,8 @@ public:
 		return SectionGroup() == InSectionGroup;
 	}
 
+	bool IsPolyGroupKey() const;
+	
 	bool operator==(const FRealtimeMeshSectionKey& Other) const
 	{
 		return LODIndex == Other.LODIndex && GroupName == Other.GroupName && SectionName == Other.SectionName;
@@ -424,15 +380,76 @@ public:
 	static FRealtimeMeshSectionKey Create(const FRealtimeMeshSectionGroupKey& SectionGroupKey, FName SectionName);
 	static FRealtimeMeshSectionKey Create(const FRealtimeMeshSectionGroupKey& SectionGroupKey, int32 SectionID);
 	static FRealtimeMeshSectionKey CreateUnique(const FRealtimeMeshSectionGroupKey& SectionGroupKey);
+	static FRealtimeMeshSectionKey CreateForPolyGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey, int32 PolyGroup);
 };
-
 
 UENUM()
-enum class ERealtimeMeshProxyUpdateStatus : uint8
+enum class ERealtimeMeshStreamType : uint8
 {
-	NoProxy,
-	NoUpdate,
-	Updated,
+	Unknown,
+	Vertex,
+	Index,
 };
+
+
+USTRUCT(BlueprintType,  meta=(HasNativeMake="RealtimeMeshComponent.RealtimeMeshBlueprintFunctionLibrary.MakeStreamKey"))
+struct FRealtimeMeshStreamKey
+{
+	GENERATED_BODY()
+private:
+	UPROPERTY(VisibleAnywhere, Category="RealtimeMesh|Key")
+	ERealtimeMeshStreamType StreamType;
+	
+	UPROPERTY(VisibleAnywhere, Category="RealtimeMesh|Key")
+	FName StreamName;
+
+public:
+	FRealtimeMeshStreamKey() : StreamType(ERealtimeMeshStreamType::Unknown), StreamName(NAME_None)
+	{
+	}
+
+	FRealtimeMeshStreamKey(ERealtimeMeshStreamType InStreamType, FName InStreamName)
+		: StreamType(InStreamType), StreamName(InStreamName)
+	{
+	}
+
+	FName GetName() const { return StreamName; }
+
+	ERealtimeMeshStreamType GetStreamType() const { return StreamType; }
+	bool IsVertexStream() const { return StreamType == ERealtimeMeshStreamType::Vertex; }
+	bool IsIndexStream() const { return StreamType == ERealtimeMeshStreamType::Index; }
+
+	FORCEINLINE bool operator==(const FRealtimeMeshStreamKey& Other) const { return StreamType == Other.StreamType && StreamName == Other.StreamName; }
+	FORCEINLINE bool operator!=(const FRealtimeMeshStreamKey& Other) const { return StreamType != Other.StreamType || StreamName != Other.StreamName; }
+
+	friend inline uint32 GetTypeHash(const FRealtimeMeshStreamKey& StreamKey)
+	{
+		return GetTypeHashHelper(StreamKey.StreamType) + 23 * GetTypeHashHelper(StreamKey.StreamName);
+	}
+
+	FString ToString() const
+	{
+		FString TypeString;
+
+		switch (StreamType)
+		{
+		case ERealtimeMeshStreamType::Unknown:
+			TypeString += "Unknown";
+			break;
+		case ERealtimeMeshStreamType::Vertex:
+			TypeString += "Vertex";
+			break;
+		case ERealtimeMeshStreamType::Index:
+			TypeString += "Index";
+			break;
+		}
+
+		return TEXT("[") + StreamName.ToString() + TEXT(", Type:") + TypeString + TEXT("]");
+	}
+
+	friend FArchive& operator<<(FArchive& Ar, FRealtimeMeshStreamKey& Key);
+};
+
+
 
 #undef LOCTEXT_NAMESPACE

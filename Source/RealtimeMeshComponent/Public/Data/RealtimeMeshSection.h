@@ -4,12 +4,11 @@
 
 #include "RealtimeMeshCore.h"
 #include "RealtimeMeshConfig.h"
-#include "RealtimeMeshShared.h"
+#include "Data/RealtimeMeshShared.h"
 
 namespace RealtimeMesh
 {
 	struct FRealtimeMeshProxyCommandBatch;
-	struct FRealtimeMeshSectionUpdateContext;
 
 	class REALTIMEMESHCOMPONENT_API FRealtimeMeshSection : public TSharedFromThis<FRealtimeMeshSection>
 	{
@@ -34,7 +33,7 @@ namespace RealtimeMesh
 
 		FRealtimeMeshSectionGroupPtr GetSectionGroup() const;
 
-		FRealtimeMeshSectionKey GetKey() const { return Key; }
+		const FRealtimeMeshSectionKey& GetKey() const { return Key; }
 		FRealtimeMeshSectionConfig GetConfig() const;
 		FRealtimeMeshStreamRange GetStreamRange() const;
 		FBoxSphereBounds3f GetLocalBounds() const;

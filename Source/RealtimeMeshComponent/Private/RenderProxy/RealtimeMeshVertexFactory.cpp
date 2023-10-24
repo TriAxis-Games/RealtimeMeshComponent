@@ -6,15 +6,18 @@
 
 #include "RenderProxy/RealtimeMeshVertexFactory.h"
 
-#include "MaterialDomain.h"
+
 #include "SceneView.h"
 #include "MeshBatch.h"
 #include "SpeedTreeWind.h"
 #include "Rendering/ColorVertexBuffer.h"
 #include "MeshMaterialShader.h"
 #include "RealtimeMeshConfig.h"
+#include "SceneInterface.h"
 #include "ProfilingDebugging/LoadTimeTracker.h"
-#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 2
+
+#if RMC_ENGINE_ABOVE_5_2
+#include "MaterialDomain.h"
 #include "MeshDrawShaderBindings.h"
 #endif
 
@@ -27,16 +30,28 @@ namespace RealtimeMesh
 		typedef TUniformBuffer<FSpeedTreeUniformParameters> Super;
 
 	public:
+#if RMC_ENGINE_ABOVE_5_3
+		virtual void InitRHI(FRHICommandListBase& RHICmdList) override;
+#else
 		virtual void InitDynamicRHI() override;
+#endif
 	};
 
+#if RMC_ENGINE_ABOVE_5_3
+	void FRealtimeMeshSpeedTreeWindNullUniformBuffer::InitRHI(FRHICommandListBase& RHICmdList)
+#else
 	void FRealtimeMeshSpeedTreeWindNullUniformBuffer::InitDynamicRHI()
+#endif
 	{
 		FSpeedTreeUniformParameters Parameters;
 		FMemory::Memzero(Parameters);
 		SetContentsNoUpdate(Parameters);
 
+#if RMC_ENGINE_ABOVE_5_3
+		Super::InitRHI(RHICmdList);
+#else
 		Super::InitDynamicRHI();
+#endif
 	}
 
 	static TGlobalResource<FRealtimeMeshSpeedTreeWindNullUniformBuffer> GSpeedTreeWindNullUniformBuffer;
@@ -190,7 +205,12 @@ namespace RealtimeMesh
 		if (bIsValid)
 		{
 			Data = DataType;
+			
+#if RMC_ENGINE_ABOVE_5_3
+			InitResource(FRHICommandListImmediate::Get());
+#else
 			InitResource();
+#endif
 		}
 		else
 		{
@@ -300,6 +320,14 @@ namespace RealtimeMesh
 
 	void FRealtimeMeshLocalVertexFactory::ModifyCompilationEnvironment(const FVertexFactoryShaderPermutationParameters& Parameters, FShaderCompilerEnvironment& OutEnvironment)
 	{
+#if RMC_ENGINE_ABOVE_5_3
+		OutEnvironment.SetDefineIfUnset(TEXT("VF_SUPPORTS_SPEEDTREE_WIND"), TEXT("1"));
+
+		if (RHISupportsManualVertexFetch(Parameters.Platform))
+		{
+			OutEnvironment.SetDefineIfUnset(TEXT("MANUAL_VERTEX_FETCH"), TEXT("1"));
+		}
+#else
 		if (!OutEnvironment.GetDefinitions().Contains("VF_SUPPORTS_SPEEDTREE_WIND"))
 		{
 			OutEnvironment.SetDefine(TEXT("VF_SUPPORTS_SPEEDTREE_WIND"), TEXT("1"));
@@ -309,6 +337,8 @@ namespace RealtimeMesh
 		{
 			OutEnvironment.SetDefine(TEXT("MANUAL_VERTEX_FETCH"), TEXT("1"));
 		}
+#endif
+		
 		const bool bVFSupportsPrimtiveSceneData = Parameters.VertexFactoryType->SupportsPrimitiveIdStream() && UseGPUScene(
 			Parameters.Platform, GetMaxSupportedFeatureLevel(Parameters.Platform));
 		OutEnvironment.SetDefine(TEXT("VF_SUPPORTS_PRIMITIVE_SCENE_DATA"), bVFSupportsPrimtiveSceneData);
@@ -321,7 +351,11 @@ namespace RealtimeMesh
 		if (Type->SupportsPrimitiveIdStream()
 			&& UseGPUScene(Platform, GetMaxSupportedFeatureLevel(Platform))
 			&& !IsMobilePlatform(Platform) // On mobile VS may use PrimtiveUB while GPUScene is enabled
+#if RMC_ENGINE_ABOVE_5_3		
+			&& ParameterMap.ContainsParameterAllocation(FPrimitiveUniformShaderParameters::FTypeInfo::GetStructMetadata()->GetShaderVariableName()))
+#else
 			&& ParameterMap.ContainsParameterAllocation(FPrimitiveUniformShaderParameters::StaticStructMetadata.GetShaderVariableName()))
+#endif
 		{
 			OutErrors.AddUnique(*FString::Printf(
 				TEXT(
@@ -345,8 +379,12 @@ namespace RealtimeMesh
 			});
 		BeginUpdateResourceRHI(this);
 	}
-
+	
+#if RMC_ENGINE_ABOVE_5_3
+	void FRealtimeMeshLocalVertexFactory::InitRHI(FRHICommandListBase& RHICmdList)
+#else
 	void FRealtimeMeshLocalVertexFactory::InitRHI()
+#endif
 	{
 		SCOPED_LOADTIMER(FLocalVertexFactory_InitRHI);
 

@@ -1,7 +1,7 @@
 ﻿// Copyright TriAxis Games, L.L.C. All Rights Reserved.
 
 #include "RealtimeMeshGuard.h"
-#include "RealtimeMeshShared.h"
+#include "Data/RealtimeMeshShared.h"
 
 namespace RealtimeMesh
 {

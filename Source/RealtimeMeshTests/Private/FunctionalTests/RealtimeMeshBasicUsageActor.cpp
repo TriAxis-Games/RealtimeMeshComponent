@@ -5,8 +5,9 @@
 
 #include "RealtimeMeshLibrary.h"
 #include "RealtimeMeshSimple.h"
-#include "Data/RealtimeMeshBuilder.h"
-#include "DynamicMesh/DynamicMesh3.h"
+#include "Mesh/RealtimeMeshBasicShapeTools.h"
+#include "Mesh/RealtimeMeshBuilder.h"
+#include "Mesh/RealtimeMeshSimpleData.h"
 
 
 ARealtimeMeshBasicUsageActor::ARealtimeMeshBasicUsageActor()
@@ -31,14 +32,34 @@ void ARealtimeMeshBasicUsageActor::OnGenerateMesh_Implementation()
 		FRealtimeMeshSimpleMeshData MeshData;
 
 		// This just adds a simple box, you can instead create your own mesh data
-		URealtimeMeshBlueprintFunctionLibrary::AppendBoxMesh(FVector(100, 100, 200), FTransform::Identity, MeshData);
+		URealtimeMeshSimpleBasicShapeTools::AppendBoxMesh(FVector(100, 100, 200), FTransform::Identity, MeshData, 2);
+		URealtimeMeshSimpleBasicShapeTools::AppendBoxMesh(FVector(200, 100, 100), FTransform::Identity, MeshData, 1);
+		URealtimeMeshSimpleBasicShapeTools::AppendBoxMesh(FVector(100, 200, 100), FTransform::Identity, MeshData, 3);
 
 		// Create a single section, with its own dedicated section group
 
-		FRealtimeMeshSectionKey StaticSectionKey = FRealtimeMeshSectionKey::CreateUnique(FRealtimeMeshSectionGroupKey::CreateUnique(0));
+		const auto SectionGroupKey = FRealtimeMeshSectionGroupKey::Create(0, FName("TestTripleBox"));
+		RealtimeMesh->CreateSectionGroup(SectionGroupKey, MeshData);
+
+		auto SectionGroup = RealtimeMesh->GetMeshData()->GetSectionGroupAs<FRealtimeMeshSectionGroupSimple>(SectionGroupKey);
+		SectionGroup->SetPolyGroupSectionHandler(FRealtimeMeshPolyGroupConfigHandler::CreateUObject(this, &ARealtimeMeshBasicUsageActor::OnAddSectionToPolyGroup));
+
+		FRealtimeMeshSectionConfig VisibleConfig;
+		VisibleConfig.bIsVisible = true;
+
+		FRealtimeMeshSectionConfig InvisibleConfig;
+		InvisibleConfig.bIsVisible = false;
+
+		RealtimeMesh->UpdateSectionConfig(FRealtimeMeshSectionKey::CreateForPolyGroup(SectionGroupKey, 1), VisibleConfig);
+		RealtimeMesh->UpdateSectionConfig(FRealtimeMeshSectionKey::CreateForPolyGroup(SectionGroupKey, 2), VisibleConfig);
+		RealtimeMesh->UpdateSectionConfig(FRealtimeMeshSectionKey::CreateForPolyGroup(SectionGroupKey, 3), VisibleConfig);
+		
+		
+
+		/*FRealtimeMeshSectionKey StaticSectionKey = FRealtimeMeshSectionKey::CreateUnique(FRealtimeMeshSectionGroupKey::CreateUnique(0));
 		RealtimeMesh->CreateStandaloneSection(StaticSectionKey, FRealtimeMeshSectionConfig(ERealtimeMeshSectionDrawType::Static, 0), MeshData, true);
 
-		RealtimeMesh->EditMeshInPlace(StaticSectionKey, [](FRealtimeMeshDataStreamRefSet& MeshData)
+		RealtimeMesh->EditMeshInPlace(StaticSectionKey, [](FRealtimeMeshStreamSet& MeshData)
 			{
 				TRealtimeMeshBuilderLocal<> Builder(MeshData);
 
@@ -46,15 +67,13 @@ void ARealtimeMeshBasicUsageActor::OnGenerateMesh_Implementation()
 
 				// We only touched color so only push that
 				return TSet { FRealtimeMeshStreams::Color };
-			});
+			});*/
 	}
 	
-	{	// Create a basic group with 2 sections
+	/*{	// Create a basic group with 2 sections
 		FRealtimeMeshSimpleMeshData MeshData;
 
 		// This just adds two simple boxes, one after the other
-		URealtimeMeshBlueprintFunctionLibrary::AppendBoxMesh(FVector(200, 100, 100), FTransform::Identity, MeshData);
-		URealtimeMeshBlueprintFunctionLibrary::AppendBoxMesh(FVector(100, 200, 100), FTransform::Identity, MeshData);
 
 		// Create a section group passing it our mesh data
 		FRealtimeMeshSectionGroupKey GroupKey = FRealtimeMeshSectionGroupKey::CreateUnique(0);
@@ -70,5 +89,10 @@ void ARealtimeMeshBasicUsageActor::OnGenerateMesh_Implementation()
 		RealtimeMesh->CreateSection(SectionInGroupB,
 			FRealtimeMeshSectionConfig(ERealtimeMeshSectionDrawType::Static, 1),
 			FRealtimeMeshStreamRange(24, 48, 36, 72), true);
-	}
+	}*/
+}
+
+FRealtimeMeshSectionConfig ARealtimeMeshBasicUsageActor::OnAddSectionToPolyGroup(int32 PolyGroupIndex)
+{
+	return FRealtimeMeshSectionConfig(ERealtimeMeshSectionDrawType::Static, PolyGroupIndex);
 }

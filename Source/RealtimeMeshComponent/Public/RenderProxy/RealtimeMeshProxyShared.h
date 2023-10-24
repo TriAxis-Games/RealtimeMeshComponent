@@ -3,6 +3,9 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "RenderResource.h"
+#include "MeshBatch.h"
+#include "SceneManagement.h"
 
 namespace RealtimeMesh
 {

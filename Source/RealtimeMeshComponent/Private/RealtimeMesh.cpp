@@ -2,12 +2,13 @@
 
 #include "RealtimeMesh.h"
 #include "RealtimeMeshComponent.h"
-#include "..\Public\Data\RealtimeMeshData.h"
+#include "Data/RealtimeMeshData.h"
 #include "Data/RealtimeMeshLOD.h"
 #include "Interface_CollisionDataProviderCore.h"
 #include "Misc/LazySingleton.h"
 #include "PhysicsEngine/BodySetup.h"
-#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 2
+#include "Logging/MessageLog.h"
+#if RMC_ENGINE_ABOVE_5_2
 #include "Engine/World.h"
 #endif
 
@@ -28,8 +29,10 @@ DECLARE_CYCLE_STAT(TEXT("RealtimeMeshDelayedActions - Finalize Collision Cooked 
 
 URealtimeMesh::URealtimeMesh(const FObjectInitializer& ObjectInitializer)
 	: UObject(ObjectInitializer)
-	  , CollisionUpdateVersionCounter(0)
-	  , CurrentCollisionVersion(INDEX_NONE)
+	, BodySetup(nullptr)
+	, PendingBodySetup(nullptr)
+	, CollisionUpdateVersionCounter(0)
+	, CurrentCollisionVersion(INDEX_NONE)
 {
 }
 
@@ -290,6 +293,7 @@ void URealtimeMesh::InitiateCollisionUpdate(const TSharedRef<TPromise<ERealtimeM
 	}
 }
 
+// ReSharper disable once CppPassValueParameterByConstReference
 void URealtimeMesh::FinishPhysicsAsyncCook(bool bSuccess, TSharedRef<TPromise<ERealtimeMeshCollisionUpdateResult>> Promise, UBodySetup* FinishedBodySetup, int32 UpdateKey)
 {
 	check(IsInGameThread());

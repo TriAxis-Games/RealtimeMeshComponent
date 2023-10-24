@@ -2,7 +2,7 @@
 
 #include "Data/RealtimeMeshSection.h"
 #include "RealtimeMeshGuard.h"
-#include "RealtimeMeshShared.h"
+#include "Data/RealtimeMeshShared.h"
 #include "Data/RealtimeMeshData.h"
 #include "RenderProxy/RealtimeMeshProxyCommandBatch.h"
 #include "RenderProxy/RealtimeMeshSectionProxy.h"

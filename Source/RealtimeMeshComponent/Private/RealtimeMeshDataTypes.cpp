@@ -1,7 +1,7 @@
 ﻿// Copyright TriAxis Games, L.L.C. All Rights Reserved.
 
 
-#include "Data/RealtimeMeshDataTypes.h"
+#include "Mesh/RealtimeMeshDataTypes.h"
 
 
 namespace RealtimeMesh

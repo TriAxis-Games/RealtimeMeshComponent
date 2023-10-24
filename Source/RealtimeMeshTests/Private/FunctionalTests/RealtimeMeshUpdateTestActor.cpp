@@ -5,6 +5,8 @@
 
 #include "RealtimeMeshLibrary.h"
 #include "RealtimeMeshSimple.h"
+#include "Mesh/RealtimeMeshBasicShapeTools.h"
+#include "Mesh/RealtimeMeshSimpleData.h"
 
 
 ARealtimeMeshUpdateTestActor::ARealtimeMeshUpdateTestActor()
@@ -26,47 +28,17 @@ void ARealtimeMeshUpdateTestActor::OnGenerateMesh_Implementation()
 	
 	FRealtimeMeshSimpleMeshData EmptyMeshData;
 
-	StaticSectionKey = FRealtimeMeshSectionKey::CreateUnique(FRealtimeMeshSectionGroupKey::CreateUnique(0));
-	
-	// Create a single section, with its own dedicated section group
-	auto Future = RealtimeMesh->CreateStandaloneSection(StaticSectionKey, FRealtimeMeshSectionConfig(ERealtimeMeshSectionDrawType::Static, 0), EmptyMeshData, true);
-
-	Future.Next([](ERealtimeMeshProxyUpdateStatus UpdateStatus)
-	{
-		UE_LOG(LogTemp, Log, TEXT("Static section created with status %d"), (int32)UpdateStatus);
-	});
-
-	
-	
-	// Create a section group passing it our mesh data
-	GroupKey = RealtimeMesh->CreateSectionGroup(0, EmptyMeshData);
-
-	// Create both sections on the same mesh data
-	SectionInGroupA = RealtimeMesh->CreateSection(GroupKey, FRealtimeMeshSectionConfig(ERealtimeMeshSectionDrawType::Static, 0), FRealtimeMeshStreamRange(), true);
-	SectionInGroupB = RealtimeMesh->CreateSection(GroupKey, FRealtimeMeshSectionConfig(ERealtimeMeshSectionDrawType::Static, 0), FRealtimeMeshStreamRange(), true);
-	
-	
+	GroupKey = FRealtimeMeshSectionGroupKey::CreateUnique(0);
+	RealtimeMesh->CreateSectionGroup(GroupKey);
+		
 	{	// Create a basic single section
 		FRealtimeMeshSimpleMeshData MeshData;
 
 		// This just adds a simple box, you can instead create your own mesh data
-		URealtimeMeshBlueprintFunctionLibrary::AppendBoxMesh(FVector(100, 100, 200), FTransform::Identity, MeshData);
-
-		RealtimeMesh->UpdateStandaloneSection(StaticSectionKey, MeshData);
-
-	}
-	
-	{	// Create a basic group with 2 sections
-		FRealtimeMeshSimpleMeshData MeshData;
-
-		// This just adds two simple boxes, one after the other
-		URealtimeMeshBlueprintFunctionLibrary::AppendBoxMesh(FVector(200, 100, 100), FTransform::Identity, MeshData);
-		URealtimeMeshBlueprintFunctionLibrary::AppendBoxMesh(FVector(100, 200, 100), FTransform::Identity, MeshData);
+		URealtimeMeshSimpleBasicShapeTools::AppendBoxMesh(FVector(100, 100, 200), FTransform::Identity, MeshData, 0);
+		URealtimeMeshSimpleBasicShapeTools::AppendBoxMesh(FVector(200, 100, 100), FTransform::Identity, MeshData, 2);
+		URealtimeMeshSimpleBasicShapeTools::AppendBoxMesh(FVector(100, 200, 100), FTransform::Identity, MeshData, 1);
 
 		RealtimeMesh->UpdateSectionGroup(GroupKey, MeshData);
-		RealtimeMesh->UpdateSectionSegment(SectionInGroupA, FRealtimeMeshStreamRange(0, 24, 0, 36));
-		RealtimeMesh->UpdateSectionSegment(SectionInGroupB, FRealtimeMeshStreamRange(24, 48, 36, 72));
-
 	}
-
 }

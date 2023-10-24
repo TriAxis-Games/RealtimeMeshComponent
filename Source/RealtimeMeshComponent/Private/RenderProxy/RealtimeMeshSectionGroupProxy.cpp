@@ -2,10 +2,13 @@
 
 #include "RenderProxy/RealtimeMeshSectionGroupProxy.h"
 
-#include "MaterialDomain.h"
-#include "RealtimeMeshShared.h"
+//#include "MaterialDomain.h"
+#include "RealtimeMeshComponentModule.h"
+#include "Data/RealtimeMeshShared.h"
 #include "RenderProxy/RealtimeMeshLODProxy.h"
-#include "RenderProxy/RealtimeMeshProxy.h"
+#if RMC_ENGINE_ABOVE_5_2
+#include "MaterialDomain.h"
+#endif
 #include "RenderProxy/RealtimeMeshSectionProxy.h"
 #include "RenderProxy/RealtimeMeshVertexFactory.h"
 #include "Materials/Material.h"
@@ -78,6 +81,8 @@ namespace RealtimeMesh
 		// If we didn't create the buffers async, create them now
 		InStream->InitializeIfRequired();
 
+		check(InStream->GetBuffer().IsValid() && InStream->GetBuffer()->GetSize() > 0);
+
 		TSharedPtr<FRealtimeMeshGPUBuffer, ESPMode::ThreadSafe> GPUBuffer;
 
 
@@ -85,7 +90,8 @@ namespace RealtimeMesh
 		if (const TSharedPtr<FRealtimeMeshGPUBuffer, ESPMode::ThreadSafe>* FoundBuffer = Streams.Find(InStream->GetStreamKey()))
 		{
 			// We only stream in place if the existing buffer is zero or the same size as the new one
-			if (FoundBuffer->Get()->Num() == 0 || FoundBuffer->Get()->Num() == InStream->GetNumElements())
+			if ((FoundBuffer->Get()->Num() == 0 || FoundBuffer->Get()->Num() == InStream->GetNumElements()) &&
+				FoundBuffer->Get()->GetBufferLayout().GetBufferLayout() == InStream->GetBufferLayout().GetBufferLayout())
 			{
 				GPUBuffer = *FoundBuffer;
 			}
@@ -98,8 +104,8 @@ namespace RealtimeMesh
 		if (!GPUBuffer)
 		{
 			GPUBuffer = InStream->GetStreamKey().GetStreamType() == ERealtimeMeshStreamType::Vertex
-				            ? StaticCastSharedRef<FRealtimeMeshGPUBuffer>(MakeShared<FRealtimeMeshVertexBuffer>())
-				            : StaticCastSharedRef<FRealtimeMeshGPUBuffer>(MakeShared<FRealtimeMeshIndexBuffer>());
+				            ? StaticCastSharedRef<FRealtimeMeshGPUBuffer>(MakeShared<FRealtimeMeshVertexBuffer>(InStream->GetBufferLayout().GetBufferLayout()))
+				            : StaticCastSharedRef<FRealtimeMeshGPUBuffer>(MakeShared<FRealtimeMeshIndexBuffer>(InStream->GetBufferLayout().GetBufferLayout()));
 
 			// We must initialize the resources first before we then apply a buffer to it.
 			GPUBuffer->InitializeResources();
@@ -194,17 +200,18 @@ namespace RealtimeMesh
 			return false;
 		}
 
-		UpdateRayTracingInfo();
-
 		FRealtimeMeshDrawMask NewDrawMask;
 		for (const auto& Section : Sections)
 		{
 			NewDrawMask |= Section->GetDrawMask();
 		}
-
+		
 		const bool bStateChanged = DrawMask != NewDrawMask;
-		DrawMask = NewDrawMask;
+		DrawMask = NewDrawMask;		
 		bIsStateDirty = false;
+		
+		UpdateRayTracingInfo();
+		
 		return bStateChanged;
 	}
 
@@ -248,41 +255,60 @@ namespace RealtimeMesh
 		RayTracingGeometry.ReleaseResource();
 		if (DrawMask.HasAnyFlags() && VertexFactory.IsValid() && ShouldCreateRayTracingData() && IsRayTracingEnabled())
 		{
-			const auto PositionStream = StaticCastSharedPtr<FRealtimeMeshVertexBuffer>(Streams.FindChecked(
-				FRealtimeMeshStreamKey(ERealtimeMeshStreamType::Vertex, FRealtimeMeshStreams::PositionStreamName)));
-			const auto IndexStream = StaticCastSharedPtr<FRealtimeMeshIndexBuffer>(Streams.FindChecked(
-				FRealtimeMeshStreamKey(ERealtimeMeshStreamType::Index, FRealtimeMeshStreams::TrianglesStreamName)));
+			const auto PositionStream = StaticCastSharedPtr<FRealtimeMeshVertexBuffer>(Streams.FindChecked(FRealtimeMeshStreams::Position));
+			const auto IndexStream = StaticCastSharedPtr<FRealtimeMeshIndexBuffer>(Streams.FindChecked(FRealtimeMeshStreams::Triangles));
 
 			FRayTracingGeometryInitializer Initializer;
 			// TODO: Get better debug name
 			Initializer.DebugName = TEXT("RealtimeMeshComponent");
 			Initializer.IndexBuffer = IndexStream->IndexBufferRHI;
-			Initializer.TotalPrimitiveCount = 0;
+			Initializer.TotalPrimitiveCount = 0;//IndexStream->Num() / 3;
 			Initializer.GeometryType = RTGT_Triangles;
 			Initializer.bFastBuild = true;
 			Initializer.bAllowUpdate = false;
 
+			uint32 HighestSegmentPrimitive = 0;
 			for (const auto& Section : Sections)
 			{
-				if (Section->GetDrawMask().IsAnySet(ERealtimeMeshDrawMask::DrawDynamic | ERealtimeMeshDrawMask::DrawStatic))
-				{
-					check(GetVertexFactory() && GetVertexFactory().IsValid() && GetVertexFactory()->IsInitialized());
+				check(GetVertexFactory() && GetVertexFactory().IsValid() && GetVertexFactory()->IsInitialized());
 
-					FRayTracingGeometrySegment Segment;
-					Segment.VertexBuffer = PositionStream->VertexBufferRHI;
-					Segment.VertexBufferOffset = Section->GetStreamRange().GetMinVertex();
-					Segment.MaxVertices = Section->GetStreamRange().NumVertices();
+				FRayTracingGeometrySegment Segment;
+				Segment.VertexBuffer = PositionStream->VertexBufferRHI;
+				Segment.VertexBufferOffset = 0; // Section->GetStreamRange().GetMinVertex() * sizeof(FVector3f);
+				Segment.MaxVertices = PositionStream->Num(); // Section->GetStreamRange().NumVertices();
+				Segment.bEnabled = Section->GetDrawMask().IsAnySet(ERealtimeMeshDrawMask::DrawDynamic | ERealtimeMeshDrawMask::DrawStatic);
+				if (Segment.bEnabled)
+				{
 					Segment.FirstPrimitive = Section->GetStreamRange().GetMinIndex() / 3;
 					Segment.NumPrimitives = Section->GetStreamRange().NumPrimitives(3);
-					Segment.bEnabled = true;
-					Initializer.TotalPrimitiveCount += Segment.NumPrimitives;
-					Initializer.Segments.Add(Segment);
 				}
+				else
+				{
+					Segment.FirstPrimitive = 0;
+					Segment.NumPrimitives = 0;
+				}
+				Initializer.TotalPrimitiveCount += Segment.NumPrimitives;
+
+				HighestSegmentPrimitive = FMath::Max<uint32>(HighestSegmentPrimitive, Segment.FirstPrimitive + Segment.NumPrimitives);
+				Initializer.Segments.Add(Segment);
 			}
 
-			RayTracingGeometry.SetInitializer(Initializer);
-			RayTracingGeometry.InitResource();
-			check(RayTracingGeometry.RayTracingGeometryRHI.IsValid());
+			const bool bIsDataValid = HighestSegmentPrimitive <= Initializer.TotalPrimitiveCount;
+
+			if (!bIsDataValid)
+			{
+				UE_LOG(RealtimeMeshLog, Warning, TEXT("Unable to create ray tracing accelleration structures. Some triangles in buffer are unaccounted for in sections."));
+			}
+			else if (Initializer.Segments.Num() > 0)
+			{				
+				RayTracingGeometry.SetInitializer(Initializer);
+#if RMC_ENGINE_ABOVE_5_3
+				RayTracingGeometry.InitResource(FRHICommandListImmediate::Get());
+#else
+				RayTracingGeometry.InitResource();				
+#endif
+				check(RayTracingGeometry.RayTracingGeometryRHI.IsValid());
+			}
 		}
 #endif
 	}

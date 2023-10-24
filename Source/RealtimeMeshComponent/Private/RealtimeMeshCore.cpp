@@ -12,16 +12,35 @@
 #include "RenderProxy/RealtimeMeshSectionProxy.h"
 #include "RenderProxy/RealtimeMeshVertexFactory.h"
 
+
+enum class ERealtimeMeshStreamType_OLD
+{
+	Unknown,
+	Vertex,
+	Index,
+};
+
+FArchive& operator<<(FArchive& Ar, FRealtimeMeshStreamKey& Key)
+{
+	Ar << Key.StreamName;
+
+	if (Ar.CustomVer(RealtimeMesh::FRealtimeMeshVersion::GUID) < RealtimeMesh::FRealtimeMeshVersion::StreamKeySizeChanged)
+	{
+		check(Ar.IsLoading());
+		ERealtimeMeshStreamType_OLD OldKey;
+		Ar << OldKey;
+		Key.StreamType = static_cast<ERealtimeMeshStreamType>(OldKey);
+	}
+	else
+	{
+		Ar << Key.StreamType;		
+	}
+	
+	return Ar;
+}
+
 namespace RealtimeMesh
 {
-	FArchive& operator<<(FArchive& Ar, FRealtimeMeshStreamKey& Key)
-	{
-		Ar << Key.StreamName;
-		Ar << Key.StreamType;
-		return Ar;
-	}
-
-
 	ERHIFeatureLevel::Type FRealtimeMeshSharedResources::GetFeatureLevel() const
 	{
 		if (const auto ProxyPinned = Proxy.Pin()) { return ProxyPinned->GetRHIFeatureLevel(); }

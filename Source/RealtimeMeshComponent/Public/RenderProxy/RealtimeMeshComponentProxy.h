@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "RealtimeMeshSectionProxy.h"
-#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 2
+#if RMC_ENGINE_ABOVE_5_2
 #include "PrimitiveSceneProxy.h"
 #endif
 

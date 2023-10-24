@@ -4,7 +4,7 @@
 #include "RealtimeMeshComponent.h"
 #include "RealtimeMeshEngineSubsystem.h"
 #include "Engine/CollisionProfile.h"
-#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 2
+#if RMC_ENGINE_ABOVE_5_2
 #include "Engine/Level.h"
 #endif
 
@@ -22,7 +22,7 @@ ARealtimeMeshActor::ARealtimeMeshActor()
 
 	SetRootComponent(RealtimeMeshComponent);
 
-#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION == 0
+#if RMC_ENGINE_BELOW_5_1
 	RegisterWithGenerationManager();
 #endif
 }
@@ -45,7 +45,7 @@ void ARealtimeMeshActor::PostLoad()
 {
 	Super::PostLoad();
 
-#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 1
+#if RMC_ENGINE_ABOVE_5_1
 	RegisterWithGenerationManager();
 #endif
 }
@@ -53,7 +53,7 @@ void ARealtimeMeshActor::PostLoad()
 void ARealtimeMeshActor::PostActorCreated()
 {
 	Super::PostActorCreated();
-#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 1
+#if RMC_ENGINE_ABOVE_5_1
 	RegisterWithGenerationManager();
 #endif
 }

@@ -2,10 +2,11 @@
 
 #pragma once
 
+#include "RealtimeMeshCore.h"
+#include "Data/RealtimeMeshData.h"
 #include "RealtimeMeshCollision.h"
-#include "Data\RealtimeMeshData.h"
 #include "Interfaces/Interface_CollisionDataProvider.h"
-#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 2
+#if RMC_ENGINE_ABOVE_5_2
 #include "Tickable.h"
 #endif
 #include "RealtimeMesh.generated.h"

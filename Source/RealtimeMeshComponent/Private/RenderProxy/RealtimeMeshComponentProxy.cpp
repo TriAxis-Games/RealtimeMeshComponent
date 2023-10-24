@@ -10,7 +10,7 @@
 #include "SceneManagement.h"
 #include "RayTracingInstance.h"
 #include "RenderProxy/RealtimeMeshLODProxy.h"
-#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 2
+#if RMC_ENGINE_ABOVE_5_2
 #include "MaterialDomain.h"
 #include "Materials/MaterialRenderProxy.h"
 #include "SceneInterface.h"
@@ -71,9 +71,6 @@ namespace RealtimeMesh
 
 	void FRealtimeMeshComponentSceneProxy::CreateRenderThreadResources()
 	{
-		// Make sure the proxy has been updated.
-		//RealtimeMeshProxy->HandleUpdates();
-
 		FPrimitiveSceneProxy::CreateRenderThreadResources();
 	}
 
@@ -85,9 +82,6 @@ namespace RealtimeMesh
 
 	FPrimitiveViewRelevance FRealtimeMeshComponentSceneProxy::GetViewRelevance(const FSceneView* View) const
 	{
-		// Make sure all pending changes have been processed
-		//RealtimeMeshProxy->HandleUpdates(false);
-
 		FPrimitiveViewRelevance Result;
 		Result.bDrawRelevance = IsShown(View);
 		Result.bShadowRelevance = IsShadowCast(View);
@@ -111,9 +105,6 @@ namespace RealtimeMesh
 		SCOPE_CYCLE_COUNTER(STAT_RealtimeMeshComponentSceneProxy_DrawStaticMeshElements);
 
 		const auto ValidLODRange = RealtimeMeshProxy->GetValidLODRange();
-
-		// Make sure all pending changes have been processed
-		//RealtimeMeshProxy->HandleUpdates(false);
 
 
 		if (!ValidLODRange.IsEmpty())
@@ -163,9 +154,6 @@ namespace RealtimeMesh
 	                                                              FMeshElementCollector& Collector) const
 	{
 		SCOPE_CYCLE_COUNTER(STAT_RealtimeMeshComponentSceneProxy_GetDynamicMeshElements);
-
-		// Make sure all pending changes have been processed
-		//RealtimeMeshProxy->HandleUpdates(false);
 
 		// Set up wireframe material (if needed)
 		const bool bWireframe = AllowDebugViewmodes() && ViewFamily.EngineShowFlags.Wireframe;
@@ -268,9 +256,6 @@ namespace RealtimeMesh
 	{
 		SCOPE_CYCLE_COUNTER(STAT_RealtimeMeshComponentSceneProxy_GetDynamicRayTracingInstances);
 
-		// Make sure all pending changes have been processed
-		//RealtimeMeshProxy->HandleUpdates(false);
-
 		// TODO: Should this use any LOD determination logic? Or always use a specific LOD?
 		const int32 LODIndex = 0;
 
@@ -285,6 +270,8 @@ namespace RealtimeMesh
 
 					const auto LODScreenSizes = RealtimeMeshProxy->GetScreenSizeLimits(LODIndex);
 
+					TMap<const FRayTracingGeometry*, int32> CurrentRayTracingGeometries;
+					
 					FMeshBatch MeshBatch;
 					FRealtimeMeshBatchCreationParams Params
 					{
@@ -295,21 +282,32 @@ namespace RealtimeMesh
 							*MeshBatch = FMeshBatch();
 							return *MeshBatch;
 						},
-						[&OutRayTracingInstances, LocalToWorld = GetLocalToWorld(), FeatureLevel = GetScene().GetFeatureLevel()](
-						const FMeshBatch& Batch, float MinScreenSize, const FRayTracingGeometry* RayTracingGeometry)
+						[&OutRayTracingInstances, &CurrentRayTracingGeometries, LocalToWorld = GetLocalToWorld()](
+								FMeshBatch& Batch, float MinScreenSize, const FRayTracingGeometry* RayTracingGeometry)
 						{
-							check(RayTracingGeometry->Initializer.TotalPrimitiveCount > 0);
-							check(RayTracingGeometry->Initializer.IndexBuffer.IsValid());
-							checkf(RayTracingGeometry->RayTracingGeometryRHI, TEXT("Ray tracing instance must have a valid geometry."));
-							FRayTracingInstance RayTracingInstance;
-							RayTracingInstance.Geometry = RayTracingGeometry;
-							RayTracingInstance.InstanceTransforms.Add(LocalToWorld);
+							if (RayTracingGeometry->IsValid())
+							{
+								check(RayTracingGeometry->Initializer.TotalPrimitiveCount > 0);
+								check(RayTracingGeometry->Initializer.IndexBuffer.IsValid());
+								checkf(RayTracingGeometry->RayTracingGeometryRHI, TEXT("Ray tracing instance must have a valid geometry."));
+								
+								FRayTracingInstance* RayTracingInstance;
+								if (const auto* RayTracingInstanceIndex = CurrentRayTracingGeometries.Find(RayTracingGeometry))
+								{
+									RayTracingInstance = &OutRayTracingInstances[*RayTracingInstanceIndex];
+								}
+								else
+								{
+									RayTracingInstance = &OutRayTracingInstances.AddDefaulted_GetRef();
+									CurrentRayTracingGeometries.Add(RayTracingGeometry, OutRayTracingInstances.Num() - 1);
+									
+									RayTracingInstance->Geometry = RayTracingGeometry;
+									RayTracingInstance->InstanceTransforms.Add(LocalToWorld);
+								}
+								Batch.SegmentIndex = RayTracingInstance->Materials.Num();
 
-							RayTracingInstance.Materials.Add(Batch);
-#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION < 2
-							RayTracingInstance.BuildInstanceMaskAndFlags(FeatureLevel);
-#endif
-							OutRayTracingInstances.Add(RayTracingInstance);
+								RayTracingInstance->Materials.Add(Batch);
+							}
 						},
 						GetUniformBuffer(),
 						LODScreenSizes,
@@ -320,6 +318,13 @@ namespace RealtimeMesh
 					};
 
 					RealtimeMeshProxy->CreateMeshBatches(LODIndex, Params, Materials, nullptr, ERealtimeMeshSectionDrawType::Dynamic, true /* bForceDynamicPath */);
+
+#if RMC_ENGINE_BELOW_5_2
+					for (auto& RayTracingInstance : OutRayTracingInstances)
+					{
+						RayTracingInstance.BuildInstanceMaskAndFlags(GetScene().GetFeatureLevel());
+					}
+#endif
 				}
 			}
 		}
