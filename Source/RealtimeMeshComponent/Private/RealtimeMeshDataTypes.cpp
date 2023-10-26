@@ -7,7 +7,7 @@
 namespace RealtimeMesh
 {
 	const FRealtimeMeshElementType FRealtimeMeshElementType::Invalid(ERealtimeMeshDatumType::Unknown, 0, false, false);
-	const FRealtimeMeshBufferLayout FRealtimeMeshBufferLayout::Invalid(FRealtimeMeshElementType::Invalid, TArray<FName>());
+	const FRealtimeMeshBufferLayout FRealtimeMeshBufferLayout::Invalid(FRealtimeMeshElementType::Invalid, 0);
 
 	const FRealtimeMeshElementTypeDefinition FRealtimeMeshElementTypeDefinition::Invalid(VET_None, IET_None, PF_Unknown, 0, 0);
 	const FRealtimeMeshBufferLayoutDefinition FRealtimeMeshBufferLayoutDefinition::Invalid(FRealtimeMeshBufferLayout::Invalid, FRealtimeMeshElementTypeDefinition::Invalid);

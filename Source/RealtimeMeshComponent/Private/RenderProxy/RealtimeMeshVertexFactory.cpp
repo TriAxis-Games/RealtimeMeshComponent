@@ -174,14 +174,14 @@ namespace RealtimeMesh
 
 		// Bind Tangents
 		BindVertexBuffer(bIsValid, ValidVertexRange, InUseVertexBuffers, DataType.TangentBasisComponents[0], Buffers,
-		                 FRealtimeMeshStreams::TangentsStreamName, EVertexStreamUsage::ManualFetch, false, FRealtimeMeshStreams::TangentElementName, 0);
+		                 FRealtimeMeshStreams::TangentsStreamName, EVertexStreamUsage::ManualFetch, false, 0);
 		BindVertexBuffer(bIsValid, ValidVertexRange, InUseVertexBuffers, DataType.TangentBasisComponents[1], Buffers,
-		                 FRealtimeMeshStreams::TangentsStreamName, EVertexStreamUsage::ManualFetch, false, FRealtimeMeshStreams::NormalElementName, 1);
+		                 FRealtimeMeshStreams::TangentsStreamName, EVertexStreamUsage::ManualFetch, false, 1);
 		BindVertexBufferSRV(bIsValid, DataType.TangentsSRV, Buffers, FRealtimeMeshStreams::TangentsStreamName);
 
 		// Bind Color
 		BindVertexBuffer(bIsValid, ValidVertexRange, InUseVertexBuffers, DataType.ColorComponent, Buffers,
-		                 FRealtimeMeshStreams::ColorStreamName, EVertexStreamUsage::ManualFetch, true, NAME_None, 0, true);
+		                 FRealtimeMeshStreams::ColorStreamName, EVertexStreamUsage::ManualFetch, true, 0, true);
 		BindVertexBufferSRV(bIsValid, DataType.ColorComponentsSRV, Buffers, FRealtimeMeshStreams::ColorStreamName);
 
 		// Bind TexCoords

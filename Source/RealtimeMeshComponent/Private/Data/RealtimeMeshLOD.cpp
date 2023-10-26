@@ -229,73 +229,6 @@ namespace RealtimeMesh
 		}
 	}
 
-	/*void FRealtimeMeshLODData::ApplyStateUpdate(FRealtimeMeshProxyCommandBatch& Commands, FRealtimeMeshLODUpdateContext& Update)
-	{
-		/*if (Update.HasConfigUpdate())
-		{
-			Config = Update.GetConfigUpdate();
-				
-			Commands.AddLODTask(Key, [Config = Config](FRealtimeMeshLODProxy& Proxy)
-			{
-				Proxy.UpdateConfig(Config);
-			}, true);
-		}
-
-
-		TSet<FRealtimeMeshSectionGroupKey> UpdatedSectionGroups;
-
-		// Apply all section group updates
-		for (auto& SectionGroupData : Update.GetUpdatedSectionGroups())
-		{
-			UpdatedSectionGroups.Add(SectionGroupData.Key);
-
-			if (!SectionGroups.Contains(SectionGroupData.Key))
-			{
-				Commands.AddLODTask(Key, [SectionGroupKey = SectionGroupData.Key](FRealtimeMeshLODProxy& Proxy)
-				{
-					Proxy.CreateSectionGroupIfNotExists(SectionGroupKey);
-				}, ShouldRecreateProxyOnChange());
-				
-				auto SectionGroup = SharedResources->GetClassFactory().CreateSectionGroup(SharedResources, SectionGroupData.Key);
-				SectionGroup->ApplyStateUpdate(Commands, SectionGroupData.Value);
-				SectionGroups.Add(SectionGroup);
-			}
-			else
-			{
-				auto& SectionGroup = *SectionGroups.Find(SectionGroupData.Key);
-				SectionGroup->ApplyStateUpdate(Commands, SectionGroupData.Value);
-			}
-		}
-
-		TSet<FRealtimeMeshSectionGroupKey> ExistingSectionGroups;
-		for (const auto& SectionGroup : SectionGroups)
-		{
-			ExistingSectionGroups.Add(SectionGroup->GetKey());
-		}
-
-		// Find the sections we need to remove
-		TSet<FRealtimeMeshSectionGroupKey> SectionGroupsToRemove = Update.ShouldReplaceExistingSectionGroups()?
-			ExistingSectionGroups.Difference(UpdatedSectionGroups) :
-			Update.GetSectionGroupsToRemove().Difference(UpdatedSectionGroups);
-
-		if (SectionGroupsToRemove.Num() > 0)
-		{
-			// Strip all unwanted streams
-			for (const auto SectionGroup : SectionGroupsToRemove)
-			{
-				SectionGroups.Remove(SectionGroup);
-			}
-			
-			// Final section task to remove all unwanted sections
-			Commands.AddLODTask(Key, [SectionGroupsToRemove = SectionGroupsToRemove](FRealtimeMeshLODProxy& Proxy)
-			{
-				for (const auto& SectionGroup : SectionGroupsToRemove)
-				{
-					Proxy.RemoveSectionGroup(SectionGroup);
-				}
-			}, ShouldRecreateProxyOnChange());				
-		}#1#
-	}*/
 
 	TSet<FRealtimeMeshSectionGroupKey> FRealtimeMeshLODData::GetSectionGroupKeys() const
 	{
@@ -336,29 +269,6 @@ namespace RealtimeMesh
 		}
 	}
 
-
-	/*void FRealtimeMeshLODData::UpdateBounds()
-	{
-		FRWScopeLockEx ScopeLock(Lock, SLT_Write);
-
-		TOptional<FBoxSphereBounds3f> NewBounds;
-		for (const auto& SectionGroup : SectionGroups)
-		{
-			if (!NewBounds.IsSet())
-			{
-				NewBounds = SectionGroup->GetLocalBounds();
-				continue;
-			}
-			NewBounds = *NewBounds + SectionGroup->GetLocalBounds();
-		}
-
-		// Update with new bounds or a unit sphere if we don't have bounds
-		LocalBounds = NewBounds.IsSet() ? *NewBounds : FBoxSphereBounds3f(FSphere3f(FVector3f::ZeroVector, 1.0f));
-
-		ScopeLock.Release();
-
-		BoundsUpdatedEvent.Broadcast(this->AsShared());
-	}*/
 }
 
 #undef LOCTEXT_NAMESPACE

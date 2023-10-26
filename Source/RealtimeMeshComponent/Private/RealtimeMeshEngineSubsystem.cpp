@@ -75,7 +75,7 @@ void URealtimeMeshSubsystem::UnregisterGeneratedMeshActor(ARealtimeMeshActor* Ac
 	}
 }
 
-inline URealtimeMeshSubsystem* URealtimeMeshSubsystem::GetInstance(UWorld* World)
+URealtimeMeshSubsystem* URealtimeMeshSubsystem::GetInstance(UWorld* World)
 {
 	return World ? World->GetSubsystem<URealtimeMeshSubsystem>() : nullptr;
 }

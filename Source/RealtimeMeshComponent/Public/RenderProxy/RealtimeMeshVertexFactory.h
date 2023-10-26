@@ -68,7 +68,7 @@ namespace RealtimeMesh
 
 		static void BindVertexBuffer(bool& bIsValid, FInt32Range& ValidRange, TSet<TWeakPtr<FRealtimeMeshVertexBuffer>>& InUseBuffers, FVertexStreamComponent& OutStreamComponent,
 		                             const FRealtimeMeshStreamProxyMap& Buffers,
-		                             FName BufferName, EVertexStreamUsage Usage, bool bIsOptional = false, FName ElementName = NAME_None, uint8 ElementDefaultIndex = 0,
+		                             FName BufferName, EVertexStreamUsage Usage, bool bIsOptional = false, uint8 ElementIndex = 0,
 		                             bool bAllowZeroStride = false)
 		{
 			const TSharedPtr<FRealtimeMeshGPUBuffer> FoundBuffer = FindBuffer(Buffers, ERealtimeMeshStreamType::Vertex, BufferName);
@@ -86,12 +86,7 @@ namespace RealtimeMesh
 
 			const TSharedPtr<FRealtimeMeshVertexBuffer> VertexBuffer = StaticCastSharedPtr<FRealtimeMeshVertexBuffer>(FoundBuffer);
 
-			uint16 ElementOffset = 0;
-			// Try to grab the offset to the element if we have a name
-			if (ElementName == NAME_None || !VertexBuffer->TryGetElementOffset(ElementName, ElementOffset))
-			{
-				ElementOffset = ElementDefaultIndex * VertexBuffer->GetElementStride();
-			}
+			const uint16 ElementOffset = ElementIndex * VertexBuffer->GetElementStride();
 
 			const bool bIsElementValid = static_cast<uint32>(ElementOffset + VertexBuffer->GetElementStride()) <= VertexBuffer->GetStride();
 			bIsValid &= bIsOptional || bIsElementValid;

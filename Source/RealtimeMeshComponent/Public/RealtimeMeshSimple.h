@@ -182,10 +182,10 @@ namespace RealtimeMesh
 
 		virtual bool Serialize(FArchive& Ar) override;
 
+		void MarkCollisionDirtyNoCallback() const;
 	protected:
 		void MarkForEndOfFrameUpdate() const;
 		TFuture<ERealtimeMeshCollisionUpdateResult> MarkCollisionDirty() const;
-		void MarkCollisionDirtyNoCallback() const;
 
 		virtual void ProcessEndOfFrameUpdates() override;
 

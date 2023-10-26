@@ -413,7 +413,7 @@ namespace RealtimeMesh
 
 			return Ar;
 		}
-
+		
 		static const FRealtimeMeshElementType Invalid;
 	};
 
@@ -421,77 +421,56 @@ namespace RealtimeMesh
 	{
 	private:
 		FRealtimeMeshElementType ElementType;
-		TArray<FName, TInlineAllocator<REALTIME_MESH_MAX_STREAM_ELEMENTS>> Elements;
 		int32 NumElements;
-		uint32 ElementsHash;
 
 	public:
-		FRealtimeMeshBufferLayout()
-			: ElementType(FRealtimeMeshElementType()), NumElements(0)
+		constexpr FRealtimeMeshBufferLayout()
+			: ElementType(FRealtimeMeshElementType())
+			, NumElements(0)
 		{
-			InitHash();
 		}
-		FRealtimeMeshBufferLayout(FRealtimeMeshElementType InType, int32 InNumElements)
-			: ElementType(InType), NumElements(InNumElements)
+		constexpr FRealtimeMeshBufferLayout(FRealtimeMeshElementType InType, int32 InNumElements)
+			: ElementType(InType)
+			, NumElements(InNumElements)
 		{
-			InitHash();
-		}
-
-		FRealtimeMeshBufferLayout(FRealtimeMeshElementType InType, TArrayView<FName> InElements)
-			: ElementType(InType), Elements(InElements), NumElements(InElements.Num())
-		{
-			InitHash();
 		}
 
-		FRealtimeMeshBufferLayout(FRealtimeMeshElementType InType, TArray<FName> InElements)
-			: ElementType(InType), Elements(InElements), NumElements(InElements.Num())
-		{
-			InitHash();
-		}
+		constexpr bool IsValid() const { return ElementType.IsValid() && NumElements > 0; }
+		constexpr const FRealtimeMeshElementType& GetElementType() const { return ElementType; }
+		constexpr int32 GetNumElements() const { return NumElements; }
+		//bool HasElementIdentifiers() const { return Elements.Num() > 0; }
+		//TConstArrayView<FName> GetElements() const { return MakeArrayView(Elements); }
 
-		FRealtimeMeshBufferLayout(FRealtimeMeshElementType InType, std::initializer_list<FName> InitList)
-			: ElementType(InType), Elements(InitList), NumElements(InitList.size())
-		{
-			InitHash();
-		}
-
-
-		bool IsValid() const { return ElementType.IsValid() && NumElements > 0; }
-		const FRealtimeMeshElementType& GetElementType() const { return ElementType; }
-		int32 GetNumElements() const { return NumElements; }
-		bool HasElementIdentifiers() const { return Elements.Num() > 0; }
-		TConstArrayView<FName> GetElements() const { return MakeArrayView(Elements); }
-
-		bool operator==(const FRealtimeMeshBufferLayout& Other) const { return ElementType == Other.ElementType && NumElements == Other.NumElements; }
-		bool operator!=(const FRealtimeMeshBufferLayout& Other) const { return ElementType != Other.ElementType || NumElements != Other.NumElements; }
+		constexpr bool operator==(const FRealtimeMeshBufferLayout& Other) const { return ElementType == Other.ElementType && NumElements == Other.NumElements; }
+		constexpr bool operator!=(const FRealtimeMeshBufferLayout& Other) const { return ElementType != Other.ElementType || NumElements != Other.NumElements; }
 
 		FString ToString() const
 		{
-			return FString::Printf(TEXT("ElementType=(%s) NumElements=%d Hash=%d NumElements=%d Elements=[%s]"), *ElementType.ToString(),
-			                       Elements.Num(), ElementsHash, NumElements, *FString::JoinBy(Elements, TEXT(","), [](FName Name) -> FString { return Name.ToString(); }));
+			return FString::Printf(TEXT("ElementType=%s NumElements=%d"), *ElementType.ToString(), NumElements);
 		}
 
 		friend FORCEINLINE uint32 GetTypeHash(const FRealtimeMeshBufferLayout& DataType)
 		{
-			return HashCombine(GetTypeHash(DataType.ElementType), DataType.ElementsHash);
+			return ::HashCombine(GetTypeHash(DataType.ElementType), ::GetTypeHash(DataType.NumElements));
 		}
 
 		friend FArchive& operator<<(FArchive& Ar, FRealtimeMeshBufferLayout& Layout)
 		{
 			Ar << Layout.ElementType;
-			Ar << Layout.Elements;
-			Ar << Layout.NumElements;
-			if (Ar.IsLoading())
+
+			if (Ar.CustomVer(FRealtimeMeshVersion::GUID) < FRealtimeMeshVersion::RemovedNamedStreamElements)
 			{
-				Layout.InitHash();
+				TArray<FName, TInlineAllocator<REALTIME_MESH_MAX_STREAM_ELEMENTS>> Elements;
+				Ar << Elements;
 			}
+			Ar << Layout.NumElements;
 			return Ar;
 		}
 
 		static const FRealtimeMeshBufferLayout Invalid;
 
 	private:
-		void InitHash()
+		/*void InitHash()
 		{
 			uint32 NewHash = ::GetTypeHash(NumElements);
 			for (int32 Index = 0; Index < Elements.Num(); Index++)
@@ -499,7 +478,8 @@ namespace RealtimeMesh
 				NewHash = HashCombine(NewHash, GetTypeHash(Elements[Index]));
 			}
 			ElementsHash = NewHash;
-		}
+		}*/
+
 	};
 
 	struct REALTIMEMESHCOMPONENT_API FRealtimeMeshElementTypeDefinition
@@ -551,7 +531,6 @@ namespace RealtimeMesh
 	private:
 		FRealtimeMeshBufferLayout Layout;
 		FRealtimeMeshElementTypeDefinition TypeDefinition;
-		TMap<FName, uint8> ElementOffsets;
 		uint8 Stride;
 		bool bIsValid;
 
@@ -561,13 +540,6 @@ namespace RealtimeMesh
 		{
 			if (Layout.IsValid())
 			{
-				uint8 ElementOffset = 0;
-				for (FName Element : Layout.GetElements())
-				{
-					ElementOffsets.Add(Element, ElementOffset);
-					ElementOffset += TypeDefinition.GetStride();
-				}
-
 				Stride = InTypeDefinition.GetStride() * Layout.GetNumElements();
 				bIsValid = true;
 			}
@@ -581,10 +553,10 @@ namespace RealtimeMesh
 		FORCEINLINE bool IsValidIndexBuffer() const { return TypeDefinition.IsSupportedIndexType() && Layout.GetNumElements() == 1; }
 		FORCEINLINE uint8 GetStride() const { return Stride; }
 		FORCEINLINE uint8 GetAlignment() const { return TypeDefinition.GetAlignment(); }
-		FORCEINLINE bool ContainsElement(FName ElementName) const { return ElementOffsets.Contains(ElementName); }
+		/*FORCEINLINE bool ContainsElement(FName ElementName) const { return ElementOffsets.Contains(ElementName); }
 		FORCEINLINE uint8 GetElementOffset(FName ElementName) const { return ElementOffsets.FindChecked(ElementName); }
 		FORCEINLINE const uint8* FindElementOffset(FName ElementName) const { return ElementOffsets.Find(ElementName); }
-		FORCEINLINE const TMap<FName, uint8>& GetElementOffsets() const { return ElementOffsets; }
+		FORCEINLINE const TMap<FName, uint8>& GetElementOffsets() const { return ElementOffsets; }*/
 
 		static const FRealtimeMeshBufferLayoutDefinition Invalid;
 	};

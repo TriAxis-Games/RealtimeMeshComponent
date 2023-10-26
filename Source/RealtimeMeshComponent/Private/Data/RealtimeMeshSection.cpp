@@ -90,13 +90,13 @@ namespace RealtimeMesh
 	TFuture<ERealtimeMeshProxyUpdateStatus> FRealtimeMeshSection::UpdateConfig(const FRealtimeMeshSectionConfig& InConfig)
 	{
 		FRealtimeMeshProxyCommandBatch Commands(SharedResources->GetOwner());
-		UpdateConfig(Commands, [InConfig](FRealtimeMeshSectionConfig& Config) { Config = InConfig; });
+		UpdateConfig(Commands, [InConfig](FRealtimeMeshSectionConfig& ExistingConfig) { ExistingConfig = InConfig; });
 		return Commands.Commit();
 	}
 
 	void FRealtimeMeshSection::UpdateConfig(FRealtimeMeshProxyCommandBatch& Commands, const FRealtimeMeshSectionConfig& InConfig)
 	{
-		UpdateConfig(Commands, [InConfig](FRealtimeMeshSectionConfig& Config) { Config = InConfig; });
+		UpdateConfig(Commands, [InConfig](FRealtimeMeshSectionConfig& ExistingConfig) { ExistingConfig = InConfig; });
 	}
 
 	TFuture<ERealtimeMeshProxyUpdateStatus> FRealtimeMeshSection::UpdateConfig(TFunction<void(FRealtimeMeshSectionConfig&)> EditFunc)
@@ -152,26 +152,26 @@ namespace RealtimeMesh
 	TFuture<ERealtimeMeshProxyUpdateStatus> FRealtimeMeshSection::SetVisibility(bool bIsVisible)
 	{
 		FRealtimeMeshProxyCommandBatch Commands(SharedResources->GetOwner());
-		UpdateConfig(Commands, [bIsVisible](FRealtimeMeshSectionConfig& Config) { Config.bIsVisible = bIsVisible; });
+		UpdateConfig(Commands, [bIsVisible](FRealtimeMeshSectionConfig& ExistingConfig) { ExistingConfig.bIsVisible = bIsVisible; });
 		return Commands.Commit();
 	}
 
 	void FRealtimeMeshSection::SetVisibility(FRealtimeMeshProxyCommandBatch& Commands, bool bIsVisible)
 	{
-		UpdateConfig(Commands, [bIsVisible](FRealtimeMeshSectionConfig& Config) { Config.bIsVisible = bIsVisible; });
+		UpdateConfig(Commands, [bIsVisible](FRealtimeMeshSectionConfig& ExistingConfig) { ExistingConfig.bIsVisible = bIsVisible; });
 	}
 
 
 	TFuture<ERealtimeMeshProxyUpdateStatus> FRealtimeMeshSection::SetCastShadow(bool bCastShadow)
 	{
 		FRealtimeMeshProxyCommandBatch Commands(SharedResources->GetOwner());
-		UpdateConfig(Commands, [bCastShadow](FRealtimeMeshSectionConfig& Config) { Config.bCastsShadow = bCastShadow; });
+		UpdateConfig(Commands, [bCastShadow](FRealtimeMeshSectionConfig& ExistingConfig) { ExistingConfig.bCastsShadow = bCastShadow; });
 		return Commands.Commit();
 	}
 
 	void FRealtimeMeshSection::SetCastShadow(FRealtimeMeshProxyCommandBatch& Commands, bool bCastShadow)
 	{
-		UpdateConfig(Commands, [bCastShadow](FRealtimeMeshSectionConfig& Config) { Config.bCastsShadow = bCastShadow; });
+		UpdateConfig(Commands, [bCastShadow](FRealtimeMeshSectionConfig& ExistingConfig) { ExistingConfig.bCastsShadow = bCastShadow; });
 	}
 
 	bool FRealtimeMeshSection::Serialize(FArchive& Ar)
@@ -201,35 +201,6 @@ namespace RealtimeMesh
 		}
 	}
 
-	/*void FRealtimeMeshSection::ApplyStateUpdate(FRealtimeMeshProxyCommandBatch& Commands, FRealtimeMeshSectionUpdateContext& Update)
-	{
-		/*if (Update.HasConfigUpdate())
-		{
-			bool bRequiresProxyRecreate = ShouldRecreateProxyOnChange();
-			Config = Update.GetConfigUpdate();
-			bRequiresProxyRecreate |= ShouldRecreateProxyOnChange();
-			
-			Commands.AddSectionTask(Key, [Config = Config](FRealtimeMeshSectionProxy& Proxy)
-			{
-				Proxy.UpdateConfig(Config);
-			}, bRequiresProxyRecreate);
-		}
-
-		if (Update.HasStreamRangeUpdate())
-		{
-			StreamRange = Update.GetStreamRangeUpdate();
-			
-			Commands.AddSectionTask(Key, [StreamRange = StreamRange](FRealtimeMeshSectionProxy& Proxy)
-			{
-				Proxy.UpdateStreamRange(StreamRange);				
-			}, ShouldRecreateProxyOnChange());
-		}
-
-		if (Update.HasLocalBoundsUpdate())
-		{
-			Bounds.SetUserSetBounds(Update.GetLocalBoundsUpdate());
-		}#1#		
-	}*/
 
 	FBoxSphereBounds3f FRealtimeMeshSection::CalculateBounds() const
 	{

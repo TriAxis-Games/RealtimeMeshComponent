@@ -409,7 +409,7 @@ void URealtimeMesh::ProcessEndOfFrameUpdates()
 {
 	if (MeshRef)
 	{
-		MeshRef->ProcessEndOfFrameUpdates();
+		(*MeshRef).ProcessEndOfFrameUpdates();
 	}
 }
 

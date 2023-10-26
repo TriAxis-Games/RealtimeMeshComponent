@@ -9,6 +9,7 @@
 #include "Async/Async.h"
 
 struct FTriMeshCollisionData;
+class URealtimeMesh;
 
 namespace RealtimeMesh
 {
@@ -108,10 +109,8 @@ namespace RealtimeMesh
 
 		virtual void InitializeProxy(FRealtimeMeshProxyCommandBatch& Commands) const;
 
+		virtual void ProcessEndOfFrameUpdates() { }
 	protected:
-		virtual void ProcessEndOfFrameUpdates()
-		{
-		}
 
 		/*TFuture<ERealtimeMeshProxyUpdateStatus> ApplyStateUpdate(FRealtimeMeshUpdateContext& Update);*/
 		void HandleLODBoundsChanged(const FRealtimeMeshLODKey& LODKey);

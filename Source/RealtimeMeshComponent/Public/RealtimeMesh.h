@@ -169,4 +169,5 @@ protected: // Collision
 
 	
 	friend struct FRealtimeMeshEndOfFrameUpdateManager;
+	
 };

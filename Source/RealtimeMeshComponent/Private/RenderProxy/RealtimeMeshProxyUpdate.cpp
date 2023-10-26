@@ -65,9 +65,9 @@ namespace RealtimeMesh
 
 	void FRealtimeMeshProxyCommandBatch::AddLODTask(const FRealtimeMeshLODKey& LODKey, TUniqueFunction<void(FRealtimeMeshLODProxy&)>&& Function, bool bInRequiresProxyRecreate)
 	{
-		AddMeshTask([LODKey, Func = MoveTemp(Function)](const FRealtimeMeshProxy& Mesh)
+		AddMeshTask([LODKey, Func = MoveTemp(Function)](const FRealtimeMeshProxy& MeshProxy)
 		{
-			const FRealtimeMeshLODProxyPtr LOD = Mesh.GetLOD(LODKey);
+			const FRealtimeMeshLODProxyPtr LOD = MeshProxy.GetLOD(LODKey);
 
 			if (LOD.IsValid())
 			{

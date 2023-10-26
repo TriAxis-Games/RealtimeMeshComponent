@@ -163,7 +163,7 @@ namespace RealtimeMesh
 		FORCEINLINE int32 Num() const { return BufferNum; }
 
 		FORCEINLINE int32 NumElements() const { return BufferLayout.GetBufferLayout().GetNumElements(); }
-		FORCEINLINE bool TryGetElementOffset(FName SubComponentName, uint16& OutSubComponentOffset) const
+		/*FORCEINLINE bool TryGetElementOffset(FName SubComponentName, uint16& OutSubComponentOffset) const
 		{
 			if (const uint8* Entry = BufferLayout.FindElementOffset(SubComponentName))
 			{
@@ -171,7 +171,7 @@ namespace RealtimeMesh
 				return true;
 			}
 			return false;
-		}
+		}*/
 
 
 		static constexpr int32 RHIUpdateBatchSize = 16;
