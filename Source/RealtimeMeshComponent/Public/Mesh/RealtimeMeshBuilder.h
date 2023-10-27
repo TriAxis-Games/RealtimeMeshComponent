@@ -581,7 +581,7 @@ namespace RealtimeMesh
 				if (ExistingStream->GetLayout() != GetRealtimeMeshBufferLayout<StreamLayout>())
 				{
 					// Convert stream if necessary
-					ExistingStream->ConvertTo<StreamLayout>();					
+					ExistingStream->template ConvertTo<StreamLayout>();					
 				}
 
 				return TRealtimeMeshStreamBuilder<StreamLayout>(*ExistingStream);
@@ -896,7 +896,7 @@ namespace RealtimeMesh
 				if (TriangleMaterialIndices.IsSet())
 				{
 					RealtimeMeshAlgo::GatherSegmentsFromPolygonGroupIndices(
-						TriangleMaterialIndices->GetStream().GetArrayView<uint16>(),
+						TriangleMaterialIndices->GetStream().template GetArrayView<uint16>(),
 						[this](const FRealtimeMeshPolygonGroupRange& NewSegment)
 						{
 							TriangleSegments->Add(NewSegment);
@@ -915,7 +915,7 @@ namespace RealtimeMesh
 				if (DepthOnlyTriangleMaterialIndices.IsSet())
 				{
 					RealtimeMeshAlgo::GatherSegmentsFromPolygonGroupIndices(
-						DepthOnlyTriangleMaterialIndices->GetStream().GetArrayView<uint16>(),
+						DepthOnlyTriangleMaterialIndices->GetStream().template GetArrayView<uint16>(),
 						[this](const FRealtimeMeshPolygonGroupRange& NewSegment)
 						{
 							DepthOnlyTriangleSegments->Add(NewSegment);
@@ -936,9 +936,9 @@ namespace RealtimeMesh
 				// If we have existing segments, we need to copy them into the indices and disable them
 				if (TriangleSegments.IsSet())
 				{
-					auto MaterialIndices = TriangleMaterialIndices->GetStream().GetArrayView<uint16>();
+					auto MaterialIndices = TriangleMaterialIndices->GetStream().template GetArrayView<uint16>();
 					RealtimeMeshAlgo::PropagateTriangleSegmentsToPolygonGroups(
-						TriangleSegments->GetStream().GetArrayView<FRealtimeMeshPolygonGroupRange>(),
+						TriangleSegments->GetStream().template GetArrayView<FRealtimeMeshPolygonGroupRange>(),
 						MaterialIndices);
 
 					// Drop the triangle segments as these two ways of doing things are mutually exclusive
@@ -953,9 +953,9 @@ namespace RealtimeMesh
 				// If we have existing segments, we need to copy them into the indices and disable them
 				if (DepthOnlyTriangleSegments.IsSet())
 				{
-					auto MaterialIndices = DepthOnlyTriangleMaterialIndices->GetStream().GetArrayView<uint16>();
+					auto MaterialIndices = DepthOnlyTriangleMaterialIndices->GetStream().template GetArrayView<uint16>();
 					RealtimeMeshAlgo::PropagateTriangleSegmentsToPolygonGroups(
-						DepthOnlyTriangleSegments->GetStream().GetArrayView<FRealtimeMeshPolygonGroupRange>(),
+						DepthOnlyTriangleSegments->GetStream().template GetArrayView<FRealtimeMeshPolygonGroupRange>(),
 						MaterialIndices);
 					
 					// Drop the triangle segments as these two ways of doing things are mutually exclusive
