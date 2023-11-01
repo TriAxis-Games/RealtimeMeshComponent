@@ -98,8 +98,8 @@ struct FRealtimeMeshCollisionBox : public FRealtimeMeshCollisionShape
 	GENERATED_BODY()
 
 public:
-	FRealtimeMeshCollisionBox()
-		: Extents(0.5f, 0.5f, 0.5f)
+	FRealtimeMeshCollisionBox(const FVector& InExtents = FVector(0.5f, 0.5f, 0.5f))
+		: Extents(InExtents)
 	{
 	}
 

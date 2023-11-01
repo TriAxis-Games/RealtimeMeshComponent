@@ -258,7 +258,7 @@ void URealtimeMesh::InitiateCollisionUpdate(const TSharedRef<TPromise<ERealtimeM
 
 	UBodySetup* NewBodySetup = NewObject<UBodySetup>(this, NAME_None, (IsTemplate() ? RF_Public : RF_NoFlags));
 	NewBodySetup->BodySetupGuid = FGuid::NewGuid();
-	CollisionUpdate->SimpleGeometry.CopyToBodySetup(BodySetup);
+	CollisionUpdate->SimpleGeometry.CopyToBodySetup(NewBodySetup);
 
 	NewBodySetup->bGenerateMirroredCollision = false;
 	NewBodySetup->bDoubleSidedGeometry = true;
@@ -288,8 +288,11 @@ void URealtimeMesh::InitiateCollisionUpdate(const TSharedRef<TPromise<ERealtimeM
 		NewBodySetup->CreatePhysicsMeshes();
 
 		BodySetup = NewBodySetup;
+		PendingCollisionUpdate.Reset();
 
 		Promise->SetValue(ERealtimeMeshCollisionUpdateResult::Updated);
+		
+		BroadcastCollisionBodyUpdatedEvent(BodySetup);
 	}
 }
 
