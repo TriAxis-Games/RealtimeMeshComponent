@@ -642,6 +642,12 @@ namespace RealtimeMesh
 	{
 		const bool bResult = FRealtimeMesh::Serialize(Ar);
 
+		if (Ar.CustomVer(FRealtimeMeshVersion::GUID) >= FRealtimeMeshVersion::SimpleMeshStoresCollisionConfig)
+		{
+			Ar << CollisionConfig;
+			Ar << SimpleGeometry;
+		}
+
 		if (Ar.IsLoading() && RenderProxy)
 		{
 			MarkCollisionDirtyNoCallback();

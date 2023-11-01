@@ -52,6 +52,7 @@ namespace RealtimeMesh
 			CollisionUpdateFlowRestructure = 3,
 			StreamKeySizeChanged = 4,
 			RemovedNamedStreamElements = 5,
+			SimpleMeshStoresCollisionConfig = 6,
 
 			// -----<new versions can be added above this line>-------------------------------------------------
 			VersionPlusOne,
