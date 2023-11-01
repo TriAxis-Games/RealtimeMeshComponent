@@ -60,6 +60,13 @@ FRealtimeMeshSimpleMeshData& URealtimeMeshSimpleBasicShapeTools::AppendBoxMesh(F
 		MeshData.MaterialIndex.Reserve(NumExistingTriangles + NumTrianglesToAdd);
 		MeshData.MaterialIndex.SetNumZeroed(NumExistingTriangles);
 	}
+	else if (MeshData.MaterialIndex.Num() > 0)
+	{
+		// If we're not setting a new material group, but there's already material indices, we need to zero the new ones.
+		const int32 NumExistingTriangles = (MeshData.Triangles.Num()) / 3;
+		constexpr int32 NumTrianglesToAdd = NumIndices / 3;
+		MeshData.MaterialIndex.SetNumZeroed(NumExistingTriangles + NumTrianglesToAdd);
+	}
 
 	const auto WriteToNextFour = [](TArray<FVector>& Array, const FVector& Value)
 	{
@@ -177,28 +184,32 @@ FRealtimeMeshSimpleMeshData& URealtimeMeshSimpleBasicShapeTools::AppendMesh(FRea
 	AppendVertexArrayIfContains(TargetMeshData.UV3, MeshDataToAdd.UV3, StartVertex, TargetMeshData.Positions.Num());
 
 	// Copy Triangles
-	const int32 StartTriangle = TargetMeshData.Triangles.Num();
+	
+	const int32 NumExistingTriangles = (TargetMeshData.Triangles.Num()) / 3;
+	const int32 NumTrianglesToAdd = MeshDataToAdd.Triangles.Num() / 3;
 	TargetMeshData.Triangles.Append(MeshDataToAdd.Triangles);
 
-	if (NewMaterialGroup)
+	if (NewMaterialGroup != 0)
 	{
-		TargetMeshData.MaterialIndex.Reserve(StartTriangle + MeshDataToAdd.Triangles.Num());
-		TargetMeshData.MaterialIndex.SetNumZeroed(StartTriangle);
+		TargetMeshData.MaterialIndex.Reserve(NumExistingTriangles + NumTrianglesToAdd);
+		TargetMeshData.MaterialIndex.SetNumZeroed(NumExistingTriangles);
 
-		for (int32 Index = 0; Index < MeshDataToAdd.Triangles.Num(); Index++)
+		for (int32 Index = 0; Index < NumTrianglesToAdd; Index++)
 		{
 			TargetMeshData.MaterialIndex.Add(NewMaterialGroup);
 		}
 	}
 	else if (MeshDataToAdd.MaterialIndex.Num())
 	{
-		TargetMeshData.MaterialIndex.Reserve(StartTriangle + MeshDataToAdd.MaterialIndex.Num());
-		TargetMeshData.MaterialIndex.SetNumZeroed(StartTriangle);
+		TargetMeshData.MaterialIndex.Reserve(NumExistingTriangles + NumTrianglesToAdd);
+		TargetMeshData.MaterialIndex.SetNumZeroed(NumExistingTriangles);
 
-		for (int32 Index = 0; Index < MeshDataToAdd.MaterialIndex.Num(); Index++)
+		for (int32 Index = 0; Index < MeshDataToAdd.MaterialIndex.Num() && Index < NumTrianglesToAdd; Index++)
 		{
 			TargetMeshData.MaterialIndex.Add(MeshDataToAdd.MaterialIndex[Index]);
-		}		
+		}
+
+		TargetMeshData.MaterialIndex.SetNumZeroed(NumExistingTriangles + NumTrianglesToAdd);
 	}
 
 	return TargetMeshData;

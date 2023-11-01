@@ -5,7 +5,7 @@
 #include "Data/RealtimeMeshSectionGroup.h"
 #include "Data/RealtimeMeshLOD.h"
 #include "Data/RealtimeMeshSection.h"
-#include "..\Public\Data\RealtimeMeshData.h"
+#include "Data/RealtimeMeshData.h"
 #include "RenderProxy/RealtimeMeshLODProxy.h"
 #include "RenderProxy/RealtimeMeshProxy.h"
 #include "RenderProxy/RealtimeMeshSectionGroupProxy.h"
