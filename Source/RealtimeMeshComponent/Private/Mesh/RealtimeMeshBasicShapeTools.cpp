@@ -187,7 +187,12 @@ FRealtimeMeshSimpleMeshData& URealtimeMeshSimpleBasicShapeTools::AppendMesh(FRea
 	
 	const int32 NumExistingTriangles = (TargetMeshData.Triangles.Num()) / 3;
 	const int32 NumTrianglesToAdd = MeshDataToAdd.Triangles.Num() / 3;
-	TargetMeshData.Triangles.Append(MeshDataToAdd.Triangles);
+
+	TargetMeshData.Triangles.Reserve(TargetMeshData.Triangles.Num() + MeshDataToAdd.Triangles.Num());
+	for (int32 Index = 0; Index < MeshDataToAdd.Triangles.Num(); Index++)
+	{
+		TargetMeshData.Triangles.Add(MeshDataToAdd.Triangles[Index] + StartVertex);		
+	}
 
 	if (NewMaterialGroup != 0)
 	{
