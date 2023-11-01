@@ -925,15 +925,21 @@ TFuture<ERealtimeMeshProxyUpdateStatus> URealtimeMeshSimple::CreateSection(const
 }
 
 // ReSharper disable once CppMemberFunctionMayBeConst
-TFuture<ERealtimeMeshProxyUpdateStatus> URealtimeMeshSimple::UpdateSectionConfig(const FRealtimeMeshSectionKey& SectionKey, const FRealtimeMeshSectionConfig& Config)
+TFuture<ERealtimeMeshProxyUpdateStatus> URealtimeMeshSimple::UpdateSectionConfig(const FRealtimeMeshSectionKey& SectionKey, const FRealtimeMeshSectionConfig& Config, bool bShouldCreateCollision)
 {
 	if (const auto LOD = GetMesh()->GetLOD(SectionKey.LOD()))
 	{
 		if (const auto SectionGroup = LOD->GetSectionGroup(SectionKey.SectionGroup()))
 		{
-			if (const auto Section = SectionGroup->GetSection(SectionKey))
+			if (const auto Section = SectionGroup->GetSectionAs<FRealtimeMeshSectionSimple>(SectionKey))
 			{
-				return Section->UpdateConfig(Config);
+				FRealtimeMeshScopeGuardWrite ScopeGuard(SharedResources.ToSharedRef());
+				FRealtimeMeshProxyCommandBatch Commands(SharedResources);
+
+				Section->UpdateConfig(Commands, Config);
+				Section->SetShouldCreateCollision(bShouldCreateCollision);
+
+				return Commands.Commit();
 			}
 			else
 			{
@@ -1128,10 +1134,10 @@ FRealtimeMeshSectionKey URealtimeMeshSimple::CreateSectionUnique(const FRealtime
 	return SectionKey;
 }
 
-void URealtimeMeshSimple::UpdateSectionConfig(const FRealtimeMeshSectionKey& SectionKey, const FRealtimeMeshSectionConfig& Config,
+void URealtimeMeshSimple::UpdateSectionConfig(const FRealtimeMeshSectionKey& SectionKey, const FRealtimeMeshSectionConfig& Config, bool bShouldCreateCollision,
 	const FRealtimeMeshSimpleCompletionCallback& CompletionCallback)
 {
-	UpdateSectionConfig(SectionKey, Config)
+	UpdateSectionConfig(SectionKey, Config, bShouldCreateCollision)
 		.Next([CompletionCallback](ERealtimeMeshProxyUpdateStatus Status)
 		{
 			if (CompletionCallback.IsBound())

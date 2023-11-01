@@ -59,7 +59,7 @@ protected:
 	UPROPERTY()
 	TMap<FName, int32> SlotNameLookup;
 
-	UPROPERTY(Transient)
+	UPROPERTY(Instanced)
 	TObjectPtr<UBodySetup> BodySetup;
 
 	/* Collision data that is pending async cook */

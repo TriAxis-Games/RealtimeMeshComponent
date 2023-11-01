@@ -34,6 +34,7 @@ bool RealtimeMeshBuilderTests::RunTest(const FString& Parameters)
 	TestTrue(TEXT("TestRow AfterSetAll Get(3)"), TestStreamBuilder[0][3] == Val4);
 
 	
+	
 	TestStreamBuilder.Empty();
 
 	TestStreamBuilder.Add(Val0);

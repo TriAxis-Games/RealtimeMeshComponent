@@ -30,11 +30,16 @@ void ARealtimeMeshBasicUsageActor::OnGenerateMesh_Implementation()
 
 	{	// Create a basic single section
 		FRealtimeMeshSimpleMeshData MeshData;
+		FRealtimeMeshSimpleMeshData MeshData2;
+		FRealtimeMeshSimpleMeshData MeshData3;
 
 		// This just adds a simple box, you can instead create your own mesh data
 		URealtimeMeshSimpleBasicShapeTools::AppendBoxMesh(FVector(100, 100, 200), FTransform::Identity, MeshData, 2);
-		URealtimeMeshSimpleBasicShapeTools::AppendBoxMesh(FVector(200, 100, 100), FTransform::Identity, MeshData, 1);
-		URealtimeMeshSimpleBasicShapeTools::AppendBoxMesh(FVector(100, 200, 100), FTransform::Identity, MeshData, 3);
+		URealtimeMeshSimpleBasicShapeTools::AppendBoxMesh(FVector(200, 100, 100), FTransform::Identity, MeshData2, 1);
+		URealtimeMeshSimpleBasicShapeTools::AppendBoxMesh(FVector(100, 200, 100), FTransform::Identity, MeshData3, 0);
+
+		URealtimeMeshSimpleBasicShapeTools::AppendMesh(MeshData, MeshData2, FTransform::Identity);
+		URealtimeMeshSimpleBasicShapeTools::AppendMesh(MeshData, MeshData3, FTransform::Identity);
 
 		// Create a single section, with its own dedicated section group
 
@@ -47,14 +52,19 @@ void ARealtimeMeshBasicUsageActor::OnGenerateMesh_Implementation()
 		FRealtimeMeshSectionConfig VisibleConfig;
 		VisibleConfig.bIsVisible = true;
 
-		FRealtimeMeshSectionConfig InvisibleConfig;
-		InvisibleConfig.bIsVisible = false;
+		RealtimeMesh->UpdateSectionConfig(FRealtimeMeshSectionKey::CreateForPolyGroup(SectionGroupKey, 1), VisibleConfig, false);
+		RealtimeMesh->UpdateSectionConfig(FRealtimeMeshSectionKey::CreateForPolyGroup(SectionGroupKey, 2), VisibleConfig, false);
+		RealtimeMesh->UpdateSectionConfig(FRealtimeMeshSectionKey::CreateForPolyGroup(SectionGroupKey, 0), VisibleConfig, false);
+		
+		FRealtimeMeshSimpleGeometry SimpleGeometry = RealtimeMesh->GetSimpleGeometry();
+		SimpleGeometry.AddBox(FRealtimeMeshCollisionBox(FVector(200, 200, 400)));
+		SimpleGeometry.AddBox(FRealtimeMeshCollisionBox(FVector(400, 200, 200)));
+		SimpleGeometry.AddBox(FRealtimeMeshCollisionBox(FVector(200, 400, 200)));
+		RealtimeMesh->SetSimpleGeometry(SimpleGeometry);
 
-		RealtimeMesh->UpdateSectionConfig(FRealtimeMeshSectionKey::CreateForPolyGroup(SectionGroupKey, 1), VisibleConfig);
-		RealtimeMesh->UpdateSectionConfig(FRealtimeMeshSectionKey::CreateForPolyGroup(SectionGroupKey, 2), VisibleConfig);
-		RealtimeMesh->UpdateSectionConfig(FRealtimeMeshSectionKey::CreateForPolyGroup(SectionGroupKey, 3), VisibleConfig);
-		
-		
+		FRealtimeMeshCollisionConfiguration CollisionConfig;
+		CollisionConfig.bUseComplexAsSimpleCollision = false;
+		RealtimeMesh->SetCollisionConfig(CollisionConfig);
 
 		/*FRealtimeMeshSectionKey StaticSectionKey = FRealtimeMeshSectionKey::CreateUnique(FRealtimeMeshSectionGroupKey::CreateUnique(0));
 		RealtimeMesh->CreateStandaloneSection(StaticSectionKey, FRealtimeMeshSectionConfig(ERealtimeMeshSectionDrawType::Static, 0), MeshData, true);
