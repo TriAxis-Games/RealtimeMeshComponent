@@ -6,6 +6,27 @@
 
 namespace RealtimeMesh
 {
+	namespace Threading::Private
+	{
+		// We use 32 bits to store our depths (16 read and 16 write) allowing a maximum
+		// recursive lock of depth 65,536. This unions to whatever the platform ptr size
+		// is so we can store this directly into TLS without allocating more storage
+		class FRealtimeMeshGuardThreadState
+		{
+		public:
+			FRealtimeMeshGuardThreadState()
+				: WriteDepth(0)
+				, ReadDepth(0)
+			{
+			}
+
+			uint16 WriteDepth;
+			uint16 ReadDepth;
+		};
+	}
+
+
+	
 	/**
 	 * Recursive Read/Write lock object for protecting realtime mesh data.
 	 *
@@ -15,22 +36,24 @@ namespace RealtimeMesh
 	 * Fairness is determined by the underlying platform FRWLock type as this lock uses FRWLock
 	 * as it's internal primitive
 	 */
-	class FRealtimeMeshGuard
+	class REALTIMEMESHCOMPONENT_API FRealtimeMeshGuard
 	{
 	public:
 		FRealtimeMeshGuard()
+			: CurrentWriterThreadId(0)
 		{
-			TlsSlot = FPlatformTLS::AllocTlsSlot();
-			CurrentWriterThreadId.Store(0);
+			/*TlsSlot = FPlatformTLS::AllocTlsSlot();
+			CurrentWriterThreadId.Store(0);*/
 		}
 
 		~FRealtimeMeshGuard()
-		{
+		{		
+			/*
 			if (FPlatformTLS::IsValidTlsSlot(TlsSlot))
 			{
 				check(CurrentWriterThreadId.Load() == 0);
 				FPlatformTLS::FreeTlsSlot(TlsSlot);
-			}
+			}*/
 		}
 
 		FRealtimeMeshGuard(const FRealtimeMeshGuard& InOther) = delete;
@@ -38,73 +61,13 @@ namespace RealtimeMesh
 		FRealtimeMeshGuard& operator=(const FRealtimeMeshGuard& InOther) = delete;
 		FRealtimeMeshGuard& operator=(FRealtimeMeshGuard&& InOther) = delete;
 
-		void ReadLock()
-		{
-			const FRealtimeMeshGuardTls ThreadData = ModifyTls([](FRealtimeMeshGuardTls& ThreadDataInner) { ThreadDataInner.ReadDepth++; });
-
-			const uint32 ThisThreadId = FPlatformTLS::GetCurrentThreadId();
-
-			// If we're already writing then don't attempt the lock, we already have exclusive access
-			if (CurrentWriterThreadId.Load() != ThisThreadId && ThreadData.ReadDepth == 1)
-			{
-				InnerLock.ReadLock();
-			}
-		}
-
-		void WriteLock()
-		{
-			const FRealtimeMeshGuardTls ThreadData = ModifyTls([](FRealtimeMeshGuardTls& ThreadDataInner) { ThreadDataInner.WriteDepth++; });
-
-			const uint32 ThisThreadId = FPlatformTLS::GetCurrentThreadId();
-
-			if (CurrentWriterThreadId.Load() != ThisThreadId)
-			{
-				// Ensure we don't already own a read lock where we'd be trying to upgrade the lock
-				check(ThreadData.ReadDepth == 0);
-
-				InnerLock.WriteLock();
-				CurrentWriterThreadId.Store(ThisThreadId);
-			}
-		}
-
-		void ReadUnlock()
-		{
-			const FRealtimeMeshGuardTls ThreadData = ModifyTls([](FRealtimeMeshGuardTls& ThreadDataInner)
-			{
-				checkf(ThreadDataInner.ReadDepth > 0, TEXT("ReadUnlock called when the thread doesn't hold the lock."));
-				ThreadDataInner.ReadDepth--;
-			});
-
-			const uint32 ThisThreadId = FPlatformTLS::GetCurrentThreadId();
-
-			if (CurrentWriterThreadId.Load() != ThisThreadId && ThreadData.ReadDepth == 0)
-			{
-				InnerLock.ReadUnlock();
-			}
-		}
-
-		void WriteUnlock()
-		{
-			const uint32 ThisThreadId = FPlatformTLS::GetCurrentThreadId();
-
-			if (CurrentWriterThreadId.Load() == ThisThreadId)
-			{
-				const FRealtimeMeshGuardTls ThreadData = ModifyTls([](FRealtimeMeshGuardTls& ThreadDataInner) { ThreadDataInner.WriteDepth--; });
-
-				if (ThreadData.WriteDepth == 0)
-				{
-					CurrentWriterThreadId.Store(0);
-					InnerLock.WriteUnlock();
-				}
-			}
-			else
-			{
-				checkf(false, TEXT("WriteUnlock called when the thread doesn't hold the lock."));
-			}
-		}
+		void ReadLock();
+		void WriteLock();
+		void ReadUnlock();
+		void WriteUnlock();
 
 	private:
-		// We use 32 bits to store our depths (16 read and 16 write) allowing a maximum
+		/*// We use 32 bits to store our depths (16 read and 16 write) allowing a maximum
 		// recursive lock of depth 65,536. This unions to whatever the platform ptr size
 		// is so we can store this directly into TLS without allocating more storage
 		class FRealtimeMeshGuardTls
@@ -144,9 +107,11 @@ namespace RealtimeMesh
 			FPlatformTLS::SetTlsValue(TlsSlot, TlsData.PtrDummy);
 
 			return TlsData;
-		}
+		}*/
 
-		uint32 TlsSlot;
+
+
+		//uint32 TlsSlot;
 		TAtomic<uint32> CurrentWriterThreadId;
 		FRWLock InnerLock;
 	};
