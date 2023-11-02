@@ -17,7 +17,7 @@ struct REALTIMEMESHCOMPONENT_API FRealtimeMeshSimpleMeshData
 public:
 	FRealtimeMeshSimpleMeshData()
 		: bUseHighPrecisionTangents(false)
-		  , bUseHighPrecisionTexCoords(false)
+		, bUseHighPrecisionTexCoords(false)
 	{
 	}
 
@@ -62,90 +62,6 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RealtimeMesh", AdvancedDisplay)
 	bool bUseHighPrecisionTexCoords;
-
-
-	/*template <typename IndexType, typename TangentType, typename TexCoordType, int32 NumTexCoords>
-	void CopyToBuilder(TRealtimeMeshBuilderLocal<IndexType, TangentType, TexCoordType, NumTexCoords>& Builder) const 
-	{
-		const int32 StartVertex = Builder.Vertices.Num();
-		Builder.Vertices.SetNumUninitialized(StartVertex + Positions.Num());
-
-		// Copy positions
-		Builder.
-		Builder.GetVerticesBuilder().SetGenerator(StartVertex, Positions.Num(), [this](int32 Index)
-		{
-			return FVector3f(Positions[Index]);
-		});
-
-		// Copy tangents
-		if (Builder.HasTangents())
-		{
-			Builder.GetTangentsBuilder().SetGenerator(StartVertex, Positions.Num(), [this](int32 Index)
-			{
-				const FVector Normal = Normals.IsValidIndex(Index) ? Normals[Index] : FVector::ZAxisVector;
-				const FVector Tangent = Tangents.IsValidIndex(Index) ? Tangents[Index] : FVector::XAxisVector;
-				const FVector Binormal = Binormals.IsValidIndex(Index) ? Binormals[Index] : FVector::CrossProduct(Normal, Tangent);
-				return TRealtimeMeshTangents<TangentType>(Tangent, Binormal, Normal);
-			});
-		}
-
-		// Copy UVs
-		if (Builder.HasTexCoords())
-		{
-			const TArray<FVector2D>* UVs[4] = {&UV0, &UV1, &UV2, &UV3};
-			for (int32 UVIndex = 0; UVIndex < NumTexCoords; UVIndex++)
-			{
-				const TArray<FVector2D>& UVChannel = *UVs[UVIndex];
-				Builder.GetTexCoordsBuilder().GetStream()->
-					template SetGeneratedElement<typename FRealtimeMeshBufferTypeTraits<TexCoordType>::ElementType>(UVIndex, StartVertex, Positions.Num(),
-					[this, UVChannel](int32 Index)
-					{
-						return UVChannel.IsValidIndex(Index) ? FVector2f(UVChannel[Index]) : FVector2f::ZeroVector;
-					});
-			}
-		}
-
-		// Copy colors
-		if (Builder.HasVertexColors())
-		{
-			if (LinearColors.Num() > 0)
-			{
-				Builder.GetColorsBuilder().SetGenerator(StartVertex, Positions.Num(), [this](int32 Index)
-				{
-					return LinearColors.IsValidIndex(Index) ? LinearColors[Index].ToFColor(true) : FColor::White;
-				});
-			}
-			else
-			{
-				Builder.GetColorsBuilder().SetGenerator(StartVertex, Positions.Num(), [this](int32 Index)
-				{
-					return Colors.IsValidIndex(Index) ? Colors[Index] : FColor::White;
-				});
-			}
-		}
-
-		// Copy triangles
-		if (FRealtimeMeshBufferTypeTraits<IndexType>::NumElements == 3)
-		{
-			Builder.GetTrianglesBuilder().AppendGenerator(Triangles.Num() / 3, [this, StartVertex](int32 Index)
-			{
-				return IndexType(Triangles[Index * 3 + 0] + StartVertex, Triangles[Index * 3 + 1] + StartVertex, Triangles[Index * 3 + 2] + StartVertex);
-			});
-		}
-		else
-		{
-			Builder.GetTrianglesBuilder().AppendGenerator(Triangles.Num() / 3, [this, StartVertex](int32 Index)
-			{
-				return IndexType(Triangles[Index] + StartVertex);
-			});
-		}
-
-		if (Builder.HasTriangleMaterialIndices())
-		{
-			Bui
-		}
-		
-	}*/
 
 
 	bool CopyToStreamSet(FRealtimeMeshStreamSet& Streams, bool bCreateMissingStreams) const
@@ -484,6 +400,8 @@ class REALTIMEMESHCOMPONENT_API URealtimeMeshSimpleBlueprintFunctionLibrary : pu
 	GENERATED_BODY()
 
 public:
+	
+	UE_DEPRECATED(all, "Use FRealtimeMeshStreamSet instead")
 	UFUNCTION(BlueprintCallable, Category = "RealtimeMesh|Simple",
 		meta=(AdvancedDisplay="Triangles,Positions,Normals,Tangents,Binormals,LinearColors,UV0,UV1,UV2,UV3,Colors,bUseHighPrecisionTangents,bUseHighPrecisionTexCoords",
 			AutoCreateRefTerm="Triangles,Positions,Normals,Tangents,Binormals,LinearColors,UV0,UV1,UV2,UV3,Colors"))

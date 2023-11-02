@@ -31,46 +31,90 @@ enum class ERealtimeMeshSimpleSectionGroupMode : uint8
 
 namespace RealtimeMesh
 {
-	
-	class FRealtimeMeshSectionGroupSimple;
-
+	/**
+	 * @brief Concrete implementation of FRealtimeMeshSection implementing necessary
+	 * logic to support complex collision updates by section.
+	 */
 	class REALTIMEMESHCOMPONENT_API FRealtimeMeshSectionSimple : public FRealtimeMeshSection
 	{
+	protected:
+		// Is the mesh collision enabled for this section?
 		bool bShouldCreateMeshCollision;
 
 	public:
 		FRealtimeMeshSectionSimple(const FRealtimeMeshSharedResourcesRef& InSharedResources, const FRealtimeMeshSectionKey& InKey);
 		virtual ~FRealtimeMeshSectionSimple() override;
 
+		/**
+		 * @brief Do we currently have complex collision enabled for this section?
+		 * @return 
+		 */
 		bool HasCollision() const { return bShouldCreateMeshCollision; }
+
+		/**
+		 * @brief Turns on/off the complex collision support for this section
+		 * @param bNewShouldCreateMeshCollision New setting for building complex collision from this section
+		 */
 		void SetShouldCreateCollision(bool bNewShouldCreateMeshCollision);
 
+		/**
+		 * @brief Update the stream range for this section
+		 * @param Commands Running command queue that we send RT commands too. This is used for command batching.
+		 * @param InRange New section stream range
+		 */
 		virtual void UpdateStreamRange(FRealtimeMeshProxyCommandBatch& Commands, const FRealtimeMeshStreamRange& InRange) override;
 
+		/**
+		 * @brief Generates the collision mesh data for this section, adding it to the supplied CollisionData.
+		 * @param CollisionData Collision data to add new collision mesh data too.
+		 * @return Whether the generation succeeded. 
+		 */
 		virtual bool GenerateCollisionMesh(FRealtimeMeshTriMeshData& CollisionData);
-
+		
+		/**
+		 * @brief Serializes this section to the running archive.
+		 * @param Ar Archive to serialize too.
+		 * @return 
+		 */
 		virtual bool Serialize(FArchive& Ar) override;
+
+		/**
+		 * @brief Resets the section to a default state
+		 * @param Commands Running command queue that we send RT commands too. This is used for command batching.
+		 */
 		virtual void Reset(FRealtimeMeshProxyCommandBatch& Commands) override;
 
 	protected:
+		/**
+		 * @brief Handler for when streams are added/removed/updated so we can do things in response like update collision
+		 * @param SectionGroupKey Parent section group key, since this event handler can receive events from any SectionGroup
+		 * @param StreamKey Key used to identify the stream
+		 * @param ChangeType The type of change applied to this stream, whether added/removed/updated
+		 */
 		virtual void HandleStreamsChanged(const FRealtimeMeshSectionGroupKey& SectionGroupKey, const FRealtimeMeshStreamKey& StreamKey, ERealtimeMeshChangeType ChangeType) const;
+
+		/**
+		 * @brief Calculates the bounds from the mesh data for this section
+		 * @return The new calculated bounds.
+		 */
 		virtual FBoxSphereBounds3f CalculateBounds() const override;
 
+		/**
+		 * @brief Marks the collision dirty, to request an update to collision
+		 */
 		void MarkCollisionDirtyIfNecessary() const;
 	};
 
 	DECLARE_DELEGATE_RetVal_OneParam(FRealtimeMeshSectionConfig, FRealtimeMeshPolyGroupConfigHandler, int32);
 	
 	class REALTIMEMESHCOMPONENT_API FRealtimeMeshSectionGroupSimple : public FRealtimeMeshSectionGroup
-	{
-	public:
-	private:
+	{		
 		FRealtimeMeshStreamSet Streams;
-		FRealtimeMeshPolyGroupConfigHandler ConfigHandler;
-		
+		FRealtimeMeshPolyGroupConfigHandler ConfigHandler;		
 		uint8 bAutoCreateSectionsForPolygonGroups : 1;
 		uint8 bIsStandalone : 1;
-		
+
+
 	public:
 		FRealtimeMeshSectionGroupSimple(const FRealtimeMeshSharedResourcesRef& InSharedResources, const FRealtimeMeshSectionGroupKey& InKey)
 			: FRealtimeMeshSectionGroup(InSharedResources, InKey)
@@ -95,6 +139,9 @@ namespace RealtimeMesh
 
 		virtual void CreateOrUpdateStream(FRealtimeMeshProxyCommandBatch& Commands, FRealtimeMeshStream&& Stream) override;
 		virtual void RemoveStream(FRealtimeMeshProxyCommandBatch& Commands, const FRealtimeMeshStreamKey& StreamKey) override;
+
+		using FRealtimeMeshSectionGroup::SetAllStreams;
+		virtual void SetAllStreams(FRealtimeMeshProxyCommandBatch& Commands, FRealtimeMeshStreamSet&& InStreams) override;
 		
 		TFuture<ERealtimeMeshProxyUpdateStatus> UpdateFromSimpleMesh(const FRealtimeMeshSimpleMeshData& MeshData);
 		void UpdateFromSimpleMesh(FRealtimeMeshProxyCommandBatch& Commands, const FRealtimeMeshSimpleMeshData& MeshData);

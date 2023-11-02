@@ -585,6 +585,7 @@ void FRealtimeMeshSimpleGeometry::CopyToBodySetup(UBodySetup* BodySetup) const
 	{
 		auto& BodyConvex = BodySetup->AggGeom.ConvexElems.AddDefaulted_GetRef();
 		BodyConvex.VertexData = Convex.Vertices;
+		BodyConvex.SetTransform(FTransform(Convex.Rotation.Quaternion(), Convex.Center));
 		BodyConvex.UpdateElemBox();
 		BodyConvex.SetContributeToMass(Convex.bContributesToMass);
 		BodyConvex.SetName(Convex.Name);

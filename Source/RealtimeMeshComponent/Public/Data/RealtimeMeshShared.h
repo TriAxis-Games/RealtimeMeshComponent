@@ -166,8 +166,8 @@ namespace RealtimeMesh
 			return *static_cast<SharedResourcesType*>(this);
 		}
 
-		void SetOwnerMesh(const FRealtimeMeshRef& InOwner) { Owner = InOwner; }
-		void SetProxy(const FRealtimeMeshProxyRef& InProxy) { Proxy = InProxy; }
+		virtual void SetOwnerMesh(const FRealtimeMeshRef& InOwner) { Owner = InOwner; }
+		virtual void SetProxy(const FRealtimeMeshProxyRef& InProxy) { Proxy = InProxy; }
 
 		FRealtimeMeshGuard& GetGuard() const { return Guard; }
 		FName GetMeshName() const { return MeshName; }
@@ -177,6 +177,19 @@ namespace RealtimeMesh
 		FRealtimeMeshProxyPtr GetProxy() const { return Proxy.Pin(); }
 
 		ERHIFeatureLevel::Type GetFeatureLevel() const;
+
+		virtual bool WantsStreamOnGPU(const FRealtimeMeshStreamKey& StreamKey) const
+		{ 
+			static const TSet WantedStreams =
+			{
+				FRealtimeMeshStreams::Position,
+				FRealtimeMeshStreams::Tangents,
+				FRealtimeMeshStreams::TexCoords,
+				FRealtimeMeshStreams::Color,
+				FRealtimeMeshStreams::Triangles
+			};
+			return WantedStreams.Contains(StreamKey);
+		}
 
 
 		FRealtimeMeshSectionChangedEvent& OnSectionChanged() { return SectionChangedEvent; }

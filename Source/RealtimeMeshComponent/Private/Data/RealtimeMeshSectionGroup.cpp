@@ -164,7 +164,7 @@ namespace RealtimeMesh
 		Streams.FindOrAdd(StreamKey, &bAlreadyExisted);
 
 		// Create the update data for the GPU
-		if (Commands)
+		if (Commands && SharedResources->WantsStreamOnGPU(StreamKey))
 		{
 			const auto UpdateData = MakeShared<FRealtimeMeshSectionGroupStreamUpdateData>(MoveTemp(Stream));
 			UpdateData->ConfigureBuffer(EBufferUsageFlags::Static, true);
@@ -191,7 +191,7 @@ namespace RealtimeMesh
 
 		if (Streams.Remove(StreamKey))
 		{
-			if (Commands)
+			if (Commands && SharedResources->WantsStreamOnGPU(StreamKey))
 			{
 				Commands.AddSectionGroupTask(Key, [StreamKey](FRealtimeMeshSectionGroupProxy& Proxy)
 				{

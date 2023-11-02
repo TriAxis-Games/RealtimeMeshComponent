@@ -214,13 +214,15 @@ namespace RealtimeMeshAlgo
 	void GatherStreamRangesFromPolyGroupIndices(const TConstArrayView<PolygonGroupType>& PolygonGroupIndices, const TConstArrayView<IndexType>& Indices,
 	                                            TMap<int32, FRealtimeMeshStreamRange>& OutStreamRanges)
 	{
-		check(Indices.Num() >= PolygonGroupIndices.Num() * 3);
+		ensure(Indices.Num() >= PolygonGroupIndices.Num() * 3);
 		if (PolygonGroupIndices.Num() < 1 || Indices.Num() < 3)
 		{
 			return;
 		}
 
-		GatherSegmentsFromPolygonGroupIndices(PolygonGroupIndices, [&](const FRealtimeMeshPolygonGroupRange& PolyGroup)
+		const int32 MaxTriangleCount = FMath::Min(PolygonGroupIndices.Num(), Indices.Num() / 3);
+
+		GatherSegmentsFromPolygonGroupIndices(PolygonGroupIndices.Slice(0, MaxTriangleCount), [&](const FRealtimeMeshPolygonGroupRange& PolyGroup)
 		{
 			if (!OutStreamRanges.Contains(PolyGroup.PolygonGroupIndex))
 			{

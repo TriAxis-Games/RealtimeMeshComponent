@@ -18,6 +18,11 @@
 
 namespace RealtimeMesh
 {
+	namespace Simple::Private
+	{
+		static thread_local bool bShouldDeferPolyGroupUpdates = false;		
+	}	
+	
 	FRealtimeMeshSectionSimple::FRealtimeMeshSectionSimple(const FRealtimeMeshSharedResourcesRef& InSharedResources, const FRealtimeMeshSectionKey& InKey)
 		: FRealtimeMeshSection(InSharedResources, InKey)
 		  , bShouldCreateMeshCollision(false)
@@ -346,7 +351,7 @@ namespace RealtimeMesh
 		Streams.AddStream(Stream);
 		
 		// If this stream is a segments stream or polygon group stream lets update the sections
-		if (bAutoCreateSectionsForPolygonGroups)
+		if (bAutoCreateSectionsForPolygonGroups && !Simple::Private::bShouldDeferPolyGroupUpdates)
 		{
 			if (Stream.GetStreamKey() == FRealtimeMeshStreams::PolyGroups ||
 				Stream.GetStreamKey() == FRealtimeMeshStreams::PolyGroupSegments ||
@@ -434,6 +439,42 @@ namespace RealtimeMesh
 		}
 
 		FRealtimeMeshSectionGroup::RemoveStream(Commands, StreamKey);
+	}
+
+	void FRealtimeMeshSectionGroupSimple::SetAllStreams(FRealtimeMeshProxyCommandBatch& Commands, FRealtimeMeshStreamSet&& InStreams)
+	{
+		bool bWantsPolyGroupUpdate = false;
+		bool bWantsDepthOnlyPolyGroupUpdate = false;
+		if (bAutoCreateSectionsForPolygonGroups)
+		{
+			if (InStreams.Contains(FRealtimeMeshStreams::PolyGroups) ||
+				InStreams.Contains(FRealtimeMeshStreams::PolyGroupSegments) ||
+				InStreams.Contains(FRealtimeMeshStreams::Triangles))
+			{
+				bWantsPolyGroupUpdate = true;
+			}
+			if (InStreams.Contains(FRealtimeMeshStreams::DepthOnlyPolyGroups) ||
+				InStreams.Contains(FRealtimeMeshStreams::DepthOnlyPolyGroupSegments) ||
+				InStreams.Contains(FRealtimeMeshStreams::DepthOnlyTriangles))
+			{
+				bWantsDepthOnlyPolyGroupUpdate = true;
+			}
+		}
+		
+		// Block auto update of material indices until all streams are set		
+		// Defer updates for bulk changes like this
+		Simple::Private::bShouldDeferPolyGroupUpdates = true;
+		FRealtimeMeshSectionGroup::SetAllStreams(Commands, MoveTemp(InStreams));
+		Simple::Private::bShouldDeferPolyGroupUpdates = false;
+		
+		if (bWantsPolyGroupUpdate)
+		{
+			UpdatePolyGroupSections(Commands, false);
+		}
+		else if (bWantsDepthOnlyPolyGroupUpdate)
+		{
+			UpdatePolyGroupSections(Commands, true);
+		}		
 	}
 
 	void FRealtimeMeshSectionGroupSimple::InitializeProxy(FRealtimeMeshProxyCommandBatch& Commands)
