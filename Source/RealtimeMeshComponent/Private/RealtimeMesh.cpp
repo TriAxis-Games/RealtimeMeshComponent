@@ -380,7 +380,7 @@ public:
 	{
 		if (EndOfFrameUpdateHandle.IsValid())
 		{
-			FWorldDelegates::OnWorldPreSendAllEndOfFrameUpdates.Remove(EndOfFrameUpdateHandle);
+			FWorldDelegates::OnWorldPostActorTick.Remove(EndOfFrameUpdateHandle);
 			EndOfFrameUpdateHandle.Reset();
 		}
 	}
@@ -390,7 +390,9 @@ public:
 		FScopeLock Lock(&SyncRoot);
 		if (!EndOfFrameUpdateHandle.IsValid())
 		{
-			EndOfFrameUpdateHandle = FWorldDelegates::OnWorldPreSendAllEndOfFrameUpdates.AddRaw(this, &FRealtimeMeshEndOfFrameUpdateManager::OnPreSendAllEndOfFrameUpdates);
+			// TODO: Moved this to post actor tick from OnWorldPreSendAlLEndOfFrameUpdates... Is this the best option?
+			// Servers were not getting events but ever ~60 seconds
+			EndOfFrameUpdateHandle = FWorldDelegates::OnWorldPostActorTick.AddLambda([this](UWorld* World, ELevelTick TickType, float DeltaSeconds) { OnPreSendAllEndOfFrameUpdates(World); });
 		}
 		MeshesToUpdate.Add(RealtimeMesh);
 	}

@@ -666,8 +666,11 @@ namespace RealtimeMesh
 		template <typename GeneratorFunc>
 		FORCEINLINE void AppendGenerator(int32 Count, GeneratorFunc Generator)
 		{
-			const SizeType StartIndex = AddUninitialized(Count);
-			SetGenerator<GeneratorFunc>(StartIndex, Count, Forward<GeneratorFunc>(Generator));
+			if (Count > 0)
+			{
+				const SizeType StartIndex = AddUninitialized(Count);
+				SetGenerator<GeneratorFunc>(StartIndex, Count, Forward<GeneratorFunc>(Generator));
+			}
 		}
 
 
@@ -714,8 +717,8 @@ namespace RealtimeMesh
 		TRealtimeMeshStreamBuilder<TriangleType> Triangles;
 		TOptional<TRealtimeMeshStreamBuilder<TriangleType>> DepthOnlyTriangles;
 		
-		TOptional<TRealtimeMeshStreamBuilder<uint16>> TriangleMaterialIndices;
-		TOptional<TRealtimeMeshStreamBuilder<uint16>> DepthOnlyTriangleMaterialIndices;
+		TOptional<TRealtimeMeshStreamBuilder<uint16>> TrianglePolyGroups;
+		TOptional<TRealtimeMeshStreamBuilder<uint16>> DepthOnlyTrianglePolyGroups;
 
 		TOptional<TRealtimeMeshStreamBuilder<FRealtimeMeshPolygonGroupRange>> TriangleSegments;
 		TOptional<TRealtimeMeshStreamBuilder<FRealtimeMeshPolygonGroupRange>> DepthOnlyTriangleSegments;
@@ -838,27 +841,27 @@ namespace RealtimeMesh
 		}
 		void OnTrianglesSizeChanged(FRealtimeMeshStreamBuilderEventType SizeChangeType, SizeType NewSize, SizeType MaxSize)
 		{
-			if (TriangleMaterialIndices.IsSet())
+			if (TrianglePolyGroups.IsSet())
 			{
 				switch(SizeChangeType)
 				{
 				case FRealtimeMeshStreamBuilderEventType::NewSizeUninitialized:
-					TriangleMaterialIndices->SetNumUninitialized(NewSize);
+					TrianglePolyGroups->SetNumUninitialized(NewSize);
 					break;
 				case FRealtimeMeshStreamBuilderEventType::NewSizeZeroed:
-					TriangleMaterialIndices->SetNumZeroed(NewSize);
+					TrianglePolyGroups->SetNumZeroed(NewSize);
 					break;
 				case FRealtimeMeshStreamBuilderEventType::Reserve:
-					TriangleMaterialIndices->Reserve(NewSize);
+					TrianglePolyGroups->Reserve(NewSize);
 					break;
 				case FRealtimeMeshStreamBuilderEventType::Shrink:
-					TriangleMaterialIndices->Shrink();
+					TrianglePolyGroups->Shrink();
 					break;
 				case FRealtimeMeshStreamBuilderEventType::Empty:
-					TriangleMaterialIndices->Empty(NewSize, MaxSize);
+					TrianglePolyGroups->Empty(NewSize, MaxSize);
 					break;
 				case FRealtimeMeshStreamBuilderEventType::RemoveAt:
-					TriangleMaterialIndices->RemoveAt(NewSize, MaxSize);
+					TrianglePolyGroups->RemoveAt(NewSize, MaxSize);
 					break;
 				default:
 					checkf(false, TEXT("We shouldn't have gotten here..."));
@@ -867,27 +870,27 @@ namespace RealtimeMesh
 		}
 		void OnDepthOnlyTrianglesSizeChanged(FRealtimeMeshStreamBuilderEventType SizeChangeType, SizeType NewSize, SizeType MaxSize)
 		{
-			if (DepthOnlyTriangleMaterialIndices.IsSet())
+			if (DepthOnlyTrianglePolyGroups.IsSet())
 			{
 				switch(SizeChangeType)
 				{
 				case FRealtimeMeshStreamBuilderEventType::NewSizeUninitialized:
-					DepthOnlyTriangleMaterialIndices->SetNumUninitialized(NewSize);
+					DepthOnlyTrianglePolyGroups->SetNumUninitialized(NewSize);
 					break;
 				case FRealtimeMeshStreamBuilderEventType::NewSizeZeroed:
-					DepthOnlyTriangleMaterialIndices->SetNumZeroed(NewSize);
+					DepthOnlyTrianglePolyGroups->SetNumZeroed(NewSize);
 					break;
 				case FRealtimeMeshStreamBuilderEventType::Reserve:
-					DepthOnlyTriangleMaterialIndices->Reserve(NewSize);
+					DepthOnlyTrianglePolyGroups->Reserve(NewSize);
 					break;
 				case FRealtimeMeshStreamBuilderEventType::Shrink:
-					DepthOnlyTriangleMaterialIndices->Shrink();
+					DepthOnlyTrianglePolyGroups->Shrink();
 					break;
 				case FRealtimeMeshStreamBuilderEventType::Empty:
-					DepthOnlyTriangleMaterialIndices->Empty(NewSize, MaxSize);
+					DepthOnlyTrianglePolyGroups->Empty(NewSize, MaxSize);
 					break;
 				case FRealtimeMeshStreamBuilderEventType::RemoveAt:
-					DepthOnlyTriangleMaterialIndices->RemoveAt(NewSize, MaxSize);
+					DepthOnlyTrianglePolyGroups->RemoveAt(NewSize, MaxSize);
 					break;
 				default:
 					checkf(false, TEXT("We shouldn't have gotten here..."));
@@ -905,8 +908,8 @@ namespace RealtimeMesh
 			, Colors(GetStreamBuilder<FColor>(FRealtimeMeshStreams::Color))
 			, Triangles(GetStreamBuilder<TriangleType>(FRealtimeMeshStreams::Triangles, true)->GetStream())
 			, DepthOnlyTriangles(GetStreamBuilder<TriangleType>(FRealtimeMeshStreams::DepthOnlyTriangles))
-			, TriangleMaterialIndices(GetStreamBuilder<uint16>(FRealtimeMeshStreams::PolyGroups))
-			, DepthOnlyTriangleMaterialIndices(GetStreamBuilder<uint16>(FRealtimeMeshStreams::DepthOnlyPolyGroups))
+			, TrianglePolyGroups(GetStreamBuilder<uint16>(FRealtimeMeshStreams::PolyGroups))
+			, DepthOnlyTrianglePolyGroups(GetStreamBuilder<uint16>(FRealtimeMeshStreams::DepthOnlyPolyGroups))
 			, TriangleSegments(GetStreamBuilder<FRealtimeMeshPolygonGroupRange>(FRealtimeMeshStreams::PolyGroupSegments))
 		{
 			Vertices.GetCallbackDelegate().BindRaw(this, &TRealtimeMeshBuilderLocal::OnVerticesSizeChanged);
@@ -926,7 +929,7 @@ namespace RealtimeMesh
 		FORCEINLINE bool HasVertexColors() const { return Colors.IsSet(); }
 		FORCEINLINE SizeType NumTexCoordChannels() const { return HasTexCoords()? TexCoords->NumElements : 0; }
 		FORCEINLINE bool HasDepthOnlyTriangles() const { return DepthOnlyTriangles.IsSet(); }		
-		FORCEINLINE bool HasTriangleMaterialIndices() const { return TriangleMaterialIndices.IsSet(); }
+		FORCEINLINE bool HasPolyGroups() const { return TrianglePolyGroups.IsSet(); }
 		FORCEINLINE bool HasSegments() const { return TriangleSegments.IsSet(); }
 
 
@@ -979,7 +982,7 @@ namespace RealtimeMesh
 		{
 			if (!DepthOnlyTriangles.IsSet())
 			{
-				DepthOnlyTriangles = GetStreamBuilder<TriangleType>(FRealtimeMeshStreams::DepthOnlyTriangles);
+				DepthOnlyTriangles = GetStreamBuilder<TriangleType>(FRealtimeMeshStreams::DepthOnlyTriangles, true);
 				DepthOnlyTriangles->GetCallbackDelegate().BindRaw(this, &TRealtimeMeshBuilderLocal::OnDepthOnlyTrianglesSizeChanged);
 			}
 		}
@@ -989,41 +992,41 @@ namespace RealtimeMesh
 		}
 
 		
-		void EnableTriangleMaterialIndices()
+		void EnablePolyGroups()
 		{
-			if (!TriangleMaterialIndices.IsSet())
+			if (!TrianglePolyGroups.IsSet())
 			{
-				TriangleMaterialIndices = GetStreamBuilder<uint16>(FRealtimeMeshStreams::PolyGroups);
-				TriangleMaterialIndices->SetNumZeroed(Vertices.Num());
+				TrianglePolyGroups = GetStreamBuilder<uint16>(FRealtimeMeshStreams::PolyGroups, true);
+				TrianglePolyGroups->SetNumZeroed(Vertices.Num());
 			}
-			if (HasDepthOnlyTriangles() && !DepthOnlyTriangleMaterialIndices.IsSet())
+			if (HasDepthOnlyTriangles() && !DepthOnlyTrianglePolyGroups.IsSet())
 			{
-				DepthOnlyTriangleMaterialIndices = GetStreamBuilder<uint16>(FRealtimeMeshStreams::DepthOnlyPolyGroups);
-				DepthOnlyTriangleMaterialIndices->SetNumZeroed(Vertices.Num());
+				DepthOnlyTrianglePolyGroups = GetStreamBuilder<uint16>(FRealtimeMeshStreams::DepthOnlyPolyGroups, true);
+				DepthOnlyTrianglePolyGroups->SetNumZeroed(Vertices.Num());
 			}
 
 			TriangleSegments.Reset();
 			DepthOnlyTriangleSegments.Reset();
 		}
 
-		void DisableTriangleMaterialIndices()
+		void DisablePolyGroups()
 		{
-			TriangleMaterialIndices.Reset();
-			DepthOnlyTriangleMaterialIndices.Reset();
+			TrianglePolyGroups.Reset();
+			DepthOnlyTrianglePolyGroups.Reset();
 		}
 
 		void EnableTriangleSegments()
 		{
 			if (!TriangleSegments.IsSet())
 			{
-				TriangleSegments = GetStreamBuilder<FRealtimeMeshPolygonGroupRange>(FRealtimeMeshStreams::PolyGroupSegments);		
+				TriangleSegments = GetStreamBuilder<FRealtimeMeshPolygonGroupRange>(FRealtimeMeshStreams::PolyGroupSegments, true);		
 			}
 			if (!DepthOnlyTriangleSegments.IsSet())
 			{
-				DepthOnlyTriangleSegments = GetStreamBuilder<FRealtimeMeshPolygonGroupRange>(FRealtimeMeshStreams::DepthOnlyPolyGroupSegments);		
+				DepthOnlyTriangleSegments = GetStreamBuilder<FRealtimeMeshPolygonGroupRange>(FRealtimeMeshStreams::DepthOnlyPolyGroupSegments, true);		
 			}
-			TriangleMaterialIndices.Reset();
-			DepthOnlyTriangleMaterialIndices.Reset();
+			TrianglePolyGroups.Reset();
+			DepthOnlyTrianglePolyGroups.Reset();
 		}
 
 		void DisableTriangleSegments()
@@ -1040,17 +1043,17 @@ namespace RealtimeMesh
 				TriangleSegments = GetStreamBuilder<FRealtimeMeshPolygonGroupRange>(FRealtimeMeshStreams::PolyGroupSegments);
 
 				// Convert existing material indices to segments
-				if (TriangleMaterialIndices.IsSet())
+				if (TrianglePolyGroups.IsSet())
 				{
 					RealtimeMeshAlgo::GatherSegmentsFromPolygonGroupIndices(
-						TriangleMaterialIndices->GetStream().template GetArrayView<uint16>(),
+						TrianglePolyGroups->GetStream().template GetArrayView<uint16>(),
 						[this](const FRealtimeMeshPolygonGroupRange& NewSegment)
 						{
 							TriangleSegments->Add(NewSegment);
 						});
 
 					// Drop the triangle segments as these two ways of doing things are mutually exclusive
-					TriangleMaterialIndices.Reset();
+					TrianglePolyGroups.Reset();
 				}				
 			}
 
@@ -1059,51 +1062,51 @@ namespace RealtimeMesh
 				DepthOnlyTriangleSegments = GetStreamBuilder<FRealtimeMeshPolygonGroupRange>(FRealtimeMeshStreams::PolyGroupSegments);
 
 				// Convert existing material indices to segments
-				if (DepthOnlyTriangleMaterialIndices.IsSet())
+				if (DepthOnlyTrianglePolyGroups.IsSet())
 				{
 					RealtimeMeshAlgo::GatherSegmentsFromPolygonGroupIndices(
-						DepthOnlyTriangleMaterialIndices->GetStream().template GetArrayView<uint16>(),
+						DepthOnlyTrianglePolyGroups->GetStream().template GetArrayView<uint16>(),
 						[this](const FRealtimeMeshPolygonGroupRange& NewSegment)
 						{
 							DepthOnlyTriangleSegments->Add(NewSegment);
 						});
 
 					// Drop the triangle segments as these two ways of doing things are mutually exclusive
-					DepthOnlyTriangleMaterialIndices.Reset();
+					DepthOnlyTrianglePolyGroups.Reset();
 				}				
 			}
 		}
 
-		void ConvertToMaterialIndices()
+		void ConvertToPolyGroups()
 		{
-			if (!TriangleMaterialIndices.IsSet())
+			if (!TrianglePolyGroups.IsSet())
 			{
-				TriangleMaterialIndices = GetStreamBuilder<uint16>(FRealtimeMeshStreams::PolyGroups);
+				TrianglePolyGroups = GetStreamBuilder<uint16>(FRealtimeMeshStreams::PolyGroups);
 
 				// If we have existing segments, we need to copy them into the indices and disable them
 				if (TriangleSegments.IsSet())
 				{
-					auto MaterialIndices = TriangleMaterialIndices->GetStream().template GetArrayView<uint16>();
+					auto PolyGroups = TrianglePolyGroups->GetStream().template GetArrayView<uint16>();
 					RealtimeMeshAlgo::PropagateTriangleSegmentsToPolygonGroups(
 						TriangleSegments->GetStream().template GetArrayView<FRealtimeMeshPolygonGroupRange>(),
-						MaterialIndices);
+						PolyGroups);
 
 					// Drop the triangle segments as these two ways of doing things are mutually exclusive
 					TriangleSegments.Reset();
 				}
 			}
 
-			if (HasDepthOnlyTriangles() && !DepthOnlyTriangleMaterialIndices.IsSet())
+			if (HasDepthOnlyTriangles() && !DepthOnlyTrianglePolyGroups.IsSet())
 			{
-				DepthOnlyTriangleMaterialIndices = GetStreamBuilder<uint16>(FRealtimeMeshStreams::PolyGroups);
+				DepthOnlyTrianglePolyGroups = GetStreamBuilder<uint16>(FRealtimeMeshStreams::PolyGroups);
 
 				// If we have existing segments, we need to copy them into the indices and disable them
 				if (DepthOnlyTriangleSegments.IsSet())
 				{
-					auto MaterialIndices = DepthOnlyTriangleMaterialIndices->GetStream().template GetArrayView<uint16>();
+					auto PolyGroups = DepthOnlyTrianglePolyGroups->GetStream().template GetArrayView<uint16>();
 					RealtimeMeshAlgo::PropagateTriangleSegmentsToPolygonGroups(
 						DepthOnlyTriangleSegments->GetStream().template GetArrayView<FRealtimeMeshPolygonGroupRange>(),
-						MaterialIndices);
+						PolyGroups);
 					
 					// Drop the triangle segments as these two ways of doing things are mutually exclusive
 					DepthOnlyTriangleSegments.Reset();
@@ -1179,18 +1182,18 @@ namespace RealtimeMesh
 		VertexBuilder AddVertex()
 		{
 			const SizeType Index = Vertices.AddZeroed();
-			return VertexBuilder(this, Index);
+			return VertexBuilder(*this, Index);
 		}
 
 		VertexBuilder AddVertex(const FVector3f& InPosition)
 		{
 			const SizeType Index = Vertices.Add(InPosition);
-			return VertexBuilder(this, Index);
+			return VertexBuilder(*this, Index);
 		}
 
 		VertexBuilder EditVertex(int32 VertIdx)
 		{
-			return VertexBuilder(this, VertIdx);
+			return VertexBuilder(*this, VertIdx);
 		}
 
 
@@ -1202,25 +1205,25 @@ namespace RealtimeMesh
 		void SetNormal(int32 VertIdx, const TangentType& Normal)
 		{
 			checkf(HasTangents(), TEXT("Vertex tangents not enabled"));
-			Tangents->Get(VertIdx).SetNormal(Normal);
+			Tangents->GetValue(VertIdx).SetNormal(Normal);
 		}
 
 		void SetTangents(int32 VertIdx, const TangentType& Tangent)
 		{
 			checkf(HasTangents(), TEXT("Vertex tangents not enabled"));
-			Tangents->Get(VertIdx).SetNormal(Tangent);
+			Tangents->GetValue(VertIdx).SetNormal(Tangent);
 		}
 
 		void SetNormalAndTangent(int32 VertIdx, const FVector3f& Normal, const FVector3f& Tangent)
 		{
 			checkf(HasTangents(), TEXT("Vertex tangents not enabled"));
-			Tangents->Get(VertIdx).SetNormalAndTangent(Normal, Tangent);
+			Tangents->GetValue(VertIdx).SetNormalAndTangent(Normal, Tangent);
 		}
 
 		void SetTangents(int32 VertIdx, const FVector3f& Normal, const FVector3f& Binormal, const FVector3f& Tangent)
 		{
 			checkf(HasTangents(), TEXT("Vertex tangents not enabled"));
-			Tangents->Get(VertIdx).SetTangents(Normal, Binormal, Tangent);
+			Tangents->GetValue(VertIdx).SetTangents(Normal, Binormal, Tangent);
 		}
 
 		/*void SetTexCoord(int32 VertIdx, int32 TexCoordIdx, const TexCoordType& TexCoord)
@@ -1286,9 +1289,9 @@ namespace RealtimeMesh
 		
 		int32 AddTriangle(const TriangleType& Triangle, uint16 MaterialIndex)
 		{
-			checkf(HasTriangleMaterialIndices(), TEXT("Triangle material indices not enabled"));
+			checkf(HasPolyGroups(), TEXT("Triangle material indices not enabled"));
 			auto Result = Triangles.Add(Triangle);
-			TriangleMaterialIndices->Set(Result, MaterialIndex);
+			TrianglePolyGroups->Set(Result, MaterialIndex);
 			return Result;
 		}
 
@@ -1299,9 +1302,9 @@ namespace RealtimeMesh
 
 		int32 AddTriangle(IndexType Vert0, IndexType Vert1, IndexType Vert2, uint16 MaterialIndex)
 		{
-			checkf(HasTriangleMaterialIndices(), TEXT("Triangle material indices not enabled"));
+			checkf(HasPolyGroups(), TEXT("Triangle material indices not enabled"));
 			auto Result = Triangles.Add(TriangleType(Vert0, Vert1, Vert2));
-			TriangleMaterialIndices->Set(Result, MaterialIndex);
+			TrianglePolyGroups->Set(Result, MaterialIndex);
 			return Result;
 		}
 
@@ -1312,9 +1315,9 @@ namespace RealtimeMesh
 
 		void SetTriangle(int32 Index, const TriangleType& NewTriangle, uint16 MaterialIndex)
 		{
-			checkf(HasTriangleMaterialIndices(), TEXT("Triangle material indices not enabled"));
+			checkf(HasPolyGroups(), TEXT("Triangle material indices not enabled"));
 			Triangles.Set(Index, NewTriangle);
-			TriangleMaterialIndices->Set(Index, MaterialIndex);
+			TrianglePolyGroups->Set(Index, MaterialIndex);
 		}
 
 		void SetTriangle(int32 Index, IndexType Vert0, IndexType Vert1, IndexType Vert2)
@@ -1324,9 +1327,9 @@ namespace RealtimeMesh
 
 		void SetTriangle(int32 Index, IndexType Vert0, IndexType Vert1, IndexType Vert2, uint16 MaterialIndex)
 		{
-			checkf(HasTriangleMaterialIndices(), TEXT("Triangle material indices not enabled"));
+			checkf(HasPolyGroups(), TEXT("Triangle material indices not enabled"));
 			Triangles.Set(Index, TriangleType(Vert0, Vert1, Vert2));
-			TriangleMaterialIndices->Set(Index, MaterialIndex);
+			TrianglePolyGroups->Set(Index, MaterialIndex);
 		}
 
 		int32 AddDepthOnlyTriangle(const TriangleType& Triangle)
@@ -1337,9 +1340,9 @@ namespace RealtimeMesh
 		int32 AddDepthOnlyTriangle(const TriangleType& Triangle, uint16 MaterialIndex)
 		{
 			checkf(HasDepthOnlyTriangles(), TEXT("Depth only triangles not enabled"));
-			checkf(HasTriangleMaterialIndices(), TEXT("Depth only triangle material indices not enabled"));
+			checkf(HasPolyGroups(), TEXT("Depth only triangle material indices not enabled"));
 			auto Result = DepthOnlyTriangles.Add(Triangle);
-			DepthOnlyTriangleMaterialIndices->Set(Result, MaterialIndex);
+			DepthOnlyTrianglePolyGroups->Set(Result, MaterialIndex);
 			return Result;
 		}
 
@@ -1352,9 +1355,9 @@ namespace RealtimeMesh
 		int32 AddDepthOnlyTriangle(IndexType Vert0, IndexType Vert1, IndexType Vert2, uint16 MaterialIndex)
 		{
 			checkf(HasDepthOnlyTriangles(), TEXT("Depth only triangles not enabled"));
-			checkf(HasTriangleMaterialIndices(), TEXT("Depth only triangle material indices not enabled"));
+			checkf(HasPolyGroups(), TEXT("Depth only triangle material indices not enabled"));
 			auto Result = DepthOnlyTriangles.Add(TriangleType(Vert0, Vert1, Vert2));
-			DepthOnlyTriangleMaterialIndices->Set(Result, MaterialIndex);
+			DepthOnlyTrianglePolyGroups->Set(Result, MaterialIndex);
 			return Result;
 		}
 
@@ -1367,9 +1370,9 @@ namespace RealtimeMesh
 		void SetDepthOnlyTriangle(int32 Index, const TriangleType& NewTriangle, uint16 MaterialIndex)
 		{
 			checkf(HasDepthOnlyTriangles(), TEXT("Depth only triangles not enabled"));
-			checkf(HasTriangleMaterialIndices(), TEXT("Depth only triangle material indices not enabled"));
+			checkf(HasPolyGroups(), TEXT("Depth only triangle material indices not enabled"));
 			DepthOnlyTriangles.Set(Index, NewTriangle);
-			DepthOnlyTriangleMaterialIndices->Set(Index, MaterialIndex);
+			DepthOnlyTrianglePolyGroups->Set(Index, MaterialIndex);
 		}
 
 		void SetDepthOnlyTriangle(int32 Index, IndexType Vert0, IndexType Vert1, IndexType Vert2)
@@ -1381,9 +1384,9 @@ namespace RealtimeMesh
 		void SetDepthOnlyTriangle(int32 Index, IndexType Vert0, IndexType Vert1, IndexType Vert2, uint16 MaterialIndex)
 		{
 			checkf(HasDepthOnlyTriangles(), TEXT("Depth only triangles not enabled"));
-			checkf(HasTriangleMaterialIndices(), TEXT("Depth only triangle material indices not enabled"));
+			checkf(HasPolyGroups(), TEXT("Depth only triangle material indices not enabled"));
 			DepthOnlyTriangles.Set(Index, TriangleType(Vert0, Vert1, Vert2));
-			DepthOnlyTriangleMaterialIndices->Set(Index, MaterialIndex);
+			DepthOnlyTrianglePolyGroups->Set(Index, MaterialIndex);
 		}
 	};
 
