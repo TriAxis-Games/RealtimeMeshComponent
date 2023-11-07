@@ -10,13 +10,16 @@ UCLASS()
 class REALTIMEMESHTESTS_API ARealtimeMeshBasicUsageActor : public ARealtimeMeshActor
 {
 	GENERATED_BODY()
+private:
+	FLinearColor LastColor;
+	FLinearColor CurrentColor;
+	float TimeRemaining;
 
 public:
 	// Sets default values for this actor's properties
 	ARealtimeMeshBasicUsageActor();
 
 	virtual void OnGenerateMesh_Implementation() override;
-
 	
-	FRealtimeMeshSectionConfig OnAddSectionToPolyGroup(int32 PolyGroupIndex);
+	virtual void TickActor(float DeltaTime, ELevelTick TickType, FActorTickFunction& ThisTickFunction) override;
 };
