@@ -217,10 +217,15 @@ void ARealtimeMeshBasicUsageActor::OnGenerateMesh_Implementation()
 	RealtimeMesh->CreateSectionGroup(GroupKey, StreamSet);
 
 	// By default the sections created by the poly group id can be referenced through a key setup this way
-	const FRealtimeMeshSectionKey PolyGroup3Key = FRealtimeMeshSectionKey::CreateForPolyGroup(GroupKey, 3);
+	const FRealtimeMeshSectionKey PolyGroup0Key = FRealtimeMeshSectionKey::CreateForPolyGroup(GroupKey, 0);
+	const FRealtimeMeshSectionKey PolyGroup1Key = FRealtimeMeshSectionKey::CreateForPolyGroup(GroupKey, 1);
+	const FRealtimeMeshSectionKey PolyGroup2Key = FRealtimeMeshSectionKey::CreateForPolyGroup(GroupKey, 2);
 
 	// So you can adjust the config of a section through that key, so here we'll move PolyGroup 0 to point at MaterialSlot 0 as we don't have a material slot 3 setup here.
-	RealtimeMesh->UpdateSectionConfig(PolyGroup3Key, FRealtimeMeshSectionConfig(ERealtimeMeshSectionDrawType::Static, 0));
+
+	RealtimeMesh->UpdateSectionConfig(PolyGroup0Key, RealtimeMesh->GetSectionConfig(PolyGroup0Key), true);
+	RealtimeMesh->UpdateSectionConfig(PolyGroup1Key, RealtimeMesh->GetSectionConfig(PolyGroup1Key), true);
+	RealtimeMesh->UpdateSectionConfig(PolyGroup2Key, FRealtimeMeshSectionConfig(ERealtimeMeshSectionDrawType::Static, 0), true);
 
 	// Setup simple collision shape for this mesh
 	FRealtimeMeshSimpleGeometry SimpleGeometry = RealtimeMesh->GetSimpleGeometry();
@@ -241,7 +246,6 @@ void ARealtimeMeshBasicUsageActor::TickActor(float DeltaTime, ELevelTick TickTyp
 	{
 		// By default the sections created by the poly group id can be referenced through a key setup this way
 		const FRealtimeMeshSectionGroupKey GroupKey = FRealtimeMeshSectionGroupKey::Create(0, FName("TestBox"));
-		const FRealtimeMeshSectionKey PolyGroup3Key = FRealtimeMeshSectionKey::CreateForPolyGroup(GroupKey, 3);
 
 		// Update current color
 		TimeRemaining -= DeltaTime;
@@ -255,7 +259,7 @@ void ARealtimeMeshBasicUsageActor::TickActor(float DeltaTime, ELevelTick TickTyp
 		const FColor ThisFrameColor = FMath::Lerp(LastColor, CurrentColor, 1.0f - (TimeRemaining / BlendTime)).ToFColor(false);
 		
 		// Option one, We can update the color stream directly on the mesh	
-		RealtimeMesh->EditMeshInPlace(PolyGroup3Key, [ThisFrameColor](FRealtimeMeshStreamSet& StreamSet)
+		RealtimeMesh->EditMeshInPlace(GroupKey, [ThisFrameColor](FRealtimeMeshStreamSet& StreamSet)
 		{
 			TRealtimeMeshStreamBuilder<FColor> Colors(StreamSet.FindChecked(FRealtimeMeshStreams::Color));
 
