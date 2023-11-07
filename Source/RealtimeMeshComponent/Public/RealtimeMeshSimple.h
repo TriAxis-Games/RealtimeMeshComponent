@@ -215,6 +215,11 @@ namespace RealtimeMesh
 
 		virtual ~FRealtimeMeshSimple() override
 		{
+			if (PendingCollisionPromise)
+			{
+				PendingCollisionPromise->SetValue(ERealtimeMeshCollisionUpdateResult::Ignored);
+			}
+			
 			SharedResources->As<FRealtimeMeshSharedResourcesSimple>().OnCollisionDataChanged().RemoveAll(this);
 		}
 
