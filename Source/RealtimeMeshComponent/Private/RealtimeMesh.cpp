@@ -33,7 +33,7 @@ URealtimeMesh::URealtimeMesh(const FObjectInitializer& ObjectInitializer)
 	, PendingBodySetup(nullptr)
 	, CollisionUpdateVersionCounter(0)
 	, CurrentCollisionVersion(INDEX_NONE)
-{
+{	
 }
 
 void URealtimeMesh::BroadcastCollisionBodyUpdatedEvent(UBodySetup* NewBodySetup)

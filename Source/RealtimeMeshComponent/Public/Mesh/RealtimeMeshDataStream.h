@@ -29,19 +29,6 @@ namespace RealtimeMesh
 		inline static const FName TexCoordsStreamName = FName(TEXT("TexCoords"));
 		inline static const FName ColorStreamName = FName(TEXT("Color"));
 
-		/*
-		inline static const FName NormalElementName = FName("Normal");
-		inline static const FName TangentElementName = FName("Tangent");*/
-
-		/*inline static const FName TexCoord0ElementName = FName("TexCoord", 0);
-		inline static const FName TexCoord1ElementName = FName("TexCoord", 1);
-		inline static const FName TexCoord2ElementName = FName("TexCoord", 2);
-		inline static const FName TexCoord3ElementName = FName("TexCoord", 3);
-		inline static const FName TexCoord4ElementName = FName("TexCoord", 4);
-		inline static const FName TexCoord5ElementName = FName("TexCoord", 5);
-		inline static const FName TexCoord6ElementName = FName("TexCoord", 6);
-		inline static const FName TexCoord7ElementName = FName("TexCoord", 7);*/
-
 		inline static const FName TrianglesStreamName = FName(TEXT("Triangles"));
 		inline static const FName DepthOnlyTrianglesStreamName = FName(TEXT("DepthOnlyTriangles"));
 		inline static const FName ReversedTrianglesStreamName = FName(TEXT("ReversedTriangles"));

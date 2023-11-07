@@ -34,8 +34,8 @@ bool RealtimeMeshStreamConversionTests::RunTest(const FString& Parameters)
 
 	for (int32 Index = 0; Index < 10; Index++)
 	{	
-		TestTrue(FString::Printf(TEXT("TestRow: %d Element 0"), Index), ConvertedBuilder[Index][0].ToFVector3f().Equals(InitialData[9 - Index]));
-		TestTrue(FString::Printf(TEXT("TestRow: %d Element 1"), Index), ConvertedBuilder[Index][1].ToFVector3f().Equals(InitialData[Index]));
+		TestTrue(FString::Printf(TEXT("TestRow: %d Element 0"), Index), ConvertedBuilder[Index].GetElement(0).ToFVector3f().Equals(InitialData[9 - Index]));
+		TestTrue(FString::Printf(TEXT("TestRow: %d Element 1"), Index), ConvertedBuilder[Index].GetElement(1).ToFVector3f().Equals(InitialData[Index]));
 	}
 	
 	// Make the test pass by returning true, or fail by returning false.

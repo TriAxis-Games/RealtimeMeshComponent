@@ -23,7 +23,7 @@ static void ConvertQuadToTriangles(TArray<int32>& Triangles, TArray<int32>& Mate
 	}
 }
 
-FRealtimeMeshSimpleMeshData& URealtimeMeshSimpleBasicShapeTools::AppendBoxMesh(FVector BoxRadius, FTransform BoxTransform, FRealtimeMeshSimpleMeshData& MeshData, int32 NewMaterialGroup)
+FRealtimeMeshSimpleMeshData& URealtimeMeshBasicShapeTools::AppendBoxMesh(FVector BoxRadius, FTransform BoxTransform, FRealtimeMeshSimpleMeshData& MeshData, int32 NewMaterialGroup)
 {
 	// Generate verts
 	FVector BoxVerts[8];
@@ -150,7 +150,7 @@ static void AppendTransformedTangentArray(TArray<FVector>& Destination, const TA
 }
 
 
-FRealtimeMeshSimpleMeshData& URealtimeMeshSimpleBasicShapeTools::AppendMesh(FRealtimeMeshSimpleMeshData& TargetMeshData, const FRealtimeMeshSimpleMeshData& MeshDataToAdd,
+FRealtimeMeshSimpleMeshData& URealtimeMeshBasicShapeTools::AppendMesh(FRealtimeMeshSimpleMeshData& TargetMeshData, const FRealtimeMeshSimpleMeshData& MeshDataToAdd,
                                                                                const FTransform& Transform, int32 NewMaterialGroup)
 {
 	const int32 StartVertex = TargetMeshData.Positions.Num();
@@ -216,6 +216,83 @@ FRealtimeMeshSimpleMeshData& URealtimeMeshSimpleBasicShapeTools::AppendMesh(FRea
 
 		TargetMeshData.MaterialIndex.SetNumZeroed(NumExistingTriangles + NumTrianglesToAdd);
 	}
+
+	return TargetMeshData;
+}
+
+FRealtimeMeshStreamSet& URealtimeMeshBasicShapeTools::AppendMesh(FRealtimeMeshStreamSet& TargetMeshData, const FRealtimeMeshStreamSet& MeshDataToAdd, const FTransform& Transform)
+{
+
+
+
+
+	
+
+	/*
+	const int32 StartVertex = TargetMeshData.Positions.Num();
+
+	// Skip slower transform logic if transform == identity
+	if (Transform.Equals(FTransform::Identity))
+	{
+		TargetMeshData.Positions.Append(MeshDataToAdd.Positions);
+		AppendVertexArrayIfContains(TargetMeshData.Normals, MeshDataToAdd.Normals, StartVertex, TargetMeshData.Positions.Num());
+		AppendVertexArrayIfContains(TargetMeshData.Binormals, MeshDataToAdd.Binormals, StartVertex, TargetMeshData.Positions.Num());
+		AppendVertexArrayIfContains(TargetMeshData.Tangents, MeshDataToAdd.Tangents, StartVertex, TargetMeshData.Positions.Num());
+	}
+	else
+	{
+		TargetMeshData.Positions.Reserve(TargetMeshData.Positions.Num() + MeshDataToAdd.Positions.Num());
+		for (int32 Index = 0; Index < MeshDataToAdd.Positions.Num(); Index++)
+		{
+			TargetMeshData.Positions.Add(Transform.TransformPosition(MeshDataToAdd.Positions[Index]));
+		}
+		AppendTransformedTangentArray(TargetMeshData.Normals, MeshDataToAdd.Normals, StartVertex, TargetMeshData.Positions.Num(), Transform);
+		AppendTransformedTangentArray(TargetMeshData.Binormals, MeshDataToAdd.Binormals, StartVertex, TargetMeshData.Positions.Num(), Transform);
+		AppendTransformedTangentArray(TargetMeshData.Tangents, MeshDataToAdd.Tangents, StartVertex, TargetMeshData.Positions.Num(), Transform);
+	}
+
+	AppendVertexArrayIfContains(TargetMeshData.Colors, MeshDataToAdd.Colors, StartVertex, TargetMeshData.Positions.Num());
+	AppendVertexArrayIfContains(TargetMeshData.LinearColors, MeshDataToAdd.LinearColors, StartVertex, TargetMeshData.Positions.Num());
+
+	AppendVertexArrayIfContains(TargetMeshData.UV0, MeshDataToAdd.UV0, StartVertex, TargetMeshData.Positions.Num());
+	AppendVertexArrayIfContains(TargetMeshData.UV1, MeshDataToAdd.UV1, StartVertex, TargetMeshData.Positions.Num());
+	AppendVertexArrayIfContains(TargetMeshData.UV2, MeshDataToAdd.UV2, StartVertex, TargetMeshData.Positions.Num());
+	AppendVertexArrayIfContains(TargetMeshData.UV3, MeshDataToAdd.UV3, StartVertex, TargetMeshData.Positions.Num());
+
+	// Copy Triangles
+	
+	const int32 NumExistingTriangles = (TargetMeshData.Triangles.Num()) / 3;
+	const int32 NumTrianglesToAdd = MeshDataToAdd.Triangles.Num() / 3;
+
+	TargetMeshData.Triangles.Reserve(TargetMeshData.Triangles.Num() + MeshDataToAdd.Triangles.Num());
+	for (int32 Index = 0; Index < MeshDataToAdd.Triangles.Num(); Index++)
+	{
+		TargetMeshData.Triangles.Add(MeshDataToAdd.Triangles[Index] + StartVertex);		
+	}
+
+	if (NewMaterialGroup != 0)
+	{
+		TargetMeshData.MaterialIndex.Reserve(NumExistingTriangles + NumTrianglesToAdd);
+		TargetMeshData.MaterialIndex.SetNumZeroed(NumExistingTriangles);
+
+		for (int32 Index = 0; Index < NumTrianglesToAdd; Index++)
+		{
+			TargetMeshData.MaterialIndex.Add(NewMaterialGroup);
+		}
+	}
+	else if (MeshDataToAdd.MaterialIndex.Num())
+	{
+		TargetMeshData.MaterialIndex.Reserve(NumExistingTriangles + NumTrianglesToAdd);
+		TargetMeshData.MaterialIndex.SetNumZeroed(NumExistingTriangles);
+
+		for (int32 Index = 0; Index < MeshDataToAdd.MaterialIndex.Num() && Index < NumTrianglesToAdd; Index++)
+		{
+			TargetMeshData.MaterialIndex.Add(MeshDataToAdd.MaterialIndex[Index]);
+		}
+
+		TargetMeshData.MaterialIndex.SetNumZeroed(NumExistingTriangles + NumTrianglesToAdd);
+	}
+	*/
 
 	return TargetMeshData;
 }

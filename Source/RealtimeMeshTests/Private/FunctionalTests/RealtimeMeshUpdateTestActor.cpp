@@ -35,9 +35,9 @@ void ARealtimeMeshUpdateTestActor::OnGenerateMesh_Implementation()
 		FRealtimeMeshSimpleMeshData MeshData;
 
 		// This just adds a simple box, you can instead create your own mesh data
-		URealtimeMeshSimpleBasicShapeTools::AppendBoxMesh(FVector(100, 100, 200), FTransform::Identity, MeshData, 0);
-		URealtimeMeshSimpleBasicShapeTools::AppendBoxMesh(FVector(200, 100, 100), FTransform::Identity, MeshData, 2);
-		URealtimeMeshSimpleBasicShapeTools::AppendBoxMesh(FVector(100, 200, 100), FTransform::Identity, MeshData, 1);
+		URealtimeMeshBasicShapeTools::AppendBoxMesh(FVector(100, 100, 200), FTransform::Identity, MeshData, 0);
+		URealtimeMeshBasicShapeTools::AppendBoxMesh(FVector(200, 100, 100), FTransform::Identity, MeshData, 2);
+		URealtimeMeshBasicShapeTools::AppendBoxMesh(FVector(100, 200, 100), FTransform::Identity, MeshData, 1);
 
 		RealtimeMesh->UpdateSectionGroup(GroupKey, MeshData);
 	}

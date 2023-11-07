@@ -39,7 +39,7 @@ void ARealtimeMeshLatentUpdateTestActor::BeginPlay()
 		FRealtimeMeshSimpleMeshData MeshData;
 
 		// This just adds a simple box, you can instead create your own mesh data
-		URealtimeMeshSimpleBasicShapeTools::AppendBoxMesh(FVector(100, 100, 200), FTransform::Identity, MeshData);
+		URealtimeMeshBasicShapeTools::AppendBoxMesh(FVector(100, 100, 200), FTransform::Identity, MeshData);
 
 		RealtimeMesh->UpdateSectionGroup(StaticSectionKey, MeshData);
 
@@ -49,8 +49,8 @@ void ARealtimeMeshLatentUpdateTestActor::BeginPlay()
 		FRealtimeMeshSimpleMeshData MeshData;
 
 		// This just adds two simple boxes, one after the other
-		URealtimeMeshSimpleBasicShapeTools::AppendBoxMesh(FVector(200, 100, 100), FTransform::Identity, MeshData);
-		URealtimeMeshSimpleBasicShapeTools::AppendBoxMesh(FVector(100, 200, 100), FTransform::Identity, MeshData);
+		URealtimeMeshBasicShapeTools::AppendBoxMesh(FVector(200, 100, 100), FTransform::Identity, MeshData);
+		URealtimeMeshBasicShapeTools::AppendBoxMesh(FVector(100, 200, 100), FTransform::Identity, MeshData);
 
 		const auto SectionGroupKey = FRealtimeMeshSectionGroupKey::Create(0, FName(TEXT("Test")));
 		RealtimeMesh->UpdateSectionGroup(SectionGroupKey, MeshData);

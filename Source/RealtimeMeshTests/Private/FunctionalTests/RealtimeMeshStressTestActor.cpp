@@ -32,9 +32,9 @@ void ARealtimeMeshStressTestActor::OnGenerateMesh_Implementation()
 	FRealtimeMeshSimpleMeshData MeshData;
 
 	// This just adds a simple box, you can instead create your own mesh data
-	URealtimeMeshSimpleBasicShapeTools::AppendBoxMesh(FVector(100, 100, 200), FTransform::Identity, MeshData, 2);
-	URealtimeMeshSimpleBasicShapeTools::AppendBoxMesh(FVector(200, 100, 100), FTransform::Identity, MeshData, 1);
-	URealtimeMeshSimpleBasicShapeTools::AppendBoxMesh(FVector(100, 200, 100), FTransform::Identity, MeshData, 3);
+	URealtimeMeshBasicShapeTools::AppendBoxMesh(FVector(100, 100, 200), FTransform::Identity, MeshData, 2);
+	URealtimeMeshBasicShapeTools::AppendBoxMesh(FVector(200, 100, 100), FTransform::Identity, MeshData, 1);
+	URealtimeMeshBasicShapeTools::AppendBoxMesh(FVector(100, 200, 100), FTransform::Identity, MeshData, 3);
 
 	RealtimeMesh->CreateSectionGroup(SectionGroupKey, MeshData);
 
@@ -54,9 +54,9 @@ void ARealtimeMeshStressTestActor::TickActor(float DeltaTime, ELevelTick TickTyp
 		const FTransform Transform = FTransform(FQuat::Identity, FVector(0, 0, 0), FVector(Scale, Scale, Scale));
 
 		// This just adds a simple box, you can instead create your own mesh data
-		URealtimeMeshSimpleBasicShapeTools::AppendBoxMesh(FVector(100, 100, 200), Transform, MeshData, 2);
-		URealtimeMeshSimpleBasicShapeTools::AppendBoxMesh(FVector(200, 100, 100), Transform, MeshData, 1);
-		URealtimeMeshSimpleBasicShapeTools::AppendBoxMesh(FVector(100, 200, 100), Transform, MeshData, 3);
+		URealtimeMeshBasicShapeTools::AppendBoxMesh(FVector(100, 100, 200), Transform, MeshData, 2);
+		URealtimeMeshBasicShapeTools::AppendBoxMesh(FVector(200, 100, 100), Transform, MeshData, 1);
+		URealtimeMeshBasicShapeTools::AppendBoxMesh(FVector(100, 200, 100), Transform, MeshData, 3);
 
 		RealtimeMesh->UpdateSectionGroup(SectionGroupKey, MeshData);
 		

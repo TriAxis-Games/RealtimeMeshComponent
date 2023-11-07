@@ -13,30 +13,231 @@ struct FRealtimeMeshSimpleMeshData;
 // ReSharper disable CppMemberFunctionMayBeConst
 namespace RealtimeMesh
 {
-	template<typename BufferType>
-	struct TRealtimeMeshIndexedBufferAccessor
-	{
-	public:
-		using SizeType = FRealtimeMeshStream::SizeType;
-		using BufferTypeRaw = std::remove_const_t<BufferType>;
-		using ElementType = typename TCopyQualifiersFromTo<BufferType, typename FRealtimeMeshBufferTypeTraits<BufferTypeRaw>::ElementType>::Type;
-		static constexpr int32 NumElements = FRealtimeMeshBufferTypeTraits<BufferTypeRaw>::NumElements;
-		static constexpr bool IsSingleElement = NumElements == 1;
-		static constexpr bool IsConst = TIsConst<BufferType>::Value;
 
+	template<typename BufferType>
+	struct FRealtimeMeshStreamElementDirectRead
+	{
+		using ElementType = typename TCopyQualifiersFromTo<BufferType, typename FRealtimeMeshBufferTypeTraits<BufferType>::ElementType>::Type;
+		
+		static BufferType GetBufferValue(FRealtimeMeshStream& Stream, int32 Index)
+		{
+			return *Stream.GetDataAtVertex<BufferType>(Index);
+		}
+		static void SetBufferValue(FRealtimeMeshStream& Stream, int32 Index, const BufferType& InValue)
+		{
+			*Stream.GetDataAtVertex<BufferType>(Index) = InValue;
+		}
+		static ElementType GetElementValue(FRealtimeMeshStream& Stream, int32 Index, int32 ElementIndex)
+		{
+			return *Stream.GetDataAtVertex<ElementType>(Index, ElementIndex);
+		}
+		static void SetElementValue(FRealtimeMeshStream& Stream, int32 Index, int32 ElementIndex, const ElementType& InValue)
+		{
+			*Stream.GetDataAtVertex<ElementType>(Index, ElementIndex) = InValue;
+		}
+	};
+	
+	template<typename AccessType, typename BufferType>
+	struct FRealtimeMeshStreamElementStaticConverter
+	{
+		using AccessElementType = typename TCopyQualifiersFromTo<BufferType, typename FRealtimeMeshBufferTypeTraits<BufferType>::ElementType>::Type;
+		
+		static AccessType GetBufferValue(FRealtimeMeshStream& Stream, int32 Index)
+		{
+			return Stream.GetDataAtVertex<BufferType>(Index);
+		}
+		static void SetBufferValue(FRealtimeMeshStream& Stream, int32 Index, const AccessType& InValue)
+		{
+			Stream.GetDataAtVertex<BufferType>(Index) = AccessType(InValue);
+		}
+		static AccessElementType GetElementValue(FRealtimeMeshStream& Stream, int32 Index, int32 ElementIndex)
+		{
+			return Stream.GetDataAtVertex<AccessElementType>(Index, ElementIndex);
+		}
+		static void SetElementValue(FRealtimeMeshStream& Stream, int32 Index, int32 ElementIndex, const AccessElementType& InValue)
+		{
+			Stream.GetDataAtVertex<AccessElementType>(Index, ElementIndex) = AccessElementType(InValue);
+		}
+	};
+
+	/*template<typename AccessType>
+	struct FRealtimeMeshStreamElementConvertingReader
+	{
+		FRealtimeMeshStreamElementConvertingReader()
+	};*/
+
+	
+	template<typename StreamTypeRaw, typename Accessor = FRealtimeMeshStreamElementDirectRead<StreamTypeRaw>>
+	struct TRealtimeMeshIndexedBufferAccessor;
+	
+
+	template<typename StreamTypeRaw, typename Accessor = FRealtimeMeshStreamElementDirectRead<StreamTypeRaw>>
+	struct TRealtimeMeshElementAccessor
+	{
+		using SizeType = FRealtimeMeshStream::SizeType;
+		using BufferType = std::remove_const_t<StreamTypeRaw>;
+		using ElementType = typename FRealtimeMeshBufferTypeTraits<BufferType>::ElementType;
+		using ElementAccessor = TRealtimeMeshElementAccessor<StreamTypeRaw, Accessor>;
+		static constexpr int32 NumElements = FRealtimeMeshBufferTypeTraits<BufferType>::NumElements;
+		static constexpr bool IsSingleElement = NumElements == 1;
+		static constexpr bool IsConst = TIsConst<StreamTypeRaw>::Value;
 
 		template<typename RetVal, typename Dummy>
 		using TEnableIfWritable = std::enable_if_t<sizeof(Dummy) && !IsConst, RetVal>;
 		
-		template<typename RetVal, typename Dummy>
-		using TEnableIfMultiElement = std::enable_if_t<sizeof(Dummy) && !IsSingleElement, RetVal>;
-		template<typename RetVal, typename Dummy>
-		using TEnableIfSingleElement = std::enable_if_t<sizeof(Dummy) && IsSingleElement, RetVal>;
+	private:
+		FRealtimeMeshStream& Stream;
+		SizeType RowIndex;
+		SizeType ElementIdx;
+
+
+	public:
+		TRealtimeMeshElementAccessor(FRealtimeMeshStream& InStream, SizeType InRowIndex, SizeType InElementIndex)
+			: Stream(InStream)
+			, RowIndex(InRowIndex)
+			, ElementIdx(InElementIndex)
+		{			
+		}		
+
+
+		template <typename U = ElementType>
+		FORCEINLINE TEnableIfWritable<TRealtimeMeshElementAccessor&, U> operator=(const ElementType& InNewValue)
+		{
+			SetValue(InNewValue);
+			return *this;
+		}
+
+		void SetValue(const ElementType& InNewValue)
+		{			
+			Accessor::SetElementValue(Stream, RowIndex, ElementIdx, InNewValue);
+		}
 		
+		ElementType GetValue() const
+		{
+			return Accessor::GetElementValue(Stream, RowIndex, ElementIdx);
+		}
+		
+		FORCEINLINE operator ElementType() const
+		{
+			return GetValue();
+		}
+
+#define DEFINE_BINARY_OPERATOR_VARIATIONS(op) \
+		FORCEINLINE friend bool operator op(const TRealtimeMeshElementAccessor& Left, const TRealtimeMeshElementAccessor& Right) { return Left.GetValue() op Right.GetValue(); } \
+		FORCEINLINE friend bool operator op(const TRealtimeMeshElementAccessor& Left, const ElementType& Right) { return Left.GetValue() op Right; } \
+		FORCEINLINE friend bool operator op(const ElementType& Left, const TRealtimeMeshElementAccessor& Right) { return Left op Right.GetValue(); }
+
+		DEFINE_BINARY_OPERATOR_VARIATIONS(==)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(!=)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(<)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(>)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(<=)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(>=)
+#undef DEFINE_BINARY_OPERATOR_VARIATIONS
+		
+		template <typename U = ElementType>
+		FORCEINLINE TEnableIfWritable<ElementType, U> operator+(const ElementType& Right) const { return GetValue() + Right; }
+		template <typename U = ElementType>
+		FORCEINLINE TEnableIfWritable<ElementType, U> operator-(const ElementType& Right) const { return GetValue() - Right; }
+		template <typename U = ElementType>
+		FORCEINLINE TEnableIfWritable<ElementType, U> operator*(const ElementType& Right) const { return GetValue() * Right; }
+		template <typename U = ElementType>
+		FORCEINLINE TEnableIfWritable<ElementType, U> operator/(const ElementType& Right) const { return GetValue() / Right; }
+		template <typename U = ElementType>
+		FORCEINLINE TEnableIfWritable<ElementType, U> operator%(const ElementType& Right) const { return GetValue() % Right; }
+		template <typename U = ElementType>
+		FORCEINLINE TEnableIfWritable<ElementType, U> operator&(const ElementType& Right) const { return GetValue() & Right; }
+		template <typename U = ElementType>
+		FORCEINLINE TEnableIfWritable<ElementType, U> operator|(const ElementType& Right) const { return GetValue() | Right; }
+		template <typename U = ElementType>
+		FORCEINLINE TEnableIfWritable<ElementType, U> operator^(const ElementType& Right) const { return GetValue() ^ Right; }
+		template <typename U = ElementType>
+		FORCEINLINE TEnableIfWritable<ElementType, U> operator<<(const ElementType& Right) const { return GetValue() << Right; }
+		template <typename U = ElementType>
+		FORCEINLINE TEnableIfWritable<ElementType, U> operator>>(const ElementType& Right) const { return GetValue() >> Right; }
+
+		template <typename U = ElementType>
+		FORCEINLINE TEnableIfWritable<ElementType, U> operator+(const TRealtimeMeshElementAccessor& Right) const { return GetValue() + Right.GetValue(); }
+		template <typename U = ElementType>
+		FORCEINLINE TEnableIfWritable<ElementType, U> operator-(const TRealtimeMeshElementAccessor& Right) const { return GetValue() - Right.GetValue(); }
+		template <typename U = ElementType>
+		FORCEINLINE TEnableIfWritable<ElementType, U> operator*(const TRealtimeMeshElementAccessor& Right) const { return GetValue() * Right.GetValue(); }
+		template <typename U = ElementType>
+		FORCEINLINE TEnableIfWritable<ElementType, U> operator/(const TRealtimeMeshElementAccessor& Right) const { return GetValue() / Right.GetValue(); }
+		template <typename U = ElementType>
+		FORCEINLINE TEnableIfWritable<ElementType, U> operator%(const TRealtimeMeshElementAccessor& Right) const { return GetValue() % Right.GetValue(); }
+		template <typename U = ElementType>
+		FORCEINLINE TEnableIfWritable<ElementType, U> operator&(const TRealtimeMeshElementAccessor& Right) const { return GetValue() & Right.GetValue(); }
+		template <typename U = ElementType>
+		FORCEINLINE TEnableIfWritable<ElementType, U> operator|(const TRealtimeMeshElementAccessor& Right) const { return GetValue() | Right.GetValue(); }
+		template <typename U = ElementType>
+		FORCEINLINE TEnableIfWritable<ElementType, U> operator^(const TRealtimeMeshElementAccessor& Right) const { return GetValue() ^ Right.GetValue(); }
+		template <typename U = ElementType>
+		FORCEINLINE TEnableIfWritable<ElementType, U> operator<<(const TRealtimeMeshElementAccessor& Right) const { return GetValue() << Right.GetValue(); }
+		template <typename U = ElementType>
+		FORCEINLINE TEnableIfWritable<ElementType, U> operator>>(const TRealtimeMeshElementAccessor& Right) const { return GetValue() >> Right.GetValue(); }
+
+		
+		template <typename U = ElementType>
+		FORCEINLINE TEnableIfWritable<TRealtimeMeshElementAccessor&, U> operator+=(const ElementType& Right) { SetValue(GetValue() + Right); return *this; }
+		template <typename U = ElementType>
+		FORCEINLINE TEnableIfWritable<TRealtimeMeshElementAccessor&, U> operator-=(const ElementType& Right) { SetValue(GetValue() - Right); return *this; }
+		template <typename U = ElementType>
+		FORCEINLINE TEnableIfWritable<TRealtimeMeshElementAccessor&, U> operator*=(const ElementType& Right) { SetValue(GetValue() * Right); return *this; }
+		template <typename U = ElementType>
+		FORCEINLINE TEnableIfWritable<TRealtimeMeshElementAccessor&, U> operator/=(const ElementType& Right) { SetValue(GetValue() / Right); return *this; }
+		template <typename U = ElementType>
+		FORCEINLINE TEnableIfWritable<TRealtimeMeshElementAccessor&, U> operator%=(const ElementType& Right) { SetValue(GetValue() % Right); return *this; }
+		template <typename U = ElementType>
+		FORCEINLINE TEnableIfWritable<TRealtimeMeshElementAccessor&, U> operator&=(const ElementType& Right) { SetValue(GetValue() & Right); return *this; }
+		template <typename U = ElementType>
+		FORCEINLINE TEnableIfWritable<TRealtimeMeshElementAccessor&, U> operator|=(const ElementType& Right) { SetValue(GetValue() | Right); return *this; }
+		template <typename U = ElementType>
+		FORCEINLINE TEnableIfWritable<TRealtimeMeshElementAccessor&, U> operator^=(const ElementType& Right) { SetValue(GetValue() ^ Right); return *this; }
+		template <typename U = ElementType>
+		FORCEINLINE TEnableIfWritable<TRealtimeMeshElementAccessor&, U> operator<<=(const ElementType& Right) { SetValue(GetValue() << Right); return *this; }
+		template <typename U = ElementType>
+		FORCEINLINE TEnableIfWritable<TRealtimeMeshElementAccessor&, U> operator>>=(const ElementType& Right) { SetValue(GetValue() >> Right); return *this; }
+
+		template <typename U = ElementType>
+		FORCEINLINE TEnableIfWritable<TRealtimeMeshElementAccessor&, U> operator+=(const TRealtimeMeshElementAccessor& Right) { SetValue(GetValue() + Right.GetValue()); return *this; }
+		template <typename U = ElementType>
+		FORCEINLINE TEnableIfWritable<TRealtimeMeshElementAccessor&, U> operator-=(const TRealtimeMeshElementAccessor& Right) { SetValue(GetValue() - Right.GetValue()); return *this; }
+		template <typename U = ElementType>
+		FORCEINLINE TEnableIfWritable<TRealtimeMeshElementAccessor&, U> operator*=(const TRealtimeMeshElementAccessor& Right) { SetValue(GetValue() * Right.GetValue()); return *this; }
+		template <typename U = ElementType>
+		FORCEINLINE TEnableIfWritable<TRealtimeMeshElementAccessor&, U> operator/=(const TRealtimeMeshElementAccessor& Right) { SetValue(GetValue() / Right.GetValue()); return *this; }
+		template <typename U = ElementType>
+		FORCEINLINE TEnableIfWritable<TRealtimeMeshElementAccessor&, U> operator%=(const TRealtimeMeshElementAccessor& Right) { SetValue(GetValue() % Right.GetValue()); return *this; }
+		template <typename U = ElementType>
+		FORCEINLINE TEnableIfWritable<TRealtimeMeshElementAccessor&, U> operator&=(const TRealtimeMeshElementAccessor& Right) { SetValue(GetValue() & Right.GetValue()); return *this; }
+		template <typename U = ElementType>
+		FORCEINLINE TEnableIfWritable<TRealtimeMeshElementAccessor&, U> operator|=(const TRealtimeMeshElementAccessor& Right) { SetValue(GetValue() | Right.GetValue()); return *this; }
+		template <typename U = ElementType>
+		FORCEINLINE TEnableIfWritable<TRealtimeMeshElementAccessor&, U> operator^=(const TRealtimeMeshElementAccessor& Right) { SetValue(GetValue() ^ Right.GetValue()); return *this; }
+		template <typename U = ElementType>
+		FORCEINLINE TEnableIfWritable<TRealtimeMeshElementAccessor&, U> operator<<=(const TRealtimeMeshElementAccessor& Right) { SetValue(GetValue() << Right.GetValue()); return *this; }
+		template <typename U = ElementType>
+		FORCEINLINE TEnableIfWritable<TRealtimeMeshElementAccessor&, U> operator>>=(const TRealtimeMeshElementAccessor& Right) { SetValue(GetValue() >> Right.GetValue()); return *this; }
+	};
+
+
+
+	
+	template<typename StreamTypeRaw, typename Accessor>
+	struct TRealtimeMeshIndexedBufferAccessor
+	{
+	public:
+		using SizeType = FRealtimeMeshStream::SizeType;
+		using BufferType = std::remove_const_t<StreamTypeRaw>;
+		using ElementType = typename FRealtimeMeshBufferTypeTraits<BufferType>::ElementType;
+		using ElementAccessor = TRealtimeMeshElementAccessor<StreamTypeRaw, Accessor>;
+		static constexpr int32 NumElements = FRealtimeMeshBufferTypeTraits<BufferType>::NumElements;
+		static constexpr bool IsSingleElement = NumElements == 1;
+		static constexpr bool IsConst = TIsConst<StreamTypeRaw>::Value;
+
 		template<typename RetVal, typename Dummy>
-		using TEnableIfWritableMultiElement = std::enable_if_t<sizeof(Dummy) && !IsSingleElement && !IsConst, RetVal>;
-		template<typename RetVal, typename Dummy>
-		using TEnableIfWritableSingleElement = std::enable_if_t<sizeof(Dummy) && IsSingleElement && !IsConst, RetVal>;
+		using TEnableIfWritable = std::enable_if_t<sizeof(Dummy) && !IsConst, RetVal>;
 		
 	protected:
 		FRealtimeMeshStream& Stream;
@@ -46,148 +247,89 @@ namespace RealtimeMesh
 		TRealtimeMeshIndexedBufferAccessor(FRealtimeMeshStream& InStream, int32 InRowIndex)
 			: Stream(InStream)
 			, RowIndex(InRowIndex)
-		{
-			
+		{			
 		}
-		SizeType GetIndex() const { return RowIndex; }
-
-		BufferType& Get() { return *Stream.GetDataAtVertex<BufferType>(RowIndex); }
-
-		operator BufferType&() { return Get(); }
-				
-		template <typename U = BufferType>
-		TEnableIfWritable<TRealtimeMeshIndexedBufferAccessor&, U> operator=(const BufferType& InNewValue)
+		FORCEINLINE SizeType GetIndex() const { return RowIndex; }
+		FORCEINLINE operator BufferType() const { return Get(); }
+		
+		FORCEINLINE BufferType Get() const
 		{
-			Get() = InNewValue;
+			return Accessor::GetBufferValue(Stream, RowIndex);
+		}
+		
+		FORCEINLINE ElementType GetElement(SizeType ElementIdx) const
+		{
+			return Accessor::GetElementValue(Stream, RowIndex, ElementIdx);
+		}
+		
+		template <typename U = BufferType>
+		FORCEINLINE TEnableIfWritable<TRealtimeMeshIndexedBufferAccessor&, U> Set(const BufferType& NewValue)
+		{
+			Accessor::SetBufferValue(Stream, RowIndex, NewValue);
 			return *this;
 		}
 		
-		template <typename U = BufferType>
-		TEnableIfMultiElement<ElementType&, U> GetElement(SizeType ElementIdx)
+		template <typename U = ElementType>
+		FORCEINLINE TEnableIfWritable<TRealtimeMeshIndexedBufferAccessor&, U> SetElement(SizeType ElementIdx, const ElementType& NewElementValue)
 		{
-			return *Stream.GetDataAtVertex<ElementType>(RowIndex, ElementIdx);
-		}	
-		
-		template <typename U = BufferType>
-		TEnableIfSingleElement<BufferType&, U> GetElement(SizeType ElementIdx)
-		{
-			check(ElementIdx == 0);
-			return Get();
-		}
-		
-		template <typename U = BufferType>
-		TEnableIfMultiElement<ElementType&, U> operator[](SizeType ElementIdx)
-		{
-			return GetElement(ElementIdx);
-		}
-		
-		template <typename U = BufferType>
-		TEnableIfSingleElement<BufferType&, U> operator[](SizeType ElementIdx)
-		{
-			check(ElementIdx == 0);
-			return Get();
-		}
-		
-		template <typename U = BufferType>
-		TEnableIfWritable<TRealtimeMeshIndexedBufferAccessor&, U> Set(const BufferType& NewValue)
-		{
-			Get() = NewValue;
-			return *this;
-		}
-		
-		template <typename U = BufferType>
-		TEnableIfWritableMultiElement<TRealtimeMeshIndexedBufferAccessor&, U> SetElement(SizeType ElementIdx, const ElementType& NewElementValue)
-		{
-			GetElement(ElementIdx) = NewElementValue;
-			return *this;
-		}
-		
-		template <typename U = BufferType>
-		TEnableIfWritableSingleElement<TRealtimeMeshIndexedBufferAccessor&, U> SetElement(SizeType ElementIdx, const BufferType& NewElementValue)
-		{
-			check(ElementIdx == 0);
-			Get() = NewElementValue;
-			return *this;
-		}
-		
-		template <typename U = BufferType>
-		TEnableIfMultiElement<TRealtimeMeshIndexedBufferAccessor&, U> Get(SizeType ElementIdx, ElementType& Element)
-		{
-			Element = GetElement(ElementIdx);
-			return *this;
-		}
-		
-		template <typename U = BufferType>
-		TEnableIfSingleElement<TRealtimeMeshIndexedBufferAccessor&, U> Get(SizeType ElementIdx, BufferTypeRaw& Element)
-		{
-			check(ElementIdx == 0);
-			Element = Get();
+			Accessor::SetElementValue(Stream, RowIndex, ElementIdx, NewElementValue);
 			return *this;
 		}
 
+		FORCEINLINE ElementAccessor operator[](SizeType ElementIdx) const
+		{
+			return ElementAccessor(Stream, RowIndex, ElementIdx);
+		}
+	
 		template <typename U = BufferType>
-		TEnableIfWritableMultiElement<TRealtimeMeshIndexedBufferAccessor&, U> Tie(SizeType ElementIdx, ElementType*& Element)
+		FORCEINLINE TEnableIfWritable<TRealtimeMeshIndexedBufferAccessor&, U> operator=(const BufferType& InNewValue)
 		{
-			Element = &GetElement(ElementIdx);
+			Accessor::SetBufferValue(Stream, RowIndex, InNewValue);
 			return *this;
-		}
-		
-
-		
-		template <typename U = BufferType, typename... ArgTypes>
-		TEnableIfWritableMultiElement<TRealtimeMeshIndexedBufferAccessor&, U> SetRange(SizeType StartElementIdx, const ArgTypes&... Elements)
-		{
-			static_assert(sizeof...(ArgTypes) <= NumElements, "Too many elements passed to SetRange");
-			//static_assert(std::conjunction_v<std::is_constructible<ElementType, ArgTypes>...>, "Unable to convert all parameters to ElementType");
-			checkf(sizeof...(ArgTypes) + StartElementIdx <= NumElements, TEXT("Too many elements passed to SetRange"));
-
-			SetInternal<U, ArgTypes...>(StartElementIdx, Elements...);
-			return *this;
-		}
-		
-		template <typename U = BufferType, typename ArgType>
-		TEnableIfWritableSingleElement<TRealtimeMeshIndexedBufferAccessor&, U> SetRange(SizeType StartElementIdx, const ArgType& Element)
-		{
-			static_assert(std::is_constructible_v<ElementType, ArgType>, "Unable to convert parameter to ElementType");
-			check(StartElementIdx == 0);
-			SetElement(Element);
-			return *this;
-		}
-
-		template <typename U = BufferType, typename... ArgTypes>
-		TEnableIfWritableMultiElement<TRealtimeMeshIndexedBufferAccessor&, U> SetAll(const ArgTypes&... Elements)
-		{
-			static_assert(sizeof...(ArgTypes) == NumElements, "Wrong number of elements passed to SetAll");
-			//static_assert(std::conjunction_v<std::is_constructible<ElementType, ArgTypes>...>, "Unable to convert all parameters to ElementType");
-
-			SetInternal<U, ArgTypes...>(0, Elements...);
-			return *this;
-		}
-		
-		template <typename U = BufferType, typename ArgType>
-		TEnableIfWritableSingleElement<TRealtimeMeshIndexedBufferAccessor&, U> SetAll(const ArgType& Element)
-		{
-			static_assert(std::is_constructible_v<ElementType, ArgType>, "Unable to convert parameter to ElementType");
-
-			SetElement(Element);
-			return *this;
-		}
-		
-
-	protected:
-		template <typename U = BufferType, typename ArgType>
-		TEnableIfWritableMultiElement<void, U> SetInternal(SizeType ElementIdx, const ArgType& Element)
-		{
-			check(ElementIdx < NumElements);
-			GetElement(ElementIdx) = ElementType(Element);
-		}
-
-		template <typename U = BufferType, typename ArgType, typename... ArgTypes>
-		TEnableIfWritableMultiElement<void, U> SetInternal(SizeType StartElementIdx, const ArgType& FirstElement, const ArgTypes&... RemainingElements)
-		{
-			SetInternal<U, ArgType>(StartElementIdx, FirstElement);
-			SetInternal<U, ArgTypes...>(StartElementIdx + 1, RemainingElements...);
 		}		
+	
+
+		
+		template <typename U = BufferType, typename ArgType, typename... ArgTypes>
+		FORCEINLINE TEnableIfWritable<TRealtimeMeshIndexedBufferAccessor&, U> SetRange(SizeType StartElementIdx, const ArgType& Element, const ArgTypes&... Elements)
+		{			
+			static_assert(std::is_constructible_v<ElementType, ArgType> && std::conjunction_v<std::is_constructible<ElementType, ArgTypes>...>, "Unable to convert all parameters to ElementType");
+			static_assert(sizeof...(ArgTypes) + 1 <= NumElements, "Too many elements passed to SetRange");
+			checkf(sizeof...(ArgTypes) + 1 + StartElementIdx <= NumElements, TEXT("Too many elements passed to SetRange"));
+			
+			SetElement(StartElementIdx, ElementType(Element));
+			SetRange<U, ArgTypes...>(StartElementIdx + 1, Elements...);
+			return *this;
+		}
+		
+		template <typename U = BufferType, typename ArgType>
+		FORCEINLINE TEnableIfWritable<TRealtimeMeshIndexedBufferAccessor&, U> SetRange(SizeType StartElementIdx, const ArgType& Element)
+		{
+			static_assert(std::is_constructible_v<ElementType, ArgType>, "Unable to convert all parameters to ElementType");
+			checkf(StartElementIdx < NumElements, TEXT("Too many elements passed to SetRange"));
+			SetElement(StartElementIdx, ElementType(Element));
+			return *this;
+		}
+
+		template <typename U = BufferType, typename... ArgTypes>
+		FORCEINLINE TEnableIfWritable<TRealtimeMeshIndexedBufferAccessor&, U> SetAll(const ArgTypes&... Elements)
+		{
+			SetRange<U, ArgTypes...>(0, Elements...);
+			return *this;
+		}
+
+#define DEFINE_BINARY_OPERATOR_VARIATIONS(op) \
+		FORCEINLINE friend bool operator op(const TRealtimeMeshIndexedBufferAccessor& Left, const TRealtimeMeshIndexedBufferAccessor& Right) { return Left.Get() op Right.Get(); } \
+		FORCEINLINE friend bool operator op(const TRealtimeMeshIndexedBufferAccessor& Left, const BufferType& Right) { return Left.Get() op Right; } \
+		FORCEINLINE friend bool operator op(const BufferType& Left, const TRealtimeMeshIndexedBufferAccessor& Right) { return Left op Right.Get(); }
+
+		DEFINE_BINARY_OPERATOR_VARIATIONS(==)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(!=)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(<)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(>)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(<=)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(>=)
+#undef DEFINE_BINARY_OPERATOR_VARIATIONS	
 	};
 
 	enum class FRealtimeMeshStreamBuilderEventType
@@ -199,15 +341,19 @@ namespace RealtimeMesh
 		Empty,
 		RemoveAt,
 	};
+
+
+
 	
-	template <typename BufferType>
+	
+	template <typename BufferType, typename Accessor = FRealtimeMeshStreamElementDirectRead<BufferType>>
 	struct TRealtimeMeshStreamBuilder
 	{
 	public:
 		using SizeType = FRealtimeMeshStream::SizeType;
 		using ElementType = typename TCopyQualifiersFromTo<BufferType, typename FRealtimeMeshBufferTypeTraits<BufferType>::ElementType>::Type;
-		using TBufferRowAccessor = TRealtimeMeshIndexedBufferAccessor<BufferType>;
-		using TConstBufferRowAccessor = TRealtimeMeshIndexedBufferAccessor<const BufferType>;
+		using TBufferRowAccessor = TRealtimeMeshIndexedBufferAccessor<BufferType, Accessor>;
+		using TConstBufferRowAccessor = TRealtimeMeshIndexedBufferAccessor<const BufferType, Accessor>;
 		static constexpr int32 NumElements = FRealtimeMeshBufferTypeTraits<BufferType>::NumElements;
 		static constexpr bool IsSingleElement = NumElements == 1;
 
@@ -319,61 +465,55 @@ namespace RealtimeMesh
 			SendCallbackNotify(FRealtimeMeshStreamBuilderEventType::RemoveAt, Index, Count);
 		}
 
-		FORCEINLINE BufferType& GetValue(SizeType Index)
+		/*FORCEINLINE BufferType& GetValue(SizeType Index)
 		{
+			return Accessor::GetBufferValue
 			return *Stream.GetDataAtVertex<BufferType>(Index);
-		}
+		}*/
 
-		FORCEINLINE const BufferType& GetValue(int32 Index) const
+		FORCEINLINE BufferType GetValue(int32 Index) const
 		{
-			return *Stream.GetDataAtVertex<BufferType>(Index);
+			return Accessor::GetBufferValue(Stream, Index);
+			//return *Stream.GetDataAtVertex<BufferType>(Index);
 		}
 		
-		ElementType& GetElementValue(SizeType Index, SizeType ElementIdx)
+		/*ElementType& GetElementValue(SizeType Index, SizeType ElementIdx)
 		{
 			return *Stream.GetDataAtVertex<ElementType>(Index, ElementIdx);
-		}
+		}*/
 
-		const ElementType& GetElementValue(SizeType Index, SizeType ElementIdx) const
+		FORCEINLINE ElementType GetElementValue(SizeType Index, SizeType ElementIdx) const
 		{
-			return *Stream.GetDataAtVertex<ElementType>(Index, ElementIdx);
+			return Accessor::GetElementValue(Stream, Index, ElementIdx);
+			//return *Stream.GetDataAtVertex<ElementType>(Index, ElementIdx);
 		}
 		
-		FORCEINLINE TBufferRowAccessor Get(SizeType Index)
+		FORCEINLINE TBufferRowAccessor Get(SizeType Index) const
 		{
 			return TBufferRowAccessor(Stream, Index);
 		}
-
-		FORCEINLINE TConstBufferRowAccessor Get(int32 Index) const
-		{
-			return TConstBufferRowAccessor(Stream, Index);
-		}
-
-		TConstBufferRowAccessor operator[](int32 Index) const
+		
+		FORCEINLINE TBufferRowAccessor operator[](int32 Index) const
 		{
 			return Get(Index);
 		}
 		
-		TBufferRowAccessor operator[](int32 Index)
-		{
-			return Get(Index);
-		}
-		
-		TBufferRowAccessor Add()
+		FORCEINLINE TBufferRowAccessor Add()
 		{
 			const SizeType Index = AddUninitialized();
 			return TBufferRowAccessor(Stream, Index);
 		}
 		
-		SizeType Add(const BufferType& Entry)
+		FORCEINLINE SizeType Add(const BufferType& Entry)
 		{
 			const SizeType Index = AddUninitialized();
-			Get(Index) = Entry;
+			Accessor::SetBufferValue(Stream, Index, Entry);
+			//Get(Index) = Entry;
 			return Index;
 		}
 		
 		template <typename ArgType, SIZE_T ArgCount>
-		TEnableIfMultiElement<SizeType, ArgType> Add(ArgType (&Entries)[ArgCount])
+		FORCEINLINE TEnableIfMultiElement<SizeType, ArgType> Add(ArgType (&Entries)[ArgCount])
 		{
 			TBufferRowAccessor Writer = Add();
 			check(ArgCount < NumElements);
@@ -386,52 +526,57 @@ namespace RealtimeMesh
 		
 				
 		template <typename ArgType, typename... ArgTypes>
-		TEnableIfMultiElement<SizeType, ArgType> Add(const ArgType& Element, const ArgTypes&... Elements)
+		FORCEINLINE TEnableIfMultiElement<SizeType, ArgType> Add(const ArgType& Element, const ArgTypes&... Elements)
 		{
 			TBufferRowAccessor Writer = Add();
 			Writer.SetRange(0, Element, Elements...);
 			return Writer.GetIndex();
 		}
 
-		TBufferRowAccessor Edit(SizeType Index)
+		FORCEINLINE TBufferRowAccessor Edit(SizeType Index)
 		{
 			return Get(Index);
 		}
 
-		void Set(int32 Index, const BufferType& Entry)
+		FORCEINLINE void Set(int32 Index, const BufferType& Entry)
 		{
-			Get(Index) = Entry;
+			Accessor::SetBufferValue(Stream, Index, Entry);
+			//Get(Index) = Entry;
 		}
 		
 		template <typename ArgType, SIZE_T ArgCount>
-		void Set(int32 Index, ArgType (&Entries)[ArgCount])
+		FORCEINLINE void Set(int32 Index, ArgType (&Entries)[ArgCount])
 		{
 			check(ArgCount < NumElements);
 			for (int32 ElementIndex = 0; ElementIndex < ArgCount; ElementIndex++)
 			{
-				GetElementValue(Index, ElementIndex) = Entries[ElementIndex];
+				Accessor::SetElementValue(Stream, Index, ElementIndex, Entries[ElementIndex]);
+				//GetElementValue(Index, ElementIndex) = Entries[ElementIndex];
 			}
 		}
 		
 		template <typename ArgType>
-		typename TEnableIf<!TIsArray<ArgType>::Value>::Type Set(int32 Index, const ArgType& Entry)
+		FORCEINLINE typename TEnableIf<!TIsArray<ArgType>::Value>::Type Set(int32 Index, const ArgType& Entry)
 		{
-			Get(Index) = BufferType(Entry);
+			Accessor::SetBufferValue(Stream, Index, BufferType(Entry));
+			//Get(Index) = BufferType(Entry);
 		}
 
-		void SetElement(int32 Index, int32 ElementIndex, const ElementType& Element)
+		FORCEINLINE void SetElement(int32 Index, int32 ElementIndex, const ElementType& Element)
 		{
-			GetElementValue(Index, ElementIndex) = Element;
+			Accessor::SetElementValue(Stream, Index, ElementIndex, Element);
+			//GetElementValue(Index, ElementIndex) = Element;
 		}
 
 		template <typename ArgType>
-		void SetElement(int32 Index, int32 ElementIndex, const ArgType& Element)
+		FORCEINLINE void SetElement(int32 Index, int32 ElementIndex, const ArgType& Element)
 		{
-			GetElementValue(Index, ElementIndex) = ElementType(Element);
+			Accessor::SetElementValue(Stream, Index, ElementIndex, ElementType(Element));
+			//GetElementValue(Index, ElementIndex) = ElementType(Element);
 		}
 
 		template <typename... ArgTypes>
-		void SetElements(int32 Index, const ArgTypes&... Elements)
+		FORCEINLINE void SetElements(int32 Index, const ArgTypes&... Elements)
 		{
 			static_assert(sizeof...(ArgTypes) <= NumElements, "Wrong number of elements passed to SetElements");
 			checkf(sizeof...(ArgTypes) + Index <= NumElements, TEXT("Wrong number of elements passed to SetElements"));
@@ -442,50 +587,51 @@ namespace RealtimeMesh
 		}
 
 		template <typename GeneratorFunc>
-		void SetElementGenerator(int32 StartIndex, int32 Count, int32 ElementIndex, GeneratorFunc Generator)
+		FORCEINLINE void SetElementGenerator(int32 StartIndex, int32 Count, int32 ElementIndex, GeneratorFunc Generator)
 		{
 			RangeCheck(StartIndex + Count - 1);
 			ElementCheck(ElementIndex);
 			for (int32 Index = 0; Index < Count; Index++)
 			{
-				GetElementValue(StartIndex + Index, ElementIndex) = Generator(Index, StartIndex + Index);
+				Accessor::SetElementValue(Stream, StartIndex + Index, ElementIndex, Generator(Index, StartIndex + Index));
+				//GetElementValue(StartIndex + Index, ElementIndex) = Generator(Index, StartIndex + Index);
 			}
 		}
 		
-		TConstArrayView<BufferType, SizeType> GetView() const
+		FORCEINLINE TConstArrayView<BufferType, SizeType> GetView() const
 		{
 			return TConstArrayView<BufferType, SizeType>(Stream.GetData(), Num());
 		}
 
-		TArrayView<BufferType, SizeType> GetView()
+		FORCEINLINE TArrayView<BufferType, SizeType> GetView()
 		{
 			return TArrayView<BufferType, SizeType>(Stream.GetData(), Num());
 		}
 
-		void SetRange(int32 StartIndex, TArrayView<BufferType> Elements)
+		FORCEINLINE void SetRange(int32 StartIndex, TArrayView<BufferType> Elements)
 		{
 			RangeCheck(StartIndex + Elements.Num() - 1);
 			FMemory::Memcpy(&Get(StartIndex), Elements.GetData(), sizeof(BufferType) * Elements.Num());
 		}
 
 		template <typename InAllocatorType>
-		void SetRange(int32 StartIndex, const TArray<BufferType, InAllocatorType>& Elements)
+		FORCEINLINE void SetRange(int32 StartIndex, const TArray<BufferType, InAllocatorType>& Elements)
 		{
 			SetRange(StartIndex, MakeArrayView(Elements));
 		}
 
-		void SetRange(int32 StartIndex, BufferType* Elements, int32 Count)
+		FORCEINLINE void SetRange(int32 StartIndex, BufferType* Elements, int32 Count)
 		{
 			SetRange(StartIndex, MakeArrayView(Elements, Count));
 		}
 
-		void SetRange(int32 StartIndex, std::initializer_list<BufferType> Elements)
+		FORCEINLINE void SetRange(int32 StartIndex, std::initializer_list<BufferType> Elements)
 		{
 			SetRange(StartIndex, MakeArrayView(Elements.begin(), Elements.size()));
 		}
 
 		template <typename GeneratorFunc>
-		void SetGenerator(int32 StartIndex, int32 Count, GeneratorFunc Generator)
+		FORCEINLINE void SetGenerator(int32 StartIndex, int32 Count, GeneratorFunc Generator)
 		{
 			RangeCheck(StartIndex + Count - 1);
 			BufferType* DataPtr = Stream.GetDataAtVertex<BufferType>(StartIndex);
@@ -495,30 +641,30 @@ namespace RealtimeMesh
 			}
 		}
 
-		void Append(TArrayView<BufferType> Elements)
+		FORCEINLINE void Append(TArrayView<BufferType> Elements)
 		{
 			const SizeType StartIndex = AddUninitialized(Elements.Num());
 			SetRange(StartIndex, Elements);
 		}
 
 		template <typename InAllocatorType>
-		void Append(const TArray<BufferType, InAllocatorType>& Elements)
+		FORCEINLINE void Append(const TArray<BufferType, InAllocatorType>& Elements)
 		{
 			Append(MakeArrayView(Elements));
 		}
 
-		void Append(BufferType* Elements, int32 Count)
+		FORCEINLINE void Append(BufferType* Elements, int32 Count)
 		{
 			Append(MakeArrayView(Elements, Count));
 		}
 
-		void Append(std::initializer_list<BufferType> Elements)
+		FORCEINLINE void Append(std::initializer_list<BufferType> Elements)
 		{
 			Append(MakeArrayView(Elements.begin(), Elements.size()));
 		}
 
 		template <typename GeneratorFunc>
-		void AppendGenerator(int32 Count, GeneratorFunc Generator)
+		FORCEINLINE void AppendGenerator(int32 Count, GeneratorFunc Generator)
 		{
 			const SizeType StartIndex = AddUninitialized(Count);
 			SetGenerator<GeneratorFunc>(StartIndex, Count, Forward<GeneratorFunc>(Generator));
@@ -539,6 +685,7 @@ namespace RealtimeMesh
 		}
 	};
 
+	
 
 
 	template <typename IndexType, typename TangentType, typename TexCoordType, int32 NumTexCoords>
@@ -1342,6 +1489,11 @@ namespace RealtimeMesh
 		}
 		
 	};
+
+
+
+
+
 
 	
 }
