@@ -97,8 +97,7 @@ namespace RealtimeMesh
 			, RowIndex(InRowIndex)
 			, ElementIdx(InElementIndex)
 		{			
-		}		
-
+		}
 
 		template <typename U = ElementType>
 		FORCEINLINE TEnableIfWritable<TRealtimeMeshElementAccessor&, U> operator=(const ElementType& InNewValue)
@@ -126,7 +125,6 @@ namespace RealtimeMesh
 		FORCEINLINE friend bool operator op(const TRealtimeMeshElementAccessor& Left, const TRealtimeMeshElementAccessor& Right) { return Left.GetValue() op Right.GetValue(); } \
 		FORCEINLINE friend bool operator op(const TRealtimeMeshElementAccessor& Left, const ElementType& Right) { return Left.GetValue() op Right; } \
 		FORCEINLINE friend bool operator op(const ElementType& Left, const TRealtimeMeshElementAccessor& Right) { return Left op Right.GetValue(); }
-
 		DEFINE_BINARY_OPERATOR_VARIATIONS(==)
 		DEFINE_BINARY_OPERATOR_VARIATIONS(!=)
 		DEFINE_BINARY_OPERATOR_VARIATIONS(<)
@@ -134,91 +132,42 @@ namespace RealtimeMesh
 		DEFINE_BINARY_OPERATOR_VARIATIONS(<=)
 		DEFINE_BINARY_OPERATOR_VARIATIONS(>=)
 #undef DEFINE_BINARY_OPERATOR_VARIATIONS
+
+#define DEFINE_BINARY_OPERATOR_VARIATIONS(op) \
+		template <typename U = ElementType> \
+		FORCEINLINE friend TEnableIfWritable<ElementType, U> operator op(const TRealtimeMeshElementAccessor& Left, const TRealtimeMeshElementAccessor& Right) { return Left.GetValue() op Right.GetValue(); } \
+		template <typename U = ElementType> \
+		FORCEINLINE friend TEnableIfWritable<ElementType, U> operator op(const TRealtimeMeshElementAccessor& Left, const ElementType& Right) { return Left.GetValue() op Right; } \
+		template <typename U = ElementType> \
+		FORCEINLINE friend TEnableIfWritable<ElementType, U> operator op(const ElementType& Left, const TRealtimeMeshElementAccessor& Right) { return Left op Right.GetValue(); }
+		DEFINE_BINARY_OPERATOR_VARIATIONS(+)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(-)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(*)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(/)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(%)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(&)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(|)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(^)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(<<)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(>>)
+#undef DEFINE_BINARY_OPERATOR_VARIATIONS
 		
-		template <typename U = ElementType>
-		FORCEINLINE TEnableIfWritable<ElementType, U> operator+(const ElementType& Right) const { return GetValue() + Right; }
-		template <typename U = ElementType>
-		FORCEINLINE TEnableIfWritable<ElementType, U> operator-(const ElementType& Right) const { return GetValue() - Right; }
-		template <typename U = ElementType>
-		FORCEINLINE TEnableIfWritable<ElementType, U> operator*(const ElementType& Right) const { return GetValue() * Right; }
-		template <typename U = ElementType>
-		FORCEINLINE TEnableIfWritable<ElementType, U> operator/(const ElementType& Right) const { return GetValue() / Right; }
-		template <typename U = ElementType>
-		FORCEINLINE TEnableIfWritable<ElementType, U> operator%(const ElementType& Right) const { return GetValue() % Right; }
-		template <typename U = ElementType>
-		FORCEINLINE TEnableIfWritable<ElementType, U> operator&(const ElementType& Right) const { return GetValue() & Right; }
-		template <typename U = ElementType>
-		FORCEINLINE TEnableIfWritable<ElementType, U> operator|(const ElementType& Right) const { return GetValue() | Right; }
-		template <typename U = ElementType>
-		FORCEINLINE TEnableIfWritable<ElementType, U> operator^(const ElementType& Right) const { return GetValue() ^ Right; }
-		template <typename U = ElementType>
-		FORCEINLINE TEnableIfWritable<ElementType, U> operator<<(const ElementType& Right) const { return GetValue() << Right; }
-		template <typename U = ElementType>
-		FORCEINLINE TEnableIfWritable<ElementType, U> operator>>(const ElementType& Right) const { return GetValue() >> Right; }
-
-		template <typename U = ElementType>
-		FORCEINLINE TEnableIfWritable<ElementType, U> operator+(const TRealtimeMeshElementAccessor& Right) const { return GetValue() + Right.GetValue(); }
-		template <typename U = ElementType>
-		FORCEINLINE TEnableIfWritable<ElementType, U> operator-(const TRealtimeMeshElementAccessor& Right) const { return GetValue() - Right.GetValue(); }
-		template <typename U = ElementType>
-		FORCEINLINE TEnableIfWritable<ElementType, U> operator*(const TRealtimeMeshElementAccessor& Right) const { return GetValue() * Right.GetValue(); }
-		template <typename U = ElementType>
-		FORCEINLINE TEnableIfWritable<ElementType, U> operator/(const TRealtimeMeshElementAccessor& Right) const { return GetValue() / Right.GetValue(); }
-		template <typename U = ElementType>
-		FORCEINLINE TEnableIfWritable<ElementType, U> operator%(const TRealtimeMeshElementAccessor& Right) const { return GetValue() % Right.GetValue(); }
-		template <typename U = ElementType>
-		FORCEINLINE TEnableIfWritable<ElementType, U> operator&(const TRealtimeMeshElementAccessor& Right) const { return GetValue() & Right.GetValue(); }
-		template <typename U = ElementType>
-		FORCEINLINE TEnableIfWritable<ElementType, U> operator|(const TRealtimeMeshElementAccessor& Right) const { return GetValue() | Right.GetValue(); }
-		template <typename U = ElementType>
-		FORCEINLINE TEnableIfWritable<ElementType, U> operator^(const TRealtimeMeshElementAccessor& Right) const { return GetValue() ^ Right.GetValue(); }
-		template <typename U = ElementType>
-		FORCEINLINE TEnableIfWritable<ElementType, U> operator<<(const TRealtimeMeshElementAccessor& Right) const { return GetValue() << Right.GetValue(); }
-		template <typename U = ElementType>
-		FORCEINLINE TEnableIfWritable<ElementType, U> operator>>(const TRealtimeMeshElementAccessor& Right) const { return GetValue() >> Right.GetValue(); }
-
-		
-		template <typename U = ElementType>
-		FORCEINLINE TEnableIfWritable<TRealtimeMeshElementAccessor&, U> operator+=(const ElementType& Right) { SetValue(GetValue() + Right); return *this; }
-		template <typename U = ElementType>
-		FORCEINLINE TEnableIfWritable<TRealtimeMeshElementAccessor&, U> operator-=(const ElementType& Right) { SetValue(GetValue() - Right); return *this; }
-		template <typename U = ElementType>
-		FORCEINLINE TEnableIfWritable<TRealtimeMeshElementAccessor&, U> operator*=(const ElementType& Right) { SetValue(GetValue() * Right); return *this; }
-		template <typename U = ElementType>
-		FORCEINLINE TEnableIfWritable<TRealtimeMeshElementAccessor&, U> operator/=(const ElementType& Right) { SetValue(GetValue() / Right); return *this; }
-		template <typename U = ElementType>
-		FORCEINLINE TEnableIfWritable<TRealtimeMeshElementAccessor&, U> operator%=(const ElementType& Right) { SetValue(GetValue() % Right); return *this; }
-		template <typename U = ElementType>
-		FORCEINLINE TEnableIfWritable<TRealtimeMeshElementAccessor&, U> operator&=(const ElementType& Right) { SetValue(GetValue() & Right); return *this; }
-		template <typename U = ElementType>
-		FORCEINLINE TEnableIfWritable<TRealtimeMeshElementAccessor&, U> operator|=(const ElementType& Right) { SetValue(GetValue() | Right); return *this; }
-		template <typename U = ElementType>
-		FORCEINLINE TEnableIfWritable<TRealtimeMeshElementAccessor&, U> operator^=(const ElementType& Right) { SetValue(GetValue() ^ Right); return *this; }
-		template <typename U = ElementType>
-		FORCEINLINE TEnableIfWritable<TRealtimeMeshElementAccessor&, U> operator<<=(const ElementType& Right) { SetValue(GetValue() << Right); return *this; }
-		template <typename U = ElementType>
-		FORCEINLINE TEnableIfWritable<TRealtimeMeshElementAccessor&, U> operator>>=(const ElementType& Right) { SetValue(GetValue() >> Right); return *this; }
-
-		template <typename U = ElementType>
-		FORCEINLINE TEnableIfWritable<TRealtimeMeshElementAccessor&, U> operator+=(const TRealtimeMeshElementAccessor& Right) { SetValue(GetValue() + Right.GetValue()); return *this; }
-		template <typename U = ElementType>
-		FORCEINLINE TEnableIfWritable<TRealtimeMeshElementAccessor&, U> operator-=(const TRealtimeMeshElementAccessor& Right) { SetValue(GetValue() - Right.GetValue()); return *this; }
-		template <typename U = ElementType>
-		FORCEINLINE TEnableIfWritable<TRealtimeMeshElementAccessor&, U> operator*=(const TRealtimeMeshElementAccessor& Right) { SetValue(GetValue() * Right.GetValue()); return *this; }
-		template <typename U = ElementType>
-		FORCEINLINE TEnableIfWritable<TRealtimeMeshElementAccessor&, U> operator/=(const TRealtimeMeshElementAccessor& Right) { SetValue(GetValue() / Right.GetValue()); return *this; }
-		template <typename U = ElementType>
-		FORCEINLINE TEnableIfWritable<TRealtimeMeshElementAccessor&, U> operator%=(const TRealtimeMeshElementAccessor& Right) { SetValue(GetValue() % Right.GetValue()); return *this; }
-		template <typename U = ElementType>
-		FORCEINLINE TEnableIfWritable<TRealtimeMeshElementAccessor&, U> operator&=(const TRealtimeMeshElementAccessor& Right) { SetValue(GetValue() & Right.GetValue()); return *this; }
-		template <typename U = ElementType>
-		FORCEINLINE TEnableIfWritable<TRealtimeMeshElementAccessor&, U> operator|=(const TRealtimeMeshElementAccessor& Right) { SetValue(GetValue() | Right.GetValue()); return *this; }
-		template <typename U = ElementType>
-		FORCEINLINE TEnableIfWritable<TRealtimeMeshElementAccessor&, U> operator^=(const TRealtimeMeshElementAccessor& Right) { SetValue(GetValue() ^ Right.GetValue()); return *this; }
-		template <typename U = ElementType>
-		FORCEINLINE TEnableIfWritable<TRealtimeMeshElementAccessor&, U> operator<<=(const TRealtimeMeshElementAccessor& Right) { SetValue(GetValue() << Right.GetValue()); return *this; }
-		template <typename U = ElementType>
-		FORCEINLINE TEnableIfWritable<TRealtimeMeshElementAccessor&, U> operator>>=(const TRealtimeMeshElementAccessor& Right) { SetValue(GetValue() >> Right.GetValue()); return *this; }
+#define DEFINE_BINARY_OPERATOR_VARIATIONS(op) \
+		template <typename U = ElementType> \
+		FORCEINLINE TEnableIfWritable<TRealtimeMeshElementAccessor&, U> operator op(const ElementType& Right) { SetValue(GetValue() op Right); return *this; } \
+		template <typename U = ElementType> \
+		FORCEINLINE TEnableIfWritable<TRealtimeMeshElementAccessor&, U> operator op(const TRealtimeMeshElementAccessor& Right) { SetValue(GetValue() op Right.GetValue()); return *this; }
+		DEFINE_BINARY_OPERATOR_VARIATIONS(+=)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(-=)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(*=)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(/=)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(%=)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(&=)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(|=)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(^=)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(<<=)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(>>=)
+#undef DEFINE_BINARY_OPERATOR_VARIATIONS		
 	};
 
 

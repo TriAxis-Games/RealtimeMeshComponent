@@ -18,7 +18,12 @@ ARealtimeMeshBasicUsageActor::ARealtimeMeshBasicUsageActor()
 {
 	PrimaryActorTick.bCanEverTick = true;
 	PrimaryActorTick.bStartWithTickEnabled = true;
+
+	bResetOnRebuild = false;
+	bFrozen = true;
 }
+
+
 
 
 static void AppendBox(TRealtimeMeshBuilderLocal<uint16, FPackedNormal, FVector2DHalf, 1>& Builder, const FVector3f& BoxRadius, uint16 PolyGroup)
@@ -184,6 +189,63 @@ static void AppendBox(TRealtimeMeshBuilderLocal<uint16, FPackedNormal, FVector2D
 		Builder.AddTriangle(V0, V1, V3, PolyGroup);
 		Builder.AddTriangle(V1, V2, V3, PolyGroup);		
 	}
+}
+
+
+
+void ARealtimeMeshBasicUsageActor::OnConstruction(const FTransform& Transform)
+{
+
+
+// Initialize the simple mesh
+	URealtimeMeshSimple* RealtimeMesh = GetRealtimeMeshComponent()->InitializeRealtimeMesh<URealtimeMeshSimple>();
+
+	FRealtimeMeshStreamSet StreamSet;
+	TRealtimeMeshBuilderLocal<uint16, FPackedNormal, FVector2DHalf, 1> Builder(StreamSet);
+	Builder.EnableTangents();
+	Builder.EnableTexCoords();
+	Builder.EnablePolyGroups();
+	Builder.EnableColors();
+	
+	// This example create 3 rectangular prisms, one on each axis, with all
+	// of them sharing a single set of buffers, but using separate sections for separate materials
+	AppendBox(Builder, FVector3f(100, 100, 200), 0);
+	AppendBox(Builder, FVector3f(200, 100, 100), 1);
+	AppendBox(Builder, FVector3f(100, 200, 100), 2);	
+
+	// Setup the two material slots
+	RealtimeMesh->SetupMaterialSlot(0, "PrimaryMaterial");
+	RealtimeMesh->SetupMaterialSlot(1, "SecondaryMaterial");
+
+	const FRealtimeMeshSectionGroupKey GroupKey = FRealtimeMeshSectionGroupKey::Create(0, FName("TestBox"));
+	
+	// This will create a new section group named "TestBox" at LOD 0, with the created stream data above. This will create the sections associated with the polygroup
+	RealtimeMesh->CreateSectionGroup(GroupKey, StreamSet);
+
+	// By default the sections created by the poly group id can be referenced through a key setup this way
+	const FRealtimeMeshSectionKey PolyGroup0Key = FRealtimeMeshSectionKey::CreateForPolyGroup(GroupKey, 0);
+	const FRealtimeMeshSectionKey PolyGroup1Key = FRealtimeMeshSectionKey::CreateForPolyGroup(GroupKey, 1);
+	const FRealtimeMeshSectionKey PolyGroup2Key = FRealtimeMeshSectionKey::CreateForPolyGroup(GroupKey, 2);
+
+	// So you can adjust the config of a section through that key, so here we'll move PolyGroup 0 to point at MaterialSlot 0 as we don't have a material slot 3 setup here.
+
+	RealtimeMesh->UpdateSectionConfig(PolyGroup0Key, RealtimeMesh->GetSectionConfig(PolyGroup0Key), true);
+	RealtimeMesh->UpdateSectionConfig(PolyGroup1Key, RealtimeMesh->GetSectionConfig(PolyGroup1Key), true);
+	RealtimeMesh->UpdateSectionConfig(PolyGroup2Key, FRealtimeMeshSectionConfig(ERealtimeMeshSectionDrawType::Static, 0), true);
+
+	// Setup simple collision shape for this mesh
+	FRealtimeMeshSimpleGeometry SimpleGeometry = RealtimeMesh->GetSimpleGeometry();
+	SimpleGeometry.AddBox(FRealtimeMeshCollisionBox(FVector(200, 200, 400)));
+	SimpleGeometry.AddBox(FRealtimeMeshCollisionBox(FVector(400, 200, 200)));
+	SimpleGeometry.AddBox(FRealtimeMeshCollisionBox(FVector(200, 400, 200)));
+	RealtimeMesh->SetSimpleGeometry(SimpleGeometry);
+	
+	FRealtimeMeshCollisionConfiguration CollisionConfig;
+	CollisionConfig.bUseComplexAsSimpleCollision = false;
+	RealtimeMesh->SetCollisionConfig(CollisionConfig);
+
+	
+	Super::OnConstruction(Transform);
 }
 
 
