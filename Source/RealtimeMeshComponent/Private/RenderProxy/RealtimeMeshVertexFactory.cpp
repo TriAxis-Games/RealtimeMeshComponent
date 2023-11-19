@@ -7,6 +7,7 @@
 #include "RenderProxy/RealtimeMeshVertexFactory.h"
 #include "SceneView.h"
 #include "MeshBatch.h"
+#include "MeshDrawShaderBindings.h"
 #include "SpeedTreeWind.h"
 #include "Rendering/ColorVertexBuffer.h"
 #include "MeshMaterialShader.h"
