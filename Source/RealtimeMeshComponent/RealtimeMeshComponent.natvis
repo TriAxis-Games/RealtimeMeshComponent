@@ -1,155 +1,87 @@
 <?xml version="1.0" encoding="utf-8"?> 
 <AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
-  <Type Name="FRealtimeMeshVertexPositionStream">
-    <DisplayString Condition="Data.ArrayNum == 0">Empty</DisplayString>
-    <DisplayString Condition="Data.ArrayNum &lt; 0">Invalid</DisplayString>
-    <DisplayString Condition="Data.ArrayMax &lt; Data.ArrayNum">Invalid</DisplayString>
-    <DisplayString Condition="Data.ArrayMax &gt;= Data.ArrayNum">Num={Data.ArrayNum / sizeof(FVector)}</DisplayString>
-    <Expand>
-      <ArrayItems Condition="Data.ArrayNum &lt;= Data.ArrayMax">
-        <Size>Data.ArrayNum / sizeof(FVector)</Size>
-        <ValuePointer>(FVector*)Data.AllocatorInstance.Data</ValuePointer>
-      </ArrayItems>
-    </Expand>
-  </Type>
-  <Type Name="FRealtimeMeshVertexColorStream">
-    <DisplayString Condition="Data.ArrayNum == 0">Empty</DisplayString>
-    <DisplayString Condition="Data.ArrayNum &lt; 0">Invalid</DisplayString>
-    <DisplayString Condition="Data.ArrayMax &lt; Data.ArrayNum">Invalid</DisplayString>
-    <DisplayString Condition="Data.ArrayMax &gt;= Data.ArrayNum">Num={Data.ArrayNum / sizeof(FColor)}</DisplayString>
-    <Expand>
-      <ArrayItems Condition="Data.ArrayNum &lt;= Data.ArrayMax">
-        <Size>Data.ArrayNum / sizeof(FColor)</Size>
-        <ValuePointer>(FColor*)Data.AllocatorInstance.Data</ValuePointer>
-      </ArrayItems>
-    </Expand>
-  </Type>
-  <Type Name="FRealtimeMeshVertexTangentStream">
-    <DisplayString Condition="Data.ArrayNum == 0">Empty</DisplayString>
-    <DisplayString Condition="Data.ArrayNum &lt; 0">Invalid</DisplayString>
-    <DisplayString Condition="Data.ArrayMax &lt; Data.ArrayNum">Invalid</DisplayString>
-    <DisplayString Condition="Data.ArrayMax &gt;= Data.ArrayNum &amp;&amp; bIsHighPrecision">Num={Data.ArrayNum / sizeof(__RealtimeMeshNatVisRenderableTypes::FRealtimeMeshTangentHighPrecision)}, Precision=High</DisplayString>
-    <DisplayString Condition="Data.ArrayMax &gt;= Data.ArrayNum &amp;&amp; bIsHighPrecision == false">Num={Data.ArrayNum / sizeof(__RealtimeMeshNatVisRenderableTypes::FRealtimeMeshTangentLowPrecision)}, Precision=Low</DisplayString>
-    <Expand>
-      <ArrayItems Condition="Data.ArrayNum &lt;= Data.ArrayMax &amp;&amp; bIsHighPrecision">
-        <Size>Data.ArrayNum / sizeof(__RealtimeMeshNatVisRenderableTypes::FRealtimeMeshTangentHighPrecision)</Size>
-        <ValuePointer>(__RealtimeMeshNatVisRenderableTypes::FRealtimeMeshTangentHighPrecision*)Data.AllocatorInstance.Data</ValuePointer>
-      </ArrayItems>
-      <ArrayItems Condition="Data.ArrayNum &lt;= Data.ArrayMax &amp;&amp; bIsHighPrecision == false">
-        <Size>Data.ArrayNum / sizeof(__RealtimeMeshNatVisRenderableTypes::FRealtimeMeshTangentLowPrecision)</Size>
-        <ValuePointer>(__RealtimeMeshNatVisRenderableTypes::FRealtimeMeshTangentLowPrecision*)Data.AllocatorInstance.Data</ValuePointer>
-      </ArrayItems>
-    </Expand>
-  </Type>
-  
-  
-  <Type Name="FRealtimeMeshVertexTexCoordStream">
-    <DisplayString Condition="Data.ArrayNum == 0">Empty</DisplayString>
-    <DisplayString Condition="Data.ArrayNum &lt; 0">Invalid</DisplayString>
-    <DisplayString Condition="Data.ArrayMax &lt; Data.ArrayNum">Invalid</DisplayString>
-    <DisplayString Condition="Data.ArrayMax &gt;= Data.ArrayNum &amp;&amp; bIsHighPrecision == true &amp;&amp; ChannelCount == 1">Num={Data.ArrayNum / sizeof(__RealtimeMeshNatVisRenderableTypes::FRealtimeMeshTexCoordHighPrecision1)}, Precision=High, NumChannels=1</DisplayString>
-    <DisplayString Condition="Data.ArrayMax &gt;= Data.ArrayNum &amp;&amp; bIsHighPrecision == true &amp;&amp; ChannelCount == 2">Num={Data.ArrayNum / sizeof(__RealtimeMeshNatVisRenderableTypes::FRealtimeMeshTexCoordHighPrecision2)}, Precision=High, NumChannels=2</DisplayString>
-    <DisplayString Condition="Data.ArrayMax &gt;= Data.ArrayNum &amp;&amp; bIsHighPrecision == true &amp;&amp; ChannelCount == 3">Num={Data.ArrayNum / sizeof(__RealtimeMeshNatVisRenderableTypes::FRealtimeMeshTexCoordHighPrecision3)}, Precision=High, NumChannels=3</DisplayString>
-    <DisplayString Condition="Data.ArrayMax &gt;= Data.ArrayNum &amp;&amp; bIsHighPrecision == true &amp;&amp; ChannelCount == 4">Num={Data.ArrayNum / sizeof(__RealtimeMeshNatVisRenderableTypes::FRealtimeMeshTexCoordHighPrecision4)}, Precision=High, NumChannels=4</DisplayString>
-    <DisplayString Condition="Data.ArrayMax &gt;= Data.ArrayNum &amp;&amp; bIsHighPrecision == true &amp;&amp; ChannelCount == 5">Num={Data.ArrayNum / sizeof(__RealtimeMeshNatVisRenderableTypes::FRealtimeMeshTexCoordHighPrecision5)}, Precision=High, NumChannels=5</DisplayString>
-    <DisplayString Condition="Data.ArrayMax &gt;= Data.ArrayNum &amp;&amp; bIsHighPrecision == true &amp;&amp; ChannelCount == 6">Num={Data.ArrayNum / sizeof(__RealtimeMeshNatVisRenderableTypes::FRealtimeMeshTexCoordHighPrecision6)}, Precision=High, NumChannels=6</DisplayString>
-    <DisplayString Condition="Data.ArrayMax &gt;= Data.ArrayNum &amp;&amp; bIsHighPrecision == true &amp;&amp; ChannelCount == 7">Num={Data.ArrayNum / sizeof(__RealtimeMeshNatVisRenderableTypes::FRealtimeMeshTexCoordHighPrecision7)}, Precision=High, NumChannels=7</DisplayString>
-    <DisplayString Condition="Data.ArrayMax &gt;= Data.ArrayNum &amp;&amp; bIsHighPrecision == true &amp;&amp; ChannelCount == 8">Num={Data.ArrayNum / sizeof(__RealtimeMeshNatVisRenderableTypes::FRealtimeMeshTexCoordHighPrecision8)}, Precision=High, NumChannels=8</DisplayString>
+	<Type Name="RealtimeMesh::FRealtimeMeshElementType">
+		<DisplayString Condition="NumDatums &lt; 1 || NumDatums &gt; 8 || Type == ERealtimeMeshDatumType::Unknown">Invalid</DisplayString>
+		<DisplayString Condition="NumDatums == 1 &amp;&amp; Type == ERealtimeMeshDatumType::RGB10A2">RGB10A2</DisplayString>
+		<DisplayString>{Type,en}{(int32)NumDatums}</DisplayString>
+	</Type>
+	<Type Name="RealtimeMesh::FRealtimeMeshBufferLayout">
+		<DisplayString Condition="ElementType.NumDatums &lt; 1 || ElementType.NumDatums &gt; 8 || ElementType.Type == ERealtimeMeshDatumType::Unknown || NumElements &lt; 1">Invalid</DisplayString>
+		<DisplayString>{ElementType}x{NumElements}</DisplayString>
+	</Type>
+	<Type Name="RealtimeMesh::FRealtimeMeshElementTypeDefinition">
+		<DisplayString Condition="bIsValid">{VertexType,en} | {IndexType,en} | {PixelFormat,en}</DisplayString>
+		<DisplayString>Invalid</DisplayString>
+	</Type>
+	<Type Name="RealtimeMesh::FRealtimeMeshBufferLayoutDefinition">
+		<DisplayString Condition="bIsValid">{Layout,en} ({TypeDefinition,en})</DisplayString>
+		<DisplayString>Invalid</DisplayString>
+	</Type>
+	<Type Name="FRealtimeMeshStreamKey">
+		<DisplayString Condition="StreamName.ComparisonIndex.Value != 0 || StreamType != ERealtimeMeshStreamType::Unknown">{StreamName}({StreamType,en})</DisplayString>
+		<DisplayString>Invalid</DisplayString>
+	</Type>
+	
+	<Type Name="RealtimeMesh::NatVisHelpers::TRawVisualizer&lt;*,2&gt;">
+		<DisplayString>{{X:{X}, Y:{Y}}}</DisplayString>
+	</Type>
+	<Type Name="RealtimeMesh::NatVisHelpers::TRawVisualizer&lt;*,3&gt;">
+		<DisplayString>{{X:{X}, Y:{Y}, Z:{Z}}}</DisplayString>
+	</Type>
+	<Type Name="RealtimeMesh::NatVisHelpers::TRawVisualizer&lt;*,4&gt;">
+		<DisplayString>{{X:{X}, Y:{Y}, Z:{Z}, W:{W}}}</DisplayString>
+	</Type>
 
-    <DisplayString Condition="Data.ArrayMax &gt;= Data.ArrayNum &amp;&amp; bIsHighPrecision == false &amp;&amp; ChannelCount == 1">Num={Data.ArrayNum / sizeof(__RealtimeMeshNatVisRenderableTypes::FRealtimeMeshTexCoordLowPrecision1)}, Precision=Low, NumChannels=1</DisplayString>
-    <DisplayString Condition="Data.ArrayMax &gt;= Data.ArrayNum &amp;&amp; bIsHighPrecision == false &amp;&amp; ChannelCount == 2">Num={Data.ArrayNum / sizeof(__RealtimeMeshNatVisRenderableTypes::FRealtimeMeshTexCoordLowPrecision2)}, Precision=Low, NumChannels=2</DisplayString>
-    <DisplayString Condition="Data.ArrayMax &gt;= Data.ArrayNum &amp;&amp; bIsHighPrecision == false &amp;&amp; ChannelCount == 3">Num={Data.ArrayNum / sizeof(__RealtimeMeshNatVisRenderableTypes::FRealtimeMeshTexCoordLowPrecision3)}, Precision=Low, NumChannels=3</DisplayString>
-    <DisplayString Condition="Data.ArrayMax &gt;= Data.ArrayNum &amp;&amp; bIsHighPrecision == false &amp;&amp; ChannelCount == 4">Num={Data.ArrayNum / sizeof(__RealtimeMeshNatVisRenderableTypes::FRealtimeMeshTexCoordLowPrecision4)}, Precision=Low, NumChannels=4</DisplayString>
-    <DisplayString Condition="Data.ArrayMax &gt;= Data.ArrayNum &amp;&amp; bIsHighPrecision == false &amp;&amp; ChannelCount == 5">Num={Data.ArrayNum / sizeof(__RealtimeMeshNatVisRenderableTypes::FRealtimeMeshTexCoordLowPrecision5)}, Precision=Low, NumChannels=5</DisplayString>
-    <DisplayString Condition="Data.ArrayMax &gt;= Data.ArrayNum &amp;&amp; bIsHighPrecision == false &amp;&amp; ChannelCount == 6">Num={Data.ArrayNum / sizeof(__RealtimeMeshNatVisRenderableTypes::FRealtimeMeshTexCoordLowPrecision6)}, Precision=Low, NumChannels=6</DisplayString>
-    <DisplayString Condition="Data.ArrayMax &gt;= Data.ArrayNum &amp;&amp; bIsHighPrecision == false &amp;&amp; ChannelCount == 7">Num={Data.ArrayNum / sizeof(__RealtimeMeshNatVisRenderableTypes::FRealtimeMeshTexCoordLowPrecision7)}, Precision=Low, NumChannels=7</DisplayString>
-    <DisplayString Condition="Data.ArrayMax &gt;= Data.ArrayNum &amp;&amp; bIsHighPrecision == false &amp;&amp; ChannelCount == 8">Num={Data.ArrayNum / sizeof(__RealtimeMeshNatVisRenderableTypes::FRealtimeMeshTexCoordLowPrecision8)}, Precision=Low, NumChannels=8</DisplayString>
+	<Type Name="RealtimeMesh::NatVisHelpers::TRowVisualizer&lt;*,*&gt;">
+		<DisplayString>{Elements},na</DisplayString>
+	</Type>
 
-    <Expand>
-      <ArrayItems Condition="Data.ArrayNum &lt;= Data.ArrayMax &amp;&amp; bIsHighPrecision == true &amp;&amp; ChannelCount == 1">
-        <Size>Data.ArrayNum / sizeof(__RealtimeMeshNatVisRenderableTypes::FRealtimeMeshTexCoordHighPrecision1)</Size>
-        <ValuePointer>(__RealtimeMeshNatVisRenderableTypes::FRealtimeMeshTexCoordHighPrecision1*)Data.AllocatorInstance.Data</ValuePointer>
-      </ArrayItems>
-      <ArrayItems Condition="Data.ArrayNum &lt;= Data.ArrayMax &amp;&amp; bIsHighPrecision == true &amp;&amp; ChannelCount == 2">
-        <Size>Data.ArrayNum / sizeof(__RealtimeMeshNatVisRenderableTypes::FRealtimeMeshTexCoordHighPrecision2)</Size>
-        <ValuePointer>(__RealtimeMeshNatVisRenderableTypes::FRealtimeMeshTexCoordHighPrecision2*)Data.AllocatorInstance.Data</ValuePointer>
-      </ArrayItems>
-      <ArrayItems Condition="Data.ArrayNum &lt;= Data.ArrayMax &amp;&amp; bIsHighPrecision == true &amp;&amp; ChannelCount == 3">
-        <Size>Data.ArrayNum / sizeof(__RealtimeMeshNatVisRenderableTypes::FRealtimeMeshTexCoordHighPrecision3)</Size>
-        <ValuePointer>(__RealtimeMeshNatVisRenderableTypes::FRealtimeMeshTexCoordHighPrecision3*)Data.AllocatorInstance.Data</ValuePointer>
-      </ArrayItems>
-      <ArrayItems Condition="Data.ArrayNum &lt;= Data.ArrayMax &amp;&amp; bIsHighPrecision == true &amp;&amp; ChannelCount == 4">
-        <Size>Data.ArrayNum / sizeof(__RealtimeMeshNatVisRenderableTypes::FRealtimeMeshTexCoordHighPrecision4)</Size>
-        <ValuePointer>(__RealtimeMeshNatVisRenderableTypes::FRealtimeMeshTexCoordHighPrecision4*)Data.AllocatorInstance.Data</ValuePointer>
-      </ArrayItems>
-      <ArrayItems Condition="Data.ArrayNum &lt;= Data.ArrayMax &amp;&amp; bIsHighPrecision == true &amp;&amp; ChannelCount == 5">
-        <Size>Data.ArrayNum / sizeof(__RealtimeMeshNatVisRenderableTypes::FRealtimeMeshTexCoordHighPrecision5)</Size>
-        <ValuePointer>(__RealtimeMeshNatVisRenderableTypes::FRealtimeMeshTexCoordHighPrecision5*)Data.AllocatorInstance.Data</ValuePointer>
-      </ArrayItems>
-      <ArrayItems Condition="Data.ArrayNum &lt;= Data.ArrayMax &amp;&amp; bIsHighPrecision == true &amp;&amp; ChannelCount == 6">
-        <Size>Data.ArrayNum / sizeof(__RealtimeMeshNatVisRenderableTypes::FRealtimeMeshTexCoordHighPrecision6)</Size>
-        <ValuePointer>(__RealtimeMeshNatVisRenderableTypes::FRealtimeMeshTexCoordHighPrecision6*)Data.AllocatorInstance.Data</ValuePointer>
-      </ArrayItems>
-      <ArrayItems Condition="Data.ArrayNum &lt;= Data.ArrayMax &amp;&amp; bIsHighPrecision == true &amp;&amp; ChannelCount == 7">
-        <Size>Data.ArrayNum / sizeof(__RealtimeMeshNatVisRenderableTypes::FRealtimeMeshTexCoordHighPrecision7)</Size>
-        <ValuePointer>(__RealtimeMeshNatVisRenderableTypes::FRealtimeMeshTexCoordHighPrecision7*)Data.AllocatorInstance.Data</ValuePointer>
-      </ArrayItems>
-      <ArrayItems Condition="Data.ArrayNum &lt;= Data.ArrayMax &amp;&amp; bIsHighPrecision == true &amp;&amp; ChannelCount == 8">
-        <Size>Data.ArrayNum / sizeof(__RealtimeMeshNatVisRenderableTypes::FRealtimeMeshTexCoordHighPrecision8)</Size>
-        <ValuePointer>(__RealtimeMeshNatVisRenderableTypes::FRealtimeMeshTexCoordHighPrecision8*)Data.AllocatorInstance.Data</ValuePointer>
-      </ArrayItems>
+	<Type Name="RealtimeMesh::FRealtimeMeshStream">
+		<Intrinsic Name="GetNumDatums" Expression="LayoutDefinition.Layout.ElementType.NumDatums" />
+		<Intrinsic Name="GetNumElements" Expression="LayoutDefinition.Layout.NumElements" />
 
-      <ArrayItems Condition="Data.ArrayNum &lt;= Data.ArrayMax &amp;&amp; bIsHighPrecision == false &amp;&amp; ChannelCount == 1">
-        <Size>Data.ArrayNum / sizeof(__RealtimeMeshNatVisRenderableTypes::FRealtimeMeshTexCoordLowPrecision1)</Size>
-        <ValuePointer>(__RealtimeMeshNatVisRenderableTypes::FRealtimeMeshTexCoordLowPrecision1*)Data.AllocatorInstance.Data</ValuePointer>
-      </ArrayItems>
-      <ArrayItems Condition="Data.ArrayNum &lt;= Data.ArrayMax &amp;&amp; bIsHighPrecision == false &amp;&amp; ChannelCount == 2">
-        <Size>Data.ArrayNum / sizeof(__RealtimeMeshNatVisRenderableTypes::FRealtimeMeshTexCoordLowPrecision2)</Size>
-        <ValuePointer>(__RealtimeMeshNatVisRenderableTypes::FRealtimeMeshTexCoordLowPrecision2*)Data.AllocatorInstance.Data</ValuePointer>
-      </ArrayItems>
-      <ArrayItems Condition="Data.ArrayNum &lt;= Data.ArrayMax &amp;&amp; bIsHighPrecision == false &amp;&amp; ChannelCount == 3">
-        <Size>Data.ArrayNum / sizeof(__RealtimeMeshNatVisRenderableTypes::FRealtimeMeshTexCoordLowPrecision3)</Size>
-        <ValuePointer>(__RealtimeMeshNatVisRenderableTypes::FRealtimeMeshTexCoordLowPrecision3*)Data.AllocatorInstance.Data</ValuePointer>
-      </ArrayItems>
-      <ArrayItems Condition="Data.ArrayNum &lt;= Data.ArrayMax &amp;&amp; bIsHighPrecision == false &amp;&amp; ChannelCount == 4">
-        <Size>Data.ArrayNum / sizeof(__RealtimeMeshNatVisRenderableTypes::FRealtimeMeshTexCoordLowPrecision4)</Size>
-        <ValuePointer>(__RealtimeMeshNatVisRenderableTypes::FRealtimeMeshTexCoordLowPrecision4*)Data.AllocatorInstance.Data</ValuePointer>
-      </ArrayItems>
-      <ArrayItems Condition="Data.ArrayNum &lt;= Data.ArrayMax &amp;&amp; bIsHighPrecision == false &amp;&amp; ChannelCount == 5">
-        <Size>Data.ArrayNum / sizeof(__RealtimeMeshNatVisRenderableTypes::FRealtimeMeshTexCoordLowPrecision5)</Size>
-        <ValuePointer>(__RealtimeMeshNatVisRenderableTypes::FRealtimeMeshTexCoordLowPrecision5*)Data.AllocatorInstance.Data</ValuePointer>
-      </ArrayItems>
-      <ArrayItems Condition="Data.ArrayNum &lt;= Data.ArrayMax &amp;&amp; bIsHighPrecision == false &amp;&amp; ChannelCount == 6">
-        <Size>Data.ArrayNum / sizeof(__RealtimeMeshNatVisRenderableTypes::FRealtimeMeshTexCoordLowPrecision6)</Size>
-        <ValuePointer>(__RealtimeMeshNatVisRenderableTypes::FRealtimeMeshTexCoordLowPrecision6*)Data.AllocatorInstance.Data</ValuePointer>
-      </ArrayItems>
-      <ArrayItems Condition="Data.ArrayNum &lt;= Data.ArrayMax &amp;&amp; bIsHighPrecision == false &amp;&amp; ChannelCount == 7">
-        <Size>Data.ArrayNum / sizeof(__RealtimeMeshNatVisRenderableTypes::FRealtimeMeshTexCoordLowPrecision7)</Size>
-        <ValuePointer>(__RealtimeMeshNatVisRenderableTypes::FRealtimeMeshTexCoordLowPrecision7*)Data.AllocatorInstance.Data</ValuePointer>
-      </ArrayItems>
-      <ArrayItems Condition="Data.ArrayNum &lt;= Data.ArrayMax &amp;&amp; bIsHighPrecision == false &amp;&amp; ChannelCount == 8">
-        <Size>Data.ArrayNum / sizeof(__RealtimeMeshNatVisRenderableTypes::FRealtimeMeshTexCoordLowPrecision8)</Size>
-        <ValuePointer>(__RealtimeMeshNatVisRenderableTypes::FRealtimeMeshTexCoordLowPrecision8*)Data.AllocatorInstance.Data</ValuePointer>
-      </ArrayItems>
-      
-    </Expand>
-  </Type>
+		<Intrinsic Name="IsUInt8Base" Expression="LayoutDefinition.Layout.ElementType.Type == ERealtimeMeshDatumType::UInt8" />
+		<Intrinsic Name="IsInt8Base" Expression="LayoutDefinition.Layout.ElementType.Type == ERealtimeMeshDatumType::Int8" />
+		<Intrinsic Name="Is8BitBase" Expression="IsUInt8Base() || IsInt8Base()" />
 
-  <Type Name="FRealtimeMeshTriangleStream">
-    <DisplayString Condition="Data.ArrayNum == 0">Empty</DisplayString>
-    <DisplayString Condition="Data.ArrayNum &lt; 0">Invalid</DisplayString>
-    <DisplayString Condition="Data.ArrayMax &lt; Data.ArrayNum">Invalid</DisplayString>
-    <DisplayString Condition="Data.ArrayMax &gt;= Data.ArrayNum &amp;&amp; bIsUsing32BitIndices">NumTriangles={Data.ArrayNum / (sizeof(int32) * 3)}, NumIndices={Data.ArrayNum / sizeof(int32)}, Precision=High</DisplayString>
-    <DisplayString Condition="Data.ArrayMax &gt;= Data.ArrayNum &amp;&amp; bIsUsing32BitIndices == false">NumTriangles={Data.ArrayNum / (sizeof(uint16) * 3)}, NumIndices={Data.ArrayNum / sizeof(uint16)}, Precision=Low</DisplayString>
-    <Expand>
-      <ArrayItems Condition="Data.ArrayNum &lt;= Data.ArrayMax &amp;&amp; bIsUsing32BitIndices">
-        <Size>Data.ArrayNum / sizeof(__RealtimeMeshNatVisRenderableTypes::FRealtimeMeshTriangleIndicesHighPrecision)</Size>
-        <ValuePointer>(__RealtimeMeshNatVisRenderableTypes::FRealtimeMeshTriangleIndicesHighPrecision*)Data.AllocatorInstance.Data</ValuePointer>
-      </ArrayItems>
-      <ArrayItems Condition="Data.ArrayNum &lt;= Data.ArrayMax &amp;&amp; bIsUsing32BitIndices == false">
-        <Size>Data.ArrayNum / sizeof(__RealtimeMeshNatVisRenderableTypes::FRealtimeMeshTriangleIndicesLowPrecision)</Size>
-        <ValuePointer>(__RealtimeMeshNatVisRenderableTypes::FRealtimeMeshTriangleIndicesLowPrecision*)Data.AllocatorInstance.Data</ValuePointer>
-      </ArrayItems>
-    </Expand>
-  </Type>
+		<Intrinsic Name="IsUInt16Base" Expression="LayoutDefinition.Layout.ElementType.Type == ERealtimeMeshDatumType::UInt16" />
+		<Intrinsic Name="IsInt16Base" Expression="LayoutDefinition.Layout.ElementType.Type == ERealtimeMeshDatumType::Int16" />
+		<Intrinsic Name="Is16BitBase" Expression="IsUInt16Base() || IsInt16Base()" />
+
+		<Intrinsic Name="IsUInt32Base" Expression="LayoutDefinition.Layout.ElementType.Type == ERealtimeMeshDatumType::UInt32" />
+		<Intrinsic Name="IsInt32Base" Expression="LayoutDefinition.Layout.ElementType.Type == ERealtimeMeshDatumType::Int32" />
+		<Intrinsic Name="Is32BitBase" Expression="IsUInt32Base() || IsInt32Base()" />
+		
+		<Intrinsic Name="IsHalfBase" Expression="LayoutDefinition.Layout.ElementType.Type == ERealtimeMeshDatumType::Half" />
+		<Intrinsic Name="IsFloatBase" Expression="LayoutDefinition.Layout.ElementType.Type == ERealtimeMeshDatumType::Float" />
+		<Intrinsic Name="IsDoubleBase" Expression="LayoutDefinition.Layout.ElementType.Type == ERealtimeMeshDatumType::Double" />
+		<Intrinsic Name="IsFloatingPoint" Expression="IsHalfBase() || IsFloatBase() || IsDoubleBase()" />
+
+
+		
+		<DisplayString Condition="!LayoutDefinition.bIsValid">Invalid</DisplayString>
+		<DisplayString Condition="ArrayNum &lt; 0">Invalid</DisplayString>
+		<DisplayString Condition="ArrayMax &lt; ArrayNum">Invalid</DisplayString>
+		<DisplayString Condition="ArrayNum == 0">Type:{LayoutDefinition.Layout} Empty</DisplayString>
+		<DisplayString Condition="ArrayMax &gt;= ArrayNum">{StreamKey} Type:{LayoutDefinition.Layout} Num:{ArrayNum}</DisplayString>
+
+		<Expand>
+			<CustomListItems>
+				<Variable Name="RowIndex" InitialValue="0"/>
+				<Variable Name="ElementIndex" InitialValue="0"/>
+				<Variable Name="CurrentRowPtr" InitialValue="Allocator.Data"/>
+				<Loop>
+					<Break Condition="RowIndex == ArrayNum"/>
+					<Exec>CurrentRowPtr = Allocator.Data + (RowIndex * LayoutDefinition.Stride)</Exec>
+					<Item>RealtimeMesh::GetRowAsString(*this, RowIndex)</Item>
+					<Exec>RowIndex += 1</Exec>
+				</Loop>
+			</CustomListItems>
+		</Expand>
+	
+
+
+
+	</Type>
+	
 </AutoVisualizer>

@@ -57,6 +57,7 @@ namespace RealtimeMesh
 		bVFRequiresPrimitiveUniformBuffer = !UseGPUScene(GMaxRHIShaderPlatform, FeatureLevel);
 		bStaticElementsAlwaysUseProxyPrimitiveUniformBuffer = true;
 		bVerifyUsedMaterials = false;
+		
 	}
 
 	FRealtimeMeshComponentSceneProxy::~FRealtimeMeshComponentSceneProxy()

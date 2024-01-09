@@ -6,156 +6,487 @@
 #include "RealtimeMeshDataTypes.h"
 #include "RealtimeMeshDataStream.h"
 #include "Templates/Invoke.h"
-#include "RealtimeMeshAlgo.h"
 
 struct FRealtimeMeshSimpleMeshData;
+
+PRAGMA_DISABLE_OPTIMIZATION
 
 // ReSharper disable CppMemberFunctionMayBeConst
 namespace RealtimeMesh
 {
+	template<typename InType>
+	struct TRealtimeMeshStreamDataAccessorTypeTraits
+	{
+		using Type = typename TRemoveCV<InType>::Type;
+		using ElementType = typename FRealtimeMeshBufferTypeTraits<Type>::ElementType;
+		using QualifiedType = InType;
+		using QualifiedElementType = typename TCopyQualifiersFromTo<InType, ElementType>::Type;
+		static constexpr bool IsConst = TIsConst<InType>::Value;
+		static constexpr bool IsVoid = TIsSame<Type, void>::Value;
+		static constexpr int32 NumElements = FRealtimeMeshBufferTypeTraits<Type>::NumElements;
 
-	template<typename BufferType>
-	struct FRealtimeMeshStreamElementDirectRead
-	{
-		using ElementType = typename TCopyQualifiersFromTo<BufferType, typename FRealtimeMeshBufferTypeTraits<BufferType>::ElementType>::Type;
-		
-		static BufferType GetBufferValue(FRealtimeMeshStream& Stream, int32 Index)
+		template<typename OtherType>
+		static constexpr bool IsConvertibleTo()
 		{
-			return *Stream.GetDataAtVertex<BufferType>(Index);
-		}
-		static void SetBufferValue(FRealtimeMeshStream& Stream, int32 Index, const BufferType& InValue)
-		{
-			*Stream.GetDataAtVertex<BufferType>(Index) = InValue;
-		}
-		static ElementType GetElementValue(FRealtimeMeshStream& Stream, int32 Index, int32 ElementIndex)
-		{
-			return *Stream.GetDataAtVertex<ElementType>(Index, ElementIndex);
-		}
-		static void SetElementValue(FRealtimeMeshStream& Stream, int32 Index, int32 ElementIndex, const ElementType& InValue)
-		{
-			*Stream.GetDataAtVertex<ElementType>(Index, ElementIndex) = InValue;
-		}
-	};
-	
-	template<typename AccessType, typename BufferType>
-	struct FRealtimeMeshStreamElementStaticConverter
-	{
-		using AccessElementType = typename TCopyQualifiersFromTo<BufferType, typename FRealtimeMeshBufferTypeTraits<BufferType>::ElementType>::Type;
-		
-		static AccessType GetBufferValue(FRealtimeMeshStream& Stream, int32 Index)
-		{
-			return Stream.GetDataAtVertex<BufferType>(Index);
-		}
-		static void SetBufferValue(FRealtimeMeshStream& Stream, int32 Index, const AccessType& InValue)
-		{
-			Stream.GetDataAtVertex<BufferType>(Index) = AccessType(InValue);
-		}
-		static AccessElementType GetElementValue(FRealtimeMeshStream& Stream, int32 Index, int32 ElementIndex)
-		{
-			return Stream.GetDataAtVertex<AccessElementType>(Index, ElementIndex);
-		}
-		static void SetElementValue(FRealtimeMeshStream& Stream, int32 Index, int32 ElementIndex, const AccessElementType& InValue)
-		{
-			Stream.GetDataAtVertex<AccessElementType>(Index, ElementIndex) = AccessElementType(InValue);
+			return !TIsVoidType<decltype(ConvertRealtimeMeshType<Type, TRemoveCV<OtherType>>(DeclVal<Type>()))>::Value;
 		}
 	};
 
-	/*template<typename AccessType>
-	struct FRealtimeMeshStreamElementConvertingReader
+	
+	/* This implementation supports a static element conversion */
+	template<typename InAccessType, typename InBufferType, bool bAllowSubstreamAccess>
+	struct TRealtimeMeshStreamDataAccessor
 	{
-		FRealtimeMeshStreamElementConvertingReader()
-	};*/
+		using AccessTypeTraits = TRealtimeMeshStreamDataAccessorTypeTraits<InAccessType>;
+		using BufferTypeTraits = TRealtimeMeshStreamDataAccessorTypeTraits<InBufferType>;
+
+		using AccessType = typename AccessTypeTraits::Type;
+		using BufferType = typename BufferTypeTraits::Type;
+
+		using AccessElementType = typename AccessTypeTraits::ElementType;
+		using BufferElementType = typename BufferTypeTraits::ElementType;
+		
+		static_assert(!AccessTypeTraits::IsVoid, "AccessType cannot be void.");
+		static_assert(!BufferTypeTraits::IsVoid, "BufferType cannot be void.");
+		static_assert(BufferTypeTraits::NumElements == AccessTypeTraits::NumElements, "Buffer and Access types must have the same number of elements.");
+		static_assert(AccessTypeTraits::template IsConvertibleTo<typename BufferTypeTraits::Type>(), "Conversion handler for this type is not implemented.");
+		static_assert(BufferTypeTraits::template IsConvertibleTo<typename AccessTypeTraits::Type>(), "Conversion handler for this type is not implemented.");
+		
+		struct TContextWithoutSubstream
+		{
+			typename TCopyQualifiersFromTo<InAccessType, FRealtimeMeshStream>::Type& Stream;
+		};
+		struct TContextWithSubstream
+		{
+			typename TCopyQualifiersFromTo<InAccessType, FRealtimeMeshStream>::Type& Stream;
+			int32 ElementOffset;
+		};
+
+		using TContext = typename TChooseClass<bAllowSubstreamAccess, TContextWithSubstream, TContextWithoutSubstream>::Result;
+		
+		static TContext InitializeContext(typename TCopyQualifiersFromTo<InAccessType, FRealtimeMeshStream>::Type& Stream, int32 ElementOffset)
+		{
+			checkf(Stream.GetLayout().GetElementType() == GetRealtimeMeshBufferLayout<BufferType>().GetElementType(), TEXT("Supplied stream not correct format for builder."));
+			checkf(AccessTypeTraits::template IsConvertibleTo<BufferType>(), TEXT("Conversion handler for this type is not implemented."));
+			checkf(BufferTypeTraits::template IsConvertibleTo<AccessType>(), TEXT("Conversion handler for this type is not implemented."));
+			
+			if constexpr (bAllowSubstreamAccess)
+			{
+				checkf(Stream.GetLayout().GetNumElements() >= AccessTypeTraits::NumElements + ElementOffset, TEXT("Substream section is outside of the supplied stream."));
+				return TContext { Stream, ElementOffset * Stream.GetElementStride() };
+			}
+			else
+			{
+				checkf(ElementOffset == 0, TEXT("Cannot read elements with offset using this accessor."));
+				return TContext { Stream };
+			}
+		}
+		
+		static AccessType GetBufferValue(const TContext& Context, int32 Index)
+		{
+			if constexpr (bAllowSubstreamAccess)
+			{
+				BufferType StreamData = *reinterpret_cast<BufferType*>(Context.Stream.GetDataRawAtVertex(Index) + Context.ElementOffset);
+				return ConvertRealtimeMeshType<BufferType, AccessType>(StreamData);
+			}
+			else
+			{
+				BufferType StreamData = *reinterpret_cast<BufferType*>(Context.Stream.GetDataRawAtVertex(Index));
+				return ConvertRealtimeMeshType<BufferType, AccessType>(StreamData);				
+			}
+		}
+		static void SetBufferValue(const TContext& Context, int32 Index, const AccessType& InValue)
+		{
+			if constexpr (bAllowSubstreamAccess)
+			{
+				BufferType StreamData = ConvertRealtimeMeshType<AccessType, BufferType>(InValue);
+				*reinterpret_cast<BufferType*>(Context.Stream.GetDataRawAtVertex(Index) + Context.ElementOffset) = StreamData;
+			}
+			else
+			{
+				BufferType StreamData = ConvertRealtimeMeshType<AccessType, BufferType>(InValue);
+				*reinterpret_cast<BufferType*>(Context.Stream.GetDataRawAtVertex(Index)) = StreamData;		
+			}
+		}
+		static AccessElementType GetElementValue(const TContext& Context, int32 Index, int32 ElementIndex)
+		{
+			if constexpr (bAllowSubstreamAccess)
+			{
+				BufferElementType StreamData = *reinterpret_cast<BufferElementType*>(Context.Stream.GetDataRawAtVertex(Index) + Context.ElementOffset + Context.Stream.GetElementStride() * ElementIndex);
+				return ConvertRealtimeMeshType<BufferElementType, AccessElementType>(StreamData);
+			}
+			else
+			{
+				BufferElementType StreamData = *reinterpret_cast<BufferElementType*>(Context.Stream.GetDataRawAtVertex(Index) + Context.Stream.GetElementStride() * ElementIndex);
+				return ConvertRealtimeMeshType<BufferElementType, AccessElementType>(StreamData);				
+			}
+		}
+		static void SetElementValue(const TContext& Context, int32 Index, int32 ElementIndex, const AccessElementType& InValue)
+		{
+			if constexpr (bAllowSubstreamAccess)
+			{
+				BufferElementType StreamData = ConvertRealtimeMeshType<AccessElementType, BufferElementType>(InValue);
+				*reinterpret_cast<BufferElementType*>(Context.Stream.GetDataRawAtVertex(Index) + Context.ElementOffset + Context.Stream.GetElementStride() * ElementIndex) = StreamData;
+			}
+			else
+			{
+				BufferElementType StreamData = ConvertRealtimeMeshType<AccessElementType, BufferElementType>(InValue);
+				*reinterpret_cast<BufferElementType*>(Context.Stream.GetDataRawAtVertex(Index) + Context.Stream.GetElementStride() * ElementIndex) = StreamData;		
+			}
+		}
+	};
+	
+	/* This implementation supports a direct read only of the same type */
+	template<typename InStreamType, bool bAllowSubstreamAccess>
+	struct TRealtimeMeshStreamDataAccessor<InStreamType, InStreamType, bAllowSubstreamAccess>
+	{
+		using StreamTypeTraits = TRealtimeMeshStreamDataAccessorTypeTraits<InStreamType>;
+
+		using StreamType = typename StreamTypeTraits::Type;
+		using StreamElementType = typename StreamTypeTraits::ElementType;
+		
+		static_assert(!StreamTypeTraits::IsVoid, "AccessType cannot be void.");
+		
+		struct TContextWithoutSubstream
+		{
+			typename TCopyQualifiersFromTo<InStreamType, FRealtimeMeshStream>::Type& Stream;
+		};
+		struct TContextWithSubstream
+		{
+			typename TCopyQualifiersFromTo<InStreamType, FRealtimeMeshStream>::Type& Stream;
+			int32 ElementOffset;
+		};
+
+		using TContext = typename TChooseClass<bAllowSubstreamAccess, TContextWithSubstream, TContextWithoutSubstream>::Result;
+		
+		static TContext InitializeContext(typename TCopyQualifiersFromTo<InStreamType, FRealtimeMeshStream>::Type& Stream, int32 ElementOffset)
+		{			
+			if constexpr (bAllowSubstreamAccess)
+			{
+				checkf(Stream.GetLayout().GetNumElements() >= StreamTypeTraits::NumElements + ElementOffset, TEXT("Substream section is outside of the supplied stream."));
+				return TContext { Stream, ElementOffset * Stream.GetElementStride() };
+			}
+			else
+			{
+				checkf(ElementOffset == 0, TEXT("Cannot read elements with offset using this accessor."));
+				return TContext { Stream };
+			}
+		}
+		
+		static StreamType GetBufferValue(const TContext& Context, int32 Index)
+		{
+			if constexpr (bAllowSubstreamAccess)
+			{
+				return *reinterpret_cast<StreamType*>(Context.Stream.GetDataRawAtVertex(Index) + Context.ElementOffset);
+			}
+			else
+			{
+				return *reinterpret_cast<StreamType*>(Context.Stream.GetDataRawAtVertex(Index));		
+			}
+		}
+		static void SetBufferValue(const TContext& Context, int32 Index, const StreamType& InValue)
+		{
+			if constexpr (bAllowSubstreamAccess)
+			{
+				*reinterpret_cast<StreamType*>(Context.Stream.GetDataRawAtVertex(Index) + Context.ElementOffset) = InValue;
+			}
+			else
+			{
+				*reinterpret_cast<StreamType*>(Context.Stream.GetDataRawAtVertex(Index)) = InValue;		
+			}
+		}
+		static StreamElementType GetElementValue(const TContext& Context, int32 Index, int32 ElementIndex)
+		{
+			if constexpr (bAllowSubstreamAccess)
+			{
+				return *reinterpret_cast<StreamElementType*>(Context.Stream.GetDataRawAtVertex(Index) + Context.ElementOffset + Context.Stream.GetElementStride() * ElementIndex);
+			}
+			else
+			{
+				return *reinterpret_cast<StreamElementType*>(Context.Stream.GetDataRawAtVertex(Index) + Context.Stream.GetElementStride() * ElementIndex);
+			}
+		}
+		static void SetElementValue(const TContext& Context, int32 Index, int32 ElementIndex, const StreamElementType& InValue)
+		{
+			if constexpr (bAllowSubstreamAccess)
+			{
+				*reinterpret_cast<StreamElementType*>(Context.Stream.GetDataRawAtVertex(Index) + Context.ElementOffset + Context.Stream.GetElementStride() * ElementIndex) = InValue;
+			}
+			else
+			{
+				*reinterpret_cast<StreamElementType*>(Context.Stream.GetDataRawAtVertex(Index) + Context.Stream.GetElementStride() * ElementIndex) = InValue;		
+			}
+		}
+	};
+	
+	/* This implementation supports a dynamic conversion from the unknown stream type */
+	template<typename InAccessType, bool bAllowSubstreamAccess>
+	struct TRealtimeMeshStreamDataAccessor<InAccessType, void, bAllowSubstreamAccess>
+	{
+		using AccessTypeTraits = TRealtimeMeshStreamDataAccessorTypeTraits<InAccessType>;
+
+		using AccessType = typename AccessTypeTraits::Type;
+		using AccessElementType = typename AccessTypeTraits::ElementType;
+		
+		static_assert(!AccessTypeTraits::IsVoid, "AccessType cannot be void.");
+		
+		struct TContextWithoutSubstream
+		{
+			typename TCopyQualifiersFromTo<InAccessType, FRealtimeMeshStream>::Type& Stream;
+			const FRealtimeMeshElementConverters& ReadConverters;
+			const FRealtimeMeshElementConverters& WriteConverters;
+		};
+		struct TContextWithSubstream
+		{
+			typename TCopyQualifiersFromTo<InAccessType, FRealtimeMeshStream>::Type& Stream;
+			const FRealtimeMeshElementConverters& ReadConverters;
+			const FRealtimeMeshElementConverters& WriteConverters;
+			int32 ElementOffset;
+		};
+
+		using TContext = typename TChooseClass<bAllowSubstreamAccess, TContextWithSubstream, TContextWithoutSubstream>::Result;
+		
+		static TContext InitializeContext(typename TCopyQualifiersFromTo<InAccessType, FRealtimeMeshStream>::Type& Stream, int32 ElementOffset)
+		{			
+			const FRealtimeMeshBufferLayout StreamLayout = Stream.GetLayout();
+			const FRealtimeMeshBufferLayout AccessLayout = GetRealtimeMeshBufferLayout<AccessType>();
+			
+			const FRealtimeMeshElementType StreamElementTypeDef = StreamLayout.GetElementType();
+			const FRealtimeMeshElementType AccessElementTypeDef = AccessLayout.GetElementType();
+
+			check(FRealtimeMeshTypeConversionUtilities::CanConvert(StreamElementTypeDef, AccessElementTypeDef));
+			check(FRealtimeMeshTypeConversionUtilities::CanConvert(AccessElementTypeDef, StreamElementTypeDef));
+			
+			if constexpr (bAllowSubstreamAccess)
+			{
+				checkf(Stream.GetLayout().GetNumElements() >= AccessTypeTraits::NumElements + ElementOffset, TEXT("Substream section is outside of the supplied stream."));
+				return TContext
+				{
+					Stream,
+					FRealtimeMeshTypeConversionUtilities::GetTypeConverter(StreamElementTypeDef, AccessElementTypeDef),
+					FRealtimeMeshTypeConversionUtilities::GetTypeConverter(AccessElementTypeDef, StreamElementTypeDef),
+					ElementOffset * Stream.GetElementStride()
+				};
+			}
+			else
+			{
+				checkf(ElementOffset == 0, TEXT("Cannot read elements with offset using this accessor."));
+				return TContext
+				{
+					Stream,
+					FRealtimeMeshTypeConversionUtilities::GetTypeConverter(StreamElementTypeDef, AccessElementTypeDef),
+					FRealtimeMeshTypeConversionUtilities::GetTypeConverter(AccessElementTypeDef, StreamElementTypeDef)
+				};
+			}		
+		}
+		
+		static AccessType GetBufferValue(const TContext& Context, int32 Index)
+		{
+			if constexpr (bAllowSubstreamAccess)
+			{
+				const void* DataPtr = Context.Stream.GetDataRawAtVertex(Index) + Context.ElementOffset;
+				TTypeCompatibleBytes<AccessType> Result;
+				Context.ReadConverters.ConvertContiguousArray(DataPtr, &Result, AccessTypeTraits::NumElements);
+				return *Result.GetTypedPtr();
+			}
+			else
+			{
+				const void* DataPtr = Context.Stream.GetDataRawAtVertex(Index);
+				TTypeCompatibleBytes<AccessType> Result;
+				Context.ReadConverters.ConvertContiguousArray(DataPtr, &Result, AccessTypeTraits::NumElements);
+				return *Result.GetTypedPtr();	
+			}
+		}
+		static void SetBufferValue(const TContext& Context, int32 Index, const AccessType& InValue)
+		{
+			if constexpr (bAllowSubstreamAccess)
+			{
+				void* DataPtr = Context.Stream.GetDataRawAtVertex(Index) + Context.ElementOffset;
+				Context.WriteConverters.ConvertContiguousArray(&InValue, DataPtr, AccessTypeTraits::NumElements);
+			}
+			else
+			{
+				void* DataPtr = Context.Stream.GetDataRawAtVertex(Index);
+				Context.WriteConverters.ConvertContiguousArray(&InValue, DataPtr, AccessTypeTraits::NumElements);	
+			}
+		}
+		static AccessElementType GetElementValue(const TContext& Context, int32 Index, int32 ElementIndex)
+		{
+			if constexpr (bAllowSubstreamAccess)
+			{
+				const void* DataPtr = Context.Stream.GetDataRawAtVertex(Index) + Context.ElementOffset + Context.Stream.GetElementStride() * ElementIndex;
+				TTypeCompatibleBytes<AccessElementType> Result;
+				Context.ReadConverters.ConvertSingleElement(DataPtr, &Result);
+				return *Result.GetTypedPtr();
+			}
+			else
+			{
+				const void* DataPtr = Context.Stream.GetDataRawAtVertex(Index) + Context.Stream.GetElementStride() * ElementIndex;
+				TTypeCompatibleBytes<AccessElementType> Result;
+				Context.ReadConverters.ConvertSingleElement(DataPtr, &Result);
+				return *Result.GetTypedPtr();
+			}
+		}
+		static void SetElementValue(const TContext& Context, int32 Index, int32 ElementIndex, const AccessElementType& InValue)
+		{
+			if constexpr (bAllowSubstreamAccess)
+			{
+				void* DataPtr = Context.Stream.GetDataRawAtVertex(Index) + Context.ElementOffset + Context.Stream.GetElementStride() * ElementIndex;
+				Context.WriteConverters.ConvertSingleElement(&InValue, DataPtr);
+			}
+			else
+			{
+				void* DataPtr = Context.Stream.GetDataRawAtVertex(Index) + Context.Stream.GetElementStride() * ElementIndex;
+				Context.WriteConverters.ConvertSingleElement(&InValue, DataPtr);
+			}
+		}
+	};
+
+
+	template<typename BaseType, typename NewType>
+	struct TRealtimeMeshPromoteTypeIfNotVoid
+	{
+		using Type = NewType;
+	};
+
+	template<typename NewType>
+	struct TRealtimeMeshPromoteTypeIfNotVoid<void, NewType>
+	{
+		using Type = void;
+	};
+	
+
+	template<typename OriginalType, typename DefaultType>
+	struct TRealtimeMeshUseTypeOrDefaultIfVoid
+	{
+		using Type = OriginalType;
+	};
+
+	template<typename DefaultType>
+	struct TRealtimeMeshUseTypeOrDefaultIfVoid<void, DefaultType>
+	{
+		using Type = DefaultType;
+	};
+	
+	template<typename OriginalType, typename NewType>
+	struct TRealtimeMeshIsVoidOrSameType
+	{
+		static constexpr bool Value = false;
+	};
+
+	template<typename DefaultType>
+	struct TRealtimeMeshIsVoidOrSameType<void, DefaultType>
+	{
+		static constexpr bool Value = true;
+	};
+
+	template<typename Type>
+	struct TRealtimeMeshIsVoidOrSameType<Type, Type>
+	{
+		static constexpr bool Value = true;
+	};
+
 
 	
-	template<typename StreamTypeRaw, typename Accessor = FRealtimeMeshStreamElementDirectRead<StreamTypeRaw>>
-	struct TRealtimeMeshIndexedBufferAccessor;
 	
+	enum class FRealtimeMeshStreamBuilderEventType
+	{
+		NewSizeUninitialized,
+		NewSizeZeroed,
+		Reserve,
+		Shrink,
+		Empty,
+		RemoveAt,
+	};
 
-	template<typename StreamTypeRaw, typename Accessor = FRealtimeMeshStreamElementDirectRead<StreamTypeRaw>>
+	
+	
+	
+	template<typename InAccessType, typename InBufferType, bool bAllowSubstreamAccess = false>
 	struct TRealtimeMeshElementAccessor
-	{
+	{	
 		using SizeType = FRealtimeMeshStream::SizeType;
-		using BufferType = std::remove_const_t<StreamTypeRaw>;
-		using ElementType = typename FRealtimeMeshBufferTypeTraits<BufferType>::ElementType;
-		using ElementAccessor = TRealtimeMeshElementAccessor<StreamTypeRaw, Accessor>;
-		static constexpr int32 NumElements = FRealtimeMeshBufferTypeTraits<BufferType>::NumElements;
+
+		using AccessTypeTraits = TRealtimeMeshStreamDataAccessorTypeTraits<InAccessType>;
+		using BufferTypeTraits = TRealtimeMeshStreamDataAccessorTypeTraits<InBufferType>;
+
+		using AccessType = typename AccessTypeTraits::Type;
+		using BufferType = typename BufferTypeTraits::Type;
+
+		using AccessElementType = typename AccessTypeTraits::ElementType;
+		using BufferElementType = typename BufferTypeTraits::ElementType;
+
+		static constexpr int32 NumElements = AccessTypeTraits::NumElements;
 		static constexpr bool IsSingleElement = NumElements == 1;
-		static constexpr bool IsConst = TIsConst<StreamTypeRaw>::Value;
+		static constexpr bool IsWritable = !AccessTypeTraits::IsConst;
+
+		using StreamDataAccessor = TRealtimeMeshStreamDataAccessor<InAccessType, InBufferType, bAllowSubstreamAccess>;
 
 		template<typename RetVal, typename Dummy>
-		using TEnableIfWritable = std::enable_if_t<sizeof(Dummy) && !IsConst, RetVal>;
+		using TEnableIfWritable = std::enable_if_t<sizeof(Dummy) && IsWritable, RetVal>;
 		
 	private:
-		FRealtimeMeshStream& Stream;
+		const typename StreamDataAccessor::TContext& Context;
 		SizeType RowIndex;
 		SizeType ElementIdx;
 
-
 	public:
-		TRealtimeMeshElementAccessor(FRealtimeMeshStream& InStream, SizeType InRowIndex, SizeType InElementIndex)
-			: Stream(InStream)
+		TRealtimeMeshElementAccessor(const typename StreamDataAccessor::TContext& InContext, SizeType InRowIndex, SizeType InElementIndex)
+			: Context(InContext)
 			, RowIndex(InRowIndex)
 			, ElementIdx(InElementIndex)
 		{			
 		}
 
-		template <typename U = ElementType>
-		FORCEINLINE TEnableIfWritable<TRealtimeMeshElementAccessor&, U> operator=(const ElementType& InNewValue)
+		AccessElementType GetValue() const
 		{
-			SetValue(InNewValue);
-			return *this;
+			return StreamDataAccessor::GetElementValue(Context, RowIndex, ElementIdx);
 		}
-
-		void SetValue(const ElementType& InNewValue)
+		
+		template <typename U = AccessElementType>
+		FORCEINLINE TEnableIfWritable<void, U> SetValue(const AccessElementType& InNewValue)
 		{			
-			Accessor::SetElementValue(Stream, RowIndex, ElementIdx, InNewValue);
+			StreamDataAccessor::SetElementValue(Context, RowIndex, ElementIdx, InNewValue);
 		}
 		
-		ElementType GetValue() const
-		{
-			return Accessor::GetElementValue(Stream, RowIndex, ElementIdx);
-		}
-		
-		FORCEINLINE operator ElementType() const
+		FORCEINLINE operator AccessElementType() const
 		{
 			return GetValue();
 		}
+		
+		template <typename U = AccessElementType>
+		FORCEINLINE TEnableIfWritable<TRealtimeMeshElementAccessor&, U> operator=(const AccessElementType& InNewValue)
+		{
+			SetValue(InNewValue);
+			return *this;
+		}		
 
-#define DEFINE_BINARY_OPERATOR_VARIATIONS(op) \
-		FORCEINLINE friend bool operator op(const TRealtimeMeshElementAccessor& Left, const TRealtimeMeshElementAccessor& Right) { return Left.GetValue() op Right.GetValue(); } \
-		FORCEINLINE friend bool operator op(const TRealtimeMeshElementAccessor& Left, const ElementType& Right) { return Left.GetValue() op Right; } \
-		FORCEINLINE friend bool operator op(const ElementType& Left, const TRealtimeMeshElementAccessor& Right) { return Left op Right.GetValue(); }
-		DEFINE_BINARY_OPERATOR_VARIATIONS(==)
-		DEFINE_BINARY_OPERATOR_VARIATIONS(!=)
-		DEFINE_BINARY_OPERATOR_VARIATIONS(<)
-		DEFINE_BINARY_OPERATOR_VARIATIONS(>)
-		DEFINE_BINARY_OPERATOR_VARIATIONS(<=)
-		DEFINE_BINARY_OPERATOR_VARIATIONS(>=)
-#undef DEFINE_BINARY_OPERATOR_VARIATIONS
-
-#define DEFINE_BINARY_OPERATOR_VARIATIONS(op) \
-		template <typename U = ElementType> \
-		FORCEINLINE friend TEnableIfWritable<ElementType, U> operator op(const TRealtimeMeshElementAccessor& Left, const TRealtimeMeshElementAccessor& Right) { return Left.GetValue() op Right.GetValue(); } \
-		template <typename U = ElementType> \
-		FORCEINLINE friend TEnableIfWritable<ElementType, U> operator op(const TRealtimeMeshElementAccessor& Left, const ElementType& Right) { return Left.GetValue() op Right; } \
-		template <typename U = ElementType> \
-		FORCEINLINE friend TEnableIfWritable<ElementType, U> operator op(const ElementType& Left, const TRealtimeMeshElementAccessor& Right) { return Left op Right.GetValue(); }
-		DEFINE_BINARY_OPERATOR_VARIATIONS(+)
-		DEFINE_BINARY_OPERATOR_VARIATIONS(-)
-		DEFINE_BINARY_OPERATOR_VARIATIONS(*)
-		DEFINE_BINARY_OPERATOR_VARIATIONS(/)
-		DEFINE_BINARY_OPERATOR_VARIATIONS(%)
-		DEFINE_BINARY_OPERATOR_VARIATIONS(&)
-		DEFINE_BINARY_OPERATOR_VARIATIONS(|)
-		DEFINE_BINARY_OPERATOR_VARIATIONS(^)
-		DEFINE_BINARY_OPERATOR_VARIATIONS(<<)
-		DEFINE_BINARY_OPERATOR_VARIATIONS(>>)
+#define DEFINE_BINARY_OPERATOR_VARIATIONS(ret, op) \
+		FORCEINLINE friend ret operator op(const TRealtimeMeshElementAccessor& Left, const TRealtimeMeshElementAccessor& Right) { return Left.GetValue() op Right.GetValue(); } \
+		FORCEINLINE friend ret operator op(const TRealtimeMeshElementAccessor& Left, const AccessElementType& Right) { return Left.GetValue() op Right; } \
+		FORCEINLINE friend ret operator op(const AccessElementType& Left, const TRealtimeMeshElementAccessor& Right) { return Left op Right.GetValue(); }
+		DEFINE_BINARY_OPERATOR_VARIATIONS(bool, ==)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(bool, !=)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(bool, <)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(bool, >)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(bool, <=)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(bool, >=)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(AccessElementType, +)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(AccessElementType, -)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(AccessElementType, *)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(AccessElementType, /)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(AccessElementType, %)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(AccessElementType, &)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(AccessElementType, |)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(AccessElementType, ^)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(AccessElementType, <<)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(AccessElementType, >>)
 #undef DEFINE_BINARY_OPERATOR_VARIATIONS
 		
 #define DEFINE_BINARY_OPERATOR_VARIATIONS(op) \
-		template <typename U = ElementType> \
-		FORCEINLINE TEnableIfWritable<TRealtimeMeshElementAccessor&, U> operator op(const ElementType& Right) { SetValue(GetValue() op Right); return *this; } \
-		template <typename U = ElementType> \
+		template <typename U = AccessElementType> \
+		FORCEINLINE TEnableIfWritable<TRealtimeMeshElementAccessor&, U> operator op(const AccessElementType& Right) { SetValue(GetValue() op Right); return *this; } \
+		template <typename U = AccessElementType> \
 		FORCEINLINE TEnableIfWritable<TRealtimeMeshElementAccessor&, U> operator op(const TRealtimeMeshElementAccessor& Right) { SetValue(GetValue() op Right.GetValue()); return *this; }
 		DEFINE_BINARY_OPERATOR_VARIATIONS(+=)
 		DEFINE_BINARY_OPERATOR_VARIATIONS(-=)
@@ -169,455 +500,523 @@ namespace RealtimeMesh
 		DEFINE_BINARY_OPERATOR_VARIATIONS(>>=)
 #undef DEFINE_BINARY_OPERATOR_VARIATIONS		
 	};
-
-
-
 	
-	template<typename StreamTypeRaw, typename Accessor>
+	template<typename InAccessType, typename InBufferType, bool bAllowSubstreamAccess = false>
 	struct TRealtimeMeshIndexedBufferAccessor
 	{
 	public:
 		using SizeType = FRealtimeMeshStream::SizeType;
-		using BufferType = std::remove_const_t<StreamTypeRaw>;
-		using ElementType = typename FRealtimeMeshBufferTypeTraits<BufferType>::ElementType;
-		using ElementAccessor = TRealtimeMeshElementAccessor<StreamTypeRaw, Accessor>;
-		static constexpr int32 NumElements = FRealtimeMeshBufferTypeTraits<BufferType>::NumElements;
+
+		using AccessTypeTraits = TRealtimeMeshStreamDataAccessorTypeTraits<InAccessType>;
+		using BufferTypeTraits = TRealtimeMeshStreamDataAccessorTypeTraits<InBufferType>;
+
+		using AccessType = typename AccessTypeTraits::Type;
+		using BufferType = typename BufferTypeTraits::Type;
+
+		using AccessElementType = typename AccessTypeTraits::ElementType;
+		using BufferElementType = typename BufferTypeTraits::ElementType;
+
+		static constexpr int32 NumElements = AccessTypeTraits::NumElements;
 		static constexpr bool IsSingleElement = NumElements == 1;
-		static constexpr bool IsConst = TIsConst<StreamTypeRaw>::Value;
+		static constexpr bool IsWritable = !AccessTypeTraits::IsConst;
+
+		using StreamDataAccessor = TRealtimeMeshStreamDataAccessor<InAccessType, InBufferType, bAllowSubstreamAccess>;
 
 		template<typename RetVal, typename Dummy>
-		using TEnableIfWritable = std::enable_if_t<sizeof(Dummy) && !IsConst, RetVal>;
+		using TEnableIfWritable = std::enable_if_t<sizeof(Dummy) && IsWritable, RetVal>;
+
+		using ElementAccessor = TRealtimeMeshElementAccessor<InAccessType, InBufferType, bAllowSubstreamAccess>;
+		using ConstElementAccessor = TRealtimeMeshElementAccessor<const InAccessType, InBufferType, bAllowSubstreamAccess>;
 		
 	protected:
-		FRealtimeMeshStream& Stream;
+		const typename StreamDataAccessor::TContext& Context;
 		SizeType RowIndex;
 
 	public:
-		TRealtimeMeshIndexedBufferAccessor(FRealtimeMeshStream& InStream, int32 InRowIndex)
-			: Stream(InStream)
+		TRealtimeMeshIndexedBufferAccessor(const typename StreamDataAccessor::TContext& InContext, int32 InRowIndex)
+			: Context(InContext)
 			, RowIndex(InRowIndex)
 		{			
 		}
 		FORCEINLINE SizeType GetIndex() const { return RowIndex; }
-		FORCEINLINE operator BufferType() const { return Get(); }
+		FORCEINLINE operator AccessType() const { return Get(); }
 		
-		FORCEINLINE BufferType Get() const
+		FORCEINLINE AccessType Get() const
 		{
-			return Accessor::GetBufferValue(Stream, RowIndex);
+			return StreamDataAccessor::GetBufferValue(Context, RowIndex);
 		}
 		
-		FORCEINLINE ElementType GetElement(SizeType ElementIdx) const
+		template <typename U = AccessType>
+		FORCEINLINE TEnableIfWritable<TRealtimeMeshIndexedBufferAccessor&, U> Set(const AccessType& NewValue)
 		{
-			return Accessor::GetElementValue(Stream, RowIndex, ElementIdx);
-		}
-		
-		template <typename U = BufferType>
-		FORCEINLINE TEnableIfWritable<TRealtimeMeshIndexedBufferAccessor&, U> Set(const BufferType& NewValue)
-		{
-			Accessor::SetBufferValue(Stream, RowIndex, NewValue);
+			StreamDataAccessor::SetBufferValue(Context, RowIndex, NewValue);
 			return *this;
 		}
 		
-		template <typename U = ElementType>
-		FORCEINLINE TEnableIfWritable<TRealtimeMeshIndexedBufferAccessor&, U> SetElement(SizeType ElementIdx, const ElementType& NewElementValue)
+		FORCEINLINE ConstElementAccessor GetElement(SizeType ElementIdx) const
 		{
-			Accessor::SetElementValue(Stream, RowIndex, ElementIdx, NewElementValue);
+			return ConstElementAccessor(Context, RowIndex, ElementIdx);
+		}
+		
+		template <typename U = AccessType>
+		FORCEINLINE TEnableIfWritable<ElementAccessor, U> GetElement(SizeType ElementIdx)
+		{
+			return ElementAccessor(Context, RowIndex, ElementIdx);
+		}
+		
+		template <typename U = AccessElementType>
+		FORCEINLINE TEnableIfWritable<TRealtimeMeshIndexedBufferAccessor&, U> SetElement(SizeType ElementIdx, const AccessElementType& NewElementValue)
+		{
+			GetElement(ElementIdx) = NewElementValue;
 			return *this;
 		}
 
-		FORCEINLINE ElementAccessor operator[](SizeType ElementIdx) const
+		FORCEINLINE ConstElementAccessor operator[](SizeType ElementIdx) const
 		{
-			return ElementAccessor(Stream, RowIndex, ElementIdx);
+			return GetElement(ElementIdx);
+		}
+		
+		template <typename U = AccessElementType>
+		FORCEINLINE TEnableIfWritable<ElementAccessor, U> operator[](SizeType ElementIdx)
+		{
+			return GetElement(ElementIdx);
 		}
 	
-		template <typename U = BufferType>
-		FORCEINLINE TEnableIfWritable<TRealtimeMeshIndexedBufferAccessor&, U> operator=(const BufferType& InNewValue)
+		template <typename U = AccessType>
+		FORCEINLINE TEnableIfWritable<TRealtimeMeshIndexedBufferAccessor&, U> operator=(const AccessType& InNewValue)
 		{
-			Accessor::SetBufferValue(Stream, RowIndex, InNewValue);
+			Set(InNewValue);
 			return *this;
 		}		
 	
 
-		
-		template <typename U = BufferType, typename ArgType, typename... ArgTypes>
-		FORCEINLINE TEnableIfWritable<TRealtimeMeshIndexedBufferAccessor&, U> SetRange(SizeType StartElementIdx, const ArgType& Element, const ArgTypes&... Elements)
-		{			
-			static_assert(std::is_constructible_v<ElementType, ArgType> && std::conjunction_v<std::is_constructible<ElementType, ArgTypes>...>, "Unable to convert all parameters to ElementType");
-			static_assert(sizeof...(ArgTypes) + 1 <= NumElements, "Too many elements passed to SetRange");
-			checkf(sizeof...(ArgTypes) + 1 + StartElementIdx <= NumElements, TEXT("Too many elements passed to SetRange"));
-			
-			SetElement(StartElementIdx, ElementType(Element));
-			SetRange<U, ArgTypes...>(StartElementIdx + 1, Elements...);
+		template <typename U = AccessType>
+		FORCEINLINE TEnableIfWritable<TRealtimeMeshIndexedBufferAccessor&, U> SetRange(SizeType StartElementIdx, TArrayView<AccessElementType> Elements)
+		{
+			checkf(StartElementIdx + Elements.Num() <= NumElements, TEXT("Too many elements passed to SetRange"));
+			for (int32 ElementIdx = 0; ElementIdx < Elements.Num(); ++ElementIdx)
+			{
+				SetElement(StartElementIdx + ElementIdx, Elements[ElementIdx]);
+			}
 			return *this;
 		}
 		
-		template <typename U = BufferType, typename ArgType>
-		FORCEINLINE TEnableIfWritable<TRealtimeMeshIndexedBufferAccessor&, U> SetRange(SizeType StartElementIdx, const ArgType& Element)
+		template <typename U = AccessType>
+		FORCEINLINE TEnableIfWritable<TRealtimeMeshIndexedBufferAccessor&, U> SetAll(TArrayView<AccessElementType> Elements)
 		{
-			static_assert(std::is_constructible_v<ElementType, ArgType>, "Unable to convert all parameters to ElementType");
-			checkf(StartElementIdx < NumElements, TEXT("Too many elements passed to SetRange"));
-			SetElement(StartElementIdx, ElementType(Element));
-			return *this;
+			return SetAll<U>(0, Elements);
 		}
 
-		template <typename U = BufferType, typename... ArgTypes>
-		FORCEINLINE TEnableIfWritable<TRealtimeMeshIndexedBufferAccessor&, U> SetAll(const ArgTypes&... Elements)
+		template <typename U = AccessType>
+		FORCEINLINE TEnableIfWritable<TRealtimeMeshIndexedBufferAccessor&, U> SetRange(SizeType StartElementIdx, std::initializer_list<AccessElementType> Elements)
 		{
-			SetRange<U, ArgTypes...>(0, Elements...);
-			return *this;
+			return SetAll<U>(StartElementIdx, MakeArrayView(Elements));
 		}
 
+		template <typename U = AccessType>
+		FORCEINLINE TEnableIfWritable<TRealtimeMeshIndexedBufferAccessor&, U> SetAll(std::initializer_list<AccessElementType> Elements)
+		{
+			return SetAll<U>(0, MakeArrayView(Elements));
+		}
+
+		template <typename U = AccessType>
+		FORCEINLINE TEnableIfWritable<TRealtimeMeshIndexedBufferAccessor&, U> SetRange(SizeType StartElementIdx, const TArray<AccessElementType>& Elements)
+		{
+			return SetAll<U>(StartElementIdx, MakeArrayView(Elements));
+		}
+
+		template <typename U = AccessType>
+		FORCEINLINE TEnableIfWritable<TRealtimeMeshIndexedBufferAccessor&, U> SetAll(const TArray<AccessElementType>& Elements)
+		{
+			return SetAll<U>(0, MakeArrayView(Elements));
+		}
+
+#define DEFINE_BINARY_OPERATOR_VARIATIONS(ret, op) \
+		FORCEINLINE friend ret operator op(const TRealtimeMeshIndexedBufferAccessor& Left, const TRealtimeMeshIndexedBufferAccessor& Right) { return Left.Get() op Right.Get(); } \
+		FORCEINLINE friend ret operator op(const TRealtimeMeshIndexedBufferAccessor& Left, const AccessType& Right) { return Left.Get() op Right; } \
+		FORCEINLINE friend ret operator op(const AccessType& Left, const TRealtimeMeshIndexedBufferAccessor& Right) { return Left op Right.Get(); }
+		DEFINE_BINARY_OPERATOR_VARIATIONS(bool, ==)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(bool, !=)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(bool, <)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(bool, >)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(bool, <=)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(bool, >=)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(AccessType, +)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(AccessType, -)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(AccessType, *)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(AccessType, /)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(AccessType, %)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(AccessType, &)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(AccessType, |)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(AccessType, ^)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(AccessType, <<)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(AccessType, >>)
+#undef DEFINE_BINARY_OPERATOR_VARIATIONS
+		
 #define DEFINE_BINARY_OPERATOR_VARIATIONS(op) \
-		FORCEINLINE friend bool operator op(const TRealtimeMeshIndexedBufferAccessor& Left, const TRealtimeMeshIndexedBufferAccessor& Right) { return Left.Get() op Right.Get(); } \
-		FORCEINLINE friend bool operator op(const TRealtimeMeshIndexedBufferAccessor& Left, const BufferType& Right) { return Left.Get() op Right; } \
-		FORCEINLINE friend bool operator op(const BufferType& Left, const TRealtimeMeshIndexedBufferAccessor& Right) { return Left op Right.Get(); }
-
-		DEFINE_BINARY_OPERATOR_VARIATIONS(==)
-		DEFINE_BINARY_OPERATOR_VARIATIONS(!=)
-		DEFINE_BINARY_OPERATOR_VARIATIONS(<)
-		DEFINE_BINARY_OPERATOR_VARIATIONS(>)
-		DEFINE_BINARY_OPERATOR_VARIATIONS(<=)
-		DEFINE_BINARY_OPERATOR_VARIATIONS(>=)
+		template <typename U = AccessType> \
+		FORCEINLINE TEnableIfWritable<TRealtimeMeshIndexedBufferAccessor&, U> operator op(const AccessType& Right) { Set(Get() op Right); return *this; } \
+		template <typename U = AccessType> \
+		FORCEINLINE TEnableIfWritable<TRealtimeMeshIndexedBufferAccessor&, U> operator op(const TRealtimeMeshIndexedBufferAccessor& Right) { Set(Get() op Right.Get()); return *this; }
+		DEFINE_BINARY_OPERATOR_VARIATIONS(+=)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(-=)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(*=)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(/=)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(%=)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(&=)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(|=)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(^=)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(<<=)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(>>=)
 #undef DEFINE_BINARY_OPERATOR_VARIATIONS	
 	};
 
-	enum class FRealtimeMeshStreamBuilderEventType
-	{
-		NewSizeUninitialized,
-		NewSizeZeroed,
-		Reserve,
-		Shrink,
-		Empty,
-		RemoveAt,
-	};
+
+
+
 
 
 
 	
 	
-	template <typename BufferType, typename Accessor = FRealtimeMeshStreamElementDirectRead<BufferType>>
-	struct TRealtimeMeshStreamBuilder
+	template <typename InAccessType, typename InBufferType, bool bAllowSubstreamAccess>
+	struct TRealtimeMeshStreamBuilderBase
 	{
 	public:
 		using SizeType = FRealtimeMeshStream::SizeType;
-		using ElementType = typename TCopyQualifiersFromTo<BufferType, typename FRealtimeMeshBufferTypeTraits<BufferType>::ElementType>::Type;
-		using TBufferRowAccessor = TRealtimeMeshIndexedBufferAccessor<BufferType, Accessor>;
-		using TConstBufferRowAccessor = TRealtimeMeshIndexedBufferAccessor<const BufferType, Accessor>;
-		static constexpr int32 NumElements = FRealtimeMeshBufferTypeTraits<BufferType>::NumElements;
-		static constexpr bool IsSingleElement = NumElements == 1;
 
-		
+		using AccessTypeTraits = TRealtimeMeshStreamDataAccessorTypeTraits<InAccessType>;
+		using BufferTypeTraits = TRealtimeMeshStreamDataAccessorTypeTraits<InBufferType>;
+
+		using AccessType = typename AccessTypeTraits::Type;
+		using BufferTypeT = typename BufferTypeTraits::Type;
+
+		using AccessElementType = typename AccessTypeTraits::ElementType;
+		using BufferElementTypeT = typename BufferTypeTraits::ElementType;
+
+		static constexpr int32 NumElements = AccessTypeTraits::NumElements;
+		static constexpr bool IsSingleElement = NumElements == 1;
+		static constexpr bool IsWritable = !AccessTypeTraits::IsConst;
+
+		using StreamDataAccessor = TRealtimeMeshStreamDataAccessor<InAccessType, InBufferType, bAllowSubstreamAccess>;
+
 		template<typename RetVal, typename Dummy>
-		using TEnableIfMultiElement = std::enable_if_t<sizeof(Dummy) && !IsSingleElement, RetVal>;
-		template<typename RetVal, typename Dummy>
-		using TEnableIfSingleElement = std::enable_if_t<sizeof(Dummy) && IsSingleElement, RetVal>;
+		using TEnableIfWritable = std::enable_if_t<sizeof(Dummy) && IsWritable, RetVal>;
+
+		using ElementAccessor = TRealtimeMeshElementAccessor<InAccessType, InBufferType, bAllowSubstreamAccess>;
+		using ConstElementAccessor = TRealtimeMeshElementAccessor<const InAccessType, InBufferType, bAllowSubstreamAccess>;
+
+		using RowAccessor = TRealtimeMeshIndexedBufferAccessor<InAccessType, InBufferType, bAllowSubstreamAccess>;
+		using ConstRowAccessor = TRealtimeMeshIndexedBufferAccessor<const InAccessType, InBufferType, bAllowSubstreamAccess>;
 
 		DECLARE_DELEGATE_ThreeParams(FUpdateSizeDelegate, FRealtimeMeshStreamBuilderEventType, SizeType, SizeType);
 	protected:
-		// Underlying data stream we're responsible for
-		FRealtimeMeshStream& Stream;
+		// Underlying data stream we're responsible for, as well as any conversion that needs to happen
+		typename StreamDataAccessor::TContext Context;
 		FUpdateSizeDelegate UpdateSizeDelegate;
 
 	public:
-		TRealtimeMeshStreamBuilder(FRealtimeMeshStream& InStream, bool bConvertDataIfNecessary = false)
-			: Stream(InStream)
+		TRealtimeMeshStreamBuilderBase(typename TCopyQualifiersFromTo<InAccessType, FRealtimeMeshStream>::Type& InStream, int32 ElementOffset = 0)
+			: Context(StreamDataAccessor::InitializeContext(InStream, ElementOffset))
 		{
-			if (bConvertDataIfNecessary && !Stream.IsOfType<BufferType>())
-			{
-				Stream.ConvertTo<BufferType>();
-			}
-
-			check(Stream.IsOfType<BufferType>());
+			checkf(TIsVoidType<BufferTypeT>::Value || InStream.GetLayout().GetElementType() == GetRealtimeMeshBufferLayout<BufferTypeT>().GetElementType(), TEXT("Supplied stream not correct format for builder."));
+			checkf(bAllowSubstreamAccess || ElementOffset == 0, TEXT("Cannot offset element within stream without substream access enabled."));
 		}
 		
-		TRealtimeMeshStreamBuilder(const TRealtimeMeshStreamBuilder&) = default;
-		TRealtimeMeshStreamBuilder& operator=(const TRealtimeMeshStreamBuilder&) = delete;
-		TRealtimeMeshStreamBuilder(TRealtimeMeshStreamBuilder&&) = default;
-		TRealtimeMeshStreamBuilder& operator=(TRealtimeMeshStreamBuilder&&) = delete;
+		TRealtimeMeshStreamBuilderBase(const TRealtimeMeshStreamBuilderBase&) = default;
+		TRealtimeMeshStreamBuilderBase& operator=(const TRealtimeMeshStreamBuilderBase&) = delete;
+		TRealtimeMeshStreamBuilderBase(TRealtimeMeshStreamBuilderBase&&) = default;
+		TRealtimeMeshStreamBuilderBase& operator=(TRealtimeMeshStreamBuilderBase&&) = delete;
 
-		FORCEINLINE const FRealtimeMeshStream& GetStream() const { return Stream; }
-		FORCEINLINE FRealtimeMeshStream& GetStream() { return Stream; }
-		FORCEINLINE const FRealtimeMeshBufferLayout& GetBufferLayout() const { return Stream.GetLayout(); }
+		FORCEINLINE const FRealtimeMeshStream& GetStream() const { return Context.Stream; }
+		
+		template <typename U = AccessType>
+		FORCEINLINE TEnableIfWritable<FRealtimeMeshStream&, U> GetStream() { return Context.Stream; }
+		FORCEINLINE const FRealtimeMeshBufferLayout& GetBufferLayout() const { return Context.Stream.GetLayout(); }
 
 		FUpdateSizeDelegate& GetCallbackDelegate() { return UpdateSizeDelegate; }
 		void ClearCallbackDelegate() { UpdateSizeDelegate.Unbind(); }
 
+		
 		void SendCallbackNotify(FRealtimeMeshStreamBuilderEventType EventType, SizeType Size, SizeType SecondarySize = 0)
 		{
 			// ReSharper disable once CppExpressionWithoutSideEffects
 			UpdateSizeDelegate.ExecuteIfBound(EventType, Size, SecondarySize);
 		}
 
-		FORCEINLINE SizeType Num() const { return Stream.Num(); }
+		FORCEINLINE SizeType Num() const { return Context.Stream.Num(); }
 
-		FORCEINLINE SIZE_T GetAllocatedSize() const { return Stream.GetAllocatedSize(); }
-		FORCEINLINE SizeType GetSlack() const { return Stream.GetSlack(); }
-		FORCEINLINE bool IsValidIndex(SizeType Index) const { return Stream.IsValidIndex(Index); }
-		FORCEINLINE bool IsEmpty() const { return Stream.IsEmpty(); }
-		FORCEINLINE SizeType Max() const { return Stream.Max(); }
+		FORCEINLINE SIZE_T GetAllocatedSize() const { return Context.Stream.GetAllocatedSize(); }
+		FORCEINLINE SizeType GetSlack() const { return Context.Stream.GetSlack(); }
+		FORCEINLINE bool IsValidIndex(SizeType Index) const { return Context.Stream.IsValidIndex(Index); }
+		FORCEINLINE bool IsEmpty() const { return Context.Stream.IsEmpty(); }
+		FORCEINLINE SizeType Max() const { return Context.Stream.Max(); }
 
 
-		FORCEINLINE SizeType AddUninitialized()
+
+
+
+		
+
+		template <typename U = AccessType>
+		FORCEINLINE TEnableIfWritable<RowAccessor, U> AddUninitialized()
 		{
-			const SizeType Index = Stream.AddUninitialized();
-			SendCallbackNotify(FRealtimeMeshStreamBuilderEventType::NewSizeUninitialized, Stream.Num());
-			return Index;
+			const SizeType Index = Context.Stream.AddUninitialized();
+			SendCallbackNotify(FRealtimeMeshStreamBuilderEventType::NewSizeUninitialized, Context.Stream.Num());
+			return RowAccessor(Context, Index);
 		}
 
-		FORCEINLINE SizeType AddUninitialized(SizeType Count)
+		template <typename U = AccessType>
+		FORCEINLINE TEnableIfWritable<RowAccessor, U> AddUninitialized(SizeType Count)
 		{
-			const SizeType Index = Stream.AddUninitialized(Count);
-			SendCallbackNotify(FRealtimeMeshStreamBuilderEventType::NewSizeUninitialized, Stream.Num());
-			return Index;
+			const SizeType Index = Context.Stream.AddUninitialized(Count);
+			SendCallbackNotify(FRealtimeMeshStreamBuilderEventType::NewSizeUninitialized, Context.Stream.Num());
+			return RowAccessor(Context, Index);
 		}
 
-		FORCEINLINE SizeType AddZeroed(SizeType Count = 1)
+		template <typename U = AccessType>
+		FORCEINLINE TEnableIfWritable<RowAccessor, U> AddZeroed(SizeType Count = 1)
 		{
-			const SizeType Index = Stream.AddZeroed(Count);
-			SendCallbackNotify(FRealtimeMeshStreamBuilderEventType::NewSizeZeroed, Stream.Num());
-			return Index;
+			const SizeType Index = Context.Stream.AddZeroed(Count);
+			SendCallbackNotify(FRealtimeMeshStreamBuilderEventType::NewSizeZeroed, Context.Stream.Num());
+			return RowAccessor(Context, Index);
 		}
 
-		FORCEINLINE void Shrink()
+		template <typename U = AccessType>
+		FORCEINLINE TEnableIfWritable<void, U> Shrink()
 		{
-			Stream.Shrink();
-			SendCallbackNotify(FRealtimeMeshStreamBuilderEventType::Shrink, Stream.Num());
+			Context.Stream.Shrink();
+			SendCallbackNotify(FRealtimeMeshStreamBuilderEventType::Shrink, Context.Stream.Num());
 		}
 
-		FORCEINLINE void Empty(SizeType ExpectedUseSize = 0, SizeType MaxSlack = 0)
+		template <typename U = AccessType>
+		FORCEINLINE TEnableIfWritable<void, U> Empty(SizeType ExpectedUseSize = 0, SizeType MaxSlack = 0)
 		{
-			Stream.Empty(ExpectedUseSize, MaxSlack);			
+			Context.Stream.Empty(ExpectedUseSize, MaxSlack);			
 			SendCallbackNotify(FRealtimeMeshStreamBuilderEventType::Empty, ExpectedUseSize, MaxSlack);
 		}
 
-		FORCEINLINE void Reserve(SizeType Number)
+		template <typename U = AccessType>
+		FORCEINLINE TEnableIfWritable<void, U> Reserve(SizeType Number)
 		{
-			Stream.Reserve(Number);
+			Context.Stream.Reserve(Number);
 			SendCallbackNotify(FRealtimeMeshStreamBuilderEventType::Reserve, Number);
 		}
 
-		FORCEINLINE void SetNumUninitialized(SizeType NewNum)
+		template <typename U = AccessType>
+		FORCEINLINE TEnableIfWritable<void, U> SetNumUninitialized(SizeType NewNum)
 		{
-			Stream.SetNumUninitialized(NewNum);
+			Context.Stream.SetNumUninitialized(NewNum);
 			SendCallbackNotify(FRealtimeMeshStreamBuilderEventType::NewSizeUninitialized, NewNum);
 		}
 
-		FORCEINLINE void SetNumZeroed(SizeType NewNum)
+		template <typename U = AccessType>
+		FORCEINLINE TEnableIfWritable<void, U> SetNumZeroed(SizeType NewNum)
 		{
-			Stream.SetNumZeroed(NewNum);
+			Context.Stream.SetNumZeroed(NewNum);
 			SendCallbackNotify(FRealtimeMeshStreamBuilderEventType::NewSizeZeroed, NewNum);
 		}
 
-		FORCEINLINE void RemoveAt(SizeType Index, SizeType Count = 1)
+		template <typename U = AccessType>
+		FORCEINLINE TEnableIfWritable<void, U> RemoveAt(SizeType Index, SizeType Count = 1)
 		{
-			Stream.RemoveAt(Index, Count);
+			Context.Stream.RemoveAt(Index, Count);
 			SendCallbackNotify(FRealtimeMeshStreamBuilderEventType::RemoveAt, Index, Count);
 		}
 
-		/*FORCEINLINE BufferType& GetValue(SizeType Index)
+		FORCEINLINE AccessType GetValue(int32 Index) const
 		{
-			return Accessor::GetBufferValue
-			return *Stream.GetDataAtVertex<BufferType>(Index);
-		}*/
+			return StreamDataAccessor::GetBufferValue(Context, Index);
+		}
 
-		FORCEINLINE BufferType GetValue(int32 Index) const
+		FORCEINLINE AccessElementType GetElementValue(SizeType Index, SizeType ElementIdx) const
 		{
-			return Accessor::GetBufferValue(Stream, Index);
-			//return *Stream.GetDataAtVertex<BufferType>(Index);
+			return StreamDataAccessor::GetElementValue(Context, Index, ElementIdx);
 		}
 		
-		/*ElementType& GetElementValue(SizeType Index, SizeType ElementIdx)
+		FORCEINLINE ConstRowAccessor Get(SizeType Index) const
 		{
-			return *Stream.GetDataAtVertex<ElementType>(Index, ElementIdx);
-		}*/
-
-		FORCEINLINE ElementType GetElementValue(SizeType Index, SizeType ElementIdx) const
-		{
-			return Accessor::GetElementValue(Stream, Index, ElementIdx);
-			//return *Stream.GetDataAtVertex<ElementType>(Index, ElementIdx);
+			return ConstRowAccessor(Context, Index);
 		}
 		
-		FORCEINLINE TBufferRowAccessor Get(SizeType Index) const
+		FORCEINLINE RowAccessor Get(SizeType Index)
 		{
-			return TBufferRowAccessor(Stream, Index);
+			return RowAccessor(Context, Index);
 		}
 		
-		FORCEINLINE TBufferRowAccessor operator[](int32 Index) const
+		FORCEINLINE ConstRowAccessor operator[](int32 Index) const
 		{
 			return Get(Index);
 		}
 		
-		FORCEINLINE TBufferRowAccessor Add()
+		FORCEINLINE RowAccessor operator[](int32 Index)
 		{
-			const SizeType Index = AddUninitialized();
-			return TBufferRowAccessor(Stream, Index);
+			return Get(Index);
 		}
 		
-		FORCEINLINE SizeType Add(const BufferType& Entry)
+		template <typename U = AccessType>
+		FORCEINLINE TEnableIfWritable<RowAccessor, U> Add()
 		{
-			const SizeType Index = AddUninitialized();
-			Accessor::SetBufferValue(Stream, Index, Entry);
-			//Get(Index) = Entry;
-			return Index;
+			return AddUninitialized().Set(AccessType());
 		}
 		
-		template <typename ArgType, SIZE_T ArgCount>
-		FORCEINLINE TEnableIfMultiElement<SizeType, ArgType> Add(ArgType (&Entries)[ArgCount])
+		template <typename U = AccessType>
+		FORCEINLINE TEnableIfWritable<SizeType, U> Add(const AccessType& Entry)
 		{
-			TBufferRowAccessor Writer = Add();
-			check(ArgCount < NumElements);
-			for (int32 ElementIndex = 0; ElementIndex < ArgCount; ElementIndex++)
-			{
-				Writer.SetElement(ElementIndex, Entries[ElementIndex]);
-			}
-			return Writer.GetIndex();
+			return AddUninitialized().Set(Entry).GetIndex();
 		}
 		
 				
-		template <typename ArgType, typename... ArgTypes>
-		FORCEINLINE TEnableIfMultiElement<SizeType, ArgType> Add(const ArgType& Element, const ArgTypes&... Elements)
+		template <typename U = AccessType>
+		FORCEINLINE TEnableIfWritable<SizeType, U> Emplace(TArrayView<AccessElementType> Elements)
 		{
-			TBufferRowAccessor Writer = Add();
-			Writer.SetRange(0, Element, Elements...);
-			return Writer.GetIndex();
+			return Add().SetAll(Elements).GetIndex();
 		}
 
-		FORCEINLINE TBufferRowAccessor Edit(SizeType Index)
+		template <typename U = AccessType>
+		FORCEINLINE TEnableIfWritable<SizeType, U> Emplace(const TArray<AccessElementType>& Elements)
+		{
+			return Emplace(MakeArrayView(Elements));
+		}
+
+		template <typename U = AccessType>
+		FORCEINLINE TEnableIfWritable<SizeType, U> Emplace(std::initializer_list<AccessElementType> Elements)
+		{
+			return Emplace(MakeArrayView(Elements));
+		}
+
+		
+
+		template <typename U = AccessType>
+		FORCEINLINE TEnableIfWritable<RowAccessor, U> Edit(SizeType Index)
 		{
 			return Get(Index);
 		}
 
-		FORCEINLINE void Set(int32 Index, const BufferType& Entry)
+		template <typename U = AccessType>
+		FORCEINLINE TEnableIfWritable<void, U> Set(int32 Index, const AccessType& Entry)
 		{
-			Accessor::SetBufferValue(Stream, Index, Entry);
-			//Get(Index) = Entry;
+			Edit(Index) = Entry;
 		}
 		
-		template <typename ArgType, SIZE_T ArgCount>
-		FORCEINLINE void Set(int32 Index, ArgType (&Entries)[ArgCount])
-		{
-			check(ArgCount < NumElements);
-			for (int32 ElementIndex = 0; ElementIndex < ArgCount; ElementIndex++)
-			{
-				Accessor::SetElementValue(Stream, Index, ElementIndex, Entries[ElementIndex]);
-				//GetElementValue(Index, ElementIndex) = Entries[ElementIndex];
-			}
+		template <typename U = AccessType>
+		FORCEINLINE TEnableIfWritable<void, U> SetElements(int32 Index, TArrayView<AccessElementType> Elements)
+		{			
+			Edit(Index).SetAll(Elements);
 		}
 		
-		template <typename ArgType>
-		FORCEINLINE typename TEnableIf<!TIsArray<ArgType>::Value>::Type Set(int32 Index, const ArgType& Entry)
+		template <typename U = AccessType>
+		FORCEINLINE TEnableIfWritable<void, U> SetElements(int32 Index, const TArray<AccessElementType>& Elements)
+		{			
+			Edit(Index).SetAll(MakeArrayView(Elements));
+		}
+		
+		template <typename U = AccessType>
+		FORCEINLINE TEnableIfWritable<void, U> SetElements(int32 Index, std::initializer_list<AccessElementType> Elements)
+		{			
+			Edit(Index).SetAll(MakeArrayView(Elements));
+		}
+		
+		
+
+		template <typename U = AccessType>
+		FORCEINLINE TEnableIfWritable<void, U> SetElement(int32 Index, int32 ElementIndex, const AccessElementType& Element)
 		{
-			Accessor::SetBufferValue(Stream, Index, BufferType(Entry));
-			//Get(Index) = BufferType(Entry);
+			Edit(Index).SetElement(ElementIndex, Element);
 		}
 
-		FORCEINLINE void SetElement(int32 Index, int32 ElementIndex, const ElementType& Element)
-		{
-			Accessor::SetElementValue(Stream, Index, ElementIndex, Element);
-			//GetElementValue(Index, ElementIndex) = Element;
-		}
 
-		template <typename ArgType>
-		FORCEINLINE void SetElement(int32 Index, int32 ElementIndex, const ArgType& Element)
-		{
-			Accessor::SetElementValue(Stream, Index, ElementIndex, ElementType(Element));
-			//GetElementValue(Index, ElementIndex) = ElementType(Element);
-		}
-
-		template <typename... ArgTypes>
-		FORCEINLINE void SetElements(int32 Index, const ArgTypes&... Elements)
-		{
-			static_assert(sizeof...(ArgTypes) <= NumElements, "Wrong number of elements passed to SetElements");
-			checkf(sizeof...(ArgTypes) + Index <= NumElements, TEXT("Wrong number of elements passed to SetElements"));
-			static_assert(std::conjunction_v<std::is_assignable<ElementType, const ArgTypes&>...>, "Unable to convert all parameters to ElementType");
-
-			TBufferRowAccessor Writer = Edit(Index);
-			Writer.SetRange(0, Elements...);
-		}
-
-		template <typename GeneratorFunc>
-		FORCEINLINE void SetElementGenerator(int32 StartIndex, int32 Count, int32 ElementIndex, GeneratorFunc Generator)
+		/*template <typename GeneratorFunc>
+		FORCEINLINE TEnableIfWritable<void, GeneratorFunc> SetElementGenerator(int32 StartIndex, int32 Count, int32 ElementIndex, GeneratorFunc Generator)
 		{
 			RangeCheck(StartIndex + Count - 1);
 			ElementCheck(ElementIndex);
 			for (int32 Index = 0; Index < Count; Index++)
 			{
-				Accessor::SetElementValue(Stream, StartIndex + Index, ElementIndex, Generator(Index, StartIndex + Index));
-				//GetElementValue(StartIndex + Index, ElementIndex) = Generator(Index, StartIndex + Index);
+				StreamDataAccessor::SetElementValue(Context, StartIndex + Index, ElementIndex, Generator(Index, StartIndex + Index));
 			}
-		}
+		}*/
 		
-		FORCEINLINE TConstArrayView<BufferType, SizeType> GetView() const
+		/*FORCE INLINE TConstArrayView<BufferType, SizeType> GetView() const
 		{
-			return TConstArrayView<BufferType, SizeType>(Stream.GetData(), Num());
+			return TConstArrayView<BufferType, SizeType>(Context.Stream.GetData(), Num());
 		}
 
-		FORCEINLINE TArrayView<BufferType, SizeType> GetView()
+		FORCE INLINE TArrayView<BufferType, SizeType> GetView()
 		{
-			return TArrayView<BufferType, SizeType>(Stream.GetData(), Num());
-		}
+			return TArrayView<BufferType, SizeType>(Context.Stream.GetData(), Num());
+		}*/
 
-		FORCEINLINE void SetRange(int32 StartIndex, TArrayView<BufferType> Elements)
+		template <typename U = AccessType>
+		FORCEINLINE TEnableIfWritable<void, U> SetRange(int32 StartIndex, TArrayView<AccessType> Elements)
 		{
 			RangeCheck(StartIndex + Elements.Num() - 1);
-			FMemory::Memcpy(&Get(StartIndex), Elements.GetData(), sizeof(BufferType) * Elements.Num());
+			for (int32 Index = 0; Index < Elements.Num(); Index++)
+			{
+				StreamDataAccessor::SetBufferValue(Context, StartIndex + Index, Elements[Index]);
+			}
 		}
 
 		template <typename InAllocatorType>
-		FORCEINLINE void SetRange(int32 StartIndex, const TArray<BufferType, InAllocatorType>& Elements)
+		FORCEINLINE TEnableIfWritable<void, InAllocatorType> SetRange(int32 StartIndex, const TArray<AccessType, InAllocatorType>& Elements)
 		{
 			SetRange(StartIndex, MakeArrayView(Elements));
 		}
 
-		FORCEINLINE void SetRange(int32 StartIndex, BufferType* Elements, int32 Count)
+		template <typename U = AccessType>
+		FORCEINLINE TEnableIfWritable<void, U> SetRange(int32 StartIndex, AccessType* Elements, int32 Count)
 		{
 			SetRange(StartIndex, MakeArrayView(Elements, Count));
 		}
 
-		FORCEINLINE void SetRange(int32 StartIndex, std::initializer_list<BufferType> Elements)
+		template <typename U = AccessType>
+		FORCEINLINE TEnableIfWritable<void, U> SetRange(int32 StartIndex, std::initializer_list<AccessType> Elements)
 		{
 			SetRange(StartIndex, MakeArrayView(Elements.begin(), Elements.size()));
 		}
 
 		template <typename GeneratorFunc>
-		FORCEINLINE void SetGenerator(int32 StartIndex, int32 Count, GeneratorFunc Generator)
+		FORCEINLINE TEnableIfWritable<void, GeneratorFunc> SetGenerator(int32 StartIndex, int32 Count, GeneratorFunc Generator)
 		{
 			RangeCheck(StartIndex + Count - 1);
-			BufferType* DataPtr = Stream.GetDataAtVertex<BufferType>(StartIndex);
 			for (int32 Index = 0; Index < Count; Index++)
 			{
-				DataPtr[Index] = Invoke(Generator, Index, StartIndex + Index);
+				const int32 FinalIndex = StartIndex + Index;
+				Edit(FinalIndex) = Invoke(Generator, Index, FinalIndex);
 			}
 		}
 
-		FORCEINLINE void Append(TArrayView<BufferType> Elements)
+		template <typename U = AccessType>
+		FORCEINLINE TEnableIfWritable<void, U> Append(TArrayView<AccessType> Elements)
 		{
 			const SizeType StartIndex = AddUninitialized(Elements.Num());
 			SetRange(StartIndex, Elements);
 		}
 
 		template <typename InAllocatorType>
-		FORCEINLINE void Append(const TArray<BufferType, InAllocatorType>& Elements)
+		FORCEINLINE TEnableIfWritable<void, InAllocatorType> Append(const TArray<AccessType, InAllocatorType>& Elements)
 		{
 			Append(MakeArrayView(Elements));
 		}
 
-		FORCEINLINE void Append(BufferType* Elements, int32 Count)
+		template <typename U = AccessType>
+		FORCEINLINE TEnableIfWritable<void, U> Append(AccessType* Elements, int32 Count)
 		{
 			Append(MakeArrayView(Elements, Count));
 		}
 
-		FORCEINLINE void Append(std::initializer_list<BufferType> Elements)
+		template <typename U = AccessType>
+		FORCEINLINE TEnableIfWritable<void, U> Append(std::initializer_list<AccessType> Elements)
 		{
 			Append(MakeArrayView(Elements.begin(), Elements.size()));
 		}
 
 		template <typename GeneratorFunc>
-		FORCEINLINE void AppendGenerator(int32 Count, GeneratorFunc Generator)
+		FORCEINLINE TEnableIfWritable<void, GeneratorFunc> AppendGenerator(int32 Count, GeneratorFunc Generator)
 		{
 			if (Count > 0)
 			{
-				const SizeType StartIndex = AddUninitialized(Count);
+				const SizeType StartIndex = AddUninitialized<GeneratorFunc>(Count);
 				SetGenerator<GeneratorFunc>(StartIndex, Count, Forward<GeneratorFunc>(Generator));
 			}
 		}
@@ -637,62 +1036,96 @@ namespace RealtimeMesh
 		}
 	};
 
+
+
+	template<typename InAccessType, typename InBufferType = InAccessType>
+	using TRealtimeMeshStreamBuilder = TRealtimeMeshStreamBuilderBase<InAccessType, InBufferType, false>;
 	
+	template<typename InAccessType, typename InBufferType = InAccessType>
+	using TRealtimeMeshStridedStreamBuilder = TRealtimeMeshStreamBuilderBase<InAccessType, InBufferType, true>;
 
-
-	template <typename IndexType, typename TangentType, typename TexCoordType, int32 NumTexCoords>
+	template <typename MeshBuilderType>
 	struct TRealtimeMeshVertexBuilderLocal;
 
 
+	
 
-
-	template <typename IndexType = uint32, typename TangentType = FPackedNormal, typename TexCoordType = FVector2DHalf, int32 NumTexCoords = 1>
+	/**
+	 * Implements a helper class for building normal realtime mesh data. This is specialized towards the needs of the FLocalVertexFactory
+	 * If you implement a custom vertex factory you may want to build your own builder structure, possibly less generic than this one
+	 * to accomplish the same goals.
+	 * The building blocks of this builder are reusable in other tools
+	 * @tparam IndexType Type used for an individual index, usually uint16 or uint32 for 16 or 32 bit indices respectively
+	 * @tparam TangentElementType Type used for a single tangent, usually FPackedNormal or FPackedRGBA16N
+	 * @tparam TexCoordElementType Type used for a single tex coord, usually FVector2f or FVector2DHalf
+	 * @tparam NumTexCoords Number of texture coordinates to use, supported values are between 1 and 8
+	 * @tparam PolyGroupIndexType Type used to index the polygroup, usually a uint8, but larger values can be used for more polygroups
+	 */
+	template <typename IndexType = uint32, typename TangentElementType = FPackedNormal, typename TexCoordElementType = FVector2DHalf, int32 NumTexCoords = 1, typename PolyGroupIndexType = uint16>
 	struct TRealtimeMeshBuilderLocal
 	{
-		using VertexBuilder = TRealtimeMeshVertexBuilderLocal<IndexType, TangentType, TexCoordType, NumTexCoords>;
-		using TriangleType = TIndex3<IndexType>;
-		using TangentStreamType = TRealtimeMeshTangents<TangentType>;
-		using TexCoordStreamType = TRealtimeMeshTexCoords<TexCoordType, NumTexCoords>;
-		using SizeType = TRealtimeMeshStreamBuilder<FVector3f>::SizeType;
+		using TriangleType = TIndex3<uint32>;
+		using TangentAccessType = TRealtimeMeshTangents<FVector4f>;
+		using TexCoordAccessType = TRealtimeMeshTexCoords<FVector2f, NumTexCoords>;
+
+		using TriangleStreamType = typename TRealtimeMeshPromoteTypeIfNotVoid<IndexType, TIndex3<IndexType>>::Type;
+		using TangentStreamType = typename TRealtimeMeshPromoteTypeIfNotVoid<TangentElementType, TRealtimeMeshTangents<TangentElementType>>::Type;
+		using TexCoordStreamType = typename TRealtimeMeshPromoteTypeIfNotVoid<TexCoordElementType, TRealtimeMeshTexCoords<TexCoordElementType, NumTexCoords>>::Type;
+
+		using TriangleStreamBuilder = TRealtimeMeshStreamBuilderBase<TriangleType, TriangleStreamType, false>;
+		using PositionStreamBuilder = TRealtimeMeshStreamBuilderBase<FVector3f, FVector3f, false>;
+		using TangentStreamBuilder = TRealtimeMeshStreamBuilderBase<TangentAccessType, TangentStreamType, false>;
+		using TexCoordStreamBuilder = TRealtimeMeshStreamBuilderBase<TexCoordAccessType, TexCoordStreamType, true>;
+		using ColorStreamBuilder = TRealtimeMeshStreamBuilderBase<FColor, FColor, false>;
+		using PolyGroupStreamBuilder = TRealtimeMeshStreamBuilderBase<uint32, PolyGroupIndexType, false>;
+		
+		using VertexBuilder = TRealtimeMeshVertexBuilderLocal<TRealtimeMeshBuilderLocal>;
+		using SizeType = PositionStreamBuilder::SizeType;
+
+		static_assert(FRealtimeMeshBufferTypeTraits<TexCoordStreamType>::NumElements == NumTexCoords, "NumTexCoords must match the number of elements in the TexCoordStreamType");
 
 	private:
 		FRealtimeMeshStreamSet& Streams;
 
-		TRealtimeMeshStreamBuilder<FVector3f> Vertices;
-		TOptional<TRealtimeMeshStreamBuilder<TangentStreamType>> Tangents;
-		TOptional<TRealtimeMeshStreamBuilder<TexCoordStreamType>> TexCoords;
-		TOptional<TRealtimeMeshStreamBuilder<FColor>> Colors;
+		PositionStreamBuilder Vertices;
+		TOptional<TangentStreamBuilder> Tangents;
+		TOptional<TexCoordStreamBuilder> TexCoords;
+		TOptional<ColorStreamBuilder> Colors;
 
-		TRealtimeMeshStreamBuilder<TriangleType> Triangles;
-		TOptional<TRealtimeMeshStreamBuilder<TriangleType>> DepthOnlyTriangles;
+		TriangleStreamBuilder Triangles;
+		TOptional<TriangleStreamBuilder> DepthOnlyTriangles;
 		
-		TOptional<TRealtimeMeshStreamBuilder<uint16>> TrianglePolyGroups;
-		TOptional<TRealtimeMeshStreamBuilder<uint16>> DepthOnlyTrianglePolyGroups;
+		TOptional<PolyGroupStreamBuilder> TrianglePolyGroups;
+		TOptional<PolyGroupStreamBuilder> DepthOnlyTrianglePolyGroups;
 
-		TOptional<TRealtimeMeshStreamBuilder<FRealtimeMeshPolygonGroupRange>> TriangleSegments;
-		TOptional<TRealtimeMeshStreamBuilder<FRealtimeMeshPolygonGroupRange>> DepthOnlyTriangleSegments;
-
-		template <typename StreamLayout>
-		TOptional<TRealtimeMeshStreamBuilder<StreamLayout>> GetStreamBuilder(const FRealtimeMeshStreamKey& StreamKey, bool bCreateIfNotAvailable = false)
+		template <typename AccessLayout, typename DataLayout, typename DesiredStreamLayout, bool bAllowSubstreamAccess>
+		TOptional<TRealtimeMeshStreamBuilderBase<AccessLayout, DataLayout, bAllowSubstreamAccess>> GetStreamBuilder(const FRealtimeMeshStreamKey& StreamKey, bool bCreateIfNotAvailable = false)
 		{
 			if (auto* ExistingStream = Streams.Find(StreamKey))
 			{
-				if (ExistingStream->GetLayout() != GetRealtimeMeshBufferLayout<StreamLayout>())
+				if constexpr (TIsSame<AccessLayout, DataLayout>::Value)
 				{
-					// Convert stream if necessary
-					ExistingStream->template ConvertTo<StreamLayout>();					
+					check((TIsSame<AccessLayout, DesiredStreamLayout>::Value));
 				}
-
-				return TRealtimeMeshStreamBuilder<StreamLayout>(*ExistingStream);
+				else if constexpr (!TIsSame<DataLayout, void>::Value)
+				{
+					check(ExistingStream->IsOfType<DataLayout>());
+				}
+				else
+				{
+					check(ExistingStream->CanConvertTo<AccessLayout>());					
+				}
+				
+				return TRealtimeMeshStreamBuilderBase<AccessLayout, DataLayout, bAllowSubstreamAccess>(*ExistingStream);
 			}
 
 			if (bCreateIfNotAvailable)
 			{
-				auto NewStream = Streams.AddStream(StreamKey, GetRealtimeMeshBufferLayout<StreamLayout>());
-				return TRealtimeMeshStreamBuilder<StreamLayout>(*NewStream);
+				auto NewStream = Streams.AddStream(StreamKey, GetRealtimeMeshBufferLayout<DesiredStreamLayout>());
+				return TRealtimeMeshStreamBuilderBase<AccessLayout, DataLayout, bAllowSubstreamAccess>(*NewStream);
 			}
 			
-			return TOptional<TRealtimeMeshStreamBuilder<StreamLayout>>();
+			return TOptional<TRealtimeMeshStreamBuilderBase<AccessLayout, DataLayout, bAllowSubstreamAccess>>();
 		}
 
 		
@@ -851,15 +1284,14 @@ namespace RealtimeMesh
 
 		TRealtimeMeshBuilderLocal(FRealtimeMeshStreamSet& InExistingStreams)
 			: Streams(InExistingStreams)
-			, Vertices(GetStreamBuilder<FVector3f>(FRealtimeMeshStreams::Position, true)->GetStream())
-			, Tangents(GetStreamBuilder<TangentStreamType>(FRealtimeMeshStreams::Tangents))
-			, TexCoords(GetStreamBuilder<TexCoordStreamType>(FRealtimeMeshStreams::TexCoords))
-			, Colors(GetStreamBuilder<FColor>(FRealtimeMeshStreams::Color))
-			, Triangles(GetStreamBuilder<TriangleType>(FRealtimeMeshStreams::Triangles, true)->GetStream())
-			, DepthOnlyTriangles(GetStreamBuilder<TriangleType>(FRealtimeMeshStreams::DepthOnlyTriangles))
-			, TrianglePolyGroups(GetStreamBuilder<uint16>(FRealtimeMeshStreams::PolyGroups))
-			, DepthOnlyTrianglePolyGroups(GetStreamBuilder<uint16>(FRealtimeMeshStreams::DepthOnlyPolyGroups))
-			, TriangleSegments(GetStreamBuilder<FRealtimeMeshPolygonGroupRange>(FRealtimeMeshStreams::PolyGroupSegments))
+			, Vertices(GetStreamBuilder<FVector3f, FVector3f, FVector3f, false>(FRealtimeMeshStreams::Position, true)->GetStream())
+			, Tangents(GetStreamBuilder<TangentAccessType, TangentStreamType, typename TRealtimeMeshUseTypeOrDefaultIfVoid<TangentStreamType, TRealtimeMeshTangents<FPackedNormal>>::Type, false>(FRealtimeMeshStreams::Tangents))
+			, TexCoords(GetStreamBuilder<TexCoordAccessType, TexCoordStreamType, typename TRealtimeMeshUseTypeOrDefaultIfVoid<TexCoordStreamType, TRealtimeMeshTexCoords<FVector2DHalf, NumTexCoords>>::Type, true>(FRealtimeMeshStreams::TexCoords))
+			, Colors(GetStreamBuilder<FColor, FColor, FColor, false>(FRealtimeMeshStreams::Color))
+			, Triangles(GetStreamBuilder<TriangleType, TriangleStreamType, typename TRealtimeMeshUseTypeOrDefaultIfVoid<TriangleStreamType, TIndex3<uint16>>::Type, false>(FRealtimeMeshStreams::Triangles, true)->GetStream())
+			, DepthOnlyTriangles(GetStreamBuilder<TriangleType, TriangleStreamType, typename TRealtimeMeshUseTypeOrDefaultIfVoid<TriangleStreamType, TIndex3<uint16>>::Type, false>(FRealtimeMeshStreams::DepthOnlyTriangles))
+			, TrianglePolyGroups(GetStreamBuilder<uint32, PolyGroupIndexType, typename TRealtimeMeshUseTypeOrDefaultIfVoid<PolyGroupIndexType, uint16>::Type, false>(FRealtimeMeshStreams::PolyGroups))
+			, DepthOnlyTrianglePolyGroups(GetStreamBuilder<uint32, PolyGroupIndexType, typename TRealtimeMeshUseTypeOrDefaultIfVoid<PolyGroupIndexType, uint16>::Type, false>(FRealtimeMeshStreams::DepthOnlyPolyGroups))
 		{
 			Vertices.GetCallbackDelegate().BindRaw(this, &TRealtimeMeshBuilderLocal::OnVerticesSizeChanged);
 			Triangles.GetCallbackDelegate().BindRaw(this, &TRealtimeMeshBuilderLocal::OnTrianglesSizeChanged);
@@ -879,18 +1311,23 @@ namespace RealtimeMesh
 		FORCEINLINE SizeType NumTexCoordChannels() const { return HasTexCoords()? TexCoords->NumElements : 0; }
 		FORCEINLINE bool HasDepthOnlyTriangles() const { return DepthOnlyTriangles.IsSet(); }		
 		FORCEINLINE bool HasPolyGroups() const { return TrianglePolyGroups.IsSet(); }
-		FORCEINLINE bool HasSegments() const { return TriangleSegments.IsSet(); }
 
 
+		template<typename NewTangentElementType = typename TRealtimeMeshUseTypeOrDefaultIfVoid<TangentElementType, FPackedNormal>::Type>
 		void EnableTangents()
 		{
+			static_assert(TRealtimeMeshIsVoidOrSameType<TangentElementType, NewTangentElementType>::Value,
+				"New tangent type does not match type the builder assumes. Please match the type or allow the builder to use a dynamic access by passing void to TangentElementType");
+			
 			if (!Tangents.IsSet())
 			{
-				Tangents = GetStreamBuilder<TangentStreamType>(FRealtimeMeshStreams::Tangents, true);
-				Tangents->AppendGenerator(Vertices.Num(), [](int32 Index, int32 VertexIndex)
+				Tangents = GetStreamBuilder<TangentAccessType, TangentStreamType, TRealtimeMeshTangents<NewTangentElementType>, false>(FRealtimeMeshStreams::Tangents, true);
+				Tangents->SetNumZeroed(Vertices.Num());
+				// TODO: Turn this back on once we fixup the generator functions
+				/*Tangents->AppendGenerator(Vertices.Num(), [](int32 Index, int32 VertexIndex)
 				{
 					return TRealtimeMeshTangents<TangentType>(FVector3f::ZAxisVector, FVector3f::XAxisVector);
-				});
+				});*/
 			}
 		}
 		void DisableTangents()
@@ -902,11 +1339,13 @@ namespace RealtimeMesh
 		{
 			if (!Colors.IsSet())
 			{
-				Colors = GetStreamBuilder<FColor>(FRealtimeMeshStreams::Color, true);
-				Colors->AppendGenerator(Vertices.Num(), [](int32 Index, int32 VertexIndex)
+				Colors = GetStreamBuilder<FColor, FColor, FColor, false>(FRealtimeMeshStreams::Color, true);
+				Colors->SetNumZeroed(Vertices.Num());
+				// TODO: Turn this back on once we fixup the generator functions
+				/*Colors->AppendGenerator(Vertices.Num(), [](int32 Index, int32 VertexIndex)
 				{
 					return FColor::White;
-				});
+				});*/
 			}
 		}
 		void DisableColors()
@@ -914,11 +1353,14 @@ namespace RealtimeMesh
 			Colors.Reset();
 		}
 
+		template<typename NewTexCoordElementType = typename TRealtimeMeshUseTypeOrDefaultIfVoid<TexCoordElementType, FVector2DHalf>::Type>
 		void EnableTexCoords()
-		{
+		{			
+			static_assert(TRealtimeMeshIsVoidOrSameType<TexCoordElementType, NewTexCoordElementType>::Value,
+				"New TexCoord type does not match type the builder assumes. Please match the type or allow the builder to use a dynamic access by passing void to TexCoordElementType");
 			if (!TexCoords.IsSet())
 			{
-				TexCoords = GetStreamBuilder<TexCoordStreamType>(FRealtimeMeshStreams::TexCoords, true);
+				TexCoords = GetStreamBuilder<TexCoordAccessType, TexCoordStreamType, TRealtimeMeshTexCoords<NewTexCoordElementType, NumTexCoords>, true>(FRealtimeMeshStreams::TexCoords, true);
 				TexCoords->SetNumZeroed(Vertices.Num());
 			}
 		}
@@ -926,12 +1368,16 @@ namespace RealtimeMesh
 		{
 			TexCoords.Reset();
 		}
-
+		
+		template<typename NewIndexType = typename TRealtimeMeshUseTypeOrDefaultIfVoid<IndexType, uint16>::Type>
 		void EnableDepthOnlyTriangles()
 		{
+			static_assert(TRealtimeMeshIsVoidOrSameType<IndexType, NewIndexType>::Value,
+				"New index type does not match type the builder assumes. Please match the type or allow the builder to use a dynamic access by passing void to IndexType");
+			
 			if (!DepthOnlyTriangles.IsSet())
 			{
-				DepthOnlyTriangles = GetStreamBuilder<TriangleType>(FRealtimeMeshStreams::DepthOnlyTriangles, true);
+				DepthOnlyTriangles = GetStreamBuilder<TriangleType, TriangleStreamType, TIndex3<NewIndexType>, false>(FRealtimeMeshStreams::DepthOnlyTriangles, true);
 				DepthOnlyTriangles->GetCallbackDelegate().BindRaw(this, &TRealtimeMeshBuilderLocal::OnDepthOnlyTrianglesSizeChanged);
 			}
 		}
@@ -941,21 +1387,22 @@ namespace RealtimeMesh
 		}
 
 		
+		template<typename NewPolyGroupIndexType = typename TRealtimeMeshUseTypeOrDefaultIfVoid<PolyGroupIndexType, uint16>::Type>
 		void EnablePolyGroups()
 		{
+			static_assert(TRealtimeMeshIsVoidOrSameType<PolyGroupIndexType, NewPolyGroupIndexType>::Value,
+				"New poly group index type does not match type the builder assumes. Please match the type or allow the builder to use a dynamic access by passing void to PolyGroupIndexType");
+			
 			if (!TrianglePolyGroups.IsSet())
 			{
-				TrianglePolyGroups = GetStreamBuilder<uint16>(FRealtimeMeshStreams::PolyGroups, true);
+				TrianglePolyGroups = GetStreamBuilder<uint32, PolyGroupIndexType, NewPolyGroupIndexType, false>(FRealtimeMeshStreams::PolyGroups, true);
 				TrianglePolyGroups->SetNumZeroed(Vertices.Num());
 			}
 			if (HasDepthOnlyTriangles() && !DepthOnlyTrianglePolyGroups.IsSet())
 			{
-				DepthOnlyTrianglePolyGroups = GetStreamBuilder<uint16>(FRealtimeMeshStreams::DepthOnlyPolyGroups, true);
+				DepthOnlyTrianglePolyGroups = GetStreamBuilder<uint32, PolyGroupIndexType, NewPolyGroupIndexType, false>(FRealtimeMeshStreams::DepthOnlyPolyGroups, true);
 				DepthOnlyTrianglePolyGroups->SetNumZeroed(Vertices.Num());
 			}
-
-			TriangleSegments.Reset();
-			DepthOnlyTriangleSegments.Reset();
 		}
 
 		void DisablePolyGroups()
@@ -963,170 +1410,6 @@ namespace RealtimeMesh
 			TrianglePolyGroups.Reset();
 			DepthOnlyTrianglePolyGroups.Reset();
 		}
-
-		void EnableTriangleSegments()
-		{
-			if (!TriangleSegments.IsSet())
-			{
-				TriangleSegments = GetStreamBuilder<FRealtimeMeshPolygonGroupRange>(FRealtimeMeshStreams::PolyGroupSegments, true);		
-			}
-			if (!DepthOnlyTriangleSegments.IsSet())
-			{
-				DepthOnlyTriangleSegments = GetStreamBuilder<FRealtimeMeshPolygonGroupRange>(FRealtimeMeshStreams::DepthOnlyPolyGroupSegments, true);		
-			}
-			TrianglePolyGroups.Reset();
-			DepthOnlyTrianglePolyGroups.Reset();
-		}
-
-		void DisableTriangleSegments()
-		{
-			TriangleSegments.Reset();
-			DepthOnlyTriangleSegments.Reset();
-		}
-
-		
-		void ConvertToMaterialSegments()
-		{
-			if (!TriangleSegments.IsSet())
-			{
-				TriangleSegments = GetStreamBuilder<FRealtimeMeshPolygonGroupRange>(FRealtimeMeshStreams::PolyGroupSegments);
-
-				// Convert existing material indices to segments
-				if (TrianglePolyGroups.IsSet())
-				{
-					RealtimeMeshAlgo::GatherSegmentsFromPolygonGroupIndices(
-						TrianglePolyGroups->GetStream().template GetArrayView<uint16>(),
-						[this](const FRealtimeMeshPolygonGroupRange& NewSegment)
-						{
-							TriangleSegments->Add(NewSegment);
-						});
-
-					// Drop the triangle segments as these two ways of doing things are mutually exclusive
-					TrianglePolyGroups.Reset();
-				}				
-			}
-
-			if (HasDepthOnlyTriangles() && !DepthOnlyTriangleSegments.IsSet())
-			{
-				DepthOnlyTriangleSegments = GetStreamBuilder<FRealtimeMeshPolygonGroupRange>(FRealtimeMeshStreams::PolyGroupSegments);
-
-				// Convert existing material indices to segments
-				if (DepthOnlyTrianglePolyGroups.IsSet())
-				{
-					RealtimeMeshAlgo::GatherSegmentsFromPolygonGroupIndices(
-						DepthOnlyTrianglePolyGroups->GetStream().template GetArrayView<uint16>(),
-						[this](const FRealtimeMeshPolygonGroupRange& NewSegment)
-						{
-							DepthOnlyTriangleSegments->Add(NewSegment);
-						});
-
-					// Drop the triangle segments as these two ways of doing things are mutually exclusive
-					DepthOnlyTrianglePolyGroups.Reset();
-				}				
-			}
-		}
-
-		void ConvertToPolyGroups()
-		{
-			if (!TrianglePolyGroups.IsSet())
-			{
-				TrianglePolyGroups = GetStreamBuilder<uint16>(FRealtimeMeshStreams::PolyGroups);
-
-				// If we have existing segments, we need to copy them into the indices and disable them
-				if (TriangleSegments.IsSet())
-				{
-					auto PolyGroups = TrianglePolyGroups->GetStream().template GetArrayView<uint16>();
-					RealtimeMeshAlgo::PropagateTriangleSegmentsToPolygonGroups(
-						TriangleSegments->GetStream().template GetArrayView<FRealtimeMeshPolygonGroupRange>(),
-						PolyGroups);
-
-					// Drop the triangle segments as these two ways of doing things are mutually exclusive
-					TriangleSegments.Reset();
-				}
-			}
-
-			if (HasDepthOnlyTriangles() && !DepthOnlyTrianglePolyGroups.IsSet())
-			{
-				DepthOnlyTrianglePolyGroups = GetStreamBuilder<uint16>(FRealtimeMeshStreams::PolyGroups);
-
-				// If we have existing segments, we need to copy them into the indices and disable them
-				if (DepthOnlyTriangleSegments.IsSet())
-				{
-					auto PolyGroups = DepthOnlyTrianglePolyGroups->GetStream().template GetArrayView<uint16>();
-					RealtimeMeshAlgo::PropagateTriangleSegmentsToPolygonGroups(
-						DepthOnlyTriangleSegments->GetStream().template GetArrayView<FRealtimeMeshPolygonGroupRange>(),
-						PolyGroups);
-					
-					// Drop the triangle segments as these two ways of doing things are mutually exclusive
-					DepthOnlyTriangleSegments.Reset();
-				}
-			}
-		}
-		
-
-		
-
-		/*TSet<FRealtimeMeshStream>&& TakeStreamSet(bool bRemoveEmpty = true)
-		{
-			// This is only valid when the builder owns the data.
-			check(StreamStorage.IsValid());
-			
-			TSet<FRealtimeMeshStream> NewStreams;
-			// This is only valid when the builder owns the data.
-			for (auto& Stream : Streams)
-			{
-				if (!bRemoveEmpty || Stream.Num() > 0)
-				{
-					NewStreams.Emplace(MoveTemp(Stream));
-				}
-			}
-			Streams.Empty();
-			return MoveTemp(NewStreams);
-		}*/
-		
-		/*TSet<FRealtimeMeshStream> CopyStreamSet(bool bRemoveEmpty = true)
-		{
-			TSet<FRealtimeMeshStream> NewStreams;
-			// This is only valid when the builder owns the data.
-			for (const auto& Stream : Streams)
-			{
-				if (!bRemoveEmpty || Stream.Num() > 0)
-				{
-					NewStreams.Emplace(Stream);
-				}
-			}
-			return NewStreams;
-		}*/
-
-		/*void SortTrianglesByMaterial()
-		{
-			if (TriangleMaterialIndices.Num() == Triangles.Num())
-			{
-				TArray<uint32> RemapTable;
-				RemapTable.SetNumUninitialized(TriangleMaterialIndices.Num());
-				for (int32 Index = 0; Index < TriangleMaterialIndices.Num(); Index++)
-				{
-					RemapTable[Index] = Index;
-				}
-
-				Algo::StableSortBy(RemapTable, [this](int32 Index)
-				{
-					return TriangleMaterialIndices.Get(Index);
-				});
-
-				TRealtimeMeshStreamBuilder<TriangleType> NewTriangles(Triangles.GetStream()->GetStreamKey());
-				NewTriangles.SetNumUninitialized(Triangles.Num());
-				RealtimeMeshAlgo::Reorder(&Triangles[0], &NewTriangles[0], Triangles.Num());
-				Triangles = MoveTemp(NewTriangles);
-
-				TRealtimeMeshStreamBuilder<uint16> NewTriangleMaterialIndices(TriangleMaterialIndices.GetStream()->GetStreamKey());
-				NewTriangleMaterialIndices.SetNumUninitialized(Triangles.Num());
-				RealtimeMeshAlgo::Reorder(&TriangleMaterialIndices[0], &NewTriangleMaterialIndices[0], Triangles.Num());
-				TriangleMaterialIndices = MoveTemp(NewTriangleMaterialIndices);
-			}
-		}*/
-		
-
 
 		VertexBuilder AddVertex()
 		{
@@ -1151,28 +1434,28 @@ namespace RealtimeMesh
 			Vertices.Set(VertIdx, InPosition);
 		}
 
-		void SetNormal(int32 VertIdx, const TangentType& Normal)
+		void SetNormal(int32 VertIdx, const FVector3f& Normal)
 		{
 			checkf(HasTangents(), TEXT("Vertex tangents not enabled"));
-			Tangents->GetValue(VertIdx).SetNormal(Normal);
+			Tangents->SetElement(VertIdx, 1, FVector4f(Normal, Tangents->GetElementValue(VertIdx, 1).W));
 		}
 
-		void SetTangents(int32 VertIdx, const TangentType& Tangent)
+		void SetTangent(int32 VertIdx, const FVector3f& Tangent)
 		{
 			checkf(HasTangents(), TEXT("Vertex tangents not enabled"));
-			Tangents->GetValue(VertIdx).SetNormal(Tangent);
+			Tangents->SetElement(VertIdx, 0, FVector4f(Tangent));
 		}
 
-		void SetNormalAndTangent(int32 VertIdx, const FVector3f& Normal, const FVector3f& Tangent)
+		void SetNormalAndTangent(int32 VertIdx, const FVector3f& Normal, const FVector3f& Tangent, bool bShouldFlipBinormal = false)
 		{
 			checkf(HasTangents(), TEXT("Vertex tangents not enabled"));
-			Tangents->GetValue(VertIdx).SetNormalAndTangent(Normal, Tangent);
+			Tangents->Set(VertIdx, TRealtimeMeshTangents<FVector4f>(Normal, Tangent, bShouldFlipBinormal));
 		}
 
 		void SetTangents(int32 VertIdx, const FVector3f& Normal, const FVector3f& Binormal, const FVector3f& Tangent)
 		{
 			checkf(HasTangents(), TEXT("Vertex tangents not enabled"));
-			Tangents->GetValue(VertIdx).SetTangents(Normal, Binormal, Tangent);
+			Tangents->Set(VertIdx, TRealtimeMeshTangents<FVector4f>(Normal, Tangent, Tangent));
 		}
 
 		/*void SetTexCoord(int32 VertIdx, int32 TexCoordIdx, const TexCoordType& TexCoord)
@@ -1188,18 +1471,17 @@ namespace RealtimeMesh
 			}
 		}*/
 
-		template <typename ArgType>
-		void SetTexCoord(int32 VertIdx, int32 TexCoordIdx, const ArgType& TexCoord)
+		void SetTexCoord(int32 VertIdx, int32 TexCoordIdx, const FVector2f& TexCoord)
 		{
 			checkf(HasTexCoords(), TEXT("Vertex texcoords not enabled"));
 			if constexpr (FRealtimeMeshBufferTypeTraits<TexCoordStreamType>::NumElements == 1)
 			{
 				check(TexCoordIdx == 0);
-				TexCoords->template Set<ArgType>(VertIdx, TexCoord);
+				TexCoords->Set(VertIdx, TexCoord);
 			}
 			else
 			{
-				TexCoords->template SetElement<ArgType>(VertIdx, TexCoordIdx, TexCoord);
+				TexCoords->SetElement(VertIdx, TexCoordIdx, TexCoord);
 			}
 		}
 
@@ -1220,23 +1502,23 @@ namespace RealtimeMesh
 			Colors->Set(VertIdx, VertexColor);
 		}
 
-		void SetColor(int32 VertIdx, const FLinearColor& VertexColor)
+		void SetColor(int32 VertIdx, const FLinearColor& VertexColor, bool bSRGB = true)
 		{
 			checkf(HasVertexColors(), TEXT("Vertex colors not enabled"));
 			if (Colors->Num() <= VertIdx)
 			{
 				Colors->AppendGenerator(VertIdx + 1 - Colors->Num(), [](int32, int32) { return FColor::White; });
 			}
-			Colors->Set(VertIdx, VertexColor.ToFColor(true));
+			Colors->Set(VertIdx, VertexColor.ToFColor(bSRGB));
 		}
 
 
-		int32 AddTriangle(const TriangleType& Triangle)
+		SizeType AddTriangle(const TIndex3<uint32>& Triangle)
 		{
 			return Triangles.Add(Triangle);
 		}
 		
-		int32 AddTriangle(const TriangleType& Triangle, uint16 MaterialIndex)
+		SizeType AddTriangle(const TIndex3<uint32>& Triangle, uint32 MaterialIndex)
 		{
 			checkf(HasPolyGroups(), TEXT("Triangle material indices not enabled"));
 			auto Result = Triangles.Add(Triangle);
@@ -1244,49 +1526,49 @@ namespace RealtimeMesh
 			return Result;
 		}
 
-		int32 AddTriangle(IndexType Vert0, IndexType Vert1, IndexType Vert2)
+		SizeType AddTriangle(uint32 Vert0, uint32 Vert1, uint32 Vert2)
 		{
-			return Triangles.Add(TriangleType(Vert0, Vert1, Vert2));
+			return Triangles.Add(TIndex3<uint32>(Vert0, Vert1, Vert2));
 		}
 
-		int32 AddTriangle(IndexType Vert0, IndexType Vert1, IndexType Vert2, uint16 MaterialIndex)
+		SizeType AddTriangle(uint32 Vert0, uint32 Vert1, uint32 Vert2, uint32 MaterialIndex)
 		{
 			checkf(HasPolyGroups(), TEXT("Triangle material indices not enabled"));
-			auto Result = Triangles.Add(TriangleType(Vert0, Vert1, Vert2));
+			auto Result = Triangles.Add(TIndex3<uint32>(Vert0, Vert1, Vert2));
 			TrianglePolyGroups->Set(Result, MaterialIndex);
 			return Result;
 		}
 
-		void SetTriangle(int32 Index, const TriangleType& NewTriangle)
+		void SetTriangle(SizeType Index, const TIndex3<uint32>& NewTriangle)
 		{
 			Triangles.Set(Index, NewTriangle);
 		}
 
-		void SetTriangle(int32 Index, const TriangleType& NewTriangle, uint16 MaterialIndex)
+		void SetTriangle(SizeType Index, const TIndex3<uint32>& NewTriangle, uint32 MaterialIndex)
 		{
 			checkf(HasPolyGroups(), TEXT("Triangle material indices not enabled"));
 			Triangles.Set(Index, NewTriangle);
 			TrianglePolyGroups->Set(Index, MaterialIndex);
 		}
 
-		void SetTriangle(int32 Index, IndexType Vert0, IndexType Vert1, IndexType Vert2)
+		void SetTriangle(SizeType Index, uint32 Vert0, uint32 Vert1, uint32 Vert2)
 		{
-			Triangles.Set(Index, TriangleType(Vert0, Vert1, Vert2));
+			Triangles.Set(Index, TIndex3<uint32>(Vert0, Vert1, Vert2));
 		}
 
-		void SetTriangle(int32 Index, IndexType Vert0, IndexType Vert1, IndexType Vert2, uint16 MaterialIndex)
+		void SetTriangle(SizeType Index, uint32 Vert0, uint32 Vert1, uint32 Vert2, uint32 MaterialIndex)
 		{
 			checkf(HasPolyGroups(), TEXT("Triangle material indices not enabled"));
-			Triangles.Set(Index, TriangleType(Vert0, Vert1, Vert2));
+			Triangles.Set(Index, TIndex3<uint32>(Vert0, Vert1, Vert2));
 			TrianglePolyGroups->Set(Index, MaterialIndex);
 		}
 
-		int32 AddDepthOnlyTriangle(const TriangleType& Triangle)
+		int32 AddDepthOnlyTriangle(const TIndex3<uint32>& Triangle)
 		{
 			checkf(HasDepthOnlyTriangles(), TEXT("Depth only triangles not enabled"));
 			return DepthOnlyTriangles.Add(Triangle);
 		}
-		int32 AddDepthOnlyTriangle(const TriangleType& Triangle, uint16 MaterialIndex)
+		int32 AddDepthOnlyTriangle(const TIndex3<uint32>& Triangle, uint32 MaterialIndex)
 		{
 			checkf(HasDepthOnlyTriangles(), TEXT("Depth only triangles not enabled"));
 			checkf(HasPolyGroups(), TEXT("Depth only triangle material indices not enabled"));
@@ -1295,28 +1577,28 @@ namespace RealtimeMesh
 			return Result;
 		}
 
-		int32 AddDepthOnlyTriangle(IndexType Vert0, IndexType Vert1, IndexType Vert2)
+		int32 AddDepthOnlyTriangle(uint32 Vert0, uint32 Vert1, uint32 Vert2)
 		{
 			checkf(HasDepthOnlyTriangles(), TEXT("Depth only triangles not enabled"));
-			return DepthOnlyTriangles.Add(TriangleType(Vert0, Vert1, Vert2));
+			return DepthOnlyTriangles.Add(TIndex3<uint32>(Vert0, Vert1, Vert2));
 		}
 		
-		int32 AddDepthOnlyTriangle(IndexType Vert0, IndexType Vert1, IndexType Vert2, uint16 MaterialIndex)
+		int32 AddDepthOnlyTriangle(uint32 Vert0, uint32 Vert1, uint32 Vert2, uint32 MaterialIndex)
 		{
 			checkf(HasDepthOnlyTriangles(), TEXT("Depth only triangles not enabled"));
 			checkf(HasPolyGroups(), TEXT("Depth only triangle material indices not enabled"));
-			auto Result = DepthOnlyTriangles.Add(TriangleType(Vert0, Vert1, Vert2));
+			auto Result = DepthOnlyTriangles.Add(TIndex3<uint32>(Vert0, Vert1, Vert2));
 			DepthOnlyTrianglePolyGroups->Set(Result, MaterialIndex);
 			return Result;
 		}
 
-		void SetDepthOnlyTriangle(int32 Index, const TriangleType& NewTriangle)
+		void SetDepthOnlyTriangle(SizeType Index, const TIndex3<uint32>& NewTriangle)
 		{
 			checkf(HasDepthOnlyTriangles(), TEXT("Depth only triangles not enabled"));
 			DepthOnlyTriangles.Set(Index, NewTriangle);
 		}
 		
-		void SetDepthOnlyTriangle(int32 Index, const TriangleType& NewTriangle, uint16 MaterialIndex)
+		void SetDepthOnlyTriangle(SizeType Index, const TIndex3<uint32>& NewTriangle, uint32 MaterialIndex)
 		{
 			checkf(HasDepthOnlyTriangles(), TEXT("Depth only triangles not enabled"));
 			checkf(HasPolyGroups(), TEXT("Depth only triangle material indices not enabled"));
@@ -1324,17 +1606,17 @@ namespace RealtimeMesh
 			DepthOnlyTrianglePolyGroups->Set(Index, MaterialIndex);
 		}
 
-		void SetDepthOnlyTriangle(int32 Index, IndexType Vert0, IndexType Vert1, IndexType Vert2)
+		void SetDepthOnlyTriangle(SizeType Index, uint32 Vert0, uint32 Vert1, uint32 Vert2)
 		{
 			checkf(HasDepthOnlyTriangles(), TEXT("Depth only triangles not enabled"));
-			DepthOnlyTriangles.Set(Index, TriangleType(Vert0, Vert1, Vert2));
+			DepthOnlyTriangles.Set(Index, TIndex3<uint32>(Vert0, Vert1, Vert2));
 		}
 		
-		void SetDepthOnlyTriangle(int32 Index, IndexType Vert0, IndexType Vert1, IndexType Vert2, uint16 MaterialIndex)
+		void SetDepthOnlyTriangle(SizeType Index, uint32 Vert0, uint32 Vert1, uint32 Vert2, uint32 MaterialIndex)
 		{
 			checkf(HasDepthOnlyTriangles(), TEXT("Depth only triangles not enabled"));
 			checkf(HasPolyGroups(), TEXT("Depth only triangle material indices not enabled"));
-			DepthOnlyTriangles.Set(Index, TriangleType(Vert0, Vert1, Vert2));
+			DepthOnlyTriangles.Set(Index, TIndex3<uint32>(Vert0, Vert1, Vert2));
 			DepthOnlyTrianglePolyGroups->Set(Index, MaterialIndex);
 		}
 	};
@@ -1342,25 +1624,21 @@ namespace RealtimeMesh
 
 
 
-	template <typename IndexType = uint32, typename TangentType = FPackedNormal, typename TexCoordType = FVector2DHalf, int32 NumTexCoords = 1>
+	template <typename MeshBuilderType>
 	struct TRealtimeMeshVertexBuilderLocal : FNoncopyable
 	{
-		using TBuilder = TRealtimeMeshBuilderLocal<IndexType, TangentType, TexCoordType, NumTexCoords>;
-		using TRowBuilder = TRealtimeMeshVertexBuilderLocal<IndexType, TangentType, TexCoordType, NumTexCoords>;
-		using TriangleType = TIndex3<IndexType>;
-		using TangentStreamType = TRealtimeMeshTangents<TangentType>;
-		using TexCoordStreamType = TRealtimeMeshTexCoords<TexCoordType, NumTexCoords>;
-		using SizeType = TRealtimeMeshBuilderLocal<FVector3f>::SizeType;
+		using VertexBuilder = TRealtimeMeshVertexBuilderLocal<MeshBuilderType>;
+		using SizeType = typename MeshBuilderType::SizeType;
 	private:
-		TBuilder& ParentBuilder;
+		MeshBuilderType& ParentBuilder;
 		const SizeType RowIndex;
 	public:
-		TRealtimeMeshVertexBuilderLocal(TBuilder& InBuilder, SizeType InRowIndex)
+		TRealtimeMeshVertexBuilderLocal(MeshBuilderType& InBuilder, SizeType InRowIndex)
 			: ParentBuilder(InBuilder), RowIndex(InRowIndex)
 		{
 		}
 		
-		int32 GetIndex() const { return RowIndex; }
+		SizeType GetIndex() const { return RowIndex; }
 		
 		bool HasTangents() const { return ParentBuilder.HasTangents(); }
 		bool HasTexCoords() const { return ParentBuilder.HasTexCoords(); }
@@ -1369,74 +1647,69 @@ namespace RealtimeMesh
 
 
 
-		TRowBuilder& SetPosition(const FVector3f& Position)
+		VertexBuilder& SetPosition(const FVector3f& Position)
 		{
-			ParentBuilder.
-			Builder->GetVerticesBuilder().Set(RowIndex, Position);
+			ParentBuilder.SetPosition(RowIndex, Position);
 			return *this;
 		}
 
-		TRowBuilder& SetNormal(const FVector3f& Normal)
+		VertexBuilder& SetNormal(const FVector3f& Normal)
 		{
 			ParentBuilder.SetNormal(RowIndex, Normal);
 			return *this;
 		}
 
-		TRowBuilder& SetTangent(const FVector3f& Tangent)
+		VertexBuilder& SetTangent(const FVector3f& Tangent)
 		{
 			ParentBuilder.SetTangents(RowIndex, Tangent);
 			return *this;
 		}
 
-		TRowBuilder& SetNormalAndTangent(const FVector3f& Normal, const FVector3f& Tangent)
+		VertexBuilder& SetNormalAndTangent(const FVector3f& Normal, const FVector3f& Tangent)
 		{
 			ParentBuilder.SetNormalAndTangent(RowIndex, Normal, Tangent);
 			return *this;
 		}
 
-		TRowBuilder& SetTangents(const FVector3f& Normal, const FVector3f& Binormal, const FVector3f& Tangent)
+		VertexBuilder& SetTangents(const FVector3f& Normal, const FVector3f& Binormal, const FVector3f& Tangent)
 		{
 			ParentBuilder.SetTangents(RowIndex, Normal, Binormal, Tangent);
 			return *this;
 		}
 
-		template <typename ArgType, typename T = TexCoordStreamType>
-		typename TEnableIf<(FRealtimeMeshBufferTypeTraits<T>::NumElements == 1), TRowBuilder&>::Type SetTexCoord(const ArgType& TexCoord)
+		VertexBuilder& SetTexCoord(const FVector2f& TexCoord)
 		{
 			ParentBuilder.SetTexCoord(RowIndex, 0, TexCoord);
 			return *this;
 		}
 
-		template <typename ArgType, typename T = TexCoordStreamType>
-		typename TEnableIf<(FRealtimeMeshBufferTypeTraits<T>::NumElements > 1), TRowBuilder&>::Type SetTexCoord(int32 TexCoordIdx, const ArgType& TexCoord)
+		VertexBuilder& SetTexCoord(int32 TexCoordIdx, const FVector2f& TexCoord)
 		{
 			ParentBuilder.SetTexCoord(RowIndex, TexCoordIdx, TexCoord);
 			return *this;
 		}
 
-		template <typename ArgType, typename T = TexCoordStreamType>
-		typename TEnableIf<(FRealtimeMeshBufferTypeTraits<T>::NumElements == 1), TRowBuilder&>::Type SetTexCoords(const ArgType& TexCoord)
+		/*VertexBuilder& SetTexCoords(const FVector2f& TexCoord)
 		{
 			ParentBuilder.SetTexCoord(RowIndex, 0, TexCoord);
 			return *this;
 		}
 
-		template <typename... ArgTypes, typename T = TexCoordStreamType>
-		typename TEnableIf<(FRealtimeMeshBufferTypeTraits<T>::NumElements > 1), TRowBuilder&>::Type SetTexCoords(const ArgTypes&... TexCoords)
+		VertexBuilder& SetTexCoords(const FVector2f&... TexCoords)
 		{
 			ParentBuilder.SetTexCoords(RowIndex, TexCoords...);
 			return *this;
-		}
+		}*/
 
-		TRowBuilder& SetColor(FColor VertexColor)
+		VertexBuilder& SetColor(FColor VertexColor)
 		{
 			ParentBuilder.SetColor(VertexColor);
 			return *this;
 		}
 
-		TRowBuilder& SetColor(const FLinearColor& VertexColor)
+		VertexBuilder& SetColor(const FLinearColor& VertexColor, bool bSRGB = true)
 		{
-			ParentBuilder.SetColor(VertexColor.ToFColor(true));
+			ParentBuilder.SetColor(VertexColor.ToFColor(bSRGB));
 			return *this;
 		}
 		
@@ -1449,3 +1722,5 @@ namespace RealtimeMesh
 
 	
 }
+
+PRAGMA_ENABLE_OPTIMIZATION

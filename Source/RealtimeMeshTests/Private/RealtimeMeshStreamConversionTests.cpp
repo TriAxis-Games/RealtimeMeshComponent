@@ -5,6 +5,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(RealtimeMeshStreamConversionTests, "RealtimeMes
 
 using namespace RealtimeMesh;
 
+PRAGMA_DISABLE_OPTIMIZATION
 bool RealtimeMeshStreamConversionTests::RunTest(const FString& Parameters)
 {
 	FRealtimeMeshStream DataStream = FRealtimeMeshStream::Create<TRealtimeMeshTangents<FPackedRGBA16N>>(RealtimeMesh::FRealtimeMeshStreams::Position);
@@ -15,29 +16,43 @@ bool RealtimeMeshStreamConversionTests::RunTest(const FString& Parameters)
 		FVector3f(0, 0, 1),
 		FVector3f(0, 1, 0),
 		FVector3f(1, 0, 0),
+		FVector3f(0, 0, 0),
 		FVector3f(0, 0, 1),
+		FVector3f(0, 1, 0),
+		FVector3f(1, 0, 0),
+		FVector3f(0, 0, 0),
 		FVector3f(0, 0, 1),
-		FVector3f(0, 0, 1),
-		FVector3f(0, 0, 1),
-		FVector3f(0, 0, 1),
-		FVector3f(0, 0, 1),
-		FVector3f(0, 0, 1),
+		FVector3f(0, 1, 0),
 	};
 
+	TArray<TRealtimeMeshTangents<FVector4f>> InitialCombined;
 	for (int32 Index = 0; Index < 10; Index++)
 	{
-		InitialBuilder.Add(TRealtimeMeshTangents<FPackedRGBA16N>(InitialData[Index], InitialData[9 - Index]));
+		auto Initial = TRealtimeMeshTangents<FVector4f>(InitialData[Index], InitialData[9 - Index]);
+		InitialCombined.Add(Initial);
+
+		InitialBuilder.Add(Initial);
+		TRealtimeMeshTangents<FVector4f> A = InitialBuilder.GetValue(Index);
+		TestTrue(FString::Printf(TEXT("TestRow: %d"), Index), A == Initial);
 	}
 
 
-	TRealtimeMeshStreamBuilder<TRealtimeMeshTangents<FPackedNormal>> ConvertedBuilder(DataStream, true);
+	TRealtimeMeshTangents<FVector4f> First = InitialCombined[0];
+	
+	TRealtimeMeshStreamBuilder<TRealtimeMeshTangents<FPackedRGBA16N>, TRealtimeMeshTangents<FPackedRGBA16N>> DirectBuilder(DataStream);
+	TRealtimeMeshStreamBuilder<TRealtimeMeshTangents<FVector4f>, TRealtimeMeshTangents<FPackedRGBA16N>> ConvertedBuilder(DataStream);
 
 	for (int32 Index = 0; Index < 10; Index++)
-	{	
-		TestTrue(FString::Printf(TEXT("TestRow: %d Element 0"), Index), ConvertedBuilder[Index].GetElement(0).ToFVector3f().Equals(InitialData[9 - Index]));
-		TestTrue(FString::Printf(TEXT("TestRow: %d Element 1"), Index), ConvertedBuilder[Index].GetElement(1).ToFVector3f().Equals(InitialData[Index]));
+	{ 
+		
+		TRealtimeMeshTangents<FVector4f> A(DirectBuilder[Index]);
+		TRealtimeMeshTangents<FVector4f> B = ConvertedBuilder[Index];
+		TestTrue(FString::Printf(TEXT("TestRow: %d Element 0"), Index), A == InitialCombined[Index]);
+		TestTrue(FString::Printf(TEXT("TestRow: %d"), Index), ConvertedBuilder[Index].GetElement(0) == InitialData[9 - Index]);
+		TestTrue(FString::Printf(TEXT("TestRow: %d Element 1"), Index), ConvertedBuilder[Index].GetElement(1) == InitialData[Index]);
 	}
 	
 	// Make the test pass by returning true, or fail by returning false.
 	return true;
 }
+PRAGMA_ENABLE_OPTIMIZATION

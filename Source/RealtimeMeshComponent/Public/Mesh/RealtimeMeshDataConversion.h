@@ -109,4 +109,25 @@ namespace RealtimeMesh
 
 #define RMC_DEFINE_ELEMENT_TYPE_CONVERTER_TRIVIAL(FromElementType, ToElementType) \
 	RMC_DEFINE_ELEMENT_TYPE_CONVERTER(FromElementType, ToElementType, { Destination = ToElementType(Source); });
+
+
+	template<typename SourceType, typename DestinationType>
+	FORCEINLINE_DEBUGGABLE DestinationType ConvertRealtimeMeshType(const SourceType& Source)
+	{
+		// This is the generic handler that handles many of the basic types
+		return DestinationType(Source);
+	}
+
+	// Basic converters to handle the packed normals back to the FVector3f and FVector4f types
+	template<> FORCEINLINE_DEBUGGABLE FVector3f ConvertRealtimeMeshType<FPackedNormal, FVector3f>(const FPackedNormal& Source) { return Source.ToFVector3f(); }
+	template<> FORCEINLINE_DEBUGGABLE FVector4f ConvertRealtimeMeshType<FPackedNormal, FVector4f>(const FPackedNormal& Source) { return Source.ToFVector4f(); }
+	template<> FORCEINLINE_DEBUGGABLE FVector3f ConvertRealtimeMeshType<FPackedRGBA16N, FVector3f>(const FPackedRGBA16N& Source) { return Source.ToFVector3f(); }
+	template<> FORCEINLINE_DEBUGGABLE FVector4f ConvertRealtimeMeshType<FPackedRGBA16N, FVector4f>(const FPackedRGBA16N& Source) { return Source.ToFVector4f(); }
+
+	// Supports converting one packed normal representation to the other.
+	template<> FORCEINLINE_DEBUGGABLE FPackedNormal ConvertRealtimeMeshType<FPackedRGBA16N, FPackedNormal>(const FPackedRGBA16N& Source) { return FPackedNormal(Source.ToFVector4f()); }
+	template<> FORCEINLINE_DEBUGGABLE FPackedRGBA16N ConvertRealtimeMeshType<FPackedNormal, FPackedRGBA16N>(const FPackedNormal& Source) { return FPackedRGBA16N(Source.ToFVector4f()); }
+
+
+	
 }

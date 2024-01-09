@@ -5,11 +5,12 @@
 
 #include "RealtimeMeshLibrary.h"
 #include "RealtimeMeshSimple.h"
-#include "Mesh/RealtimeMeshBasicShapeTools.h"
 #include "Mesh/RealtimeMeshSimpleData.h"
+#include "RealtimeMeshCubeGeneratorExample.h"
 
 
 ARealtimeMeshUpdateTestActor::ARealtimeMeshUpdateTestActor()
+	: RealtimeMesh(nullptr)
 {
 	
 }
@@ -31,14 +32,21 @@ void ARealtimeMeshUpdateTestActor::OnGenerateMesh_Implementation()
 	GroupKey = FRealtimeMeshSectionGroupKey::CreateUnique(0);
 	RealtimeMesh->CreateSectionGroup(GroupKey);
 		
-	{	// Create a basic single section
-		FRealtimeMeshSimpleMeshData MeshData;
-
-		// This just adds a simple box, you can instead create your own mesh data
-		URealtimeMeshBasicShapeTools::AppendBoxMesh(FVector(100, 100, 200), FTransform::Identity, MeshData, 0);
-		URealtimeMeshBasicShapeTools::AppendBoxMesh(FVector(200, 100, 100), FTransform::Identity, MeshData, 2);
-		URealtimeMeshBasicShapeTools::AppendBoxMesh(FVector(100, 200, 100), FTransform::Identity, MeshData, 1);
-
-		RealtimeMesh->UpdateSectionGroup(GroupKey, MeshData);
+	{	// Create a basic single sectiong
+		// Create the new stream set and builder
+		FRealtimeMeshStreamSet StreamSet;
+		TRealtimeMeshBuilderLocal<uint16, FPackedNormal, FVector2DHalf, 1> Builder(StreamSet);
+		Builder.EnableTangents();
+		Builder.EnableTexCoords();
+		Builder.EnablePolyGroups();
+		Builder.EnableColors();
+	
+		// This example create 3 rectangular prisms, one on each axis, with all
+		// of them sharing a single set of buffers, but using separate sections for separate materials
+		AppendBox(Builder, FVector3f(100, 100, 200), 0);
+		AppendBox(Builder, FVector3f(200, 100, 100), 1);
+		AppendBox(Builder, FVector3f(100, 200, 100), 2);
+		
+		RealtimeMesh->UpdateSectionGroup(GroupKey, MoveTemp(StreamSet));
 	}
 }

@@ -6,6 +6,7 @@
 #include "RealtimeMeshConfig.h"
 #include "RealtimeMeshDataTypes.h"
 #include "RealtimeMeshDataConversion.h"
+#include "Containers/StridedView.h"
 
 #if RMC_ENGINE_BELOW_5_1
 // Included for TMakeUnsigned in 5.0
@@ -21,7 +22,6 @@
 
 namespace RealtimeMesh
 {
-	
 	struct FRealtimeMeshStreams
 	{
 		inline static const FName PositionStreamName = FName(TEXT("Position"));
@@ -76,9 +76,9 @@ namespace RealtimeMesh
 	public:
 		FRealtimeMeshStream()
 			: LayoutDefinition(FRealtimeMeshBufferLayoutUtilities::GetBufferLayoutDefinition(FRealtimeMeshBufferLayout::Invalid))
-			  , ArrayNum(0)
-			  , ArrayMax(Allocator.GetInitialCapacity())
-			  , StreamKey(ERealtimeMeshStreamType::Unknown, NAME_None)
+			, ArrayNum(0)
+			, ArrayMax(Allocator.GetInitialCapacity())
+			, StreamKey(ERealtimeMeshStreamType::Unknown, NAME_None)
 		{
 		}
 		
@@ -101,7 +101,7 @@ namespace RealtimeMesh
 			FMemory::Memcpy(Allocator.GetAllocation(), Other.Allocator.GetAllocation(), Other.Num() * GetStride());
 		}
 		
-		FRealtimeMeshStream(FRealtimeMeshStream&& Other) noexcept
+		explicit FRealtimeMeshStream(FRealtimeMeshStream&& Other) noexcept
 			: LayoutDefinition(Other.LayoutDefinition)
 			  , ArrayNum(Other.ArrayNum)
 			  , ArrayMax(Other.ArrayMax)
@@ -115,6 +115,11 @@ namespace RealtimeMesh
 			Other.StreamKey = FRealtimeMeshStreamKey(ERealtimeMeshStreamType::Unknown, NAME_None);
 		}
 
+		static FRealtimeMeshStream Create(const FRealtimeMeshStreamKey& InStreamKey, const FRealtimeMeshBufferLayout& Layout)
+		{
+			return FRealtimeMeshStream(InStreamKey, Layout);
+		}
+		
 		template<typename StreamType>
 		static FRealtimeMeshStream Create(const FRealtimeMeshStreamKey& InStreamKey)
 		{
@@ -138,29 +143,43 @@ namespace RealtimeMesh
 			Allocator.MoveToEmpty(Other.Allocator);
 			return *this;
 		}
-		
+
 
 	public:
-		const FRealtimeMeshStreamKey& GetStreamKey() const { return StreamKey; }		
-		void SetStreamKey(const FRealtimeMeshStreamKey& InStreamKey) { StreamKey = InStreamKey; }
-		ERealtimeMeshStreamType GetStreamType() const { return StreamKey.GetStreamType(); }
 		FName GetName() const { return StreamKey.GetName(); }
+		ERealtimeMeshStreamType GetStreamType() const { return StreamKey.GetStreamType(); }
+		const FRealtimeMeshStreamKey& GetStreamKey() const { return StreamKey; }		
 		const FRealtimeMeshBufferLayout& GetLayout() const { return LayoutDefinition.GetBufferLayout(); }
 		const FRealtimeMeshBufferLayoutDefinition& GetLayoutDefinition() const { return LayoutDefinition; }
 		const FRealtimeMeshElementType& GetElementType() const { return LayoutDefinition.GetElementType(); }
 		const FRealtimeMeshElementTypeDefinition& GetElementTypeDefinition() const { return LayoutDefinition.GetElementTypeDefinition(); }
 
+		void SetStreamKey(const FRealtimeMeshStreamKey& InStreamKey) { StreamKey = InStreamKey; }
+		
 		int32 GetStride() const { return LayoutDefinition.GetStride(); }
 		int32 GetElementStride() const { return LayoutDefinition.GetElementTypeDefinition().GetStride(); }
 		int32 GetNumElements() const { return LayoutDefinition.GetBufferLayout().GetNumElements(); }
-		/*int32 GetElementOffset(FName ElementName) const { return LayoutDefinition.GetElementOffset(ElementName); }
-		const TMap<FName, uint8>& GetElementOffsets() const { return LayoutDefinition.GetElementOffsets(); }*/
 
 		
 		template<typename NewDataType>
 		bool IsOfType() const
 		{
 			return GetLayout() == GetRealtimeMeshBufferLayout<NewDataType>();
+		}
+
+		bool CanConvertTo(const FRealtimeMeshBufferLayout& NewLayout) const
+		{
+			const FRealtimeMeshElementType FromType = GetLayout().GetElementType();
+			const FRealtimeMeshElementType ToType = NewLayout.GetElementType();
+			const bool bSameNumElements = GetLayout().GetNumElements() == NewLayout.GetNumElements();
+
+			return bSameNumElements && (FromType == ToType || FRealtimeMeshTypeConversionUtilities::CanConvert(FromType, ToType));
+		}
+		
+		template<typename NewDataType>
+		bool CanConvertTo() const
+		{
+			return CanConvertTo(GetRealtimeMeshBufferLayout<NewDataType>());
 		}
 
 		bool ConvertTo(const FRealtimeMeshBufferLayout& NewLayout)
@@ -231,7 +250,28 @@ namespace RealtimeMesh
 
 			return MakeArrayView(reinterpret_cast<const DataType*>(GetData()), Num());
 		}
+
+
+		template <typename DataType>
+		TStridedView<DataType> GetElementArrayView(int32 ElementIndex)
+		{
+			check(sizeof(DataType) == GetElementStride());
+			check(GetRealtimeMeshDataElementType<DataType>() == GetLayout().GetElementType());
+
+			return MakeStridedView(GetStride(), reinterpret_cast<DataType*>(GetDataRawAtVertex(0, ElementIndex)), Num());
+		}
+
+		template <typename DataType>
+		TStridedView<const DataType> GetElementArrayView(int32 ElementIndex) const
+		{
+			check(sizeof(DataType) == GetElementStride());
+			check(GetRealtimeMeshDataElementType<DataType>() == GetLayout().GetElementType());
+
+			return MakeStridedView(GetStride(), reinterpret_cast<DataType*>(GetDataRawAtVertex(0, ElementIndex)), Num());
+		}
 		
+		
+		// TODO: Deprecate these
 		template <typename DataType>
 		TArrayView<const DataType> GetElementArrayView()
 		{
@@ -763,7 +803,16 @@ namespace RealtimeMesh
 				UE_LOG(LogCore, Fatal, TEXT("Invalid value for %s, must not be negative..."), ParameterName);
 			}
 		}
-	};	
+
+		
+	public:
+		PRAGMA_DISABLE_OPTIMIZATION
+		
+		PRAGMA_ENABLE_OPTIMIZATION
+	};
+
+	
+
 
 	struct REALTIMEMESHCOMPONENT_API FRealtimeMeshStreamSet
 	{
@@ -955,9 +1004,21 @@ namespace RealtimeMesh
 				Func(*SetIt->Value.Get());
 			}
 		}
+
+
+
 	};
 
 
 
 	using FRealtimeMeshStreamProxyMap = TMap<FRealtimeMeshStreamKey, TSharedPtr<FRealtimeMeshGPUBuffer>>;
+
+
+	namespace NatVis
+	{
+		REALTIMEMESHCOMPONENT_API std::string GetRowElementAsString(const FRealtimeMeshStream& Stream, int32 Row, int32 Element) noexcept;
+	
+		REALTIMEMESHCOMPONENT_API std::string GetRowAsString(const FRealtimeMeshStream& Stream, int32 Row, int32 Element) noexcept;
+	}
 }
+

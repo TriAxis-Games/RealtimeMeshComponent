@@ -40,7 +40,7 @@ public:
 };
 
 namespace RealtimeMesh
-{
+{	
 	template <typename T>
 	struct TBoundedArraySize
 	{
@@ -53,6 +53,41 @@ namespace RealtimeMesh
 		enum { Value = N };
 	};
 
+	namespace Internal
+	{
+		template<typename NormalType>
+		inline void SetRealtimeMeshNormalWToSign(NormalType& Normal, float Sign)
+		{
+			Normal.W = Sign;
+		}
+		template<>
+		inline void SetRealtimeMeshNormalWToSign<FPackedNormal>(FPackedNormal& Normal, float Sign)
+		{
+			Normal.Vector.W = static_cast<int8>(FMath::Clamp<int32>(FMath::RoundToInt(Sign * MAX_int8), MIN_int8, MAX_int8));
+		}
+		template<>
+		inline void SetRealtimeMeshNormalWToSign<FPackedRGBA16N>(FPackedRGBA16N& Normal, float Sign)
+		{
+			Normal.W = static_cast<int16>(FMath::Clamp<int32>(FMath::RoundToInt(Sign * MIN_int16), MIN_int16, MAX_int16));
+		}
+
+		inline FVector4f GetTangentAsVector(const FVector4f& Input)
+		{
+			return Input;
+		}
+
+		inline FVector4f GetTangentAsVector(const FPackedNormal& Input)
+		{
+			return Input.ToFVector4f();
+		}
+
+		inline FVector4f GetTangentAsVector(const FPackedRGBA16N& Input)
+		{
+			return Input.ToFVector4f();
+		}
+		
+	}
+
 
 	template <typename TangentType>
 	struct TRealtimeMeshTangents
@@ -62,29 +97,18 @@ namespace RealtimeMesh
 		TangentType Normal;
 
 	public:
-		TRealtimeMeshTangents(TangentType InNormal, TangentType InTangent)
+		TRealtimeMeshTangents() = default;
+
+		TRealtimeMeshTangents(FVector3f InNormal, FVector3f InTangent, bool bShouldFlipBinormal = false)
 			: Tangent(InTangent), Normal(InNormal)
 		{
+			Internal::SetRealtimeMeshNormalWToSign(Normal, bShouldFlipBinormal? -1.0f : 1.0f);
 		}
 
-		TRealtimeMeshTangents(FVector4f InNormal, FVector4f InTangent)
+		TRealtimeMeshTangents(FVector3d InNormal, FVector3d InTangent, bool bShouldFlipBinormal = false)
 			: Tangent(InTangent), Normal(InNormal)
 		{
-		}
-
-		TRealtimeMeshTangents(FVector4d InNormal, FVector4d InTangent)
-			: Tangent(InTangent), Normal(InNormal)
-		{
-		}
-
-		TRealtimeMeshTangents(FVector3f InNormal, FVector3f InTangent)
-			: Tangent(InTangent), Normal(InNormal)
-		{
-		}
-
-		TRealtimeMeshTangents(FVector3d InNormal, FVector3d InTangent)
-			: Tangent(InTangent), Normal(InNormal)
-		{
+			Internal::SetRealtimeMeshNormalWToSign(Normal, bShouldFlipBinormal? -1.0f : 1.0f);
 		}
 
 		TRealtimeMeshTangents(const FVector3f& InNormal, const FVector3f& InBinormal, const FVector3f& InTangent)
@@ -98,20 +122,48 @@ namespace RealtimeMesh
 		{
 		}
 
-		FVector3f GetNormal() const { return Normal.ToFVector3f(); }
-		FVector3f GetTangent() const { return Tangent.ToFVector3f(); }
+		template<typename InputTangentType>
+		TRealtimeMeshTangents(const TRealtimeMeshTangents<InputTangentType>& Other)
+			: Tangent(Other.Tangent), Normal(Other.Normal)
+		{
+		}
+		
+		TRealtimeMeshTangents(const TRealtimeMeshTangents<FVector4f>& Other)
+			: Tangent(Other.Tangent), Normal(Other.Normal)
+		{
+		}
+		
+		TRealtimeMeshTangents(const TRealtimeMeshTangents<FPackedNormal>& Other)
+			: Tangent(Other.Tangent.ToFVector4f()), Normal(Other.Normal.ToFVector4f())
+		{
+		}
+		
+		TRealtimeMeshTangents(const TRealtimeMeshTangents<FPackedRGBA16N>& Other)
+			: Tangent(Other.Tangent.ToFVector4f()), Normal(Other.Normal.ToFVector4f())
+		{
+		}
+
+		FVector3f GetNormal() const { return Internal::GetTangentAsVector(Normal); }
+		FVector3f GetTangent() const { return Internal::GetTangentAsVector(Tangent); }
+
+		bool IsBinormalFlipped() const { return Normal.W < 0.0f; }
+
+		void SetFlipBinormal(bool bShouldFlipBinormal)
+		{
+			SetRealtimeMeshNormalWToSign(Normal, bShouldFlipBinormal? -1.0f : 1.0f);
+		}
 
 		FVector3f GetBinormal() const
 		{
-			const FVector3f TangentX = Tangent.ToFVector3f();
-			const FVector4f TangentZ = Normal.ToFVector4f();
+			const FVector3f TangentX = Internal::GetTangentAsVector(Tangent);
+			const FVector4f TangentZ = Internal::GetTangentAsVector(Normal);
 			return (FVector3f(TangentZ) ^ TangentX) * TangentZ.W;
 		}
 
 		void SetNormal(const FVector3f& NewNormal)
 		{
-			const FVector3d TangentX = Tangent.ToFVector();
-			const FVector4d TangentZ = Normal.ToFVector4();
+			const FVector3d TangentX = Internal::GetTangentAsVector(Tangent);
+			const FVector4d TangentZ = Internal::GetTangentAsVector(Normal);
 			const FVector3d TangentY = (FVector3d(TangentZ) ^ TangentX) * TangentZ.W;
 
 			const FVector4f NewTangentZ(NewNormal, GetBasisDeterminantSign(TangentX, TangentY, FVector3d(NewNormal)));
@@ -120,8 +172,8 @@ namespace RealtimeMesh
 
 		void SetTangent(const FVector3f& NewTangent)
 		{
-			const FVector3d TangentX = Tangent.ToFVector();
-			FVector4d TangentZ = Normal.ToFVector4();
+			const FVector3d TangentX = Internal::GetTangentAsVector(Tangent);
+			FVector4d TangentZ = Internal::GetTangentAsVector(Normal);
 			const FVector3d TangentY = (FVector3d(TangentZ) ^ TangentX) * TangentZ.W;
 
 			TangentZ.W = GetBasisDeterminantSign(FVector3d(NewTangent), TangentY, TangentZ);
@@ -129,9 +181,10 @@ namespace RealtimeMesh
 			Tangent = NewTangent;
 		}
 
-		void SetNormalAndTangent(const FVector3f& InNormal, const FVector3f& InTangent)
+		void SetNormalAndTangent(const FVector3f& InNormal, const FVector3f& InTangent, bool bShouldFlipBinormal = false)
 		{
 			Normal = InNormal;
+			Internal::SetRealtimeMeshNormalWToSign(Normal, bShouldFlipBinormal? -1.0f : 1.0f);
 			Tangent = InTangent;
 		}
 
@@ -139,6 +192,19 @@ namespace RealtimeMesh
 		{
 			Normal = FVector4f(InNormal, GetBasisDeterminantSign(FVector3d(InTangent), FVector3d(InBinormal), FVector3d(InNormal)));
 			Tangent = InTangent;
+		}
+
+		template<typename InputTangentType>
+		friend struct TRealtimeMeshTangents;
+
+		FORCEINLINE bool operator==(const TRealtimeMeshTangents<TangentType>& Other)
+		{
+			return Normal == Other.Normal && Tangent == Other.Tangent;
+		}
+
+		FORCEINLINE bool operator!=(const TRealtimeMeshTangents<TangentType>& Other)
+		{
+			return Normal != Other.Normal || Tangent != Other.Tangent;
 		}
 	};
 
@@ -154,7 +220,7 @@ namespace RealtimeMesh
 		template <typename ArgType>
 		void Set(int32 Index, const ArgType& Arg)
 		{
-			static_assert(std::is_constructible<ChannelType, const ArgType&>::value, "Invalid type for TRealtimeMeshTexCoords");
+			static_assert(std::is_constructible_v<ChannelType, const ArgType&>, "Invalid type for TRealtimeMeshTexCoords");
 			check(Index < ChannelCount);
 			Channels[Index] = ChannelType(Arg);
 		}
@@ -168,7 +234,21 @@ namespace RealtimeMesh
 
 	public:
 		TRealtimeMeshTexCoords() = default;
+		TRealtimeMeshTexCoords(const TRealtimeMeshTexCoords& Other) = default;
+		TRealtimeMeshTexCoords(TRealtimeMeshTexCoords&& Other) = default;
+		TRealtimeMeshTexCoords& operator=(const TRealtimeMeshTexCoords& Other) = default;
+		TRealtimeMeshTexCoords& operator=(TRealtimeMeshTexCoords&& Other) = default;
 
+
+		template<typename InputTexCoordType>
+		TRealtimeMeshTexCoords(const TRealtimeMeshTexCoords<InputTexCoordType, ChannelCount>& Other)
+		{
+			for (int32 Index = 0; Index < ChannelCount; Index++)
+			{
+				Channels[Index] = Other.Channels[Index];
+			}
+		}
+		
 		template <typename... ArgTypes>
 		TRealtimeMeshTexCoords(const ArgTypes&... Args)
 		{
@@ -186,6 +266,9 @@ namespace RealtimeMesh
 			check(Index >= 0 && Index < ChannelCount);
 			return Channels[Index];
 		}
+
+		template<typename OtherChannelType, int32 OtherChannelCount>
+		friend struct TRealtimeMeshTexCoords;
 	};
 
 	template <int32 ChannelCount>
@@ -312,8 +395,7 @@ namespace RealtimeMesh
 	using FIndex3UI = TIndex3<uint32>;
 	using FIndex3US = TIndex3<uint16>;
 
-
-
+	
 	
 
 	enum class ERealtimeMeshDatumType : uint8
@@ -747,4 +829,104 @@ namespace RealtimeMesh
 	static_assert(FRealtimeMeshBufferTypeTraits<FRealtimeMeshTexCoordsNormal>::IsValid);
 	static_assert(FRealtimeMeshBufferTypeTraits<FRealtimeMeshTangentsHighPrecision>::IsValid);
 	static_assert(FRealtimeMeshBufferTypeTraits<FIndex3UI>::IsValid);
+
+	 
+#if WITH_EDITORONLY_DATA
+	namespace NatVisHelpers
+	{
+		template<typename Type, int32 NumDatums>
+		struct TRawVisualizer;
+
+		template<typename Type, int32 NumElements>
+		struct TRowVisualizer;
+		
+#define DEFINE_VISUALIZER_SET(Type) \
+		template<> struct REALTIMEMESHCOMPONENT_API TRawVisualizer<Type, 2> \
+		{ \
+			Type X; \
+			Type Y; \
+		}; \
+		using TRawVisualizer_##Type##_2 = TRawVisualizer<Type, 2>; \
+		template<> struct REALTIMEMESHCOMPONENT_API TRawVisualizer<Type, 3> \
+		{ \
+			Type X; \
+			Type Y; \
+			Type Z; \
+		}; \
+		using TRawVisualizer_##Type##_3 = TRawVisualizer<Type, 3>; \
+		template<> struct REALTIMEMESHCOMPONENT_API TRawVisualizer<Type, 4> \
+		{ \
+			Type X; \
+			Type Y; \
+			Type Z; \
+			Type W; \
+		}; \
+		using TRawVisualizer_##Type##_4 = TRawVisualizer<Type, 4>; \
+
+#define DEFINE_VISUALISER_ROW_SET(Type) \
+		template<> struct REALTIMEMESHCOMPONENT_API TRowVisualizer<Type, 2> \
+		{ \
+			Type Elements[2]; \
+		}; \
+		template<> struct REALTIMEMESHCOMPONENT_API TRowVisualizer<Type, 3> \
+		{ \
+			Type Elements[3]; \
+		}; \
+		template<> struct REALTIMEMESHCOMPONENT_API TRowVisualizer<Type, 4> \
+		{ \
+			Type Elements[4]; \
+		}; \
+		template<> struct REALTIMEMESHCOMPONENT_API TRowVisualizer<Type, 5> \
+		{ \
+			Type Elements[5]; \
+		}; \
+		template<> struct REALTIMEMESHCOMPONENT_API TRowVisualizer<Type, 6> \
+		{ \
+			Type Elements[6]; \
+		}; \
+		template<> struct REALTIMEMESHCOMPONENT_API TRowVisualizer<Type, 7> \
+		{ \
+			Type Elements[7]; \
+		}; \
+		template<> struct REALTIMEMESHCOMPONENT_API TRowVisualizer<Type, 8> \
+		{ \
+			Type Elements[8]; \
+		}; \
+		inline void RegisterVisualizers_##Type() \
+		{ \
+			[[maybe_unused]] TRowVisualizer<Type, 2> Row2; \
+			[[maybe_unused]] TRowVisualizer<Type, 3> Row3; \
+			[[maybe_unused]] TRowVisualizer<Type, 4> Row4; \
+			[[maybe_unused]] TRowVisualizer<Type, 5> Row5; \
+			[[maybe_unused]] TRowVisualizer<Type, 6> Row6; \
+			[[maybe_unused]] TRowVisualizer<Type, 7> Row7; \
+			[[maybe_unused]] TRowVisualizer<Type, 8> Row8; \
+		}
+
+
+#define DEFINE_TYPE_VISUALIZERS(Type) \
+		DEFINE_VISUALIZER_SET(Type) \
+		DEFINE_VISUALISER_ROW_SET(TRawVisualizer_##Type##_2) \
+		DEFINE_VISUALISER_ROW_SET(TRawVisualizer_##Type##_3) \
+		DEFINE_VISUALISER_ROW_SET(TRawVisualizer_##Type##_4)
+		
+
+		DEFINE_TYPE_VISUALIZERS(int8);
+		DEFINE_TYPE_VISUALIZERS(uint8);
+
+		DEFINE_TYPE_VISUALIZERS(int16);
+		DEFINE_TYPE_VISUALIZERS(uint16);
+
+		DEFINE_TYPE_VISUALIZERS(int32);
+		DEFINE_TYPE_VISUALIZERS(uint32);
+
+		DEFINE_TYPE_VISUALIZERS(FFloat16);
+		DEFINE_TYPE_VISUALIZERS(float);
+		DEFINE_TYPE_VISUALIZERS(double);
+
+
+	}
+#endif
 }
+
+
