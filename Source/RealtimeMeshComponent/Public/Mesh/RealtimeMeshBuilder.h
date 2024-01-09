@@ -1275,8 +1275,7 @@ namespace RealtimeMesh
 
 		TRowBuilder& SetPosition(const FVector3f& Position)
 		{
-			ParentBuilder.
-			Builder->GetVerticesBuilder().Set(RowIndex, Position);
+			ParentBuilder.SetPosition(RowIndex, Position);
 			return *this;
 		}
 
