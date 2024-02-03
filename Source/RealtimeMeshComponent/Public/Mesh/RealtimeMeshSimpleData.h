@@ -117,7 +117,7 @@ public:
 			return false;
 		}
 
-		if (FRealtimeMeshStream* TangentsStream = FindStream(FRealtimeMeshStreams::Tangents, GetRealtimeMeshBufferLayout<FPackedNormal>()); TangentsStream)
+		if (FRealtimeMeshStream* TangentsStream = FindStream(FRealtimeMeshStreams::Tangents, GetRealtimeMeshBufferLayout<TRealtimeMeshTangents<FPackedNormal>>()); TangentsStream)
 		{
 			const auto ResizeTangents = [this, &TangentsStream, StartIndex]()
 			{
