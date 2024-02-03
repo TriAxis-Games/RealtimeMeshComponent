@@ -773,7 +773,7 @@ namespace RealtimeMesh
 		{
 			if (InValue < 0)
 			{
-				//UE_LOG(LogCore, Fatal, TEXT("Invalid value for %s, must not be negative..."), ParameterName);
+				UE_LOG(LogCore, Fatal, TEXT("Invalid value for %s, must not be negative..."), ParameterName);
 			}
 		}
 	};	
@@ -856,7 +856,7 @@ namespace RealtimeMesh
 				}
 				if (!(*Result)->ConvertTo(NewLayout))
 				{
-					//UE_LOG(RealtimeMeshLog, Warning, TEXT("Failed to convert stream %s to new layout: Removing Data"), *StreamKey.ToString());
+					UE_LOG(RealtimeMeshLog, Warning, TEXT("Failed to convert stream %s to new layout: Removing Data"), *StreamKey.ToString());
 				}
 				return Result->Get();
 			}
