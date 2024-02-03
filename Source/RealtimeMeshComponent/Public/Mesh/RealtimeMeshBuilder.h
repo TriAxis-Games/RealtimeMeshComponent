@@ -1333,13 +1333,13 @@ namespace RealtimeMesh
 
 		TRowBuilder& SetColor(FColor VertexColor)
 		{
-			ParentBuilder.SetColor(VertexColor);
+			ParentBuilder.SetColor(RowIndex, VertexColor);
 			return *this;
 		}
 
 		TRowBuilder& SetColor(const FLinearColor& VertexColor)
 		{
-			ParentBuilder.SetColor(VertexColor.ToFColor(true));
+			ParentBuilder.SetColor(RowIndex, VertexColor.ToFColor(true));
 			return *this;
 		}
 		
