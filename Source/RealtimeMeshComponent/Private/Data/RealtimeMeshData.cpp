@@ -234,10 +234,7 @@ namespace RealtimeMesh
 
 		// We hold this lock the entire time we initialize proxy so any proxy calls get delayed until after we grab the starting state
 
-		ScopeGuard.Lock(ERealtimeMeshGuardLockType::Write);
-		CreateRenderProxy();
-
-		return RenderProxy;
+		return CreateRenderProxy();
 	}
 
 	TFuture<ERealtimeMeshProxyUpdateStatus> FRealtimeMesh::Reset(bool bRemoveRenderProxy)

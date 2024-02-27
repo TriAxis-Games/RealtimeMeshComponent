@@ -5,6 +5,8 @@
 
 #include <string>
 
+#include "Algo/AllOf.h"
+
 
 namespace RealtimeMesh::NatVis
 {
@@ -125,3 +127,142 @@ namespace RealtimeMesh::NatVis
 	}
 }
 
+
+void RealtimeMesh::FRealtimeMeshStreamLinkage::HandleStreamRemoved(FRealtimeMeshStream* Stream)
+{
+	RemoveStream(Stream);
+}
+
+void RealtimeMesh::FRealtimeMeshStreamLinkage::HandleAllocatedSizeChanged(FRealtimeMeshStream* Stream, int32 NewSize)
+{	
+	ForEachStream([&] (FRealtimeMeshStream& CurrentStream, const FRealtimeMeshStreamDefaultRowValue& DefaultValue)
+	{
+		if (&CurrentStream != Stream)
+		{
+			check(CurrentStream.ArrayNum <= NewSize);
+			CurrentStream.ResizeAllocation(NewSize);
+		}
+	});
+	CheckStreams();
+}
+
+void RealtimeMesh::FRealtimeMeshStreamLinkage::HandleNumChanged(FRealtimeMeshStream* Stream, int32 NewNum)
+{
+	ForEachStream([&] (FRealtimeMeshStream& CurrentStream, const FRealtimeMeshStreamDefaultRowValue& DefaultValue)
+	{
+		if (&CurrentStream != Stream)
+		{
+			check(NewNum <= CurrentStream.ArrayMax);
+			const int32 ExistingNum = CurrentStream.Num();
+			const int32 NumAdded = NewNum - ExistingNum;
+			CurrentStream.ArrayNum = NewNum;
+
+			if (NumAdded > 0)
+			{
+				CurrentStream.FillRange(ExistingNum, NumAdded, DefaultValue);
+			}
+		}
+	});
+	CheckStreams();
+}
+
+void RealtimeMesh::FRealtimeMeshStreamLinkage::MatchSizesOnBind()
+{
+	int32 MaxSize = 0;
+	int32 MaxNum = 0;
+	
+	ForEachStream([&] (FRealtimeMeshStream& CurrentStream, const FRealtimeMeshStreamDefaultRowValue& DefaultValue)
+	{
+		check(CurrentStream.Linkage == this);
+		MaxSize = FMath::Max(MaxSize, CurrentStream.ArrayMax);
+		MaxNum = FMath::Max(MaxNum, CurrentStream.ArrayNum);
+	});
+
+	check(MaxNum <= MaxSize);
+	
+	ForEachStream([&] (FRealtimeMeshStream& CurrentStream, const FRealtimeMeshStreamDefaultRowValue& DefaultValue)
+	{
+		check(CurrentStream.Linkage == this);
+		
+		if (CurrentStream.ArrayMax != MaxSize)
+		{
+			CurrentStream.ResizeAllocation(MaxSize);
+		}
+
+		if (CurrentStream.ArrayNum != MaxNum)
+		{			
+			const int32 ExistingNum = CurrentStream.ArrayNum;
+			const int32 NumAdded = MaxNum - ExistingNum;
+			CurrentStream.ArrayNum = MaxNum;
+
+			if (NumAdded > 0)
+			{
+				CurrentStream.FillRange(ExistingNum, NumAdded, DefaultValue);
+			}
+		}
+	});
+}
+
+void RealtimeMesh::FRealtimeMeshStreamLinkage::CheckStreams()
+{
+	bool bIsFirst = true;
+	int32 MaxSize = INDEX_NONE;
+	int32 Num = INDEX_NONE;
+	
+	ForEachStream([&] (FRealtimeMeshStream& CurrentStream, const FRealtimeMeshStreamDefaultRowValue& DefaultValue)
+	{
+		check(CurrentStream.Linkage == this);
+		
+		if (bIsFirst)
+		{
+			MaxSize = CurrentStream.ArrayMax;
+			Num = CurrentStream.ArrayNum;
+			bIsFirst = false;
+		}
+		else
+		{
+			check(CurrentStream.ArrayMax == MaxSize);
+			check(CurrentStream.ArrayNum == Num);
+		}
+	});	
+}
+
+RealtimeMesh::FRealtimeMeshStreamLinkage::~FRealtimeMeshStreamLinkage()
+{
+	CheckStreams();
+	while (LinkedStreams.Num() > 0)
+	{
+		LinkedStreams[0].Stream->UnLink();
+	}
+}
+
+
+void RealtimeMesh::FRealtimeMeshStreamLinkage::BindStream(FRealtimeMeshStream* Stream, const FRealtimeMeshStreamDefaultRowValue& DefaultValue)
+{
+	check(Stream && Stream->Linkage == nullptr);
+	
+	check(LinkedStreams.FindByPredicate([&](const FStreamLinkageInfo& Linkage) { return Linkage.Stream == Stream; }) == nullptr);
+	LinkedStreams.Emplace(Stream, DefaultValue);
+	Stream->Linkage = this;
+	MatchSizesOnBind();
+	CheckStreams();
+}
+
+void RealtimeMesh::FRealtimeMeshStreamLinkage::BindStream(FRealtimeMeshStream& Stream, const FRealtimeMeshStreamDefaultRowValue& DefaultValue)
+{
+	BindStream(&Stream, DefaultValue);			
+}
+
+void RealtimeMesh::FRealtimeMeshStreamLinkage::RemoveStream(const FRealtimeMeshStream* Stream)
+{
+	check(Stream && Stream->Linkage == this);
+	
+	const_cast<FRealtimeMeshStream*>(Stream)->Linkage = nullptr;
+	LinkedStreams.RemoveAll([&](const FStreamLinkageInfo& Linkage) { return Linkage.Stream == Stream; });
+	CheckStreams();
+}
+
+void RealtimeMesh::FRealtimeMeshStreamLinkage::RemoveStream(const FRealtimeMeshStream& Stream)
+{
+	RemoveStream(&Stream);
+}

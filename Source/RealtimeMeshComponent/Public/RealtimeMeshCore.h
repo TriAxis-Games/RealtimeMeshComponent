@@ -53,6 +53,7 @@ namespace RealtimeMesh
 			StreamKeySizeChanged = 4,
 			RemovedNamedStreamElements = 5,
 			SimpleMeshStoresCollisionConfig = 6,
+			ImprovingDataTypes = 7,
 
 			// -----<new versions can be added above this line>-------------------------------------------------
 			VersionPlusOne,

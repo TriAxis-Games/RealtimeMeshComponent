@@ -708,12 +708,9 @@ namespace RealtimeMesh
 
 		using RowAccessor = TRealtimeMeshIndexedBufferAccessor<InAccessType, InBufferType, bAllowSubstreamAccess>;
 		using ConstRowAccessor = TRealtimeMeshIndexedBufferAccessor<const InAccessType, InBufferType, bAllowSubstreamAccess>;
-
-		DECLARE_DELEGATE_ThreeParams(FUpdateSizeDelegate, FRealtimeMeshStreamBuilderEventType, SizeType, SizeType);
 	protected:
 		// Underlying data stream we're responsible for, as well as any conversion that needs to happen
 		typename StreamDataAccessor::TContext Context;
-		FUpdateSizeDelegate UpdateSizeDelegate;
 
 	public:
 		TRealtimeMeshStreamBuilderBase(typename TCopyQualifiersFromTo<InAccessType, FRealtimeMeshStream>::Type& InStream, int32 ElementOffset = 0)
@@ -734,16 +731,6 @@ namespace RealtimeMesh
 		FORCEINLINE TEnableIfWritable<FRealtimeMeshStream&, U> GetStream() { return Context.Stream; }
 		FORCEINLINE const FRealtimeMeshBufferLayout& GetBufferLayout() const { return Context.Stream.GetLayout(); }
 
-		FUpdateSizeDelegate& GetCallbackDelegate() { return UpdateSizeDelegate; }
-		void ClearCallbackDelegate() { UpdateSizeDelegate.Unbind(); }
-
-		
-		void SendCallbackNotify(FRealtimeMeshStreamBuilderEventType EventType, SizeType Size, SizeType SecondarySize = 0)
-		{
-			// ReSharper disable once CppExpressionWithoutSideEffects
-			UpdateSizeDelegate.ExecuteIfBound(EventType, Size, SecondarySize);
-		}
-
 		FORCEINLINE SizeType Num() const { return Context.Stream.Num(); }
 
 		FORCEINLINE SIZE_T GetAllocatedSize() const { return Context.Stream.GetAllocatedSize(); }
@@ -761,67 +748,66 @@ namespace RealtimeMesh
 		template <typename U = AccessType>
 		FORCEINLINE TEnableIfWritable<RowAccessor, U> AddUninitialized()
 		{
-			const SizeType Index = Context.Stream.AddUninitialized();
-			SendCallbackNotify(FRealtimeMeshStreamBuilderEventType::NewSizeUninitialized, Context.Stream.Num());
-			return RowAccessor(Context, Index);
+			return RowAccessor(Context, Context.Stream.AddUninitialized());
 		}
 
 		template <typename U = AccessType>
-		FORCEINLINE TEnableIfWritable<RowAccessor, U> AddUninitialized(SizeType Count)
+		FORCEINLINE TEnableIfWritable<SizeType, U> AddUninitialized(SizeType Count)
 		{
-			const SizeType Index = Context.Stream.AddUninitialized(Count);
-			SendCallbackNotify(FRealtimeMeshStreamBuilderEventType::NewSizeUninitialized, Context.Stream.Num());
-			return RowAccessor(Context, Index);
+			return Context.Stream.AddUninitialized(Count);
 		}
 
 		template <typename U = AccessType>
 		FORCEINLINE TEnableIfWritable<RowAccessor, U> AddZeroed(SizeType Count = 1)
 		{
-			const SizeType Index = Context.Stream.AddZeroed(Count);
-			SendCallbackNotify(FRealtimeMeshStreamBuilderEventType::NewSizeZeroed, Context.Stream.Num());
-			return RowAccessor(Context, Index);
+			return RowAccessor(Context, Context.Stream.AddZeroed(Count));
 		}
 
 		template <typename U = AccessType>
 		FORCEINLINE TEnableIfWritable<void, U> Shrink()
 		{
 			Context.Stream.Shrink();
-			SendCallbackNotify(FRealtimeMeshStreamBuilderEventType::Shrink, Context.Stream.Num());
 		}
 
 		template <typename U = AccessType>
 		FORCEINLINE TEnableIfWritable<void, U> Empty(SizeType ExpectedUseSize = 0, SizeType MaxSlack = 0)
 		{
 			Context.Stream.Empty(ExpectedUseSize, MaxSlack);			
-			SendCallbackNotify(FRealtimeMeshStreamBuilderEventType::Empty, ExpectedUseSize, MaxSlack);
 		}
 
 		template <typename U = AccessType>
 		FORCEINLINE TEnableIfWritable<void, U> Reserve(SizeType Number)
 		{
 			Context.Stream.Reserve(Number);
-			SendCallbackNotify(FRealtimeMeshStreamBuilderEventType::Reserve, Number);
 		}
 
 		template <typename U = AccessType>
 		FORCEINLINE TEnableIfWritable<void, U> SetNumUninitialized(SizeType NewNum)
 		{
 			Context.Stream.SetNumUninitialized(NewNum);
-			SendCallbackNotify(FRealtimeMeshStreamBuilderEventType::NewSizeUninitialized, NewNum);
 		}
 
 		template <typename U = AccessType>
 		FORCEINLINE TEnableIfWritable<void, U> SetNumZeroed(SizeType NewNum)
 		{
 			Context.Stream.SetNumZeroed(NewNum);
-			SendCallbackNotify(FRealtimeMeshStreamBuilderEventType::NewSizeZeroed, NewNum);
+		}
+
+		template <typename U = AccessType>
+		FORCEINLINE TEnableIfWritable<void, U> SetNumWithFill(SizeType NewNum, const AccessType& FillValue)
+		{
+			const int32 StartIndex = Context.Stream.Num();
+			Context.Stream.SetNumUninitialized(NewNum);
+			for (int32 Index = StartIndex; Index < NewNum; Index++)
+			{
+				Edit(Index) = FillValue;
+			}
 		}
 
 		template <typename U = AccessType>
 		FORCEINLINE TEnableIfWritable<void, U> RemoveAt(SizeType Index, SizeType Count = 1)
 		{
 			Context.Stream.RemoveAt(Index, Count);
-			SendCallbackNotify(FRealtimeMeshStreamBuilderEventType::RemoveAt, Index, Count);
 		}
 
 		FORCEINLINE AccessType GetValue(int32 Index) const
@@ -926,16 +912,16 @@ namespace RealtimeMesh
 		}
 
 
-		/*template <typename GeneratorFunc>
+		template <typename GeneratorFunc>
 		FORCEINLINE TEnableIfWritable<void, GeneratorFunc> SetElementGenerator(int32 StartIndex, int32 Count, int32 ElementIndex, GeneratorFunc Generator)
 		{
 			RangeCheck(StartIndex + Count - 1);
 			ElementCheck(ElementIndex);
 			for (int32 Index = 0; Index < Count; Index++)
 			{
-				StreamDataAccessor::SetElementValue(Context, StartIndex + Index, ElementIndex, Generator(Index, StartIndex + Index));
+				Edit(StartIndex + Index).SetElement(ElementIndex, Generator(Index, StartIndex + Index));
 			}
-		}*/
+		}
 		
 		/*FORCE INLINE TConstArrayView<BufferType, SizeType> GetView() const
 		{
@@ -1021,6 +1007,8 @@ namespace RealtimeMesh
 			}
 		}
 
+		
+
 
 	protected:
 		static FORCEINLINE void ElementCheck(int32 ElementIndex)
@@ -1072,17 +1060,17 @@ namespace RealtimeMesh
 		using TangentStreamType = typename TRealtimeMeshPromoteTypeIfNotVoid<TangentElementType, TRealtimeMeshTangents<TangentElementType>>::Type;
 		using TexCoordStreamType = typename TRealtimeMeshPromoteTypeIfNotVoid<TexCoordElementType, TRealtimeMeshTexCoords<TexCoordElementType, NumTexCoords>>::Type;
 
-		using TriangleStreamBuilder = TRealtimeMeshStreamBuilderBase<TriangleType, TriangleStreamType, false>;
-		using PositionStreamBuilder = TRealtimeMeshStreamBuilderBase<FVector3f, FVector3f, false>;
-		using TangentStreamBuilder = TRealtimeMeshStreamBuilderBase<TangentAccessType, TangentStreamType, false>;
-		using TexCoordStreamBuilder = TRealtimeMeshStreamBuilderBase<TexCoordAccessType, TexCoordStreamType, true>;
-		using ColorStreamBuilder = TRealtimeMeshStreamBuilderBase<FColor, FColor, false>;
-		using PolyGroupStreamBuilder = TRealtimeMeshStreamBuilderBase<uint32, PolyGroupIndexType, false>;
+		using TriangleStreamBuilder = TRealtimeMeshStreamBuilder<TriangleType, TriangleStreamType>;
+		using PositionStreamBuilder = TRealtimeMeshStreamBuilder<FVector3f, FVector3f>;
+		using TangentStreamBuilder = TRealtimeMeshStreamBuilder<TangentAccessType, TangentStreamType>;
+		using TexCoordStreamBuilder = TRealtimeMeshStridedStreamBuilder<TexCoordAccessType, TexCoordStreamType>;
+		using ColorStreamBuilder = TRealtimeMeshStreamBuilder<FColor, FColor>;
+		using PolyGroupStreamBuilder = TRealtimeMeshStreamBuilder<uint32, PolyGroupIndexType>;
 		
 		using VertexBuilder = TRealtimeMeshVertexBuilderLocal<TRealtimeMeshBuilderLocal>;
 		using SizeType = PositionStreamBuilder::SizeType;
 
-		static_assert(FRealtimeMeshBufferTypeTraits<TexCoordStreamType>::NumElements == NumTexCoords, "NumTexCoords must match the number of elements in the TexCoordStreamType");
+		static_assert(TIsVoidType<TexCoordElementType>::Value || FRealtimeMeshBufferTypeTraits<TexCoordStreamType>::NumElements == NumTexCoords, "NumTexCoords must match the number of elements in the TexCoordStreamType");
 
 	private:
 		FRealtimeMeshStreamSet& Streams;
@@ -1098,22 +1086,32 @@ namespace RealtimeMesh
 		TOptional<PolyGroupStreamBuilder> TrianglePolyGroups;
 		TOptional<PolyGroupStreamBuilder> DepthOnlyTrianglePolyGroups;
 
-		template <typename AccessLayout, typename DataLayout, typename DesiredStreamLayout, bool bAllowSubstreamAccess>
-		TOptional<TRealtimeMeshStreamBuilderBase<AccessLayout, DataLayout, bAllowSubstreamAccess>> GetStreamBuilder(const FRealtimeMeshStreamKey& StreamKey, bool bCreateIfNotAvailable = false)
+		template <typename AccessLayout, typename DataLayout = AccessLayout, bool bAllowSubstreamAccess = false>
+		TOptional<TRealtimeMeshStreamBuilderBase<AccessLayout, DataLayout, bAllowSubstreamAccess>> GetStreamBuilder(const FRealtimeMeshStreamKey& StreamKey,
+			bool bCreateIfNotAvailable = false, const FRealtimeMeshBufferLayout& DefaultLayout = FRealtimeMeshBufferLayout::Invalid, bool bForceConvertToDefaultType = false)
 		{
 			if (auto* ExistingStream = Streams.Find(StreamKey))
 			{
 				if constexpr (TIsSame<AccessLayout, DataLayout>::Value)
 				{
-					check((TIsSame<AccessLayout, DesiredStreamLayout>::Value));
+					// Make sure the desired format matches the format as they should all be equivalent
+					check(GetRealtimeMeshBufferLayout<AccessLayout>() == DefaultLayout);
+					check(ExistingStream->IsOfType(DefaultLayout));
 				}
 				else if constexpr (!TIsSame<DataLayout, void>::Value)
 				{
+					// If the concrete data type is valid, make sure the stream is in this format
 					check(ExistingStream->IsOfType<DataLayout>());
 				}
 				else
 				{
+					// Convert on the fly, make sure it's convertible to this type
 					check(ExistingStream->CanConvertTo<AccessLayout>());					
+				}
+
+				if (bForceConvertToDefaultType && !ExistingStream->IsOfType(DefaultLayout))
+				{
+					ExistingStream->ConvertTo(DefaultLayout);
 				}
 				
 				return TRealtimeMeshStreamBuilderBase<AccessLayout, DataLayout, bAllowSubstreamAccess>(*ExistingStream);
@@ -1121,184 +1119,59 @@ namespace RealtimeMesh
 
 			if (bCreateIfNotAvailable)
 			{
-				auto NewStream = Streams.AddStream(StreamKey, GetRealtimeMeshBufferLayout<DesiredStreamLayout>());
-				return TRealtimeMeshStreamBuilderBase<AccessLayout, DataLayout, bAllowSubstreamAccess>(*NewStream);
+				FRealtimeMeshStream& NewStream = Streams.AddStream(StreamKey, DefaultLayout);
+				return TRealtimeMeshStreamBuilderBase<AccessLayout, DataLayout, bAllowSubstreamAccess>(NewStream);
 			}
 			
 			return TOptional<TRealtimeMeshStreamBuilderBase<AccessLayout, DataLayout, bAllowSubstreamAccess>>();
-		}
-
-		
-		void OnVerticesSizeChanged(FRealtimeMeshStreamBuilderEventType SizeChangeType, SizeType NewSize, SizeType MaxSize)
-		{
-			switch(SizeChangeType)
-			{
-			case FRealtimeMeshStreamBuilderEventType::NewSizeUninitialized:
-				if (Tangents.IsSet())
-				{
-					Tangents->SetNumUninitialized(NewSize);
-				}
-				if (Colors.IsSet())
-				{
-					Colors->SetNumUninitialized(NewSize);
-				}
-				if (TexCoords.IsSet())
-				{
-					TexCoords->SetNumUninitialized(NewSize);
-				}
-				break;					
-			case FRealtimeMeshStreamBuilderEventType::NewSizeZeroed:
-				if (Tangents.IsSet())
-				{
-					Tangents->SetNumZeroed(NewSize);
-				}
-				if (Colors.IsSet())
-				{
-					Colors->SetNumZeroed(NewSize);
-				}
-				if (TexCoords.IsSet())
-				{
-					TexCoords->SetNumZeroed(NewSize);
-				}
-				break;
-			case FRealtimeMeshStreamBuilderEventType::Reserve:
-				if (Tangents.IsSet())
-				{
-					Tangents->Reserve(NewSize);
-				}
-				if (Colors.IsSet())
-				{
-					Colors->Reserve(NewSize);
-				}
-				if (TexCoords.IsSet())
-				{
-					TexCoords->Reserve(NewSize);
-				}
-				break;
-			case FRealtimeMeshStreamBuilderEventType::Shrink:
-				if (Tangents.IsSet())
-				{
-					Tangents->Shrink();
-				}
-				if (Colors.IsSet())
-				{
-					Colors->Shrink();
-				}
-				if (TexCoords.IsSet())
-				{
-					TexCoords->Shrink();
-				}
-				break;
-			case FRealtimeMeshStreamBuilderEventType::Empty:
-				if (Tangents.IsSet())
-				{
-					Tangents->Empty(NewSize, MaxSize);
-				}
-				if (Colors.IsSet())
-				{
-					Colors->Empty(NewSize, MaxSize);
-				}
-				if (TexCoords.IsSet())
-				{
-					TexCoords->Empty(NewSize, MaxSize);
-				}
-				break;
-			case FRealtimeMeshStreamBuilderEventType::RemoveAt:
-				if (Tangents.IsSet())
-				{
-					Tangents->RemoveAt(NewSize, MaxSize);
-				}
-				if (Colors.IsSet())
-				{
-					Colors->RemoveAt(NewSize, MaxSize);
-				}
-				if (TexCoords.IsSet())
-				{
-					TexCoords->RemoveAt(NewSize, MaxSize);
-				}
-				break;
-			default:
-				checkf(false, TEXT("We shouldn't have gotten here..."));
-			}
-		}
-		void OnTrianglesSizeChanged(FRealtimeMeshStreamBuilderEventType SizeChangeType, SizeType NewSize, SizeType MaxSize)
-		{
-			if (TrianglePolyGroups.IsSet())
-			{
-				switch(SizeChangeType)
-				{
-				case FRealtimeMeshStreamBuilderEventType::NewSizeUninitialized:
-					TrianglePolyGroups->SetNumUninitialized(NewSize);
-					break;
-				case FRealtimeMeshStreamBuilderEventType::NewSizeZeroed:
-					TrianglePolyGroups->SetNumZeroed(NewSize);
-					break;
-				case FRealtimeMeshStreamBuilderEventType::Reserve:
-					TrianglePolyGroups->Reserve(NewSize);
-					break;
-				case FRealtimeMeshStreamBuilderEventType::Shrink:
-					TrianglePolyGroups->Shrink();
-					break;
-				case FRealtimeMeshStreamBuilderEventType::Empty:
-					TrianglePolyGroups->Empty(NewSize, MaxSize);
-					break;
-				case FRealtimeMeshStreamBuilderEventType::RemoveAt:
-					TrianglePolyGroups->RemoveAt(NewSize, MaxSize);
-					break;
-				default:
-					checkf(false, TEXT("We shouldn't have gotten here..."));
-				}
-			}
-		}
-		void OnDepthOnlyTrianglesSizeChanged(FRealtimeMeshStreamBuilderEventType SizeChangeType, SizeType NewSize, SizeType MaxSize)
-		{
-			if (DepthOnlyTrianglePolyGroups.IsSet())
-			{
-				switch(SizeChangeType)
-				{
-				case FRealtimeMeshStreamBuilderEventType::NewSizeUninitialized:
-					DepthOnlyTrianglePolyGroups->SetNumUninitialized(NewSize);
-					break;
-				case FRealtimeMeshStreamBuilderEventType::NewSizeZeroed:
-					DepthOnlyTrianglePolyGroups->SetNumZeroed(NewSize);
-					break;
-				case FRealtimeMeshStreamBuilderEventType::Reserve:
-					DepthOnlyTrianglePolyGroups->Reserve(NewSize);
-					break;
-				case FRealtimeMeshStreamBuilderEventType::Shrink:
-					DepthOnlyTrianglePolyGroups->Shrink();
-					break;
-				case FRealtimeMeshStreamBuilderEventType::Empty:
-					DepthOnlyTrianglePolyGroups->Empty(NewSize, MaxSize);
-					break;
-				case FRealtimeMeshStreamBuilderEventType::RemoveAt:
-					DepthOnlyTrianglePolyGroups->RemoveAt(NewSize, MaxSize);
-					break;
-				default:
-					checkf(false, TEXT("We shouldn't have gotten here..."));
-				}
-			}
 		}
 
 	public:
 
 		TRealtimeMeshBuilderLocal(FRealtimeMeshStreamSet& InExistingStreams)
 			: Streams(InExistingStreams)
-			, Vertices(GetStreamBuilder<FVector3f, FVector3f, FVector3f, false>(FRealtimeMeshStreams::Position, true)->GetStream())
-			, Tangents(GetStreamBuilder<TangentAccessType, TangentStreamType, typename TRealtimeMeshUseTypeOrDefaultIfVoid<TangentStreamType, TRealtimeMeshTangents<FPackedNormal>>::Type, false>(FRealtimeMeshStreams::Tangents))
-			, TexCoords(GetStreamBuilder<TexCoordAccessType, TexCoordStreamType, typename TRealtimeMeshUseTypeOrDefaultIfVoid<TexCoordStreamType, TRealtimeMeshTexCoords<FVector2DHalf, NumTexCoords>>::Type, true>(FRealtimeMeshStreams::TexCoords))
-			, Colors(GetStreamBuilder<FColor, FColor, FColor, false>(FRealtimeMeshStreams::Color))
-			, Triangles(GetStreamBuilder<TriangleType, TriangleStreamType, typename TRealtimeMeshUseTypeOrDefaultIfVoid<TriangleStreamType, TIndex3<uint16>>::Type, false>(FRealtimeMeshStreams::Triangles, true)->GetStream())
-			, DepthOnlyTriangles(GetStreamBuilder<TriangleType, TriangleStreamType, typename TRealtimeMeshUseTypeOrDefaultIfVoid<TriangleStreamType, TIndex3<uint16>>::Type, false>(FRealtimeMeshStreams::DepthOnlyTriangles))
-			, TrianglePolyGroups(GetStreamBuilder<uint32, PolyGroupIndexType, typename TRealtimeMeshUseTypeOrDefaultIfVoid<PolyGroupIndexType, uint16>::Type, false>(FRealtimeMeshStreams::PolyGroups))
-			, DepthOnlyTrianglePolyGroups(GetStreamBuilder<uint32, PolyGroupIndexType, typename TRealtimeMeshUseTypeOrDefaultIfVoid<PolyGroupIndexType, uint16>::Type, false>(FRealtimeMeshStreams::DepthOnlyPolyGroups))
+			, Vertices(GetStreamBuilder<FVector3f>(FRealtimeMeshStreams::Position, true, GetRealtimeMeshBufferLayout<FVector3f>())->GetStream())
+			, Tangents(GetStreamBuilder<TangentAccessType, TangentStreamType>(FRealtimeMeshStreams::Tangents))
+			, TexCoords(GetStreamBuilder<TexCoordAccessType, TexCoordStreamType, true>(FRealtimeMeshStreams::TexCoords))
+			, Colors(GetStreamBuilder<FColor>(FRealtimeMeshStreams::Color))
+			, Triangles(GetStreamBuilder<TriangleType, TriangleStreamType>(FRealtimeMeshStreams::Triangles, true, GetRealtimeMeshBufferLayout<TIndex3<uint16>>())->GetStream())
+			, DepthOnlyTriangles(GetStreamBuilder<TriangleType, TriangleStreamType>(FRealtimeMeshStreams::DepthOnlyTriangles))
+			, TrianglePolyGroups(GetStreamBuilder<uint32, PolyGroupIndexType>(FRealtimeMeshStreams::PolyGroups))
+			, DepthOnlyTrianglePolyGroups(GetStreamBuilder<uint32, PolyGroupIndexType>(FRealtimeMeshStreams::DepthOnlyPolyGroups))
 		{
-			Vertices.GetCallbackDelegate().BindRaw(this, &TRealtimeMeshBuilderLocal::OnVerticesSizeChanged);
-			Triangles.GetCallbackDelegate().BindRaw(this, &TRealtimeMeshBuilderLocal::OnTrianglesSizeChanged);
+			Streams.AddStreamToLinkPool("Vertices", FRealtimeMeshStreams::Position);
+			if (Tangents.IsSet())
+			{				
+				Streams.AddStreamToLinkPool("Vertices", FRealtimeMeshStreams::Tangents,
+					FRealtimeMeshStreamDefaultRowValue::Create(TRealtimeMeshTangents<FVector4f>(FVector3f::ZAxisVector, FVector3f::XAxisVector), Vertices.GetBufferLayout()));
+			}
+			if (TexCoords.IsSet())
+			{
+				Streams.AddStreamToLinkPool("TexCoords", FRealtimeMeshStreams::TexCoords);
+			}
+
+			if (Colors.IsSet())
+			{
+				Streams.AddStreamToLinkPool("Colors", FRealtimeMeshStreams::Color, FRealtimeMeshStreamDefaultRowValue::Create(FColor::White));
+			}
+
+			Streams.AddStreamToLinkPool("Triangles", FRealtimeMeshStreams::Triangles);
+
+			if (TrianglePolyGroups.IsSet())
+			{
+				Streams.AddStreamToLinkPool("Triangles", FRealtimeMeshStreams::PolyGroups);
+			}
+
 			if (DepthOnlyTriangles.IsSet())
 			{
-				DepthOnlyTriangles->GetCallbackDelegate().BindRaw(this, &TRealtimeMeshBuilderLocal::OnDepthOnlyTrianglesSizeChanged);
+				Streams.AddStreamToLinkPool("DepthOnlyTriangles", FRealtimeMeshStreams::DepthOnlyTriangles);
 			}
+			if (DepthOnlyTrianglePolyGroups.IsSet())
+			{
+				Streams.AddStreamToLinkPool("DepthOnlyTriangles", FRealtimeMeshStreams::DepthOnlyPolyGroups);
+			}
+
+			
 		}
 
 
@@ -1313,108 +1186,196 @@ namespace RealtimeMesh
 		FORCEINLINE bool HasPolyGroups() const { return TrianglePolyGroups.IsSet(); }
 
 
+		void EnableTangents(const FRealtimeMeshElementType& ElementType)
+		{
+			checkf(ElementType.IsValid(), TEXT("Element type must be a valid type"));
+			checkf(TIsVoidType<TangentElementType>::Value || ElementType == GetRealtimeMeshDataElementType<TangentElementType>(),
+				TEXT("ElementType must be the same as the TangentElementType, unless the builder is dynamic by supplying void to the TangentElementType of the builder template"));
+			checkf(!TIsVoidType<TangentElementType>::Value || FRealtimeMeshTypeConversionUtilities::CanConvert(ElementType, GetRealtimeMeshDataElementType<FVector4f>()),
+				TEXT("ElementType must be convertible to FVector4f"));
+			
+			if (!Tangents.IsSet())
+			{				
+				Tangents = GetStreamBuilder<TangentAccessType, TangentStreamType>(FRealtimeMeshStreams::Tangents, true, GetRealtimeMeshBufferLayout(ElementType, 2), true);
+				Streams.AddStreamToLinkPool("Vertices", FRealtimeMeshStreams::Tangents,
+				FRealtimeMeshStreamDefaultRowValue::Create(TRealtimeMeshTangents<FVector4f>(FVector3f::ZAxisVector, FVector3f::XAxisVector), Tangents->GetBufferLayout()));
+			}
+		}		
 		template<typename NewTangentElementType = typename TRealtimeMeshUseTypeOrDefaultIfVoid<TangentElementType, FPackedNormal>::Type>
 		void EnableTangents()
 		{
 			static_assert(TRealtimeMeshIsVoidOrSameType<TangentElementType, NewTangentElementType>::Value,
 				"New tangent type does not match type the builder assumes. Please match the type or allow the builder to use a dynamic access by passing void to TangentElementType");
 			
-			if (!Tangents.IsSet())
-			{
-				Tangents = GetStreamBuilder<TangentAccessType, TangentStreamType, TRealtimeMeshTangents<NewTangentElementType>, false>(FRealtimeMeshStreams::Tangents, true);
-				Tangents->SetNumZeroed(Vertices.Num());
-				// TODO: Turn this back on once we fixup the generator functions
-				/*Tangents->AppendGenerator(Vertices.Num(), [](int32 Index, int32 VertexIndex)
-				{
-					return TRealtimeMeshTangents<TangentType>(FVector3f::ZAxisVector, FVector3f::XAxisVector);
-				});*/
-			}
+			EnableTangents(GetRealtimeMeshDataElementType<NewTangentElementType>());
 		}
-		void DisableTangents()
+		void DisableTangents(bool bRemoveExistingStreams = true)
 		{
 			Tangents.Reset();
+			if (bRemoveExistingStreams)
+			{
+				Streams.Remove(FRealtimeMeshStreams::Tangents);
+			}
 		}
 
 		void EnableColors()
 		{
 			if (!Colors.IsSet())
 			{
-				Colors = GetStreamBuilder<FColor, FColor, FColor, false>(FRealtimeMeshStreams::Color, true);
-				Colors->SetNumZeroed(Vertices.Num());
-				// TODO: Turn this back on once we fixup the generator functions
-				/*Colors->AppendGenerator(Vertices.Num(), [](int32 Index, int32 VertexIndex)
-				{
-					return FColor::White;
-				});*/
+				Colors = GetStreamBuilder<FColor>(FRealtimeMeshStreams::Color, true, GetRealtimeMeshBufferLayout<FColor>());
+				Streams.AddStreamToLinkPool("Vertices", FRealtimeMeshStreams::Color, FRealtimeMeshStreamDefaultRowValue::Create(FColor::White));
 			}
 		}
-		void DisableColors()
+		void DisableColors(bool bRemoveExistingStreams = true)
 		{
 			Colors.Reset();
+			if (bRemoveExistingStreams)
+			{
+				Streams.Remove(FRealtimeMeshStreams::Color);
+			}
 		}
 
+		void EnableTexCoords(const FRealtimeMeshElementType& ElementType, int32 NumChannels = 1)
+		{
+			checkf(ElementType.IsValid(), TEXT("Element type must be a valid type"));
+			checkf(NumChannels >= NumTexCoords, TEXT("NumChannels must be greater or equal to the number of tex coords"));
+				
+			checkf(TIsVoidType<TexCoordElementType>::Value || ElementType == GetRealtimeMeshDataElementType<TexCoordElementType>(),
+				TEXT("ElementType must be the same as the TexCoordStreamType, unless the builder is dynamic by supplying void to the TexCoordStreamType of the builder template"));
+			checkf(!TIsVoidType<TexCoordElementType>::Value || FRealtimeMeshTypeConversionUtilities::CanConvert(ElementType, GetRealtimeMeshDataElementType<FVector2f>()),
+				TEXT("ElementType must be convertible to FVector2f"));
+			
+			if (!TexCoords.IsSet())
+			{
+				TexCoords = GetStreamBuilder<TexCoordAccessType, TexCoordStreamType, true>(FRealtimeMeshStreams::TexCoords, true, GetRealtimeMeshBufferLayout(ElementType, NumChannels), true);
+				Streams.AddStreamToLinkPool("Vertices", FRealtimeMeshStreams::TexCoords);
+			}
+		}	
 		template<typename NewTexCoordElementType = typename TRealtimeMeshUseTypeOrDefaultIfVoid<TexCoordElementType, FVector2DHalf>::Type>
-		void EnableTexCoords()
+		void EnableTexCoords(int32 NumChannels = NumTexCoords)
 		{			
 			static_assert(TRealtimeMeshIsVoidOrSameType<TexCoordElementType, NewTexCoordElementType>::Value,
 				"New TexCoord type does not match type the builder assumes. Please match the type or allow the builder to use a dynamic access by passing void to TexCoordElementType");
-			if (!TexCoords.IsSet())
-			{
-				TexCoords = GetStreamBuilder<TexCoordAccessType, TexCoordStreamType, TRealtimeMeshTexCoords<NewTexCoordElementType, NumTexCoords>, true>(FRealtimeMeshStreams::TexCoords, true);
-				TexCoords->SetNumZeroed(Vertices.Num());
-			}
+			
+			EnableTexCoords(GetRealtimeMeshDataElementType<NewTexCoordElementType>(), NumChannels);
 		}
-		void DisableTexCoords()
+		void DisableTexCoords(bool bRemoveExistingStreams = true)
 		{
 			TexCoords.Reset();
+			if (bRemoveExistingStreams)
+			{
+				Streams.Remove(FRealtimeMeshStreams::TexCoords);
+			}
 		}
-		
+
+		void EnableDepthOnlyTriangles(const FRealtimeMeshElementType& ElementType)
+		{
+			checkf(ElementType.IsValid(), TEXT("Element type must be a valid type"));
+				
+			checkf(TIsVoidType<IndexType>::Value || ElementType == GetRealtimeMeshDataElementType<IndexType>(),
+				TEXT("ElementType must be the same as the IndexType, unless the builder is dynamic by supplying void to the IndexType of the builder template"));
+			checkf(!TIsVoidType<IndexType>::Value || FRealtimeMeshTypeConversionUtilities::CanConvert(ElementType, GetRealtimeMeshDataElementType<uint32>()),
+				TEXT("ElementType must be convertible to uint32"));
+			
+			if (!DepthOnlyTriangles.IsSet())
+			{
+				DepthOnlyTriangles = GetStreamBuilder<TriangleType, TriangleStreamType>(FRealtimeMeshStreams::DepthOnlyTriangles, true, GetRealtimeMeshBufferLayout(ElementType, 3), true);
+				Streams.AddStreamToLinkPool("DepthOnlyTriangles", FRealtimeMeshStreams::DepthOnlyTriangles);
+			}
+
+			if (HasPolyGroups())
+			{
+				check(TrianglePolyGroups.IsSet());
+				DepthOnlyTrianglePolyGroups = GetStreamBuilder<uint32, PolyGroupIndexType>(FRealtimeMeshStreams::DepthOnlyPolyGroups, true,
+					TrianglePolyGroups->GetBufferLayout());
+				Streams.AddStreamToLinkPool("DepthOnlyTriangles", FRealtimeMeshStreams::DepthOnlyPolyGroups);				
+			}
+		}			
 		template<typename NewIndexType = typename TRealtimeMeshUseTypeOrDefaultIfVoid<IndexType, uint16>::Type>
 		void EnableDepthOnlyTriangles()
 		{
 			static_assert(TRealtimeMeshIsVoidOrSameType<IndexType, NewIndexType>::Value,
 				"New index type does not match type the builder assumes. Please match the type or allow the builder to use a dynamic access by passing void to IndexType");
-			
-			if (!DepthOnlyTriangles.IsSet())
-			{
-				DepthOnlyTriangles = GetStreamBuilder<TriangleType, TriangleStreamType, TIndex3<NewIndexType>, false>(FRealtimeMeshStreams::DepthOnlyTriangles, true);
-				DepthOnlyTriangles->GetCallbackDelegate().BindRaw(this, &TRealtimeMeshBuilderLocal::OnDepthOnlyTrianglesSizeChanged);
-			}
+
+			EnableDepthOnlyTriangles(GetRealtimeMeshDataElementType<NewIndexType>());
 		}
-		void DisableDepthOnlyTriangles()
+		void DisableDepthOnlyTriangles(bool bRemoveExistingStreams = true)
 		{
 			DepthOnlyTriangles.Reset();
+			if (bRemoveExistingStreams)
+			{
+				Streams.Remove(FRealtimeMeshStreams::DepthOnlyTriangles);
+			}
 		}
 
 		
+		
+		void EnablePolyGroups(const FRealtimeMeshElementType& ElementType)
+		{
+			checkf(ElementType.IsValid(), TEXT("Element type must be a valid type"));
+				
+			checkf(TIsVoidType<PolyGroupIndexType>::Value || ElementType == GetRealtimeMeshDataElementType<PolyGroupIndexType>(),
+				TEXT("ElementType must be the same as the PolyGroupIndexType, unless the builder is dynamic by supplying void to the PolyGroupIndexType of the builder template"));
+			checkf(!TIsVoidType<PolyGroupIndexType>::Value || FRealtimeMeshTypeConversionUtilities::CanConvert(ElementType, GetRealtimeMeshDataElementType<uint32>()),
+				TEXT("TexCoord ElementType must be convertible to uint32"));
+			
+			if (!TrianglePolyGroups.IsSet())
+			{
+				TrianglePolyGroups = GetStreamBuilder<uint32, PolyGroupIndexType>(FRealtimeMeshStreams::PolyGroups, true, GetRealtimeMeshBufferLayout(ElementType, 1), true);
+				Streams.AddStreamToLinkPool("Triangles", FRealtimeMeshStreams::PolyGroups);
+			}
+			if (HasDepthOnlyTriangles() && !DepthOnlyTrianglePolyGroups.IsSet())
+			{
+				DepthOnlyTrianglePolyGroups = GetStreamBuilder<uint32, PolyGroupIndexType>(FRealtimeMeshStreams::DepthOnlyPolyGroups, true, GetRealtimeMeshBufferLayout(ElementType, 1), true);
+				Streams.AddStreamToLinkPool("DepthOnlyTriangles", FRealtimeMeshStreams::DepthOnlyPolyGroups);
+			}
+		}
 		template<typename NewPolyGroupIndexType = typename TRealtimeMeshUseTypeOrDefaultIfVoid<PolyGroupIndexType, uint16>::Type>
 		void EnablePolyGroups()
 		{
 			static_assert(TRealtimeMeshIsVoidOrSameType<PolyGroupIndexType, NewPolyGroupIndexType>::Value,
 				"New poly group index type does not match type the builder assumes. Please match the type or allow the builder to use a dynamic access by passing void to PolyGroupIndexType");
 			
-			if (!TrianglePolyGroups.IsSet())
-			{
-				TrianglePolyGroups = GetStreamBuilder<uint32, PolyGroupIndexType, NewPolyGroupIndexType, false>(FRealtimeMeshStreams::PolyGroups, true);
-				TrianglePolyGroups->SetNumZeroed(Vertices.Num());
-			}
-			if (HasDepthOnlyTriangles() && !DepthOnlyTrianglePolyGroups.IsSet())
-			{
-				DepthOnlyTrianglePolyGroups = GetStreamBuilder<uint32, PolyGroupIndexType, NewPolyGroupIndexType, false>(FRealtimeMeshStreams::DepthOnlyPolyGroups, true);
-				DepthOnlyTrianglePolyGroups->SetNumZeroed(Vertices.Num());
-			}
+			EnablePolyGroups(GetRealtimeMeshDataElementType<NewPolyGroupIndexType>());
 		}
-
-		void DisablePolyGroups()
+		void DisablePolyGroups(bool bRemoveExistingStreams = true)
 		{
 			TrianglePolyGroups.Reset();
 			DepthOnlyTrianglePolyGroups.Reset();
+			if (bRemoveExistingStreams)
+			{
+				Streams.Remove(FRealtimeMeshStreams::PolyGroups);
+				Streams.Remove(FRealtimeMeshStreams::DepthOnlyPolyGroups);
+			}
 		}
+
+		void EmptyVertices()
+		{
+			Vertices.Empty();
+		}
+
+		void SetNumVertices(SizeType NewNum)
+		{
+			Vertices.SetNumUninitialized(NewNum);
+		}
+
+		void EmptyTriangles()
+		{
+			Triangles.Empty();
+		}
+
+		void EmptyDepthOnlyTriangles()
+		{
+			check(DepthOnlyTriangles.IsSet());
+			DepthOnlyTriangles->Empty();
+		}
+
+
+		
 
 		VertexBuilder AddVertex()
 		{
-			const SizeType Index = Vertices.AddZeroed();
-			return VertexBuilder(*this, Index);
+			return Vertices.AddZeroed();
 		}
 
 		VertexBuilder AddVertex(const FVector3f& InPosition)
@@ -1434,16 +1395,33 @@ namespace RealtimeMesh
 			Vertices.Set(VertIdx, InPosition);
 		}
 
+		FVector3f GetPosition(int32 VertIdx)
+		{
+			return Vertices.Get(VertIdx);
+		}
+
 		void SetNormal(int32 VertIdx, const FVector3f& Normal)
 		{
 			checkf(HasTangents(), TEXT("Vertex tangents not enabled"));
 			Tangents->SetElement(VertIdx, 1, FVector4f(Normal, Tangents->GetElementValue(VertIdx, 1).W));
 		}
 
+		FVector3f GetNormal(int32 VertIdx)
+		{
+			checkf(HasTangents(), TEXT("Vertex tangents not enabled"));
+			return Tangents->GetElementValue(VertIdx, 1);			
+		}
+
 		void SetTangent(int32 VertIdx, const FVector3f& Tangent)
 		{
 			checkf(HasTangents(), TEXT("Vertex tangents not enabled"));
 			Tangents->SetElement(VertIdx, 0, FVector4f(Tangent));
+		}
+
+		FVector3f GetTangent(int32 VertIdx)
+		{			
+			checkf(HasTangents(), TEXT("Vertex tangents not enabled"));
+			return Tangents->GetElementValue(VertIdx, 0);
 		}
 
 		void SetNormalAndTangent(int32 VertIdx, const FVector3f& Normal, const FVector3f& Tangent, bool bShouldFlipBinormal = false)
@@ -1485,6 +1463,20 @@ namespace RealtimeMesh
 			}
 		}
 
+		FVector2f GetTexCoord(int32 VertIdx, int32 TexCoordIdx)
+		{			
+			checkf(HasTexCoords(), TEXT("Vertex texcoords not enabled"));
+			if constexpr (FRealtimeMeshBufferTypeTraits<TexCoordStreamType>::NumElements == 1)
+			{
+				check(TexCoordIdx == 0);
+				return TexCoords->GetValue(VertIdx);
+			}
+			else
+			{
+				return TexCoords->GetElementValue(VertIdx, TexCoordIdx);
+			}
+		}
+
 		/*template<typename... TexCoord>
 		void SetTexCoords(int32 VertIdx, const TexCoord& TexCoords...)
 		{
@@ -1510,6 +1502,12 @@ namespace RealtimeMesh
 				Colors->AppendGenerator(VertIdx + 1 - Colors->Num(), [](int32, int32) { return FColor::White; });
 			}
 			Colors->Set(VertIdx, VertexColor.ToFColor(bSRGB));
+		}
+		
+		FColor GetColor(int32 VertIdx)
+		{
+			checkf(HasVertexColors(), TEXT("Vertex colors not enabled"));
+			return Colors->Get(VertIdx);
 		}
 
 
@@ -1561,6 +1559,17 @@ namespace RealtimeMesh
 			checkf(HasPolyGroups(), TEXT("Triangle material indices not enabled"));
 			Triangles.Set(Index, TIndex3<uint32>(Vert0, Vert1, Vert2));
 			TrianglePolyGroups->Set(Index, MaterialIndex);
+		}
+
+		TIndex3<uint32> GetTriangle(SizeType Index)
+		{
+			return Triangles.Get(Index);
+		}
+		
+		uint32 GetMaterialIndex(SizeType Index)
+		{
+			checkf(HasPolyGroups(), TEXT("Triangle material indices not enabled"));
+			return TrianglePolyGroups->Get(Index);
 		}
 
 		int32 AddDepthOnlyTriangle(const TIndex3<uint32>& Triangle)
@@ -1619,6 +1628,19 @@ namespace RealtimeMesh
 			DepthOnlyTriangles.Set(Index, TIndex3<uint32>(Vert0, Vert1, Vert2));
 			DepthOnlyTrianglePolyGroups->Set(Index, MaterialIndex);
 		}
+		
+		TIndex3<uint32> GetDepthOnlyTriangle(SizeType Index)
+		{
+			checkf(HasDepthOnlyTriangles(), TEXT("Depth only triangles not enabled"));
+			return DepthOnlyTriangles.Get(Index);
+		}
+		
+		uint32 GetDepthOnlyMaterialIndex(SizeType Index)
+		{
+			checkf(HasDepthOnlyTriangles(), TEXT("Depth only triangles not enabled"));
+			checkf(HasPolyGroups(), TEXT("Depth only triangle material indices not enabled"));
+			return DepthOnlyTrianglePolyGroups->Get(Index);
+		}
 	};
 
 
@@ -1653,16 +1675,33 @@ namespace RealtimeMesh
 			return *this;
 		}
 
+		FVector3f GetPosition() const
+		{
+			return ParentBuilder.GetPosition(RowIndex);
+		}
+
 		VertexBuilder& SetNormal(const FVector3f& Normal)
 		{
 			ParentBuilder.SetNormal(RowIndex, Normal);
 			return *this;
 		}
 
+		FVector3f GetNormal() const
+		{
+			checkf(HasTangents(), TEXT("Vertex tangents not enabled"));
+			return ParentBuilder.GetNormal(RowIndex);
+		}
+
 		VertexBuilder& SetTangent(const FVector3f& Tangent)
 		{
-			ParentBuilder.SetTangents(RowIndex, Tangent);
+			ParentBuilder.SetTangent(RowIndex, Tangent);
 			return *this;
+		}
+
+		FVector3f GetTangent() const
+		{
+			checkf(HasTangents(), TEXT("Vertex tangents not enabled"));
+			return ParentBuilder.GetTangent(RowIndex);
 		}
 
 		VertexBuilder& SetNormalAndTangent(const FVector3f& Normal, const FVector3f& Tangent)
@@ -1689,6 +1728,12 @@ namespace RealtimeMesh
 			return *this;
 		}
 
+		FVector2f GetTexCoord(int32 TexCoordIdx = 0) const
+		{
+			checkf(HasTexCoords(), TEXT("Vertex texcoords not enabled"));
+			return ParentBuilder.GetTexCoord(RowIndex, TexCoordIdx);
+		}
+
 		/*VertexBuilder& SetTexCoords(const FVector2f& TexCoord)
 		{
 			ParentBuilder.SetTexCoord(RowIndex, 0, TexCoord);
@@ -1709,8 +1754,19 @@ namespace RealtimeMesh
 
 		VertexBuilder& SetColor(const FLinearColor& VertexColor, bool bSRGB = true)
 		{
-			ParentBuilder.SetColor(VertexColor.ToFColor(bSRGB));
+			ParentBuilder.SetColor(RowIndex, VertexColor.ToFColor(bSRGB));
 			return *this;
+		}
+
+		FColor GetColor() const
+		{
+			checkf(HasVertexColors(), TEXT("Vertex colors not enabled"));
+			return ParentBuilder.GetColor(RowIndex);
+		}
+
+		FLinearColor GetLinearColor() const
+		{
+			return FLinearColor(GetColor());
 		}
 		
 	};

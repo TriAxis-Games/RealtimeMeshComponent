@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "RealtimeMeshBuilder.h"
 #include "RealtimeMeshDataStream.h"
 #include "RealtimeMeshDataTypes.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
@@ -383,7 +384,8 @@ struct REALTIMEMESHCOMPONENT_API FRealtimeMeshStreamPtr
 public:
 	
 	UPROPERTY()
-	TObjectPtr<URealtimeMeshStreamSet> StreamSet;	
+	TObjectPtr<URealtimeMeshStreamSet> StreamSet;
+	
 	FRealtimeMeshStreamKey StreamKey;
 	mutable RealtimeMesh::StreamBuilder::Private::FStreamState StreamState;
 	mutable int32 ChangeId;
@@ -448,7 +450,7 @@ public:
 };
 
 
-struct REALTIMEMESHCOMPONENT_API FRealtimeMeshLocalBuilderResources
+/*struct REALTIMEMESHCOMPONENT_API FRealtimeMeshLocalBuilderResources
 {	
 	mutable RealtimeMesh::StreamBuilder::Private::FStreamState Position;
 	mutable RealtimeMesh::StreamBuilder::Private::FStreamState Tangents;
@@ -464,33 +466,8 @@ struct REALTIMEMESHCOMPONENT_API FRealtimeMeshLocalBuilderResources
 	mutable int32 ChangeId = INDEX_NONE;
 
 	void UpdateIfNecessary(URealtimeMeshStreamSet* StreamSet);
-};
+};*/
 
-USTRUCT(BlueprintType)
-struct REALTIMEMESHCOMPONENT_API FRealtimeMeshLocalBuilder
-{
-	GENERATED_BODY()
-public:
-	
-	UPROPERTY()
-	TObjectPtr<URealtimeMeshStreamSet> StreamSet;
-
-	TSharedPtr<FRealtimeMeshLocalBuilderResources> Resources;
-	
-	// Shared ptr to interface
-	FRealtimeMeshLocalBuilder()
-		: StreamSet(nullptr)
-	{
-		
-	}
-	
-	FRealtimeMeshLocalBuilder(URealtimeMeshStreamSet* InStreamSet, const TSharedPtr<FRealtimeMeshLocalBuilderResources>& InResources)
-		: StreamSet(InStreamSet)
-		, Resources(InResources)
-	{
-		
-	}
-};
 
 
 
@@ -502,51 +479,40 @@ class REALTIMEMESHCOMPONENT_API URealtimeMeshStreamSet : public UObject
 {
 	GENERATED_BODY()
 protected:
-	TUniquePtr<RealtimeMesh::FRealtimeMeshStreamSet> StreamSet;
+	RealtimeMesh::FRealtimeMeshStreamSet StreamSet;
 
 	// This change id is incremented every time the streamset is changed, whether that's by adding a
 	// stream, removing a stream, or emptying or moving all the streams
 	// This is so anything referring to us knows to update/invalidate itself
 	mutable int32 ChangeId;
-
-	void EnsureHasStreamSet()
-	{
-		if (!StreamSet)
-		{
-			StreamSet = MakeUnique<RealtimeMesh::FRealtimeMeshStreamSet>();
-		}
-	}
 public:
-	RealtimeMesh::FRealtimeMeshStream* AddStream(const FRealtimeMeshStreamKey& StreamKey, const RealtimeMesh::FRealtimeMeshBufferLayout& BufferLayout)
+		
+	RealtimeMesh::FRealtimeMeshStream& AddStream(const FRealtimeMeshStreamKey& StreamKey, const RealtimeMesh::FRealtimeMeshBufferLayout& BufferLayout)
 	{
-		EnsureHasStreamSet();		
 		ChangeId++;
-		return StreamSet->AddStream(StreamKey, BufferLayout);
+		return StreamSet.AddStream(StreamKey, BufferLayout);
 	}
 	
 	RealtimeMesh::FRealtimeMeshStream* GetStream(const FRealtimeMeshStreamKey& StreamKey)
 	{
-		EnsureHasStreamSet();
-		return StreamSet->Find(StreamKey);
+		return StreamSet.Find(StreamKey);
 	}
 	
-	RealtimeMesh::FRealtimeMeshStream* GetOrAddStream(const FRealtimeMeshStreamKey& StreamKey, const RealtimeMesh::FRealtimeMeshBufferLayout& ConvertToLayout, bool bKeepData = true)
+	RealtimeMesh::FRealtimeMeshStream& GetOrAddStream(const FRealtimeMeshStreamKey& StreamKey, const RealtimeMesh::FRealtimeMeshBufferLayout& ConvertToLayout, bool bKeepData = true)
 	{
-		EnsureHasStreamSet();
-		if (StreamSet->Find(StreamKey) == nullptr || StreamSet->Find(StreamKey)->GetLayout() != ConvertToLayout)
+		if (StreamSet.Find(StreamKey) == nullptr || StreamSet.Find(StreamKey)->GetLayout() != ConvertToLayout)
 		{				
-			auto NewStream = StreamSet->FindOrAdd(StreamKey, ConvertToLayout, bKeepData);
+			auto& NewStream = StreamSet.FindOrAdd(StreamKey, ConvertToLayout, bKeepData);
 			ChangeId++;
 			return NewStream;
 		}
 
-		return &StreamSet->FindChecked(StreamKey);
+		return StreamSet.FindChecked(StreamKey);
 	}
 	
 	void RemoveStream(FRealtimeMeshStreamKey Tangents)
 	{
-		EnsureHasStreamSet();
-		if (StreamSet->Remove(Tangents))
+		if (StreamSet.Remove(Tangents))
 		{
 			ChangeId++;
 		}
@@ -554,12 +520,43 @@ public:
 	
 	RealtimeMesh::FRealtimeMeshStreamSet& GetStreamSet()
 	{
-		EnsureHasStreamSet();
-		return *StreamSet;
+		return StreamSet;
 	}
 
 	void IncrementChangeId() const { ChangeId++; }
 	int32 GetChangeId() const { return ChangeId; }
+};
+
+
+
+USTRUCT(BlueprintType)
+struct REALTIMEMESHCOMPONENT_API FRealtimeMeshLocalBuilder
+{
+	GENERATED_BODY()
+public:
+	
+	UPROPERTY()
+	TObjectPtr<URealtimeMeshStreamSet> StreamSet;
+
+	mutable TOptional<RealtimeMesh::TRealtimeMeshBuilderLocal<void, void, void, 1, void>> Builder;
+
+	mutable TOptional<RealtimeMesh::TRealtimeMeshStridedStreamBuilder<FVector2f, void>> UV1Builder;
+	mutable TOptional<RealtimeMesh::TRealtimeMeshStridedStreamBuilder<FVector2f, void>> UV2Builder;
+	mutable TOptional<RealtimeMesh::TRealtimeMeshStridedStreamBuilder<FVector2f, void>> UV3Builder;
+	
+	FRealtimeMeshLocalBuilder()
+		: StreamSet(nullptr)
+	{
+		
+	}
+	
+	FRealtimeMeshLocalBuilder(URealtimeMeshStreamSet* InStreamSet)
+		: StreamSet(InStreamSet)
+		, Builder(StreamSet->GetStreamSet())
+	{
+		
+	}
+	
 };
 
 
@@ -691,7 +688,7 @@ public:
 	static FRealtimeMeshLocalBuilder MakeLocalMeshBuilder(URealtimeMeshStreamSet* StreamSet,
 		ERealtimeMeshSimpleStreamConfig WantedTangents = ERealtimeMeshSimpleStreamConfig::Normal,
 		ERealtimeMeshSimpleStreamConfig WantedTexCoords = ERealtimeMeshSimpleStreamConfig::Normal,
-		ERealtimeMeshSimpleStreamConfig WantedTriangleSize = ERealtimeMeshSimpleStreamConfig::Normal,
+		bool bWants32BitIndices = false,
 		ERealtimeMeshSimpleStreamConfig WantedPolyGroupType = ERealtimeMeshSimpleStreamConfig::None,
 		bool bWantsColors = true, int32 WantedTexCoordChannels = 1, bool bKeepExistingData = true);
 
@@ -742,7 +739,7 @@ public:
 
 	
 	UFUNCTION(BlueprintCallable, Category="RealtimeMesh|MeshData", meta=(AutoCreateRefTerm=""))
-	static const FRealtimeMeshLocalBuilder& AddVertex(const FRealtimeMeshLocalBuilder& Builder, FVector Position = FVector(0, 0, 0),
+	static const FRealtimeMeshLocalBuilder& AddVertex(const FRealtimeMeshLocalBuilder& Builder, int32& Index, FVector Position = FVector(0, 0, 0),
 		FVector Normal = FVector(0, 0, 1), FVector Tangent = FVector(1, 0, 0), FLinearColor Color = FLinearColor::White,
 		FVector2D UV0 = FVector2D(0, 0), FVector2D UV1 = FVector2D(0, 0), FVector2D UV2 = FVector2D(0, 0), FVector2D UV3 = FVector2D(0, 0));
 

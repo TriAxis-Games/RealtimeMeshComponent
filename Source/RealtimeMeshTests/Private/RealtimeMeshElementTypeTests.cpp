@@ -29,8 +29,8 @@ bool FRealtimeMeshElementTypeTests::RunTest(const FString& Parameters)
 	TestTrue(TEXT("VectorType NumDatums"), VectorType.GetNumDatums() == 2);
 
 	//const RealtimeMesh::FRealtimeMeshElementTypeDefinition InvalidDef = RealtimeMesh::FRealtimeMeshBufferLayoutUtilities::GetTypeDefinition(VoidType);
-	const RealtimeMesh::FRealtimeMeshElementTypeDefinition ValidVertex = RealtimeMesh::FRealtimeMeshBufferLayoutUtilities::GetTypeDefinition(VectorType);
-	const RealtimeMesh::FRealtimeMeshElementTypeDefinition ValidIndex = RealtimeMesh::FRealtimeMeshBufferLayoutUtilities::GetTypeDefinition(IntType);
+	const RealtimeMesh::FRealtimeMeshElementTypeDetails ValidVertex = RealtimeMesh::FRealtimeMeshBufferLayoutUtilities::GetElementTypeDetails(VectorType);
+	const RealtimeMesh::FRealtimeMeshElementTypeDetails ValidIndex = RealtimeMesh::FRealtimeMeshBufferLayoutUtilities::GetElementTypeDetails(IntType);
 	
 	
 	//TestFalse(TEXT("InvalidDef Valid"), InvalidDef.IsValid());
@@ -40,9 +40,9 @@ bool FRealtimeMeshElementTypeTests::RunTest(const FString& Parameters)
 	TestTrue(TEXT("ValidVertex"), ValidVertex.IsSupportedVertexType() && ValidVertex.GetVertexType() == VET_Float2 && ValidVertex.GetStride() == sizeof(FVector2f) && ValidVertex.GetAlignment() == alignof(FVector2f));
 	TestTrue(TEXT("ValidIndex"), ValidIndex.IsSupportedIndexType() && ValidIndex.GetIndexType() == RealtimeMesh::IET_UInt32 && ValidIndex.GetStride() == sizeof(uint32) && ValidIndex.GetAlignment() == alignof(uint32));
 
-	const RealtimeMesh::FRealtimeMeshElementTypeDefinition PackedNormal = RealtimeMesh::FRealtimeMeshBufferLayoutUtilities::GetTypeDefinition(RealtimeMesh::GetRealtimeMeshDataElementType<FPackedNormal>());	
+	const RealtimeMesh::FRealtimeMeshElementTypeDetails PackedNormal = RealtimeMesh::FRealtimeMeshBufferLayoutUtilities::GetElementTypeDetails(RealtimeMesh::GetRealtimeMeshDataElementType<FPackedNormal>());	
 	TestTrue(TEXT("PackedNormal"), PackedNormal.IsSupportedVertexType() && PackedNormal.GetVertexType() == VET_PackedNormal && PackedNormal.GetStride() == sizeof(FPackedNormal) && PackedNormal.GetAlignment() == alignof(FPackedNormal));
-	const RealtimeMesh::FRealtimeMeshElementTypeDefinition PackedRGBA16N = RealtimeMesh::FRealtimeMeshBufferLayoutUtilities::GetTypeDefinition(RealtimeMesh::GetRealtimeMeshDataElementType<FPackedRGBA16N>());	
+	const RealtimeMesh::FRealtimeMeshElementTypeDetails PackedRGBA16N = RealtimeMesh::FRealtimeMeshBufferLayoutUtilities::GetElementTypeDetails(RealtimeMesh::GetRealtimeMeshDataElementType<FPackedRGBA16N>());	
 	TestTrue(TEXT("PackedRGBA16N"), PackedRGBA16N.IsSupportedVertexType() && PackedRGBA16N.GetVertexType() == VET_Short4N && PackedRGBA16N.GetStride() == sizeof(FPackedRGBA16N) && PackedRGBA16N.GetAlignment() == alignof(FPackedRGBA16N));
 	
 	return true;

@@ -37,7 +37,7 @@ namespace RealtimeMesh
 		}
 
 		const FResourceArrayInterface* GetResource() const { return &Stream; }
-		FRealtimeMeshBufferLayoutDefinition GetBufferLayout() const { return Stream.GetLayoutDefinition(); }
+		FRealtimeMeshBufferLayout GetBufferLayout() const { return Stream.GetLayout(); }
 		FRealtimeMeshStreamKey GetStreamKey() const { return Stream.GetStreamKey(); }
 		int32 GetNumElements() const { return Stream.Num(); }
 		EBufferUsageFlags GetUsageFlags() const { return UsageFlags; }
@@ -121,7 +121,9 @@ namespace RealtimeMesh
 	class REALTIMEMESHCOMPONENT_API FRealtimeMeshGPUBuffer
 	{
 	protected:
-		FRealtimeMeshBufferLayoutDefinition BufferLayout;
+		FRealtimeMeshBufferLayout BufferLayout;
+		FRealtimeMeshElementTypeDetails ElementDetails;
+		FRealtimeMeshBufferMemoryLayout MemoryLayout;
 		uint32 BufferNum;
 		EBufferUsageFlags UsageFlags;
 
@@ -131,11 +133,13 @@ namespace RealtimeMesh
 
 	public:
 		FRealtimeMeshGPUBuffer(const TCHAR* InBufferName, const FRealtimeMeshBufferLayout& InBufferLayout)
-			: BufferLayout(FRealtimeMeshBufferLayoutUtilities::GetBufferLayoutDefinition(InBufferLayout))
-			  , BufferNum(0)
-			  , UsageFlags(BUF_Static | BUF_ShaderResource)
+			: BufferLayout(InBufferLayout)
+			, ElementDetails(FRealtimeMeshBufferLayoutUtilities::GetElementTypeDetails(InBufferLayout.GetElementType()))
+			, MemoryLayout(FRealtimeMeshBufferLayoutUtilities::GetBufferLayoutMemoryLayout(InBufferLayout))
+			, BufferNum(0)
+			, UsageFlags(BUF_Static | BUF_ShaderResource)
 #if WITH_EDITOR
-			  , BufferName(InBufferName)
+			, BufferName(InBufferName)
 #endif
 		{
 		}
@@ -156,13 +160,13 @@ namespace RealtimeMesh
 		virtual void ReleaseUnderlyingResource() = 0;
 		virtual bool IsResourceInitialized() const = 0;
 
-		FORCEINLINE const FRealtimeMeshBufferLayoutDefinition& GetBufferLayout() const { return BufferLayout; }
-		FORCEINLINE EPixelFormat GetElementFormat() const { return BufferLayout.GetElementTypeDefinition().GetPixelFormat(); }
+		FORCEINLINE const FRealtimeMeshBufferLayout& GetBufferLayout() const { return BufferLayout; }
+		FORCEINLINE EPixelFormat GetElementFormat() const { return ElementDetails.GetPixelFormat(); }
 		FORCEINLINE int32 GetElementStride() const { return GPixelFormats[GetElementFormat()].BlockBytes; }
-		FORCEINLINE uint32 GetStride() const { return BufferLayout.GetStride(); }
+		FORCEINLINE uint32 GetStride() const { return MemoryLayout.GetStride(); }
 		FORCEINLINE int32 Num() const { return BufferNum; }
 
-		FORCEINLINE int32 NumElements() const { return BufferLayout.GetBufferLayout().GetNumElements(); }
+		FORCEINLINE int32 NumElements() const { return BufferLayout.GetNumElements(); }
 		/*FORCEINLINE bool TryGetElementOffset(FName SubComponentName, uint16& OutSubComponentOffset) const
 		{
 			if (const uint8* Entry = BufferLayout.FindElementOffset(SubComponentName))
@@ -178,7 +182,7 @@ namespace RealtimeMesh
 
 		virtual void ApplyBufferUpdate(TRHIResourceUpdateBatcher<RHIUpdateBatchSize>& Batcher, const FRealtimeMeshSectionGroupStreamUpdateDataRef& UpdateData)
 		{
-			check(BufferLayout.GetBufferLayout() == UpdateData->GetBufferLayout().GetBufferLayout());
+			check(BufferLayout == UpdateData->GetBufferLayout());
 			BufferNum = UpdateData->GetNumElements();
 			UsageFlags = UpdateData->GetUsageFlags();
 
@@ -216,7 +220,7 @@ namespace RealtimeMesh
 		virtual bool IsResourceInitialized() const override { return IsInitialized(); }
 
 		/** Gets the format of the vertex */
-		FORCEINLINE EVertexElementType GetVertexType() const { return GetBufferLayout().GetElementTypeDefinition().GetVertexType(); }
+		FORCEINLINE EVertexElementType GetVertexType() const { return ElementDetails.GetVertexType(); }
 
 #if RMC_ENGINE_ABOVE_5_3
 		virtual void InitRHI(FRHICommandListBase& RHICmdList) override
@@ -303,7 +307,7 @@ namespace RealtimeMesh
 		virtual bool IsResourceInitialized() const override { return IsInitialized(); }
 
 		/** Gets the format of the index buffer */
-		FORCEINLINE bool IsUsing32BitIndices() const { return FRealtimeMeshBufferLayoutUtilities::Is32BitIndex(GetBufferLayout().GetElementTypeDefinition()); }
+		//FORCEINLINE bool IsUsing32BitIndices() const { return FRealtimeMeshBufferLayoutUtilities::Is32BitIndex(GetBufferLayout().GetElementTypeDefinition()); }
 
 #if RMC_ENGINE_ABOVE_5_3
 		virtual void InitRHI(FRHICommandListBase& RHICmdList) override
@@ -317,7 +321,7 @@ namespace RealtimeMesh
 		{
 			FRHIResourceCreateInfo CreateInfo(TEXT("RealtimeMeshBuffer-Vertex-Init"));
 			CreateInfo.bWithoutNativeResource = true;
-			IndexBufferRHI = RHICreateIndexBuffer(sizeof(uint16), 0, BUF_VertexBuffer | BUF_Static, CreateInfo);
+			IndexBufferRHI = RHICreateIndexBuffer(sizeof(uint16), 0, BUF_IndexBuffer | BUF_Static, CreateInfo);
 		}
 #endif
 
@@ -328,7 +332,7 @@ namespace RealtimeMesh
 			FRealtimeMeshGPUBuffer::ApplyBufferUpdate(Batcher, UpdateData);
 
 			// Adjust size by number of elements to handle structs containing 3 indices.
-			BufferNum *= BufferLayout.GetBufferLayout().GetNumElements();
+			BufferNum *= BufferLayout.GetNumElements();
 
 			IndexBufferRHI = UpdateData->GetBuffer();
 			//Batcher.QueueUpdateRequest(IndexBufferRHI, UpdateData->GetNumElements() > 0? UpdateData->GetBuffer() : nullptr);
