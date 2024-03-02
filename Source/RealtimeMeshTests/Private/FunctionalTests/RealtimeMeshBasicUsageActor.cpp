@@ -5,9 +5,9 @@
 
 #include "RealtimeMeshLibrary.h"
 #include "RealtimeMeshSimple.h"
-#include "Mesh/RealtimeMeshBasicShapeTools.h"
 #include "Mesh/RealtimeMeshBuilder.h"
-#include "Mesh/RealtimeMeshSimpleData.h"
+
+#include "RealtimeMeshCubeGeneratorExample.h"
 
 static constexpr float BlendTime = 0.5f;
 
@@ -20,173 +20,6 @@ ARealtimeMeshBasicUsageActor::ARealtimeMeshBasicUsageActor()
 	PrimaryActorTick.bStartWithTickEnabled = true;
 }
 
-
-static void AppendBox(TRealtimeMeshBuilderLocal<uint16, FPackedNormal, FVector2DHalf, 1>& Builder, const FVector3f& BoxRadius, uint16 PolyGroup)
-{	
-	// Generate verts
-	FVector3f BoxVerts[8];
-	BoxVerts[0] = FVector3f(-BoxRadius.X, BoxRadius.Y, BoxRadius.Z);
-	BoxVerts[1] = FVector3f(BoxRadius.X, BoxRadius.Y, BoxRadius.Z);
-	BoxVerts[2] = FVector3f(BoxRadius.X, -BoxRadius.Y, BoxRadius.Z);
-	BoxVerts[3] = FVector3f(-BoxRadius.X, -BoxRadius.Y, BoxRadius.Z);
-
-	BoxVerts[4] = FVector3f(-BoxRadius.X, BoxRadius.Y, -BoxRadius.Z);
-	BoxVerts[5] = FVector3f(BoxRadius.X, BoxRadius.Y, -BoxRadius.Z);
-	BoxVerts[6] = FVector3f(BoxRadius.X, -BoxRadius.Y, -BoxRadius.Z);
-	BoxVerts[7] = FVector3f(-BoxRadius.X, -BoxRadius.Y, -BoxRadius.Z);
-	
-	{ // Positive Z
-		int32 V0 = Builder.AddVertex(BoxVerts[0])
-			.SetNormalAndTangent(FVector3f(0.0f, 0.0f, 1.0f), FVector3f(0.0f, -1.0f, 0.0f))
-			.SetTexCoords(FVector2f(0.0f, 0.0f))
-			.GetIndex();
-
-		int32 V1 = Builder.AddVertex(BoxVerts[1])
-			.SetNormalAndTangent(FVector3f(0.0f, 0.0f, 1.0f), FVector3f(0.0f, -1.0f, 0.0f))
-			.SetTexCoords(FVector2f(0.0f, 1.0f))
-			.GetIndex();
-
-		int32 V2 = Builder.AddVertex(BoxVerts[2])
-			.SetNormalAndTangent(FVector3f(0.0f, 0.0f, 1.0f), FVector3f(0.0f, -1.0f, 0.0f))
-			.SetTexCoords(FVector2f(1.0f, 1.0f))
-			.GetIndex();
-
-		int32 V3 = Builder.AddVertex(BoxVerts[3])
-			.SetNormalAndTangent(FVector3f(0.0f, 0.0f, 1.0f), FVector3f(0.0f, -1.0f, 0.0f))
-			.SetTexCoords(FVector2f(1.0f, 0.0f))
-			.GetIndex();
-
-		Builder.AddTriangle(V0, V1, V3, PolyGroup);
-		Builder.AddTriangle(V1, V2, V3, PolyGroup);		
-	}
-
-	{ // Negative X
-		int32 V0 = Builder.AddVertex(BoxVerts[4])
-			.SetNormalAndTangent(FVector3f(-1.0f, 0.0f, 0.0f), FVector3f(0.0f, -1.0f, 0.0f))
-			.SetTexCoords(FVector2f(0.0f, 0.0f))
-			.GetIndex();
-
-		int32 V1 = Builder.AddVertex(BoxVerts[0])
-			.SetNormalAndTangent(FVector3f(-1.0f, 0.0f, 0.0f), FVector3f(0.0f, -1.0f, 0.0f))
-			.SetTexCoords(FVector2f(0.0f, 1.0f))
-			.GetIndex();
-
-		int32 V2 = Builder.AddVertex(BoxVerts[3])
-			.SetNormalAndTangent(FVector3f(-1.0f, 0.0f, 0.0f), FVector3f(0.0f, -1.0f, 0.0f))
-			.SetTexCoords(FVector2f(1.0f, 1.0f))
-			.GetIndex();
-
-		int32 V3 = Builder.AddVertex(BoxVerts[7])
-			.SetNormalAndTangent(FVector3f(-1.0f, 0.0f, 0.0f), FVector3f(0.0f, -1.0f, 0.0f))
-			.SetTexCoords(FVector2f(1.0f, 0.0f))
-			.GetIndex();
-
-		Builder.AddTriangle(V0, V1, V3, PolyGroup);
-		Builder.AddTriangle(V1, V2, V3, PolyGroup);		
-	}
-
-	{ // Positive Y
-		int32 V0 = Builder.AddVertex(BoxVerts[5])
-			.SetNormalAndTangent(FVector3f(0.0f, 1.0f, 0.0f), FVector3f(-1.0f, 0.0f, 0.0f))
-			.SetTexCoords(FVector2f(0.0f, 0.0f))
-			.GetIndex();
-
-		int32 V1 = Builder.AddVertex(BoxVerts[1])
-			.SetNormalAndTangent(FVector3f(0.0f, 1.0f, 0.0f), FVector3f(-1.0f, 0.0f, 0.0f))
-			.SetTexCoords(FVector2f(0.0f, 1.0f))
-			.GetIndex();
-
-		int32 V2 = Builder.AddVertex(BoxVerts[0])
-			.SetNormalAndTangent(FVector3f(0.0f, 1.0f, 0.0f), FVector3f(-1.0f, 0.0f, 0.0f))
-			.SetTexCoords(FVector2f(1.0f, 1.0f))
-			.GetIndex();
-
-		int32 V3 = Builder.AddVertex(BoxVerts[4])
-			.SetNormalAndTangent(FVector3f(0.0f, 1.0f, 0.0f), FVector3f(-1.0f, 0.0f, 0.0f))
-			.SetTexCoords(FVector2f(1.0f, 0.0f))
-			.GetIndex();
-
-		Builder.AddTriangle(V0, V1, V3, PolyGroup);
-		Builder.AddTriangle(V1, V2, V3, PolyGroup);		
-	}
-
-	{ // Positive X
-		int32 V0 = Builder.AddVertex(BoxVerts[6])
-			.SetNormalAndTangent(FVector3f(1.0f, 0.0f, 0.0f), FVector3f(0.0f, 1.0f, 0.0f))
-			.SetTexCoords(FVector2f(0.0f, 0.0f))
-			.GetIndex();
-
-		int32 V1 = Builder.AddVertex(BoxVerts[2])
-			.SetNormalAndTangent(FVector3f(1.0f, 0.0f, 0.0f), FVector3f(0.0f, 1.0f, 0.0f))
-			.SetTexCoords(FVector2f(0.0f, 1.0f))
-			.GetIndex();
-
-		int32 V2 = Builder.AddVertex(BoxVerts[1])
-			.SetNormalAndTangent(FVector3f(1.0f, 0.0f, 0.0f), FVector3f(0.0f, 1.0f, 0.0f))
-			.SetTexCoords(FVector2f(1.0f, 1.0f))
-			.GetIndex();
-
-		int32 V3 = Builder.AddVertex(BoxVerts[5])
-			.SetNormalAndTangent(FVector3f(1.0f, 0.0f, 0.0f), FVector3f(0.0f, 1.0f, 0.0f))
-			.SetTexCoords(FVector2f(1.0f, 0.0f))
-			.GetIndex();
-
-		Builder.AddTriangle(V0, V1, V3, PolyGroup);
-		Builder.AddTriangle(V1, V2, V3, PolyGroup);		
-	}
-
-	{ // Negative Y
-		int32 V0 = Builder.AddVertex(BoxVerts[7])
-			.SetNormalAndTangent(FVector3f(0.0f, -1.0f, 0.0f), FVector3f(1.0f, 0.0f, 0.0f))
-			.SetTexCoords(FVector2f(0.0f, 0.0f))
-			.GetIndex();
-
-		int32 V1 = Builder.AddVertex(BoxVerts[3])
-			.SetNormalAndTangent(FVector3f(0.0f, -1.0f, 0.0f), FVector3f(1.0f, 0.0f, 0.0f))
-			.SetTexCoords(FVector2f(0.0f, 1.0f))
-			.GetIndex();
-
-		int32 V2 = Builder.AddVertex(BoxVerts[2])
-			.SetNormalAndTangent(FVector3f(0.0f, -1.0f, 0.0f), FVector3f(1.0f, 0.0f, 0.0f))
-			.SetTexCoords(FVector2f(1.0f, 1.0f))
-			.GetIndex();
-
-		int32 V3 = Builder.AddVertex(BoxVerts[6])
-			.SetNormalAndTangent(FVector3f(0.0f, -1.0f, 0.0f), FVector3f(1.0f, 0.0f, 0.0f))
-			.SetTexCoords(FVector2f(1.0f, 0.0f))
-			.GetIndex();
-
-		Builder.AddTriangle(V0, V1, V3, PolyGroup);
-		Builder.AddTriangle(V1, V2, V3, PolyGroup);		
-	}
-
-	{ // Negative Z
-		int32 V0 = Builder.AddVertex(BoxVerts[7])
-			.SetNormalAndTangent(FVector3f(0.0f, 0.0f, -1.0f), FVector3f(0.0f, 1.0f, 0.0f))
-			.SetTexCoords(FVector2f(0.0f, 0.0f))
-			.GetIndex();
-
-		int32 V1 = Builder.AddVertex(BoxVerts[6])
-			.SetNormalAndTangent(FVector3f(0.0f, 0.0f, -1.0f), FVector3f(0.0f, 1.0f, 0.0f))
-			.SetTexCoords(FVector2f(0.0f, 1.0f))
-			.GetIndex();
-
-		int32 V2 = Builder.AddVertex(BoxVerts[5])
-			.SetNormalAndTangent(FVector3f(0.0f, 0.0f, -1.0f), FVector3f(0.0f, 1.0f, 0.0f))
-			.SetTexCoords(FVector2f(1.0f, 1.0f))
-			.GetIndex();
-
-		int32 V3 = Builder.AddVertex(BoxVerts[4])
-			.SetNormalAndTangent(FVector3f(0.0f, 0.0f, -1.0f), FVector3f(0.0f, 1.0f, 0.0f))
-			.SetTexCoords(FVector2f(1.0f, 0.0f))
-			.GetIndex();
-
-		Builder.AddTriangle(V0, V1, V3, PolyGroup);
-		Builder.AddTriangle(V1, V2, V3, PolyGroup);		
-	}
-}
-
-
 void ARealtimeMeshBasicUsageActor::OnGenerateMesh_Implementation()
 {
 	Super::OnGenerateMesh_Implementation();
@@ -195,7 +28,7 @@ void ARealtimeMeshBasicUsageActor::OnGenerateMesh_Implementation()
 	URealtimeMeshSimple* RealtimeMesh = GetRealtimeMeshComponent()->InitializeRealtimeMesh<URealtimeMeshSimple>();
 
 	FRealtimeMeshStreamSet StreamSet;
-	TRealtimeMeshBuilderLocal<uint16, FPackedNormal, FVector2DHalf, 1> Builder(StreamSet);
+	TRealtimeMeshBuilderLocal<uint16, FPackedNormal, FVector2DHalf, 2> Builder(StreamSet);
 	Builder.EnableTangents();
 	Builder.EnableTexCoords();
 	Builder.EnablePolyGroups();
@@ -205,8 +38,8 @@ void ARealtimeMeshBasicUsageActor::OnGenerateMesh_Implementation()
 	// of them sharing a single set of buffers, but using separate sections for separate materials
 	AppendBox(Builder, FVector3f(100, 100, 200), 0);
 	AppendBox(Builder, FVector3f(200, 100, 100), 1);
-	AppendBox(Builder, FVector3f(100, 200, 100), 2);	
-
+	AppendBox(Builder, FVector3f(100, 200, 100), 2);
+	
 	// Setup the two material slots
 	RealtimeMesh->SetupMaterialSlot(0, "PrimaryMaterial");
 	RealtimeMesh->SetupMaterialSlot(1, "SecondaryMaterial");

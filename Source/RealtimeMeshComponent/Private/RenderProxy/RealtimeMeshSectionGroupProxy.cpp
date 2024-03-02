@@ -91,7 +91,7 @@ namespace RealtimeMesh
 		{
 			// We only stream in place if the existing buffer is zero or the same size as the new one
 			if ((FoundBuffer->Get()->Num() == 0 || FoundBuffer->Get()->Num() == InStream->GetNumElements()) &&
-				FoundBuffer->Get()->GetBufferLayout().GetBufferLayout() == InStream->GetBufferLayout().GetBufferLayout())
+				FoundBuffer->Get()->GetBufferLayout() == InStream->GetBufferLayout())
 			{
 				GPUBuffer = *FoundBuffer;
 			}
@@ -104,8 +104,8 @@ namespace RealtimeMesh
 		if (!GPUBuffer)
 		{
 			GPUBuffer = InStream->GetStreamKey().GetStreamType() == ERealtimeMeshStreamType::Vertex
-				            ? StaticCastSharedRef<FRealtimeMeshGPUBuffer>(MakeShared<FRealtimeMeshVertexBuffer>(InStream->GetBufferLayout().GetBufferLayout()))
-				            : StaticCastSharedRef<FRealtimeMeshGPUBuffer>(MakeShared<FRealtimeMeshIndexBuffer>(InStream->GetBufferLayout().GetBufferLayout()));
+				            ? StaticCastSharedRef<FRealtimeMeshGPUBuffer>(MakeShared<FRealtimeMeshVertexBuffer>(InStream->GetBufferLayout()))
+				            : StaticCastSharedRef<FRealtimeMeshGPUBuffer>(MakeShared<FRealtimeMeshIndexBuffer>(InStream->GetBufferLayout()));
 
 			// We must initialize the resources first before we then apply a buffer to it.
 			GPUBuffer->InitializeResources();

@@ -76,38 +76,79 @@ protected:
 	int32 CurrentCollisionVersion;
 
 public:
+	/**
+	 * @brief GetMesh returns the FRealtimeMesh data container.
+	 *
+	 * @details This method provides access to the RealtimeMesh object that is held by the current instance of the RealtimeMesh class.
+	 *
+	 * @return A shared reference to the RealtimeMesh object.
+	 */
 	RealtimeMesh::FRealtimeMeshRef GetMesh() const { return MeshRef.ToSharedRef(); }
 
 	template <typename MeshType>
+	/**
+	 * @brief Get the mesh as a shared reference to a specific type.
+	 *
+	 * This method returns the mesh as a shared reference to a specific type by performing a static cast.
+	 *
+	 * @tparam MeshType The type of mesh to cast the mesh to.
+	 * @return A shared reference to the mesh as the specified type.
+	 */
 	TSharedRef<MeshType> GetMeshAs() const { return StaticCastSharedRef<MeshType>(MeshRef.ToSharedRef()); }
 
+	/**
+	 * Get the body setup associated with the RealtimeMesh.
+	 *
+	 * @return The body setup associated with the RealtimeMesh.
+	 */
 	UBodySetup* GetBodySetup() const { return BodySetup; }
 
 	/**
-	 * Reset the mesh to its initial state
+	 * Reset the RealtimeMesh.
+	 *
+	 * @param bCreateNewMeshData If true, create new mesh data. If false, reset the existing mesh data.
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh")
 	virtual void Reset(bool bCreateNewMeshData = false);
 
 	/**
-	 * Get the local-space bounds of the mesh
+	 * Retrieves the local bounds of the RealtimeMesh.
+	 *
+	 * @return the local bounds as a FBoxSphereBounds object.
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh")
 	virtual FBoxSphereBounds GetLocalBounds() const;
 
-
 	/**
-	 * This event will be fired to notify the BP that the generated Mesh should
-	 * be rebuilt. GeneratedDynamicMeshActor BP subclasses should rebuild their 
-	 * meshes on this event, instead of doing so directly from the Construction Script.
+	 * @brief Triggered when a mesh generation event occurs.
+	 *
+	 * This method is called when a mesh is being generated for a RealtimeMesh component.
+	 * Developers can implement this method in their Blueprint or C++ code to customize the generation process.
+	 *
+	 * @param TargetMesh The RealtimeMesh component that is generating the mesh.
+	 *
+	 * @note This method is a BlueprintCallable and BlueprintImplementableEvent, meaning it can be called from Blueprint code and overridden in Blueprint subclasses.
+	 *       It is also categorized under "Components|RealtimeMesh|Events" in Blueprint.
 	 */
 	UFUNCTION(BlueprintCallable, BlueprintImplementableEvent, Category = "Components|RealtimeMesh|Events")
 	void OnGenerateMesh(URealtimeMesh* TargetMesh);
 
 
+	/**
+	 * Add a level of detail to the RealtimeMesh.
+	 *
+	 * @param Config The configuration for the level of detail.
+	 * @return The key for the added level of detail.
+	 */
 	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh")
 	FRealtimeMeshLODKey AddLOD(const FRealtimeMeshLODConfig& Config);
 
+	/**
+	 * Updates the configuration for a level of detail in the RealtimeMesh.
+	 *
+	 * @param LODKey The key of the level of detail to update.
+	 * @param Config The updated configuration for the level of detail.
+	 */
 	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh")
 	void UpdateLODConfig(FRealtimeMeshLODKey LODKey, const FRealtimeMeshLODConfig& Config);
 
@@ -115,27 +156,73 @@ public:
 	void RemoveTrailingLOD();
 
 
+	/**
+	 * Set up a material slot for the Realtime Mesh.
+	 *
+	 * @param MaterialSlot The slot index for the material.
+	 * @param SlotName The name of the material slot.
+	 * @param InMaterial The material to be assigned to the slot.
+	 */
 	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh")
 	void SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial = nullptr);
 
+	/**
+	 * Get the index of a material slot by its name.
+	 *
+	 * @param MaterialSlotName The name of the material slot.
+	 * @return The index of the material slot. Returns INDEX_NONE if the material slot does not exist.
+	 */
 	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh")
 	int32 GetMaterialIndex(FName MaterialSlotName) const;
 
+	/**
+	 * Check if the given material slot name is valid.
+	 *
+	 * @param MaterialSlotName The name of the material slot to check.
+	 * @return true if the material slot name is valid, false otherwise.
+	 */
 	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh")
 	bool IsMaterialSlotNameValid(FName MaterialSlotName) const;
 
+	/**
+	 * Gets the material slot at the specified index.
+	 *
+	 * @param SlotIndex The index of the material slot.
+	 * @return The material slot at the specified index.
+	 */
 	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh")
 	FRealtimeMeshMaterialSlot GetMaterialSlot(int32 SlotIndex) const;
 
+	/**
+	 * Get the number of material slots in the RealtimeMesh.
+	 *
+	 * @return The number of material slots.
+	 */
 	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh")
 	int32 GetNumMaterials() const;
 
+	/**
+	 * Get the names of all material slots in the Realtime Mesh.
+	 *
+	 * @return An array of FName representing the names of all material slots.
+	 */
 	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh")
 	TArray<FName> GetMaterialSlotNames() const;
 
+	/**
+	 * Get the material slots of the Realtime Mesh.
+	 *
+	 * @return An array of FRealtimeMeshMaterialSlot representing the material slots of the Realtime Mesh.
+	 */
 	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh")
 	TArray<FRealtimeMeshMaterialSlot> GetMaterialSlots() const;
 
+	/**
+	 * Get the material at the specified slot index.
+	 *
+	 * @param SlotIndex The index of the material slot.
+	 * @return The material at the specified slot index. Returns nullptr if the slot index is invalid.
+	 */
 	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh")
 	UMaterialInterface* GetMaterial(int32 SlotIndex) const;
 
@@ -171,3 +258,5 @@ protected: // Collision
 	friend struct FRealtimeMeshEndOfFrameUpdateManager;
 	
 };
+
+

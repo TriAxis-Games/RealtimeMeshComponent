@@ -8,6 +8,7 @@
 #include "RenderProxy/RealtimeMeshSectionGroupProxy.h"
 #include "RenderProxy/RealtimeMeshVertexFactory.h"
 #include "Async/Async.h"
+#include "Mesh/RealtimeMeshAlgo.h"
 #include "Mesh/RealtimeMeshBlueprintMeshBuilder.h"
 #if RMC_ENGINE_ABOVE_5_2
 #include "Logging/MessageLog.h"
@@ -74,8 +75,7 @@ namespace RealtimeMesh
 				const auto PositionStream = SectionGroup->GetStream(FRealtimeMeshStreams::Position);
 				const auto TriangleStream = SectionGroup->GetStream(FRealtimeMeshStreams::Triangles);
 
-				const auto TexCoordsStream = SectionGroup->GetStream(FRealtimeMeshStreamKey(
-					ERealtimeMeshStreamType::Vertex, FRealtimeMeshStreams::TexCoordsStreamName));
+				const auto TexCoordsStream = SectionGroup->GetStream(FRealtimeMeshStreamKey(FRealtimeMeshStreams::TexCoords));
 
 				auto& CollisionVertices = CollisionData.GetVertices();
 				auto& CollisionUVs = CollisionData.GetUVs();
@@ -92,96 +92,51 @@ namespace RealtimeMesh
 						const auto PositionsView = PositionStream->GetArrayView<FVector3f>();
 						CollisionVertices.Append(PositionsView.GetData(), PositionsView.Num());
 
-						// TODO: We're only copying one UV set
-						if (CollisionUVs.Num() < 1)
-						{
-							CollisionUVs.SetNum(1);
-						}
-
-						int32 NumRemainingTexCoords = PositionStream->Num();
 						if (TexCoordsStream)
 						{
-							if (TexCoordsStream->GetLayout() == RealtimeMesh::GetRealtimeMeshBufferLayout<FVector2DHalf>())
+							CollisionUVs.SetNum(TexCoordsStream->GetNumElements());
+							for (int32 ChannelIndex = 0; ChannelIndex < TexCoordsStream->GetNumElements(); ChannelIndex++)
 							{
-								const auto TexCoordsView = TexCoordsStream->GetArrayView<FVector2DHalf>().Left(PositionStream->Num());
-								CollisionUVs[0].SetNum(TexCoordsView.Num());
-								for (int32 TexCoordIdx = 0; TexCoordIdx < TexCoordsView.Num(); TexCoordIdx++)
+								TRealtimeMeshStridedStreamBuilder<const FVector2d, void> UVData(*TexCoordsStream, ChannelIndex);
+								const int32 NumUVsToCopy = FMath::Min(UVData.Num(), PositionStream->Num());
+								auto& CollisionUVChannel = CollisionUVs[ChannelIndex];
+								CollisionUVChannel.SetNumUninitialized(NumUVsToCopy);
+								
+								for (int32 TexCoordIdx = 0; TexCoordIdx < NumUVsToCopy; TexCoordIdx++)
 								{
-									CollisionUVs[0][TexCoordIdx] = FVector2D(TexCoordsView[TexCoordIdx]);
+									CollisionUVChannel[TexCoordIdx] = UVData[TexCoordIdx];
 								}
-							}
-							else
-							{
-								const auto TexCoordsView = TexCoordsStream->GetArrayView<FVector2f>().Left(PositionStream->Num());
-								CollisionUVs[0].SetNum(TexCoordsView.Num());
-								for (int32 TexCoordIdx = 0; TexCoordIdx < TexCoordsView.Num(); TexCoordIdx++)
+
+								// Make sure the uv data is the same length as the position data
+								if (PositionStream->Num() > UVData.Num())
 								{
-									CollisionUVs[0][TexCoordIdx] = FVector2D(TexCoordsView[TexCoordIdx]);
+									CollisionUVChannel.SetNumZeroed(PositionStream->Num());
 								}
-							}
-							NumRemainingTexCoords -= TexCoordsStream->Num();
-						}
-
-						if (NumRemainingTexCoords > 0)
-						{
-							CollisionUVs[0].AddZeroed(NumRemainingTexCoords);
-						}
-
-						const int32 MaterialSlot = GetConfig().MaterialSlot;
-						if (TriangleStream->GetLayout().GetElementType() == RealtimeMesh::GetRealtimeMeshDataElementType<int16>())
-						{
-							const auto TrianglesView = TriangleStream->GetElementArrayView<int16>();
-							for (int32 TriIdx = 0; TriIdx < TrianglesView.Num(); TriIdx += 3)
-							{
-								FTriIndices& Tri = CollisionTriangles.AddDefaulted_GetRef();
-								Tri.v0 = TrianglesView[TriIdx + 0] + StartVertexIndex;
-								Tri.v1 = TrianglesView[TriIdx + 1] + StartVertexIndex;
-								Tri.v2 = TrianglesView[TriIdx + 2] + StartVertexIndex;
-
-								CollisionMaterials.Add(MaterialSlot);
-							}
-						}
-						else if (TriangleStream->GetLayout().GetElementType() == RealtimeMesh::GetRealtimeMeshDataElementType<uint16>())
-						{
-							const auto TrianglesView = TriangleStream->GetElementArrayView<uint16>();
-							for (int32 TriIdx = 0; TriIdx < TrianglesView.Num(); TriIdx += 3)
-							{
-								FTriIndices& Tri = CollisionTriangles.AddDefaulted_GetRef();
-								Tri.v0 = TrianglesView[TriIdx + 0] + StartVertexIndex;
-								Tri.v1 = TrianglesView[TriIdx + 1] + StartVertexIndex;
-								Tri.v2 = TrianglesView[TriIdx + 2] + StartVertexIndex;
-
-								CollisionMaterials.Add(MaterialSlot);
-							}
-						}
-						else if (TriangleStream->GetLayout().GetElementType() == RealtimeMesh::GetRealtimeMeshDataElementType<int32>())
-						{
-							const auto TrianglesView = TriangleStream->GetElementArrayView<int32>();
-							for (int32 TriIdx = 0; TriIdx < TrianglesView.Num(); TriIdx += 3)
-							{
-								FTriIndices& Tri = CollisionTriangles.AddDefaulted_GetRef();
-								Tri.v0 = TrianglesView[TriIdx + 0] + StartVertexIndex;
-								Tri.v1 = TrianglesView[TriIdx + 1] + StartVertexIndex;
-								Tri.v2 = TrianglesView[TriIdx + 2] + StartVertexIndex;
-
-								CollisionMaterials.Add(MaterialSlot);
 							}
 						}
 						else
 						{
-							const auto TrianglesView = TriangleStream->GetElementArrayView<uint32>();
-
-							for (int32 TriIdx = 0; TriIdx < TrianglesView.Num(); TriIdx += 3)
-							{
-								FTriIndices& Tri = CollisionTriangles.AddDefaulted_GetRef();
-								Tri.v0 = TrianglesView[TriIdx + 0] + StartVertexIndex;
-								Tri.v1 = TrianglesView[TriIdx + 1] + StartVertexIndex;
-								Tri.v2 = TrianglesView[TriIdx + 2] + StartVertexIndex;
-
-								CollisionMaterials.Add(MaterialSlot);
-							}
+							// Zero fill a single channel since we didn't have valid UVs
+							CollisionUVs.SetNum(1);
+							CollisionUVs[0].SetNumZeroed(PositionStream->Num());
 						}
 
+						const int32 MaterialSlot = GetConfig().MaterialSlot;
+
+						TRealtimeMeshStreamBuilder<const TIndex3<uint32>, void> TrianglesData(*TriangleStream);
+						CollisionTriangles.Reserve(TrianglesData.Num());
+						CollisionMaterials.Reserve(TrianglesData.Num());
+
+						for (int32 TriIdx = 0; TriIdx < TrianglesData.Num(); TriIdx++)
+						{
+							FTriIndices& Tri = CollisionTriangles.AddDefaulted_GetRef();
+							Tri.v0 = TrianglesData[TriIdx].GetElement(0).GetValue() + StartVertexIndex;
+							Tri.v1 = TrianglesData[TriIdx].GetElement(1).GetValue() + StartVertexIndex;
+							Tri.v2 = TrianglesData[TriIdx].GetElement(2).GetValue() + StartVertexIndex;
+
+							CollisionMaterials.Add(MaterialSlot);
+						}
+						
 						return true;
 					}
 				}

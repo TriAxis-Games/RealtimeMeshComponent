@@ -78,7 +78,7 @@ namespace RealtimeMesh
 
 		FMeshBatchElement& BatchElement = MeshBatch.Elements[0];
 		//BatchElement.UserIndex = Key;
-
+		
 		BatchElement.PrimitiveUniformBuffer = Params.UniformBuffer;
 		BatchElement.IndexBuffer = &VertexFactory->GetIndexBuffer(bDepthOnly, bMatrixInverted, Params.ResourceSubmitter);
 		BatchElement.FirstIndex = StreamRange.GetMinIndex();

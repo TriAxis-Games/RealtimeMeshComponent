@@ -33,7 +33,7 @@ URealtimeMesh::URealtimeMesh(const FObjectInitializer& ObjectInitializer)
 	, PendingBodySetup(nullptr)
 	, CollisionUpdateVersionCounter(0)
 	, CurrentCollisionVersion(INDEX_NONE)
-{
+{	
 }
 
 void URealtimeMesh::BroadcastCollisionBodyUpdatedEvent(UBodySetup* NewBodySetup)
@@ -285,7 +285,7 @@ void URealtimeMesh::InitiateCollisionUpdate(const TSharedRef<TPromise<ERealtimeM
 		// Update meshes
 		NewBodySetup->bHasCookedCollisionData = true;
 		NewBodySetup->InvalidatePhysicsData();
-		NewBodySetup->CreatePhysicsMeshes();
+		//NewBodySetup->CreatePhysicsMeshes();
 
 		BodySetup = NewBodySetup;
 		PendingCollisionUpdate.Reset();

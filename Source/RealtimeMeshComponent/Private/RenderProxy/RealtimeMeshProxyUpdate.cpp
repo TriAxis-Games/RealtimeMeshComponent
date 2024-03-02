@@ -21,21 +21,27 @@ namespace RealtimeMesh
 	{
 	}
 
+
 	TFuture<ERealtimeMeshProxyUpdateStatus> FRealtimeMeshProxyCommandBatch::Commit()
 	{
-		if (!Mesh.IsValid())
-		{
-			return MakeFulfilledPromise<ERealtimeMeshProxyUpdateStatus>(ERealtimeMeshProxyUpdateStatus::NoProxy).GetFuture();
-		}
-
+		// Skip if no tasks
 		if (Tasks.IsEmpty())
 		{
 			return MakeFulfilledPromise<ERealtimeMeshProxyUpdateStatus>(ERealtimeMeshProxyUpdateStatus::NoUpdate).GetFuture();
 		}
 
+		// Skip if no mesh
+		if (!Mesh.IsValid())
+		{
+			return MakeFulfilledPromise<ERealtimeMeshProxyUpdateStatus>(ERealtimeMeshProxyUpdateStatus::NoProxy).GetFuture();
+		}
+
+		// Skip if no proxy
+		const FRealtimeMeshProxyPtr Proxy = Mesh->GetRenderProxy(true);		
+
 		auto Promise = MakeShared<TPromise<ERealtimeMeshProxyUpdateStatus>>();
 
-		ENQUEUE_RENDER_COMMAND(FRealtimeMeshProxy_Update)([Promise, ProxyWeak = FRealtimeMeshProxyWeakPtr(Mesh->GetRenderProxy(true)), Tasks = MoveTemp(Tasks)](FRHICommandListImmediate&)
+		ENQUEUE_RENDER_COMMAND(FRealtimeMeshProxy_Update)([Promise, ProxyWeak = FRealtimeMeshProxyWeakPtr(Proxy), Tasks = MoveTemp(Tasks)](FRHICommandListImmediate&)
 		{
 			if (const auto& Proxy = ProxyWeak.Pin())
 			{
@@ -44,10 +50,16 @@ namespace RealtimeMesh
 					Task(*Proxy.Get());
 				}
 				Proxy->UpdatedCachedState(false);
+				Promise->SetValue(ERealtimeMeshProxyUpdateStatus::Updated);
 			}
-			Promise->SetValue(ERealtimeMeshProxyUpdateStatus::Updated);
+			else
+			{
+				Promise->SetValue(ERealtimeMeshProxyUpdateStatus::NoProxy);
+			}
 		});
 
+
+		// TODO: We probably shouldn't always have to do this
 		Mesh->MarkRenderStateDirty(bRequiresProxyRecreate);
 
 		Tasks.Empty();
@@ -55,6 +67,7 @@ namespace RealtimeMesh
 
 		return Promise->GetFuture();
 	}
+
 
 	void FRealtimeMeshProxyCommandBatch::AddMeshTask(TUniqueFunction<void(FRealtimeMeshProxy&)>&& Function, bool bInRequiresProxyRecreate)
 	{

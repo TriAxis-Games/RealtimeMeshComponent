@@ -21,6 +21,11 @@
 			"LoadingPhase": "PostConfigInit"
 		},
 		{
+			"Name": "RealtimeMeshComponentExtensions",
+			"Type": "Runtime",
+			"LoadingPhase": "PostConfigInit"
+		},
+		{
 			"Name": "RealtimeMeshTests",
 			"Type": "Editor",
 			"LoadingPhase": "Default"
@@ -28,6 +33,11 @@
 		{
 			"Name": "RealtimeMeshEditor",
 			"Type": "Editor",
+			"LoadingPhase": "Default"
+		},
+		{
+			"Name": "RealtimeMeshExamples",
+			"Type": "Runtime",
 			"LoadingPhase": "Default"
 		}
 	]

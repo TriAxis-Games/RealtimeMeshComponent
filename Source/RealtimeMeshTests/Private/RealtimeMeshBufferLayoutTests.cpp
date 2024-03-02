@@ -40,9 +40,9 @@ bool RealtimeMeshBufferLayoutTests::RunTest(const FString& Parameters)
 
 
 	//const RealtimeMesh::FRealtimeMeshBufferLayoutDefinition InvalidDef = RealtimeMesh::FRealtimeMeshBufferLayoutUtilities::GetBufferLayoutDefinition(VoidBuffer);
-	const RealtimeMesh::FRealtimeMeshBufferLayoutDefinition InvalidDefZero = RealtimeMesh::FRealtimeMeshBufferLayoutUtilities::GetBufferLayoutDefinition(ZeroLengthBuffer);
-	const RealtimeMesh::FRealtimeMeshBufferLayoutDefinition ValidDefVector2 = RealtimeMesh::FRealtimeMeshBufferLayoutUtilities::GetBufferLayoutDefinition(VectorBuffer2);
-	const RealtimeMesh::FRealtimeMeshBufferLayoutDefinition ValidDefUInt32 = RealtimeMesh::FRealtimeMeshBufferLayoutUtilities::GetBufferLayoutDefinition(UInt32Buffer);
+	const RealtimeMesh::FRealtimeMeshElementTypeDetails InvalidDefZero = RealtimeMesh::FRealtimeMeshBufferLayoutUtilities::GetElementTypeDetails(ZeroLengthBuffer);
+	const RealtimeMesh::FRealtimeMeshElementTypeDetails ValidDefVector2 = RealtimeMesh::FRealtimeMeshBufferLayoutUtilities::GetElementTypeDetails(VectorBuffer2);
+	const RealtimeMesh::FRealtimeMeshElementTypeDetails ValidDefUInt32 = RealtimeMesh::FRealtimeMeshBufferLayoutUtilities::GetElementTypeDetails(UInt32Buffer);
 	
 	
 	//TestFalse(TEXT("InvalidDef Valid"), InvalidDef.IsValid());
@@ -56,15 +56,11 @@ bool RealtimeMeshBufferLayoutTests::RunTest(const FString& Parameters)
 	};
 	
 	TestTrue(TEXT("ValidDefVector2"),
-		ValidDefVector2.IsValidVertexBuffer()
-		&& ValidDefVector2.GetElementType() == VectorType
-		&& ValidDefVector2.GetBufferLayout().GetNumElements() == 2
+		ValidDefVector2.IsSupportedVertexType()
 		&& ValidDefVector2.GetStride() == sizeof(TestVec)
 		&& ValidDefVector2.GetAlignment() == alignof(TestVec));
 	TestTrue(TEXT("ValidDefUInt32"), 
-		ValidDefUInt32.IsValidIndexBuffer()
-		&& ValidDefUInt32.GetElementType() == IntType
-		&& ValidDefUInt32.GetBufferLayout().GetNumElements() == 1
+		ValidDefUInt32.IsSupportedIndexType()
 		&& ValidDefUInt32.GetStride() == sizeof(uint32)
 		&& ValidDefUInt32.GetAlignment() == alignof(uint32));
 	
