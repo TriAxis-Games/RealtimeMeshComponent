@@ -9,7 +9,6 @@
 
 struct FRealtimeMeshSimpleMeshData;
 
-PRAGMA_DISABLE_OPTIMIZATION
 
 // ReSharper disable CppMemberFunctionMayBeConst
 namespace RealtimeMesh
@@ -1095,8 +1094,8 @@ namespace RealtimeMesh
 				if constexpr (TIsSame<AccessLayout, DataLayout>::Value)
 				{
 					// Make sure the desired format matches the format as they should all be equivalent
-					check(GetRealtimeMeshBufferLayout<AccessLayout>() == DefaultLayout);
-					check(ExistingStream->IsOfType(DefaultLayout));
+					check(GetRealtimeMeshBufferLayout<AccessLayout>() == DefaultLayout || DefaultLayout == FRealtimeMeshBufferLayout::Invalid);
+					check(ExistingStream->IsOfType(GetRealtimeMeshBufferLayout<AccessLayout>()));
 				}
 				else if constexpr (!TIsSame<DataLayout, void>::Value)
 				{
@@ -1105,8 +1104,19 @@ namespace RealtimeMesh
 				}
 				else
 				{
-					// Convert on the fly, make sure it's convertible to this type
-					check(ExistingStream->CanConvertTo<AccessLayout>());					
+					if (bAllowSubstreamAccess)
+					{
+						const FRealtimeMeshElementType FromType = ExistingStream->GetLayout().GetElementType();
+						const FRealtimeMeshElementType ToType = GetRealtimeMeshBufferLayout<AccessLayout>().GetElementType();
+						check(FRealtimeMeshTypeConversionUtilities::CanConvert(FromType, ToType));
+						check(FRealtimeMeshTypeConversionUtilities::CanConvert(ToType, FromType));
+						check(GetRealtimeMeshBufferLayout<AccessLayout>().GetNumElements() <= ExistingStream->GetNumElements());
+					}
+					else
+					{
+						// Convert on the fly, make sure it's convertible to this type
+						check(ExistingStream->CanConvertTo<AccessLayout>());
+					}
 				}
 
 				if (bForceConvertToDefaultType && !ExistingStream->IsOfType(DefaultLayout))
@@ -1143,16 +1153,16 @@ namespace RealtimeMesh
 			if (Tangents.IsSet())
 			{				
 				Streams.AddStreamToLinkPool("Vertices", FRealtimeMeshStreams::Tangents,
-					FRealtimeMeshStreamDefaultRowValue::Create(TRealtimeMeshTangents<FVector4f>(FVector3f::ZAxisVector, FVector3f::XAxisVector), Vertices.GetBufferLayout()));
+					FRealtimeMeshStreamDefaultRowValue::Create(TRealtimeMeshTangents<FVector4f>(FVector3f::ZAxisVector, FVector3f::XAxisVector), Tangents->GetBufferLayout()));
 			}
 			if (TexCoords.IsSet())
 			{
-				Streams.AddStreamToLinkPool("TexCoords", FRealtimeMeshStreams::TexCoords);
+				Streams.AddStreamToLinkPool("Vertices", FRealtimeMeshStreams::TexCoords);
 			}
 
 			if (Colors.IsSet())
 			{
-				Streams.AddStreamToLinkPool("Colors", FRealtimeMeshStreams::Color, FRealtimeMeshStreamDefaultRowValue::Create(FColor::White));
+				Streams.AddStreamToLinkPool("Vertices", FRealtimeMeshStreams::Color, FRealtimeMeshStreamDefaultRowValue::Create(FColor::White));
 			}
 
 			Streams.AddStreamToLinkPool("Triangles", FRealtimeMeshStreams::Triangles);
@@ -1349,21 +1359,66 @@ namespace RealtimeMesh
 			}
 		}
 
+
+
+		SizeType NumVertices() const
+		{
+			return Vertices.Num();
+		}
+		void ReserveNumVertices(SizeType TotalNum)
+		{
+			Vertices.Reserve(TotalNum);
+		}
+		void ReserveAdditionalVertices(SizeType NumToAdd)
+		{
+			Vertices.Reserve(Vertices.Num() + NumToAdd);
+		}
+		void SetNumVertices(SizeType NewNum)
+		{
+			Vertices.SetNumUninitialized(NewNum);
+		}
 		void EmptyVertices()
 		{
 			Vertices.Empty();
 		}
 
-		void SetNumVertices(SizeType NewNum)
+		SizeType NumTriangles() const
 		{
-			Vertices.SetNumUninitialized(NewNum);
+			return Triangles.Num();
 		}
-
+		void ReserveNumTriangles(SizeType TotalNum)
+		{
+			Triangles.Reserve(TotalNum);
+		}
+		void ReserveAdditionalTriangles(SizeType NumToAdd)
+		{
+			Triangles.Reserve(Triangles.Num() + NumToAdd);
+		}
+		void SetNumTriangles(SizeType NewNum)
+		{
+			Triangles.SetNumUninitialized(NewNum);
+		}
 		void EmptyTriangles()
 		{
 			Triangles.Empty();
 		}
 
+		SizeType NumDepthOnlyTriangles() const
+		{
+			return DepthOnlyTriangles.IsSet() ? DepthOnlyTriangles->Num() : 0;
+		}
+		void ReserveNumDepthOnlyTriangles(SizeType TotalNum)
+		{
+			DepthOnlyTriangles->Reserve(TotalNum);
+		}
+		void ReserveAdditionalDepthOnlyTriangles(SizeType NumToAdd)
+		{
+			DepthOnlyTriangles->Reserve(DepthOnlyTriangles->Num() + NumToAdd);
+		}
+		void SetNumDepthOnlyTriangles(SizeType NewNum)
+		{
+			DepthOnlyTriangles->SetNumUninitialized(NewNum);
+		}
 		void EmptyDepthOnlyTriangles()
 		{
 			check(DepthOnlyTriangles.IsSet());
@@ -1641,6 +1696,7 @@ namespace RealtimeMesh
 			checkf(HasPolyGroups(), TEXT("Depth only triangle material indices not enabled"));
 			return DepthOnlyTrianglePolyGroups->Get(Index);
 		}
+
 	};
 
 
@@ -1661,6 +1717,7 @@ namespace RealtimeMesh
 		}
 		
 		SizeType GetIndex() const { return RowIndex; }
+		operator SizeType() const { return GetIndex(); }
 		
 		bool HasTangents() const { return ParentBuilder.HasTangents(); }
 		bool HasTexCoords() const { return ParentBuilder.HasTexCoords(); }
@@ -1748,7 +1805,7 @@ namespace RealtimeMesh
 
 		VertexBuilder& SetColor(FColor VertexColor)
 		{
-			ParentBuilder.SetColor(VertexColor);
+			ParentBuilder.SetColor(RowIndex, VertexColor);
 			return *this;
 		}
 
@@ -1771,12 +1828,5 @@ namespace RealtimeMesh
 		
 	};
 
-
-
-
-
-
 	
 }
-
-PRAGMA_ENABLE_OPTIMIZATION

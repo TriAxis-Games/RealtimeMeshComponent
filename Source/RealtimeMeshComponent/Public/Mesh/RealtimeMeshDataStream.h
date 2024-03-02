@@ -151,6 +151,9 @@ namespace RealtimeMesh
 		~FRealtimeMeshStreamLinkage();
 
 		int32 NumStreams() const { return LinkedStreams.Num(); }
+
+		bool ContainsStream(const FRealtimeMeshStream* Stream) const;
+		bool ContainsStream(const FRealtimeMeshStream& Stream) const;
 		
 		void BindStream(FRealtimeMeshStream* Stream, const FRealtimeMeshStreamDefaultRowValue& DefaultValue);
 		void BindStream(FRealtimeMeshStream& Stream, const FRealtimeMeshStreamDefaultRowValue& DefaultValue);
@@ -1257,8 +1260,6 @@ namespace RealtimeMesh
 	};
 
 
-PRAGMA_DISABLE_OPTIMIZATION
-
 	struct REALTIMEMESHCOMPONENT_API FRealtimeMeshStreamSet
 	{
 	private:
@@ -1490,8 +1491,15 @@ PRAGMA_DISABLE_OPTIMIZATION
 		{
 			const auto* Stream = Streams.Find(StreamKey);
 			checkf(Stream, TEXT("Stream %s not found in the stream set"), *StreamKey.ToString());
-			checkf(!(*Stream)->IsLinked(), TEXT("Stream %s is already linked"), *StreamKey.ToString());
 			auto& Entry = StreamLinkages.FindOrAdd(LinkPool);
+
+			// If we're already linked, skip it
+			if (Entry.IsValid() && Entry->ContainsStream(Stream->Get()))
+			{
+				return;
+			}
+			
+			checkf(!(*Stream)->IsLinked(), TEXT("Stream %s is already linked but not to this pool"), *StreamKey.ToString());
 			if (!Entry)
 			{
 				Entry = MakeUnique<FRealtimeMeshStreamLinkage>();
@@ -1522,8 +1530,6 @@ PRAGMA_DISABLE_OPTIMIZATION
 
 
 	};
-
-PRAGMA_ENABLE_OPTIMIZATION
 
 	using FRealtimeMeshStreamProxyMap = TMap<FRealtimeMeshStreamKey, TSharedPtr<FRealtimeMeshGPUBuffer>>;
 

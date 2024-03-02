@@ -31,11 +31,10 @@ namespace RealtimeMesh
 		virtual ERHIFeatureLevel::Type GetRHIFeatureLevel() const;
 		FRealtimeMeshDrawMask GetDrawMask() const { return DrawMask; }
 		TRange<int8> GetValidLODRange() const { return ValidLODRange; }
-		TRange<float> GetScreenSizeRangeForLOD(const FRealtimeMeshLODKey& LODKey) const { return ScreenSizeRangeByLOD[LODKey]; }
+		TRange<float> GetScreenSizeRangeForLOD(const FRealtimeMeshLODKey& LODKey) const;
 
 		int8 GetNumLODs() const { return LODs.Num(); }
 		FRealtimeMeshLODProxyPtr GetLOD(FRealtimeMeshLODKey LODKey) const;
-		virtual TRange<float> GetScreenSizeLimits(FRealtimeMeshLODKey LODKey) const;
 
 		virtual void AddLODIfNotExists(const FRealtimeMeshLODKey& LODKey);
 		virtual void RemoveLOD(const FRealtimeMeshLODKey& LODKey);

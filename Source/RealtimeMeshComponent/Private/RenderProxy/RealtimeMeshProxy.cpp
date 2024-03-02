@@ -7,6 +7,7 @@
 
 namespace RealtimeMesh
 {
+	PRAGMA_DISABLE_OPTIMIZATION
 	FRealtimeMeshProxy::FRealtimeMeshProxy(const FRealtimeMeshSharedResourcesRef& InSharedResources)
 		: SharedResources(InSharedResources)
 		  , ValidLODRange(TRange<int8>::Empty())
@@ -28,14 +29,14 @@ namespace RealtimeMesh
 		return GMaxRHIFeatureLevel;
 	}
 
+	TRange<float> FRealtimeMeshProxy::GetScreenSizeRangeForLOD(const FRealtimeMeshLODKey& LODKey) const
+	{
+		return ScreenSizeRangeByLOD.IsValidIndex(LODKey) ? ScreenSizeRangeByLOD[LODKey] : TRange<float>(0.0f, 0.0f);
+	}
+
 	FRealtimeMeshLODProxyPtr FRealtimeMeshProxy::GetLOD(FRealtimeMeshLODKey LODKey) const
 	{
 		return LODs.IsValidIndex(LODKey) ? LODs[LODKey] : FRealtimeMeshLODProxyPtr();
-	}
-
-	TRange<float> FRealtimeMeshProxy::GetScreenSizeLimits(FRealtimeMeshLODKey LODKey) const
-	{
-		return ScreenSizeRangeByLOD.IsValidIndex(LODKey) ? ScreenSizeRangeByLOD[LODKey] : TRange<float>(0.0f, 0.0f);
 	}
 
 	void FRealtimeMeshProxy::AddLODIfNotExists(const FRealtimeMeshLODKey& LODKey)
@@ -118,7 +119,7 @@ namespace RealtimeMesh
 
 				if (!NewValidLODRange.IsEmpty())
 				{
-					NewValidLODRange.SetUpperBound(TRangeBound<int8>::Inclusive(LODIndex));
+					NewValidLODRange = TRange<int8>(NewValidLODRange.GetLowerBound(), TRangeBound<int8>::Inclusive(LODIndex));
 				}
 				else
 				{
@@ -155,4 +156,6 @@ namespace RealtimeMesh
 		ScreenSizeRangeByLOD.Empty();
 		bIsStateDirty = false;
 	}
+
+	PRAGMA_ENABLE_OPTIMIZATION
 }

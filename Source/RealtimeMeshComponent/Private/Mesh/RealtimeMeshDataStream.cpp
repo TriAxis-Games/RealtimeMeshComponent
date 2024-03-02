@@ -237,6 +237,16 @@ RealtimeMesh::FRealtimeMeshStreamLinkage::~FRealtimeMeshStreamLinkage()
 }
 
 
+bool RealtimeMesh::FRealtimeMeshStreamLinkage::ContainsStream(const FRealtimeMeshStream* Stream) const
+{
+	return LinkedStreams.FindByPredicate([&](const FStreamLinkageInfo& Linkage) { return Linkage.Stream == Stream; }) != nullptr;
+}
+
+bool RealtimeMesh::FRealtimeMeshStreamLinkage::ContainsStream(const FRealtimeMeshStream& Stream) const
+{
+	return ContainsStream(&Stream);
+}
+
 void RealtimeMesh::FRealtimeMeshStreamLinkage::BindStream(FRealtimeMeshStream* Stream, const FRealtimeMeshStreamDefaultRowValue& DefaultValue)
 {
 	check(Stream && Stream->Linkage == nullptr);

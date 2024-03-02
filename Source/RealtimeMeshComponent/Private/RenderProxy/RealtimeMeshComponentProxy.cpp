@@ -122,7 +122,7 @@ namespace RealtimeMesh
 				{
 					LODMask.SetLOD(LODIndex);
 
-					const auto LODScreenSizes = RealtimeMeshProxy->GetScreenSizeLimits(LODIndex);
+					const auto LODScreenSizes = RealtimeMeshProxy->GetScreenSizeRangeForLOD(LODIndex);
 
 					FMeshBatch MeshBatch;
 					FRealtimeMeshBatchCreationParams Params
@@ -190,37 +190,38 @@ namespace RealtimeMesh
 
 					for (uint8 LODIndex = ValidLODRange.GetLowerBoundValue(); LODIndex <= ValidLODRange.GetUpperBoundValue(); LODIndex++)
 					{
-						const auto& LOD = RealtimeMeshProxy->GetLOD(FRealtimeMeshLODKey(LODIndex));
-
-						bool bCastRayTracedShadow = false; //IsShadowCast(Context.ReferenceView);
-
-						if ((LOD.IsValid() && LOD->GetDrawMask().IsSet(ERealtimeMeshDrawMask::DrawDynamic)) ||
-							(bForceDynamicPath && LOD->GetDrawMask().IsSet(ERealtimeMeshDrawMask::DrawStatic)))
+						if (LODMask.ContainsLOD(LODIndex))
 						{
-							LODMask.SetLOD(LODIndex);
+							const auto& LOD = RealtimeMeshProxy->GetLOD(FRealtimeMeshLODKey(LODIndex));
 
-							const auto LODScreenSizes = RealtimeMeshProxy->GetScreenSizeLimits(LODIndex);
+							bool bCastRayTracedShadow = false; //IsShadowCast(Context.ReferenceView);
 
-							FRealtimeMeshBatchCreationParams Params
+							if ((LOD.IsValid() && LOD->GetDrawMask().IsSet(ERealtimeMeshDrawMask::DrawDynamic)) ||
+								(bForceDynamicPath && LOD->GetDrawMask().IsSet(ERealtimeMeshDrawMask::DrawStatic)))
 							{
-								[](const TSharedRef<FRenderResource>&)
-								{
-								},
-								[&Collector]()-> FMeshBatch& { return Collector.AllocateMesh(); },
-#if RHI_RAYTRACING
-								[&Collector, ViewIndex](FMeshBatch& Batch, float, const FRayTracingGeometry*) { Collector.AddMesh(ViewIndex, Batch); },
-#else
-								[&Collector, ViewIndex](FMeshBatch& Batch, float) { Collector.AddMesh(ViewIndex, Batch); },
-#endif
-								GetUniformBuffer(),
-								LODScreenSizes,
-								LODMask,
-								IsMovable(),
-								IsLocalToWorldDeterminantNegative(),
-								bCastRayTracedShadow
-							};
+								const auto LODScreenSizes = RealtimeMeshProxy->GetScreenSizeRangeForLOD(LODIndex);
 
-							RealtimeMeshProxy->CreateMeshBatches(LODIndex, Params, Materials, WireframeMaterialInstance, ERealtimeMeshSectionDrawType::Dynamic, bForceDynamicPath);
+								FRealtimeMeshBatchCreationParams Params
+								{
+									[](const TSharedRef<FRenderResource>&)
+									{
+									},
+									[&Collector]()-> FMeshBatch& { return Collector.AllocateMesh(); },
+	#if RHI_RAYTRACING
+									[&Collector, ViewIndex](FMeshBatch& Batch, float, const FRayTracingGeometry*) { Collector.AddMesh(ViewIndex, Batch); },
+	#else
+									[&Collector, ViewIndex](FMeshBatch& Batch, float) { Collector.AddMesh(ViewIndex, Batch); },
+	#endif
+									GetUniformBuffer(),
+									LODScreenSizes,
+									LODMask,
+									IsMovable(),
+									IsLocalToWorldDeterminantNegative(),
+									bCastRayTracedShadow
+								};
+
+								RealtimeMeshProxy->CreateMeshBatches(LODIndex, Params, Materials, WireframeMaterialInstance, ERealtimeMeshSectionDrawType::Dynamic, bForceDynamicPath);
+							}
 						}
 					}
 				}
@@ -250,26 +251,24 @@ namespace RealtimeMesh
 		}
 	}
 
-
 #if RHI_RAYTRACING
 	void FRealtimeMeshComponentSceneProxy::GetDynamicRayTracingInstances(struct FRayTracingMaterialGatheringContext& Context,
 	                                                                     TArray<struct FRayTracingInstance>& OutRayTracingInstances)
 	{
 		SCOPE_CYCLE_COUNTER(STAT_RealtimeMeshComponentSceneProxy_GetDynamicRayTracingInstances);
 
-		// TODO: Should this use any LOD determination logic? Or always use a specific LOD?
-		const int32 LODIndex = 0;
+		const uint32 LODIndex = FMath::Max(GetLOD(Context.ReferenceView), (int32)GetCurrentFirstLODIdx_RenderThread());
 
 		if (RealtimeMeshProxy->GetDrawMask().HasAnyFlags())
 		{
 			if (auto LOD = RealtimeMeshProxy->GetLOD(LODIndex))
-			{
+			{				
 				if (LOD.IsValid() && LOD->GetDrawMask().IsAnySet(ERealtimeMeshDrawMask::DrawDynamic | ERealtimeMeshDrawMask::DrawStatic))
 				{
 					FLODMask LODMask;
 					LODMask.SetLOD(LODIndex);
 
-					const auto LODScreenSizes = RealtimeMeshProxy->GetScreenSizeLimits(LODIndex);
+					const auto LODScreenSizes = RealtimeMeshProxy->GetScreenSizeRangeForLOD(LODIndex);
 
 					TMap<const FRayTracingGeometry*, int32> CurrentRayTracingGeometries;
 					
@@ -350,7 +349,8 @@ namespace RealtimeMesh
 		// Walk backwards and return the first matching LOD
 		for (int32 LODIndex = NumLODs - 1; LODIndex >= 0; --LODIndex)
 		{
-			if (FMath::Square(RealtimeMeshProxy->GetScreenSizeRangeForLOD(LODIndex).GetLowerBoundValue() * 0.5f) > ScreenRadiusSquared)
+			const float LODSScreenSizeSquared = FMath::Square(RealtimeMeshProxy->GetScreenSizeRangeForLOD(LODIndex).GetLowerBoundValue() * 0.5f);
+			if (LODSScreenSizeSquared > ScreenRadiusSquared)
 			{
 				return LODIndex;
 			}
@@ -368,9 +368,10 @@ namespace RealtimeMesh
 		// Walk backwards and return the first matching LOD
 		for (int32 LODIndex = RealtimeMeshProxy->GetNumLODs() - 1; LODIndex >= 0; --LODIndex)
 		{
-			if (FMath::Square(RealtimeMeshProxy->GetScreenSizeRangeForLOD(LODIndex).GetLowerBoundValue() * 0.5f) > ScreenRadiusSquared)
+			const float LODSScreenSizeSquared = FMath::Square(RealtimeMeshProxy->GetScreenSizeRangeForLOD(LODIndex).GetLowerBoundValue() * 0.5f);
+			if (LODSScreenSizeSquared > ScreenRadiusSquared)
 			{
-				return FMath::Max(LODIndex, MinLOD);
+ 				return FMath::Max(LODIndex, MinLOD);
 			}
 		}
 

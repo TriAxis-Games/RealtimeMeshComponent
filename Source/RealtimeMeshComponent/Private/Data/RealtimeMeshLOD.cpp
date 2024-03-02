@@ -218,6 +218,11 @@ namespace RealtimeMesh
 	{
 		FRealtimeMeshScopeGuardRead ScopeGuard(SharedResources->GetGuard());
 
+		Commands.AddLODTask(Key, [Config = Config](FRealtimeMeshLODProxy& Proxy)
+		{
+			Proxy.UpdateConfig(Config);
+		}, ShouldRecreateProxyOnChange());
+		
 		for (const auto& SectionGroup : SectionGroups)
 		{
 			Commands.AddLODTask(Key, [SectionGroupKey = SectionGroup->GetKey()](FRealtimeMeshLODProxy& Proxy)

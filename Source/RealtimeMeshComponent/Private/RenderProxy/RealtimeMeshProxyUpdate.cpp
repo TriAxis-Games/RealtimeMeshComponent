@@ -10,7 +10,6 @@
 
 namespace RealtimeMesh
 {
-	PRAGMA_DISABLE_OPTIMIZATION
 	FRealtimeMeshProxyCommandBatch::FRealtimeMeshProxyCommandBatch(const FRealtimeMeshSharedResourcesPtr& InSharedResources, bool bInRequiresProxyRecreate):
 		Mesh(InSharedResources.IsValid() ? InSharedResources->GetOwner() : nullptr)
 		, bRequiresProxyRecreate(bInRequiresProxyRecreate)
@@ -117,5 +116,4 @@ namespace RealtimeMesh
 			}
 		}, bInRequiresProxyRecreate);
 	}
-	PRAGMA_ENABLE_OPTIMIZATION
 }

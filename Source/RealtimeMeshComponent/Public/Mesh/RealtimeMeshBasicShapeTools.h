@@ -31,6 +31,7 @@ public:
 
 
 
+	static void AppendBoxMesh(FRealtimeMeshStreamSet& StreamSet, FVector3f BoxRadius, FTransform3f BoxTransform, int32 NewMaterialGroup = 0, FColor Color = FColor::White);
 
 	static FRealtimeMeshStreamSet& AppendMesh(FRealtimeMeshStreamSet& TargetMeshData, const FRealtimeMeshStreamSet& MeshDataToAdd, const FTransform& Transform);
 	

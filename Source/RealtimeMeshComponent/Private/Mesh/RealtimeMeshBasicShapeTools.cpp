@@ -220,9 +220,83 @@ FRealtimeMeshSimpleMeshData& URealtimeMeshBasicShapeTools::AppendMesh(FRealtimeM
 	return TargetMeshData;
 }
 
+void URealtimeMeshBasicShapeTools::AppendBoxMesh(FRealtimeMeshStreamSet& StreamSet, FVector3f BoxRadius, FTransform3f BoxTransform, int32 NewMaterialGroup, FColor Color)
+{
+	TRealtimeMeshBuilderLocal<void, void, void, 1, void> Builder(StreamSet);
+	
+	FVector3f BoxVerts[8];
+	BoxVerts[0] = BoxTransform.TransformPosition(FVector3f(-BoxRadius.X, BoxRadius.Y, BoxRadius.Z));
+	BoxVerts[1] = BoxTransform.TransformPosition(FVector3f(BoxRadius.X, BoxRadius.Y, BoxRadius.Z));
+	BoxVerts[2] = BoxTransform.TransformPosition(FVector3f(BoxRadius.X, -BoxRadius.Y, BoxRadius.Z));
+	BoxVerts[3] = BoxTransform.TransformPosition(FVector3f(-BoxRadius.X, -BoxRadius.Y, BoxRadius.Z));
+
+	BoxVerts[4] = BoxTransform.TransformPosition(FVector3f(-BoxRadius.X, BoxRadius.Y, -BoxRadius.Z));
+	BoxVerts[5] = BoxTransform.TransformPosition(FVector3f(BoxRadius.X, BoxRadius.Y, -BoxRadius.Z));
+	BoxVerts[6] = BoxTransform.TransformPosition(FVector3f(BoxRadius.X, -BoxRadius.Y, -BoxRadius.Z));
+	BoxVerts[7] = BoxTransform.TransformPosition(FVector3f(-BoxRadius.X, -BoxRadius.Y, -BoxRadius.Z));
+
+	// Generate triangles (from quads)
+	const int32 StartVertex = Builder.NumVertices();
+	constexpr int32 NumVerts = 24; // 6 faces x 4 verts per face
+	constexpr int32 NumTriangles = 12;
+
+	// Go ahead and allocate the space for the new vertices/triangles
+	Builder.ReserveAdditionalVertices(NumVerts);
+	Builder.ReserveAdditionalTriangles(NumTriangles);
+
+	const auto WriteQuad = [&](int32 V0, int32 V1, int32 V2, int32 V3)
+	{	
+		if (Builder.HasPolyGroups())
+		{
+			Builder.AddTriangle(StartVertex + V0, StartVertex + V1, StartVertex + V3, NewMaterialGroup);
+			Builder.AddTriangle(StartVertex + V1, StartVertex + V2, StartVertex + V3, NewMaterialGroup);
+		}
+		else
+		{
+			Builder.AddTriangle(StartVertex + V0, StartVertex + V1, StartVertex + V3);
+			Builder.AddTriangle(StartVertex + V1, StartVertex + V2, StartVertex + V3);
+		}
+	};
+
+	Builder.AddVertex(BoxVerts[0]).SetNormalAndTangent(FVector3f(0.0f, 0.0f, 1.0f), FVector3f(0.0f, -1.0f, 0.0f)).SetTexCoord(FVector2f(0.0f, 0.0f)).SetColor(Color);
+	Builder.AddVertex(BoxVerts[1]).SetNormalAndTangent(FVector3f(0.0f, 0.0f, 1.0f), FVector3f(0.0f, -1.0f, 0.0f)).SetTexCoord(FVector2f(0.0f, 1.0f)).SetColor(Color);
+	Builder.AddVertex(BoxVerts[2]).SetNormalAndTangent(FVector3f(0.0f, 0.0f, 1.0f), FVector3f(0.0f, -1.0f, 0.0f)).SetTexCoord(FVector2f(1.0f, 1.0f)).SetColor(Color);
+	Builder.AddVertex(BoxVerts[3]).SetNormalAndTangent(FVector3f(0.0f, 0.0f, 1.0f), FVector3f(0.0f, -1.0f, 0.0f)).SetTexCoord(FVector2f(1.0f, 0.0f)).SetColor(Color);
+	WriteQuad(0, 1, 2, 3);
+
+	Builder.AddVertex(BoxVerts[4]).SetNormalAndTangent(FVector3f(-1.0f, 0.0f, 0.0f), FVector3f(0.0f, -1.0f, 0.0f)).SetTexCoord(FVector2f(0.0f, 0.0f)).SetColor(Color);
+	Builder.AddVertex(BoxVerts[0]).SetNormalAndTangent(FVector3f(-1.0f, 0.0f, 0.0f), FVector3f(0.0f, -1.0f, 0.0f)).SetTexCoord(FVector2f(0.0f, 1.0f)).SetColor(Color);
+	Builder.AddVertex(BoxVerts[3]).SetNormalAndTangent(FVector3f(-1.0f, 0.0f, 0.0f), FVector3f(0.0f, -1.0f, 0.0f)).SetTexCoord(FVector2f(1.0f, 1.0f)).SetColor(Color);
+	Builder.AddVertex(BoxVerts[7]).SetNormalAndTangent(FVector3f(-1.0f, 0.0f, 0.0f), FVector3f(0.0f, -1.0f, 0.0f)).SetTexCoord(FVector2f(1.0f, 0.0f)).SetColor(Color);
+	WriteQuad(4, 5, 6, 7);
+
+	Builder.AddVertex(BoxVerts[5]).SetNormalAndTangent(FVector3f(0.0f, 1.0f, 0.0f), FVector3f(-1.0f, 0.0f, 0.0f)).SetTexCoord(FVector2f(0.0f, 0.0f)).SetColor(Color);
+	Builder.AddVertex(BoxVerts[1]).SetNormalAndTangent(FVector3f(0.0f, 1.0f, 0.0f), FVector3f(-1.0f, 0.0f, 0.0f)).SetTexCoord(FVector2f(0.0f, 1.0f)).SetColor(Color);
+	Builder.AddVertex(BoxVerts[0]).SetNormalAndTangent(FVector3f(0.0f, 1.0f, 0.0f), FVector3f(-1.0f, 0.0f, 0.0f)).SetTexCoord(FVector2f(1.0f, 1.0f)).SetColor(Color);
+	Builder.AddVertex(BoxVerts[4]).SetNormalAndTangent(FVector3f(0.0f, 1.0f, 0.0f), FVector3f(-1.0f, 0.0f, 0.0f)).SetTexCoord(FVector2f(1.0f, 0.0f)).SetColor(Color);
+	WriteQuad(8, 9, 10, 11);
+
+	Builder.AddVertex(BoxVerts[6]).SetNormalAndTangent(FVector3f(1.0f, 0.0f, 0.0f), FVector3f(0.0f, 1.0f, 0.0f)).SetTexCoord(FVector2f(0.0f, 0.0f)).SetColor(Color);
+	Builder.AddVertex(BoxVerts[2]).SetNormalAndTangent(FVector3f(1.0f, 0.0f, 0.0f), FVector3f(0.0f, 1.0f, 0.0f)).SetTexCoord(FVector2f(0.0f, 1.0f)).SetColor(Color);
+	Builder.AddVertex(BoxVerts[1]).SetNormalAndTangent(FVector3f(1.0f, 0.0f, 0.0f), FVector3f(0.0f, 1.0f, 0.0f)).SetTexCoord(FVector2f(1.0f, 1.0f)).SetColor(Color);
+	Builder.AddVertex(BoxVerts[5]).SetNormalAndTangent(FVector3f(1.0f, 0.0f, 0.0f), FVector3f(0.0f, 1.0f, 0.0f)).SetTexCoord(FVector2f(1.0f, 0.0f)).SetColor(Color);
+	WriteQuad(12, 13, 14, 15);
+
+	Builder.AddVertex(BoxVerts[7]).SetNormalAndTangent(FVector3f(0.0f, -1.0f, 0.0f), FVector3f(1.0f, 0.0f, 0.0f)).SetTexCoord(FVector2f(0.0f, 0.0f)).SetColor(Color);
+	Builder.AddVertex(BoxVerts[3]).SetNormalAndTangent(FVector3f(0.0f, -1.0f, 0.0f), FVector3f(1.0f, 0.0f, 0.0f)).SetTexCoord(FVector2f(0.0f, 1.0f)).SetColor(Color);
+	Builder.AddVertex(BoxVerts[2]).SetNormalAndTangent(FVector3f(0.0f, -1.0f, 0.0f), FVector3f(1.0f, 0.0f, 0.0f)).SetTexCoord(FVector2f(1.0f, 1.0f)).SetColor(Color);
+	Builder.AddVertex(BoxVerts[6]).SetNormalAndTangent(FVector3f(0.0f, -1.0f, 0.0f), FVector3f(1.0f, 0.0f, 0.0f)).SetTexCoord(FVector2f(1.0f, 0.0f)).SetColor(Color);
+	WriteQuad(16, 17, 18, 19);
+
+	Builder.AddVertex(BoxVerts[7]).SetNormalAndTangent(FVector3f(0.0f, 0.0f, -1.0f), FVector3f(0.0f, 1.0f, 0.0f)).SetTexCoord(FVector2f(0.0f, 0.0f)).SetColor(Color);
+	Builder.AddVertex(BoxVerts[6]).SetNormalAndTangent(FVector3f(0.0f, 0.0f, -1.0f), FVector3f(0.0f, 1.0f, 0.0f)).SetTexCoord(FVector2f(0.0f, 1.0f)).SetColor(Color);
+	Builder.AddVertex(BoxVerts[5]).SetNormalAndTangent(FVector3f(0.0f, 0.0f, -1.0f), FVector3f(0.0f, 1.0f, 0.0f)).SetTexCoord(FVector2f(1.0f, 1.0f)).SetColor(Color);
+	Builder.AddVertex(BoxVerts[4]).SetNormalAndTangent(FVector3f(0.0f, 0.0f, -1.0f), FVector3f(0.0f, 1.0f, 0.0f)).SetTexCoord(FVector2f(1.0f, 0.0f)).SetColor(Color);
+	WriteQuad(20, 21, 22, 23);	
+}
+
 FRealtimeMeshStreamSet& URealtimeMeshBasicShapeTools::AppendMesh(FRealtimeMeshStreamSet& TargetMeshData, const FRealtimeMeshStreamSet& MeshDataToAdd, const FTransform& Transform)
 {
-
 
 
 
