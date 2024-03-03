@@ -372,7 +372,7 @@ namespace RealtimeMeshAlgo
 		FaceTangentZ.AddUninitialized(NumTris);
 
 		// Iterate over triangles
-		for (int32 TriIdx = 0; TriIdx < NumTris; TriIdx++)
+		for (uint32 TriIdx = 0; TriIdx < NumTris; TriIdx++)
 		{
 			uint32 CornerIndex[3];
 			FVector3f P[3];
@@ -380,7 +380,7 @@ namespace RealtimeMeshAlgo
 			for (int32 CornerIdx = 0; CornerIdx < 3; CornerIdx++)
 			{
 				// Find vert index (clamped within range)
-				uint32 VertIndex = FMath::Min(Triangles[(TriIdx * 3) + CornerIdx], NumVertices - 1);
+				uint32 VertIndex = FMath::Min(uint32(Triangles[(TriIdx * 3) + CornerIdx]), NumVertices - 1);
 
 				CornerIndex[CornerIdx] = VertIndex;
 				P[CornerIdx] = Vertices[VertIndex];
@@ -480,7 +480,7 @@ namespace RealtimeMeshAlgo
 		VertexTangentZSum.AddZeroed(NumVertices);
 
 		// For each vertex..
-		for (int VertxIdx = 0; VertxIdx < NumVertices; VertxIdx++)
+		for (uint32 VertxIdx = 0; VertxIdx < NumVertices; VertxIdx++)
 		{
 			// Find relevant triangles for normal
 			TArray<uint32> SmoothTris;
@@ -505,7 +505,7 @@ namespace RealtimeMeshAlgo
 		}
 
 		// Finally, normalize tangents and build output arrays	
-		for (int VertxIdx = 0; VertxIdx < NumVertices; VertxIdx++)
+		for (uint32 VertxIdx = 0; VertxIdx < NumVertices; VertxIdx++)
 		{
 			FVector3f& TangentX = VertexTangentXSum[VertxIdx];
 			FVector3f& TangentY = VertexTangentYSum[VertxIdx];
