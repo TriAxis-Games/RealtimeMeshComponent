@@ -185,9 +185,9 @@ namespace RealtimeMesh
 		BindVertexBufferSRV(bIsValid, DataType.ColorComponentsSRV, Buffers, FRealtimeMeshStreams::ColorStreamName);
 
 		// Bind TexCoords
-		DataType.NumTexCoords = 1;
-		DataType.TextureCoordinates.SetNum(1);
-		BindVertexBuffer(bIsValid, ValidVertexRange, InUseVertexBuffers, DataType.TextureCoordinates[0], Buffers,
+		DataType.NumTexCoords = 0;
+		DataType.TextureCoordinates.Empty();
+		BindTexCoordsBuffer(bIsValid, ValidVertexRange, InUseVertexBuffers, DataType.TextureCoordinates, DataType.NumTexCoords, Buffers,
 		                 FRealtimeMeshStreams::TexCoordsStreamName, EVertexStreamUsage::ManualFetch);
 		BindVertexBufferSRV(bIsValid, DataType.TextureCoordinatesSRV, Buffers, FRealtimeMeshStreams::TexCoordsStreamName);
 

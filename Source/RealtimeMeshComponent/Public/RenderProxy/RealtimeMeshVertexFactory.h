@@ -109,6 +109,61 @@ namespace RealtimeMesh
 			}
 		}
 
+		static void BindTexCoordsBuffer(bool& bIsValid, FInt32Range& ValidRange, TSet<TWeakPtr<FRealtimeMeshVertexBuffer>>& InUseBuffers, TArray<FVertexStreamComponent, TFixedAllocator<MAX_STATIC_TEXCOORDS / 2>>& OutStreamComponents,
+				int32& OutNumTexCoords, const FRealtimeMeshStreamProxyMap& Buffers, FName BufferName, EVertexStreamUsage Usage, bool bIsOptional = false, bool bAllowZeroStride = false)
+		{
+			const TSharedPtr<FRealtimeMeshGPUBuffer> FoundBuffer = FindBuffer(Buffers, ERealtimeMeshStreamType::Vertex, BufferName);
+
+			if (!FoundBuffer.IsValid())
+			{
+				// If the buffer isn't optional, invalidate the result
+				bIsValid &= bIsOptional;
+				if (!bIsOptional)
+				{
+					ValidRange = FInt32Range(0, 0);
+				}
+				return;
+			}
+
+			const TSharedPtr<FRealtimeMeshVertexBuffer> VertexBuffer = StaticCastSharedPtr<FRealtimeMeshVertexBuffer>(FoundBuffer);
+
+			OutNumTexCoords = VertexBuffer->NumElements();
+
+			InUseBuffers.Add(VertexBuffer);
+			const bool bIsZeroStride = bAllowZeroStride && VertexBuffer->Num() == 1;
+
+			
+
+			for (int32 Index = 0; Index < VertexBuffer->NumElements();)
+			{
+				// if we have 2 or more remaining elements we can bind in groups of two
+				const int32 RemainingElements = VertexBuffer->NumElements() - Index;
+				const int32 ElementOffset = Index * VertexBuffer->GetElementStride();
+				const EVertexElementType VertexType = VertexBuffer->GetVertexType();
+				const auto DoubleElementType = FRealtimeMeshElementType(VertexBuffer->GetBufferLayout().GetElementType().GetDatumType(),
+					VertexBuffer->GetBufferLayout().GetElementType().GetNumDatums());
+				const EVertexElementType DoubleVertexType = FRealtimeMeshBufferLayoutUtilities::GetElementTypeDetails(DoubleElementType).GetVertexType();
+				
+				if (RemainingElements >= 2 && DoubleVertexType != VET_None)
+				{
+					OutStreamComponents.Emplace(VertexBuffer.Get(), ElementOffset, VertexBuffer->GetStride(), DoubleVertexType, Usage);
+					Index += 2;
+				}
+				else
+				{
+					OutStreamComponents.Emplace(VertexBuffer.Get(), ElementOffset, VertexBuffer->GetStride(), VertexType, Usage);
+					Index += 1;
+				}
+			}
+			
+			// Update the valid range
+			// In the case of a zero stride buffer, where 1 element applies to the entire range, we don't need to intersect the buffers
+			if (!bIsZeroStride)
+			{
+				ValidRange = FInt32Range::Intersection(ValidRange, FInt32Range(0, VertexBuffer->Num()));
+			}
+		}
+
 		static void BindIndexBuffer(bool& bIsValid, FInt32Range& ValidRange, TWeakPtr<FRealtimeMeshIndexBuffer>& OutIndexBuffer, const FRealtimeMeshStreamProxyMap& Buffers,
 		                            FName BufferName, bool bIsOptional = false)
 		{

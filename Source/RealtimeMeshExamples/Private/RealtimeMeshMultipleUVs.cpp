@@ -1,17 +1,19 @@
-﻿// Copyright TriAxis Games, L.L.C. All Rights Reserved.
+﻿// Fill out your copyright notice in the Description page of Project Settings.
 
 
-#include "RealtimeMeshBasic.h"
+#include "RealtimeMeshMultipleUVs.h"
+
 #include "RealtimeMeshSimple.h"
 
 
 // Sets default values
-ARealtimeMeshBasic::ARealtimeMeshBasic()
+ARealtimeMeshMultipleUVs::ARealtimeMeshMultipleUVs()
 {
 	PrimaryActorTick.bCanEverTick = false;
 }
 
-void ARealtimeMeshBasic::OnGenerateMesh_Implementation()
+PRAGMA_DISABLE_OPTIMIZATION
+void ARealtimeMeshMultipleUVs::OnGenerateMesh_Implementation()
 {
 	// Initialize to a simple mesh, this behaves the most like a ProceduralMeshComponent
 	// Where you can set the mesh data and forget about it.
@@ -24,7 +26,7 @@ void ARealtimeMeshBasic::OnGenerateMesh_Implementation()
 	// For this example we'll use a helper class to build the mesh data
 	// You can make your own helpers or skip them and use individual TRealtimeMeshStreamBuilder,
 	// or skip them entirely and copy data directly into the streams
-	TRealtimeMeshBuilderLocal<uint16, FPackedNormal, FVector2DHalf, 1> Builder(StreamSet);
+	TRealtimeMeshBuilderLocal<uint16, FPackedNormal, FVector2DHalf, 2> Builder(StreamSet);
 
 	// here we go ahead and enable all the basic mesh data parts
 	Builder.EnableTangents();
@@ -38,20 +40,23 @@ void ARealtimeMeshBasic::OnGenerateMesh_Implementation()
 	int32 V0 = Builder.AddVertex(FVector3f(-50.0f, 0.0f, 0.0f))
 		.SetNormalAndTangent(FVector3f(0.0f, -1.0f, 1.0f), FVector3f(1.0f, 0.0f, 0.0f))
 		.SetColor(FColor::Red)
-		.SetTexCoord(FVector2f(0.0f, 0.0f));
+		.SetTexCoord(FVector2f(0.0f, 0.0f))
+		.SetTexCoord(1, FVector2f(0.25f, 0.25f));
 
 	// Add our second vertex
 	int32 V1 = Builder.AddVertex(FVector3f(0.0f, 0.0f, 100.0f))
 		.SetNormalAndTangent(FVector3f(0.0f, -1.0f, 1.0f), FVector3f(1.0f, 0.0f, 0.0f))
 		.SetColor(FColor::Green)
-		.SetTexCoord(FVector2f(0.5f, 1.0f));
+		.SetTexCoord(FVector2f(0.5f, 1.0f))
+		.SetTexCoord(1, FVector2f(0.5f, 0.75f));
 
 	// Add our third vertex
 	int32 V2 = Builder.AddVertex(FVector3f(50.0, 0.0, 0.0))
 		.SetNormalAndTangent(FVector3f(0.0f, -1.0f, 1.0f), FVector3f(1.0f, 0.0f, 0.0f))
 		.SetColor(FColor::Blue)
-		.SetTexCoord(FVector2f(1.0f, 0.0f));
-
+		.SetTexCoord(FVector2f(1.0f, 0.0f))
+		.SetTexCoord(1, FVector2f(0.75f, 0.25f));
+	
 	// Add our triangle, placing the vertices in counter clockwise order
 	Builder.AddTriangle(V0, V1, V2, 0);
 
@@ -86,4 +91,4 @@ void ARealtimeMeshBasic::OnGenerateMesh_Implementation()
 	Super::OnGenerateMesh_Implementation();
 }
 
-
+PRAGMA_ENABLE_OPTIMIZATION
