@@ -211,8 +211,6 @@ namespace RealtimeMesh
 	using FRealtimeMeshTangentsHighPrecision = TRealtimeMeshTangents<FPackedRGBA16N>;
 	using FRealtimeMeshTangentsNormalPrecision = TRealtimeMeshTangents<FPackedNormal>;
 	
-	template<typename TangentType> struct TCanBulkSerialize<TRealtimeMeshTangents<TangentType>> { enum { Value = true }; };
-	template<typename TangentType> struct TIsPODType<TRealtimeMeshTangents<TangentType>> { enum { Value = true }; };
 
 	template <typename ChannelType, int32 ChannelCount>
 	struct TRealtimeMeshTexCoords
@@ -315,8 +313,6 @@ namespace RealtimeMesh
 	using FRealtimeMeshTexCoordsNormal3 = TRealtimeMeshTexCoordsNormal<3>;
 	using FRealtimeMeshTexCoordsNormal4 = TRealtimeMeshTexCoordsNormal<4>;
 
-	template<typename ChannelType, int32 ChannelCount> struct TCanBulkSerialize<TRealtimeMeshTexCoords<ChannelType, ChannelCount>> { enum { Value = true }; };
-	template<typename ChannelType, int32 ChannelCount> struct TIsPODType<TRealtimeMeshTexCoords<ChannelType, ChannelCount>> { enum { Value = true }; };
 	
 	template <typename IndexType>
 	struct TIndex3
@@ -427,8 +423,6 @@ namespace RealtimeMesh
 	using FIndex3UI = TIndex3<uint32>;
 	using FIndex3US = TIndex3<uint16>;
 
-	template<typename IndexType> struct TCanBulkSerialize<TIndex3<IndexType>> { enum { Value = true }; };
-	template<typename IndexType> struct TIsPODType<TIndex3<IndexType>> { enum { Value = true }; };
 	
 
 	enum class ERealtimeMeshDatumType : uint8
@@ -729,7 +723,7 @@ namespace RealtimeMesh
 		FORCEINLINE bool IsValidIndexBuffer() const { return TypeDefinition.IsSupportedIndexType() && Layout.GetNumElements() == 1; }
 		FORCEINLINE uint8 GetStride() const { return Stride; }
 		FORCEINLINE uint8 GetAlignment() const { return TypeDefinition.GetAlignment(); }
-		/*FORCEINLINE bool ContainsElement(FName ElementName) const { return ElementOffsets.Contains(ElementName); }
+		FORCEINLINE bool ContainsElement(FName ElementName) const { return ElementOffsets.Contains(ElementName); }
 		FORCEINLINE uint8 GetElementOffset(FName ElementName) const { return ElementOffsets.FindChecked(ElementName); }
 		FORCEINLINE const uint8* FindElementOffset(FName ElementName) const { return ElementOffsets.Find(ElementName); }
 		FORCEINLINE const TMap<FName, uint8>& GetElementOffsets() const { return ElementOffsets; }#1#
@@ -938,11 +932,11 @@ namespace RealtimeMesh
 
 
 
-	template <typename BufferType>
+	/*template <typename BufferType>
 	constexpr FRealtimeMeshBufferLayout GetRealtimeMeshBufferLayoutDefinition()
 	{
 		static_assert(FRealtimeMeshBufferTypeTraits<BufferType>::IsValid);
-		return FRealtimeMeshBufferLayoutUtilities::GetBufferLayoutDefinition(FRealtimeMeshBufferLayout(
+		return FRealtimeMeshBufferLayoutUtilities::GetBufferLayoutMemoryLayout(FRealtimeMeshBufferLayout(
 			GetRealtimeMeshDataElementType<typename FRealtimeMeshBufferTypeTraits<BufferType>::ElementType>(),
 			FRealtimeMeshBufferTypeTraits<BufferType>::NumElements));
 	}
@@ -950,8 +944,8 @@ namespace RealtimeMesh
 	template <typename ElementType>
 	constexpr FRealtimeMeshBufferLayout GetRealtimeMeshBufferLayoutDefinition(int32 NumStreamElements)
 	{
-		return FRealtimeMeshBufferLayoutUtilities::GetBufferLayoutDefinition(FRealtimeMeshBufferLayout(GetRealtimeMeshDataElementType<ElementType>(), NumStreamElements));
-	}
+		return FRealtimeMeshBufferLayoutUtilities::GetBufferLayoutMemoryLayout(FRealtimeMeshBufferLayout(GetRealtimeMeshDataElementType<ElementType>(), NumStreamElements));
+	}*/
 
 	
 	static_assert(sizeof(FRealtimeMeshElementType) == sizeof(uint16), "Data must always be 16bit");
@@ -1073,3 +1067,11 @@ namespace RealtimeMesh
 }
 
 
+template<typename ChannelType, int32 ChannelCount> struct TCanBulkSerialize<RealtimeMesh::TRealtimeMeshTexCoords<ChannelType, ChannelCount>> { enum { Value = true }; };
+template<typename ChannelType, int32 ChannelCount> struct TIsPODType<RealtimeMesh::TRealtimeMeshTexCoords<ChannelType, ChannelCount>> { enum { Value = true }; };
+
+template<typename IndexType> struct TCanBulkSerialize<RealtimeMesh::TIndex3<IndexType>> { enum { Value = true }; };
+template<typename IndexType> struct TIsPODType<RealtimeMesh::TIndex3<IndexType>> { enum { Value = true }; };
+
+template<typename TangentType> struct TCanBulkSerialize<RealtimeMesh::TRealtimeMeshTangents<TangentType>> { enum { Value = true }; };
+template<typename TangentType> struct TIsPODType<RealtimeMesh::TRealtimeMeshTangents<TangentType>> { enum { Value = true }; };

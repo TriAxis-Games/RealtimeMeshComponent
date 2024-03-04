@@ -13,6 +13,9 @@
 #include "Containers/RingBuffer.h"
 #endif
 
+// included primarily for NatVis helpers
+#include <string>
+
 namespace RealtimeMesh
 {
 	struct FRealtimeMeshStreams
@@ -1373,7 +1376,7 @@ namespace RealtimeMesh
 				}
 				if (!(*Result)->ConvertTo(NewLayout))
 				{
-					UE_LOG(RealtimeMeshLog, Warning, TEXT("Failed to convert stream %s to new layout: Removing Data"), *StreamKey.ToString());
+					UE_LOG(LogCore, Warning, TEXT("Failed to convert stream %s to new layout: Removing Data"), *StreamKey.ToString());
 				}
 				return *Result->Get();
 			}

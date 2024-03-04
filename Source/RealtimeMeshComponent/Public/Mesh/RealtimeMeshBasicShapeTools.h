@@ -18,12 +18,12 @@ class REALTIMEMESHCOMPONENT_API URealtimeMeshBasicShapeTools : public UBlueprint
 
 public:
 	
-	UE_DEPRECATED(all, TEXT("Use variation accepting URealtimeMeshStreamSet instead."))
+	UE_DEPRECATED(all, "Use variation accepting URealtimeMeshStreamSet instead.")
 	/** Generate vertex and index buffer for a simple box, given the supplied dimensions. Normals, UVs and tangents are also generated for each vertex. */
 	UFUNCTION(BlueprintCallable, Category = "RealtimeMesh|MeshGeneration")
 	static FRealtimeMeshSimpleMeshData& AppendBoxMesh(FVector BoxRadius, FTransform BoxTransform, UPARAM(Ref) FRealtimeMeshSimpleMeshData& MeshData, int32 NewMaterialGroup = 0);
 
-	UE_DEPRECATED(all, TEXT("Use variation accepting URealtimeMeshStreamSet instead."))
+	UE_DEPRECATED(all, "Use variation accepting URealtimeMeshStreamSet instead.")
 	/** Generate vertex and index buffer for a simple box, given the supplied dimensions. Normals, UVs and tangents are also generated for each vertex. */
 	UFUNCTION(BlueprintCallable, Category = "RealtimeMesh|MeshGeneration", meta=(AutoCreateRefTerm="Transform"))
 	static FRealtimeMeshSimpleMeshData& AppendMesh(UPARAM(Ref) FRealtimeMeshSimpleMeshData& TargetMeshData, const FRealtimeMeshSimpleMeshData& MeshDataToAdd,

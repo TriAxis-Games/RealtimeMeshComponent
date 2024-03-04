@@ -6,6 +6,7 @@
 #include "RealtimeMeshDataTypes.h"
 #include "RealtimeMeshDataStream.h"
 #include "Templates/Invoke.h"
+#include "Traits/IsVoidType.h"
 
 struct FRealtimeMeshSimpleMeshData;
 
@@ -21,13 +22,13 @@ namespace RealtimeMesh
 		using QualifiedType = InType;
 		using QualifiedElementType = typename TCopyQualifiersFromTo<InType, ElementType>::Type;
 		static constexpr bool IsConst = TIsConst<InType>::Value;
-		static constexpr bool IsVoid = TIsSame<Type, void>::Value;
+		static constexpr bool IsVoid = std::is_same<Type, void>::value;
 		static constexpr int32 NumElements = FRealtimeMeshBufferTypeTraits<Type>::NumElements;
 
 		template<typename OtherType>
 		static constexpr bool IsConvertibleTo()
 		{
-			return !TIsVoidType<decltype(ConvertRealtimeMeshType<Type, TRemoveCV<OtherType>>(DeclVal<Type>()))>::Value;
+			return !std::is_void<decltype(ConvertRealtimeMeshType<Type, TRemoveCV<OtherType>>(DeclVal<Type>()))>::value;
 		}
 	};
 
@@ -715,7 +716,11 @@ namespace RealtimeMesh
 		TRealtimeMeshStreamBuilderBase(typename TCopyQualifiersFromTo<InAccessType, FRealtimeMeshStream>::Type& InStream, int32 ElementOffset = 0)
 			: Context(StreamDataAccessor::InitializeContext(InStream, ElementOffset))
 		{
-			checkf(TIsVoidType<BufferTypeT>::Value || InStream.GetLayout().GetElementType() == GetRealtimeMeshBufferLayout<BufferTypeT>().GetElementType(), TEXT("Supplied stream not correct format for builder."));
+			if constexpr (!std::is_void<BufferTypeT>::value)
+			{
+				checkf(InStream.GetLayout().GetElementType() == GetRealtimeMeshBufferLayout<BufferTypeT>().GetElementType(),
+					TEXT("Supplied stream not correct format for builder."));				
+			}
 			checkf(bAllowSubstreamAccess || ElementOffset == 0, TEXT("Cannot offset element within stream without substream access enabled."));
 		}
 		
@@ -1069,7 +1074,7 @@ namespace RealtimeMesh
 		using VertexBuilder = TRealtimeMeshVertexBuilderLocal<TRealtimeMeshBuilderLocal>;
 		using SizeType = PositionStreamBuilder::SizeType;
 
-		static_assert(TIsVoidType<TexCoordElementType>::Value || FRealtimeMeshBufferTypeTraits<TexCoordStreamType>::NumElements == NumTexCoords, "NumTexCoords must match the number of elements in the TexCoordStreamType");
+		static_assert(std::is_void<TexCoordElementType>::value || FRealtimeMeshBufferTypeTraits<TexCoordStreamType>::NumElements == NumTexCoords, "NumTexCoords must match the number of elements in the TexCoordStreamType");
 
 	private:
 		FRealtimeMeshStreamSet& Streams;
@@ -1091,13 +1096,13 @@ namespace RealtimeMesh
 		{
 			if (auto* ExistingStream = Streams.Find(StreamKey))
 			{
-				if constexpr (TIsSame<AccessLayout, DataLayout>::Value)
+				if constexpr (std::is_same<AccessLayout, DataLayout>::value)
 				{
 					// Make sure the desired format matches the format as they should all be equivalent
 					check(GetRealtimeMeshBufferLayout<AccessLayout>() == DefaultLayout || DefaultLayout == FRealtimeMeshBufferLayout::Invalid);
 					check(ExistingStream->IsOfType(GetRealtimeMeshBufferLayout<AccessLayout>()));
 				}
-				else if constexpr (!TIsSame<DataLayout, void>::Value)
+				else if constexpr (!std::is_same<DataLayout, void>::value)
 				{
 					// If the concrete data type is valid, make sure the stream is in this format
 					check(ExistingStream->IsOfType<DataLayout>());
@@ -1199,10 +1204,16 @@ namespace RealtimeMesh
 		void EnableTangents(const FRealtimeMeshElementType& ElementType)
 		{
 			checkf(ElementType.IsValid(), TEXT("Element type must be a valid type"));
-			checkf(TIsVoidType<TangentElementType>::Value || ElementType == GetRealtimeMeshDataElementType<TangentElementType>(),
-				TEXT("ElementType must be the same as the TangentElementType, unless the builder is dynamic by supplying void to the TangentElementType of the builder template"));
-			checkf(!TIsVoidType<TangentElementType>::Value || FRealtimeMeshTypeConversionUtilities::CanConvert(ElementType, GetRealtimeMeshDataElementType<FVector4f>()),
-				TEXT("ElementType must be convertible to FVector4f"));
+			if constexpr (std::is_void<TangentElementType>::value)
+			{
+				checkf(FRealtimeMeshTypeConversionUtilities::CanConvert(ElementType, GetRealtimeMeshDataElementType<FVector4f>()),
+					TEXT("ElementType must be convertible to FVector4f"));				
+			}
+			else
+			{
+				checkf(ElementType == GetRealtimeMeshDataElementType<TangentElementType>(),
+					TEXT("ElementType must be the same as the TangentElementType, unless the builder is dynamic by supplying void to the TangentElementType of the builder template"));
+			}			
 			
 			if (!Tangents.IsSet())
 			{				
@@ -1249,11 +1260,17 @@ namespace RealtimeMesh
 		{
 			checkf(ElementType.IsValid(), TEXT("Element type must be a valid type"));
 			checkf(NumChannels >= NumTexCoords, TEXT("NumChannels must be greater or equal to the number of tex coords"));
-				
-			checkf(TIsVoidType<TexCoordElementType>::Value || ElementType == GetRealtimeMeshDataElementType<TexCoordElementType>(),
-				TEXT("ElementType must be the same as the TexCoordStreamType, unless the builder is dynamic by supplying void to the TexCoordStreamType of the builder template"));
-			checkf(!TIsVoidType<TexCoordElementType>::Value || FRealtimeMeshTypeConversionUtilities::CanConvert(ElementType, GetRealtimeMeshDataElementType<FVector2f>()),
-				TEXT("ElementType must be convertible to FVector2f"));
+
+			if constexpr (std::is_void<TexCoordElementType>::value)
+			{
+				checkf(FRealtimeMeshTypeConversionUtilities::CanConvert(ElementType, GetRealtimeMeshDataElementType<FVector2f>()),
+					TEXT("ElementType must be convertible to FVector2f"));	
+			}
+			else
+			{
+				checkf(ElementType == GetRealtimeMeshDataElementType<TexCoordElementType>(),
+					TEXT("ElementType must be the same as the TexCoordStreamType, unless the builder is dynamic by supplying void to the TexCoordStreamType of the builder template"));
+			}
 			
 			if (!TexCoords.IsSet())
 			{
@@ -1281,12 +1298,18 @@ namespace RealtimeMesh
 		void EnableDepthOnlyTriangles(const FRealtimeMeshElementType& ElementType)
 		{
 			checkf(ElementType.IsValid(), TEXT("Element type must be a valid type"));
-				
-			checkf(TIsVoidType<IndexType>::Value || ElementType == GetRealtimeMeshDataElementType<IndexType>(),
-				TEXT("ElementType must be the same as the IndexType, unless the builder is dynamic by supplying void to the IndexType of the builder template"));
-			checkf(!TIsVoidType<IndexType>::Value || FRealtimeMeshTypeConversionUtilities::CanConvert(ElementType, GetRealtimeMeshDataElementType<uint32>()),
-				TEXT("ElementType must be convertible to uint32"));
 			
+			if constexpr (std::is_void<IndexType>::value)
+			{
+				checkf(FRealtimeMeshTypeConversionUtilities::CanConvert(ElementType, GetRealtimeMeshDataElementType<uint32>()),
+					TEXT("ElementType must be convertible to uint32"));
+			}
+			else
+			{
+				checkf(ElementType == GetRealtimeMeshDataElementType<IndexType>(),
+					TEXT("ElementType must be the same as the IndexType, unless the builder is dynamic by supplying void to the IndexType of the builder template"));
+			}
+						
 			if (!DepthOnlyTriangles.IsSet())
 			{
 				DepthOnlyTriangles = GetStreamBuilder<TriangleType, TriangleStreamType>(FRealtimeMeshStreams::DepthOnlyTriangles, true, GetRealtimeMeshBufferLayout(ElementType, 3), true);
@@ -1323,11 +1346,17 @@ namespace RealtimeMesh
 		void EnablePolyGroups(const FRealtimeMeshElementType& ElementType)
 		{
 			checkf(ElementType.IsValid(), TEXT("Element type must be a valid type"));
-				
-			checkf(TIsVoidType<PolyGroupIndexType>::Value || ElementType == GetRealtimeMeshDataElementType<PolyGroupIndexType>(),
-				TEXT("ElementType must be the same as the PolyGroupIndexType, unless the builder is dynamic by supplying void to the PolyGroupIndexType of the builder template"));
-			checkf(!TIsVoidType<PolyGroupIndexType>::Value || FRealtimeMeshTypeConversionUtilities::CanConvert(ElementType, GetRealtimeMeshDataElementType<uint32>()),
-				TEXT("TexCoord ElementType must be convertible to uint32"));
+			
+			if constexpr (std::is_void<PolyGroupIndexType>::value)
+			{
+				checkf(FRealtimeMeshTypeConversionUtilities::CanConvert(ElementType, GetRealtimeMeshDataElementType<uint32>()),
+					TEXT("TexCoord ElementType must be convertible to uint32"));
+			}
+			else
+			{
+				checkf(ElementType == GetRealtimeMeshDataElementType<PolyGroupIndexType>(),
+					TEXT("ElementType must be the same as the PolyGroupIndexType, unless the builder is dynamic by supplying void to the PolyGroupIndexType of the builder template"));
+			}
 			
 			if (!TrianglePolyGroups.IsSet())
 			{
