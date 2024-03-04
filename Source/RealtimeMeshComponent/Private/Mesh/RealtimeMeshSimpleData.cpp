@@ -83,10 +83,13 @@ bool FRealtimeMeshSimpleMeshData::CopyToStreamSet(FRealtimeMeshStreamSet& Stream
 			// Copy tex coords
 			TRealtimeMeshStridedStreamBuilder<FVector2f, void> TexCoordBuilder(TexCoordStream, TexIndex);
 
-			TexCoordBuilder.SetNumZeroed(FMath::Max(TexCoordBuilder.Num(), StartVertex + UVs.Num()));
-			TexCoordBuilder.AppendGenerator(Positions.Num(), [&](int32 Index, int32 FinalIndex)
+			if (TexCoordBuilder.Num() < StartVertex + UVs.Num())
 			{
-				return FVector2f(UVs[Index]);
+				TexCoordBuilder.SetNumZeroed(StartVertex + UVs.Num());
+			}
+			TexCoordBuilder.SetGenerator(StartVertex, Positions.Num(), [&](int32 Index, int32 FinalIndex)
+			{
+				return UVs.IsValidIndex(Index)? FVector2f(UVs[Index]) : FVector2f::ZeroVector;
 			});
 		}		
 	}
