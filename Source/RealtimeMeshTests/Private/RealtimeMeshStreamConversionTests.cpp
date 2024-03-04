@@ -5,7 +5,6 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(RealtimeMeshStreamConversionTests, "RealtimeMes
 
 using namespace RealtimeMesh;
 
-PRAGMA_DISABLE_OPTIMIZATION
 bool RealtimeMeshStreamConversionTests::RunTest(const FString& Parameters)
 {
 	FRealtimeMeshStream DataStream = FRealtimeMeshStream::Create<TRealtimeMeshTangents<FPackedRGBA16N>>(RealtimeMesh::FRealtimeMeshStreams::Position);
@@ -168,4 +167,3 @@ bool RealtimeMeshStreamConversionTests::RunTest(const FString& Parameters)
 	// Make the test pass by returning true, or fail by returning false.
 	return true;
 }
-PRAGMA_ENABLE_OPTIMIZATION

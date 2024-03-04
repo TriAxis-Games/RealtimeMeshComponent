@@ -17,18 +17,18 @@ namespace RealtimeMesh
 	template<typename InType>
 	struct TRealtimeMeshStreamDataAccessorTypeTraits
 	{
-		using Type = typename TRemoveCV<InType>::Type;
+		using Type = std::remove_cv_t<InType>;
 		using ElementType = typename FRealtimeMeshBufferTypeTraits<Type>::ElementType;
 		using QualifiedType = InType;
 		using QualifiedElementType = typename TCopyQualifiersFromTo<InType, ElementType>::Type;
 		static constexpr bool IsConst = TIsConst<InType>::Value;
-		static constexpr bool IsVoid = std::is_same<Type, void>::value;
+		static constexpr bool IsVoid = std::is_same_v<Type, void>;
 		static constexpr int32 NumElements = FRealtimeMeshBufferTypeTraits<Type>::NumElements;
 
 		template<typename OtherType>
 		static constexpr bool IsConvertibleTo()
 		{
-			return !std::is_void<decltype(ConvertRealtimeMeshType<Type, TRemoveCV<OtherType>>(DeclVal<Type>()))>::value;
+			return !std::is_void_v<decltype(ConvertRealtimeMeshType<Type, std::remove_cv_t<OtherType>>(DeclVal<Type>()))>;
 		}
 	};
 

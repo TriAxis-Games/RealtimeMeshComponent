@@ -3,13 +3,12 @@
 #include "Mesh/RealtimeMeshBuilder.h"
 #include "Misc/AutomationTest.h"
 #include "Mesh/RealtimeMeshDataStream.h"
+#include "Templates/AreTypesEqual.h"
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(RealtimeMeshBuilderTests, "RealtimeMeshComponent.RealtimeMeshBuilder",
                                  EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 using namespace RealtimeMesh;
-
-PRAGMA_DISABLE_OPTIMIZATION
 
 namespace RealtimeMesh
 {
@@ -91,8 +90,8 @@ namespace RealtimeMesh
 
 bool RealtimeMeshBuilderTests::RunTest(const FString& Parameters)
 {
-	static_assert(TAreTypesEqual<FRealtimeMeshBufferTypeTraits<FPackedNormalQuad>::ElementType, FPackedNormal>::Value);
-	static_assert(TAreTypesEqual<TRealtimeMeshElementAccessor<FPackedNormalQuad, FPackedNormalQuad>::AccessElementType, FPackedNormal>::Value);
+	static_assert(std::is_same_v<FRealtimeMeshBufferTypeTraits<FPackedNormalQuad>::ElementType, FPackedNormal>);
+	static_assert(std::is_same_v<TRealtimeMeshElementAccessor<FPackedNormalQuad, FPackedNormalQuad>::AccessElementType, FPackedNormal>);
 
 
 	{ // Direct access test
@@ -342,5 +341,3 @@ bool RealtimeMeshBuilderTests::RunTest(const FString& Parameters)
 	
 	return true;
 }
-
-PRAGMA_ENABLE_OPTIMIZATION

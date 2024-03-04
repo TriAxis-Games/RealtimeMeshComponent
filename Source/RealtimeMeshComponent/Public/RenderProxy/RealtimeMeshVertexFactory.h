@@ -109,8 +109,13 @@ namespace RealtimeMesh
 			}
 		}
 
+#if RMC_ENGINE_ABOVE_5_3		
+		static void BindTexCoordsBuffer(bool& bIsValid, FInt32Range& ValidRange, TSet<TWeakPtr<FRealtimeMeshVertexBuffer>>& InUseBuffers, TArray<FVertexStreamComponent, TFixedAllocator<MAX_STATIC_TEXCOORDS / 2>>& OutStreamComponents,
+				uint8& OutNumTexCoords, const FRealtimeMeshStreamProxyMap& Buffers, FName BufferName, EVertexStreamUsage Usage, bool bIsOptional = false, bool bAllowZeroStride = false)
+#else
 		static void BindTexCoordsBuffer(bool& bIsValid, FInt32Range& ValidRange, TSet<TWeakPtr<FRealtimeMeshVertexBuffer>>& InUseBuffers, TArray<FVertexStreamComponent, TFixedAllocator<MAX_STATIC_TEXCOORDS / 2>>& OutStreamComponents,
 				int32& OutNumTexCoords, const FRealtimeMeshStreamProxyMap& Buffers, FName BufferName, EVertexStreamUsage Usage, bool bIsOptional = false, bool bAllowZeroStride = false)
+#endif
 		{
 			const TSharedPtr<FRealtimeMeshGPUBuffer> FoundBuffer = FindBuffer(Buffers, ERealtimeMeshStreamType::Vertex, BufferName);
 

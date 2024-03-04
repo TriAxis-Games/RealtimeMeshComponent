@@ -7,7 +7,6 @@
 
 namespace RealtimeMesh
 {
-	PRAGMA_DISABLE_OPTIMIZATION
 	FRealtimeMeshProxy::FRealtimeMeshProxy(const FRealtimeMeshSharedResourcesRef& InSharedResources)
 		: SharedResources(InSharedResources)
 		  , ValidLODRange(TRange<int8>::Empty())
@@ -156,6 +155,4 @@ namespace RealtimeMesh
 		ScreenSizeRangeByLOD.Empty();
 		bIsStateDirty = false;
 	}
-
-	PRAGMA_ENABLE_OPTIMIZATION
 }

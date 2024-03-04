@@ -12,7 +12,6 @@ ARealtimeMeshMultipleUVs::ARealtimeMeshMultipleUVs()
 	PrimaryActorTick.bCanEverTick = false;
 }
 
-PRAGMA_DISABLE_OPTIMIZATION
 void ARealtimeMeshMultipleUVs::OnGenerateMesh_Implementation()
 {
 	// Initialize to a simple mesh, this behaves the most like a ProceduralMeshComponent
@@ -90,5 +89,3 @@ void ARealtimeMeshMultipleUVs::OnGenerateMesh_Implementation()
 	
 	Super::OnGenerateMesh_Implementation();
 }
-
-PRAGMA_ENABLE_OPTIMIZATION
