@@ -36,6 +36,3 @@ public:
 	static FRealtimeMeshStreamSet& AppendMesh(FRealtimeMeshStreamSet& TargetMeshData, const FRealtimeMeshStreamSet& MeshDataToAdd, const FTransform& Transform);
 	
 };
-
-//UE_DEPRECATED(all, TEXT("Use URealtimeMeshBasicShapeTools instead."))
-//using URealtimeMeshSimpleBasicShapeTools = URealtimeMeshBasicShapeTools;

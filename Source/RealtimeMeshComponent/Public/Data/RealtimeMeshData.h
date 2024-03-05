@@ -25,42 +25,15 @@ namespace RealtimeMesh
 		TFixedLODArray<FRealtimeMeshLODDataRef> LODs;
 		FRealtimeMeshConfig Config;
 		FRealtimeMeshBounds Bounds;
-
-		//FRealtimeMeshCollisionConfiguration CollisionConfig;
-		//FRealtimeMeshSimpleGeometry SimpleGeometry;
-
-		// Name of the mesh, given by the parent URealtimeMesh for debug messaging.
-		/*FName MeshName;*/
-
-		//bool bIsCollisionDirty;
-
-		/*mutable FRealtimeMeshGuard Guard;*/
-
-		/*mutable FRWLock RenderDataLock;
-		mutable FRWLock CollisionLock;
-		mutable FRWLock BoundsLock;*/
-
-		/*FName TypeName;*/
 	public:
 		FRealtimeMesh(const FRealtimeMeshSharedResourcesRef& InSharedResources);
 		virtual ~FRealtimeMesh() = default;
 
 		const FRealtimeMeshSharedResourcesRef& GetSharedResources() const { return SharedResources; }
 
-		/*FName GetMeshName() const { return MeshName; }*/
-		/*void SetMeshName(FName InMeshName) { MeshName = InMeshName; }*/
-
 		int32 GetNumLODs() const;
 
 		virtual FBoxSphereBounds3f GetLocalBounds() const;
-		//bool IsCollisionDirty() const { return bIsCollisionDirty; }
-		//void ClearCollisionDirtyFlag() { bIsCollisionDirty = false; }
-
-
-		/*FRealtimeMeshCollisionConfiguration GetCollisionConfig() const;
-		void SetCollisionConfig(const FRealtimeMeshCollisionConfiguration& InCollisionConfig);
-		FRealtimeMeshSimpleGeometry GetSimpleGeometry() const;
-		void SetSimpleGeometry(const FRealtimeMeshSimpleGeometry& InSimpleGeometry);*/
 
 		FRealtimeMeshLODDataPtr GetLOD(FRealtimeMeshLODKey LODKey) const;
 
@@ -112,7 +85,6 @@ namespace RealtimeMesh
 		virtual void ProcessEndOfFrameUpdates() { }
 	protected:
 
-		/*TFuture<ERealtimeMeshProxyUpdateStatus> ApplyStateUpdate(FRealtimeMeshUpdateContext& Update);*/
 		void HandleLODBoundsChanged(const FRealtimeMeshLODKey& LODKey);
 
 		FRealtimeMeshProxyRef CreateRenderProxy(bool bForceRecreate = false) const;

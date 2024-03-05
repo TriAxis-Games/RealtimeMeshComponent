@@ -926,16 +926,6 @@ namespace RealtimeMesh
 				Edit(StartIndex + Index).SetElement(ElementIndex, Generator(Index, StartIndex + Index));
 			}
 		}
-		
-		/*FORCE INLINE TConstArrayView<BufferType, SizeType> GetView() const
-		{
-			return TConstArrayView<BufferType, SizeType>(Context.Stream.GetData(), Num());
-		}
-
-		FORCE INLINE TArrayView<BufferType, SizeType> GetView()
-		{
-			return TArrayView<BufferType, SizeType>(Context.Stream.GetData(), Num());
-		}*/
 
 		template <typename U = AccessType>
 		FORCEINLINE TEnableIfWritable<void, U> SetRange(int32 StartIndex, TArrayView<AccessType> Elements)
@@ -1520,19 +1510,6 @@ namespace RealtimeMesh
 			Tangents->Set(VertIdx, TRealtimeMeshTangents<FVector4f>(Normal, Tangent, Tangent));
 		}
 
-		/*void SetTexCoord(int32 VertIdx, int32 TexCoordIdx, const TexCoordType& TexCoord)
-		{
-			if (FRealtimeMeshBufferTypeTraits<TexCoordStreamType>::NumElements == 1)
-			{
-				check(TexCoordIdx == 0);
-				TexCoords.Set(VertIdx, TexCoord);					
-			}
-			else
-			{
-				TexCoords.SetElement(VertIdx, TexCoordIdx, TexCoord);				
-			}
-		}*/
-
 		void SetTexCoord(int32 VertIdx, int32 TexCoordIdx, const FVector2f& TexCoord)
 		{
 			checkf(HasTexCoords(), TEXT("Vertex texcoords not enabled"));
@@ -1560,13 +1537,6 @@ namespace RealtimeMesh
 				return TexCoords->GetElementValue(VertIdx, TexCoordIdx);
 			}
 		}
-
-		/*template<typename... TexCoord>
-		void SetTexCoords(int32 VertIdx, const TexCoord& TexCoords...)
-		{
-			TexCoords.Set(VertIdx, TexCoords...);
-			return *this;
-		}*/
 
 		void SetColor(int32 VertIdx, FColor VertexColor)
 		{
@@ -1819,18 +1789,6 @@ namespace RealtimeMesh
 			checkf(HasTexCoords(), TEXT("Vertex texcoords not enabled"));
 			return ParentBuilder.GetTexCoord(RowIndex, TexCoordIdx);
 		}
-
-		/*VertexBuilder& SetTexCoords(const FVector2f& TexCoord)
-		{
-			ParentBuilder.SetTexCoord(RowIndex, 0, TexCoord);
-			return *this;
-		}
-
-		VertexBuilder& SetTexCoords(const FVector2f&... TexCoords)
-		{
-			ParentBuilder.SetTexCoords(RowIndex, TexCoords...);
-			return *this;
-		}*/
 
 		VertexBuilder& SetColor(FColor VertexColor)
 		{

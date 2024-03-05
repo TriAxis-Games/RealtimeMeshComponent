@@ -49,7 +49,6 @@ namespace RealtimeMesh
 		virtual bool Serialize(FArchive& Ar);
 
 		virtual void InitializeProxy(FRealtimeMeshProxyCommandBatch& Commands);
-		/*virtual void ApplyStateUpdate(FRealtimeMeshProxyCommandBatch& UpdateGraph, FRealtimeMeshLODUpdateContext& Update);*/
 
 		TSet<FRealtimeMeshSectionGroupKey> GetSectionGroupKeys() const;
 

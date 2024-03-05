@@ -466,44 +466,39 @@ namespace RealtimeMesh
 	private:
 		ERealtimeMeshDatumType Type;
 		uint8 NumDatums : 3;
-		/*uint8 bNormalized : 1;
-		uint8 bShouldConvertToFloat : 1;*/
-
 	public:
-		constexpr FRealtimeMeshElementType() : Type(ERealtimeMeshDatumType::Unknown), NumDatums(0)//, bNormalized(false), bShouldConvertToFloat(false)
+		constexpr FRealtimeMeshElementType() : Type(ERealtimeMeshDatumType::Unknown), NumDatums(0)/
 		{
 		}
 
-		constexpr FRealtimeMeshElementType(ERealtimeMeshDatumType InType, int32 InNumDatums/*, bool bInNormalized, bool bInShouldConvertToFloat*/)
-			: Type(InType), NumDatums(InNumDatums)//, bNormalized(bInNormalized), bShouldConvertToFloat(bInShouldConvertToFloat)
+		constexpr FRealtimeMeshElementType(ERealtimeMeshDatumType InType, int32 InNumDatums)
+			: Type(InType), NumDatums(InNumDatums)
 		{
 		}
 
 		constexpr bool IsValid() const { return Type != ERealtimeMeshDatumType::Unknown && NumDatums > 0; }
 		constexpr ERealtimeMeshDatumType GetDatumType() const { return Type; }
 		constexpr uint8 GetNumDatums() const { return NumDatums; }
-//		constexpr bool IsNormalized() const { return bNormalized; }
-//		constexpr bool ShouldConvertToFloat() const { return bShouldConvertToFloat; }
 
 
 		constexpr bool operator==(const FRealtimeMeshElementType& Other) const
 		{
-			return Type == Other.Type && NumDatums == Other.NumDatums;// && bNormalized == Other.bNormalized && bShouldConvertToFloat == Other.bShouldConvertToFloat;
+			return Type == Other.Type && NumDatums == Other.NumDatums;
 		}
 
 		constexpr bool operator!=(const FRealtimeMeshElementType& Other) const
 		{
-			return Type != Other.Type || NumDatums != Other.NumDatums;// || bNormalized != Other.bNormalized || bShouldConvertToFloat != Other.bShouldConvertToFloat;
+			return Type != Other.Type || NumDatums != Other.NumDatums;
 		}
 
 		FString ToString() const
 		{
-			return FString::Printf(TEXT("Type=%d NumDatums=%d IsNormalized=%d ConvertToFloat=%d"), Type, NumDatums/*, bNormalized, bShouldConvertToFloat*/);
+			return FString::Printf(TEXT("Type=%d NumDatums=%d IsNormalized=%d ConvertToFloat=%d"), Type, NumDatums);
 		}
 
 		friend FORCEINLINE uint32 GetTypeHash(const FRealtimeMeshElementType& Element)
 		{
-			return ::HashCombine(::GetTypeHash(Element.Type), ::GetTypeHash(Element.NumDatums/* << 2 | Element.bNormalized << 1 | Element.bShouldConvertToFloat*/));
+			return ::HashCombine(::GetTypeHash(Element.Type), ::GetTypeHash(Element.NumDatums));
 		}
 
 		friend FArchive& operator<<(FArchive& Ar, FRealtimeMeshElementType& ElementType)
@@ -517,10 +512,10 @@ namespace RealtimeMesh
 			if (Ar.CustomVer(FRealtimeMeshVersion::GUID) < FRealtimeMeshVersion::ImprovingDataTypes)
 			{
 				// TODO: Remove these
-				bool bTempNormalized = false;/* = ElementType.bNormalized*/
+				bool bTempNormalized = false;
 				Ar << bTempNormalized;
 
-				bool bTempShouldConvertToFloat = false;/* = ElementType.bShouldConvertToFloat*/
+				bool bTempShouldConvertToFloat = false;
 				Ar << bTempShouldConvertToFloat;
 
 				if (Ar.IsLoading())
@@ -589,18 +584,6 @@ namespace RealtimeMesh
 		}
 
 		static const FRealtimeMeshBufferLayout Invalid;
-
-	private:
-		/*void InitHash()
-		{
-			uint32 NewHash = ::GetTypeHash(NumElements);
-			for (int32 Index = 0; Index < Elements.Num(); Index++)
-			{
-				NewHash = HashCombine(NewHash, GetTypeHash(Elements[Index]));
-			}
-			ElementsHash = NewHash;
-		}*/
-
 	};
 
 
@@ -650,86 +633,6 @@ namespace RealtimeMesh
 		FORCEINLINE uint8 GetStride() const { return Stride; }
 		FORCEINLINE uint8 GetAlignment() const { return Alignment; }		
 	};
-	
-	
-	/*struct REALTIMEMESHCOMPONENT_API FRealtimeMeshElementTypeDefinition
-	{
-	private:
-		EVertexElementType VertexType;
-		EIndexElementType IndexType;
-		EPixelFormat PixelFormat;
-		uint8 Stride;
-		uint8 Alignment : 7;
-		uint8 bIsValid : 1;
-
-	public:
-		FRealtimeMeshElementTypeDefinition() : VertexType(VET_None), IndexType(IET_None), PixelFormat(PF_Unknown), Stride(0), Alignment(0), bIsValid(false)
-		{
-		}
-
-		FRealtimeMeshElementTypeDefinition(EVertexElementType InVertexType, EIndexElementType InIndexType, EPixelFormat InPixelFormat, uint8 InStride, uint8 InAlignment)
-			: VertexType(InVertexType), IndexType(InIndexType), PixelFormat(InPixelFormat), Stride(InStride), Alignment(InAlignment), bIsValid(true)
-		{
-		}
-
-		bool IsValid() const { return (IsSupportedVertexType() || IsSupportedIndexType()) && Stride > 0 && Alignment > 0; }
-		bool IsSupportedVertexType() const { return VertexType != VET_None; }
-		EVertexElementType GetVertexType() const { return VertexType; }
-		bool IsSupportedIndexType() const { return IndexType != IET_None; }
-		EIndexElementType GetIndexType() const { return IndexType; }
-		EPixelFormat GetPixelFormat() const { return PixelFormat; }
-		uint8 GetStride() const { return Stride; }
-		uint8 GetAlignment() const { return Alignment; }
-
-		constexpr bool operator==(const FRealtimeMeshElementTypeDefinition& Other) const
-		{
-			return VertexType == Other.VertexType && IndexType == Other.IndexType && PixelFormat == Other.PixelFormat && Stride == Other.Stride && Alignment == Other.Alignment &&
-				bIsValid == Other.bIsValid;
-		}
-
-		constexpr bool operator!=(const FRealtimeMeshElementTypeDefinition& Other) const
-		{
-			return VertexType != Other.VertexType || IndexType != Other.IndexType || PixelFormat != Other.PixelFormat || Stride != Other.Stride || Alignment != Other.Alignment ||
-				bIsValid != Other.bIsValid;
-		}
-
-		static const FRealtimeMeshElementTypeDefinition Invalid;
-	};
-
-	struct REALTIMEMESHCOMPONENT_API FRealtimeMeshBufferLayoutDefinition
-	{
-	private:
-		FRealtimeMeshBufferLayout Layout;
-		FRealtimeMeshElementTypeDefinition TypeDefinition;
-		uint8 Stride;
-		bool bIsValid;
-
-	public:
-		FRealtimeMeshBufferLayoutDefinition(FRealtimeMeshBufferLayout InLayout, FRealtimeMeshElementTypeDefinition InTypeDefinition)
-			: Layout(InLayout), TypeDefinition(InTypeDefinition), Stride(0), bIsValid(false)
-		{
-			if (Layout.IsValid())
-			{
-				Stride = InTypeDefinition.GetStride() * Layout.GetNumElements();
-				bIsValid = true;
-			}
-		}
-
-		FORCEINLINE const FRealtimeMeshBufferLayout& GetBufferLayout() const { return Layout; }
-		FORCEINLINE const FRealtimeMeshElementType& GetElementType() const { return Layout.GetElementType(); }
-		FORCEINLINE const FRealtimeMeshElementTypeDefinition& GetElementTypeDefinition() const { return TypeDefinition; }
-		FORCEINLINE bool IsValid() const { return bIsValid; }
-		FORCEINLINE bool IsValidVertexBuffer() const { return TypeDefinition.IsSupportedVertexType(); }
-		FORCEINLINE bool IsValidIndexBuffer() const { return TypeDefinition.IsSupportedIndexType() && Layout.GetNumElements() == 1; }
-		FORCEINLINE uint8 GetStride() const { return Stride; }
-		FORCEINLINE uint8 GetAlignment() const { return TypeDefinition.GetAlignment(); }
-		FORCEINLINE bool ContainsElement(FName ElementName) const { return ElementOffsets.Contains(ElementName); }
-		FORCEINLINE uint8 GetElementOffset(FName ElementName) const { return ElementOffsets.FindChecked(ElementName); }
-		FORCEINLINE const uint8* FindElementOffset(FName ElementName) const { return ElementOffsets.Find(ElementName); }
-		FORCEINLINE const TMap<FName, uint8>& GetElementOffsets() const { return ElementOffsets; }#1#
-
-		static const FRealtimeMeshBufferLayoutDefinition Invalid;
-	};*/
 
 	template <typename ElementType>
 	struct FRealtimeMeshElementTypeTraits
@@ -785,31 +688,6 @@ namespace RealtimeMesh
 	RMC_DEFINE_ELEMENT_TYPE(FIntPoint, ERealtimeMeshDatumType::Int32, 2);
 
 	
-
-	
-	
-	/*RMC_DEFINE_ELEMENT_TYPE(uint16, ERealtimeMeshDatumType::UInt16, 1, false, false);
-	RMC_DEFINE_ELEMENT_TYPE(int16, ERealtimeMeshDatumType::Int16, 1, false, false);
-	RMC_DEFINE_ELEMENT_TYPE(uint32, ERealtimeMeshDatumType::UInt32, 1, false, false);
-	RMC_DEFINE_ELEMENT_TYPE(int32, ERealtimeMeshDatumType::Int32, 1, false, false);
-	RMC_DEFINE_ELEMENT_TYPE(float, ERealtimeMeshDatumType::Float, 1, false, true);
-	RMC_DEFINE_ELEMENT_TYPE(FVector2f, ERealtimeMeshDatumType::Float, 2, false, true);
-	RMC_DEFINE_ELEMENT_TYPE(FVector3f, ERealtimeMeshDatumType::Float, 3, false, true);
-	RMC_DEFINE_ELEMENT_TYPE(FVector4f, ERealtimeMeshDatumType::Float, 4, false, true);
-	RMC_DEFINE_ELEMENT_TYPE(FFloat16, ERealtimeMeshDatumType::Half, 1, false, true);
-	RMC_DEFINE_ELEMENT_TYPE(FVector2DHalf, ERealtimeMeshDatumType::Half, 2, false, true);
-	RMC_DEFINE_ELEMENT_TYPE(FColor, ERealtimeMeshDatumType::UInt8, 4, true, true);
-	RMC_DEFINE_ELEMENT_TYPE(FLinearColor, ERealtimeMeshDatumType::Float, 4, true, true);
-	RMC_DEFINE_ELEMENT_TYPE(FPackedNormal, ERealtimeMeshDatumType::Int8, 4, true, true);
-	RMC_DEFINE_ELEMENT_TYPE(FPackedRGBA16N, ERealtimeMeshDatumType::Int16, 4, true, true);
-	// These are mostly just used for external data conversion with BP for example. Not actual mesh rendering
-	RMC_DEFINE_ELEMENT_TYPE(double, ERealtimeMeshDatumType::Double, 1, false, true);
-	RMC_DEFINE_ELEMENT_TYPE(FVector2d, ERealtimeMeshDatumType::Double, 2, false, true);
-	RMC_DEFINE_ELEMENT_TYPE(FVector3d, ERealtimeMeshDatumType::Double, 3, false, true);
-	RMC_DEFINE_ELEMENT_TYPE(FVector4d, ERealtimeMeshDatumType::Double, 4, false, true);
-	RMC_DEFINE_ELEMENT_TYPE(FIntVector, ERealtimeMeshDatumType::Int32, 3, false, false);
-	RMC_DEFINE_ELEMENT_TYPE(FIntPoint, ERealtimeMeshDatumType::Int32, 2, false, false);*/
-
 
 	// BufferTypeTraits specialization for simple element types 
 	template <typename BufferType>
@@ -912,40 +790,8 @@ namespace RealtimeMesh
 		static FRealtimeMeshBufferMemoryLayout GetBufferLayoutMemoryLayout(const FRealtimeMeshBufferLayout& BufferLayout);
 		static FRealtimeMeshElementTypeDetails GetElementTypeDetails(const FRealtimeMeshElementType& ElementType);
 		static FRealtimeMeshElementTypeDetails GetElementTypeDetails(const FRealtimeMeshBufferLayout& BufferLayout);
-
-
-
-		
-		/*static bool IsSupportedType(const FRealtimeMeshElementType& DataType);
-		static bool IsSupportedVertexType(const FRealtimeMeshElementType& VertexType);
-		static bool IsSupportedIndexType(const FRealtimeMeshElementType& IndexType);*/
-
-		//static bool Is32BitIndex(const FRealtimeMeshElementTypeDefinition& IndexType);
-
-		/*static bool HasDoubleWidthVertexType(const FRealtimeMeshElementType& VertexType);
-		static FRealtimeMeshElementType GetDoubleWidthVertexType(const FRealtimeMeshElementType& VertexType);*/
-
-
-		//static const FRealtimeMeshElementTypeDefinition& GetTypeDefinition(const FRealtimeMeshElementType& VertexType);
-		//static FRealtimeMeshBufferLayoutDefinition GetBufferLayoutDefinition(const FRealtimeMeshBufferLayout& BufferLayout);
 	};
 
-
-
-	/*template <typename BufferType>
-	constexpr FRealtimeMeshBufferLayout GetRealtimeMeshBufferLayoutDefinition()
-	{
-		static_assert(FRealtimeMeshBufferTypeTraits<BufferType>::IsValid);
-		return FRealtimeMeshBufferLayoutUtilities::GetBufferLayoutMemoryLayout(FRealtimeMeshBufferLayout(
-			GetRealtimeMeshDataElementType<typename FRealtimeMeshBufferTypeTraits<BufferType>::ElementType>(),
-			FRealtimeMeshBufferTypeTraits<BufferType>::NumElements));
-	}
-
-	template <typename ElementType>
-	constexpr FRealtimeMeshBufferLayout GetRealtimeMeshBufferLayoutDefinition(int32 NumStreamElements)
-	{
-		return FRealtimeMeshBufferLayoutUtilities::GetBufferLayoutMemoryLayout(FRealtimeMeshBufferLayout(GetRealtimeMeshDataElementType<ElementType>(), NumStreamElements));
-	}*/
 
 	
 	static_assert(sizeof(FRealtimeMeshElementType) == sizeof(uint16), "Data must always be 16bit");
