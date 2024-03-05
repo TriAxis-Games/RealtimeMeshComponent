@@ -467,7 +467,7 @@ namespace RealtimeMesh
 		ERealtimeMeshDatumType Type;
 		uint8 NumDatums : 3;
 	public:
-		constexpr FRealtimeMeshElementType() : Type(ERealtimeMeshDatumType::Unknown), NumDatums(0)/
+		constexpr FRealtimeMeshElementType() : Type(ERealtimeMeshDatumType::Unknown), NumDatums(0)
 		{
 		}
 
