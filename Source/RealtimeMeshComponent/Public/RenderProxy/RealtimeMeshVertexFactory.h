@@ -146,7 +146,7 @@ namespace RealtimeMesh
 				const int32 ElementOffset = Index * VertexBuffer->GetElementStride();
 				const EVertexElementType VertexType = VertexBuffer->GetVertexType();
 				const auto DoubleElementType = FRealtimeMeshElementType(VertexBuffer->GetBufferLayout().GetElementType().GetDatumType(),
-					VertexBuffer->GetBufferLayout().GetElementType().GetNumDatums());
+					VertexBuffer->GetBufferLayout().GetElementType().GetNumDatums() * 2);
 				const EVertexElementType DoubleVertexType = FRealtimeMeshBufferLayoutUtilities::GetElementTypeDetails(DoubleElementType).GetVertexType();
 				
 				if (RemainingElements >= 2 && DoubleVertexType != VET_None)

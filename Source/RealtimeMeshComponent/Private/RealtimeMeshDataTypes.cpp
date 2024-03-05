@@ -21,7 +21,7 @@ namespace RealtimeMesh
 		},
 		{
 			FRealtimeMeshElementType(ERealtimeMeshDatumType::Float, 2),
-			FRealtimeMeshElementTypeDetails(VET_Float2, IET_None, PF_R32_FLOAT, sizeof(FVector2f), alignof(float))
+			FRealtimeMeshElementTypeDetails(VET_Float2, IET_None, PF_G32R32F, sizeof(FVector2f), alignof(float))
 		},
 		{
 			FRealtimeMeshElementType(ERealtimeMeshDatumType::Float, 3),
