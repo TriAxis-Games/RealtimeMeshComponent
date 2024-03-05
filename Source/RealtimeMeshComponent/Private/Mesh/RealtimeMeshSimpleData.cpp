@@ -22,7 +22,11 @@ bool FRealtimeMeshSimpleMeshData::CopyToStreamSet(FRealtimeMeshStreamSet& Stream
 	});
 
 	// Copy tangents
-	TRealtimeMeshStreamBuilder<TRealtimeMeshTangents<FVector4f>, void> TangentStream(Streams.FindOrAdd(FRealtimeMeshStreams::Tangents, GetRealtimeMeshBufferLayout<FRealtimeMeshTangentsNormalPrecision>()));
+	TRealtimeMeshStreamBuilder<TRealtimeMeshTangents<FVector4f>, void> TangentStream(Streams.FindOrAdd(FRealtimeMeshStreams::Tangents, 
+		bUseHighPrecisionTangents?
+		GetRealtimeMeshBufferLayout<FRealtimeMeshTangentsHighPrecision>():
+		GetRealtimeMeshBufferLayout<FRealtimeMeshTangentsNormalPrecision>()
+	));
 	// Zero any unfilled tangents up to start of this group
 	if (StartVertex > 0 && TangentStream.Num() != StartVertex)
 	{
@@ -69,7 +73,11 @@ bool FRealtimeMeshSimpleMeshData::CopyToStreamSet(FRealtimeMeshStreamSet& Stream
 	const TArray<FVector2D>* TexCoords[4] = { &UV0, &UV1, &UV2, &UV3 };
 	const int32 NumTexCoordsSupplied = UV3.Num() > 0 ? 4 : UV2.Num() > 0 ? 3 : UV1.Num() > 0 ? 2 : UV0.Num() > 0 ? 1 : 0;
 
-	FRealtimeMeshStream& TexCoordStream = Streams.FindOrAdd(FRealtimeMeshStreams::TexCoords, GetRealtimeMeshBufferLayout<FVector2DHalf>(NumTexCoordsSupplied));
+	FRealtimeMeshStream& TexCoordStream = Streams.FindOrAdd(FRealtimeMeshStreams::TexCoords,
+		bUseHighPrecisionTexCoords ?
+		GetRealtimeMeshBufferLayout<FVector2f>(NumTexCoordsSupplied) :
+		GetRealtimeMeshBufferLayout<FVector2DHalf>(NumTexCoordsSupplied)
+	);
 	if (StartVertex > 0 && TexCoordStream.Num() != StartVertex)
 	{
 		TexCoordStream.SetNumZeroed(StartVertex);
