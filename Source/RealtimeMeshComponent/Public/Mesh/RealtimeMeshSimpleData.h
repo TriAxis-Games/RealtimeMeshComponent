@@ -11,6 +11,8 @@
 
 using namespace RealtimeMesh;
 
+struct UE_DEPRECATED(All, "FRealtimeMeshSimpleMeshData has been deprecated in favor of using the FRealtimeMeshStreamSet which is far more configurable and efficient") FRealtimeMeshSimpleMeshData;
+
 USTRUCT(BlueprintType, meta=(HasNativeMake="RealtimeMeshComponent.RealtimeMeshSimpleBlueprintFunctionLibrary.MakeRealtimeMeshSimpleStream"))
 struct REALTIMEMESHCOMPONENT_API FRealtimeMeshSimpleMeshData
 {

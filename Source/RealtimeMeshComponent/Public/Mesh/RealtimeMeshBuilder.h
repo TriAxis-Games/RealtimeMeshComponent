@@ -675,10 +675,6 @@ namespace RealtimeMesh
 
 
 
-
-
-	
-	
 	template <typename InAccessType, typename InBufferType, bool bAllowSubstreamAccess>
 	struct TRealtimeMeshStreamBuilderBase
 	{
@@ -716,7 +712,7 @@ namespace RealtimeMesh
 		TRealtimeMeshStreamBuilderBase(typename TCopyQualifiersFromTo<InAccessType, FRealtimeMeshStream>::Type& InStream, int32 ElementOffset = 0)
 			: Context(StreamDataAccessor::InitializeContext(InStream, ElementOffset))
 		{
-			if constexpr (!std::is_void<BufferTypeT>::value)
+			if constexpr (!std::is_void_v<BufferTypeT>)
 			{
 				checkf(InStream.GetLayout().GetElementType() == GetRealtimeMeshBufferLayout<BufferTypeT>().GetElementType(),
 					TEXT("Supplied stream not correct format for builder."));				
@@ -1083,16 +1079,16 @@ namespace RealtimeMesh
 		template <typename AccessLayout, typename DataLayout = AccessLayout, bool bAllowSubstreamAccess = false>
 		TOptional<TRealtimeMeshStreamBuilderBase<AccessLayout, DataLayout, bAllowSubstreamAccess>> GetStreamBuilder(const FRealtimeMeshStreamKey& StreamKey,
 			bool bCreateIfNotAvailable = false, const FRealtimeMeshBufferLayout& DefaultLayout = FRealtimeMeshBufferLayout::Invalid, bool bForceConvertToDefaultType = false)
-		{
+		{			
 			if (auto* ExistingStream = Streams.Find(StreamKey))
 			{
-				if constexpr (std::is_same<AccessLayout, DataLayout>::value)
+				if constexpr (std::is_same_v<AccessLayout, DataLayout>)
 				{
 					// Make sure the desired format matches the format as they should all be equivalent
 					check(GetRealtimeMeshBufferLayout<AccessLayout>() == DefaultLayout || DefaultLayout == FRealtimeMeshBufferLayout::Invalid);
 					check(ExistingStream->IsOfType(GetRealtimeMeshBufferLayout<AccessLayout>()));
 				}
-				else if constexpr (!std::is_same<DataLayout, void>::value)
+				else if constexpr (!std::is_same_v<DataLayout, void>)
 				{
 					// If the concrete data type is valid, make sure the stream is in this format
 					check(ExistingStream->IsOfType<DataLayout>());
@@ -1124,7 +1120,16 @@ namespace RealtimeMesh
 
 			if (bCreateIfNotAvailable)
 			{
-				FRealtimeMeshStream& NewStream = Streams.AddStream(StreamKey, DefaultLayout);
+				FRealtimeMeshBufferLayout FinalLayout;
+				if constexpr (!std::is_void_v<DataLayout>)
+				{
+					FinalLayout = GetRealtimeMeshBufferLayout<DataLayout>();					
+				}
+				else
+				{
+					FinalLayout = DefaultLayout;
+				}
+				FRealtimeMeshStream& NewStream = Streams.AddStream(StreamKey, FinalLayout);
 				return TRealtimeMeshStreamBuilderBase<AccessLayout, DataLayout, bAllowSubstreamAccess>(NewStream);
 			}
 			
@@ -1697,8 +1702,6 @@ namespace RealtimeMesh
 		}
 
 	};
-
-
 
 
 	template <typename MeshBuilderType>
