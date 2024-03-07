@@ -75,6 +75,11 @@ void URealtimeMesh::Reset(bool bCreateNewMeshData)
 	}
 
 	BodySetup = nullptr;
+	PendingCollisionUpdate.Reset();
+	if (PendingBodySetup)
+	{
+		PendingBodySetup->AbortPhysicsMeshAsyncCreation();
+	}
 
 	BroadcastBoundsChangedEvent();
 	BroadcastRenderDataChangedEvent(true);
