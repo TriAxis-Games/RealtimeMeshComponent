@@ -252,7 +252,7 @@ protected:
 protected: // Collision
 	void InitiateCollisionUpdate(const TSharedRef<TPromise<ERealtimeMeshCollisionUpdateResult>>& Promise, const TSharedRef<FRealtimeMeshCollisionData>& CollisionUpdate,
 	                             bool bForceSyncUpdate);
-	void FinishPhysicsAsyncCook(bool bSuccess, TSharedRef<TPromise<ERealtimeMeshCollisionUpdateResult>> Promise, UBodySetup* FinishedBodySetup, int32 UpdateKey);
+	void FinishPhysicsAsyncCook(bool bSuccess, TSharedRef<struct FRealtimeMeshCookAutoPromiseOnDestruction> Promise, UBodySetup* FinishedBodySetup, int32 UpdateKey);
 
 	
 	friend struct FRealtimeMeshEndOfFrameUpdateManager;

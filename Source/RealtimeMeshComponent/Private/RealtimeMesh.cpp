@@ -250,6 +250,35 @@ bool URealtimeMesh::ContainsPhysicsTriMeshData(bool InUseAllTriData) const
 	return PendingCollisionUpdate.IsSet() && PendingCollisionUpdate.GetValue().TriMeshData.GetTriangles().Num() > 0;
 }
 
+struct FRealtimeMeshCookAutoPromiseOnDestruction
+{
+private:
+	
+	TSharedRef<TPromise<ERealtimeMeshCollisionUpdateResult>> Promise;
+	bool bIsSet;
+
+public:
+	FRealtimeMeshCookAutoPromiseOnDestruction(const TSharedRef<TPromise<ERealtimeMeshCollisionUpdateResult>>& InPromise)
+		: Promise(InPromise)
+		, bIsSet(false)
+	{
+	}
+
+	~FRealtimeMeshCookAutoPromiseOnDestruction()
+	{
+		if (!bIsSet)
+		{
+			Promise->SetValue(ERealtimeMeshCollisionUpdateResult::Ignored);
+		}
+	}
+
+	void SetResult(ERealtimeMeshCollisionUpdateResult Result)
+	{
+		Promise->SetValue(Result);
+		bIsSet = true;
+	}
+};
+
 void URealtimeMesh::InitiateCollisionUpdate(const TSharedRef<TPromise<ERealtimeMeshCollisionUpdateResult>>& Promise, const TSharedRef<FRealtimeMeshCollisionData>& CollisionUpdate,
                                             bool bForceSyncUpdate)
 {
@@ -281,9 +310,11 @@ void URealtimeMesh::InitiateCollisionUpdate(const TSharedRef<TPromise<ERealtimeM
 		// Copy source info and reset pending
 		PendingBodySetup = NewBodySetup;
 
+		auto ProtectedPromise = MakeShared<FRealtimeMeshCookAutoPromiseOnDestruction>(Promise);
+		
 		// Kick the cook off asynchronously
 		NewBodySetup->CreatePhysicsMeshesAsync(
-			FOnAsyncPhysicsCookFinished::CreateUObject(this, &URealtimeMesh::FinishPhysicsAsyncCook, Promise, NewBodySetup, UpdateKey));
+			FOnAsyncPhysicsCookFinished::CreateUObject(this, &URealtimeMesh::FinishPhysicsAsyncCook, ProtectedPromise, NewBodySetup, UpdateKey));
 	}
 	else
 	{
@@ -302,7 +333,7 @@ void URealtimeMesh::InitiateCollisionUpdate(const TSharedRef<TPromise<ERealtimeM
 }
 
 // ReSharper disable once CppPassValueParameterByConstReference
-void URealtimeMesh::FinishPhysicsAsyncCook(bool bSuccess, TSharedRef<TPromise<ERealtimeMeshCollisionUpdateResult>> Promise, UBodySetup* FinishedBodySetup, int32 UpdateKey)
+void URealtimeMesh::FinishPhysicsAsyncCook(bool bSuccess, TSharedRef<FRealtimeMeshCookAutoPromiseOnDestruction> Promise, UBodySetup* FinishedBodySetup, int32 UpdateKey)
 {
 	check(IsInGameThread());
 	check(SharedResources && MeshRef);
@@ -318,18 +349,18 @@ void URealtimeMesh::FinishPhysicsAsyncCook(bool bSuccess, TSharedRef<TPromise<ER
 		{
 			BodySetup = FinishedBodySetup;
 			CurrentCollisionVersion = UpdateKey;
-			Promise->SetValue(ERealtimeMeshCollisionUpdateResult::Updated);
+			Promise->SetResult(ERealtimeMeshCollisionUpdateResult::Updated);
 			bSendEvent = true;
 		}
 		else
 		{
-			Promise->SetValue(ERealtimeMeshCollisionUpdateResult::Ignored);
+			Promise->SetResult(ERealtimeMeshCollisionUpdateResult::Ignored);
 		}
 	}
 	else
 	{
 		CurrentCollisionVersion = UpdateKey;
-		Promise->SetValue(ERealtimeMeshCollisionUpdateResult::Error);
+		Promise->SetResult(ERealtimeMeshCollisionUpdateResult::Error);
 	}
 
 	if (PendingBodySetup == FinishedBodySetup)
