@@ -628,6 +628,9 @@ namespace RealtimeMesh
 
 	void FRealtimeMeshSimple::Reset(FRealtimeMeshProxyCommandBatch& Commands, bool bRemoveRenderProxy)
 	{
+		CollisionConfig = FRealtimeMeshCollisionConfiguration();
+		SimpleGeometry = FRealtimeMeshSimpleGeometry();
+		
 		FRealtimeMesh::Reset(Commands, bRemoveRenderProxy);
 
 		// Default it back to a single LOD.

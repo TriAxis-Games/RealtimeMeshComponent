@@ -74,6 +74,9 @@ void URealtimeMesh::Reset(bool bCreateNewMeshData)
 		Initialize(SharedResources->CreateSharedResources());
 	}
 
+	MaterialSlots.Empty();
+	SlotNameLookup.Empty();
+	
 	BodySetup = nullptr;
 	PendingCollisionUpdate.Reset();
 	if (PendingBodySetup)
