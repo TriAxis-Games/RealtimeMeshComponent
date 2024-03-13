@@ -20,7 +20,7 @@ void ARealtimeMeshBasic::OnGenerateMesh_Implementation()
 	// The most important part of the mesh data is the StreamSet, it contains the individual buffers,
 	// like position, tangents, texcoords, triangles etc. 
 	FRealtimeMeshStreamSet StreamSet;
-
+	
 	// For this example we'll use a helper class to build the mesh data
 	// You can make your own helpers or skip them and use individual TRealtimeMeshStreamBuilder,
 	// or skip them entirely and copy data directly into the streams
@@ -36,19 +36,19 @@ void ARealtimeMeshBasic::OnGenerateMesh_Implementation()
 
 	// Add our first vertex
 	int32 V0 = Builder.AddVertex(FVector3f(-50.0f, 0.0f, 0.0f))
-		.SetNormalAndTangent(FVector3f(0.0f, -1.0f, 1.0f), FVector3f(1.0f, 0.0f, 0.0f))
+		.SetNormalAndTangent(FVector3f(0.0f, -1.0f, 0.0f), FVector3f(1.0f, 0.0f, 0.0f))
 		.SetColor(FColor::Red)
 		.SetTexCoord(FVector2f(0.0f, 0.0f));
 
 	// Add our second vertex
 	int32 V1 = Builder.AddVertex(FVector3f(0.0f, 0.0f, 100.0f))
-		.SetNormalAndTangent(FVector3f(0.0f, -1.0f, 1.0f), FVector3f(1.0f, 0.0f, 0.0f))
+		.SetNormalAndTangent(FVector3f(0.0f, -1.0f, 0.0f), FVector3f(1.0f, 0.0f, 0.0f))
 		.SetColor(FColor::Green)
 		.SetTexCoord(FVector2f(0.5f, 1.0f));
 
 	// Add our third vertex
 	int32 V2 = Builder.AddVertex(FVector3f(50.0, 0.0, 0.0))
-		.SetNormalAndTangent(FVector3f(0.0f, -1.0f, 1.0f), FVector3f(1.0f, 0.0f, 0.0f))
+		.SetNormalAndTangent(FVector3f(0.0f, -1.0f, 0.0f), FVector3f(1.0f, 0.0f, 0.0f))
 		.SetColor(FColor::Blue)
 		.SetTexCoord(FVector2f(1.0f, 0.0f));
 
