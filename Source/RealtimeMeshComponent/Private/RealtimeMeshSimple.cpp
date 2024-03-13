@@ -330,6 +330,7 @@ namespace RealtimeMesh
 		}		
 	}
 
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	TFuture<ERealtimeMeshProxyUpdateStatus> FRealtimeMeshSectionGroupSimple::UpdateFromSimpleMesh(const FRealtimeMeshSimpleMeshData& MeshData)
 	{
 		FRealtimeMeshProxyCommandBatch Commands(SharedResources);
@@ -380,6 +381,7 @@ namespace RealtimeMesh
 		MeshData.CopyToStreamSet(StreamSet, false);		
 		SetAllStreams(Commands, MoveTemp(StreamSet));
 	}
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 	void FRealtimeMeshSectionGroupSimple::RemoveStream(FRealtimeMeshProxyCommandBatch& Commands, const FRealtimeMeshStreamKey& StreamKey)
 	{
@@ -851,6 +853,7 @@ TFuture<ERealtimeMeshProxyUpdateStatus> URealtimeMeshSimple::UpdateSectionGroup(
 
 
 // ReSharper disable once CppMemberFunctionMayBeConst
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 TFuture<ERealtimeMeshProxyUpdateStatus> URealtimeMeshSimple::CreateSectionGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey, const FRealtimeMeshSimpleMeshData& MeshData)
 {
 	if (const auto LOD = GetMesh()->GetLODAs<FRealtimeMeshLODSimple>(SectionGroupKey.LOD()))
@@ -870,8 +873,10 @@ TFuture<ERealtimeMeshProxyUpdateStatus> URealtimeMeshSimple::CreateSectionGroup(
 		return MakeFulfilledPromise<ERealtimeMeshProxyUpdateStatus>(ERealtimeMeshProxyUpdateStatus::NoUpdate).GetFuture();
 	}
 }
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 // ReSharper disable once CppMemberFunctionMayBeConst
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 TFuture<ERealtimeMeshProxyUpdateStatus> URealtimeMeshSimple::UpdateSectionGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey, const FRealtimeMeshSimpleMeshData& MeshData)
 {
 	if (const auto LOD = GetMesh()->GetLODAs<FRealtimeMeshLODSimple>(SectionGroupKey.LOD()))
@@ -895,6 +900,7 @@ TFuture<ERealtimeMeshProxyUpdateStatus> URealtimeMeshSimple::UpdateSectionGroup(
 	}
 	return MakeFulfilledPromise<ERealtimeMeshProxyUpdateStatus>(ERealtimeMeshProxyUpdateStatus::NoUpdate).GetFuture();
 }
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 // ReSharper disable once CppMemberFunctionMayBeConst
 TFuture<ERealtimeMeshProxyUpdateStatus> URealtimeMeshSimple::CreateSection(const FRealtimeMeshSectionKey& SectionKey,
@@ -1039,6 +1045,7 @@ void URealtimeMeshSimple::CreateSectionGroup(const FRealtimeMeshSectionGroupKey&
 	});
 }
 
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 void URealtimeMeshSimple::CreateSectionGroupFromSimple(const FRealtimeMeshSectionGroupKey& SectionGroupKey, const FRealtimeMeshSimpleMeshData& MeshData,
 	const FRealtimeMeshSimpleCompletionCallback& CompletionCallback)
 {
@@ -1050,6 +1057,7 @@ void URealtimeMeshSimple::CreateSectionGroupFromSimple(const FRealtimeMeshSectio
 		}
 	});
 }
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 FRealtimeMeshSectionGroupKey URealtimeMeshSimple::CreateSectionGroupUnique(const FRealtimeMeshLODKey& LODKey, URealtimeMeshStreamSet* MeshData,
                                                                            const FRealtimeMeshSimpleCompletionCallback& CompletionCallback)
@@ -1059,11 +1067,12 @@ FRealtimeMeshSectionGroupKey URealtimeMeshSimple::CreateSectionGroupUnique(const
 	return SectionGroupKey;
 }
 
+
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 FRealtimeMeshSectionGroupKey URealtimeMeshSimple::CreateSectionGroupUniqueFromSimple(const FRealtimeMeshLODKey& LODKey, const FRealtimeMeshSimpleMeshData& MeshData,
 	const FRealtimeMeshSimpleCompletionCallback& CompletionCallback)
 {
 	const FRealtimeMeshSectionGroupKey SectionGroupKey = FRealtimeMeshSectionGroupKey::CreateUnique(LODKey);
-	PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	// ReSharper disable once CppDeprecatedEntity
 	CreateSectionGroup(SectionGroupKey, MeshData).Next([CompletionCallback](ERealtimeMeshProxyUpdateStatus Status)
 	{
@@ -1072,9 +1081,9 @@ FRealtimeMeshSectionGroupKey URealtimeMeshSimple::CreateSectionGroupUniqueFromSi
 			CompletionCallback.Execute(Status);
 		}
 	});
-	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 	return SectionGroupKey;
 }
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 void URealtimeMeshSimple::UpdateSectionGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey, URealtimeMeshStreamSet* MeshData,
                                              const FRealtimeMeshSimpleCompletionCallback& CompletionCallback)
@@ -1098,10 +1107,10 @@ void URealtimeMeshSimple::UpdateSectionGroup(const FRealtimeMeshSectionGroupKey&
 	}
 }
 
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 void URealtimeMeshSimple::UpdateSectionGroupFromSimple(const FRealtimeMeshSectionGroupKey& SectionGroupKey, const FRealtimeMeshSimpleMeshData& MeshData,
 	const FRealtimeMeshSimpleCompletionCallback& CompletionCallback)
 {
-	PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	// ReSharper disable once CppDeprecatedEntity
 	UpdateSectionGroup(SectionGroupKey, MeshData).Next([CompletionCallback](ERealtimeMeshProxyUpdateStatus Status)
 	{
@@ -1110,8 +1119,8 @@ void URealtimeMeshSimple::UpdateSectionGroupFromSimple(const FRealtimeMeshSectio
 			CompletionCallback.Execute(Status);
 		}
 	});
-	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 }
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 void URealtimeMeshSimple::CreateSection(const FRealtimeMeshSectionKey& SectionKey, const FRealtimeMeshSectionConfig& Config, const FRealtimeMeshStreamRange& StreamRange,
 	bool bShouldCreateCollision, const FRealtimeMeshSimpleCompletionCallback& CompletionCallback)

@@ -23,6 +23,7 @@ static void ConvertQuadToTriangles(TArray<int32>& Triangles, TArray<int32>& Mate
 	}
 }
 
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 FRealtimeMeshSimpleMeshData& URealtimeMeshBasicShapeTools::AppendBoxMesh(FVector BoxRadius, FTransform BoxTransform, FRealtimeMeshSimpleMeshData& MeshData, int32 NewMaterialGroup)
 {
 	// Generate verts
@@ -125,6 +126,7 @@ FRealtimeMeshSimpleMeshData& URealtimeMeshBasicShapeTools::AppendBoxMesh(FVector
 
 	return MeshData;
 }
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 template <typename Type>
 static void AppendVertexArrayIfContains(TArray<Type>& Destination, const TArray<Type>& Source, int32 VertexOffset, int32 FinalLength)
@@ -150,6 +152,7 @@ static void AppendTransformedTangentArray(TArray<FVector>& Destination, const TA
 }
 
 
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 FRealtimeMeshSimpleMeshData& URealtimeMeshBasicShapeTools::AppendMesh(FRealtimeMeshSimpleMeshData& TargetMeshData, const FRealtimeMeshSimpleMeshData& MeshDataToAdd,
                                                                                const FTransform& Transform, int32 NewMaterialGroup)
 {
@@ -219,6 +222,7 @@ FRealtimeMeshSimpleMeshData& URealtimeMeshBasicShapeTools::AppendMesh(FRealtimeM
 
 	return TargetMeshData;
 }
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 void URealtimeMeshBasicShapeTools::AppendBoxMesh(FRealtimeMeshStreamSet& StreamSet, FVector3f BoxRadius, FTransform3f BoxTransform, int32 NewMaterialGroup, FColor Color)
 {

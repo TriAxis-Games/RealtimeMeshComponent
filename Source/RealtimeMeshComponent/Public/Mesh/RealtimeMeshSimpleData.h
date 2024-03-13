@@ -11,7 +11,7 @@
 
 using namespace RealtimeMesh;
 
-struct UE_DEPRECATED(All, "FRealtimeMeshSimpleMeshData has been deprecated in favor of using the FRealtimeMeshStreamSet which is far more configurable and efficient") FRealtimeMeshSimpleMeshData;
+struct UE_DEPRECATED(all, "FRealtimeMeshSimpleMeshData is deprecated, use FRealtimeMeshStreamSet and TRealtimeMeshBuilderLocal instead and its helper functions which are more efficient and flexible") FRealtimeMeshSimpleMeshData;
 
 USTRUCT(BlueprintType, meta=(HasNativeMake="RealtimeMeshComponent.RealtimeMeshSimpleBlueprintFunctionLibrary.MakeRealtimeMeshSimpleStream"))
 struct REALTIMEMESHCOMPONENT_API FRealtimeMeshSimpleMeshData
@@ -76,8 +76,9 @@ class REALTIMEMESHCOMPONENT_API URealtimeMeshSimpleBlueprintFunctionLibrary : pu
 	GENERATED_BODY()
 
 public:
-	
-	UE_DEPRECATED(all, "Use FRealtimeMeshStreamSet instead")
+
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
+	UE_DEPRECATED(all, "FRealtimeMeshSimpleMeshData is deprecated, use URealtimeMeshStreamSet instead and its helper functions which are more efficient and flexible")
 	UFUNCTION(BlueprintCallable, Category = "RealtimeMesh|Simple",
 		meta=(AdvancedDisplay="Triangles,Positions,Normals,Tangents,Binormals,LinearColors,UV0,UV1,UV2,UV3,Colors,bUseHighPrecisionTangents,bUseHighPrecisionTexCoords",
 			AutoCreateRefTerm="Triangles,Positions,Normals,Tangents,Binormals,LinearColors,UV0,UV1,UV2,UV3,Colors"))
@@ -95,4 +96,5 @@ public:
 		const TArray<FColor>& Colors,
 		bool bUseHighPrecisionTangents,
 		bool bUseHighPrecisionTexCoords);
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 };

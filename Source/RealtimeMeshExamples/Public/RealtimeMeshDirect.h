@@ -17,7 +17,7 @@ class REALTIMEMESHEXAMPLES_API ARealtimeMeshDirect : public AActor
 {
 	GENERATED_BODY()
 public:
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="RealtimeMesh")
 	TObjectPtr<URealtimeMeshComponent> RealtimeMeshComponent;
 
 	// Sets default values for this actor's properties

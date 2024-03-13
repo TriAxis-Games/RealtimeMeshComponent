@@ -1,11 +1,10 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
+﻿// Copyright TriAxis Games, L.L.C. All Rights Reserved.
 
 
 #include "FunctionalTests/RealtimeMeshUpdateTestActor.h"
 
 #include "RealtimeMeshLibrary.h"
 #include "RealtimeMeshSimple.h"
-#include "Mesh/RealtimeMeshSimpleData.h"
 #include "RealtimeMeshCubeGeneratorExample.h"
 
 
@@ -27,8 +26,6 @@ void ARealtimeMeshUpdateTestActor::OnGenerateMesh_Implementation()
 	// This allows for setting up separate materials even if sections share a single set of buffers.
 	// Here we do a latent mesh submission, so we create the mesh section group and sections first, and then apply the mesh data later
 	
-	FRealtimeMeshSimpleMeshData EmptyMeshData;
-
 	GroupKey = FRealtimeMeshSectionGroupKey::CreateUnique(0);
 	RealtimeMesh->CreateSectionGroup(GroupKey);
 		

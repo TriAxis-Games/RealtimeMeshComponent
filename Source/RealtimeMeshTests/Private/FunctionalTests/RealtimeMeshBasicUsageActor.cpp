@@ -1,4 +1,4 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
+﻿// Copyright TriAxis Games, L.L.C. All Rights Reserved.
 
 
 #include "FunctionalTests/RealtimeMeshBasicUsageActor.h"

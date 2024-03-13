@@ -1,4 +1,4 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
+﻿// Copyright TriAxis Games, L.L.C. All Rights Reserved.
 
 
 #include "FunctionalTests/RealtimeMeshStressTestActor.h"
@@ -28,15 +28,19 @@ void ARealtimeMeshStressTestActor::OnGenerateMesh_Implementation()
 	RealtimeMesh->SetupMaterialSlot(0, "PrimaryMaterial");
 	RealtimeMesh->SetupMaterialSlot(1, "SecondaryMaterial");
 
-	// Create a basic single section
-	FRealtimeMeshSimpleMeshData MeshData;
+	FRealtimeMeshStreamSet StreamSet;	
+	// Here we're using the builder just to initialize the stream set
+	TRealtimeMeshBuilderLocal<uint16, FPackedNormal, FVector2DHalf, 2> Builder(StreamSet);
+	Builder.EnableTangents();
+	Builder.EnableTexCoords();
+	Builder.EnableColors();
+	Builder.EnablePolyGroups();
 
-	// This just adds a simple box, you can instead create your own mesh data
-	URealtimeMeshBasicShapeTools::AppendBoxMesh(FVector(100, 100, 200), FTransform::Identity, MeshData, 2);
-	URealtimeMeshBasicShapeTools::AppendBoxMesh(FVector(200, 100, 100), FTransform::Identity, MeshData, 1);
-	URealtimeMeshBasicShapeTools::AppendBoxMesh(FVector(100, 200, 100), FTransform::Identity, MeshData, 3);
+	URealtimeMeshBasicShapeTools::AppendBoxMesh(StreamSet, FVector3f(100.0f, 100.0f, 200.0f), FTransform3f::Identity, 2, FColor::White);
+	URealtimeMeshBasicShapeTools::AppendBoxMesh(StreamSet, FVector3f(200.0f, 100.0f, 100.0f), FTransform3f::Identity, 1, FColor::White);
+	URealtimeMeshBasicShapeTools::AppendBoxMesh(StreamSet, FVector3f(100.0f, 200.0f, 100.0f), FTransform3f::Identity, 3, FColor::White);
 
-	RealtimeMesh->CreateSectionGroup(SectionGroupKey, MeshData);
+	RealtimeMesh->CreateSectionGroup(SectionGroupKey, StreamSet);
 
 	RealtimeMesh->UpdateSectionConfig(FRealtimeMeshSectionKey::CreateForPolyGroup(SectionGroupKey, 1), FRealtimeMeshSectionConfig(ERealtimeMeshSectionDrawType::Static, 0));
 	RealtimeMesh->UpdateSectionConfig(FRealtimeMeshSectionKey::CreateForPolyGroup(SectionGroupKey, 2), FRealtimeMeshSectionConfig(ERealtimeMeshSectionDrawType::Dynamic, 0));
@@ -48,17 +52,22 @@ void ARealtimeMeshStressTestActor::TickActor(float DeltaTime, ELevelTick TickTyp
 {
 	if (URealtimeMeshSimple* RealtimeMesh = GetRealtimeMeshComponent()->GetRealtimeMeshAs<URealtimeMeshSimple>())
 	{
-		FRealtimeMeshSimpleMeshData MeshData;
+		FRealtimeMeshStreamSet StreamSet;
+		// Here we're using the builder just to initialize the stream set
+		TRealtimeMeshBuilderLocal<uint16, FPackedNormal, FVector2DHalf, 2> Builder(StreamSet);
+		Builder.EnableTangents();
+		Builder.EnableTexCoords();
+		Builder.EnableColors();
+		Builder.EnablePolyGroups();
 
 		const float Scale = (FMath::Cos(FPlatformTime::Seconds() * PI) * 0.25f) + 0.5f;
-		const FTransform Transform = FTransform(FQuat::Identity, FVector(0, 0, 0), FVector(Scale, Scale, Scale));
+		const FTransform3f Transform = FTransform3f(FQuat4f::Identity, FVector3f(0, 0, 0), FVector3f(Scale, Scale, Scale));
+		
+		URealtimeMeshBasicShapeTools::AppendBoxMesh(StreamSet, FVector3f(100.0f, 100.0f, 200.0f), Transform, 2, FColor::White);
+		URealtimeMeshBasicShapeTools::AppendBoxMesh(StreamSet, FVector3f(200.0f, 100.0f, 100.0f), Transform, 1, FColor::White);
+		URealtimeMeshBasicShapeTools::AppendBoxMesh(StreamSet, FVector3f(100.0f, 200.0f, 100.0f), Transform, 3, FColor::White);
 
-		// This just adds a simple box, you can instead create your own mesh data
-		URealtimeMeshBasicShapeTools::AppendBoxMesh(FVector(100, 100, 200), Transform, MeshData, 2);
-		URealtimeMeshBasicShapeTools::AppendBoxMesh(FVector(200, 100, 100), Transform, MeshData, 1);
-		URealtimeMeshBasicShapeTools::AppendBoxMesh(FVector(100, 200, 100), Transform, MeshData, 3);
-
-		RealtimeMesh->UpdateSectionGroup(SectionGroupKey, MeshData);
+		RealtimeMesh->UpdateSectionGroup(SectionGroupKey, StreamSet);
 		
 		Super::TickActor(DeltaTime, TickType, ThisTickFunction);
 	}

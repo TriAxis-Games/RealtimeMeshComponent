@@ -130,9 +130,10 @@ bool FRealtimeMeshSimpleMeshData::CopyToStreamSet(FRealtimeMeshStreamSet& Stream
 	return true;
 }
 
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 FRealtimeMeshSimpleMeshData URealtimeMeshSimpleBlueprintFunctionLibrary::MakeRealtimeMeshSimpleStream(const TArray<int32>& Triangles, const TArray<FVector>& Positions,
-                                                                                                      const TArray<FVector>& Normals, const TArray<FVector>& Tangents, const TArray<FVector>& Binormals, const TArray<FLinearColor>& LinearColors, const TArray<FVector2D>& UV0,
-                                                                                                      const TArray<FVector2D>& UV1, const TArray<FVector2D>& UV2, const TArray<FVector2D>& UV3, const TArray<FColor>& Colors, bool bUseHighPrecisionTangents, bool bUseHighPrecisionTexCoords)
+	const TArray<FVector>& Normals, const TArray<FVector>& Tangents, const TArray<FVector>& Binormals, const TArray<FLinearColor>& LinearColors, const TArray<FVector2D>& UV0,
+	const TArray<FVector2D>& UV1, const TArray<FVector2D>& UV2, const TArray<FVector2D>& UV3, const TArray<FColor>& Colors, bool bUseHighPrecisionTangents, bool bUseHighPrecisionTexCoords)
 {
 	FRealtimeMeshSimpleMeshData NewMeshData;
 	NewMeshData.Triangles = Triangles;
@@ -150,3 +151,4 @@ FRealtimeMeshSimpleMeshData URealtimeMeshSimpleBlueprintFunctionLibrary::MakeRea
 	NewMeshData.bUseHighPrecisionTexCoords = bUseHighPrecisionTexCoords;
 	return NewMeshData;
 }
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
