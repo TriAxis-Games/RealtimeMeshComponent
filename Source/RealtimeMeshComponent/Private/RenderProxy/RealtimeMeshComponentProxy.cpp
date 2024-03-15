@@ -43,7 +43,7 @@ namespace RealtimeMesh
 				Mat = UMaterial::GetDefaultMaterial(MD_Surface);
 			}
 			Materials.Add(MaterialIndex, MakeTuple(Mat->GetRenderProxy(), Mat->IsDitheredLODTransition()));
-			MaterialRelevance |= Mat->GetRelevance(GetScene().GetFeatureLevel());
+			MaterialRelevance |= Mat->GetRelevance_Concurrent(GetScene().GetFeatureLevel());
 			bAnyMaterialUsesDithering = Mat->IsDitheredLODTransition();
 		}
 
