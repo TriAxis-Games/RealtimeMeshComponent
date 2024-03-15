@@ -155,28 +155,28 @@ namespace RealtimeMesh
 
 		FVector3f GetBinormal() const
 		{
-			const FVector3f TangentX = Internal::GetTangentAsVector(Tangent);
+			const FVector4f TangentX = Internal::GetTangentAsVector(Tangent);
 			const FVector4f TangentZ = Internal::GetTangentAsVector(Normal);
-			return (FVector3f(TangentZ) ^ TangentX) * TangentZ.W;
+			return (FVector3f(TangentZ) ^ FVector3f(TangentX)) * TangentZ.W;
 		}
 
 		void SetNormal(const FVector3f& NewNormal)
 		{
-			const FVector3d TangentX = Internal::GetTangentAsVector(Tangent);
-			const FVector4d TangentZ = Internal::GetTangentAsVector(Normal);
-			const FVector3d TangentY = (FVector3d(TangentZ) ^ TangentX) * TangentZ.W;
+			const FVector4f TangentX = Internal::GetTangentAsVector(Tangent);
+			const FVector4f TangentZ = Internal::GetTangentAsVector(Normal);
+			const FVector3f TangentY = (FVector3f(TangentZ) ^ FVector3f(TangentX)) * TangentZ.W;
 
-			const FVector4f NewTangentZ(NewNormal, GetBasisDeterminantSign(TangentX, TangentY, FVector3d(NewNormal)));
+			const FVector4f NewTangentZ(NewNormal, GetBasisDeterminantSign(FVector3d(TangentX), FVector3d(TangentY), FVector3d(NewNormal)));
 			Normal = NewTangentZ;
 		}
 
 		void SetTangent(const FVector3f& NewTangent)
 		{
-			const FVector3d TangentX = Internal::GetTangentAsVector(Tangent);
-			FVector4d TangentZ = Internal::GetTangentAsVector(Normal);
-			const FVector3d TangentY = (FVector3d(TangentZ) ^ TangentX) * TangentZ.W;
+			const FVector4f TangentX = Internal::GetTangentAsVector(Tangent);
+			FVector4f TangentZ = Internal::GetTangentAsVector(Normal);
+			const FVector3f TangentY = (FVector3f(TangentZ) ^ TangentX) * TangentZ.W;
 
-			TangentZ.W = GetBasisDeterminantSign(FVector3d(NewTangent), TangentY, TangentZ);
+			TangentZ.W = GetBasisDeterminantSign(FVector3d(NewTangent), FVector3d(TangentY), FVector3d(TangentZ));
 			Normal = TangentZ;
 			Tangent = NewTangent;
 		}

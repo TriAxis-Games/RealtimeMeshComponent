@@ -653,21 +653,21 @@ namespace RealtimeMesh
 		DEFINE_BINARY_OPERATOR_VARIATIONS(AccessType, >>)
 #undef DEFINE_BINARY_OPERATOR_VARIATIONS
 		
-#define DEFINE_BINARY_OPERATOR_VARIATIONS(op) \
+#define DEFINE_BINARY_OPERATOR_VARIATIONS(op, simpleop) \
 		template <typename U = AccessType> \
-		FORCEINLINE TEnableIfWritable<TRealtimeMeshIndexedBufferAccessor&, U> operator op(const AccessType& Right) { Set(Get() op Right); return *this; } \
+		FORCEINLINE TEnableIfWritable<TRealtimeMeshIndexedBufferAccessor&, U> operator op(const AccessType& Right) { Set(Get() simpleop Right); return *this; } \
 		template <typename U = AccessType> \
-		FORCEINLINE TEnableIfWritable<TRealtimeMeshIndexedBufferAccessor&, U> operator op(const TRealtimeMeshIndexedBufferAccessor& Right) { Set(Get() op Right.Get()); return *this; }
-		DEFINE_BINARY_OPERATOR_VARIATIONS(+=)
-		DEFINE_BINARY_OPERATOR_VARIATIONS(-=)
-		DEFINE_BINARY_OPERATOR_VARIATIONS(*=)
-		DEFINE_BINARY_OPERATOR_VARIATIONS(/=)
-		DEFINE_BINARY_OPERATOR_VARIATIONS(%=)
-		DEFINE_BINARY_OPERATOR_VARIATIONS(&=)
-		DEFINE_BINARY_OPERATOR_VARIATIONS(|=)
-		DEFINE_BINARY_OPERATOR_VARIATIONS(^=)
-		DEFINE_BINARY_OPERATOR_VARIATIONS(<<=)
-		DEFINE_BINARY_OPERATOR_VARIATIONS(>>=)
+		FORCEINLINE TEnableIfWritable<TRealtimeMeshIndexedBufferAccessor&, U> operator op(const TRealtimeMeshIndexedBufferAccessor& Right) { Set(Get() simpleop Right.Get()); return *this; }
+		DEFINE_BINARY_OPERATOR_VARIATIONS(+=, +)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(-=, -)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(*=, *)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(/=, /)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(%=, %)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(&=, &)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(|=, |)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(^=, ^)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(<<=, <<)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(>>=, >>)
 #undef DEFINE_BINARY_OPERATOR_VARIATIONS	
 	};
 

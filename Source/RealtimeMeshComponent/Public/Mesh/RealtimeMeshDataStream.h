@@ -914,6 +914,11 @@ namespace RealtimeMesh
 			SetRange(StartIndex, GetRealtimeMeshBufferLayout<VertexType>(), NewElements, Count);
 		}
 
+		void SetRange(uint32 DestinationIndex, const FRealtimeMeshBufferLayout& SourceLayout, const uint8* const SourceData, uint32 SourceCount)
+		{
+			CopyStreamDataIntoStream(Layout, GetDataRawAtVertex(DestinationIndex), 0, SourceLayout, SourceData, SourceCount);
+		}
+		
 		template <typename VertexType, typename GeneratorFunc>
 		void SetGenerated(int32 StartIndex, int32 Count, GeneratorFunc Generator)
 		{
@@ -930,10 +935,9 @@ namespace RealtimeMesh
 			if (SourceLayout == GetLayout())
 			{
 				VertexType* DataPtr = GetDataAtVertex<VertexType>(StartIndex);
-				while (StartIndex < ArrayNum)
+				for (int32 Index = 0; Index < Count; ++Index)
 				{
-					DataPtr[StartIndex] = Generator(StartIndex);
-					StartIndex++;
+					DataPtr[Index] = Generator(Index);
 				}
 				return;
 			}
@@ -951,20 +955,19 @@ namespace RealtimeMesh
 			{
 				// Multi element streams, we use a contiguous array conversion per row to convert all the elements
 				const int32 NumElements = GetLayout().GetNumElements();
-				while (StartIndex < ArrayNum)
+				
+				for (int32 Index = 0; Index < Count; ++Index)
 				{
-					VertexType NewElement = Generator(StartIndex);				
-					Converter.ConvertContiguousArray(&NewElement, GetDataRawAtVertex(StartIndex), NumElements);
-					StartIndex++;
+					VertexType NewElement = Generator(Index);				
+					Converter.ConvertContiguousArray(&NewElement, GetDataRawAtVertex(StartIndex + Index), NumElements);
 				}
 			}
 			else // Single element stream, we don't need the added complexity of multi element conversion per row
-			{				
-				while (StartIndex < ArrayNum)
+			{
+				for (int32 Index = 0; Index < Count; ++Index)
 				{
-					VertexType NewElement = Generator(StartIndex);	
-					Converter.ConvertSingleElement(&NewElement, GetDataRawAtVertex(StartIndex));
-					StartIndex++;
+					VertexType NewElement = Generator(Index);	
+					Converter.ConvertSingleElement(&NewElement, GetDataRawAtVertex(StartIndex + Index));
 				}
 			}
 		}
@@ -979,11 +982,10 @@ namespace RealtimeMesh
 			
 			ElementType* DataPtr = GetDataAtVertex<ElementType>(StartIndex, ElementIndex);
 
-			while (StartIndex < ArrayNum)
+			for (int32 Index = 0; Index < Count; ++Index)
 			{				
-				*DataPtr = Generator(StartIndex);
+				*DataPtr = Generator(Index);
 				DataPtr += GetNumElements();
-				StartIndex++;
 			}
 		}
 		
@@ -1174,10 +1176,6 @@ namespace RealtimeMesh
 			SetRange(DestinationIndex, SourceLayout, SourceData, SourceCount);
 		}
 
-		void SetRange(uint32 DestinationIndex, const FRealtimeMeshBufferLayout& SourceLayout, const uint8* const SourceData, uint32 SourceCount)
-		{
-			CopyStreamDataIntoStream(Layout, GetDataRawAtVertex(DestinationIndex), 0, SourceLayout, SourceData, SourceCount);
-		}
 
 		static void CopyStreamDataIntoStream(const FRealtimeMeshBufferLayout& DestinationLayout, uint8* DestinationData, uint32 ElementOffset, const FRealtimeMeshBufferLayout& SourceLayout, const uint8* const SourceData, uint32 SourceCount)
 		{
@@ -1254,7 +1252,7 @@ namespace RealtimeMesh
 			}
 		}
 
-		void CopyRange(uint32 SourceIndex, const FRealtimeMeshBufferLayout& DestinationLayout, uint8* DestinationData, uint32 DestinationCount)
+		void CopyRange(uint32 SourceIndex, const FRealtimeMeshBufferLayout& DestinationLayout, uint8* DestinationData, uint32 DestinationCount) const
 		{
 			CopyStreamDataIntoStream(DestinationLayout, DestinationData, 0, Layout, GetDataRawAtVertex(SourceIndex), DestinationCount);
 		}

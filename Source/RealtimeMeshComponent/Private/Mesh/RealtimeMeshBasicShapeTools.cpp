@@ -239,6 +239,24 @@ void URealtimeMeshBasicShapeTools::AppendBoxMesh(FRealtimeMeshStreamSet& StreamS
 	BoxVerts[6] = BoxTransform.TransformPosition(FVector3f(BoxRadius.X, -BoxRadius.Y, -BoxRadius.Z));
 	BoxVerts[7] = BoxTransform.TransformPosition(FVector3f(-BoxRadius.X, -BoxRadius.Y, -BoxRadius.Z));
 
+
+	FVector3f BoxNormals[6];
+	BoxNormals[0] = BoxTransform.TransformVector(FVector3f(0.0f, 0.0f, 1.0f));
+	BoxNormals[1] = BoxTransform.TransformVector(FVector3f(-1.0f, 0.0f, 0.0f));
+	BoxNormals[2] = BoxTransform.TransformVector(FVector3f(0.0f, 1.0f, 0.0f));
+	BoxNormals[3] = BoxTransform.TransformVector(FVector3f(1.0f, 0.0f, 0.0f));
+	BoxNormals[4] = BoxTransform.TransformVector(FVector3f(0.0f, -1.0f, 0.0f));
+	BoxNormals[5] = BoxTransform.TransformVector(FVector3f(0.0f, 0.0f, -1.0f));
+
+	FVector3f BoxTangents[6];
+	BoxTangents[0] = BoxTransform.TransformVector(FVector3f(0.0f, -1.0f, 0.0f));
+	BoxTangents[1] = BoxTransform.TransformVector(FVector3f(0.0f, -1.0f, 0.0f));
+	BoxTangents[2] = BoxTransform.TransformVector(FVector3f(-1.0f, 0.0f, 0.0f));
+	BoxTangents[3] = BoxTransform.TransformVector(FVector3f(0.0f, 1.0f, 0.0f));
+	BoxTangents[4] = BoxTransform.TransformVector(FVector3f(1.0f, 0.0f, 0.0f));
+	BoxTangents[5] = BoxTransform.TransformVector(FVector3f(0.0f, 1.0f, 0.0f));
+	
+
 	// Generate triangles (from quads)
 	const int32 StartVertex = Builder.NumVertices();
 	constexpr int32 NumVerts = 24; // 6 faces x 4 verts per face
@@ -262,115 +280,157 @@ void URealtimeMeshBasicShapeTools::AppendBoxMesh(FRealtimeMeshStreamSet& StreamS
 		}
 	};
 
-	Builder.AddVertex(BoxVerts[0]).SetNormalAndTangent(FVector3f(0.0f, 0.0f, 1.0f), FVector3f(0.0f, -1.0f, 0.0f)).SetTexCoord(FVector2f(0.0f, 0.0f)).SetColor(Color);
-	Builder.AddVertex(BoxVerts[1]).SetNormalAndTangent(FVector3f(0.0f, 0.0f, 1.0f), FVector3f(0.0f, -1.0f, 0.0f)).SetTexCoord(FVector2f(0.0f, 1.0f)).SetColor(Color);
-	Builder.AddVertex(BoxVerts[2]).SetNormalAndTangent(FVector3f(0.0f, 0.0f, 1.0f), FVector3f(0.0f, -1.0f, 0.0f)).SetTexCoord(FVector2f(1.0f, 1.0f)).SetColor(Color);
-	Builder.AddVertex(BoxVerts[3]).SetNormalAndTangent(FVector3f(0.0f, 0.0f, 1.0f), FVector3f(0.0f, -1.0f, 0.0f)).SetTexCoord(FVector2f(1.0f, 0.0f)).SetColor(Color);
+	Builder.AddVertex(BoxVerts[0]).SetNormalAndTangent(BoxNormals[0], BoxTangents[0]).SetTexCoord(FVector2f(0.0f, 0.0f)).SetColor(Color);
+	Builder.AddVertex(BoxVerts[1]).SetNormalAndTangent(BoxNormals[0], BoxTangents[0]).SetTexCoord(FVector2f(0.0f, 1.0f)).SetColor(Color);
+	Builder.AddVertex(BoxVerts[2]).SetNormalAndTangent(BoxNormals[0], BoxTangents[0]).SetTexCoord(FVector2f(1.0f, 1.0f)).SetColor(Color);
+	Builder.AddVertex(BoxVerts[3]).SetNormalAndTangent(BoxNormals[0], BoxTangents[0]).SetTexCoord(FVector2f(1.0f, 0.0f)).SetColor(Color);
 	WriteQuad(0, 1, 2, 3);
 
-	Builder.AddVertex(BoxVerts[4]).SetNormalAndTangent(FVector3f(-1.0f, 0.0f, 0.0f), FVector3f(0.0f, -1.0f, 0.0f)).SetTexCoord(FVector2f(0.0f, 0.0f)).SetColor(Color);
-	Builder.AddVertex(BoxVerts[0]).SetNormalAndTangent(FVector3f(-1.0f, 0.0f, 0.0f), FVector3f(0.0f, -1.0f, 0.0f)).SetTexCoord(FVector2f(0.0f, 1.0f)).SetColor(Color);
-	Builder.AddVertex(BoxVerts[3]).SetNormalAndTangent(FVector3f(-1.0f, 0.0f, 0.0f), FVector3f(0.0f, -1.0f, 0.0f)).SetTexCoord(FVector2f(1.0f, 1.0f)).SetColor(Color);
-	Builder.AddVertex(BoxVerts[7]).SetNormalAndTangent(FVector3f(-1.0f, 0.0f, 0.0f), FVector3f(0.0f, -1.0f, 0.0f)).SetTexCoord(FVector2f(1.0f, 0.0f)).SetColor(Color);
+	Builder.AddVertex(BoxVerts[4]).SetNormalAndTangent(BoxNormals[1], BoxTangents[1]).SetTexCoord(FVector2f(0.0f, 0.0f)).SetColor(Color);
+	Builder.AddVertex(BoxVerts[0]).SetNormalAndTangent(BoxNormals[1], BoxTangents[1]).SetTexCoord(FVector2f(0.0f, 1.0f)).SetColor(Color);
+	Builder.AddVertex(BoxVerts[3]).SetNormalAndTangent(BoxNormals[1], BoxTangents[1]).SetTexCoord(FVector2f(1.0f, 1.0f)).SetColor(Color);
+	Builder.AddVertex(BoxVerts[7]).SetNormalAndTangent(BoxNormals[1], BoxTangents[1]).SetTexCoord(FVector2f(1.0f, 0.0f)).SetColor(Color);
 	WriteQuad(4, 5, 6, 7);
 
-	Builder.AddVertex(BoxVerts[5]).SetNormalAndTangent(FVector3f(0.0f, 1.0f, 0.0f), FVector3f(-1.0f, 0.0f, 0.0f)).SetTexCoord(FVector2f(0.0f, 0.0f)).SetColor(Color);
-	Builder.AddVertex(BoxVerts[1]).SetNormalAndTangent(FVector3f(0.0f, 1.0f, 0.0f), FVector3f(-1.0f, 0.0f, 0.0f)).SetTexCoord(FVector2f(0.0f, 1.0f)).SetColor(Color);
-	Builder.AddVertex(BoxVerts[0]).SetNormalAndTangent(FVector3f(0.0f, 1.0f, 0.0f), FVector3f(-1.0f, 0.0f, 0.0f)).SetTexCoord(FVector2f(1.0f, 1.0f)).SetColor(Color);
-	Builder.AddVertex(BoxVerts[4]).SetNormalAndTangent(FVector3f(0.0f, 1.0f, 0.0f), FVector3f(-1.0f, 0.0f, 0.0f)).SetTexCoord(FVector2f(1.0f, 0.0f)).SetColor(Color);
+	Builder.AddVertex(BoxVerts[5]).SetNormalAndTangent(BoxNormals[2], BoxTangents[2]).SetTexCoord(FVector2f(0.0f, 0.0f)).SetColor(Color);
+	Builder.AddVertex(BoxVerts[1]).SetNormalAndTangent(BoxNormals[2], BoxTangents[2]).SetTexCoord(FVector2f(0.0f, 1.0f)).SetColor(Color);
+	Builder.AddVertex(BoxVerts[0]).SetNormalAndTangent(BoxNormals[2], BoxTangents[2]).SetTexCoord(FVector2f(1.0f, 1.0f)).SetColor(Color);
+	Builder.AddVertex(BoxVerts[4]).SetNormalAndTangent(BoxNormals[2], BoxTangents[2]).SetTexCoord(FVector2f(1.0f, 0.0f)).SetColor(Color);
 	WriteQuad(8, 9, 10, 11);
 
-	Builder.AddVertex(BoxVerts[6]).SetNormalAndTangent(FVector3f(1.0f, 0.0f, 0.0f), FVector3f(0.0f, 1.0f, 0.0f)).SetTexCoord(FVector2f(0.0f, 0.0f)).SetColor(Color);
-	Builder.AddVertex(BoxVerts[2]).SetNormalAndTangent(FVector3f(1.0f, 0.0f, 0.0f), FVector3f(0.0f, 1.0f, 0.0f)).SetTexCoord(FVector2f(0.0f, 1.0f)).SetColor(Color);
-	Builder.AddVertex(BoxVerts[1]).SetNormalAndTangent(FVector3f(1.0f, 0.0f, 0.0f), FVector3f(0.0f, 1.0f, 0.0f)).SetTexCoord(FVector2f(1.0f, 1.0f)).SetColor(Color);
-	Builder.AddVertex(BoxVerts[5]).SetNormalAndTangent(FVector3f(1.0f, 0.0f, 0.0f), FVector3f(0.0f, 1.0f, 0.0f)).SetTexCoord(FVector2f(1.0f, 0.0f)).SetColor(Color);
+	Builder.AddVertex(BoxVerts[6]).SetNormalAndTangent(BoxNormals[3], BoxTangents[3]).SetTexCoord(FVector2f(0.0f, 0.0f)).SetColor(Color);
+	Builder.AddVertex(BoxVerts[2]).SetNormalAndTangent(BoxNormals[3], BoxTangents[3]).SetTexCoord(FVector2f(0.0f, 1.0f)).SetColor(Color);
+	Builder.AddVertex(BoxVerts[1]).SetNormalAndTangent(BoxNormals[3], BoxTangents[3]).SetTexCoord(FVector2f(1.0f, 1.0f)).SetColor(Color);
+	Builder.AddVertex(BoxVerts[5]).SetNormalAndTangent(BoxNormals[3], BoxTangents[3]).SetTexCoord(FVector2f(1.0f, 0.0f)).SetColor(Color);
 	WriteQuad(12, 13, 14, 15);
 
-	Builder.AddVertex(BoxVerts[7]).SetNormalAndTangent(FVector3f(0.0f, -1.0f, 0.0f), FVector3f(1.0f, 0.0f, 0.0f)).SetTexCoord(FVector2f(0.0f, 0.0f)).SetColor(Color);
-	Builder.AddVertex(BoxVerts[3]).SetNormalAndTangent(FVector3f(0.0f, -1.0f, 0.0f), FVector3f(1.0f, 0.0f, 0.0f)).SetTexCoord(FVector2f(0.0f, 1.0f)).SetColor(Color);
-	Builder.AddVertex(BoxVerts[2]).SetNormalAndTangent(FVector3f(0.0f, -1.0f, 0.0f), FVector3f(1.0f, 0.0f, 0.0f)).SetTexCoord(FVector2f(1.0f, 1.0f)).SetColor(Color);
-	Builder.AddVertex(BoxVerts[6]).SetNormalAndTangent(FVector3f(0.0f, -1.0f, 0.0f), FVector3f(1.0f, 0.0f, 0.0f)).SetTexCoord(FVector2f(1.0f, 0.0f)).SetColor(Color);
+	Builder.AddVertex(BoxVerts[7]).SetNormalAndTangent(BoxNormals[4], BoxTangents[4]).SetTexCoord(FVector2f(0.0f, 0.0f)).SetColor(Color);
+	Builder.AddVertex(BoxVerts[3]).SetNormalAndTangent(BoxNormals[4], BoxTangents[4]).SetTexCoord(FVector2f(0.0f, 1.0f)).SetColor(Color);
+	Builder.AddVertex(BoxVerts[2]).SetNormalAndTangent(BoxNormals[4], BoxTangents[4]).SetTexCoord(FVector2f(1.0f, 1.0f)).SetColor(Color);
+	Builder.AddVertex(BoxVerts[6]).SetNormalAndTangent(BoxNormals[4], BoxTangents[4]).SetTexCoord(FVector2f(1.0f, 0.0f)).SetColor(Color);
 	WriteQuad(16, 17, 18, 19);
 
-	Builder.AddVertex(BoxVerts[7]).SetNormalAndTangent(FVector3f(0.0f, 0.0f, -1.0f), FVector3f(0.0f, 1.0f, 0.0f)).SetTexCoord(FVector2f(0.0f, 0.0f)).SetColor(Color);
-	Builder.AddVertex(BoxVerts[6]).SetNormalAndTangent(FVector3f(0.0f, 0.0f, -1.0f), FVector3f(0.0f, 1.0f, 0.0f)).SetTexCoord(FVector2f(0.0f, 1.0f)).SetColor(Color);
-	Builder.AddVertex(BoxVerts[5]).SetNormalAndTangent(FVector3f(0.0f, 0.0f, -1.0f), FVector3f(0.0f, 1.0f, 0.0f)).SetTexCoord(FVector2f(1.0f, 1.0f)).SetColor(Color);
-	Builder.AddVertex(BoxVerts[4]).SetNormalAndTangent(FVector3f(0.0f, 0.0f, -1.0f), FVector3f(0.0f, 1.0f, 0.0f)).SetTexCoord(FVector2f(1.0f, 0.0f)).SetColor(Color);
+	Builder.AddVertex(BoxVerts[7]).SetNormalAndTangent(BoxNormals[5], BoxTangents[5]).SetTexCoord(FVector2f(0.0f, 0.0f)).SetColor(Color);
+	Builder.AddVertex(BoxVerts[6]).SetNormalAndTangent(BoxNormals[5], BoxTangents[5]).SetTexCoord(FVector2f(0.0f, 1.0f)).SetColor(Color);
+	Builder.AddVertex(BoxVerts[5]).SetNormalAndTangent(BoxNormals[5], BoxTangents[5]).SetTexCoord(FVector2f(1.0f, 1.0f)).SetColor(Color);
+	Builder.AddVertex(BoxVerts[4]).SetNormalAndTangent(BoxNormals[5], BoxTangents[5]).SetTexCoord(FVector2f(1.0f, 0.0f)).SetColor(Color);
 	WriteQuad(20, 21, 22, 23);	
 }
 
-FRealtimeMeshStreamSet& URealtimeMeshBasicShapeTools::AppendMesh(FRealtimeMeshStreamSet& TargetMeshData, const FRealtimeMeshStreamSet& MeshDataToAdd, const FTransform& Transform)
+void URealtimeMeshBasicShapeTools::AppendMesh(FRealtimeMeshStreamSet& TargetMeshData, const FRealtimeMeshStreamSet& MeshDataToAdd, const FTransform3f& Transform)
 {
-
-
-
+	const FRealtimeMeshStream* SourcePositionStream = MeshDataToAdd.Find(FRealtimeMeshStreams::Position);
+	const FRealtimeMeshStream* SourceTriangleStream = MeshDataToAdd.Find(FRealtimeMeshStreams::Triangles);
 	
-
-	/*
-	const int32 StartVertex = TargetMeshData.Positions.Num();
-
-	// Skip slower transform logic if transform == identity
-	if (Transform.Equals(FTransform::Identity))
+	if (!SourcePositionStream || !SourceTriangleStream)
 	{
-		TargetMeshData.Positions.Append(MeshDataToAdd.Positions);
-		AppendVertexArrayIfContains(TargetMeshData.Normals, MeshDataToAdd.Normals, StartVertex, TargetMeshData.Positions.Num());
-		AppendVertexArrayIfContains(TargetMeshData.Binormals, MeshDataToAdd.Binormals, StartVertex, TargetMeshData.Positions.Num());
-		AppendVertexArrayIfContains(TargetMeshData.Tangents, MeshDataToAdd.Tangents, StartVertex, TargetMeshData.Positions.Num());
+		UE_LOG(RealtimeMeshLog, Warning, TEXT("Unable to AppendMesh, MeshDataToAdd does not contain a position and triangle stream"));
+		return;
+	}
+
+	FRealtimeMeshStream& TargetPositionStream = TargetMeshData.FindOrAdd(FRealtimeMeshStreams::Position, SourcePositionStream->GetLayout());
+	
+	const int32 NumVerticesToAdd = SourcePositionStream->Num();
+	const int32 StartVertex = TargetPositionStream.Num();
+
+	// Append positions.
+	if (Transform.Equals(FTransform3f::Identity))
+	{
+		TargetPositionStream.Append(*SourcePositionStream);
 	}
 	else
 	{
-		TargetMeshData.Positions.Reserve(TargetMeshData.Positions.Num() + MeshDataToAdd.Positions.Num());
-		for (int32 Index = 0; Index < MeshDataToAdd.Positions.Num(); Index++)
+		TargetPositionStream.AppendGenerated<FVector3f>(NumVerticesToAdd, [&](int32 Index)
 		{
-			TargetMeshData.Positions.Add(Transform.TransformPosition(MeshDataToAdd.Positions[Index]));
-		}
-		AppendTransformedTangentArray(TargetMeshData.Normals, MeshDataToAdd.Normals, StartVertex, TargetMeshData.Positions.Num(), Transform);
-		AppendTransformedTangentArray(TargetMeshData.Binormals, MeshDataToAdd.Binormals, StartVertex, TargetMeshData.Positions.Num(), Transform);
-		AppendTransformedTangentArray(TargetMeshData.Tangents, MeshDataToAdd.Tangents, StartVertex, TargetMeshData.Positions.Num(), Transform);
+			return Transform.TransformPosition(*SourcePositionStream->GetDataAtVertex<FVector3f>(Index));
+		});
 	}
 
-	AppendVertexArrayIfContains(TargetMeshData.Colors, MeshDataToAdd.Colors, StartVertex, TargetMeshData.Positions.Num());
-	AppendVertexArrayIfContains(TargetMeshData.LinearColors, MeshDataToAdd.LinearColors, StartVertex, TargetMeshData.Positions.Num());
-
-	AppendVertexArrayIfContains(TargetMeshData.UV0, MeshDataToAdd.UV0, StartVertex, TargetMeshData.Positions.Num());
-	AppendVertexArrayIfContains(TargetMeshData.UV1, MeshDataToAdd.UV1, StartVertex, TargetMeshData.Positions.Num());
-	AppendVertexArrayIfContains(TargetMeshData.UV2, MeshDataToAdd.UV2, StartVertex, TargetMeshData.Positions.Num());
-	AppendVertexArrayIfContains(TargetMeshData.UV3, MeshDataToAdd.UV3, StartVertex, TargetMeshData.Positions.Num());
-
-	// Copy Triangles
 	
-	const int32 NumExistingTriangles = (TargetMeshData.Triangles.Num()) / 3;
-	const int32 NumTrianglesToAdd = MeshDataToAdd.Triangles.Num() / 3;
-
-	TargetMeshData.Triangles.Reserve(TargetMeshData.Triangles.Num() + MeshDataToAdd.Triangles.Num());
-	for (int32 Index = 0; Index < MeshDataToAdd.Triangles.Num(); Index++)
+	auto AppendStream = [&TargetMeshData, &MeshDataToAdd](int32 StartIndex, int32 NumToAdd, const FRealtimeMeshStreamKey& StreamKey, const FRealtimeMeshBufferLayout& DefaultLayout)
 	{
-		TargetMeshData.Triangles.Add(MeshDataToAdd.Triangles[Index] + StartVertex);		
-	}
-
-	if (NewMaterialGroup != 0)
-	{
-		TargetMeshData.MaterialIndex.Reserve(NumExistingTriangles + NumTrianglesToAdd);
-		TargetMeshData.MaterialIndex.SetNumZeroed(NumExistingTriangles);
-
-		for (int32 Index = 0; Index < NumTrianglesToAdd; Index++)
+		if (MeshDataToAdd.Contains(StreamKey) || TargetMeshData.Contains(StreamKey))
 		{
-			TargetMeshData.MaterialIndex.Add(NewMaterialGroup);
+			const FRealtimeMeshStream* SourceStream = MeshDataToAdd.Find(StreamKey);
+			const FRealtimeMeshBufferLayout Layout = SourceStream? SourceStream->GetLayout() : DefaultLayout;
+			FRealtimeMeshStream& TargetStream = TargetMeshData.FindOrAdd(StreamKey, Layout);
+
+			// Reserve the size if it's not already big enough
+			if (TargetStream.Num() < StartIndex + NumToAdd)
+			{
+				TargetStream.Reserve(StartIndex + NumToAdd);
+			}
+
+			// Make sure the stream is at least to this point
+			if (TargetStream.Num() < StartIndex)
+			{
+				TargetStream.SetNumZeroed(StartIndex);
+			}
+
+			// Make sure the stream is big enough for all the n ew elements
+			if (TargetStream.Num() < StartIndex + NumToAdd)
+			{
+				TargetStream.SetNumUninitialized(StartIndex + NumToAdd);
+			}
+
+			// Copy any existing data
+			const int32 NumToCopy = FMath::Min(NumToAdd, SourceStream? SourceStream->Num() : 0);
+			if (NumToCopy > 0)
+			{
+				TargetStream.SetRange(StartIndex, SourceStream->GetLayout(), SourceStream->GetData(), NumToCopy);
+			}
+
+			// Zero remaining elements
+			if (NumToCopy < NumToAdd)
+			{
+				TargetStream.ZeroRange(StartIndex + NumToCopy, NumToAdd - NumToCopy);
+			}
+
+			return NumToCopy;
+		}
+		return 0;
+	};
+
+	// Append secondary streams
+	const int32 NumCopiedTangents = AppendStream(StartVertex, NumVerticesToAdd, FRealtimeMeshStreams::Tangents, GetRealtimeMeshBufferLayout<FRealtimeMeshTangentsNormalPrecision>());
+
+	// If we have a transform transform the new tangents
+	if (NumCopiedTangents > 0 && Transform.Equals(FTransform3f::Identity))
+	{
+		TRealtimeMeshStreamBuilder<FRealtimeMeshTangentsHighPrecision, void> TangentBuilder(TargetMeshData.FindChecked(FRealtimeMeshStreams::Tangents));
+
+		for (int32 Index = StartVertex; Index < StartVertex + NumVerticesToAdd; Index++)
+		{
+			FRealtimeMeshTangentsHighPrecision Tangent = TangentBuilder[Index];
+
+			Tangent.SetNormal(Transform.TransformVector(Tangent.GetNormal()));
+			Tangent.SetTangent(Transform.TransformVector(Tangent.GetTangent()));
+
+			TangentBuilder[Index] = Tangent;
 		}
 	}
-	else if (MeshDataToAdd.MaterialIndex.Num())
+	
+	AppendStream(StartVertex, NumVerticesToAdd, FRealtimeMeshStreams::TexCoords, GetRealtimeMeshBufferLayout<FRealtimeMeshTexCoordsNormal>());
+	AppendStream(StartVertex, NumVerticesToAdd, FRealtimeMeshStreams::Color, GetRealtimeMeshBufferLayout<FColor>());
+
+	
+	FRealtimeMeshStream& TargetTriangleStream = TargetMeshData.FindOrAdd(FRealtimeMeshStreams::Triangles, SourceTriangleStream->GetLayout());
+	
+	const int32 NumTrianglesToAdd = SourceTriangleStream->Num();
+	const int32 StartTriangle = TargetTriangleStream.Num();	
+	const int32 NumTrianglesCopied = AppendStream(StartTriangle, NumTrianglesToAdd, FRealtimeMeshStreams::Triangles, GetRealtimeMeshBufferLayout<TIndex3<uint32>>());
+	
+	TRealtimeMeshStreamBuilder<TIndex3<uint32>, void> TriangleBuilder(TargetTriangleStream);
+	for (int32 Index = StartTriangle; Index < StartTriangle + NumTrianglesCopied; Index++)
 	{
-		TargetMeshData.MaterialIndex.Reserve(NumExistingTriangles + NumTrianglesToAdd);
-		TargetMeshData.MaterialIndex.SetNumZeroed(NumExistingTriangles);
-
-		for (int32 Index = 0; Index < MeshDataToAdd.MaterialIndex.Num() && Index < NumTrianglesToAdd; Index++)
-		{
-			TargetMeshData.MaterialIndex.Add(MeshDataToAdd.MaterialIndex[Index]);
-		}
-
-		TargetMeshData.MaterialIndex.SetNumZeroed(NumExistingTriangles + NumTrianglesToAdd);
+		TIndex3<uint32> Triangle = TriangleBuilder[Index];
+		Triangle.V0 += StartVertex;
+		Triangle.V1 += StartVertex;
+		Triangle.V2 += StartVertex;
+		TriangleBuilder[Index] = Triangle;
 	}
-	*/
 
-	return TargetMeshData;
+
+	
+	AppendStream(StartTriangle, NumTrianglesToAdd, FRealtimeMeshStreams::PolyGroups, GetRealtimeMeshBufferLayout<uint16>());
 }
