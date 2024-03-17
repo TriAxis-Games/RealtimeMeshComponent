@@ -2,8 +2,8 @@
 
 
 #include "RealtimeMeshDirect.h"
-
 #include "RealtimeMeshSimple.h"
+#include "Engine/CollisionProfile.h"
 
 
 // Sets default values

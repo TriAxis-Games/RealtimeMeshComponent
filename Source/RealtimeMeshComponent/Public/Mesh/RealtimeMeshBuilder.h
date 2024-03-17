@@ -1091,7 +1091,7 @@ namespace RealtimeMesh
 				else if constexpr (!std::is_same_v<DataLayout, void>)
 				{
 					// If the concrete data type is valid, make sure the stream is in this format
-					check(ExistingStream->IsOfType<DataLayout>());
+					check(ExistingStream->template IsOfType<DataLayout>());
 				}
 				else
 				{
@@ -1106,7 +1106,7 @@ namespace RealtimeMesh
 					else
 					{
 						// Convert on the fly, make sure it's convertible to this type
-						check(ExistingStream->CanConvertTo<AccessLayout>());
+						check(ExistingStream->template CanConvertTo<AccessLayout>());
 					}
 				}
 
