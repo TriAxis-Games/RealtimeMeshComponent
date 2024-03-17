@@ -353,6 +353,7 @@ namespace RealtimeMesh
 
 			InitializeProxy(Commands);
 
+			Commands.ClearProxyRecreate();
 			Commands.Commit();
 		}
 		return RenderProxy.ToSharedRef();
