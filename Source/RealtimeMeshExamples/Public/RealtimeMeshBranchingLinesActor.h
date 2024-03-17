@@ -7,19 +7,19 @@
 #include "Mesh/RealtimeMeshBuilder.h"
 #include "RealtimeMeshBranchingLinesActor.generated.h"
 
-// A simple struct to keep some data together
-USTRUCT()
-struct FRealtimeMeshBranchSegment
+// A simple struct to keep realtime mesh branch segment data together
+USTRUCT(BlueprintType)
+struct REALTIMEMESHEXAMPLES_API FRealtimeMeshBranchSegment
 {
 	GENERATED_BODY()
 
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural Parameters")
 	FVector Start = FVector::ZeroVector;
 
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural Parameters")
 	FVector End = FVector::ZeroVector;
 
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural Parameters")
 	float Width = 0.f;
 
 	UPROPERTY()
@@ -121,6 +121,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Procedural Parameters")
 	TObjectPtr<UMaterialInterface> Material = nullptr;
 
+	// Setup random offset directions
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, EditFixedSize, Category = "Procedural Parameters", meta = (ToolTip = "Minimum : 2 dimensions"))
+	TArray<FVector> OffsetDirections = {FVector(1., 0., 0.), FVector(0., 0., 1.)};
 private:
 	void GenerateMesh(RealtimeMesh::TRealtimeMeshBuilderLocal<uint16, FPackedNormal, FVector2DHalf, 1>& Builder);
 	void CreateSegments();
@@ -136,6 +139,4 @@ private:
 	int32 LastCachedCrossSectionCount = 0;
 	TArray<FVector> CachedCrossSectionPoints;
 	FRandomStream RngStream;
-	// Setup random offset directions
-	const TArray<FVector> OffsetDirections = {FVector(1, 0, 0), FVector(0, 0, 1)};
 };

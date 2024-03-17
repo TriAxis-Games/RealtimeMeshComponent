@@ -22,6 +22,7 @@ void ARealtimeMeshHeightFieldAnimatedActor::OnGenerateMesh_Implementation()
 	// For this example we'll use a helper class to build the mesh data
 	// You can make your own helpers or skip them and use individual TRealtimeMeshStreamBuilder,
 	// or skip them entirely and copy data directly into the streams
+	// TODO: save this in the class so we can reuse the builder and just modify points when possible
 	TRealtimeMeshBuilderLocal<uint16, FPackedNormal, FVector2DHalf, 1> Builder(StreamSet);
 	
 	// here we go ahead and enable all the basic mesh data parts
