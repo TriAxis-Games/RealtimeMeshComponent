@@ -70,11 +70,7 @@ namespace RealtimeMesh
 
 		virtual void MarkRenderStateDirty(bool bShouldRecreateProxies)
 		{
-			SharedResources->BroadcastMeshRenderDataChanged();
-			if (bShouldRecreateProxies)
-			{
-				SharedResources->BroadcastMeshRequestedProxyRecreate();
-			}
+			SharedResources->BroadcastMeshRenderDataChanged(bShouldRecreateProxies);
 		}
 
 		bool HasRenderProxy() const;

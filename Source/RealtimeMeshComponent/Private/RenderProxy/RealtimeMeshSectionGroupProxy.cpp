@@ -45,7 +45,6 @@ namespace RealtimeMesh
 		return Streams.FindRef(StreamKey);
 	}
 
-
 	void FRealtimeMeshSectionGroupProxy::CreateSectionIfNotExists(const FRealtimeMeshSectionKey& SectionKey)
 	{
 		check(SectionKey.IsPartOf(Key));
@@ -186,6 +185,10 @@ namespace RealtimeMesh
 		// Handle the vertex factory first so sections can query it
 		if (bIsStateDirty || bShouldForceUpdate)
 		{
+			if (!VertexFactory)
+			{
+				VertexFactory = SharedResources->CreateVertexFactory();
+			}
 			VertexFactory->Initialize(Streams);
 		}
 
@@ -244,6 +247,7 @@ namespace RealtimeMesh
 			Section->Reset();
 		}
 		Sections.Empty();
+		SectionMap.Reset();
 
 		DrawMask = FRealtimeMeshDrawMask();
 		bIsStateDirty = true;

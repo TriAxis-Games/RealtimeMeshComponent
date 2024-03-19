@@ -110,6 +110,7 @@ namespace RealtimeMesh
 	DECLARE_MULTICAST_DELEGATE_OneParam(FRealtimeMeshLODPropertyChangedEvent, const FRealtimeMeshLODKey&);
 
 	DECLARE_MULTICAST_DELEGATE(FRealtimeMeshPropertyChangedEvent);
+	DECLARE_MULTICAST_DELEGATE_OneParam(FRealtimeMeshRenderDataChangedEvent, bool);
 
 
 	DECLARE_DELEGATE(FRealtimeMeshRequestEndOfFrameUpdateDelegate);
@@ -139,8 +140,7 @@ namespace RealtimeMesh
 		FRealtimeMeshLODPropertyChangedEvent LODConfigChangedEvent;
 		FRealtimeMeshLODPropertyChangedEvent LODBoundsChangedEvent;
 
-		FRealtimeMeshPropertyChangedEvent MeshRenderDataChangedEvent;
-		FRealtimeMeshPropertyChangedEvent MeshRequestedProxyRecreateEvent;
+		FRealtimeMeshRenderDataChangedEvent MeshRenderDataChangedEvent;
 		FRealtimeMeshPropertyChangedEvent MeshConfigChangedEvent;
 		FRealtimeMeshPropertyChangedEvent MeshBoundsChangedEvent;
 
@@ -295,18 +295,14 @@ namespace RealtimeMesh
 		}
 
 
-		FRealtimeMeshPropertyChangedEvent& OnMeshRenderDataChanged() { return MeshRenderDataChangedEvent; }
-		void BroadcastMeshRenderDataChanged() const { MeshRenderDataChangedEvent.Broadcast(); }
+		FRealtimeMeshRenderDataChangedEvent& OnMeshRenderDataChanged() { return MeshRenderDataChangedEvent; }
+		void BroadcastMeshRenderDataChanged(bool bShouldRecreateProxies) const { MeshRenderDataChangedEvent.Broadcast(bShouldRecreateProxies); }
 
 		FRealtimeMeshPropertyChangedEvent& OnMeshConfigChanged() { return MeshConfigChangedEvent; }
 		void BroadcastMeshConfigChanged() const { MeshConfigChangedEvent.Broadcast(); }
 
 		FRealtimeMeshPropertyChangedEvent& OnMeshBoundsChanged() { return MeshBoundsChangedEvent; }
 		void BroadcastMeshBoundsChanged() const { MeshBoundsChangedEvent.Broadcast(); }
-
-		FRealtimeMeshPropertyChangedEvent& OnMeshRequestedProxyRecreate() { return MeshRequestedProxyRecreateEvent; }
-		void BroadcastMeshRequestedProxyRecreate() const { MeshRequestedProxyRecreateEvent.Broadcast(); }
-
 
 		FRealtimeMeshRequestEndOfFrameUpdateDelegate& GetEndOfFrameRequestHandler() { return EndOfFrameRequestHandler; }
 		FRealtimeMeshCollisionUpdateDelegate& GetCollisionUpdateHandler() { return CollisionUpdateHandler; }

@@ -385,10 +385,10 @@ void URealtimeMesh::HandleBoundsUpdated()
 	BroadcastBoundsChangedEvent();
 }
 
-void URealtimeMesh::HandleMeshRenderingDataChanged()
+void URealtimeMesh::HandleMeshRenderingDataChanged(bool bShouldRecreateProxies)
 {
 	Modify(true);
-	BroadcastRenderDataChangedEvent(true);
+	BroadcastRenderDataChangedEvent(bShouldRecreateProxies);
 }
 
 

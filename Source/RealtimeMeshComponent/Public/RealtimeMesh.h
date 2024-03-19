@@ -243,7 +243,7 @@ public:
 
 protected:
 	virtual void HandleBoundsUpdated();
-	virtual void HandleMeshRenderingDataChanged();
+	virtual void HandleMeshRenderingDataChanged(bool bShouldRecreateProxies);
 
 	virtual void ProcessEndOfFrameUpdates();
 
