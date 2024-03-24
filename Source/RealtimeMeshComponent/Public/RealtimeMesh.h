@@ -42,8 +42,8 @@ public:
 	FCollisionBodyUpdated& OnCollisionBodyUpdated() { return CollisionBodyUpdatedEvent; }
 
 protected:
-	void BroadcastBoundsChangedEvent() { BoundsChangedEvent.Broadcast(this); }
-	void BroadcastRenderDataChangedEvent(bool bShouldRecreateProxies) { RenderDataChangedEvent.Broadcast(this, bShouldRecreateProxies); }
+	void BroadcastBoundsChangedEvent();
+	void BroadcastRenderDataChangedEvent(bool bShouldRecreateProxies);
 	void BroadcastCollisionBodyUpdatedEvent(UBodySetup* NewBodySetup);
 
 	void Initialize(const TSharedRef<RealtimeMesh::FRealtimeMeshSharedResources>& InSharedResources);

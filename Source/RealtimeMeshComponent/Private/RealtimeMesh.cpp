@@ -36,9 +36,61 @@ URealtimeMesh::URealtimeMesh(const FObjectInitializer& ObjectInitializer)
 {	
 }
 
+void URealtimeMesh::BroadcastBoundsChangedEvent()
+{
+	if (!IsInGameThread())
+	{
+		TWeakObjectPtr<URealtimeMesh> WeakThis(this);
+		AsyncTask(ENamedThreads::GameThread, [WeakThis]()
+		{
+			if (const auto Mesh = WeakThis.Get())
+			{
+				Mesh->BoundsChangedEvent.Broadcast(Mesh);
+			}
+		});
+	}
+	else
+	{
+		BoundsChangedEvent.Broadcast(this);
+	}
+}
+
+void URealtimeMesh::BroadcastRenderDataChangedEvent(bool bShouldRecreateProxies)
+{
+	if (!IsInGameThread())
+	{
+		TWeakObjectPtr<URealtimeMesh> WeakThis(this);
+		AsyncTask(ENamedThreads::GameThread, [WeakThis, bShouldRecreateProxies]()
+		{
+			if (const auto Mesh = WeakThis.Get())
+			{
+				Mesh->RenderDataChangedEvent.Broadcast(Mesh, bShouldRecreateProxies);
+			}
+		});
+	}
+	else
+	{
+		RenderDataChangedEvent.Broadcast(this, bShouldRecreateProxies);
+	}
+}
+
 void URealtimeMesh::BroadcastCollisionBodyUpdatedEvent(UBodySetup* NewBodySetup)
 {
-	CollisionBodyUpdatedEvent.Broadcast(this, NewBodySetup);
+	if (!IsInGameThread())
+	{
+		TWeakObjectPtr<URealtimeMesh> WeakThis(this);
+		AsyncTask(ENamedThreads::GameThread, [WeakThis, NewBodySetup]()
+		{
+			if (const auto Mesh = WeakThis.Get())
+			{
+				Mesh->CollisionBodyUpdatedEvent.Broadcast(Mesh, NewBodySetup);
+			}
+		});
+	}
+	else
+	{
+		CollisionBodyUpdatedEvent.Broadcast(this, NewBodySetup);
+	}
 }
 
 void URealtimeMesh::Initialize(const TSharedRef<RealtimeMesh::FRealtimeMeshSharedResources>& InSharedResources)
@@ -64,6 +116,8 @@ void URealtimeMesh::Initialize(const TSharedRef<RealtimeMesh::FRealtimeMeshShare
 
 void URealtimeMesh::Reset(bool bCreateNewMeshData)
 {
+	RealtimeMesh::FRealtimeMeshScopeGuardWrite ScopeGuard(SharedResources->GetGuard());
+	
 	UE_LOG(LogTemp, Warning, TEXT("RM Resetting... %s"), *GetName());
 	if (!bCreateNewMeshData)
 	{
@@ -122,6 +176,8 @@ void URealtimeMesh::RemoveTrailingLOD()
 
 void URealtimeMesh::SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial)
 {
+	RealtimeMesh::FRealtimeMeshScopeGuardWrite ScopeGuard(SharedResources->GetGuard());
+	
 	// Does this slot already exist?
 	if (SlotNameLookup.Contains(SlotName))
 	{
@@ -148,27 +204,33 @@ void URealtimeMesh::SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMater
 
 int32 URealtimeMesh::GetMaterialIndex(FName MaterialSlotName) const
 {
+	RealtimeMesh::FRealtimeMeshScopeGuardRead ScopeGuard(SharedResources->GetGuard());
+	
 	const int32* SlotIndex = SlotNameLookup.Find(MaterialSlotName);
 	return SlotIndex ? *SlotIndex : INDEX_NONE;
 }
 
 bool URealtimeMesh::IsMaterialSlotNameValid(FName MaterialSlotName) const
 {
+	RealtimeMesh::FRealtimeMeshScopeGuardRead ScopeGuard(SharedResources->GetGuard());
 	return SlotNameLookup.Contains(MaterialSlotName);
 }
 
 FRealtimeMeshMaterialSlot URealtimeMesh::GetMaterialSlot(int32 SlotIndex) const
 {
+	RealtimeMesh::FRealtimeMeshScopeGuardRead ScopeGuard(SharedResources->GetGuard());
 	return MaterialSlots[SlotIndex];
 }
 
 int32 URealtimeMesh::GetNumMaterials() const
 {
+	RealtimeMesh::FRealtimeMeshScopeGuardRead ScopeGuard(SharedResources->GetGuard());
 	return MaterialSlots.Num();
 }
 
 TArray<FName> URealtimeMesh::GetMaterialSlotNames() const
 {
+	RealtimeMesh::FRealtimeMeshScopeGuardRead ScopeGuard(SharedResources->GetGuard());
 	TArray<FName> OutNames;
 	SlotNameLookup.GetKeys(OutNames);
 	return OutNames;
@@ -176,11 +238,13 @@ TArray<FName> URealtimeMesh::GetMaterialSlotNames() const
 
 TArray<FRealtimeMeshMaterialSlot> URealtimeMesh::GetMaterialSlots() const
 {
+	RealtimeMesh::FRealtimeMeshScopeGuardRead ScopeGuard(SharedResources->GetGuard());
 	return MaterialSlots;
 }
 
 UMaterialInterface* URealtimeMesh::GetMaterial(int32 SlotIndex) const
 {
+	RealtimeMesh::FRealtimeMeshScopeGuardRead ScopeGuard(SharedResources->GetGuard());
 	if (MaterialSlots.IsValidIndex(SlotIndex))
 	{
 		return MaterialSlots[SlotIndex].Material;
