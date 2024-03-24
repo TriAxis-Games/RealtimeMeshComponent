@@ -1,9 +1,9 @@
 ﻿// Copyright TriAxis Games, L.L.C. All Rights Reserved.
 
 
+#include "RenderProxy/RealtimeMeshProxyCommandBatch.h"
 #include "Data/RealtimeMeshShared.h"
 #include "Data/RealtimeMeshData.h"
-#include "RenderProxy/RealtimeMeshProxyCommandBatch.h"
 #include "RenderProxy/RealtimeMeshLODProxy.h"
 #include "RenderProxy/RealtimeMeshProxy.h"
 #include "RenderProxy/RealtimeMeshSectionGroupProxy.h"
@@ -103,7 +103,7 @@ namespace RealtimeMesh
 			}
 		});
 
-		AsyncTask(ENamedThreads::GameThread, [ThreadState, MeshWeak = Mesh.ToWeakPtr(), bRecreateProxies = bRequiresProxyRecreate]()
+		AsyncTask(ENamedThreads::GameThread, [ThreadState, MeshWeak = TWeakPtr<FRealtimeMesh>(Mesh), bRecreateProxies = bRequiresProxyRecreate]()
 		{
 			if (const FRealtimeMeshPtr Mesh = MeshWeak.Pin())
 			{
