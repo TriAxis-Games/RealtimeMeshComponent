@@ -54,6 +54,7 @@ namespace RealtimeMesh
 			RemovedNamedStreamElements = 5,
 			SimpleMeshStoresCollisionConfig = 6,
 			ImprovingDataTypes = 7,
+			SimpleMeshStoresCustomComplexCollision = 8,
 
 			// -----<new versions can be added above this line>-------------------------------------------------
 			VersionPlusOne,

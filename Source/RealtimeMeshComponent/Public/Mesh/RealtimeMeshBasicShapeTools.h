@@ -32,8 +32,8 @@ public:
 	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 
-	static void AppendBoxMesh(FRealtimeMeshStreamSet& StreamSet, FVector3f BoxRadius, FTransform3f BoxTransform, int32 NewMaterialGroup = 0, FColor Color = FColor::White);
+	static void AppendBoxMesh(FRealtimeMeshStreamSet& StreamSet, FVector3f BoxRadius, FTransform3f BoxTransform = FTransform3f::Identity, int32 NewMaterialGroup = 0, FColor Color = FColor::White);
 
-	static void AppendMesh(FRealtimeMeshStreamSet& TargetMeshData, const FRealtimeMeshStreamSet& MeshDataToAdd, const FTransform3f& Transform);
+	static void AppendMesh(FRealtimeMeshStreamSet& TargetMeshData, const FRealtimeMeshStreamSet& MeshDataToAdd, const FTransform3f& Transform = FTransform3f::Identity);
 	
 };

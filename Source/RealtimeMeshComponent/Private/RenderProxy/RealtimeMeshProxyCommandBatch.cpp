@@ -22,6 +22,51 @@ namespace RealtimeMesh
 	}
 
 
+	struct FRealtimeMeshCommandBatchIntermediateFuture : public TSharedFromThis<FRealtimeMeshCommandBatchIntermediateFuture>
+	{
+		TSharedRef<TPromise<ERealtimeMeshProxyUpdateStatus>> FinalPromise;
+		ERealtimeMeshProxyUpdateStatus Result;
+		uint8 bRenderThreadReady : 1;
+		uint8 bGameThreadReady : 1;
+		uint8 bFinalized : 1;
+
+		FRealtimeMeshCommandBatchIntermediateFuture()
+			: FinalPromise(MakeShared<TPromise<ERealtimeMeshProxyUpdateStatus>>())
+			  , Result(ERealtimeMeshProxyUpdateStatus::NoUpdate)
+			  , bRenderThreadReady(false)
+			  , bGameThreadReady(false)
+			  , bFinalized(false)
+		{
+		}
+
+		void FinalizeRenderThread(ERealtimeMeshProxyUpdateStatus Status)
+		{
+			AsyncTask(ENamedThreads::GameThread, [Status, ThisShared = this->AsShared()]()
+			{
+				ThisShared->Result = Status;
+				ThisShared->bRenderThreadReady = true;
+
+				if (!ThisShared->bFinalized)
+				{
+					ThisShared->FinalPromise->EmplaceValue(ThisShared->Result);
+					ThisShared->bFinalized = true;
+				}
+			});
+		}
+
+		void FinalizeGameThread()
+		{
+			bGameThreadReady = true;
+
+			if (bRenderThreadReady && !bFinalized)
+			{
+				FinalPromise->EmplaceValue(Result);
+				bFinalized = true;
+			}
+		}
+	};
+
+
 	TFuture<ERealtimeMeshProxyUpdateStatus> FRealtimeMeshProxyCommandBatch::Commit()
 	{
 		// Skip if no tasks
@@ -37,11 +82,11 @@ namespace RealtimeMesh
 		}
 
 		// Skip if no proxy
-		const FRealtimeMeshProxyPtr Proxy = Mesh->GetRenderProxy(true);		
+		const FRealtimeMeshProxyPtr Proxy = Mesh->GetRenderProxy(true);
 
-		auto Promise = MakeShared<TPromise<ERealtimeMeshProxyUpdateStatus>>();
+		auto ThreadState = MakeShared<FRealtimeMeshCommandBatchIntermediateFuture>();
 
-		ENQUEUE_RENDER_COMMAND(FRealtimeMeshProxy_Update)([Promise, ProxyWeak = FRealtimeMeshProxyWeakPtr(Proxy), Tasks = MoveTemp(Tasks)](FRHICommandListImmediate&)
+		ENQUEUE_RENDER_COMMAND(FRealtimeMeshProxy_Update)([ThreadState, ProxyWeak = FRealtimeMeshProxyWeakPtr(Proxy), Tasks = MoveTemp(Tasks)](FRHICommandListImmediate&)
 		{
 			if (const auto& Proxy = ProxyWeak.Pin())
 			{
@@ -50,22 +95,29 @@ namespace RealtimeMesh
 					Task(*Proxy.Get());
 				}
 				Proxy->UpdatedCachedState(false);
-				Promise->SetValue(ERealtimeMeshProxyUpdateStatus::Updated);
+				ThreadState->FinalizeRenderThread(ERealtimeMeshProxyUpdateStatus::Updated);
 			}
 			else
 			{
-				Promise->SetValue(ERealtimeMeshProxyUpdateStatus::NoProxy);
+				ThreadState->FinalizeRenderThread(ERealtimeMeshProxyUpdateStatus::NoProxy);
 			}
 		});
 
+		AsyncTask(ENamedThreads::GameThread, [ThreadState, MeshWeak = Mesh.ToWeakPtr(), bRecreateProxies = bRequiresProxyRecreate]()
+		{
+			if (const FRealtimeMeshPtr Mesh = MeshWeak.Pin())
+			{
+				// TODO: We probably shouldn't always have to do this
+				Mesh->MarkRenderStateDirty(bRecreateProxies);
+			}
 
-		// TODO: We probably shouldn't always have to do this
-		Mesh->MarkRenderStateDirty(bRequiresProxyRecreate);
+			ThreadState->FinalizeGameThread();
+		});
 
 		Tasks.Empty();
 		bRequiresProxyRecreate = false;
 
-		return Promise->GetFuture();
+		return ThreadState->FinalPromise->GetFuture();
 	}
 
 

@@ -135,6 +135,7 @@ namespace RealtimeMesh
 		void SetPolyGroupSectionHandler(const FRealtimeMeshPolyGroupConfigHandler& NewHandler);
 		void ClearPolyGroupSectionHandler();
 
+		void ProcessMeshData(TFunctionRef<void(const FRealtimeMeshStreamSet&)> ProcessFunc) const;
 		TFuture<ERealtimeMeshProxyUpdateStatus> EditMeshData(TFunctionRef<TSet<FRealtimeMeshStreamKey>(FRealtimeMeshStreamSet&)> EditFunc);
 
 		virtual void CreateOrUpdateStream(FRealtimeMeshProxyCommandBatch& Commands, FRealtimeMeshStream&& Stream) override;
@@ -209,6 +210,7 @@ namespace RealtimeMesh
 	protected:
 		FRealtimeMeshCollisionConfiguration CollisionConfig;
 		FRealtimeMeshSimpleGeometry SimpleGeometry;
+		FRealtimeMeshStreamSet ComplexMeshGeometry;
 		mutable TSharedPtr<TPromise<ERealtimeMeshCollisionUpdateResult>> PendingCollisionPromise;
 
 	public:
@@ -233,6 +235,14 @@ namespace RealtimeMesh
 		FRealtimeMeshSimpleGeometry GetSimpleGeometry() const;
 		TFuture<ERealtimeMeshCollisionUpdateResult> SetSimpleGeometry(const FRealtimeMeshSimpleGeometry& InSimpleGeometry);
 
+		bool HasCustomComplexMeshGeometry() const { return ComplexMeshGeometry.Num() > 0; }
+		TFuture<ERealtimeMeshCollisionUpdateResult> ClearCustomComplexMeshGeometry();
+		TFuture<ERealtimeMeshCollisionUpdateResult> SetCustomComplexMeshGeometry(FRealtimeMeshStreamSet&& InComplexMeshGeometry);
+		TFuture<ERealtimeMeshCollisionUpdateResult> SetCustomComplexMeshGeometry(const FRealtimeMeshStreamSet& InComplexMeshGeometry);
+		void ProcessCustomComplexMeshGeometry(TFunctionRef<void(const FRealtimeMeshStreamSet&)> ProcessFunc) const;
+		TFuture<ERealtimeMeshCollisionUpdateResult> EditCustomComplexMeshGeometry(TFunctionRef<void(FRealtimeMeshStreamSet&)> EditFunc);
+
+		
 		virtual bool GenerateCollisionMesh(FRealtimeMeshTriMeshData& CollisionData);
 
 		virtual void Reset(FRealtimeMeshProxyCommandBatch& Commands, bool bRemoveRenderProxy) override;
@@ -289,8 +299,17 @@ public:
 	TFuture<ERealtimeMeshProxyUpdateStatus> UpdateSectionRange(const FRealtimeMeshSectionKey& SectionKey, const FRealtimeMeshStreamRange& StreamRange);
 
 	
-	TFuture<ERealtimeMeshProxyUpdateStatus> EditMeshInPlace(const FRealtimeMeshSectionGroupKey& SectionGroupKey, const TFunctionRef<TSet<FRealtimeMeshStreamKey>(FRealtimeMeshStreamSet&)>&);
+	bool ProcessMesh(const FRealtimeMeshSectionGroupKey& SectionGroupKey, const TFunctionRef<void(const FRealtimeMeshStreamSet&)>& ProcessFunc) const;
+	TFuture<ERealtimeMeshProxyUpdateStatus> EditMeshInPlace(const FRealtimeMeshSectionGroupKey& SectionGroupKey, const TFunctionRef<TSet<FRealtimeMeshStreamKey>(FRealtimeMeshStreamSet&)>& EditFunc);
 
+
+
+	bool HasCustomComplexMeshGeometry() const;
+	TFuture<ERealtimeMeshCollisionUpdateResult> ClearCustomComplexMeshGeometry();
+	TFuture<ERealtimeMeshCollisionUpdateResult> SetCustomComplexMeshGeometry(FRealtimeMeshStreamSet&& InComplexMeshGeometry);
+	TFuture<ERealtimeMeshCollisionUpdateResult> SetCustomComplexMeshGeometry(const FRealtimeMeshStreamSet& InComplexMeshGeometry);
+	void ProcessCustomComplexMeshGeometry(TFunctionRef<void(const FRealtimeMeshStreamSet&)> ProcessFunc) const;
+	TFuture<ERealtimeMeshCollisionUpdateResult> EditCustomComplexMeshGeometry(TFunctionRef<void(FRealtimeMeshStreamSet&)> EditFunc);
 
 
 	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh", DisplayName="CreateSectionGroup", meta= (AutoCreateRefTerm = "CompletionCallback"))
@@ -331,9 +350,6 @@ public:
 														  const FRealtimeMeshStreamRange& StreamRange, bool bShouldCreateCollision,
 														  const FRealtimeMeshSimpleCompletionCallback& CompletionCallback);
 	
-
-
-	//void EditMeshInPlace(const FRealtimeMeshSectionGroupKey& SectionGroupKey, const TFunctionRef<TSet<FRealtimeMeshStreamKey>(FRealtimeMeshStreamSet&)>&);
 
 
 
