@@ -56,7 +56,11 @@ bool FRealtimeMeshDistanceField::IsValid() const
 FDistanceFieldVolumeData FRealtimeMeshDistanceField::CreateRenderingData() const
 {
 	FDistanceFieldVolumeData RenderingData;
+#if RMC_ENGINE_ABOVE_5_4
 	RenderingData.LocalSpaceMeshBounds = Bounds;
+#else
+	RenderingData.LocalSpaceMeshBounds = FBox(Bounds);
+#endif
 	RenderingData.bMostlyTwoSided = bMostlyTwoSided;
 	RenderingData.Mips = Mips;
 	RenderingData.AlwaysLoadedMip = AlwaysLoadedMip;
@@ -67,7 +71,12 @@ FDistanceFieldVolumeData FRealtimeMeshDistanceField::CreateRenderingData() const
 FDistanceFieldVolumeData FRealtimeMeshDistanceField::MoveToRenderingData()
 {
 	FDistanceFieldVolumeData RenderingData;
+#if RMC_ENGINE_ABOVE_5_4
 	RenderingData.LocalSpaceMeshBounds = MoveTemp(Bounds);
+#else
+	RenderingData.LocalSpaceMeshBounds = FBox(Bounds);
+	Bounds.Init();
+#endif
 	RenderingData.bMostlyTwoSided = MoveTemp(bMostlyTwoSided);
 	RenderingData.Mips = MoveTemp(Mips);
 	RenderingData.AlwaysLoadedMip = MoveTemp(AlwaysLoadedMip);

@@ -89,7 +89,6 @@ namespace RealtimeMesh
 				if (FRayTracingGeometry* RayTracingGeo = RealtimeMeshProxy->GetLOD(LODIndex)->GetStaticRayTracingGeometry())
 				{
 					RayTracingGeometries[LODIndex] = RayTracingGeo;
-					bHasStaticRayTracingGeometry = true;
 				}
 			}
 			
