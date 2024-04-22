@@ -8,6 +8,9 @@ public class RealtimeMeshTests : ModuleRules
     {
         PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
         bUseUnity = false;
+#if UE_5_1_OR_LATER
+        IncludeOrderVersion = EngineIncludeOrderVersion.Latest;
+#endif
 
         PublicDependencyModuleNames.AddRange(
             new string[]

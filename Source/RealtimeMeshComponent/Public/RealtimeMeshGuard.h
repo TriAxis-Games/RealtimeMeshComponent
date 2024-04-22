@@ -117,7 +117,7 @@ namespace RealtimeMesh
 	};
 
 
-	struct FRealtimeMeshScopeGuardRead
+	struct REALTIMEMESHCOMPONENT_API FRealtimeMeshScopeGuardRead
 	{
 	public:
 		RMC_NODISCARD_CTOR explicit FRealtimeMeshScopeGuardRead(FRealtimeMeshGuard& InGuard, bool bLockImmediately = true);
@@ -153,7 +153,7 @@ namespace RealtimeMesh
 	};
 
 
-	struct FRealtimeMeshScopeGuardWrite
+	struct REALTIMEMESHCOMPONENT_API FRealtimeMeshScopeGuardWrite
 	{
 	public:
 		RMC_NODISCARD_CTOR explicit FRealtimeMeshScopeGuardWrite(FRealtimeMeshGuard& InGuard, bool bLockImmediately = true);
@@ -195,7 +195,7 @@ namespace RealtimeMesh
 		Write
 	};
 
-	struct FRealtimeMeshScopeGuardReadWrite
+	struct REALTIMEMESHCOMPONENT_API FRealtimeMeshScopeGuardReadWrite
 	{
 	public:
 		RMC_NODISCARD_CTOR explicit FRealtimeMeshScopeGuardReadWrite(FRealtimeMeshGuard& InGuard, ERealtimeMeshGuardLockType InLockType)

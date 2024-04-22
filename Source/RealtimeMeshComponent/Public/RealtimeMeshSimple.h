@@ -11,6 +11,8 @@
 #include "Interface_CollisionDataProviderCore.h"
 #include "Mesh/RealtimeMeshBuilder.h"
 #include "Mesh/RealtimeMeshDataStream.h"
+#include "Mesh/RealtimeMeshDistanceField.h"
+#include "Mesh/RealtimeMeshCardRepresentation.h"
 #include "Mesh/RealtimeMeshSimpleData.h"
 #include "RealtimeMeshSimple.generated.h"
 
@@ -213,6 +215,9 @@ namespace RealtimeMesh
 		FRealtimeMeshStreamSet ComplexMeshGeometry;
 		mutable TSharedPtr<TPromise<ERealtimeMeshCollisionUpdateResult>> PendingCollisionPromise;
 
+		FRealtimeMeshDistanceField DistanceField;
+		TUniquePtr<FRealtimeMeshCardRepresentation> CardRepresentation;
+		
 	public:
 		FRealtimeMeshSimple(const FRealtimeMeshSharedResourcesRef& InSharedResources)
 			: FRealtimeMesh(InSharedResources)
@@ -242,12 +247,26 @@ namespace RealtimeMesh
 		void ProcessCustomComplexMeshGeometry(TFunctionRef<void(const FRealtimeMeshStreamSet&)> ProcessFunc) const;
 		TFuture<ERealtimeMeshCollisionUpdateResult> EditCustomComplexMeshGeometry(TFunctionRef<void(FRealtimeMeshStreamSet&)> EditFunc);
 
+		const FRealtimeMeshDistanceField& GetDistanceField() const;
+		virtual void SetDistanceField(FRealtimeMeshProxyCommandBatch& Commands, FRealtimeMeshDistanceField&& InDistanceField) override;
+		using FRealtimeMesh::SetDistanceField;
+		virtual void ClearDistanceField(FRealtimeMeshProxyCommandBatch& Commands) override;
+		using FRealtimeMesh::ClearDistanceField;
+
+		const FRealtimeMeshCardRepresentation* GetCardRepresentation() const;
+		virtual void SetCardRepresentation(FRealtimeMeshProxyCommandBatch& Commands, FRealtimeMeshCardRepresentation&& InCardRepresentation) override;
+		using FRealtimeMesh::SetCardRepresentation;
+		virtual void ClearCardRepresentation(FRealtimeMeshProxyCommandBatch& Commands) override;
+		using FRealtimeMesh::ClearCardRepresentation;
+
+		
 		
 		virtual bool GenerateCollisionMesh(FRealtimeMeshTriMeshData& CollisionData);
 
+		virtual void InitializeProxy(FRealtimeMeshProxyCommandBatch& Commands) const override;
 		virtual void Reset(FRealtimeMeshProxyCommandBatch& Commands, bool bRemoveRenderProxy) override;
 
-		virtual bool Serialize(FArchive& Ar) override;
+		virtual bool Serialize(FArchive& Ar, URealtimeMesh* Owner) override;
 
 		void MarkCollisionDirtyNoCallback() const;
 	protected:
@@ -298,6 +317,9 @@ public:
 	TFuture<ERealtimeMeshProxyUpdateStatus> UpdateSectionConfig(const FRealtimeMeshSectionKey& SectionKey, const FRealtimeMeshSectionConfig& Config, bool bShouldCreateCollision = false);
 	TFuture<ERealtimeMeshProxyUpdateStatus> UpdateSectionRange(const FRealtimeMeshSectionKey& SectionKey, const FRealtimeMeshStreamRange& StreamRange);
 
+
+	TArray<FRealtimeMeshSectionGroupKey> GetSectionGroups(const FRealtimeMeshLODKey& LODKey) const;
+	TSharedPtr<FRealtimeMeshSectionGroupSimple> GetSectionGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey) const;
 	
 	bool ProcessMesh(const FRealtimeMeshSectionGroupKey& SectionGroupKey, const TFunctionRef<void(const FRealtimeMeshStreamSet&)>& ProcessFunc) const;
 	TFuture<ERealtimeMeshProxyUpdateStatus> EditMeshInPlace(const FRealtimeMeshSectionGroupKey& SectionGroupKey, const TFunctionRef<TSet<FRealtimeMeshStreamKey>(FRealtimeMeshStreamSet&)>& EditFunc);
@@ -353,17 +375,17 @@ public:
 
 
 
-	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh", DisplayName="UpdateSectionConfig", meta = (AutoCreateRefTerm = "SectionKey, bShouldCreateCollision"))
+	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh", DisplayName="UpdateSectionConfig", meta = (AutoCreateRefTerm = "SectionKey, bShouldCreateCollision, CompletionCallback"))
 	void UpdateSectionConfig(const FRealtimeMeshSectionKey& SectionKey, const FRealtimeMeshSectionConfig& Config, bool bShouldCreateCollision,
 									   const FRealtimeMeshSimpleCompletionCallback& CompletionCallback);
 
 
 
 
-	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh", DisplayName="RemoveSection", meta = (AutoCreateRefTerm = "SectionKey"))
+	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh", DisplayName="RemoveSection", meta = (AutoCreateRefTerm = "SectionKey, CompletionCallback"))
 	void RemoveSection(const FRealtimeMeshSectionKey& SectionKey, const FRealtimeMeshSimpleCompletionCallback& CompletionCallback);
 
-	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh", DisplayName="RemoveSectionGroup", meta = (AutoCreateRefTerm = "SectionGroupKey"))
+	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh", DisplayName="RemoveSectionGroup", meta = (AutoCreateRefTerm = "SectionGroupKey, CompletionCallback"))
 	void RemoveSectionGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey, const FRealtimeMeshSimpleCompletionCallback& CompletionCallback);
 
 
@@ -378,7 +400,7 @@ public:
 
 	TFuture<ERealtimeMeshProxyUpdateStatus> SetSectionVisibility(const FRealtimeMeshSectionKey& SectionKey, bool bIsVisible);
 
-	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh", DisplayName="SetSectionVisibility", meta = (AutoCreateRefTerm = "SectionKey"))
+	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh", DisplayName="SetSectionVisibility", meta = (AutoCreateRefTerm = "SectionKey, CompletionCallback"))
 	void SetSectionVisibility(const FRealtimeMeshSectionKey& SectionKey, bool bIsVisible, const FRealtimeMeshSimpleCompletionCallback& CompletionCallback);
 	
 	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh", meta = (AutoCreateRefTerm = "SectionKey"))
@@ -386,7 +408,7 @@ public:
 
 	TFuture<ERealtimeMeshProxyUpdateStatus> SetSectionCastShadow(const FRealtimeMeshSectionKey& SectionKey, bool bCastShadow);
 
-	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh", DisplayName="SetSectionCastShadow", meta = (AutoCreateRefTerm = "SectionKey"))
+	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh", DisplayName="SetSectionCastShadow", meta = (AutoCreateRefTerm = "SectionKey, CompletionCallback"))
 	void SetSectionCastShadow(const FRealtimeMeshSectionKey& SectionKey, bool bCastShadow, const FRealtimeMeshSimpleCompletionCallback& CompletionCallback);
 	
 	TFuture<ERealtimeMeshProxyUpdateStatus> RemoveSection(const FRealtimeMeshSectionKey& SectionKey);
@@ -394,6 +416,24 @@ public:
 	TFuture<ERealtimeMeshProxyUpdateStatus> RemoveSectionGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey);
 
 
+	const FRealtimeMeshDistanceField& GetDistanceField() const;
+	
+	TFuture<ERealtimeMeshProxyUpdateStatus> SetDistanceField(FRealtimeMeshDistanceField&& InDistanceField);
+	
+	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh", meta = (AutoCreateRefTerm = "CompletionCallback"))
+	void SetDistanceField(const FRealtimeMeshDistanceField& DistanceField, const FRealtimeMeshSimpleCompletionCallback& CompletionCallback);
+	
+	TFuture<ERealtimeMeshProxyUpdateStatus> ClearDistanceField();
+
+	const FRealtimeMeshCardRepresentation* GetCardRepresentation() const;
+	
+	TFuture<ERealtimeMeshProxyUpdateStatus> SetCardRepresentation(FRealtimeMeshCardRepresentation&& InCardRepresentation);
+	
+	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh", meta = (AutoCreateRefTerm = "CompletionCallback"))
+	void SetCardRepresentation(const FRealtimeMeshCardRepresentation& CardRepresentation, const FRealtimeMeshSimpleCompletionCallback& CompletionCallback);
+	
+	TFuture<ERealtimeMeshProxyUpdateStatus> ClearCardRepresentation();
+	
 	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh")
 	FRealtimeMeshCollisionConfiguration GetCollisionConfig() const;
 

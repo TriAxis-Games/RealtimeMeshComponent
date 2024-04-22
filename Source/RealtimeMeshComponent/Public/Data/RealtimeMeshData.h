@@ -7,6 +7,8 @@
 #include "RealtimeMeshCollision.h"
 #include "Data/RealtimeMeshShared.h"
 #include "Async/Async.h"
+#include "Mesh/RealtimeMeshCardRepresentation.h"
+#include "Mesh/RealtimeMeshDistanceField.h"
 
 struct FTriMeshCollisionData;
 class URealtimeMesh;
@@ -63,10 +65,22 @@ namespace RealtimeMesh
 		TFuture<ERealtimeMeshProxyUpdateStatus> RemoveTrailingLOD(FRealtimeMeshLODKey* OutNewLastLODKey = nullptr);
 		virtual void RemoveTrailingLOD(FRealtimeMeshProxyCommandBatch& Commands, FRealtimeMeshLODKey* OutNewLastLODKey = nullptr);
 
+		
+		virtual void SetDistanceField(FRealtimeMeshProxyCommandBatch& Commands, FRealtimeMeshDistanceField&& InDistanceField);
+		TFuture<ERealtimeMeshProxyUpdateStatus> SetDistanceField(FRealtimeMeshDistanceField&& InDistanceField);
+		virtual void ClearDistanceField(FRealtimeMeshProxyCommandBatch& Commands);
+		TFuture<ERealtimeMeshProxyUpdateStatus> ClearDistanceField();
+
+		virtual void SetCardRepresentation(FRealtimeMeshProxyCommandBatch& Commands, FRealtimeMeshCardRepresentation&& InCardRepresentation);
+		TFuture<ERealtimeMeshProxyUpdateStatus> SetCardRepresentation(FRealtimeMeshCardRepresentation&& InCardRepresentation);
+		
+		virtual void ClearCardRepresentation(FRealtimeMeshProxyCommandBatch& Commands);
+		TFuture<ERealtimeMeshProxyUpdateStatus> ClearCardRepresentation();
+		
 		TFuture<ERealtimeMeshProxyUpdateStatus> Reset(bool bRemoveRenderProxy = false);
 		virtual void Reset(FRealtimeMeshProxyCommandBatch& Commands, bool bRemoveRenderProxy = false);
 
-		virtual bool Serialize(FArchive& Ar);
+		virtual bool Serialize(FArchive& Ar, URealtimeMesh* Owner);
 
 		virtual void MarkRenderStateDirty(bool bShouldRecreateProxies)
 		{

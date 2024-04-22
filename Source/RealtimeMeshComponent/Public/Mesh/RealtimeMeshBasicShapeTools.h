@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "RealtimeMeshSimple.h"
+#include "RealtimeMeshSimpleData.h"
 #include "RealtimeMeshBasicShapeTools.generated.h"
 
 struct FRealtimeMeshSimpleMeshData;
@@ -34,6 +34,6 @@ public:
 
 	static void AppendBoxMesh(FRealtimeMeshStreamSet& StreamSet, FVector3f BoxRadius, FTransform3f BoxTransform = FTransform3f::Identity, int32 NewMaterialGroup = 0, FColor Color = FColor::White);
 
-	static void AppendMesh(FRealtimeMeshStreamSet& TargetMeshData, const FRealtimeMeshStreamSet& MeshDataToAdd, const FTransform3f& Transform = FTransform3f::Identity);
+	static void AppendMesh(FRealtimeMeshStreamSet& TargetMeshData, const FRealtimeMeshStreamSet& MeshDataToAdd, const FTransform3f& Transform = FTransform3f::Identity, bool bSkipMissingStreams = false);
 	
 };

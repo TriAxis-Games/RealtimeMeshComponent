@@ -8,7 +8,7 @@
 
 namespace RealtimeMesh
 {
-	struct FRealtimeMeshProxyCommandBatch
+	struct REALTIMEMESHCOMPONENT_API FRealtimeMeshProxyCommandBatch
 	{
 	private:
 		using TaskFunctionType = TUniqueFunction<void(FRealtimeMeshProxy&)>;

@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Mesh/RealtimeMeshAlgo.h"
 #include "Modules/ModuleManager.h"
 
 /**
@@ -33,4 +34,4 @@ public:
 	}
 };
 
-DECLARE_LOG_CATEGORY_EXTERN(RealtimeMeshLog, Warning, All);
+REALTIMEMESHCOMPONENT_API DECLARE_LOG_CATEGORY_EXTERN(RealtimeMeshLog, Warning, All);

@@ -250,3 +250,30 @@ void RealtimeMeshAlgo::GatherStreamRangesFromPolyGroupIndices(const FRealtimeMes
 	}			
 }
 
+TOptional<TMap<int32, FRealtimeMeshStreamRange>> RealtimeMeshAlgo::GetStreamRangesFromPolyGroups(const FRealtimeMeshStreamSet& Streams,
+	const FRealtimeMeshStreamKey& TrianglesKey, const FRealtimeMeshStreamKey& PolyGroupsKey, const FRealtimeMeshStreamKey& PolyGroupSegmentsKey)
+{
+	if (const auto Triangles = Streams.Find(TrianglesKey))
+	{
+		if (const auto PolyGroupSegments = Streams.Find(PolyGroupSegmentsKey))
+		{
+			TMap<int32, FRealtimeMeshStreamRange> Ranges;
+			RealtimeMeshAlgo::GatherStreamRangesFromPolyGroupRanges(*PolyGroupSegments, *Triangles, Ranges);
+			return MoveTemp(Ranges);
+		}
+			
+		if (const auto PolyGroupIndices = Streams.Find(PolyGroupsKey))
+		{
+			TMap<int32, FRealtimeMeshStreamRange> Ranges;
+			RealtimeMeshAlgo::GatherStreamRangesFromPolyGroupIndices(*PolyGroupIndices, *Triangles, Ranges);	
+			return MoveTemp(Ranges);
+		}			
+	}
+
+	return TOptional<TMap<int32, FRealtimeMeshStreamRange>>();		
+}
+
+TOptional<TMap<int32, FRealtimeMeshStreamRange>> RealtimeMeshAlgo::GetStreamRangesFromPolyGroupsDepthOnly(const FRealtimeMeshStreamSet& Streams)
+{
+	return GetStreamRangesFromPolyGroups(Streams, FRealtimeMeshStreams::DepthOnlyTriangles, FRealtimeMeshStreams::DepthOnlyPolyGroups, FRealtimeMeshStreams::DepthOnlyPolyGroupSegments);
+}

@@ -2,12 +2,16 @@
 
 #pragma once
 
+#include "RealtimeMeshComponentProxy.h"
 #include "RealtimeMeshCore.h"
 #include "RealtimeMeshProxyShared.h"
 #include "RealtimeMeshConfig.h"
 #include "HAL/ThreadSafeBool.h"
 #include "Containers/Queue.h"
+#include "Mesh/RealtimeMeshCardRepresentation.h"
+#include "Mesh/RealtimeMeshDistanceField.h"
 
+struct FRealtimeMeshDistanceField;
 enum class ERealtimeMeshSectionDrawType : uint8;
 
 namespace RealtimeMesh
@@ -22,6 +26,9 @@ namespace RealtimeMesh
 		TArray<TRange<float>> ScreenSizeRangeByLOD;
 		uint32 bIsStateDirty : 1;
 
+		TUniquePtr<FDistanceFieldVolumeData> DistanceField;
+		TUniquePtr<FCardRepresentationData> CardRepresentation;
+
 	public:
 		FRealtimeMeshProxy(const FRealtimeMeshSharedResourcesRef& InSharedResources);
 		virtual ~FRealtimeMeshProxy();
@@ -33,6 +40,15 @@ namespace RealtimeMesh
 		TRange<int8> GetValidLODRange() const { return ValidLODRange; }
 		TRange<float> GetScreenSizeRangeForLOD(const FRealtimeMeshLODKey& LODKey) const;
 
+		virtual void SetDistanceField(FRealtimeMeshDistanceField&& InDistanceField);
+		bool HasDistanceFieldData() const;
+		const FDistanceFieldVolumeData* GetDistanceFieldData() const { return DistanceField.Get(); }
+		
+		virtual void SetCardRepresentation(FRealtimeMeshCardRepresentation&& InDCardRepresentation);
+		bool HasCardRepresentation() const { return CardRepresentation.IsValid(); }
+		const FCardRepresentationData* GetCardRepresentation() const { return CardRepresentation.IsValid()? CardRepresentation.Get() : nullptr; }
+		void ClearCardRepresentation() { CardRepresentation.Reset(); }
+
 		int8 GetNumLODs() const { return LODs.Num(); }
 		FRealtimeMeshLODProxyPtr GetLOD(FRealtimeMeshLODKey LODKey) const;
 
@@ -40,7 +56,7 @@ namespace RealtimeMesh
 		virtual void RemoveLOD(const FRealtimeMeshLODKey& LODKey);
 
 		virtual void CreateMeshBatches(int32 LODIndex, const FRealtimeMeshBatchCreationParams& Params, const TMap<int32, TTuple<FMaterialRenderProxy*, bool>>& Materials,
-		                               const FMaterialRenderProxy* WireframeMaterial, ERealtimeMeshSectionDrawType DrawType, bool bForceAllDynamic) const;
+		                               const FMaterialRenderProxy* WireframeMaterial, ERealtimeMeshSectionDrawType DrawType, ERealtimeMeshBatchCreationFlags InclusionFlags) const;
 
 		virtual bool UpdatedCachedState(bool bShouldForceUpdate);
 		virtual void Reset();

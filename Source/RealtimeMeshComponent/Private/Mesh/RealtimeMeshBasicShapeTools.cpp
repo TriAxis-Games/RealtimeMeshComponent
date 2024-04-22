@@ -4,6 +4,7 @@
 #include "Mesh/RealtimeMeshBasicShapeTools.h"
 #include "RealtimeMeshSimple.h"
 #include "Mesh/RealtimeMeshSimpleData.h"
+#include "RealtimeMeshComponentModule.h"
 
 static void ConvertQuadToTriangles(TArray<int32>& Triangles, TArray<int32>& MaterialIndices, int32 Vert0, int32 Vert1, int32 Vert2, int32 Vert3, int32 NewMaterialGroup)
 {
@@ -317,7 +318,7 @@ void URealtimeMeshBasicShapeTools::AppendBoxMesh(FRealtimeMeshStreamSet& StreamS
 	WriteQuad(20, 21, 22, 23);	
 }
 
-void URealtimeMeshBasicShapeTools::AppendMesh(FRealtimeMeshStreamSet& TargetMeshData, const FRealtimeMeshStreamSet& MeshDataToAdd, const FTransform3f& Transform)
+void URealtimeMeshBasicShapeTools::AppendMesh(FRealtimeMeshStreamSet& TargetMeshData, const FRealtimeMeshStreamSet& MeshDataToAdd, const FTransform3f& Transform, bool bSkipMissingStreams)
 {
 	const FRealtimeMeshStream* SourcePositionStream = MeshDataToAdd.Find(FRealtimeMeshStreams::Position);
 	const FRealtimeMeshStream* SourceTriangleStream = MeshDataToAdd.Find(FRealtimeMeshStreams::Triangles);
@@ -347,9 +348,9 @@ void URealtimeMeshBasicShapeTools::AppendMesh(FRealtimeMeshStreamSet& TargetMesh
 	}
 
 	
-	auto AppendStream = [&TargetMeshData, &MeshDataToAdd](int32 StartIndex, int32 NumToAdd, const FRealtimeMeshStreamKey& StreamKey, const FRealtimeMeshBufferLayout& DefaultLayout)
+	auto AppendStream = [&TargetMeshData, &MeshDataToAdd, bSkipMissingStreams](int32 StartIndex, int32 NumToAdd, const FRealtimeMeshStreamKey& StreamKey, const FRealtimeMeshBufferLayout& DefaultLayout)
 	{
-		if (MeshDataToAdd.Contains(StreamKey) || TargetMeshData.Contains(StreamKey))
+		if (MeshDataToAdd.Contains(StreamKey) && (!bSkipMissingStreams || TargetMeshData.Contains(StreamKey)))
 		{
 			const FRealtimeMeshStream* SourceStream = MeshDataToAdd.Find(StreamKey);
 			const FRealtimeMeshBufferLayout Layout = SourceStream? SourceStream->GetLayout() : DefaultLayout;

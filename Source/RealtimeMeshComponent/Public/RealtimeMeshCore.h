@@ -13,6 +13,8 @@
 #define RMC_ENGINE_ABOVE_5_2 (ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 2))
 #define RMC_ENGINE_BELOW_5_3 (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION < 3)
 #define RMC_ENGINE_ABOVE_5_3 (ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 3))
+#define RMC_ENGINE_BELOW_5_4 (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION < 4)
+#define RMC_ENGINE_ABOVE_5_4 (ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 4))
 
 // This version of the RMC is only supported by engine version 5.0.0 and above
 static_assert(RMC_ENGINE_ABOVE_5_0);
@@ -55,6 +57,7 @@ namespace RealtimeMesh
 			SimpleMeshStoresCollisionConfig = 6,
 			ImprovingDataTypes = 7,
 			SimpleMeshStoresCustomComplexCollision = 8,
+			DistanceFieldAndCardRepresentationSupport = 9,
 
 			// -----<new versions can be added above this line>-------------------------------------------------
 			VersionPlusOne,
@@ -150,4 +153,19 @@ enum class ERealtimeMeshProxyUpdateStatus : uint8
 	NoProxy,
 	NoUpdate,
 	Updated,
+};
+
+enum class ERealtimeMeshBatchCreationFlags : uint8
+{
+	None = 0,
+	ForceAllDynamic = 0x1,
+	SkipStaticRayTracedSections = 0x2,
+};
+ENUM_CLASS_FLAGS(ERealtimeMeshBatchCreationFlags);
+
+UENUM(BlueprintType)
+enum class ERealtimeMeshOutcomePins : uint8
+{
+	Failure,
+	Success
 };

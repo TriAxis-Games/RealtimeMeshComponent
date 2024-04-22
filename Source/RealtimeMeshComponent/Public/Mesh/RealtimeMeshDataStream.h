@@ -2,7 +2,6 @@
 
 #pragma once
 
-#include "RealtimeMeshComponentModule.h"
 #include "RealtimeMeshConfig.h"
 #include "RealtimeMeshDataTypes.h"
 #include "RealtimeMeshDataConversion.h"
@@ -11,6 +10,10 @@
 #if RMC_ENGINE_BELOW_5_1
 // Included for TMakeUnsigned in 5.0
 #include "Containers/RingBuffer.h"
+#endif
+
+#if RMC_ENGINE_ABOVE_5_4
+#include "Templates/MakeUnsigned.h"
 #endif
 
 // included primarily for NatVis helpers
@@ -1030,8 +1033,6 @@ namespace RealtimeMesh
 			
 			if (Ar.IsLoading())
 			{
-				//Stream.LayoutDefinition = FRealtimeMeshBufferLayoutDefinition(FRealtimeMeshBufferLayoutUtilities::GetBufferLayoutDefinition(BufferLayout));
-
 				if (Ar.CustomVer(FRealtimeMeshVersion::GUID) < FRealtimeMeshVersion::StreamsNowHoldEntireKey)
 				{
 					ERealtimeMeshStreamType StreamType =
@@ -1297,23 +1298,33 @@ namespace RealtimeMesh
 		// We do allow move operation
 		FRealtimeMeshStreamSet& operator=(FRealtimeMeshStreamSet&&) = default;
 
-		void CopyFrom(const FRealtimeMeshStreamSet& Other)
+		void CopyFrom(const FRealtimeMeshStreamSet& Other, bool bIncludeLinkages = true, const TSet<FRealtimeMeshStreamKey>& DesiredStreams = TSet<FRealtimeMeshStreamKey>())
 		{
 			Streams.Empty(Other.Streams.Num());
 			for (auto SetIt = Other.Streams.CreateConstIterator(); SetIt; ++SetIt)
 			{
-				Streams.Emplace(SetIt.Value()->GetStreamKey(), MakeUnique<FRealtimeMeshStream>(*SetIt->Value));
+				if (DesiredStreams.IsEmpty() || DesiredStreams.Contains(SetIt.Value()->GetStreamKey()))
+				{
+					Streams.Emplace(SetIt.Value()->GetStreamKey(), MakeUnique<FRealtimeMeshStream>(*SetIt->Value));
+				}
 			}
 
-			StreamLinkages.Empty(Other.StreamLinkages.Num());
-			for (auto SetIt = Other.StreamLinkages.CreateConstIterator(); SetIt; ++SetIt)
+			if (bIncludeLinkages)
 			{
-				auto& NewLinkage = StreamLinkages.Emplace(SetIt.Key(), MakeUnique<FRealtimeMeshStreamLinkage>());
-
-				SetIt.Value()->ForEachStream([&](const FRealtimeMeshStream& SourceStream, const FRealtimeMeshStreamDefaultRowValue& DefaultValue)
+				StreamLinkages.Empty(Other.StreamLinkages.Num());
+				for (auto SetIt = Other.StreamLinkages.CreateConstIterator(); SetIt; ++SetIt)
 				{
-					NewLinkage->BindStream(*Streams.FindChecked(SourceStream.GetStreamKey()), DefaultValue);
-				});
+					auto& NewLinkage = StreamLinkages.Emplace(SetIt.Key(), MakeUnique<FRealtimeMeshStreamLinkage>());
+
+					SetIt.Value()->ForEachStream([&](const FRealtimeMeshStream& SourceStream, const FRealtimeMeshStreamDefaultRowValue& DefaultValue)
+					{
+						NewLinkage->BindStream(*Streams.FindChecked(SourceStream.GetStreamKey()), DefaultValue);
+					});
+				}
+			}
+			else
+			{
+				StreamLinkages.Empty();
 			}
 		}
 
@@ -1528,7 +1539,37 @@ namespace RealtimeMesh
 			}
 		}
 
+		friend FArchive& operator<<(FArchive& Ar, FRealtimeMeshStreamSet& StreamSet)
+		{
+			int32 NumStreams = StreamSet.Num();
+			Ar << NumStreams;
 
+			if (Ar.IsLoading())
+			{
+				StreamSet.Streams.Empty();
+				for (int32 Index = 0; Index < NumStreams; Index++)
+				{
+					FRealtimeMeshStreamKey StreamKey;
+					Ar << StreamKey;
+					FRealtimeMeshStream Stream;
+					Ar << Stream;
+					Stream.SetStreamKey(StreamKey);
+					
+					StreamSet.AddStream(MoveTemp(Stream));
+				}
+			}
+			else
+			{
+				StreamSet.ForEach([&Ar](FRealtimeMeshStream& Stream)
+				{					
+					FRealtimeMeshStreamKey StreamKey = Stream.GetStreamKey();
+					Ar << StreamKey;
+					Ar << Stream;
+				});
+			}
+
+			return Ar;
+		}
 
 	};
 
@@ -1542,4 +1583,3 @@ namespace RealtimeMesh
 		REALTIMEMESHCOMPONENT_API std::string GetRowAsString(const FRealtimeMeshStream& Stream, int32 Row, int32 Element) noexcept;
 	}
 }
-

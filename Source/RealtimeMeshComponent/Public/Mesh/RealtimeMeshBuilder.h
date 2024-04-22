@@ -8,8 +8,11 @@
 #include "Templates/Invoke.h"
 #include "Traits/IsVoidType.h"
 
-struct FRealtimeMeshSimpleMeshData;
+#if RMC_ENGINE_ABOVE_5_4
+#include "Templates/ChooseClass.h"
+#endif
 
+struct FRealtimeMeshSimpleMeshData;
 
 // ReSharper disable CppMemberFunctionMayBeConst
 namespace RealtimeMesh
@@ -177,11 +180,11 @@ namespace RealtimeMesh
 		{
 			if constexpr (bAllowSubstreamAccess)
 			{
-				return *reinterpret_cast<StreamType*>(Context.Stream.GetDataRawAtVertex(Index) + Context.ElementOffset);
+				return *reinterpret_cast<const StreamType*>(Context.Stream.GetDataRawAtVertex(Index) + Context.ElementOffset);
 			}
 			else
 			{
-				return *reinterpret_cast<StreamType*>(Context.Stream.GetDataRawAtVertex(Index));		
+				return *reinterpret_cast<const StreamType*>(Context.Stream.GetDataRawAtVertex(Index));		
 			}
 		}
 		static void SetBufferValue(const TContext& Context, int32 Index, const StreamType& InValue)

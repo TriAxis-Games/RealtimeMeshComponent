@@ -73,8 +73,9 @@ namespace RealtimeMesh
 
 		MeshBatch.CastShadow = DrawMask.ShouldRenderShadow();
 #if RHI_RAYTRACING
-		MeshBatch.CastRayTracedShadow = Params.bCastRayTracedShadow;
+		MeshBatch.CastRayTracedShadow = MeshBatch.CastShadow && Params.bCastRayTracedShadow;
 #endif
+		
 
 		FMeshBatchElement& BatchElement = MeshBatch.Elements[0];
 		//BatchElement.UserIndex = Key;
@@ -116,7 +117,7 @@ namespace RealtimeMesh
 		if (bHasValidMeshData)
 		{
 			// Flip it here so if we don't get this series for whatever reason we're invalid after.
-			bHasValidMeshData = ParentGroup.GetVertexFactory()->IsValidStreamRange(StreamRange);
+			bHasValidMeshData = ParentGroup.GetVertexFactory().IsValid() && ParentGroup.GetVertexFactory()->IsValidStreamRange(StreamRange);
 		}
 
 		FRealtimeMeshDrawMask NewDrawMask;

@@ -35,9 +35,9 @@ namespace RealtimeMesh
 
 		FRealtimeMeshSectionProxyPtr GetSection(const FRealtimeMeshSectionKey& SectionKey) const;
 		TSharedPtr<FRealtimeMeshGPUBuffer> GetStream(const FRealtimeMeshStreamKey& StreamKey) const;
-
-		virtual bool ShouldCreateRayTracingData() const { return Key.LOD().Index() == 0; }
-
+		
+		FRayTracingGeometry* GetRayTracingGeometry();
+		
 		virtual void CreateSectionIfNotExists(const FRealtimeMeshSectionKey& SectionKey);
 		virtual void RemoveSection(const FRealtimeMeshSectionKey& SectionKey);
 

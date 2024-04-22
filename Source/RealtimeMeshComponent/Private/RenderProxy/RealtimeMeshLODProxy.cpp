@@ -65,9 +65,9 @@ namespace RealtimeMesh
 	}
 
 	void FRealtimeMeshLODProxy::CreateMeshBatches(const FRealtimeMeshBatchCreationParams& Params, const TMap<int32, TTuple<FMaterialRenderProxy*, bool>>& Materials,
-	                                              const FMaterialRenderProxy* WireframeMaterial, ERealtimeMeshSectionDrawType DrawType, bool bForceAllDynamic) const
+	                                              const FMaterialRenderProxy* WireframeMaterial, ERealtimeMeshSectionDrawType DrawType, ERealtimeMeshBatchCreationFlags InclusionFlags) const
 	{
-		const ERealtimeMeshDrawMask DrawTypeMask = bForceAllDynamic
+		const ERealtimeMeshDrawMask DrawTypeMask = EnumHasAllFlags(InclusionFlags, ERealtimeMeshBatchCreationFlags::ForceAllDynamic)
 			                                           ? ERealtimeMeshDrawMask::DrawPassMask
 			                                           : DrawType == ERealtimeMeshSectionDrawType::Dynamic
 			                                           ? ERealtimeMeshDrawMask::DrawDynamic
@@ -77,14 +77,24 @@ namespace RealtimeMesh
 		{
 			for (const auto& SectionGroup : SectionGroups)
 			{
-				if (SectionGroup->GetDrawMask().IsAnySet(DrawTypeMask))
+				if (!EnumHasAllFlags(InclusionFlags, ERealtimeMeshBatchCreationFlags::SkipStaticRayTracedSections) || SectionGroup != StaticRaytracingSectionGroup)
 				{
-					SectionGroup->CreateMeshBatches(Params, Materials, WireframeMaterial, DrawType, bForceAllDynamic);
+					if (SectionGroup->GetDrawMask().IsAnySet(DrawTypeMask))
+					{
+						SectionGroup->CreateMeshBatches(Params, Materials, WireframeMaterial, DrawType, EnumHasAllFlags(InclusionFlags, ERealtimeMeshBatchCreationFlags::ForceAllDynamic));
+					}
 				}
 			}
 		}
 	}
 
+#if RHI_RAYTRACING
+	FRayTracingGeometry* FRealtimeMeshLODProxy::GetStaticRayTracingGeometry() const
+	{
+		return StaticRaytracingSectionGroup.IsValid()? StaticRaytracingSectionGroup->GetRayTracingGeometry() : nullptr;
+	}
+#endif
+	
 	bool FRealtimeMeshLODProxy::UpdateCachedState(bool bShouldForceUpdate)
 	{
 		// Handle all SectionGroup updates
@@ -107,9 +117,37 @@ namespace RealtimeMesh
 			}
 		}
 
+		FRealtimeMeshSectionGroupProxyPtr NewStaticRaytracingGroup;
+
+		if (NewDrawMask.ShouldRenderStaticPath())
+		{
+			// If the group is overriden use it.
+			if (OverrideStaticRayTracingGroup.IsSet())
+			{
+				NewStaticRaytracingGroup = GetSectionGroup(OverrideStaticRayTracingGroup.GetValue());
+			}
+
+			if (!NewStaticRaytracingGroup.IsValid())
+			{
+				int32 CurrentLargestSectionGroup = 0;
+				for (const auto& SectionGroup : SectionGroups)
+				{
+					if (SectionGroup->GetDrawMask().ShouldRenderStaticPath())
+					{
+						if (SectionGroup->GetVertexFactory()->GetValidRange().NumPrimitives(REALTIME_MESH_NUM_INDICES_PER_PRIMITIVE) > CurrentLargestSectionGroup)
+						{
+							CurrentLargestSectionGroup = SectionGroup->GetVertexFactory()->GetValidRange().NumPrimitives(REALTIME_MESH_NUM_INDICES_PER_PRIMITIVE);
+							NewStaticRaytracingGroup = SectionGroup;				
+						}
+					}
+				}				
+			}			
+		}
+
 		const bool bStateChanged = DrawMask != NewDrawMask;
 		DrawMask = NewDrawMask;
 		bIsStateDirty = false;
+		StaticRaytracingSectionGroup = NewStaticRaytracingGroup;
 		return bStateChanged;
 	}
 

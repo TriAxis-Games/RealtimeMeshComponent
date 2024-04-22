@@ -276,7 +276,7 @@ void URealtimeMesh::Serialize(FArchive& Ar)
 		Ar.UsingCustomVersion(RealtimeMesh::FRealtimeMeshVersion::GUID);
 
 		// Serialize the mesh data
-		GetMesh()->Serialize(Ar);
+		GetMesh()->Serialize(Ar, this);
 	}
 }
 

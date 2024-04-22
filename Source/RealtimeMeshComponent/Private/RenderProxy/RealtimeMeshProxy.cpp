@@ -33,6 +33,29 @@ namespace RealtimeMesh
 		return ScreenSizeRangeByLOD.IsValidIndex(LODKey) ? ScreenSizeRangeByLOD[LODKey] : TRange<float>(0.0f, 0.0f);
 	}
 
+	void FRealtimeMeshProxy::SetDistanceField(FRealtimeMeshDistanceField&& InDistanceField)
+	{
+		check(IsInRenderingThread());
+		
+		DistanceField = MakeUnique<FDistanceFieldVolumeData>(InDistanceField.MoveToRenderingData());
+	}
+
+	bool FRealtimeMeshProxy::HasDistanceFieldData() const
+	{
+#if RMC_ENGINE_ABOVE_5_2
+			return DistanceField.IsValid() && DistanceField->IsValid();
+#else
+		return DistanceField.IsValid();
+#endif
+	}
+
+	void FRealtimeMeshProxy::SetCardRepresentation(FRealtimeMeshCardRepresentation&& InCardRepresentation)
+	{
+		check(IsInRenderingThread());
+		
+		CardRepresentation = MakeUnique<FCardRepresentationData>(InCardRepresentation.MoveToRenderingData());
+	}
+
 	FRealtimeMeshLODProxyPtr FRealtimeMeshProxy::GetLOD(FRealtimeMeshLODKey LODKey) const
 	{
 		return LODs.IsValidIndex(LODKey) ? LODs[LODKey] : FRealtimeMeshLODProxyPtr();
@@ -76,10 +99,10 @@ namespace RealtimeMesh
 	}
 
 	void FRealtimeMeshProxy::CreateMeshBatches(int32 LODIndex, const FRealtimeMeshBatchCreationParams& Params, const TMap<int32, TTuple<FMaterialRenderProxy*, bool>>& Materials,
-	                                           const FMaterialRenderProxy* WireframeMaterial, ERealtimeMeshSectionDrawType DrawType, bool bForceAllDynamic) const
+	                                           const FMaterialRenderProxy* WireframeMaterial, ERealtimeMeshSectionDrawType DrawType, ERealtimeMeshBatchCreationFlags InclusionFlags) const
 	{
 		const auto& LOD = LODs[LODIndex];
-		LOD->CreateMeshBatches(Params, Materials, WireframeMaterial, DrawType, bForceAllDynamic);
+		LOD->CreateMeshBatches(Params, Materials, WireframeMaterial, DrawType, InclusionFlags);
 	}
 
 	bool FRealtimeMeshProxy::UpdatedCachedState(bool bShouldForceUpdate)

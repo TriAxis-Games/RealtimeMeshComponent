@@ -56,6 +56,116 @@ namespace RealtimeMesh
 
 	static TGlobalResource<FRealtimeMeshSpeedTreeWindNullUniformBuffer> GSpeedTreeWindNullUniformBuffer;
 
+#if RMC_ENGINE_ABOVE_5_3
+	void FRealtimeMeshNullColorVertexBuffer::InitRHI(FRHICommandListBase& RHICmdList)
+	{		
+		// create a static vertex buffer
+		FRHIResourceCreateInfo CreateInfo(TEXT("FRealtimeMeshNullColorVertexBuffer"));
+
+		VertexBufferRHI = RHICmdList.CreateBuffer(sizeof(FColor), BUF_Static | BUF_VertexBuffer | BUF_ShaderResource, 0, ERHIAccess::VertexOrIndexBuffer | ERHIAccess::SRVMask, CreateInfo);
+		FColor* Vertices = static_cast<FColor*>(RHICmdList.LockBuffer(VertexBufferRHI, 0, sizeof(FColor), RLM_WriteOnly));
+		Vertices[0] = FColor(255, 255, 255, 255);
+		RHICmdList.UnlockBuffer(VertexBufferRHI);
+		VertexBufferSRV = RHICmdList.CreateShaderResourceView(VertexBufferRHI, sizeof(FColor), PF_R8G8B8A8);
+		
+		FVertexBuffer::InitRHI(RHICmdList);
+	}
+#else
+	void FRealtimeMeshNullColorVertexBuffer::InitRHI()
+	{
+		FRHIResourceCreateInfo CreateInfo(TEXT("FNullColorVertexBuffer"));
+		
+		VertexBufferRHI = RHICreateBuffer(sizeof(FColor), BUF_Static | BUF_VertexBuffer | BUF_ShaderResource, 0, ERHIAccess::VertexOrIndexBuffer | ERHIAccess::SRVMask, CreateInfo);
+		FColor* Vertices = static_cast<FColor*>(RHILockBuffer(VertexBufferRHI, 0, sizeof(FColor), RLM_WriteOnly));
+		Vertices[0] = FColor(255, 255, 255, 255);
+		RHIUnlockBuffer(VertexBufferRHI);
+		VertexBufferSRV = RHICreateShaderResourceView(VertexBufferRHI, sizeof(FColor), PF_R8G8B8A8);		
+	}
+#endif
+
+	void FRealtimeMeshNullColorVertexBuffer::ReleaseRHI()
+	{
+		VertexBufferSRV.SafeRelease();
+		FVertexBuffer::ReleaseRHI();
+	}
+
+#if RMC_ENGINE_ABOVE_5_3
+	void FRealtimeMeshNullTangentVertexBuffer::InitRHI(FRHICommandListBase& RHICmdList)
+	{
+		// create a static vertex buffer
+		FRHIResourceCreateInfo CreateInfo(TEXT("FRealtimeMeshNullTangentVertexBuffer"));
+
+		VertexBufferRHI = RHICmdList.CreateBuffer(sizeof(TRealtimeMeshTangents<FPackedRGBA16N>), BUF_Static | BUF_VertexBuffer | BUF_ShaderResource, 0, ERHIAccess::VertexOrIndexBuffer | ERHIAccess::SRVMask, CreateInfo);
+		TRealtimeMeshTangents<FPackedRGBA16N>* Vertices = static_cast<TRealtimeMeshTangents<FPackedRGBA16N>*>(RHICmdList.LockBuffer(VertexBufferRHI, 0, sizeof(TRealtimeMeshTangents<FPackedRGBA16N>), RLM_WriteOnly));
+		Vertices[0] = TRealtimeMeshTangents<FPackedRGBA16N>(FVector3f::ZAxisVector, FVector3f::YAxisVector, FVector3f::XAxisVector);
+		RHICmdList.UnlockBuffer(VertexBufferRHI);
+		VertexBufferSRV = RHICmdList.CreateShaderResourceView(VertexBufferRHI, sizeof(TRealtimeMeshTangents<FPackedRGBA16N>), PF_R16G16B16A16_SINT);
+		
+		FVertexBuffer::InitRHI(RHICmdList);
+	}
+#else
+	void FRealtimeMeshNullTangentVertexBuffer::InitRHI()
+	{
+		FRHIResourceCreateInfo CreateInfo(TEXT("FNullColorVertexBuffer"));
+
+		VertexBufferRHI = RHICreateBuffer(sizeof(TRealtimeMeshTangents<FPackedRGBA16N>), BUF_Static | BUF_VertexBuffer | BUF_ShaderResource, 0, ERHIAccess::VertexOrIndexBuffer | ERHIAccess::SRVMask, CreateInfo);
+		TRealtimeMeshTangents<FPackedRGBA16N>* Vertices = static_cast<TRealtimeMeshTangents<FPackedRGBA16N>*>(RHILockBuffer(VertexBufferRHI, 0, sizeof(TRealtimeMeshTangents<FPackedRGBA16N>), RLM_WriteOnly));
+		Vertices[0] = TRealtimeMeshTangents<FPackedRGBA16N>(FVector3f::ZAxisVector, FVector3f::YAxisVector, FVector3f::XAxisVector);
+		RHIUnlockBuffer(VertexBufferRHI);
+		VertexBufferSRV = RHICreateShaderResourceView(VertexBufferRHI, sizeof(TRealtimeMeshTangents<FPackedRGBA16N>), PF_R16G16B16A16_SINT);	
+	}
+#endif
+
+	void FRealtimeMeshNullTangentVertexBuffer::ReleaseRHI()
+	{
+		VertexBufferSRV.SafeRelease();
+		FVertexBuffer::ReleaseRHI();
+	}
+
+#if RMC_ENGINE_ABOVE_5_3
+	void FRealtimeMeshNullTexCoordVertexBuffer::InitRHI(FRHICommandListBase& RHICmdList)
+	{
+		FRHIResourceCreateInfo CreateInfo(TEXT("FRealtimeMeshNullTexCoordVertexBuffer"));
+
+		VertexBufferRHI = RHICmdList.CreateBuffer(sizeof(FVector2f), BUF_Static | BUF_VertexBuffer | BUF_ShaderResource, 0, ERHIAccess::VertexOrIndexBuffer | ERHIAccess::SRVMask, CreateInfo);
+		FVector2f* Vertices = static_cast<FVector2f*>(RHICmdList.LockBuffer(VertexBufferRHI, 0, sizeof(FVector2f), RLM_WriteOnly));
+		Vertices[0] = FVector2f::ZeroVector;
+		RHICmdList.UnlockBuffer(VertexBufferRHI);
+		VertexBufferSRV = RHICmdList.CreateShaderResourceView(VertexBufferRHI, sizeof(FVector2f), PF_G32R32F);
+		
+		FVertexBuffer::InitRHI(RHICmdList);
+	}
+#else
+	void FRealtimeMeshNullTexCoordVertexBuffer::InitRHI()
+	{
+		FRHIResourceCreateInfo CreateInfo(TEXT("FNullColorVertexBuffer"));
+
+		VertexBufferRHI = RHICreateBuffer(sizeof(FVector2f), BUF_Static | BUF_VertexBuffer | BUF_ShaderResource, 0, ERHIAccess::VertexOrIndexBuffer | ERHIAccess::SRVMask, CreateInfo);
+		FVector2f* Vertices = static_cast<FVector2f*>(RHILockBuffer(VertexBufferRHI, 0, sizeof(FVector2f), RLM_WriteOnly));
+		Vertices[0] = FVector2f::ZeroVector;
+		RHIUnlockBuffer(VertexBufferRHI);
+		VertexBufferSRV = RHICreateShaderResourceView(VertexBufferRHI, sizeof(FVector2f), PF_G32R32F);	
+	}
+#endif
+
+	void FRealtimeMeshNullTexCoordVertexBuffer::ReleaseRHI()
+	{
+		VertexBufferSRV.SafeRelease();
+		FVertexBuffer::ReleaseRHI();
+	}
+
+#if RMC_ENGINE_ABOVE_5_3
+	TGlobalResource<FNullColorVertexBuffer, FRenderResource::EInitPhase::Pre> GRealtimeMeshNullColorVertexBuffer;
+	TGlobalResource<FNullColorVertexBuffer, FRenderResource::EInitPhase::Pre> GRealtimeMeshNullTangentVertexBuffer;
+	TGlobalResource<FNullColorVertexBuffer, FRenderResource::EInitPhase::Pre> GRealtimeMeshNullTexCoordVertexBuffer;
+#else
+	TGlobalResource<FNullColorVertexBuffer> GRealtimeMeshNullColorVertexBuffer;
+	TGlobalResource<FNullColorVertexBuffer> GRealtimeMeshNullTangentVertexBuffer;
+	TGlobalResource<FNullColorVertexBuffer> GRealtimeMeshNullTexCoordVertexBuffer;
+#endif
+
+	
+
 	TUniformBufferRef<FLocalVertexFactoryUniformShaderParameters> CreateRealtimeMeshVFUniformBuffer(
 		const FRealtimeMeshLocalVertexFactory* RealtimeMeshVertexFactory, uint32 LODLightmapDataIndex)
 	{
@@ -173,23 +283,53 @@ namespace RealtimeMesh
 		BindVertexBufferSRV(bIsValid, DataType.PositionComponentSRV, Buffers, FRealtimeMeshStreams::PositionStreamName);
 
 		// Bind Tangents
-		BindVertexBuffer(bIsValid, ValidVertexRange, InUseVertexBuffers, DataType.TangentBasisComponents[0], Buffers,
-		                 FRealtimeMeshStreams::TangentsStreamName, EVertexStreamUsage::ManualFetch, false, 0);
-		BindVertexBuffer(bIsValid, ValidVertexRange, InUseVertexBuffers, DataType.TangentBasisComponents[1], Buffers,
-		                 FRealtimeMeshStreams::TangentsStreamName, EVertexStreamUsage::ManualFetch, false, 1);
-		BindVertexBufferSRV(bIsValid, DataType.TangentsSRV, Buffers, FRealtimeMeshStreams::TangentsStreamName);
 
-		// Bind Color
-		BindVertexBuffer(bIsValid, ValidVertexRange, InUseVertexBuffers, DataType.ColorComponent, Buffers,
-		                 FRealtimeMeshStreams::ColorStreamName, EVertexStreamUsage::ManualFetch, true, 0, true);
-		BindVertexBufferSRV(bIsValid, DataType.ColorComponentsSRV, Buffers, FRealtimeMeshStreams::ColorStreamName);
+		const TSharedPtr<FRealtimeMeshGPUBuffer> TangentBuffer = Buffers.FindRef(FRealtimeMeshStreams::Tangents);
+		if (TangentBuffer && TangentBuffer->Num() > 0)
+		{
+			BindVertexBuffer(bIsValid, ValidVertexRange, InUseVertexBuffers, DataType.TangentBasisComponents[0], Buffers,
+							 FRealtimeMeshStreams::TangentsStreamName, EVertexStreamUsage::ManualFetch, false, 0);
+			BindVertexBuffer(bIsValid, ValidVertexRange, InUseVertexBuffers, DataType.TangentBasisComponents[1], Buffers,
+							 FRealtimeMeshStreams::TangentsStreamName, EVertexStreamUsage::ManualFetch, false, 1);
+			BindVertexBufferSRV(bIsValid, DataType.TangentsSRV, Buffers, FRealtimeMeshStreams::TangentsStreamName);
+		}
+		else
+		{			
+			DataType.TangentBasisComponents[0] = FVertexStreamComponent(&GRealtimeMeshNullTangentVertexBuffer, 0, 0, VET_Short4, EVertexStreamUsage::ManualFetch);
+			DataType.TangentBasisComponents[1] = FVertexStreamComponent(&GRealtimeMeshNullTangentVertexBuffer, sizeof(FPackedRGBA16N), 0, VET_Short4, EVertexStreamUsage::ManualFetch);
+			DataType.TangentsSRV = GRealtimeMeshNullTangentVertexBuffer.VertexBufferSRV;
+		}
+
+		// Bind Color		
+		const TSharedPtr<FRealtimeMeshGPUBuffer> ColorBuffer = Buffers.FindRef(FRealtimeMeshStreams::Color);
+		if (ColorBuffer && ColorBuffer->Num() > 0)
+		{
+			BindVertexBuffer(bIsValid, ValidVertexRange, InUseVertexBuffers, DataType.ColorComponent, Buffers,
+							 FRealtimeMeshStreams::ColorStreamName, EVertexStreamUsage::ManualFetch, true, 0, true);
+			BindVertexBufferSRV(bIsValid, DataType.ColorComponentsSRV, Buffers, FRealtimeMeshStreams::ColorStreamName);
+		}
+		else
+		{
+			DataType.ColorComponent = FVertexStreamComponent(&GRealtimeMeshNullColorVertexBuffer, 0, 0, VET_Color, EVertexStreamUsage::ManualFetch);
+			DataType.ColorComponentsSRV = GRealtimeMeshNullColorVertexBuffer.VertexBufferSRV;			
+		}
 
 		// Bind TexCoords
 		DataType.NumTexCoords = 0;
-		DataType.TextureCoordinates.Empty();
-		BindTexCoordsBuffer(bIsValid, ValidVertexRange, InUseVertexBuffers, DataType.TextureCoordinates, DataType.NumTexCoords, Buffers,
-		                 FRealtimeMeshStreams::TexCoordsStreamName, EVertexStreamUsage::ManualFetch);
-		BindVertexBufferSRV(bIsValid, DataType.TextureCoordinatesSRV, Buffers, FRealtimeMeshStreams::TexCoordsStreamName);
+		DataType.TextureCoordinates.Empty();		
+		const TSharedPtr<FRealtimeMeshGPUBuffer> TexCoordBuffer = Buffers.FindRef(FRealtimeMeshStreams::TexCoords);
+		if (TexCoordBuffer && TexCoordBuffer->Num() > 0)
+		{
+			BindTexCoordsBuffer(bIsValid, ValidVertexRange, InUseVertexBuffers, DataType.TextureCoordinates, DataType.NumTexCoords, Buffers,
+							 FRealtimeMeshStreams::TexCoordsStreamName, EVertexStreamUsage::ManualFetch);
+			BindVertexBufferSRV(bIsValid, DataType.TextureCoordinatesSRV, Buffers, FRealtimeMeshStreams::TexCoordsStreamName);
+		}
+		else
+		{
+			DataType.NumTexCoords = 1;
+			DataType.TextureCoordinates.Add(FVertexStreamComponent(&GRealtimeMeshNullTexCoordVertexBuffer, 0, 0, VET_Float2, EVertexStreamUsage::ManualFetch));
+			DataType.TextureCoordinatesSRV = GRealtimeMeshNullTexCoordVertexBuffer.VertexBufferSRV;	
+		}
 
 		// Bind all index buffers
 		BindIndexBuffer(bIsValid, ValidIndexRange, IndexBuffer, Buffers, FRealtimeMeshStreams::TrianglesStreamName);
@@ -198,13 +338,13 @@ namespace RealtimeMesh
 		//BindIndexBuffer(bIsValid, ValidIndexRange, ReversedDepthOnlyIndexBuffer, Buffers, FRealtimeMeshStreamNames::ReversedDepthOnlyTrianglesStreamName, true);
 
 		// Update our valid range to the sum of the valid ranges
-		ValidRange = FRealtimeMeshStreamRange(ValidVertexRange, ValidIndexRange);
 
 		ReleaseResource();
 
 		if (bIsValid)
 		{
 			Data = DataType;
+			ValidRange = FRealtimeMeshStreamRange(ValidVertexRange, ValidIndexRange);
 			
 #if RMC_ENGINE_ABOVE_5_3
 			InitResource(FRHICommandListImmediate::Get());
@@ -215,6 +355,8 @@ namespace RealtimeMesh
 		else
 		{
 			Data = FDataType();
+			ValidRange = FRealtimeMeshStreamRange(0, 0, 0, 0);
+			InUseVertexBuffers.Empty();
 		}
 	}
 

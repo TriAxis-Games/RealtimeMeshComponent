@@ -522,6 +522,11 @@ public:
 	{
 		return StreamSet;
 	}
+	
+	const RealtimeMesh::FRealtimeMeshStreamSet& GetStreamSet() const
+	{
+		return StreamSet;
+	}
 
 	void IncrementChangeId() const { ChangeId++; }
 	int32 GetChangeId() const { return ChangeId; }

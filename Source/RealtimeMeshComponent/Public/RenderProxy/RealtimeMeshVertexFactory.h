@@ -17,6 +17,61 @@ struct FMeshBatchElement;
 
 namespace RealtimeMesh
 {
+	class FRealtimeMeshNullColorVertexBuffer : public FVertexBuffer
+	{
+	public:
+		FRealtimeMeshNullColorVertexBuffer() = default;
+		virtual ~FRealtimeMeshNullColorVertexBuffer() override = default;
+#if RMC_ENGINE_ABOVE_5_3
+		virtual void InitRHI(FRHICommandListBase& RHICmdList) override;
+#else
+		virtual void InitRHI() override;
+#endif
+		virtual void ReleaseRHI() override;
+
+		FShaderResourceViewRHIRef VertexBufferSRV;
+	};
+	class FRealtimeMeshNullTangentVertexBuffer : public FVertexBuffer
+	{
+	public:
+		FRealtimeMeshNullTangentVertexBuffer() = default;
+		virtual ~FRealtimeMeshNullTangentVertexBuffer() override = default;
+#if RMC_ENGINE_ABOVE_5_3
+		virtual void InitRHI(FRHICommandListBase& RHICmdList) override;
+#else
+		virtual void InitRHI() override;
+#endif
+		virtual void ReleaseRHI() override;
+
+		FShaderResourceViewRHIRef VertexBufferSRV;
+	};
+	class FRealtimeMeshNullTexCoordVertexBuffer : public FVertexBuffer
+	{
+	public:
+		FRealtimeMeshNullTexCoordVertexBuffer() = default;
+		virtual ~FRealtimeMeshNullTexCoordVertexBuffer() override = default;
+#if RMC_ENGINE_ABOVE_5_3
+		virtual void InitRHI(FRHICommandListBase& RHICmdList) override;
+#else
+		virtual void InitRHI() override;
+#endif
+		virtual void ReleaseRHI() override;
+
+		FShaderResourceViewRHIRef VertexBufferSRV;
+	};
+
+	/** The global null color vertex buffer, which is set with a stride of 0 on meshes without a color component. */
+#if RMC_ENGINE_ABOVE_5_3
+	extern REALTIMEMESHCOMPONENT_API TGlobalResource<FNullColorVertexBuffer, FRenderResource::EInitPhase::Pre> GRealtimeMeshNullColorVertexBuffer;
+	extern REALTIMEMESHCOMPONENT_API TGlobalResource<FNullColorVertexBuffer, FRenderResource::EInitPhase::Pre> GRealtimeMeshNullTangentVertexBuffer;
+	extern REALTIMEMESHCOMPONENT_API TGlobalResource<FNullColorVertexBuffer, FRenderResource::EInitPhase::Pre> GRealtimeMeshNullTexCoordVertexBuffer;
+#else
+	extern REALTIMEMESHCOMPONENT_API TGlobalResource<FNullColorVertexBuffer> GRealtimeMeshNullColorVertexBuffer;
+	extern REALTIMEMESHCOMPONENT_API TGlobalResource<FNullColorVertexBuffer> GRealtimeMeshNullTangentVertexBuffer;
+	extern REALTIMEMESHCOMPONENT_API TGlobalResource<FNullColorVertexBuffer> GRealtimeMeshNullTexCoordVertexBuffer;
+#endif
+
+	
 	extern REALTIMEMESHCOMPONENT_API TUniformBufferRef<FLocalVertexFactoryUniformShaderParameters> CreateRealtimeMeshVFUniformBuffer(
 		const class FRealtimeMeshLocalVertexFactory* VertexFactory, uint32 LODLightmapDataIndex);
 

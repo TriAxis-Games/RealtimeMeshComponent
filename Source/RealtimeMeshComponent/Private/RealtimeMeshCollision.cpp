@@ -121,11 +121,14 @@ FArchive& operator<<(FArchive& Ar, FRealtimeMeshCollisionConvex& Shape)
 	return Ar;
 }
 
+// This is added in 5.4 but only for editor use, so we add it any other time.
+#if RMC_ENGINE_BELOW_5_4 || !WITH_EDITORONLY_DATA
 static FArchive& operator<<(FArchive& Ar, FTriIndices& Indices)
 {
 	Ar << Indices.v0 << Indices.v1 << Indices.v2;
 	return Ar;
 }
+#endif
 
 FArchive& operator<<(FArchive& Ar, FRealtimeMeshTriMeshData& MeshData)
 {

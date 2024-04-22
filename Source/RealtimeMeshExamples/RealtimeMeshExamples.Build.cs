@@ -7,6 +7,9 @@ public class RealtimeMeshExamples : ModuleRules
     public RealtimeMeshExamples(ReadOnlyTargetRules Target) : base(Target)
     {
         PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
+#if UE_5_1_OR_LATER
+        IncludeOrderVersion = EngineIncludeOrderVersion.Latest;
+#endif
 
         PublicDependencyModuleNames.AddRange(
             new string[]

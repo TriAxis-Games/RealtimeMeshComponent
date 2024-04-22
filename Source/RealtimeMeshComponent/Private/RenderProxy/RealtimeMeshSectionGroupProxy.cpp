@@ -45,6 +45,11 @@ namespace RealtimeMesh
 		return Streams.FindRef(StreamKey);
 	}
 
+	FRayTracingGeometry* FRealtimeMeshSectionGroupProxy::GetRayTracingGeometry()
+	{
+		return &RayTracingGeometry;
+	}
+
 	void FRealtimeMeshSectionGroupProxy::CreateSectionIfNotExists(const FRealtimeMeshSectionKey& SectionKey)
 	{
 		check(SectionKey.IsPartOf(Key));
@@ -257,8 +262,11 @@ namespace RealtimeMesh
 	{
 #if RHI_RAYTRACING
 		RayTracingGeometry.ReleaseResource();
-		if (DrawMask.HasAnyFlags() && VertexFactory.IsValid() && ShouldCreateRayTracingData() && IsRayTracingEnabled())
+		
+		if (DrawMask.HasAnyFlags() && VertexFactory.IsValid() && IsRayTracingEnabled())
 		{
+			check(VertexFactory->IsInitialized());
+			
 			const auto PositionStream = StaticCastSharedPtr<FRealtimeMeshVertexBuffer>(Streams.FindChecked(FRealtimeMeshStreams::Position));
 			const auto IndexStream = StaticCastSharedPtr<FRealtimeMeshIndexBuffer>(Streams.FindChecked(FRealtimeMeshStreams::Triangles));
 
@@ -274,8 +282,6 @@ namespace RealtimeMesh
 			uint32 HighestSegmentPrimitive = 0;
 			for (const auto& Section : Sections)
 			{
-				check(GetVertexFactory() && GetVertexFactory().IsValid() && GetVertexFactory()->IsInitialized());
-
 				FRayTracingGeometrySegment Segment;
 				Segment.VertexBuffer = PositionStream->VertexBufferRHI;
 				Segment.VertexBufferOffset = 0; // Section->GetStreamRange().GetMinVertex() * sizeof(FVector3f);

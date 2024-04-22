@@ -10,6 +10,7 @@
 #include "Async/Async.h"
 #include "Mesh/RealtimeMeshAlgo.h"
 #include "Mesh/RealtimeMeshBlueprintMeshBuilder.h"
+#include "RenderProxy/RealtimeMeshProxy.h"
 #if RMC_ENGINE_ABOVE_5_2
 #include "Logging/MessageLog.h"
 #endif
@@ -475,32 +476,7 @@ namespace RealtimeMesh
 
 		if (ensure(bResult))
 		{
-			int32 NumStreams = Streams.Num();
-			Ar << NumStreams;
-
-			if (Ar.IsLoading())
-			{
-				Streams.Empty();
-				for (int32 Index = 0; Index < NumStreams; Index++)
-				{
-					FRealtimeMeshStreamKey StreamKey;
-					Ar << StreamKey;
-					FRealtimeMeshStream Stream;
-					Ar << Stream;
-					Stream.SetStreamKey(StreamKey);
-
-					Streams.AddStream(MoveTemp(Stream));
-				}
-			}
-			else
-			{
-				Streams.ForEach([&Ar](FRealtimeMeshStream& Stream)
-				{					
-					FRealtimeMeshStreamKey StreamKey = Stream.GetStreamKey();
-					Ar << StreamKey;
-					Ar << Stream;
-				});
-			}
+			Ar << Streams;
 		}
 
 		return bResult;
@@ -520,54 +496,36 @@ namespace RealtimeMesh
 
 	void FRealtimeMeshSectionGroupSimple::UpdatePolyGroupSections(FRealtimeMeshProxyCommandBatch& Commands, bool bUpdateDepthOnly)
 	{
-		const auto PolyGroupSegments = bUpdateDepthOnly? Streams.Find(FRealtimeMeshStreams::DepthOnlyPolyGroupSegments) : Streams.Find(FRealtimeMeshStreams::PolyGroupSegments);
-		const auto PolyGroupIndices = bUpdateDepthOnly? Streams.Find(FRealtimeMeshStreams::DepthOnlyPolyGroupSegments) : Streams.Find(FRealtimeMeshStreams::PolyGroups);
-		const auto Triangles = bUpdateDepthOnly? Streams.Find(FRealtimeMeshStreams::DepthOnlyTriangles) : Streams.Find(FRealtimeMeshStreams::Triangles);
-
-		if (Triangles)
+		auto Result = bUpdateDepthOnly
+			? RealtimeMeshAlgo::GetStreamRangesFromPolyGroupsDepthOnly(Streams)
+			: RealtimeMeshAlgo::GetStreamRangesFromPolyGroups(Streams);
+		
+		if (Result)
 		{
-			TMap<int32, FRealtimeMeshStreamRange> Ranges;
-			bool bHadPolyGroupData = false;
-
-			if (PolyGroupSegments)
+			// First update all the stream ranges
+			for (const auto Range : Result.GetValue())
 			{
-				RealtimeMeshAlgo::GatherStreamRangesFromPolyGroupRanges(*PolyGroupSegments, *Triangles, Ranges);
-				bHadPolyGroupData = true;
-			}
-			else if (PolyGroupIndices)
-			{
-				RealtimeMeshAlgo::GatherStreamRangesFromPolyGroupIndices(*PolyGroupIndices, *Triangles, Ranges);	
-				bHadPolyGroupData = true;			
-			}
-
-
-			if (bHadPolyGroupData)
-			{
-				// First update all the stream ranges
-				for (const auto Range : Ranges)
+				const FRealtimeMeshSectionKey PolyGroupKey = FRealtimeMeshSectionKey::CreateForPolyGroup(Key, Range.Key);
+			
+				if (const auto Section = GetSectionAs<FRealtimeMeshSectionSimple>(PolyGroupKey))
 				{
-					const FRealtimeMeshSectionKey PolyGroupKey = FRealtimeMeshSectionKey::CreateForPolyGroup(Key, Range.Key);
-				
-					if (const auto Section = GetSectionAs<FRealtimeMeshSectionSimple>(PolyGroupKey))
-					{
-						Section->UpdateStreamRange(Commands, Range.Value);
-					}
-					else
-					{
-						const FRealtimeMeshSectionConfig SectionConfig = ConfigHandler.IsBound()? ConfigHandler.Execute(Range.Key) : FRealtimeMeshSectionConfig(ERealtimeMeshSectionDrawType::Static, Range.Key);				
-						CreateOrUpdateSection(Commands, PolyGroupKey, SectionConfig, Range.Value);
-					}
+					Section->UpdateStreamRange(Commands, Range.Value);
 				}
-
-				for (FRealtimeMeshSectionKey SectionKey : GetSectionKeys())
+				else
 				{
-					check(Sections.Contains(SectionKey));
-					const auto& Section = *Sections.Find(SectionKey);
-					if (Section->GetKey().IsPolyGroupKey() && (Section->GetStreamRange().Vertices.IsEmpty() || Section->GetStreamRange().Indices.IsEmpty()))
-					{
-						// Drop this section as it's empty.
-						RemoveSection(Commands, SectionKey);
-					}
+					const FRealtimeMeshSectionConfig SectionConfig = ConfigHandler.IsBound()? ConfigHandler.Execute(Range.Key) : FRealtimeMeshSectionConfig(ERealtimeMeshSectionDrawType::Static, Range.Key);				
+					CreateOrUpdateSection(Commands, PolyGroupKey, SectionConfig, Range.Value);
+				}
+			}
+
+			for (FRealtimeMeshSectionKey SectionKey : GetSectionKeys())
+			{
+				check(Sections.Contains(SectionKey));
+				const auto& Section = *Sections.Find(SectionKey);
+				if (Section->GetKey().IsPolyGroupKey() && (Section->GetStreamRange().Vertices.IsEmpty() || Section->GetStreamRange().Indices.IsEmpty()))
+				{
+					// Drop this section as it's empty.
+					RemoveSection(Commands, SectionKey);
 				}
 			}
 		}
@@ -629,6 +587,7 @@ namespace RealtimeMesh
 
 	TFuture<ERealtimeMeshCollisionUpdateResult> FRealtimeMeshSimple::ClearCustomComplexMeshGeometry()
 	{
+		FRealtimeMeshScopeGuardWrite ScopeGuard(SharedResources->GetGuard());
 		if (ComplexMeshGeometry.Num() > 0)
 		{
 			ComplexMeshGeometry.Empty();
@@ -640,6 +599,7 @@ namespace RealtimeMesh
 
 	TFuture<ERealtimeMeshCollisionUpdateResult> FRealtimeMeshSimple::SetCustomComplexMeshGeometry(FRealtimeMeshStreamSet&& InComplexMeshGeometry)
 	{
+		FRealtimeMeshScopeGuardWrite ScopeGuard(SharedResources->GetGuard());
 		ComplexMeshGeometry = MoveTemp(InComplexMeshGeometry);
 		return MarkCollisionDirty();		
 	}
@@ -652,21 +612,62 @@ namespace RealtimeMesh
 
 	void FRealtimeMeshSimple::ProcessCustomComplexMeshGeometry(TFunctionRef<void(const FRealtimeMeshStreamSet&)> ProcessFunc) const
 	{
+		FRealtimeMeshScopeGuardRead ScopeGuard(SharedResources->GetGuard());
 		ProcessFunc(ComplexMeshGeometry);
 	}
 
 	TFuture<ERealtimeMeshCollisionUpdateResult> FRealtimeMeshSimple::EditCustomComplexMeshGeometry(TFunctionRef<void(FRealtimeMeshStreamSet&)> EditFunc)
 	{
+		FRealtimeMeshScopeGuardWrite ScopeGuard(SharedResources->GetGuard());
 		EditFunc(ComplexMeshGeometry);
 		return MarkCollisionDirty();
 	}
 
+	const FRealtimeMeshDistanceField& FRealtimeMeshSimple::GetDistanceField() const
+	{
+		FRealtimeMeshScopeGuardRead ScopeGuard(SharedResources->GetGuard());
+		return DistanceField;
+	}
+
+	void FRealtimeMeshSimple::SetDistanceField(FRealtimeMeshProxyCommandBatch& Commands, FRealtimeMeshDistanceField&& InDistanceField)
+	{
+		FRealtimeMeshScopeGuardWrite ScopeGuard(SharedResources->GetGuard());
+		DistanceField = FRealtimeMeshDistanceField(InDistanceField);
+		return FRealtimeMesh::SetDistanceField(Commands, MoveTemp(InDistanceField));
+	}
+
+	void FRealtimeMeshSimple::ClearDistanceField(FRealtimeMeshProxyCommandBatch& Commands)
+	{
+		FRealtimeMeshScopeGuardWrite ScopeGuard(SharedResources->GetGuard());
+		DistanceField = FRealtimeMeshDistanceField();
+		return FRealtimeMesh::ClearDistanceField(Commands);
+	}
+
+	const FRealtimeMeshCardRepresentation* FRealtimeMeshSimple::GetCardRepresentation() const
+	{
+		FRealtimeMeshScopeGuardRead ScopeGuard(SharedResources->GetGuard());
+		return CardRepresentation.Get();
+	}
+
+	void FRealtimeMeshSimple::SetCardRepresentation(FRealtimeMeshProxyCommandBatch& Commands, FRealtimeMeshCardRepresentation&& InCardRepresentation)
+	{
+		FRealtimeMeshScopeGuardWrite ScopeGuard(SharedResources->GetGuard());
+		CardRepresentation = MakeUnique<FRealtimeMeshCardRepresentation>(InCardRepresentation);
+		return FRealtimeMesh::SetCardRepresentation(Commands, MoveTemp(InCardRepresentation));
+	}
+
+	void FRealtimeMeshSimple::ClearCardRepresentation(FRealtimeMeshProxyCommandBatch& Commands)
+	{
+		FRealtimeMeshScopeGuardWrite ScopeGuard(SharedResources->GetGuard());
+		CardRepresentation.Reset();
+		FRealtimeMesh::ClearCardRepresentation(Commands);
+	}
+
 	bool FRealtimeMeshSimple::GenerateCollisionMesh(FRealtimeMeshTriMeshData& CollisionData)
 	{
+		FRealtimeMeshScopeGuardRead ScopeGuard(SharedResources->GetGuard());
 		if (ComplexMeshGeometry.Num() > 0)
 		{
-			FRealtimeMeshScopeGuardRead ScopeGuard(SharedResources->GetGuard());
-
 			const auto PositionStream = ComplexMeshGeometry.Find(FRealtimeMeshStreams::Position);
 			const auto TriangleStream = ComplexMeshGeometry.Find(FRealtimeMeshStreams::Triangles);
 			const auto TexCoordsStream = ComplexMeshGeometry.Find(FRealtimeMeshStreamKey(FRealtimeMeshStreams::TexCoords));
@@ -744,8 +745,30 @@ namespace RealtimeMesh
 		return false;
 	}
 
+	void FRealtimeMeshSimple::InitializeProxy(FRealtimeMeshProxyCommandBatch& Commands) const
+	{
+		FRealtimeMesh::InitializeProxy(Commands);
+		if (Commands)
+		{
+			Commands.AddMeshTask([DistanceField = DistanceField](FRealtimeMeshProxy& Proxy) mutable
+			{
+				Proxy.SetDistanceField(MoveTemp(DistanceField));
+			});
+
+			if (CardRepresentation)
+			{
+				FRealtimeMeshCardRepresentation CardRepresentationCopy(*CardRepresentation);
+				Commands.AddMeshTask([CardRepresentation = MoveTemp(CardRepresentationCopy)](FRealtimeMeshProxy& Proxy) mutable
+				{
+					Proxy.SetCardRepresentation(MoveTemp(CardRepresentation));
+				});
+			}
+		}
+	}
+
 	void FRealtimeMeshSimple::Reset(FRealtimeMeshProxyCommandBatch& Commands, bool bRemoveRenderProxy)
 	{
+		FRealtimeMeshScopeGuardWrite ScopeGuard(SharedResources->GetGuard());
 		CollisionConfig = FRealtimeMeshCollisionConfiguration();
 		SimpleGeometry = FRealtimeMeshSimpleGeometry();
 		
@@ -755,9 +778,9 @@ namespace RealtimeMesh
 		InitializeLODs(Commands, {FRealtimeMeshLODConfig()});
 	}
 
-	bool FRealtimeMeshSimple::Serialize(FArchive& Ar)
+	bool FRealtimeMeshSimple::Serialize(FArchive& Ar, URealtimeMesh* Owner)
 	{
-		const bool bResult = FRealtimeMesh::Serialize(Ar);
+		const bool bResult = FRealtimeMesh::Serialize(Ar, Owner);
 
 		if (Ar.CustomVer(FRealtimeMeshVersion::GUID) >= FRealtimeMeshVersion::SimpleMeshStoresCollisionConfig)
 		{
@@ -792,6 +815,27 @@ namespace RealtimeMesh
 					Ar << StreamKey;
 					Ar << Stream;
 				});
+			}
+		}
+
+		if (Ar.CustomVer(FRealtimeMeshVersion::GUID) >= FRealtimeMeshVersion::DistanceFieldAndCardRepresentationSupport)
+		{
+			DistanceField.Serialize(Ar, Owner);
+
+			bool bHasCardRepresentation = CardRepresentation.IsValid();
+			Ar << bHasCardRepresentation;
+			if (bHasCardRepresentation)
+			{
+				if (Ar.IsLoading() && !CardRepresentation.IsValid())
+				{
+					CardRepresentation = MakeUnique<FRealtimeMeshCardRepresentation>();
+				}
+				
+				CardRepresentation->Serialize(Ar, Owner);				
+			}
+			else
+			{
+				CardRepresentation.Reset();
 			}
 		}
 
@@ -1151,6 +1195,37 @@ TFuture<ERealtimeMeshProxyUpdateStatus> URealtimeMeshSimple::UpdateSectionRange(
 						  FText::FromString(SectionKey.LOD().ToString()), FText::FromName(GetFName())));
 	}
 	return MakeFulfilledPromise<ERealtimeMeshProxyUpdateStatus>(ERealtimeMeshProxyUpdateStatus::NoUpdate).GetFuture();
+}
+
+TArray<FRealtimeMeshSectionGroupKey> URealtimeMeshSimple::GetSectionGroups(const FRealtimeMeshLODKey& LODKey) const
+{
+	TArray<FRealtimeMeshSectionGroupKey> SectionGroups;
+	if (const auto LOD = GetMesh()->GetLODAs<FRealtimeMeshLODSimple>(LODKey))
+	{
+		SectionGroups = LOD->GetSectionGroupKeys().Array();
+	}
+	else
+	{
+		FMessageLog("RealtimeMesh").Error(
+			FText::Format(LOCTEXT("GetSectionGroups_InvalidLODKey", "GetSectionGroups: Invalid LODKey key {0}"),
+						  FText::FromString(LODKey.ToString())));
+	}
+	return SectionGroups;
+}
+
+TSharedPtr<FRealtimeMeshSectionGroupSimple> URealtimeMeshSimple::GetSectionGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey) const
+{
+	if (const auto LOD = GetMesh()->GetLODAs<FRealtimeMeshLODSimple>(SectionGroupKey.LOD()))
+	{
+		return LOD->GetSectionGroupAs<FRealtimeMeshSectionGroupSimple>(SectionGroupKey);
+	}
+	else
+	{
+		FMessageLog("RealtimeMesh").Error(
+			FText::Format(LOCTEXT("GetSectionGroup_InvalidLODKey", "GetSectionGroups: Invalid LODKey key {0}"),
+						  FText::FromString(SectionGroupKey.LOD().ToString())));
+		return nullptr;
+	}
 }
 
 bool URealtimeMeshSimple::ProcessMesh(const FRealtimeMeshSectionGroupKey& SectionGroupKey, const TFunctionRef<void(const FRealtimeMeshStreamSet&)>& ProcessFunc) const
@@ -1601,6 +1676,62 @@ TFuture<ERealtimeMeshProxyUpdateStatus> URealtimeMeshSimple::RemoveSectionGroup(
 			FText::Format(LOCTEXT("RemoveSectionGroup_InvalidLODKey", "RemoveSectionGroup: Invalid LOD key {0}"), FText::FromString(SectionGroupKey.LOD().ToString())));
 		return MakeFulfilledPromise<ERealtimeMeshProxyUpdateStatus>(ERealtimeMeshProxyUpdateStatus::NoUpdate).GetFuture();
 	}
+}
+
+const FRealtimeMeshDistanceField& URealtimeMeshSimple::GetDistanceField() const
+{
+	return GetMeshAs<FRealtimeMeshSimple>()->GetDistanceField();
+}
+
+TFuture<ERealtimeMeshProxyUpdateStatus> URealtimeMeshSimple::SetDistanceField(FRealtimeMeshDistanceField&& InDistanceField)
+{
+	return GetMeshAs<FRealtimeMeshSimple>()->SetDistanceField(MoveTemp(InDistanceField));
+}
+
+void URealtimeMeshSimple::SetDistanceField(const FRealtimeMeshDistanceField& InDistanceField, const FRealtimeMeshSimpleCompletionCallback& CompletionCallback)
+{
+	FRealtimeMeshDistanceField Copy(InDistanceField);
+	SetDistanceField(MoveTemp(Copy))
+		.Next([CompletionCallback](ERealtimeMeshProxyUpdateStatus Status)
+		{
+			if (CompletionCallback.IsBound())
+			{
+				CompletionCallback.Execute(Status);
+			}
+		});
+}
+
+TFuture<ERealtimeMeshProxyUpdateStatus> URealtimeMeshSimple::ClearDistanceField()
+{
+	return GetMeshAs<FRealtimeMeshSimple>()->ClearDistanceField();
+}
+
+const FRealtimeMeshCardRepresentation* URealtimeMeshSimple::GetCardRepresentation() const
+{
+	return GetMeshAs<FRealtimeMeshSimple>()->GetCardRepresentation();
+}
+
+TFuture<ERealtimeMeshProxyUpdateStatus> URealtimeMeshSimple::SetCardRepresentation(FRealtimeMeshCardRepresentation&& InCardRepresentation)
+{
+	return GetMeshAs<FRealtimeMeshSimple>()->SetCardRepresentation(MoveTemp(InCardRepresentation));
+}
+
+void URealtimeMeshSimple::SetCardRepresentation(const FRealtimeMeshCardRepresentation& InCardRepresentation, const FRealtimeMeshSimpleCompletionCallback& CompletionCallback)
+{
+	FRealtimeMeshCardRepresentation Copy(InCardRepresentation);
+	SetCardRepresentation(MoveTemp(Copy))
+		.Next([CompletionCallback](ERealtimeMeshProxyUpdateStatus Status)
+		{
+			if (CompletionCallback.IsBound())
+			{
+				CompletionCallback.Execute(Status);
+			}
+		});
+}
+
+TFuture<ERealtimeMeshProxyUpdateStatus> URealtimeMeshSimple::ClearCardRepresentation()
+{
+	return GetMeshAs<FRealtimeMeshSimple>()->ClearCardRepresentation();
 }
 
 FRealtimeMeshCollisionConfiguration URealtimeMeshSimple::GetCollisionConfig() const

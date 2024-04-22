@@ -217,6 +217,92 @@ namespace RealtimeMesh
 		SharedResources->BroadcastLODChanged(FRealtimeMeshLODKey(RemovedLODIndex), ERealtimeMeshChangeType::Removed);
 	}
 
+
+	void FRealtimeMesh::SetDistanceField(FRealtimeMeshProxyCommandBatch& Commands, FRealtimeMeshDistanceField&& InDistanceField)
+	{
+		FRealtimeMeshScopeGuardWrite ScopeGuard(SharedResources->GetGuard());
+		
+		// Create the update data for the GPU
+		if (Commands)
+		{
+			Commands.AddMeshTask([DistanceField = MoveTemp(InDistanceField)](FRealtimeMeshProxy& Proxy) mutable
+			{
+				Proxy.SetDistanceField(MoveTemp(DistanceField));
+			}, true);
+		}
+	}
+
+	TFuture<ERealtimeMeshProxyUpdateStatus> FRealtimeMesh::SetDistanceField(FRealtimeMeshDistanceField&& InDistanceField)
+	{
+		FRealtimeMeshProxyCommandBatch Commands(SharedResources->GetOwner());
+		SetDistanceField(Commands, MoveTemp(InDistanceField));
+		return Commands.Commit();
+	}
+
+	void FRealtimeMesh::ClearDistanceField(FRealtimeMeshProxyCommandBatch& Commands)
+	{
+		FRealtimeMeshScopeGuardWrite ScopeGuard(SharedResources->GetGuard());
+		
+		// Create the update data for the GPU
+		if (Commands)
+		{
+			Commands.AddMeshTask([](FRealtimeMeshProxy& Proxy) mutable
+			{
+				Proxy.SetDistanceField(FRealtimeMeshDistanceField());
+			}, true);
+		}
+	}
+
+	TFuture<ERealtimeMeshProxyUpdateStatus> FRealtimeMesh::ClearDistanceField()
+	{
+		FRealtimeMeshProxyCommandBatch Commands(SharedResources->GetOwner());
+		ClearDistanceField(Commands);
+		return Commands.Commit();
+	}
+
+	void FRealtimeMesh::SetCardRepresentation(FRealtimeMeshProxyCommandBatch& Commands, FRealtimeMeshCardRepresentation&& InCardRepresentation)
+	{
+		FRealtimeMeshScopeGuardWrite ScopeGuard(SharedResources->GetGuard());
+		
+		// Create the update data for the GPU
+		if (Commands)
+		{
+			Commands.AddMeshTask([CardRepresentation = MoveTemp(InCardRepresentation)](FRealtimeMeshProxy& Proxy) mutable
+			{
+				Proxy.SetCardRepresentation(MoveTemp(CardRepresentation));
+			}, true);
+		}
+	}
+
+	TFuture<ERealtimeMeshProxyUpdateStatus> FRealtimeMesh::SetCardRepresentation(FRealtimeMeshCardRepresentation&& InCardRepresentation)
+	{
+		FRealtimeMeshProxyCommandBatch Commands(SharedResources->GetOwner());
+		SetCardRepresentation(Commands, MoveTemp(InCardRepresentation));
+		return Commands.Commit();
+	}
+
+	void FRealtimeMesh::ClearCardRepresentation(FRealtimeMeshProxyCommandBatch& Commands)
+	{
+		FRealtimeMeshScopeGuardWrite ScopeGuard(SharedResources->GetGuard());
+		
+		// Create the update data for the GPU
+		if (Commands)
+		{
+			Commands.AddMeshTask([](FRealtimeMeshProxy& Proxy) mutable
+			{
+				Proxy.ClearCardRepresentation();
+			}, true);
+		}
+	}
+
+	TFuture<ERealtimeMeshProxyUpdateStatus> FRealtimeMesh::ClearCardRepresentation()
+	{
+		FRealtimeMeshProxyCommandBatch Commands(SharedResources->GetOwner());
+		ClearCardRepresentation(Commands);
+		return Commands.Commit();
+	}
+
+
 	bool FRealtimeMesh::HasRenderProxy() const
 	{
 		FRealtimeMeshScopeGuardRead ScopeGuard(SharedResources->GetGuard());
@@ -276,7 +362,7 @@ namespace RealtimeMesh
 		SharedResources->BroadcastMeshBoundsChanged();
 	}
 
-	bool FRealtimeMesh::Serialize(FArchive& Ar)
+	bool FRealtimeMesh::Serialize(FArchive& Ar, URealtimeMesh* Owner)
 	{
 		FRealtimeMeshScopeGuardWrite ScopeGuard(SharedResources->GetGuard());
 

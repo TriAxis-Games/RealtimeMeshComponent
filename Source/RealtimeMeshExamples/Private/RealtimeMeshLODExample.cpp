@@ -1,6 +1,8 @@
 ﻿// Copyright TriAxis Games, L.L.C. All Rights Reserved.
 
 #include "RealtimeMeshLODExample.h"
+
+#include "RealtimeMeshSimple.h"
 #include "Mesh/RealtimeMeshBasicShapeTools.h"
 
 /*

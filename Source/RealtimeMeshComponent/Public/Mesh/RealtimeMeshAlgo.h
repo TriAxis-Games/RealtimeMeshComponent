@@ -523,4 +523,19 @@ namespace RealtimeMeshAlgo
 			TangentsSetter(VertxIdx, TangentX, TangentZ);
 		}
 	}
+
+
+	
+	
+	REALTIMEMESHCOMPONENT_API TOptional<TMap<int32, FRealtimeMeshStreamRange>> GetStreamRangesFromPolyGroups(const RealtimeMesh::FRealtimeMeshStreamSet& Streams,
+		const FRealtimeMeshStreamKey& TrianglesKey = RealtimeMesh::FRealtimeMeshStreams::Triangles,
+		const FRealtimeMeshStreamKey& PolyGroupsKey = RealtimeMesh::FRealtimeMeshStreams::PolyGroups,
+		const FRealtimeMeshStreamKey& PolyGroupSegmentsKey = RealtimeMesh::FRealtimeMeshStreams::PolyGroupSegments);
+	
+	REALTIMEMESHCOMPONENT_API TOptional<TMap<int32, FRealtimeMeshStreamRange>> GetStreamRangesFromPolyGroupsDepthOnly(const RealtimeMesh::FRealtimeMeshStreamSet& Streams);
+
+
+
+
+	
 }
