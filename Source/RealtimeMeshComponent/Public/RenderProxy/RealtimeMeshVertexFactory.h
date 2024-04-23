@@ -287,6 +287,12 @@ namespace RealtimeMesh
 
 		static void ValidateCompiledResult(const FVertexFactoryType* Type, EShaderPlatform Platform, const FShaderParameterMap& ParameterMap, TArray<FString>& OutErrors);
 
+		static void GetPSOPrecacheVertexFetchElements(EVertexInputStreamType VertexInputStreamType, FVertexDeclarationElementList& Elements);
+		
+#if RMC_ENGINE_ABOVE_5_2
+		static void GetVertexElements(ERHIFeatureLevel::Type FeatureLevel, EVertexInputStreamType InputStreamType, bool bSupportsManualVertexFetch, FDataType& Data, FVertexDeclarationElementList& Elements);
+#endif
+		
 		/**
 		* Copy the data from another vertex factory
 		* @param Other - factory to copy from
@@ -311,66 +317,49 @@ namespace RealtimeMesh
 		virtual void InitRHI() override;
 #endif
 		
-		virtual void ReleaseRHI() override
-		{
-			UniformBuffer.SafeRelease();
-			FVertexFactory::ReleaseRHI();
-		}
+		virtual void ReleaseRHI() override;
 
 
-		FORCEINLINE_DEBUGGABLE void SetColorOverrideStream(FRHICommandList& RHICmdList, const FVertexBuffer* ColorVertexBuffer) const
-		{
-			checkf(ColorVertexBuffer->IsInitialized(), TEXT("Color Vertex buffer was not initialized! Name %s"), *ColorVertexBuffer->GetFriendlyName());
-			checkf(IsInitialized() && EnumHasAnyFlags(EVertexStreamUsage::Overridden, Data.ColorComponent.VertexStreamUsage) && ColorStreamIndex > 0,
-			       TEXT("Per-mesh colors with bad stream setup! Name %s"), *ColorVertexBuffer->GetFriendlyName());
-			RHICmdList.SetStreamSource(ColorStreamIndex, ColorVertexBuffer->VertexBufferRHI, 0);
-		}
+		void SetColorOverrideStream(FRHICommandList& RHICmdList, const FVertexBuffer* ColorVertexBuffer) const;
 
-		void GetColorOverrideStream(const FVertexBuffer* ColorVertexBuffer, FVertexInputStreamArray& VertexStreams) const
-		{
-			checkf(ColorVertexBuffer->IsInitialized(), TEXT("Color Vertex buffer was not initialized! Name %s"), *ColorVertexBuffer->GetFriendlyName());
-			checkf(IsInitialized() && EnumHasAnyFlags(EVertexStreamUsage::Overridden, Data.ColorComponent.VertexStreamUsage) && ColorStreamIndex > 0,
-			       TEXT("Per-mesh colors with bad stream setup! Name %s"), *ColorVertexBuffer->GetFriendlyName());
+		void GetColorOverrideStream(const FVertexBuffer* ColorVertexBuffer, FVertexInputStreamArray& VertexStreams) const;
 
-			VertexStreams.Add(FVertexInputStream(ColorStreamIndex, 0, ColorVertexBuffer->VertexBufferRHI));
-		}
-
-		inline FRHIShaderResourceView* GetPositionsSRV() const
+		FORCEINLINE FRHIShaderResourceView* GetPositionsSRV() const
 		{
 			return Data.PositionComponentSRV;
 		}
 
-		inline FRHIShaderResourceView* GetPreSkinPositionSRV() const
+		FORCEINLINE FRHIShaderResourceView* GetPreSkinPositionSRV() const
 		{
 			return Data.PreSkinPositionComponentSRV ? Data.PreSkinPositionComponentSRV : GNullColorVertexBuffer.VertexBufferSRV.GetReference();
 		}
 
-		inline FRHIShaderResourceView* GetTangentsSRV() const
+		FORCEINLINE FRHIShaderResourceView* GetTangentsSRV() const
 		{
 			return Data.TangentsSRV;
 		}
 
-		inline FRHIShaderResourceView* GetTextureCoordinatesSRV() const
+		FORCEINLINE FRHIShaderResourceView* GetTextureCoordinatesSRV() const
 		{
 			return Data.TextureCoordinatesSRV;
 		}
 
-		inline FRHIShaderResourceView* GetColorComponentsSRV() const
+		FORCEINLINE FRHIShaderResourceView* GetColorComponentsSRV() const
 		{
 			return Data.ColorComponentsSRV;
 		}
 
-		inline const uint32 GetColorIndexMask() const
+		FORCEINLINE uint32 GetColorIndexMask() const
 		{
 			return Data.ColorIndexMask;
 		}
 
-		inline const int GetLightMapCoordinateIndex() const
+		FORCEINLINE int GetLightMapCoordinateIndex() const
 		{
 			return Data.LightMapCoordinateIndex;
 		}
 
-		inline const int GetNumTexcoords() const
+		FORCEINLINE int GetNumTexcoords() const
 		{
 			return Data.NumTexCoords;
 		}
@@ -383,6 +372,21 @@ namespace RealtimeMesh
 	protected:
 		const FDataType& GetData() const { return Data; }
 
+
+#if RMC_ENGINE_ABOVE_5_2
+		static
+#endif
+		void GetVertexElements(
+			ERHIFeatureLevel::Type FeatureLevel, 
+			EVertexInputStreamType InputStreamType, 
+			bool bSupportsManualVertexFetch,
+			FDataType& Data, 
+			FVertexDeclarationElementList& Elements,
+#if RMC_ENGINE_ABOVE_5_2
+			FVertexStreamList& InOutStreams, 
+#endif
+			int32& OutColorStreamIndex);
+		
 		FDataType Data;
 		TUniformBufferRef<FLocalVertexFactoryUniformShaderParameters> UniformBuffer;
 

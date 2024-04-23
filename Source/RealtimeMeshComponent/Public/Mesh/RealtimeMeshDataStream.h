@@ -1285,9 +1285,9 @@ namespace RealtimeMesh
 
 		
 		// We don't allow implicit copying as it leads to unnecessary stream copies
-		explicit FRealtimeMeshStreamSet(const FRealtimeMeshStreamSet& Other)
+		explicit FRealtimeMeshStreamSet(const FRealtimeMeshStreamSet& Other, bool bIncludeLinkages = false, const TSet<FRealtimeMeshStreamKey>& DesiredStreams = TSet<FRealtimeMeshStreamKey>())
 		{
-			CopyFrom(Other);
+			CopyFrom(Other, bIncludeLinkages, DesiredStreams);
 		}
 		FRealtimeMeshStreamSet(FRealtimeMeshStreamSet&&) = default;
 
@@ -1298,7 +1298,7 @@ namespace RealtimeMesh
 		// We do allow move operation
 		FRealtimeMeshStreamSet& operator=(FRealtimeMeshStreamSet&&) = default;
 
-		void CopyFrom(const FRealtimeMeshStreamSet& Other, bool bIncludeLinkages = true, const TSet<FRealtimeMeshStreamKey>& DesiredStreams = TSet<FRealtimeMeshStreamKey>())
+		void CopyFrom(const FRealtimeMeshStreamSet& Other, bool bIncludeLinkages = false, const TSet<FRealtimeMeshStreamKey>& DesiredStreams = TSet<FRealtimeMeshStreamKey>())
 		{
 			Streams.Empty(Other.Streams.Num());
 			for (auto SetIt = Other.Streams.CreateConstIterator(); SetIt; ++SetIt)

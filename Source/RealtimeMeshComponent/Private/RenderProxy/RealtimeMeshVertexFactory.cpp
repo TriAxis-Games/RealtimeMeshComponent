@@ -23,6 +23,7 @@
 
 namespace RealtimeMesh
 {
+
 	IMPLEMENT_TYPE_LAYOUT(FRealtimeMeshVertexFactoryShaderParameters);
 
 	class FRealtimeMeshSpeedTreeWindNullUniformBuffer : public TUniformBuffer<FSpeedTreeUniformParameters>
@@ -506,6 +507,47 @@ namespace RealtimeMesh
 		}
 	}
 
+	void FRealtimeMeshLocalVertexFactory::GetPSOPrecacheVertexFetchElements(EVertexInputStreamType VertexInputStreamType, FVertexDeclarationElementList& Elements)
+	{		
+		Elements.Add(FVertexElement(0, 0, VET_Float3, 0, 12, false));
+
+		switch (VertexInputStreamType)
+		{
+		case EVertexInputStreamType::Default:
+			{
+				Elements.Add(FVertexElement(1, 0, VET_UInt, 13, 0, true));
+				break;
+			}
+		case EVertexInputStreamType::PositionOnly:
+			{
+				Elements.Add(FVertexElement(1, 0, VET_UInt, 1, 0, true));
+				break;
+			}
+		case EVertexInputStreamType::PositionAndNormalOnly:
+			{
+				Elements.Add(FVertexElement(1, 4, VET_PackedNormal, 2, 0, false));
+				Elements.Add(FVertexElement(2, 0, VET_UInt, 1, 0, true));
+				break;
+			}
+		default:
+			checkNoEntry();
+		}
+	}
+
+#if RMC_ENGINE_ABOVE_5_2
+	void FRealtimeMeshLocalVertexFactory::GetVertexElements(ERHIFeatureLevel::Type FeatureLevel, EVertexInputStreamType InputStreamType, bool bSupportsManualVertexFetch,
+		FDataType& Data, FVertexDeclarationElementList& Elements)
+	{
+		FVertexStreamList VertexStreams;
+		int32 ColorStreamIndex;
+		GetVertexElements(FeatureLevel, InputStreamType, bSupportsManualVertexFetch, Data, Elements, VertexStreams, ColorStreamIndex);
+
+		// For ES3.1 attribute ID needs to be done differently
+		check(FeatureLevel > ERHIFeatureLevel::ES3_1);
+		Elements.Add(FVertexElement(VertexStreams.Num(), 0, VET_UInt, 13, 0, true));
+	}
+#endif
+
 	/**
 	* Copy the data from another vertex factory
 	* @param Other - factory to copy from
@@ -551,8 +593,11 @@ namespace RealtimeMesh
 				{
 					StreamElements.Add(AccessStreamComponent(Data.TangentBasisComponents[1], 2, InputStreamType));
 				}
-
+#if RMC_ENGINE_ABOVE_5_4
+				AddPrimitiveIdStreamElement(InputStreamType, StreamElements, 1, 1);
+#else
 				AddPrimitiveIdStreamElement(InputStreamType, StreamElements, 1, 8);
+#endif
 
 				InitDeclaration(StreamElements, InputStreamType);
 			};
@@ -562,79 +607,24 @@ namespace RealtimeMesh
 		}
 
 		FVertexDeclarationElementList Elements;
-		if (Data.PositionComponent.VertexBuffer != nullptr)
-		{
-			Elements.Add(AccessStreamComponent(Data.PositionComponent, 0));
-		}
-
+		
+#if RMC_ENGINE_ABOVE_5_1
+		const bool bUseManualVertexFetch = SupportsManualVertexFetch(GetFeatureLevel());
+#else		
+		const bool bUseManualVertexFetch = false;
+#endif
+		
+#if RMC_ENGINE_ABOVE_5_2		
+		GetVertexElements(GetFeatureLevel(), EVertexInputStreamType::Default, bUseManualVertexFetch, Data, Elements, Streams, ColorStreamIndex);
+#else		
+		GetVertexElements(GetFeatureLevel(), EVertexInputStreamType::Default, bUseManualVertexFetch, Data, Elements, ColorStreamIndex);		
+#endif
+		
+#if RMC_ENGINE_ABOVE_5_4
+		AddPrimitiveIdStreamElement(EVertexInputStreamType::Default, Elements, 13, 13);
+#else
 		AddPrimitiveIdStreamElement(EVertexInputStreamType::Default, Elements, 13, 8);
-
-		// Only the tangent and normal are used by the stream; the bitangent is derived in the shader.
-		uint8 TangentBasisAttributes[2] = {1, 2};
-		for (int32 AxisIndex = 0; AxisIndex < 2; AxisIndex++)
-		{
-			if (Data.TangentBasisComponents[AxisIndex].VertexBuffer != nullptr)
-			{
-				Elements.Add(AccessStreamComponent(Data.TangentBasisComponents[AxisIndex], TangentBasisAttributes[AxisIndex]));
-			}
-		}
-
-		if (Data.ColorComponentsSRV == nullptr)
-		{
-			Data.ColorComponentsSRV = GNullColorVertexBuffer.VertexBufferSRV;
-			Data.ColorIndexMask = 0;
-		}
-
-		ColorStreamIndex = -1;
-		if (Data.ColorComponent.VertexBuffer)
-		{
-			Elements.Add(AccessStreamComponent(Data.ColorComponent, 3));
-			ColorStreamIndex = Elements.Last().StreamIndex;
-		}
-		else
-		{
-			// If the mesh has no color component, set the null color buffer on a new stream with a stride of 0.
-			// This wastes 4 bytes per vertex, but prevents having to compile out twice the number of vertex factories.
-			FVertexStreamComponent NullColorComponent(&GNullColorVertexBuffer, 0, 0, VET_Color, EVertexStreamUsage::ManualFetch);
-			Elements.Add(AccessStreamComponent(NullColorComponent, 3));
-			ColorStreamIndex = Elements.Last().StreamIndex;
-		}
-
-		if (Data.TextureCoordinates.Num())
-		{
-			const int32 BaseTexCoordAttribute = 4;
-			for (int32 CoordinateIndex = 0; CoordinateIndex < Data.TextureCoordinates.Num(); ++CoordinateIndex)
-			{
-				Elements.Add(AccessStreamComponent(
-					Data.TextureCoordinates[CoordinateIndex],
-					BaseTexCoordAttribute + CoordinateIndex
-				));
-			}
-
-			for (int32 CoordinateIndex = Data.TextureCoordinates.Num(); CoordinateIndex < MAX_STATIC_TEXCOORDS / 2; ++CoordinateIndex)
-			{
-				Elements.Add(AccessStreamComponent(
-					Data.TextureCoordinates[Data.TextureCoordinates.Num() - 1],
-					BaseTexCoordAttribute + CoordinateIndex
-				));
-			}
-		}
-
-		// Only used with FGPUSkinPassthroughVertexFactory on platforms that do not use ManualVertexFetch
-		if (Data.PreSkinPositionComponent.VertexBuffer != nullptr)
-		{
-			Elements.Add(AccessStreamComponent(Data.PreSkinPositionComponent, 14));
-		}
-
-		if (Data.LightMapCoordinateComponent.VertexBuffer)
-		{
-			Elements.Add(AccessStreamComponent(Data.LightMapCoordinateComponent, 15));
-		}
-		else if (Data.TextureCoordinates.Num())
-		{
-			Elements.Add(AccessStreamComponent(Data.TextureCoordinates[0], 15));
-		}
-
+#endif
 		check(Streams.Num() > 0);
 
 		InitDeclaration(Elements);
@@ -648,6 +638,145 @@ namespace RealtimeMesh
 
 		check(IsValidRef(GetDeclaration()));
 	}
+
+	void FRealtimeMeshLocalVertexFactory::GetVertexElements(ERHIFeatureLevel::Type VFFeatureLevel, EVertexInputStreamType InputStreamType, bool bSupportsManualVertexFetch,
+	                                                        FDataType& VFData, FVertexDeclarationElementList& Elements,
+#if RMC_ENGINE_ABOVE_5_2
+	                                                        FVertexStreamList& InOutStreams,
+#endif
+	                                                        int32& OutColorStreamIndex)
+	{
+		check(InputStreamType == EVertexInputStreamType::Default);
+
+		if (VFData.PositionComponent.VertexBuffer != nullptr)
+		{
+#if RMC_ENGINE_ABOVE_5_2
+			Elements.Add(AccessStreamComponent(VFData.PositionComponent, 0, InOutStreams));
+#else
+			Elements.Add(AccessStreamComponent(VFData.PositionComponent, 0));
+#endif
+		}
+
+#if !WITH_EDITOR
+	// Can't rely on manual vertex fetch in the editor to not add the unused elements because vertex factories created
+	// with manual vertex fetch support can somehow still be used when booting up in for example ES3.1 preview mode
+	// The vertex factories are then used during mobile rendering and will cause PSO creation failure.
+	// First need to fix invalid usage of these vertex factories before this can be enabled again. (UE-165187)
+	if (!bSupportsManualVertexFetch)
+#endif // WITH_EDITOR
+		{
+			// Only the tangent and normal are used by the stream; the bitangent is derived in the shader.
+			uint8 TangentBasisAttributes[2] = {1, 2};
+			for (int32 AxisIndex = 0; AxisIndex < 2; AxisIndex++)
+			{
+				if (VFData.TangentBasisComponents[AxisIndex].VertexBuffer != nullptr)
+				{
+#if RMC_ENGINE_ABOVE_5_2
+					Elements.Add(AccessStreamComponent(VFData.TangentBasisComponents[AxisIndex], TangentBasisAttributes[AxisIndex], InOutStreams));
+#else					
+					Elements.Add(AccessStreamComponent(VFData.TangentBasisComponents[AxisIndex], TangentBasisAttributes[AxisIndex]));
+#endif
+				}
+			}
+
+			if (VFData.ColorComponentsSRV == nullptr)
+			{
+				VFData.ColorComponentsSRV = GNullColorVertexBuffer.VertexBufferSRV;
+				VFData.ColorIndexMask = 0;
+			}		
+
+			if (VFData.ColorComponent.VertexBuffer)
+			{
+#if RMC_ENGINE_ABOVE_5_2
+				Elements.Add(AccessStreamComponent(VFData.ColorComponent, 3, InOutStreams));
+#else				
+				Elements.Add(AccessStreamComponent(VFData.ColorComponent, 3));
+#endif
+			}
+			else
+			{
+				// If the mesh has no color component, set the null color buffer on a new stream with a stride of 0.
+				// This wastes 4 bytes per vertex, but prevents having to compile out twice the number of vertex factories.
+				FVertexStreamComponent NullColorComponent(&GNullColorVertexBuffer, 0, 0, VET_Color, EVertexStreamUsage::ManualFetch);				
+#if RMC_ENGINE_ABOVE_5_2
+				Elements.Add(AccessStreamComponent(NullColorComponent, 3, InOutStreams));
+#else
+				Elements.Add(AccessStreamComponent(NullColorComponent, 3));
+#endif
+			}
+			OutColorStreamIndex = Elements.Last().StreamIndex;
+
+			if (VFData.TextureCoordinates.Num())
+			{
+				const int32 BaseTexCoordAttribute = 4;
+				for (int32 CoordinateIndex = 0; CoordinateIndex < VFData.TextureCoordinates.Num(); ++CoordinateIndex)
+				{
+#if RMC_ENGINE_ABOVE_5_2
+					Elements.Add(AccessStreamComponent(VFData.TextureCoordinates[CoordinateIndex], BaseTexCoordAttribute + CoordinateIndex, InOutStreams));
+#else
+					Elements.Add(AccessStreamComponent(VFData.TextureCoordinates[CoordinateIndex], BaseTexCoordAttribute + CoordinateIndex));
+#endif
+				}
+
+				for (int32 CoordinateIndex = VFData.TextureCoordinates.Num(); CoordinateIndex < MAX_STATIC_TEXCOORDS / 2; ++CoordinateIndex)
+				{
+#if RMC_ENGINE_ABOVE_5_2
+					Elements.Add(AccessStreamComponent(VFData.TextureCoordinates[VFData.TextureCoordinates.Num() - 1], BaseTexCoordAttribute + CoordinateIndex, InOutStreams));
+#else
+					Elements.Add(AccessStreamComponent(VFData.TextureCoordinates[VFData.TextureCoordinates.Num() - 1], BaseTexCoordAttribute + CoordinateIndex));
+#endif
+				}
+			}
+
+			// Fill PreSkinPosition slot for GPUSkinPassThrough vertex factory, or else use a dummy buffer.
+			FVertexStreamComponent NullComponent(&GNullVertexBuffer, 0, 0, VET_Float4);
+#if RMC_ENGINE_ABOVE_5_2
+		Elements.Add(AccessStreamComponent(VFData.PreSkinPositionComponent.VertexBuffer ? VFData.PreSkinPositionComponent : NullComponent, 14, InOutStreams));
+#else
+		Elements.Add(AccessStreamComponent(VFData.PreSkinPositionComponent.VertexBuffer ? VFData.PreSkinPositionComponent : NullComponent, 14));
+#endif
+
+			if (VFData.LightMapCoordinateComponent.VertexBuffer)
+			{
+#if RMC_ENGINE_ABOVE_5_2
+				Elements.Add(AccessStreamComponent(VFData.LightMapCoordinateComponent, 15, InOutStreams));
+#else
+				Elements.Add(AccessStreamComponent(VFData.LightMapCoordinateComponent, 15));
+#endif
+			}
+			else if (VFData.TextureCoordinates.Num())
+			{
+#if RMC_ENGINE_ABOVE_5_2
+				Elements.Add(AccessStreamComponent(VFData.TextureCoordinates[0], 15, InOutStreams));
+#else
+				Elements.Add(AccessStreamComponent(VFData.TextureCoordinates[0], 15));
+#endif
+			}
+		}
+	}
+
+	void FRealtimeMeshLocalVertexFactory::ReleaseRHI()
+	{
+		UniformBuffer.SafeRelease();
+		FVertexFactory::ReleaseRHI();
+	}
+
+	void FRealtimeMeshLocalVertexFactory::SetColorOverrideStream(FRHICommandList& RHICmdList, const FVertexBuffer* ColorVertexBuffer) const
+	{
+		checkf(ColorVertexBuffer->IsInitialized(), TEXT("Color Vertex buffer was not initialized! Name %s"), *ColorVertexBuffer->GetFriendlyName());
+		checkf(IsInitialized() && EnumHasAnyFlags(EVertexStreamUsage::Overridden, Data.ColorComponent.VertexStreamUsage) && ColorStreamIndex > 0,
+		       TEXT("Per-mesh colors with bad stream setup! Name %s"), *ColorVertexBuffer->GetFriendlyName());
+		RHICmdList.SetStreamSource(ColorStreamIndex, ColorVertexBuffer->VertexBufferRHI, 0);
+	}
+
+	void FRealtimeMeshLocalVertexFactory::GetColorOverrideStream(const FVertexBuffer* ColorVertexBuffer, FVertexInputStreamArray& VertexStreams) const
+	{
+		checkf(ColorVertexBuffer->IsInitialized(), TEXT("Color Vertex buffer was not initialized! Name %s"), *ColorVertexBuffer->GetFriendlyName());
+		checkf(IsInitialized() && EnumHasAnyFlags(EVertexStreamUsage::Overridden, Data.ColorComponent.VertexStreamUsage) && ColorStreamIndex > 0,
+			   TEXT("Per-mesh colors with bad stream setup! Name %s"), *ColorVertexBuffer->GetFriendlyName());
+
+		VertexStreams.Add(FVertexInputStream(ColorStreamIndex, 0, ColorVertexBuffer->VertexBufferRHI));
+	}
 }
 
 using namespace RealtimeMesh;
@@ -659,6 +788,7 @@ IMPLEMENT_VERTEX_FACTORY_PARAMETER_TYPE(FRealtimeMeshLocalVertexFactory, SF_RayH
 IMPLEMENT_VERTEX_FACTORY_PARAMETER_TYPE(FRealtimeMeshLocalVertexFactory, SF_Compute, FRealtimeMeshVertexFactoryShaderParameters);
 #endif // RHI_RAYTRACING
 
+#if RMC_ENGINE_ABOVE_5_2
 IMPLEMENT_VERTEX_FACTORY_TYPE(FRealtimeMeshLocalVertexFactory, "/Engine/Private/LocalVertexFactory.ush",
                               EVertexFactoryFlags::UsedWithMaterials
                               | EVertexFactoryFlags::SupportsDynamicLighting
@@ -666,6 +796,22 @@ IMPLEMENT_VERTEX_FACTORY_TYPE(FRealtimeMeshLocalVertexFactory, "/Engine/Private/
                               | EVertexFactoryFlags::SupportsPositionOnly
                               | EVertexFactoryFlags::SupportsCachingMeshDrawCommands
                               | EVertexFactoryFlags::SupportsPrimitiveIdStream
-                              | EVertexFactoryFlags::SupportsRayTracing
+							  | EVertexFactoryFlags::SupportsRayTracing
                               | EVertexFactoryFlags::SupportsRayTracingDynamicGeometry
+                              | EVertexFactoryFlags::SupportsManualVertexFetch
+							  | EVertexFactoryFlags::SupportsPSOPrecaching
+							  | EVertexFactoryFlags::SupportsLumenMeshCards
 );
+#else
+IMPLEMENT_VERTEX_FACTORY_TYPE(FRealtimeMeshLocalVertexFactory, "/Engine/Private/LocalVertexFactory.ush",
+							  EVertexFactoryFlags::UsedWithMaterials
+							  | EVertexFactoryFlags::SupportsDynamicLighting
+							  | EVertexFactoryFlags::SupportsPrecisePrevWorldPos
+							  | EVertexFactoryFlags::SupportsPositionOnly
+							  | EVertexFactoryFlags::SupportsCachingMeshDrawCommands
+							  | EVertexFactoryFlags::SupportsPrimitiveIdStream
+							  | EVertexFactoryFlags::SupportsRayTracing
+							  | EVertexFactoryFlags::SupportsRayTracingDynamicGeometry
+							  | EVertexFactoryFlags::SupportsManualVertexFetch
+);
+#endif
