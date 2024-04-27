@@ -1,4 +1,4 @@
-﻿// Copyright TriAxis Games, L.L.C. All Rights Reserved.
+// Copyright TriAxis Games, L.L.C. All Rights Reserved.
 
 #include "RenderProxy/RealtimeMeshSectionGroupProxy.h"
 
@@ -47,7 +47,11 @@ namespace RealtimeMesh
 
 	FRayTracingGeometry* FRealtimeMeshSectionGroupProxy::GetRayTracingGeometry()
 	{
+#if RHI_RAYTRACING
 		return &RayTracingGeometry;
+#else
+		return nullptr;
+#endif
 	}
 
 	void FRealtimeMeshSectionGroupProxy::CreateSectionIfNotExists(const FRealtimeMeshSectionKey& SectionKey)

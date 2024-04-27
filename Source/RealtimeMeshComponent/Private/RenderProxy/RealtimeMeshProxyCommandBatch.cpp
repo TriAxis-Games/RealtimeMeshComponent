@@ -1,4 +1,4 @@
-﻿// Copyright TriAxis Games, L.L.C. All Rights Reserved.
+// Copyright TriAxis Games, L.L.C. All Rights Reserved.
 
 
 #include "RenderProxy/RealtimeMeshProxyCommandBatch.h"
@@ -105,10 +105,10 @@ namespace RealtimeMesh
 
 		AsyncTask(ENamedThreads::GameThread, [ThreadState, MeshWeak = TWeakPtr<FRealtimeMesh>(Mesh), bRecreateProxies = bRequiresProxyRecreate]()
 		{
-			if (const FRealtimeMeshPtr Mesh = MeshWeak.Pin())
+			if (const FRealtimeMeshPtr MeshToMarkDirty = MeshWeak.Pin())
 			{
 				// TODO: We probably shouldn't always have to do this
-				Mesh->MarkRenderStateDirty(bRecreateProxies);
+				MeshToMarkDirty->MarkRenderStateDirty(bRecreateProxies);
 			}
 
 			ThreadState->FinalizeGameThread();

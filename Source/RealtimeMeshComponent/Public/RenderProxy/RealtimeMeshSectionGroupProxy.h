@@ -1,4 +1,4 @@
-﻿// Copyright TriAxis Games, L.L.C. All Rights Reserved.
+// Copyright TriAxis Games, L.L.C. All Rights Reserved.
 
 #pragma once
 

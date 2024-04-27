@@ -1,4 +1,4 @@
-﻿// Copyright TriAxis Games, L.L.C. All Rights Reserved.
+// Copyright TriAxis Games, L.L.C. All Rights Reserved.
 
 #include "RenderProxy/RealtimeMeshLODProxy.h"
 
@@ -77,7 +77,11 @@ namespace RealtimeMesh
 		{
 			for (const auto& SectionGroup : SectionGroups)
 			{
-				if (!EnumHasAllFlags(InclusionFlags, ERealtimeMeshBatchCreationFlags::SkipStaticRayTracedSections) || SectionGroup != StaticRaytracingSectionGroup)
+				if (!EnumHasAllFlags(InclusionFlags, ERealtimeMeshBatchCreationFlags::SkipStaticRayTracedSections) 
+#if RHI_RAYTRACING
+					|| SectionGroup != StaticRaytracingSectionGroup
+#endif
+					)
 				{
 					if (SectionGroup->GetDrawMask().IsAnySet(DrawTypeMask))
 					{
@@ -147,7 +151,9 @@ namespace RealtimeMesh
 		const bool bStateChanged = DrawMask != NewDrawMask;
 		DrawMask = NewDrawMask;
 		bIsStateDirty = false;
+#if RHI_RAYTRACING
 		StaticRaytracingSectionGroup = NewStaticRaytracingGroup;
+#endif
 		return bStateChanged;
 	}
 
