@@ -331,15 +331,19 @@ namespace RealtimeMesh
 		return RealtimeMeshProxy->GetCardRepresentation();
 	}
 
-#if RHI_RAYTRACING
 	bool FRealtimeMeshComponentSceneProxy::HasRayTracingRepresentation() const
 	{
+#if RHI_RAYTRACING
 		return bSupportsRayTracing;
+#else
+		return false;
+#endif
 	}
 
 #if RMC_ENGINE_ABOVE_5_4
 	TArray<FRayTracingGeometry*> FRealtimeMeshComponentSceneProxy::GetStaticRayTracingGeometries() const
 	{
+#if RHI_RAYTRACING
 		if (IsRayTracingAllowed() && bSupportsRayTracing)
 		{
 			TArray<FRayTracingGeometry*> RayTracingGeometries;
@@ -351,11 +355,12 @@ namespace RealtimeMesh
 
 			return MoveTemp(RayTracingGeometries);
 		}
-
+#endif // RHI_RAYTRACING
 		return {};
 	}
-#endif
+#endif // RMC_ENGINE_ABOVE_5_4
 
+#if RHI_RAYTRACING
 	void FRealtimeMeshComponentSceneProxy::GetDynamicRayTracingInstances(struct FRayTracingMaterialGatheringContext& Context,
 	                                                                     TArray<struct FRayTracingInstance>& OutRayTracingInstances)
 	{
