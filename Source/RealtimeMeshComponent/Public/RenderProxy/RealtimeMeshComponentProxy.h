@@ -56,10 +56,10 @@ namespace RealtimeMesh
 
 		virtual void DrawStaticElements(FStaticPrimitiveDrawInterface* PDI) override;
 
-		virtual bool HasRayTracingRepresentation() const override;
+		virtual bool HasRayTracingRepresentation() const;
 
 #if RMC_ENGINE_ABOVE_5_4
-		virtual TArray<FRayTracingGeometry*> GetStaticRayTracingGeometries() const override;
+		virtual TArray<FRayTracingGeometry*> GetStaticRayTracingGeometries() const;
 #endif
 		virtual void GetDynamicMeshElements(const TArray<const FSceneView*>& Views, const FSceneViewFamily& ViewFamily, uint32 VisibilityMap,
 		                                    FMeshElementCollector& Collector) const override;
