@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "NaniteSceneProxy.h"
 #include "RealtimeMeshCore.h"
+#include "Features/IModularFeatures.h"
 #include "Mesh/RealtimeMeshNaniteResourcesInterface.h"
 
 namespace RealtimeMesh
