@@ -176,6 +176,14 @@ public:
 	int32 GetMaterialIndex(FName MaterialSlotName) const;
 
 	/**
+	 * Get the name of the material slot at the specified index
+	 * @param Index Index of the material to get the name for
+	 * @return 
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh")
+	FName GetMaterialSlotName(int32 Index) const;
+	
+	/**
 	 * Check if the given material slot name is valid.
 	 *
 	 * @param MaterialSlotName The name of the material slot to check.

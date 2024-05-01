@@ -526,6 +526,8 @@ namespace RealtimeMeshAlgo
 
 
 	
+	REALTIMEMESHCOMPONENT_API void GenerateTangents(RealtimeMesh::FRealtimeMeshStreamSet& StreamSet, bool bComputeSmoothNormals = true);
+
 	
 	REALTIMEMESHCOMPONENT_API TOptional<TMap<int32, FRealtimeMeshStreamRange>> GetStreamRangesFromPolyGroups(const RealtimeMesh::FRealtimeMeshStreamSet& Streams,
 		const FRealtimeMeshStreamKey& TrianglesKey = RealtimeMesh::FRealtimeMeshStreams::Triangles,

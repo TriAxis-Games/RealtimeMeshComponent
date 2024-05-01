@@ -63,12 +63,6 @@ namespace RealtimeMesh
 		//bCastsDynamicIndirectShadow = Component->bCastDynamicShadow && Component->CastShadow && Component->Mobility != EComponentMobility::Static;
 		//DynamicIndirectShadowMinVisibility = 0.1f;
 
-#if RMC_ENGINE_ABOVE_5_2
-		if (MaterialRelevance.bOpaque && !MaterialRelevance.bUsesSingleLayerWaterMaterial)
-		{
-			UpdateVisibleInLumenScene();
-		}
-#endif
 
 #if RHI_RAYTRACING
 		bSupportsRayTracing = true; //InRealtimeMeshProxy->HasRayTracingGeometry();
@@ -113,6 +107,12 @@ namespace RealtimeMesh
 #endif
 #endif
 
+#if RMC_ENGINE_ABOVE_5_2
+		if (MaterialRelevance.bOpaque && !MaterialRelevance.bUsesSingleLayerWaterMaterial)
+		{
+			UpdateVisibleInLumenScene();
+		}
+#endif
 		
 	}
 

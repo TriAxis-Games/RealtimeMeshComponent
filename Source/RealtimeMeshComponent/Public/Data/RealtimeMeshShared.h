@@ -121,6 +121,8 @@ namespace RealtimeMesh
 	{
 		mutable FRealtimeMeshGuard Guard;
 		FName MeshName;
+
+		TWeakObjectPtr<URealtimeMesh> OwningMesh;
 		FRealtimeMeshWeakPtr Owner;
 		FRealtimeMeshProxyWeakPtr Proxy;
 
@@ -166,13 +168,14 @@ namespace RealtimeMesh
 			return *static_cast<SharedResourcesType*>(this);
 		}
 
-		virtual void SetOwnerMesh(const FRealtimeMeshRef& InOwner) { Owner = InOwner; }
+		virtual void SetOwnerMesh(URealtimeMesh* InOwningMesh, const FRealtimeMeshRef& InOwner);
 		virtual void SetProxy(const FRealtimeMeshProxyRef& InProxy) { Proxy = InProxy; }
 
 		FRealtimeMeshGuard& GetGuard() const { return Guard; }
 		FName GetMeshName() const { return MeshName; }
 		void SetMeshName(FName InName) { MeshName = InName; }
 
+		URealtimeMesh* GetOwningMesh() const { return OwningMesh.Get(); }
 		FRealtimeMeshPtr GetOwner() const { return Owner.Pin(); }
 		FRealtimeMeshProxyPtr GetProxy() const { return Proxy.Pin(); }
 

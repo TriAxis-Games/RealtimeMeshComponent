@@ -4,6 +4,7 @@
 
 #include "Data/RealtimeMeshLOD.h"
 #include "Data/RealtimeMeshSectionGroup.h"
+#include "Mesh/RealtimeMeshNaniteResourcesInterface.h"
 #include "RenderProxy/RealtimeMeshProxy.h"
 #include "RenderProxy/RealtimeMeshProxyCommandBatch.h"
 #if RMC_ENGINE_ABOVE_5_2
@@ -215,6 +216,50 @@ namespace RealtimeMesh
 		}
 
 		SharedResources->BroadcastLODChanged(FRealtimeMeshLODKey(RemovedLODIndex), ERealtimeMeshChangeType::Removed);
+	}
+
+	void FRealtimeMesh::SetNaniteResources(FRealtimeMeshProxyCommandBatch& Commands, const TSharedRef<IRealtimeMeshNaniteResources>& InNaniteResources)
+	{
+		FRealtimeMeshScopeGuardWrite ScopeGuard(SharedResources->GetGuard());
+		
+		// Create the update data for the GPU
+		if (Commands)
+		{
+			InNaniteResources->InitResources(SharedResources->GetOwningMesh());
+			
+			Commands.AddMeshTask([InNaniteResources](FRealtimeMeshProxy& Proxy) mutable
+			{
+				Proxy.SetNaniteResources(InNaniteResources);
+			}, true);
+		}
+	}
+
+	TFuture<ERealtimeMeshProxyUpdateStatus> FRealtimeMesh::SetNaniteResources(const TSharedRef<IRealtimeMeshNaniteResources>& InNaniteResources)
+	{
+		FRealtimeMeshProxyCommandBatch Commands(SharedResources->GetOwner());
+		SetNaniteResources(Commands, InNaniteResources);
+		return Commands.Commit();
+	}
+
+	void FRealtimeMesh::ClearNaniteResources(FRealtimeMeshProxyCommandBatch& Commands)
+	{
+		FRealtimeMeshScopeGuardWrite ScopeGuard(SharedResources->GetGuard());
+		
+		// Create the update data for the GPU
+		if (Commands)
+		{
+			Commands.AddMeshTask([](FRealtimeMeshProxy& Proxy) mutable
+			{
+				Proxy.SetNaniteResources(nullptr);
+			}, true);
+		}
+	}
+
+	TFuture<ERealtimeMeshProxyUpdateStatus> FRealtimeMesh::ClearNaniteResources()
+	{
+		FRealtimeMeshProxyCommandBatch Commands(SharedResources->GetOwner());
+		ClearNaniteResources(Commands);
+		return Commands.Commit();
 	}
 
 

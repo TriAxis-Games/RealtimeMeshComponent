@@ -110,7 +110,7 @@ void URealtimeMesh::Initialize(const TSharedRef<RealtimeMesh::FRealtimeMeshShare
 	SharedResources->GetCollisionUpdateHandler() = RealtimeMesh::FRealtimeMeshCollisionUpdateDelegate::CreateUObject(this, &URealtimeMesh::InitiateCollisionUpdate);
 
 	MeshRef = SharedResources->CreateRealtimeMesh();
-	SharedResources->SetOwnerMesh(MeshRef.ToSharedRef());
+	SharedResources->SetOwnerMesh(this, MeshRef.ToSharedRef());
 }
 
 
@@ -208,6 +208,17 @@ int32 URealtimeMesh::GetMaterialIndex(FName MaterialSlotName) const
 	
 	const int32* SlotIndex = SlotNameLookup.Find(MaterialSlotName);
 	return SlotIndex ? *SlotIndex : INDEX_NONE;
+}
+
+FName URealtimeMesh::GetMaterialSlotName(int32 Index) const
+{
+	RealtimeMesh::FRealtimeMeshScopeGuardRead ScopeGuard(SharedResources->GetGuard());
+
+	if (MaterialSlots.IsValidIndex(Index))
+	{
+		return MaterialSlots[Index].SlotName;
+	}
+	return NAME_None;	
 }
 
 bool URealtimeMesh::IsMaterialSlotNameValid(FName MaterialSlotName) const

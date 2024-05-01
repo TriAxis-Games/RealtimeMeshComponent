@@ -6,6 +6,7 @@
 #include "RealtimeMeshGPUBuffer.h"
 #include "RealtimeMeshProxyShared.h"
 #include "RealtimeMeshVertexFactory.h"
+#include "RealtimeMeshSectionProxy.h"
 
 namespace RealtimeMesh
 {
@@ -35,6 +36,21 @@ namespace RealtimeMesh
 
 		FRealtimeMeshSectionProxyPtr GetSection(const FRealtimeMeshSectionKey& SectionKey) const;
 		TSharedPtr<FRealtimeMeshGPUBuffer> GetStream(const FRealtimeMeshStreamKey& StreamKey) const;
+
+		template<typename ProcessFunc>
+		void ProcessSections(ERealtimeMeshDrawMask InDrawMask, ProcessFunc ProcessFunction) const
+		{
+			if (DrawMask.IsSet(InDrawMask))
+			{
+				for (const FRealtimeMeshSectionProxyRef& Section : Sections)
+				{
+					if (Section->GetDrawMask().IsSet(InDrawMask))
+					{
+						ProcessFunction(Section);
+					}
+				}
+			}
+		}
 		
 		FRayTracingGeometry* GetRayTracingGeometry();
 		

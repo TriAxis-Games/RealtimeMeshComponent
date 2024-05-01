@@ -11,6 +11,7 @@
 #include "Mesh/RealtimeMeshCardRepresentation.h"
 #include "Mesh/RealtimeMeshDistanceField.h"
 
+struct IRealtimeMeshNaniteResources;
 struct FRealtimeMeshDistanceField;
 enum class ERealtimeMeshSectionDrawType : uint8;
 
@@ -29,6 +30,7 @@ namespace RealtimeMesh
 		TUniquePtr<FDistanceFieldVolumeData> DistanceField;
 		TUniquePtr<FCardRepresentationData> CardRepresentation;
 
+		TSharedPtr<IRealtimeMeshNaniteResources> NaniteResources;
 	public:
 		FRealtimeMeshProxy(const FRealtimeMeshSharedResourcesRef& InSharedResources);
 		virtual ~FRealtimeMeshProxy();
@@ -44,7 +46,12 @@ namespace RealtimeMesh
 		bool HasDistanceFieldData() const;
 		const FDistanceFieldVolumeData* GetDistanceFieldData() const { return DistanceField.Get(); }
 		
-		virtual void SetCardRepresentation(FRealtimeMeshCardRepresentation&& InDCardRepresentation);
+		virtual void SetNaniteResources(TSharedPtr<IRealtimeMeshNaniteResources> InNaniteResources);
+		bool HasNaniteResources() const;
+		template<typename ResourcesType>
+		TSharedPtr<ResourcesType> GetNaniteResources() const { return StaticCastSharedPtr<ResourcesType>(NaniteResources); }
+		
+		virtual void SetCardRepresentation(FRealtimeMeshCardRepresentation&& InCardRepresentation);
 		bool HasCardRepresentation() const { return CardRepresentation.IsValid(); }
 		const FCardRepresentationData* GetCardRepresentation() const { return CardRepresentation.IsValid()? CardRepresentation.Get() : nullptr; }
 		void ClearCardRepresentation() { CardRepresentation.Reset(); }

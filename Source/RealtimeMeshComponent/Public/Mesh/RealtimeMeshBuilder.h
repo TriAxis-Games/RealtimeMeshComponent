@@ -688,7 +688,7 @@ namespace RealtimeMesh
 		using BufferTypeTraits = TRealtimeMeshStreamDataAccessorTypeTraits<InBufferType>;
 
 		using AccessType = typename AccessTypeTraits::Type;
-		using BufferTypeT = typename BufferTypeTraits::Type;
+		using BufferType = typename BufferTypeTraits::Type;
 
 		using AccessElementType = typename AccessTypeTraits::ElementType;
 		using BufferElementTypeT = typename BufferTypeTraits::ElementType;
@@ -715,12 +715,14 @@ namespace RealtimeMesh
 		TRealtimeMeshStreamBuilderBase(typename TCopyQualifiersFromTo<InAccessType, FRealtimeMeshStream>::Type& InStream, int32 ElementOffset = 0)
 			: Context(StreamDataAccessor::InitializeContext(InStream, ElementOffset))
 		{
-			if constexpr (!std::is_void_v<BufferTypeT>)
+			if constexpr (!std::is_void_v<BufferType>)
 			{
-				checkf(InStream.GetLayout().GetElementType() == GetRealtimeMeshBufferLayout<BufferTypeT>().GetElementType(),
-					TEXT("Supplied stream not correct format for builder."));				
+				checkf(InStream.GetLayout().GetElementType() == GetRealtimeMeshBufferLayout<BufferType>().GetElementType(),
+					TEXT("Supplied stream not correct format for builder."));
 			}
 			checkf(bAllowSubstreamAccess || ElementOffset == 0, TEXT("Cannot offset element within stream without substream access enabled."));
+			checkf(GetRealtimeMeshBufferLayout<AccessType>().GetNumElements() + ElementOffset <= InStream.GetLayout().GetNumElements(),
+				TEXT("Substream section is outside of the supplied stream."));
 		}
 		
 		TRealtimeMeshStreamBuilderBase(const TRealtimeMeshStreamBuilderBase&) = default;

@@ -49,6 +49,18 @@ namespace RealtimeMesh
 #endif
 	}
 
+	void FRealtimeMeshProxy::SetNaniteResources(TSharedPtr<IRealtimeMeshNaniteResources> InNaniteResources)
+	{
+		check(IsInRenderingThread());
+
+		NaniteResources = InNaniteResources;
+	}
+
+	bool FRealtimeMeshProxy::HasNaniteResources() const
+	{
+		return NaniteResources.IsValid();
+	}
+
 	void FRealtimeMeshProxy::SetCardRepresentation(FRealtimeMeshCardRepresentation&& InCardRepresentation)
 	{
 		check(IsInRenderingThread());

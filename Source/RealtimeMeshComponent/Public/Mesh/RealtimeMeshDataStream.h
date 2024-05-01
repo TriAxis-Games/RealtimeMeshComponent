@@ -238,7 +238,7 @@ namespace RealtimeMesh
 			
 			ResizeAllocation(Other.Num());
 			ArrayNum = Other.Num();
-			FMemory::Memcpy(Allocator.GetAllocation(), Other.Allocator.GetAllocation(), Other.Num() * GetStride());
+			FMemory::Memcpy(Allocator.GetAllocation(), Other.Allocator.GetAllocation(), Other.Num() * GetStride());			
 		}
 		
 		explicit FRealtimeMeshStream(FRealtimeMeshStream&& Other) noexcept
@@ -250,14 +250,13 @@ namespace RealtimeMesh
 		{
 			CacheStrides();
 			
+			Other.UnLink();
 			Allocator.MoveToEmpty(Other.Allocator);
 
 			Other.Layout = FRealtimeMeshBufferLayout::Invalid;
 			Other.ArrayNum = 0;
 			Other.ArrayMax = 0;
 			Other.StreamKey = FRealtimeMeshStreamKey(ERealtimeMeshStreamType::Unknown, NAME_None);
-
-			Other.UnLink();
 		}
 
 		virtual ~FRealtimeMeshStream() override
@@ -278,26 +277,35 @@ namespace RealtimeMesh
 
 		FRealtimeMeshStream& operator=(const FRealtimeMeshStream& Other)
 		{
-			Layout = Other.Layout;	
+			StreamKey = Other.StreamKey;
+			Layout = Other.Layout;			
 			CacheStrides();
+
 			UnLink();
+			
 			ResizeAllocation(Other.Num(), false);			
 			ArrayNum = Other.Num();
-			BroadcastNumChanged();
+			
 			FMemory::Memcpy(Allocator.GetAllocation(), Other.Allocator.GetAllocation(), Other.Num() * GetStride());
+			
 			return *this;
 		}
 
 		FRealtimeMeshStream& operator=(FRealtimeMeshStream&& Other) noexcept
 		{
+			UnLink();
+			Other.UnLink();
+			
+			StreamKey = MoveTemp(Other.StreamKey);
 			Layout = MoveTemp(Other.Layout);		
 			CacheStrides();
-			UnLink();
+			
 			ArrayNum = Other.ArrayNum;
-			Other.ArrayNum = 0;
-			Other.UnLink();
-			BroadcastNumChanged();
 			Allocator.MoveToEmpty(Other.Allocator);
+
+			Other.ArrayNum = 0;
+			Other.ArrayMax = Other.Allocator.GetInitialCapacity();
+			
 			return *this;
 		}
 

@@ -1,12 +1,17 @@
 // Copyright TriAxis Games, L.L.C. All Rights Reserved.
 
 #include "RealtimeMeshComponent.h"
+
+#include "MaterialDomain.h"
+#include "NaniteVertexFactory.h"
 #include "RealtimeMeshComponentModule.h"
 #include "RenderProxy/RealtimeMeshComponentProxy.h"
 #include "PhysicsEngine/BodySetup.h"
 #include "RealtimeMeshCore.h"
 #include "RealtimeMesh.h"
 #include "NavigationSystem.h"
+#include "RenderProxy/RealtimeMeshNaniteProxyInterface.h"
+#include "RenderProxy/RealtimeMeshProxy.h"
 
 
 DECLARE_CYCLE_STAT(TEXT("RealtimeMeshComponent - Collision Data Received"), STAT_RealtimeMeshComponent_NewCollisionMeshReceived, STATGROUP_RealtimeMesh);
@@ -102,6 +107,17 @@ FPrimitiveSceneProxy* URealtimeMeshComponent::CreateSceneProxy()
 	{
 		if (const auto MeshRenderProxy = RealtimeMeshReference->GetMesh()->GetRenderProxy(true))
 		{
+			// This is using the implementation in the RMC-Pro to support nanite, without that module present, the RMC doesn't support nanite.
+			if (IRealtimeMeshNaniteSceneProxyManager::IsNaniteSupportAvailable() && MeshRenderProxy->HasNaniteResources())
+			{
+				IRealtimeMeshNaniteSceneProxyManager& NaniteModule = IRealtimeMeshNaniteSceneProxyManager::GetNaniteModule();
+
+				if (NaniteModule.ShouldUseNanite(this))
+				{					
+					return IRealtimeMeshNaniteSceneProxyManager::GetNaniteModule().CreateNewSceneProxy(this, MeshRenderProxy.ToSharedRef());
+				}				
+			}
+			
 			return new RealtimeMesh::FRealtimeMeshComponentSceneProxy(this, MeshRenderProxy.ToSharedRef());
 		}
 	}
@@ -119,6 +135,11 @@ UBodySetup* URealtimeMeshComponent::GetBodySetup()
 	return nullptr;
 }
 
+bool URealtimeMeshComponent::UseNaniteOverrideMaterials() const
+{
+	return Super::UseNaniteOverrideMaterials();
+}
+
 
 int32 URealtimeMeshComponent::GetMaterialIndex(FName MaterialSlotName) const
 {
@@ -127,6 +148,15 @@ int32 URealtimeMeshComponent::GetMaterialIndex(FName MaterialSlotName) const
 		return Mesh->GetMaterialIndex(MaterialSlotName);
 	}
 	return INDEX_NONE;
+}
+
+FName URealtimeMeshComponent::GetMaterialSlotName(uint32 Index) const
+{
+	if (const URealtimeMesh* Mesh = GetRealtimeMesh())
+	{
+		return Mesh->GetMaterialSlotName(Index);
+	}
+	return NAME_None;
 }
 
 TArray<FName> URealtimeMeshComponent::GetMaterialSlotNames() const
@@ -190,6 +220,44 @@ UMaterialInterface* URealtimeMeshComponent::GetMaterial(int32 ElementIndex) cons
 	return nullptr;
 }
 
+#if RMC_ENGINE_ABOVE_5_4
+void URealtimeMeshComponent::CollectPSOPrecacheData(const FPSOPrecacheParams& BasePrecachePSOParams, FMaterialInterfacePSOPrecacheParamsList& OutParams)
+{
+	FPSOPrecacheVertexFactoryDataList VFDataList;
+	const FVertexFactoryType* VFType = nullptr;
+	
+	if (const auto MeshRenderProxy = RealtimeMeshReference->GetMesh()->GetRenderProxy(true))
+	{
+		if (IRealtimeMeshNaniteSceneProxyManager::IsNaniteSupportAvailable() && MeshRenderProxy->HasNaniteResources())
+		{			
+			if (NaniteLegacyMaterialsSupported())
+			{
+				VFDataList.Add(FPSOPrecacheVertexFactoryData(&Nanite::FVertexFactory::StaticType));
+			}
+
+			if (NaniteComputeMaterialsSupported())
+			{
+				VFDataList.Add(FPSOPrecacheVertexFactoryData(&FNaniteVertexFactory::StaticType));
+			}
+
+			for (int32 MaterialId = 0; MaterialId < GetNumMaterials(); MaterialId++)
+			{
+				if (UMaterialInterface* MaterialInterface = GetMaterial(MaterialId))
+				{					
+					FMaterialInterfacePSOPrecacheParams& ComponentParams = OutParams.AddDefaulted_GetRef();
+					ComponentParams.Priority = EPSOPrecachePriority::Medium;
+					ComponentParams.MaterialInterface = MaterialInterface;
+					ComponentParams.VertexFactoryDataList = VFDataList;
+					ComponentParams.PSOPrecacheParams = BasePrecachePSOParams;
+				}				
+			}			
+		}
+	}
+	
+	Super::CollectPSOPrecacheData(BasePrecachePSOParams, OutParams);
+}
+#endif
+
 void URealtimeMeshComponent::BindToEvents(URealtimeMesh* RealtimeMesh)
 {
 	RealtimeMesh->OnBoundsChanged().AddUObject(this, &URealtimeMeshComponent::HandleBoundsUpdated);
@@ -214,6 +282,7 @@ void URealtimeMeshComponent::HandleMeshRenderingDataChanged(URealtimeMesh* Incom
 {
 	if (bShouldProxyRecreate)
 	{
+		PrecachePSOs();
 		MarkRenderStateDirty();
 	}
 }

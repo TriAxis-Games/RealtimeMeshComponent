@@ -5,6 +5,7 @@
 #include "RealtimeMeshConfig.h"
 #include "RealtimeMeshCore.h"
 #include "RealtimeMeshProxyShared.h"
+#include "RealtimeMeshSectionGroupProxy.h"
 
 namespace RealtimeMesh
 {	
@@ -35,6 +36,24 @@ namespace RealtimeMesh
 		float GetScreenSize() const { return Config.ScreenSize; }
 
 		FRealtimeMeshSectionGroupProxyPtr GetSectionGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey) const;
+
+		template<typename ProcessFunc>
+		void ProcessSections(ERealtimeMeshDrawMask InDrawMask, ProcessFunc ProcessFunction) const
+		{
+			if (DrawMask.IsSet(InDrawMask))
+			{
+				for (const FRealtimeMeshSectionGroupProxyRef& SectionGroup : SectionGroups)
+				{
+					if (SectionGroup->GetDrawMask().IsSet(InDrawMask))
+					{
+						SectionGroup->ProcessSections(InDrawMask, [&](const FRealtimeMeshSectionProxyRef& Section)
+						{
+							ProcessFunction(SectionGroup, Section);
+						});
+					}
+				}
+			}
+		}
 
 		virtual void UpdateConfig(const FRealtimeMeshLODConfig& NewConfig);
 

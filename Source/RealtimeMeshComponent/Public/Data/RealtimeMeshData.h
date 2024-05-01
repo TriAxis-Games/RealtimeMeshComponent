@@ -10,6 +10,7 @@
 #include "Mesh/RealtimeMeshCardRepresentation.h"
 #include "Mesh/RealtimeMeshDistanceField.h"
 
+struct IRealtimeMeshNaniteResources;
 struct FTriMeshCollisionData;
 class URealtimeMesh;
 
@@ -27,6 +28,8 @@ namespace RealtimeMesh
 		TFixedLODArray<FRealtimeMeshLODDataRef> LODs;
 		FRealtimeMeshConfig Config;
 		FRealtimeMeshBounds Bounds;
+
+		TSharedPtr<IRealtimeMeshNaniteResources> NaniteResources;
 	public:
 		FRealtimeMesh(const FRealtimeMeshSharedResourcesRef& InSharedResources);
 		virtual ~FRealtimeMesh() = default;
@@ -65,6 +68,11 @@ namespace RealtimeMesh
 		TFuture<ERealtimeMeshProxyUpdateStatus> RemoveTrailingLOD(FRealtimeMeshLODKey* OutNewLastLODKey = nullptr);
 		virtual void RemoveTrailingLOD(FRealtimeMeshProxyCommandBatch& Commands, FRealtimeMeshLODKey* OutNewLastLODKey = nullptr);
 
+		
+		virtual void SetNaniteResources(FRealtimeMeshProxyCommandBatch& Commands, const TSharedRef<IRealtimeMeshNaniteResources>& InNaniteResources);
+		TFuture<ERealtimeMeshProxyUpdateStatus> SetNaniteResources(const TSharedRef<IRealtimeMeshNaniteResources>& InNaniteResources);
+		virtual void ClearNaniteResources(FRealtimeMeshProxyCommandBatch& Commands);
+		TFuture<ERealtimeMeshProxyUpdateStatus> ClearNaniteResources();
 		
 		virtual void SetDistanceField(FRealtimeMeshProxyCommandBatch& Commands, FRealtimeMeshDistanceField&& InDistanceField);
 		TFuture<ERealtimeMeshProxyUpdateStatus> SetDistanceField(FRealtimeMeshDistanceField&& InDistanceField);

@@ -2,6 +2,7 @@
 
 #include "RealtimeMeshCore.h"
 
+#include "RealtimeMesh.h"
 #include "Data/RealtimeMeshSectionGroup.h"
 #include "Data/RealtimeMeshLOD.h"
 #include "Data/RealtimeMeshSection.h"
@@ -41,6 +42,11 @@ FArchive& operator<<(FArchive& Ar, FRealtimeMeshStreamKey& Key)
 
 namespace RealtimeMesh
 {
+	void FRealtimeMeshSharedResources::SetOwnerMesh(URealtimeMesh* InOwningMesh, const FRealtimeMeshRef& InOwner)
+	{
+		OwningMesh = InOwningMesh, Owner = InOwner;
+	}
+
 	ERHIFeatureLevel::Type FRealtimeMeshSharedResources::GetFeatureLevel() const
 	{
 		if (const auto ProxyPinned = Proxy.Pin()) { return ProxyPinned->GetRHIFeatureLevel(); }

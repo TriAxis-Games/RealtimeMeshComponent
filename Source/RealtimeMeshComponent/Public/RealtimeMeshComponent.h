@@ -83,10 +83,13 @@ public:
 	//~ Begin UPrimitiveComponent Interface.
 	virtual FPrimitiveSceneProxy* CreateSceneProxy() override;
 	virtual class UBodySetup* GetBodySetup() override;
+	
+	virtual bool UseNaniteOverrideMaterials() const override;
 	//~ End UPrimitiveComponent Interface.
 public:
 	//~ Begin UMeshComponent Interface
 	virtual int32 GetMaterialIndex(FName MaterialSlotName) const override;
+	virtual FName GetMaterialSlotName(uint32 Index) const;
 	virtual TArray<FName> GetMaterialSlotNames() const override;
 	virtual bool IsMaterialSlotNameValid(FName MaterialSlotName) const override;
 	virtual void GetUsedMaterials(TArray<UMaterialInterface*>& OutMaterials, bool bGetDebugMaterials = false) const override;
@@ -95,6 +98,9 @@ public:
 	//~ Being UPrimitiveComponent Interface
 	virtual int32 GetNumMaterials() const override;
 	virtual UMaterialInterface* GetMaterial(int32 ElementIndex) const override;
+#if RMC_ENGINE_ABOVE_5_4
+	virtual void CollectPSOPrecacheData(const FPSOPrecacheParams& BasePrecachePSOParams, FMaterialInterfacePSOPrecacheParamsList& OutParams) override;
+#endif
 	//~ End UPrimitiveComponent Interface
 
 
