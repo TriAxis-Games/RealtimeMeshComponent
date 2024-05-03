@@ -749,8 +749,8 @@ namespace RealtimeMesh
 	template <typename ElementType>
 	constexpr FRealtimeMeshElementType GetRealtimeMeshDataElementType()
 	{
-		static_assert(FRealtimeMeshElementTypeTraits<typename TRemoveCV<ElementType>::Type>::IsValid);
-		return FRealtimeMeshElementTypeTraits<typename TRemoveCV<ElementType>::Type>::ElementTypeDefinition;
+		static_assert(FRealtimeMeshElementTypeTraits<std::remove_cv_t<ElementType>>::IsValid);
+		return FRealtimeMeshElementTypeTraits<std::remove_cv_t<ElementType>>::ElementTypeDefinition;
 	}
 	
 	constexpr FRealtimeMeshBufferLayout GetRealtimeMeshBufferLayout(const FRealtimeMeshElementType& ElementType, int32 NumElements)
@@ -761,10 +761,10 @@ namespace RealtimeMesh
 	template <typename BufferType>
 	constexpr FRealtimeMeshBufferLayout GetRealtimeMeshBufferLayout()
 	{
-		static_assert(FRealtimeMeshBufferTypeTraits<typename TRemoveCV<BufferType>::Type>::IsValid);
+		static_assert(FRealtimeMeshBufferTypeTraits<std::remove_cv_t<BufferType>>::IsValid);
 		return FRealtimeMeshBufferLayout(
-			GetRealtimeMeshDataElementType<typename FRealtimeMeshBufferTypeTraits<typename TRemoveCV<BufferType>::Type>::ElementType>(),
-			FRealtimeMeshBufferTypeTraits<typename TRemoveCV<BufferType>::Type>::NumElements);
+			GetRealtimeMeshDataElementType<typename FRealtimeMeshBufferTypeTraits<std::remove_cv_t<BufferType>>::ElementType>(),
+			FRealtimeMeshBufferTypeTraits<std::remove_cv_t<BufferType>>::NumElements);
 	}
 
 	template <typename ElementType>
