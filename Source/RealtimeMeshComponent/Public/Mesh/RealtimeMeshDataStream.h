@@ -19,6 +19,8 @@
 // included primarily for NatVis helpers
 #include <string>
 
+#include "Templates/RemoveCV.h"
+
 namespace RealtimeMesh
 {
 	struct FRealtimeMeshStreams
@@ -462,7 +464,7 @@ namespace RealtimeMesh
 		TArrayView<DataType> GetArrayView()
 		{
 			check(sizeof(DataType) == GetStride());
-			check(GetRealtimeMeshBufferLayout<DataType>() == GetLayout());
+			check(GetRealtimeMeshBufferLayout<typename TRemoveCV<DataType>::Type>() == GetLayout());
 
 			return MakeArrayView(reinterpret_cast<DataType*>(GetData()), Num());
 		}
@@ -471,7 +473,7 @@ namespace RealtimeMesh
 		TConstArrayView<const DataType> GetArrayView() const
 		{
 			check(sizeof(DataType) == GetStride());
-			check(GetRealtimeMeshBufferLayout<DataType>() == GetLayout());
+			check(GetRealtimeMeshBufferLayout<typename TRemoveCV<DataType>::Type>() == GetLayout());
 
 			return MakeArrayView(reinterpret_cast<const DataType*>(GetData()), Num());
 		}
@@ -481,7 +483,7 @@ namespace RealtimeMesh
 		TStridedView<DataType> GetElementArrayView(int32 ElementIndex)
 		{
 			check(sizeof(DataType) == GetElementStride());
-			check(GetRealtimeMeshDataElementType<DataType>() == GetLayout().GetElementType());
+			check(GetRealtimeMeshDataElementType<typename TRemoveCV<DataType>::Type>() == GetLayout().GetElementType());
 
 			return MakeStridedView(GetStride(), reinterpret_cast<DataType*>(GetDataRawAtVertex(0, ElementIndex)), Num());
 		}
@@ -490,7 +492,7 @@ namespace RealtimeMesh
 		TStridedView<const DataType> GetElementArrayView(int32 ElementIndex) const
 		{
 			check(sizeof(DataType) == GetElementStride());
-			check(GetRealtimeMeshDataElementType<DataType>() == GetLayout().GetElementType());
+			check(GetRealtimeMeshDataElementType<typename TRemoveCV<DataType>::Type>() == GetLayout().GetElementType());
 
 			return MakeStridedView(GetStride(), reinterpret_cast<DataType*>(GetDataRawAtVertex(0, ElementIndex)), Num());
 		}
@@ -499,7 +501,7 @@ namespace RealtimeMesh
 		TArrayView<const DataType> GetElementArrayView()
 		{
 			check(sizeof(DataType) == GetElementStride());
-			check(GetRealtimeMeshDataElementType<DataType>() == GetLayout().GetElementType());
+			check(GetRealtimeMeshDataElementType<typename TRemoveCV<DataType>::Type>() == GetLayout().GetElementType());
 
 			return MakeArrayView(reinterpret_cast<const DataType*>(GetData()), Num() * GetNumElements());
 		}
@@ -508,7 +510,7 @@ namespace RealtimeMesh
 		TConstArrayView<const DataType> GetElementArrayView() const
 		{
 			check(sizeof(DataType) == GetElementStride());
-			check(GetRealtimeMeshDataElementType<DataType>() == GetLayout().GetElementType());
+			check(GetRealtimeMeshDataElementType<typename TRemoveCV<DataType>::Type>() == GetLayout().GetElementType());
 
 			return MakeArrayView(reinterpret_cast<const DataType*>(GetData()), Num() * GetNumElements());
 		}
