@@ -1,4 +1,6 @@
-﻿#include "Algo/RandomShuffle.h"
+﻿// Copyright TriAxis Games, L.L.C. All Rights Reserved.
+
+#include "Algo/RandomShuffle.h"
 #include "Mesh/RealtimeMeshAlgo.h"
 #include "Mesh/RealtimeMeshBuilder.h"
 #include "Mesh/RealtimeMeshDataStream.h"

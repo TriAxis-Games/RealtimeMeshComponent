@@ -1,4 +1,6 @@
-﻿#include "Mesh/RealtimeMeshBuilder.h"
+﻿// Copyright TriAxis Games, L.L.C. All Rights Reserved.
+
+#include "Mesh/RealtimeMeshBuilder.h"
 #include "Misc/AutomationTest.h"
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(RealtimeMeshStreamConversionTests, "RealtimeMeshComponent.RealtimeMeshStreamConversion", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
