@@ -3,6 +3,7 @@
 #pragma once
 
 #include "RealtimeMeshCore.h"
+#include "Templates/RemoveCV.h"
 #include "RealtimeMeshDataTypes.generated.h"
 
 
@@ -748,8 +749,8 @@ namespace RealtimeMesh
 	template <typename ElementType>
 	constexpr FRealtimeMeshElementType GetRealtimeMeshDataElementType()
 	{
-		static_assert(FRealtimeMeshElementTypeTraits<ElementType>::IsValid);
-		return FRealtimeMeshElementTypeTraits<ElementType>::ElementTypeDefinition;
+		static_assert(FRealtimeMeshElementTypeTraits<typename TRemoveCV<ElementType>::Type>::IsValid);
+		return FRealtimeMeshElementTypeTraits<typename TRemoveCV<ElementType>::Type>::ElementTypeDefinition;
 	}
 	
 	constexpr FRealtimeMeshBufferLayout GetRealtimeMeshBufferLayout(const FRealtimeMeshElementType& ElementType, int32 NumElements)
@@ -760,10 +761,10 @@ namespace RealtimeMesh
 	template <typename BufferType>
 	constexpr FRealtimeMeshBufferLayout GetRealtimeMeshBufferLayout()
 	{
-		static_assert(FRealtimeMeshBufferTypeTraits<BufferType>::IsValid);
+		static_assert(FRealtimeMeshBufferTypeTraits<typename TRemoveCV<BufferType>::Type>::IsValid);
 		return FRealtimeMeshBufferLayout(
-			GetRealtimeMeshDataElementType<typename FRealtimeMeshBufferTypeTraits<BufferType>::ElementType>(),
-			FRealtimeMeshBufferTypeTraits<BufferType>::NumElements);
+			GetRealtimeMeshDataElementType<typename FRealtimeMeshBufferTypeTraits<typename TRemoveCV<BufferType>::Type>::ElementType>(),
+			FRealtimeMeshBufferTypeTraits<typename TRemoveCV<BufferType>::Type>::NumElements);
 	}
 
 	template <typename ElementType>
