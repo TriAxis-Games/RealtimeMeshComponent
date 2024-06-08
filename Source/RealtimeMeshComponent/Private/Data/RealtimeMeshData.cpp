@@ -1,4 +1,4 @@
-﻿// Copyright TriAxis Games, L.L.C. All Rights Reserved.
+﻿// Copyright (c) 2015-2024 TriAxis Games, L.L.C. All Rights Reserved.
 
 #include "Data/RealtimeMeshData.h"
 
@@ -218,7 +218,7 @@ namespace RealtimeMesh
 		SharedResources->BroadcastLODChanged(FRealtimeMeshLODKey(RemovedLODIndex), ERealtimeMeshChangeType::Removed);
 	}
 
-	void FRealtimeMesh::SetNaniteResources(FRealtimeMeshProxyCommandBatch& Commands, const TSharedRef<IRealtimeMeshNaniteResources>& InNaniteResources)
+	void FRealtimeMesh::SetNaniteResources(FRealtimeMeshProxyCommandBatch& Commands, const TSharedRef<RealtimeMesh::IRealtimeMeshNaniteResources>& InNaniteResources)
 	{
 		FRealtimeMeshScopeGuardWrite ScopeGuard(SharedResources->GetGuard());
 		
@@ -234,7 +234,7 @@ namespace RealtimeMesh
 		}
 	}
 
-	TFuture<ERealtimeMeshProxyUpdateStatus> FRealtimeMesh::SetNaniteResources(const TSharedRef<IRealtimeMeshNaniteResources>& InNaniteResources)
+	TFuture<ERealtimeMeshProxyUpdateStatus> FRealtimeMesh::SetNaniteResources(const TSharedRef<RealtimeMesh::IRealtimeMeshNaniteResources>& InNaniteResources)
 	{
 		FRealtimeMeshProxyCommandBatch Commands(SharedResources->GetOwner());
 		SetNaniteResources(Commands, InNaniteResources);

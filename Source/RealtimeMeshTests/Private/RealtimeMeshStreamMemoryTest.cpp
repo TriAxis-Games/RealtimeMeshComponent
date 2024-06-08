@@ -1,6 +1,7 @@
-﻿// Copyright TriAxis Games, L.L.C. All Rights Reserved.
+﻿// Copyright (c) 2015-2024 TriAxis Games, L.L.C. All Rights Reserved.
 
 #include "Mesh/RealtimeMeshAlgo.h"
+#include "Mesh/RealtimeMeshBuilder.h"
 #include "Misc/AutomationTest.h"
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(RealtimeMeshStreamMemoryTest, "Private.RealtimeMeshStreamMemoryTest", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
@@ -43,6 +44,16 @@ bool RealtimeMeshStreamMemoryTest::RunTest(const FString& Parameters)
 	TestSet2.AddStream(MoveTemp(TestMesh.UV0));
 
 	TestTrue(TEXT("Correct number of streams second pass"), TestSet.Num() == 4);
+
+	
+	const FRealtimeMeshStream PositionStream = FRealtimeMeshStream::Create<FVector3f>(FRealtimeMeshStreams::Position);
+	TArrayView<const FVector3f> StreamDataView = PositionStream.GetArrayView<const FVector3f>();//StreamDataPositions;
+
+	TRealtimeMeshStreamBuilder<const FVector3f> PositionBuilder(PositionStream);
+	for (int32 Index = 0; Index < PositionBuilder.Num(); ++Index)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("X %f"), PositionBuilder.GetValue(Index).X);
+	}
 	
 	// Make the test pass by returning true, or fail by returning false.
 	return true;

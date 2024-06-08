@@ -1,4 +1,4 @@
-﻿// Copyright TriAxis Games, L.L.C. All Rights Reserved.
+﻿// Copyright (c) 2015-2024 TriAxis Games, L.L.C. All Rights Reserved.
 
 
 #pragma once
@@ -202,11 +202,11 @@ namespace RealtimeMesh
 		{
 			if constexpr (bAllowSubstreamAccess)
 			{
-				return *reinterpret_cast<StreamElementType*>(Context.Stream.GetDataRawAtVertex(Index) + Context.ElementOffset + Context.Stream.GetElementStride() * ElementIndex);
+				return *reinterpret_cast<const StreamElementType*>(Context.Stream.GetDataRawAtVertex(Index) + Context.ElementOffset + Context.Stream.GetElementStride() * ElementIndex);
 			}
 			else
 			{
-				return *reinterpret_cast<StreamElementType*>(Context.Stream.GetDataRawAtVertex(Index) + Context.Stream.GetElementStride() * ElementIndex);
+				return *reinterpret_cast<const StreamElementType*>(Context.Stream.GetDataRawAtVertex(Index) + Context.Stream.GetElementStride() * ElementIndex);
 			}
 		}
 		static void SetElementValue(const TContext& Context, int32 Index, int32 ElementIndex, const StreamElementType& InValue)

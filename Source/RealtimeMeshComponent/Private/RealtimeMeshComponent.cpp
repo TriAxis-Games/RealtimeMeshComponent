@@ -1,4 +1,4 @@
-// Copyright TriAxis Games, L.L.C. All Rights Reserved.
+// Copyright (c) 2015-2024 TriAxis Games, L.L.C. All Rights Reserved.
 
 #include "RealtimeMeshComponent.h"
 
@@ -108,13 +108,13 @@ FPrimitiveSceneProxy* URealtimeMeshComponent::CreateSceneProxy()
 		if (const auto MeshRenderProxy = RealtimeMeshReference->GetMesh()->GetRenderProxy(true))
 		{
 			// This is using the implementation in the RMC-Pro to support nanite, without that module present, the RMC doesn't support nanite.
-			if (IRealtimeMeshNaniteSceneProxyManager::IsNaniteSupportAvailable() && MeshRenderProxy->HasNaniteResources())
+			if (RealtimeMesh::IRealtimeMeshNaniteSceneProxyManager::IsNaniteSupportAvailable() && MeshRenderProxy->HasNaniteResources())
 			{
-				IRealtimeMeshNaniteSceneProxyManager& NaniteModule = IRealtimeMeshNaniteSceneProxyManager::GetNaniteModule();
+				RealtimeMesh::IRealtimeMeshNaniteSceneProxyManager& NaniteModule = RealtimeMesh::IRealtimeMeshNaniteSceneProxyManager::GetNaniteModule();
 
 				if (NaniteModule.ShouldUseNanite(this))
 				{					
-					return IRealtimeMeshNaniteSceneProxyManager::GetNaniteModule().CreateNewSceneProxy(this, MeshRenderProxy.ToSharedRef());
+					return RealtimeMesh::IRealtimeMeshNaniteSceneProxyManager::GetNaniteModule().CreateNewSceneProxy(this, MeshRenderProxy.ToSharedRef());
 				}				
 			}
 			
@@ -228,7 +228,7 @@ void URealtimeMeshComponent::CollectPSOPrecacheData(const FPSOPrecacheParams& Ba
 	
 	if (const auto MeshRenderProxy = RealtimeMeshReference->GetMesh()->GetRenderProxy(true))
 	{
-		if (IRealtimeMeshNaniteSceneProxyManager::IsNaniteSupportAvailable() && MeshRenderProxy->HasNaniteResources())
+		if (RealtimeMesh::IRealtimeMeshNaniteSceneProxyManager::IsNaniteSupportAvailable() && MeshRenderProxy->HasNaniteResources())
 		{			
 			if (NaniteLegacyMaterialsSupported())
 			{

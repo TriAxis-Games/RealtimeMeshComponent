@@ -1,12 +1,15 @@
-﻿// Copyright TriAxis Games, L.L.C. All Rights Reserved.
+﻿// Copyright (c) 2015-2024 TriAxis Games, L.L.C. All Rights Reserved.
 
 #pragma once
 
 #include "RealtimeMeshCore.h"
 
-struct IRealtimeMeshNaniteResources
+namespace RealtimeMesh
 {
-	virtual ~IRealtimeMeshNaniteResources() = default;
+	struct IRealtimeMeshNaniteResources
+	{
+		virtual ~IRealtimeMeshNaniteResources() = default;
 	
-	virtual void InitResources(URealtimeMesh* Owner) = 0;
-};
+		virtual void InitResources(URealtimeMesh* Owner) = 0;
+	};
+}
