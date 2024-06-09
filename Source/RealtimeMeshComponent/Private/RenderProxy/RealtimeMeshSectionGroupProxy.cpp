@@ -83,9 +83,9 @@ namespace RealtimeMesh
 			MarkStateDirty();
 		}
 	}
-
+	
 	void FRealtimeMeshSectionGroupProxy::CreateOrUpdateStream(const FRealtimeMeshSectionGroupStreamUpdateDataRef& InStream)
-	{
+	{		
 		// If we didn't create the buffers async, create them now
 		InStream->InitializeIfRequired();
 

@@ -18,22 +18,26 @@
 		{
 			"Name": "RealtimeMeshComponent",
 			"Type": "Runtime",
-			"LoadingPhase": "PostConfigInit"
+			"LoadingPhase": "PostConfigInit",
+			"PlatformDenyList": []
 		},
 		{
 			"Name": "RealtimeMeshTests",
 			"Type": "Editor",
-			"LoadingPhase": "Default"
+			"LoadingPhase": "Default",
+			"PlatformDenyList": []
 		},
 		{
 			"Name": "RealtimeMeshEditor",
 			"Type": "Editor",
-			"LoadingPhase": "Default"
+			"LoadingPhase": "Default",
+			"PlatformDenyList": []
 		},
 		{
 			"Name": "RealtimeMeshExamples",
 			"Type": "Runtime",
-			"LoadingPhase": "Default"
+			"LoadingPhase": "Default",
+			"PlatformDenyList": []
 		}
 	]
 }

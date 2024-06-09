@@ -450,14 +450,17 @@ namespace RealtimeMesh
 
 		// We only send streams here, we rely on the base to send the sections
 		Streams.ForEach([&](const FRealtimeMeshStream& Stream)
-		{			
-			const auto UpdateData = MakeShared<FRealtimeMeshSectionGroupStreamUpdateData>(Stream);
-			UpdateData->ConfigureBuffer(EBufferUsageFlags::Static, true);
-
-			Commands.AddSectionGroupTask(Key, [UpdateData](FRealtimeMeshSectionGroupProxy& Proxy)
+		{
+			if (Commands && SharedResources->WantsStreamOnGPU(Stream.GetStreamKey()) && Stream.Num() > 0)
 			{
-				Proxy.CreateOrUpdateStream(UpdateData);
-			}, ShouldRecreateProxyOnStreamChange());
+				const auto UpdateData = MakeShared<FRealtimeMeshSectionGroupStreamUpdateData>(Stream);
+				UpdateData->ConfigureBuffer(EBufferUsageFlags::Static, true);
+
+				Commands.AddSectionGroupTask(Key, [UpdateData](FRealtimeMeshSectionGroupProxy& Proxy)
+				{
+					Proxy.CreateOrUpdateStream(UpdateData);
+				}, ShouldRecreateProxyOnStreamChange());
+			}
 		});
 
 		FRealtimeMeshSectionGroup::InitializeProxy(Commands);

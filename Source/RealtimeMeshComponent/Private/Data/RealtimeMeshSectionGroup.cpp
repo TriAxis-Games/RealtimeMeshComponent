@@ -166,13 +166,23 @@ namespace RealtimeMesh
 		// Create the update data for the GPU
 		if (Commands && SharedResources->WantsStreamOnGPU(StreamKey))
 		{
-			const auto UpdateData = MakeShared<FRealtimeMeshSectionGroupStreamUpdateData>(MoveTemp(Stream));
-			UpdateData->ConfigureBuffer(EBufferUsageFlags::Static, true);
-
-			Commands.AddSectionGroupTask(Key, [UpdateData = UpdateData](FRealtimeMeshSectionGroupProxy& Proxy)
+			if (Stream.Num() > 0)
 			{
-				Proxy.CreateOrUpdateStream(UpdateData);
-			}, ShouldRecreateProxyOnStreamChange());
+				const auto UpdateData = MakeShared<FRealtimeMeshSectionGroupStreamUpdateData>(MoveTemp(Stream));
+				UpdateData->ConfigureBuffer(EBufferUsageFlags::Static, true);
+
+				Commands.AddSectionGroupTask(Key, [UpdateData = UpdateData](FRealtimeMeshSectionGroupProxy& Proxy)
+				{
+					Proxy.CreateOrUpdateStream(UpdateData);
+				}, ShouldRecreateProxyOnStreamChange());
+			}
+			else
+			{
+				Commands.AddSectionGroupTask(Key, [StreamKey](FRealtimeMeshSectionGroupProxy& Proxy)
+				{
+					Proxy.RemoveStream(StreamKey);
+				});
+			}
 		}
 
 		SharedResources->BroadcastStreamChanged(Key, StreamKey, bAlreadyExisted ? ERealtimeMeshChangeType::Updated : ERealtimeMeshChangeType::Added);

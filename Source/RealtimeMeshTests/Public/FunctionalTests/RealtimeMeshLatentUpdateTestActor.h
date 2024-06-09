@@ -21,19 +21,12 @@ public:
 
 	UPROPERTY()
 	TObjectPtr<URealtimeMeshSimple> RealtimeMesh;
-
-	UPROPERTY()
-	FRealtimeMeshSectionKey StaticSectionKey;
 	
-	// Create a section group passing it our mesh data
 	UPROPERTY()
-	FRealtimeMeshSectionGroupKey GroupKey;
-
-	// Create both sections on the same mesh data
+	FRealtimeMeshSectionGroupKey GroupA;
+	
 	UPROPERTY()
-	FRealtimeMeshSectionKey SectionInGroupA;
-	UPROPERTY()
-	FRealtimeMeshSectionKey SectionInGroupB;
+	FRealtimeMeshSectionGroupKey GroupB;
 
 	
 	// Sets default values for this actor's properties
