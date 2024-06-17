@@ -134,9 +134,12 @@ void ARealtimeMeshActor::UnregisterWithGenerationManager()
 {
 	if (bIsRegisteredWithGenerationManager)
 	{
-		if (URealtimeMeshSubsystem* Subsystem = URealtimeMeshSubsystem::GetInstance(GetWorld()))
+		if (UWorld* World = GetWorld())
 		{
-			Subsystem->UnregisterGeneratedMeshActor(this);
+			if (URealtimeMeshSubsystem* Subsystem = URealtimeMeshSubsystem::GetInstance(World))
+			{
+				Subsystem->UnregisterGeneratedMeshActor(this);
+			}
 		}
 		bIsRegisteredWithGenerationManager = false;
 		bGeneratedMeshRebuildPending = false;
