@@ -44,7 +44,8 @@ namespace RealtimeMesh
 		{
 			bShouldCreateMeshCollision = bNewShouldCreateMeshCollision;
 			MarkBoundsDirtyIfNotOverridden();
-			MarkCollisionDirtyIfNecessary();
+			// We know the flag changed here so we may need to remove our collision, so force the issue
+			MarkCollisionDirtyIfNecessary(true);
 		}
 	}
 
@@ -199,12 +200,12 @@ namespace RealtimeMesh
 		return LocalBounds.IsSet() ? LocalBounds.GetValue() : FBoxSphereBounds3f(FSphere3f(FVector3f::ZeroVector, 1.0f));
 	}
 
-	void FRealtimeMeshSectionSimple::MarkCollisionDirtyIfNecessary() const
+	void FRealtimeMeshSectionSimple::MarkCollisionDirtyIfNecessary(bool bForceUpdate) const
 	{
 		auto SimpleSharedResources = StaticCastSharedRef<FRealtimeMeshSharedResourcesSimple>(SharedResources);
 		auto SimpleOwner = StaticCastSharedPtr<FRealtimeMeshSimple>(SimpleSharedResources->GetOwner());
 		
-		if (bShouldCreateMeshCollision && !SimpleOwner->HasCustomComplexMeshGeometry())
+		if ((bShouldCreateMeshCollision || bForceUpdate) && !SimpleOwner->HasCustomComplexMeshGeometry())
 		{
 			SimpleSharedResources->BroadcastCollisionDataChanged();
 		}

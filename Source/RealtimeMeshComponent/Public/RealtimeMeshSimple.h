@@ -104,7 +104,7 @@ namespace RealtimeMesh
 		/**
 		 * @brief Marks the collision dirty, to request an update to collision
 		 */
-		void MarkCollisionDirtyIfNecessary() const;
+		void MarkCollisionDirtyIfNecessary(bool bForceUpdate = false) const;
 	};
 
 	DECLARE_DELEGATE_RetVal_OneParam(FRealtimeMeshSectionConfig, FRealtimeMeshPolyGroupConfigHandler, int32);
