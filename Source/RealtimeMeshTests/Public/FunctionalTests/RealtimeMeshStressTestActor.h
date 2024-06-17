@@ -4,12 +4,18 @@
 
 #include "CoreMinimal.h"
 #include "RealtimeMeshActor.h"
+#include "UObject/StrongObjectPtr.h"
+#include "RealtimeMeshSimple.h"
 #include "RealtimeMeshStressTestActor.generated.h"
+
+
 
 UCLASS()
 class REALTIMEMESHTESTS_API ARealtimeMeshStressTestActor : public ARealtimeMeshActor
 {
 	GENERATED_BODY()
+private:
+	TFuture<TSharedPtr<TStrongObjectPtr<URealtimeMeshSimple>>> PendingGeneration;
 
 public:
 	// Sets default values for this actor's properties
