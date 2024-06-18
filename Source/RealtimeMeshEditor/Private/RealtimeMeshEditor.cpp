@@ -73,7 +73,7 @@ void FRealtimeMeshEditorModule::ShutdownModule()
 
 	for (auto CurrentTimer : WorldTimers)
 	{
-		if (IsValid(CurrentTimer.Key))
+		if (IsValid(CurrentTimer.Key) && !GIsRequestingExit)
 		{
 			CurrentTimer.Key->GetTimerManager().ClearTimer(CurrentTimer.Value);
 		}
