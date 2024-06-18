@@ -24,18 +24,10 @@ class URealtimeMeshSimple;
 using namespace RealtimeMesh;
 
 
-
-enum class ERealtimeMeshSimpleSectionGroupMode : uint8
-{
-	TreatAsSingle,
-	SeparateByGroup,
-};
-
 namespace RealtimeMesh
 {
 	/**
-	 * @brief Concrete implementation of FRealtimeMeshSection implementing necessary
-	 * logic to support complex collision updates by section.
+	 * @brief Concrete implementation of FRealtimeMeshSection for simple realtime mesh implementation
 	 */
 	class REALTIMEMESHCOMPONENT_API FRealtimeMeshSectionSimple : public FRealtimeMeshSection
 	{
@@ -108,42 +100,80 @@ namespace RealtimeMesh
 	};
 
 	DECLARE_DELEGATE_RetVal_OneParam(FRealtimeMeshSectionConfig, FRealtimeMeshPolyGroupConfigHandler, int32);
-	
-	class REALTIMEMESHCOMPONENT_API FRealtimeMeshSectionGroupSimple : public FRealtimeMeshSectionGroup
-	{		
-		FRealtimeMeshStreamSet Streams;
-		FRealtimeMeshPolyGroupConfigHandler ConfigHandler;		
-		uint8 bAutoCreateSectionsForPolygonGroups : 1;
-		uint8 bIsStandalone : 1;
 
+	/**
+	 * @brief Concrete implementation of FRealtimeMeshSectionGroup for simple realtime mesh implementation
+	 */
+	class REALTIMEMESHCOMPONENT_API FRealtimeMeshSectionGroupSimple : public FRealtimeMeshSectionGroup
+	{
+		// Store the actual mesh data on CPU side, this is so we can support fire-and-forget
+		FRealtimeMeshStreamSet Streams;
+
+		// Handler for setting up section config based on found poly groups
+		FRealtimeMeshPolyGroupConfigHandler ConfigHandler;
+
+		// Should we auto create sections for the poly groups
+		uint8 bAutoCreateSectionsForPolygonGroups : 1;
 
 	public:
 		FRealtimeMeshSectionGroupSimple(const FRealtimeMeshSharedResourcesRef& InSharedResources, const FRealtimeMeshSectionGroupKey& InKey)
 			: FRealtimeMeshSectionGroup(InSharedResources, InKey)
 			, bAutoCreateSectionsForPolygonGroups(true)
-			, bIsStandalone(false)
 		{
 		}
 
-		void FlagStandalone() { bIsStandalone = true; }
-		bool IsStandalone() const { return bIsStandalone; }
+		/**
+		 * @brief Get the valid range of the contained streams. This is the maximal renderable region of the streams
+		 * @return 
+		 */
+		FRealtimeMeshStreamRange GetValidStreamRange() const;
 
-		FRealtimeMeshSectionPtr GetStandaloneSection() const;
 
-		FRealtimeMeshStreamRange GetStreamRange() const;
-		
+		void SetShouldAutoCreateSectionsForPolyGroups(bool bNewValue) { bAutoCreateSectionsForPolygonGroups = bNewValue; }
+		bool ShouldAutoCreateSectionsForPolygonGroups() const { return bAutoCreateSectionsForPolygonGroups; }
+
+		/*
+		 * @brief Get the stream by key if it exists, nullptr otherwise
+		 * @param StreamKey Key to identify the stream
+		 */
 		const FRealtimeMeshStream* GetStream(FRealtimeMeshStreamKey StreamKey) const;
 
 		void SetPolyGroupSectionHandler(const FRealtimeMeshPolyGroupConfigHandler& NewHandler);
 		void ClearPolyGroupSectionHandler();
 
+		/*
+		 * @brief Get readonly access to the stream data, so you can read from it without copying it.
+		 * @param ProcessFunc Function to process the mesh data, you have threadsafe access while in this function.
+		 */
 		void ProcessMeshData(TFunctionRef<void(const FRealtimeMeshStreamSet&)> ProcessFunc) const;
+
+		/*
+		 * @brief Edit the mesh data, you can modify the mesh data in this function in a threadsafe manner.
+		 * @param EditFunc Function to edit the mesh data, you have threadsafe access while in this function.
+		 */
 		TFuture<ERealtimeMeshProxyUpdateStatus> EditMeshData(TFunctionRef<TSet<FRealtimeMeshStreamKey>(FRealtimeMeshStreamSet&)> EditFunc);
 
+		/*
+		 * @brief Create or update a stream in the mesh data
+		 * @param Commands Running command queue that we send RT commands too. This is used for command batching.
+		 * @param Stream The stream to create or update
+		 */
 		virtual void CreateOrUpdateStream(FRealtimeMeshProxyCommandBatch& Commands, FRealtimeMeshStream&& Stream) override;
+
+		/*
+		 * @brief Remove a stream from the mesh data
+		 * @param Commands Running command queue that we send RT commands too. This is used for command batching.
+		 * @param StreamKey Key to identify the stream
+		 */
 		virtual void RemoveStream(FRealtimeMeshProxyCommandBatch& Commands, const FRealtimeMeshStreamKey& StreamKey) override;
 
+
 		using FRealtimeMeshSectionGroup::SetAllStreams;
+		/*
+		 * @brief Set all the streams in the mesh data
+		 * @param Commands Running command queue that we send RT commands too. This is used for command batching.
+		 * @param InStreams The new streams to set
+		 */
 		virtual void SetAllStreams(FRealtimeMeshProxyCommandBatch& Commands, FRealtimeMeshStreamSet&& InStreams) override;
 
 		PRAGMA_DISABLE_DEPRECATION_WARNINGS
@@ -153,19 +183,40 @@ namespace RealtimeMesh
 		UE_DEPRECATED(all, "FRealtimeMeshSimpleMeshData is deprecated, use FRealtimeMeshStreamSet and TRealtimeMeshBuilderLocal instead and its helper functions which are more efficient and flexible")
 		void UpdateFromSimpleMesh(FRealtimeMeshProxyCommandBatch& Commands, const FRealtimeMeshSimpleMeshData& MeshData);
 		PRAGMA_ENABLE_DEPRECATION_WARNINGS
-		
+
+		/*
+		 * @brief Setup the proxy for this section group
+		 * @param Commands Running command queue that we send RT commands too. This is used for command batching.
+		 */
 		virtual void InitializeProxy(FRealtimeMeshProxyCommandBatch& Commands) override;
 
+		/*
+		 * @brief Reset this section group, removing all streams, and config
+		 * @param Commands Running command queue that we send RT commands too. This is used for command batching.
+		 */
 		virtual void Reset(FRealtimeMeshProxyCommandBatch& Commands) override;
+
+		/*
+		 * @brief Serialize this section group
+		 */
 		virtual bool Serialize(FArchive& Ar) override;
-		
+
+		/*
+		 * @brief Generate the collision mesh data for this section group, used to setup PhysX/Chaos collision
+		 */
 		virtual bool GenerateCollisionMesh(FRealtimeMeshTriMeshData& CollisionData);
+		
 	protected:
 
 		virtual void UpdatePolyGroupSections(FRealtimeMeshProxyCommandBatch& Commands, bool bUpdateDepthOnly);
 		virtual FRealtimeMeshSectionConfig DefaultPolyGroupSectionHandler(int32 PolyGroupIndex) const;
+		
+		bool ShouldCreateSingularSection() const;
 	};
 
+	/*
+	 * @brief Concrete implementation of FRealtimeMeshLODData for the simple realtime mesh implementation
+	 */
 	class REALTIMEMESHCOMPONENT_API FRealtimeMeshLODSimple : public FRealtimeMeshLODData
 	{
 	public:
@@ -174,11 +225,17 @@ namespace RealtimeMesh
 		{
 		}
 
+		/*
+		 * @brief Generate the collision mesh data for this LOD, used to setup PhysX/Chaos collision
+		 */
 		virtual bool GenerateCollisionMesh(FRealtimeMeshTriMeshData& CollisionData);
 	};
 
 	DECLARE_MULTICAST_DELEGATE(FRealtimeMeshSimpleCollisionDataChangedEvent);
 
+	/**
+	 * @brief Shared resources for the simple realtime mesh implementation
+	 */
 	class REALTIMEMESHCOMPONENT_API FRealtimeMeshSharedResourcesSimple : public FRealtimeMeshSharedResources
 	{
 		FRealtimeMeshSimpleCollisionDataChangedEvent CollisionDataChangedEvent;
@@ -210,12 +267,22 @@ namespace RealtimeMesh
 	class REALTIMEMESHCOMPONENT_API FRealtimeMeshSimple : public FRealtimeMesh
 	{
 	protected:
+		// Configuration for the collision on this mesh
 		FRealtimeMeshCollisionConfiguration CollisionConfig;
+
+		// Collection of simple geometry objects used for the simple collision representation
 		FRealtimeMeshSimpleGeometry SimpleGeometry;
+
+		// Mesh geometry used for the complex collision representation
 		FRealtimeMeshStreamSet ComplexMeshGeometry;
+
+		// Pending collision update promise. Used to alert when the collision finishes updating
 		mutable TSharedPtr<TPromise<ERealtimeMeshCollisionUpdateResult>> PendingCollisionPromise;
 
+		// Distance field representation for this mesh
 		FRealtimeMeshDistanceField DistanceField;
+
+		// Lumen card representation for this mesh
 		TUniquePtr<FRealtimeMeshCardRepresentation> CardRepresentation;
 		
 	public:
@@ -294,10 +361,10 @@ protected:
 public:
 	TSharedRef<RealtimeMesh::FRealtimeMeshSimple> GetMeshData() const { return StaticCastSharedRef<RealtimeMesh::FRealtimeMeshSimple>(GetMesh()); }
 
-	TFuture<ERealtimeMeshProxyUpdateStatus> CreateSectionGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey);
+	TFuture<ERealtimeMeshProxyUpdateStatus> CreateSectionGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey, bool bShouldAutoCreateSectionsForPolyGroups = true);
 
-	TFuture<ERealtimeMeshProxyUpdateStatus> CreateSectionGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey, FRealtimeMeshStreamSet&& MeshData);
-	TFuture<ERealtimeMeshProxyUpdateStatus> CreateSectionGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey, const FRealtimeMeshStreamSet& MeshData);
+	TFuture<ERealtimeMeshProxyUpdateStatus> CreateSectionGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey, FRealtimeMeshStreamSet&& MeshData, bool bShouldAutoCreateSectionsForPolyGroups = true);
+	TFuture<ERealtimeMeshProxyUpdateStatus> CreateSectionGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey, const FRealtimeMeshStreamSet& MeshData, bool bShouldAutoCreateSectionsForPolyGroups = true);
 	
 	TFuture<ERealtimeMeshProxyUpdateStatus> UpdateSectionGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey, FRealtimeMeshStreamSet&& MeshData);
 	TFuture<ERealtimeMeshProxyUpdateStatus> UpdateSectionGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey, const FRealtimeMeshStreamSet& MeshData);
