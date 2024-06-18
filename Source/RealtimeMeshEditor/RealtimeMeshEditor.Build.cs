@@ -29,7 +29,10 @@ public class RealtimeMeshEditor : ModuleRules
                 "RealtimeMeshComponent",
                 "UnrealEd",
                 "ToolMenus",
-                "Projects",
+                "Projects", 
+                "PluginWarden",
+                "RenderCore",
+                "RHI",
             }
         );
     }
