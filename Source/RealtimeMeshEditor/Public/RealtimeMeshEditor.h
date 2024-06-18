@@ -6,7 +6,21 @@
 
 class FRealtimeMeshEditorModule : public IModuleInterface
 {
+private:
+	TSharedPtr<class FUICommandList> PluginCommands;
+	
 public:
     virtual void StartupModule() override;
     virtual void ShutdownModule() override;
+	
+private:
+    void RegisterMenus();
+
+	static TSharedRef<SWidget> GenerateToolbarMenuContent(TSharedPtr<FUICommandList> Commands);
+	
+	void MarketplaceProButtonClicked();
+	void MarketplaceCoreButtonClicked();
+	void DiscordButtonClicked();
+	void DocumentationButtonClicked();
+	void IssuesButtonClicked();
 };

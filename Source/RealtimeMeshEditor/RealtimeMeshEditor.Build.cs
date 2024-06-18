@@ -27,7 +27,9 @@ public class RealtimeMeshEditor : ModuleRules
                 "Slate",
                 "SlateCore", 
                 "RealtimeMeshComponent",
-                "UnrealEd"
+                "UnrealEd",
+                "ToolMenus",
+                "Projects",
             }
         );
     }
