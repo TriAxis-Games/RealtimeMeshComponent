@@ -24,8 +24,10 @@ static FAutoConsoleVariableRef CVarRealtimeMeshNotifyLumenUseInCore(
 	
 void FRealtimeMeshEditorModule::StartupModule()
 {
+#if RMC_ENGINE_ABOVE_5_4
 	LoadSettings();
 	CheckUserOwnsPro();
+#endif
 	FRealtimeMeshEditorStyle::Initialize();
 	FRealtimeMeshEditorStyle::ReloadTextures();
 	FRealtimeMeshEditorCommands::Register();
@@ -56,6 +58,7 @@ void FRealtimeMeshEditorModule::StartupModule()
 	UToolMenus::RegisterStartupCallback(FSimpleMulticastDelegate::FDelegate::CreateRaw(this, &FRealtimeMeshEditorModule::RegisterMenus));
 
 
+#if RMC_ENGINE_ABOVE_5_4
 	WorldPostInitializeDelegateHandle = FWorldDelegates::OnPostWorldInitialization.AddRaw(this, &FRealtimeMeshEditorModule::SetupWorldNotifications);
 	for (TObjectIterator<UWorld> World; World; ++World)
 	{
@@ -64,10 +67,12 @@ void FRealtimeMeshEditorModule::StartupModule()
 			SetupWorldNotifications(*World, FWorldInitializationValues());
 		}
 	}
+#endif
 }
 
 void FRealtimeMeshEditorModule::ShutdownModule()
-{
+{	
+#if RMC_ENGINE_ABOVE_5_4
 	FWorldDelegates::OnPostWorldInitialization.Remove(WorldPostInitializeDelegateHandle);
 	WorldPostInitializeDelegateHandle.Reset();
 
@@ -79,6 +84,7 @@ void FRealtimeMeshEditorModule::ShutdownModule()
 		}
 	}
 	WorldTimers.Empty();
+#endif
 
 	UToolMenus::UnRegisterStartupCallback(this);
 	UToolMenus::UnregisterOwner(this);
@@ -168,6 +174,7 @@ void FRealtimeMeshEditorModule::IssuesButtonClicked()
 	FPlatformProcess::LaunchURL(TEXT("https://github.com/TriAxis-Games/RealtimeMeshComponent/issues"), nullptr, nullptr);
 }
 
+#if RMC_ENGINE_ABOVE_5_4
 bool FRealtimeMeshEditorModule::IsProVersion()
 {
 	// Detect the RealtimeMeshExt module to tell if this is the pro version.
@@ -398,6 +405,7 @@ void FRealtimeMeshEditorModule::SaveSettings()
 
 	ConfigFile.Write(ConfigPath);
 }
+#endif
 
 
 #undef LOCTEXT_NAMESPACE
