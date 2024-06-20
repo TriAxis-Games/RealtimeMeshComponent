@@ -353,6 +353,15 @@ namespace RealtimeMesh
 				RayTracingGeometries[LODIndex] = RealtimeMeshProxy->GetLOD(LODIndex)->GetStaticRayTracingGeometry();
 			}
 
+			const int32 IndexOfFirstNull = RayTracingGeometries.IndexOfByPredicate([](FRayTracingGeometry* RayTracingGeometry) { return !RayTracingGeometry; });
+
+			// TODO: Should we inject blank ones or duplicate a valid one instead of doing this?
+			// We strip to valid range with no nulls.
+			if (IndexOfFirstNull >= 0 && IndexOfFirstNull < RayTracingGeometries.Num())
+			{
+				RayTracingGeometries.SetNum(IndexOfFirstNull);
+			}
+			
 			return MoveTemp(RayTracingGeometries);
 		}
 #endif // RHI_RAYTRACING
