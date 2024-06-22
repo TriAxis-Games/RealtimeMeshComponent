@@ -334,12 +334,16 @@ void FRealtimeMeshEditorModule::CheckLumenUseTimer(UWorld* World)
 	if (IsValid(World))
 	{
 		bool bHasActiveRMC = false;
+		FGCScopeGuard GCGuard;
 		for (TActorIterator<AActor> It(World); It; ++It)
 		{
-			if (It->GetComponentByClass<URealtimeMeshComponent>() != nullptr)
+			if (IsValid(World))
 			{
-				bHasActiveRMC = true;
-				break;
+				if (IsValid(It->GetComponentByClass<URealtimeMeshComponent>()))
+				{
+					bHasActiveRMC = true;
+					break;
+				}
 			}
 		}
 
