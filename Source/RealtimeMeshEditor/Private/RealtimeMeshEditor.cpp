@@ -178,10 +178,11 @@ bool FRealtimeMeshEditorModule::IsProVersion()
 	// Detect the RealtimeMeshExt module to tell if this is the pro version.
 	if (auto Plugin = IPluginManager::Get().FindPlugin(TEXT("RealtimeMeshComponent")))
 	{
-		return Plugin->GetDescriptor().Modules.ContainsByPredicate([](const FModuleDescriptor& Module)
-		{
-			return Module.Name == TEXT("RealtimeMeshExt");
-		});
+		return Plugin->GetDescriptor().FriendlyName.Contains(TEXT("Pro")) ||
+			Plugin->GetDescriptor().Modules.ContainsByPredicate([](const FModuleDescriptor& Module)
+			{
+				return Module.Name == TEXT("RealtimeMeshExt");
+			});
 	}
 	return false;
 }
@@ -193,18 +194,18 @@ bool FRealtimeMeshEditorModule::UserOwnsPro()
 
 void FRealtimeMeshEditorModule::SetupEditorTimer()
 {
-	//if (!IsProVersion())
-	//{
-	if (GEditor && !LumenUseCheckHandle.IsValid())
+	if (!IsProVersion())
 	{
-		// In editor use the editor manager
-		if (GEditor->IsTimerManagerValid())
+		if (GEditor && !LumenUseCheckHandle.IsValid())
 		{
-			GEditor->GetTimerManager().Get().SetTimer(LumenUseCheckHandle,
-				FTimerDelegate::CreateRaw(this, &FRealtimeMeshEditorModule::CheckLumenUseTimer), 1.0f, true, 5.0f);
+			// In editor use the editor manager
+			if (GEditor->IsTimerManagerValid())
+			{
+				GEditor->GetTimerManager().Get().SetTimer(LumenUseCheckHandle,
+					FTimerDelegate::CreateRaw(this, &FRealtimeMeshEditorModule::CheckLumenUseTimer), 30.0f, true, 300.0f);
+			}
 		}
 	}
-	//}
 }
 
 void FRealtimeMeshEditorModule::ShowLumenNotification()
@@ -330,12 +331,15 @@ void FRealtimeMeshEditorModule::CheckLumenUseTimer()
 	{
 		if (IsValid(*It) && !It->IsPendingKillPending() && IsValid(It->GetWorld()))
 		{
-			if (DoesPlatformSupportLumenGI(GetFeatureLevelShaderPlatform(It->GetWorld()->Scene->GetFeatureLevel())))
+			if (It->GetWorld()->IsEditorWorld() && !It->GetWorld()->IsPreviewWorld())
 			{
-				if (IsValid(It->GetComponentByClass<URealtimeMeshComponent>()))
+				if (DoesPlatformSupportLumenGI(GetFeatureLevelShaderPlatform(It->GetWorld()->Scene->GetFeatureLevel())))
 				{
-					bHasActiveRMC = true;
-					break;
+					if (IsValid(It->GetComponentByClass<URealtimeMeshComponent>()))
+					{
+						bHasActiveRMC = true;
+						break;
+					}
 				}
 			}
 		}
