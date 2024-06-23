@@ -22,10 +22,7 @@ private:
 	TSharedPtr<class FUICommandList> PluginCommands;
 
 #if RMC_ENGINE_ABOVE_5_4
-	FRealtimeMeshEditorSettings Settings;
-	
-	FDelegateHandle WorldPostInitializeDelegateHandle;
-	TMap<UWorld*, FTimerHandle> WorldTimers;
+	FRealtimeMeshEditorSettings Settings;	
 	
 	TWeakPtr<SNotificationItem> LumenNotification;	
 	FTimerHandle LumenUseCheckHandle;
@@ -51,15 +48,15 @@ private:
 	bool IsProVersion();
 	bool UserOwnsPro();
 
+	void SetupEditorTimer();
+	
 	void ShowLumenNotification();
 	void HandleLumenNotificationBuyNowClicked();
 	void HandleLumenNotificationLaterClicked();
 	void HandleLumenNotificationIgnoreClicked();
-
-	void SetupWorldNotifications(UWorld* World, FWorldInitializationValues WorldInitializationValues);
 	
 	void CheckUserOwnsPro();
-	void CheckLumenUseTimer(UWorld* World);
+	void CheckLumenUseTimer();
 
 	void LoadSettings();
 	void SaveSettings();

@@ -60,31 +60,28 @@ void FRealtimeMeshEditorModule::StartupModule()
 
 
 #if RMC_ENGINE_ABOVE_5_4
-	WorldPostInitializeDelegateHandle = FWorldDelegates::OnPostWorldInitialization.AddRaw(this, &FRealtimeMeshEditorModule::SetupWorldNotifications);
-	for (TObjectIterator<UWorld> World; World; ++World)
+	FEditorDelegates::OnMapOpened.AddLambda([this](const FString&, bool)
 	{
-		if (IsValid(*World))
-		{
-			SetupWorldNotifications(*World, FWorldInitializationValues());
-		}
-	}
+		SetupEditorTimer();
+	});
+	FEditorDelegates::OnMapLoad.AddLambda([this](const FString&, FCanLoadMap&)
+	{		
+		SetupEditorTimer();
+	});
 #endif
 }
 
 void FRealtimeMeshEditorModule::ShutdownModule()
 {	
 #if RMC_ENGINE_ABOVE_5_4
-	FWorldDelegates::OnPostWorldInitialization.Remove(WorldPostInitializeDelegateHandle);
-	WorldPostInitializeDelegateHandle.Reset();
-
-	for (auto CurrentTimer : WorldTimers)
+	if (GEditor && LumenUseCheckHandle.IsValid())
 	{
-		if (IsValid(CurrentTimer.Key) && !IsEngineExitRequested())
+		// In editor use the editor manager
+		if (GEditor->IsTimerManagerValid())
 		{
-			CurrentTimer.Key->GetTimerManager().ClearTimer(CurrentTimer.Value);
+			GEditor->GetTimerManager().Get().ClearTimer(LumenUseCheckHandle);
 		}
 	}
-	WorldTimers.Empty();
 #endif
 
 	UToolMenus::UnRegisterStartupCallback(this);
@@ -194,6 +191,22 @@ bool FRealtimeMeshEditorModule::UserOwnsPro()
 	return bUserOwnsPro;
 }
 
+void FRealtimeMeshEditorModule::SetupEditorTimer()
+{
+	//if (!IsProVersion())
+	//{
+	if (GEditor && !LumenUseCheckHandle.IsValid())
+	{
+		// In editor use the editor manager
+		if (GEditor->IsTimerManagerValid())
+		{
+			GEditor->GetTimerManager().Get().SetTimer(LumenUseCheckHandle,
+				FTimerDelegate::CreateRaw(this, &FRealtimeMeshEditorModule::CheckLumenUseTimer), 1.0f, true, 5.0f);
+		}
+	}
+	//}
+}
+
 void FRealtimeMeshEditorModule::ShowLumenNotification()
 {
 	const int64 DayStartTimestamp = FDateTime::Today().ToUnixTimestamp();
@@ -288,25 +301,6 @@ void FRealtimeMeshEditorModule::HandleLumenNotificationIgnoreClicked()
 	}
 }
 
-void FRealtimeMeshEditorModule::SetupWorldNotifications(UWorld* World, FWorldInitializationValues WorldInitializationValues)
-{
-	if (WorldTimers.Contains(World))
-	{
-		if (IsValid(World))
-		{
-			World->GetTimerManager().ClearTimer(WorldTimers[World]);
-		}
-		WorldTimers.Remove(World);
-	}
-
-	if (World->IsEditorWorld())
-	{
-		FTimerHandle NewTimerHandle;
-		World->GetTimerManager().SetTimer(NewTimerHandle, FTimerDelegate::CreateRaw(this, &FRealtimeMeshEditorModule::CheckLumenUseTimer, World), 30.0f, true, 300.0f);
-		WorldTimers.Add(World, NewTimerHandle);
-	}
-}
-
 void FRealtimeMeshEditorModule::CheckUserOwnsPro()
 {
 	if (IPluginWardenModule::IsAvailable())
@@ -326,18 +320,17 @@ void FRealtimeMeshEditorModule::CheckUserOwnsPro()
 	}
 }
 
-void FRealtimeMeshEditorModule::CheckLumenUseTimer(UWorld* World)
+void FRealtimeMeshEditorModule::CheckLumenUseTimer()
 {
 	// Does world have an RMC in it?  Does that world also have Lumen enabled?
 	// If so, show the notification.
-
-	if (IsValid(World))
+	bool bHasActiveRMC = false;
+	FGCScopeGuard GCGuard;
+	for (TObjectIterator<AActor> It; It; ++It)
 	{
-		bool bHasActiveRMC = false;
-		FGCScopeGuard GCGuard;
-		for (TActorIterator<AActor> It(World); It; ++It)
+		if (IsValid(*It) && !It->IsPendingKillPending() && IsValid(It->GetWorld()))
 		{
-			if (IsValid(World))
+			if (DoesPlatformSupportLumenGI(GetFeatureLevelShaderPlatform(It->GetWorld()->Scene->GetFeatureLevel())))
 			{
 				if (IsValid(It->GetComponentByClass<URealtimeMeshComponent>()))
 				{
@@ -346,12 +339,11 @@ void FRealtimeMeshEditorModule::CheckLumenUseTimer(UWorld* World)
 				}
 			}
 		}
-
-		const bool bLumenSupported = DoesPlatformSupportLumenGI(GetFeatureLevelShaderPlatform(World->Scene->GetFeatureLevel()));
-		if (bHasActiveRMC && bLumenSupported)
-		{
-			ShowLumenNotification();
-		}
+	}
+	
+	if (bHasActiveRMC)
+	{
+		ShowLumenNotification();
 	}
 }
 
