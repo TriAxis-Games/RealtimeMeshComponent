@@ -182,7 +182,11 @@ namespace RealtimeMesh
 							return MeshBatch;
 						},
 #if RHI_RAYTRACING
-						[&PDI](const FMeshBatch& Batch, float MinScreenSize, const FRayTracingGeometry*) { PDI->DrawMesh(Batch, MinScreenSize); },
+						[&PDI](const FMeshBatch& Batch, float MinScreenSize, const FRayTracingGeometry*)
+						{
+							check(Batch.VertexFactory && Batch.VertexFactory->IsInitialized());
+							PDI->DrawMesh(Batch, MinScreenSize);
+						},
 #else
 							[&PDI](const FMeshBatch& Batch, float MinScreenSize) { PDI->DrawMesh(Batch, MinScreenSize); },					
 #endif
@@ -256,7 +260,11 @@ namespace RealtimeMesh
 									},
 									[&Collector]()-> FMeshBatch& { return Collector.AllocateMesh(); },
 	#if RHI_RAYTRACING
-									[&Collector, ViewIndex](FMeshBatch& Batch, float, const FRayTracingGeometry*) { Collector.AddMesh(ViewIndex, Batch); },
+									[&Collector, ViewIndex](FMeshBatch& Batch, float, const FRayTracingGeometry*)
+									{
+										check(Batch.VertexFactory && Batch.VertexFactory->IsInitialized());
+										Collector.AddMesh(ViewIndex, Batch);
+									},
 	#else
 									[&Collector, ViewIndex](FMeshBatch& Batch, float) { Collector.AddMesh(ViewIndex, Batch); },
 	#endif
@@ -405,6 +413,7 @@ namespace RealtimeMesh
 						{
 							if (RayTracingGeometry->IsValid())
 							{
+								check(Batch.VertexFactory && Batch.VertexFactory->IsInitialized());
 								check(RayTracingGeometry->Initializer.TotalPrimitiveCount > 0);
 								check(RayTracingGeometry->Initializer.IndexBuffer.IsValid());
 								checkf(RayTracingGeometry->RayTracingGeometryRHI, TEXT("Ray tracing instance must have a valid geometry."));
