@@ -54,7 +54,6 @@ namespace RealtimeMesh
 		FRealtimeMeshScopeGuardWrite ScopeGuard(SharedResources->GetGuard());
 
 		auto ParentGroup = GetSectionGroupAs<FRealtimeMeshSectionGroupSimple>();
-		ParentGroup->SetShouldAutoCreateSectionsForPolyGroups(false);
 		
 		FRealtimeMeshSection::UpdateStreamRange(Commands, InRange);		
 		
@@ -1490,6 +1489,49 @@ void URealtimeMeshSimple::RemoveSectionGroup(const FRealtimeMeshSectionGroupKey&
 				CompletionCallback.Execute(Status);
 			}
 		});
+}
+
+void URealtimeMeshSimple::SetShouldAutoCreateSectionsForPolyGroups(const FRealtimeMeshSectionGroupKey& SectionGroupKey, bool bNewValue)
+{
+	if (const auto LOD = GetMesh()->GetLOD(SectionGroupKey.LOD()))
+	{
+		if (const auto SectionGroup = LOD->GetSectionGroupAs<FRealtimeMeshSectionGroupSimple>(SectionGroupKey))
+		{
+			SectionGroup->SetShouldAutoCreateSectionsForPolyGroups(bNewValue);
+		}
+		else
+		{
+			FMessageLog("RealtimeMesh").Error(FText::Format(
+				LOCTEXT("SetShouldAutoCreateSectionsForPolyGroups_InvalidSectionGroupKey", "SetShouldAutoCreateSectionsForPolyGroups: Invalid section group key {0}"), FText::FromString(SectionGroupKey.ToString())));
+		}
+	}
+	else
+	{
+		FMessageLog("RealtimeMesh").Error(
+			FText::Format(LOCTEXT("SetShouldAutoCreateSectionsForPolyGroups_InvalidLODKey", "SetShouldAutoCreateSectionsForPolyGroups: Invalid LOD key {0}"), FText::FromString(SectionGroupKey.LOD().ToString())));
+	}
+}
+
+bool URealtimeMeshSimple::ShouldAutoCreateSectionsForPolygonGroups(const FRealtimeMeshSectionGroupKey& SectionGroupKey) const
+{
+	if (const auto LOD = GetMesh()->GetLOD(SectionGroupKey.LOD()))
+	{
+		if (const auto SectionGroup = LOD->GetSectionGroupAs<FRealtimeMeshSectionGroupSimple>(SectionGroupKey))
+		{
+			return SectionGroup->ShouldAutoCreateSectionsForPolygonGroups();
+		}
+		else
+		{
+			FMessageLog("RealtimeMesh").Error(FText::Format(
+				LOCTEXT("ShouldAutoCreateSectionsForPolygonGroups_InvalidSectionGroupKey", "ShouldAutoCreateSectionsForPolygonGroups: Invalid section group key {0}"), FText::FromString(SectionGroupKey.ToString())));
+		}
+	}
+	else
+	{
+		FMessageLog("RealtimeMesh").Error(
+			FText::Format(LOCTEXT("ShouldAutoCreateSectionsForPolygonGroups_InvalidLODKey", "ShouldAutoCreateSectionsForPolygonGroups: Invalid LOD key {0}"), FText::FromString(SectionGroupKey.LOD().ToString())));
+	}
+	return true;
 }
 
 FRealtimeMeshSectionConfig URealtimeMeshSimple::GetSectionConfig(const FRealtimeMeshSectionKey& SectionKey) const

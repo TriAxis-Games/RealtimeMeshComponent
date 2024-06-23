@@ -286,8 +286,22 @@ void URealtimeMesh::Serialize(FArchive& Ar)
 	{
 		Ar.UsingCustomVersion(RealtimeMesh::FRealtimeMeshVersion::GUID);
 
-		// Serialize the mesh data
-		GetMesh()->Serialize(Ar, this);
+		bool bShouldSerializeData = bShouldSerializeMeshData;
+		// Supporting optional serialization from editor.
+		if (Ar.CustomVer(RealtimeMesh::FRealtimeMeshVersion::GUID) >= RealtimeMesh::FRealtimeMeshVersion::SupportOptionalDataSerialization)
+		{
+			Ar << bShouldSerializeData;
+		}
+		else
+		{
+			bShouldSerializeData = true;
+		}
+
+		if (bShouldSerializeData)
+		{
+			// Serialize the mesh data
+			GetMesh()->Serialize(Ar, this);
+		}
 	}
 }
 

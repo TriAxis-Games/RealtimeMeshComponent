@@ -459,7 +459,11 @@ public:
 
 
 	
-
+	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh")
+	void SetShouldAutoCreateSectionsForPolyGroups(const FRealtimeMeshSectionGroupKey& SectionGroupKey, bool bNewValue);
+	
+	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh")
+	bool ShouldAutoCreateSectionsForPolygonGroups(const FRealtimeMeshSectionGroupKey& SectionGroupKey) const;
 
 	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh", meta = (AutoCreateRefTerm = "SectionKey"))
 	FRealtimeMeshSectionConfig GetSectionConfig(const FRealtimeMeshSectionKey& SectionKey) const;

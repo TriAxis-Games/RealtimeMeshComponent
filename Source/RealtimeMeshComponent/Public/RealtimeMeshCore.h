@@ -58,6 +58,7 @@ namespace RealtimeMesh
 			ImprovingDataTypes = 7,
 			SimpleMeshStoresCustomComplexCollision = 8,
 			DistanceFieldAndCardRepresentationSupport = 9,
+			SupportOptionalDataSerialization = 10,
 
 			// -----<new versions can be added above this line>-------------------------------------------------
 			VersionPlusOne,

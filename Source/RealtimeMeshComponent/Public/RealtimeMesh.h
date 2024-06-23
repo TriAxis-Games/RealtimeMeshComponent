@@ -75,6 +75,9 @@ protected:
 	/* Currently applied collision version, used for ignoring old cooks in async */
 	int32 CurrentCollisionVersion;
 
+	/* Should we serialize the mesh data when we're saving in editor/package */
+	uint32 bShouldSerializeMeshData : 1;
+
 public:
 	/**
 	 * @brief GetMesh returns the FRealtimeMesh data container.
@@ -233,6 +236,20 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh")
 	UMaterialInterface* GetMaterial(int32 SlotIndex) const;
+
+	/**
+	 * Should we serialize the mesh data while we're serializing in editor/package?
+	 * @return Whether we should serialize the mesh data.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh")
+	bool ShouldSerializeMeshData() const { return bShouldSerializeMeshData; }
+
+	/**
+	 * Set whether we should serialize the mesh data while we're serializing in editor/package.
+	 * @param bNewShouldSerializeMeshData New value for whether we should serialize the mesh data.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh")
+	void SetShouldSerializeMeshData(bool bNewShouldSerializeMeshData) { bShouldSerializeMeshData = bNewShouldSerializeMeshData; }
 
 public:
 	//	Begin UObject interface
