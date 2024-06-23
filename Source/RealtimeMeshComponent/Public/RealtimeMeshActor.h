@@ -20,7 +20,7 @@ protected:
 public:
 	/**
 	 * If true, the RealtimeMeshComponent will be "Frozen" in its current state, and automatic rebuilding
-	 * will be disabled. However the DynamicMesh can still be modified by explicitly-called functions/etc.
+	 * will be disabled. However the RealtimeMesh can still be modified by explicitly-called functions/etc.
 	 */
 	UPROPERTY(Category = "RealtimeMeshActor", EditAnywhere, BlueprintReadWrite)
 	bool bFrozen = false;
@@ -33,12 +33,12 @@ public:
 	ARealtimeMeshActor();
 	virtual ~ARealtimeMeshActor() override;
 
-	UFUNCTION(Category = DynamicMeshActor, BlueprintCallable)
+	UFUNCTION(Category = RealtimeMeshActor, BlueprintCallable)
 	URealtimeMeshComponent* GetRealtimeMeshComponent() const { return RealtimeMeshComponent; }
 
 	/**
 	 * This event will be fired to notify the BP that the generated Mesh should
-	 * be rebuilt. GeneratedDynamicMeshActor BP subclasses should rebuild their 
+	 * be rebuilt. GeneratedRealtimeMeshActor BP subclasses should rebuild their 
 	 * meshes on this event, instead of doing so directly from the Construction Script.
 	 */
 	UFUNCTION(BlueprintNativeEvent, CallInEditor, Category = "Events")

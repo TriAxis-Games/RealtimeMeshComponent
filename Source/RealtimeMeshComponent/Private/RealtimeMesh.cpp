@@ -33,6 +33,7 @@ URealtimeMesh::URealtimeMesh(const FObjectInitializer& ObjectInitializer)
 	, PendingBodySetup(nullptr)
 	, CollisionUpdateVersionCounter(0)
 	, CurrentCollisionVersion(INDEX_NONE)
+	, bShouldSerializeMeshData(true)
 {	
 }
 
