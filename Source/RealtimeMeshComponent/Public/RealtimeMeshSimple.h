@@ -447,6 +447,8 @@ public:
 									   const FRealtimeMeshSimpleCompletionCallback& CompletionCallback);
 
 
+	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh")
+	TArray<FRealtimeMeshSectionKey> GetSectionsInGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey);
 
 
 	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh", DisplayName="RemoveSection", meta = (AutoCreateRefTerm = "SectionKey, CompletionCallback"))

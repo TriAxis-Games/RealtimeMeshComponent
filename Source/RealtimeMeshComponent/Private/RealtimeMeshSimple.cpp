@@ -1234,6 +1234,31 @@ TSharedPtr<FRealtimeMeshSectionGroupSimple> URealtimeMeshSimple::GetSectionGroup
 	}
 }
 
+TArray<FRealtimeMeshSectionKey> URealtimeMeshSimple::GetSectionsInGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey)
+{	
+	if (const auto LOD = GetMesh()->GetLODAs<FRealtimeMeshLODSimple>(SectionGroupKey.LOD()))
+	{
+		if (const auto SectionGroup = LOD->GetSectionGroupAs<FRealtimeMeshSectionGroupSimple>(SectionGroupKey))
+		{
+			return SectionGroup->GetSectionKeys().Array();
+		}
+		else
+		{
+			FMessageLog("RealtimeMesh").Error(
+				FText::Format(LOCTEXT("GetSectionsInGroup_InvalidSectionGroupKey", "GetSectionsInGroup: Invalid SectionGroupKey key {0}"),
+							  FText::FromString(SectionGroupKey.ToString())));
+		}
+	}
+	else
+	{
+		FMessageLog("RealtimeMesh").Error(
+			FText::Format(LOCTEXT("GetSectionsInGroup_InvalidLODKey", "GetSectionsInGroup: Invalid LODKey key {0}"),
+						  FText::FromString(SectionGroupKey.LOD().ToString())));
+	}
+	return TArray<FRealtimeMeshSectionKey>();
+}
+
+
 bool URealtimeMeshSimple::ProcessMesh(const FRealtimeMeshSectionGroupKey& SectionGroupKey, const TFunctionRef<void(const FRealtimeMeshStreamSet&)>& ProcessFunc) const
 {	
 	if (const auto LOD = GetMesh()->GetLODAs<FRealtimeMeshLODSimple>(SectionGroupKey.LOD()))
