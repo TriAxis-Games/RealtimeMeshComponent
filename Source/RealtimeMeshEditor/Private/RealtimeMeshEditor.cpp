@@ -13,6 +13,7 @@
 #include "Framework/Notifications/NotificationManager.h"
 #include "Interfaces/IPluginManager.h"
 #include "Widgets/Notifications/SNotificationList.h"
+#include "Editor.h"
 
 #define LOCTEXT_NAMESPACE "RealtimeMeshEditorModule"
 
