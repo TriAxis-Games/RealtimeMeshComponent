@@ -87,6 +87,7 @@ namespace RealtimeMesh
 		virtual EPrimitiveType GetPrimitiveType() const { return PT_TriangleList; }
 
 		virtual FIndexBuffer& GetIndexBuffer(bool& bDepthOnly, bool& bMatrixInverted, TFunctionRef<void(const TSharedRef<FRenderResource>&)> ResourceSubmitter) const = 0;
+		virtual FIndexBuffer& GetIndexBuffer(bool& bDepthOnly, bool& bMatrixInverted, struct FRealtimeMeshResourceReferenceList& ActiveResources) const = 0;
 
 		virtual FRealtimeMeshStreamRange GetValidRange() const = 0;
 		virtual bool IsValidStreamRange(const FRealtimeMeshStreamRange& StreamRange) const = 0;
@@ -96,7 +97,8 @@ namespace RealtimeMesh
 		virtual FRHIUniformBuffer* GetUniformBuffer() const = 0;
 
 		virtual bool GatherVertexBufferResources(TFunctionRef<void(const TSharedRef<FRenderResource>&)> ResourceSubmitter) const = 0;
-
+		virtual bool GatherVertexBufferResources(struct FRealtimeMeshResourceReferenceList& ActiveResources) const = 0;
+		
 	protected:
 		static TSharedPtr<FRealtimeMeshGPUBuffer> FindBuffer(const FRealtimeMeshStreamProxyMap& Buffers, ERealtimeMeshStreamType StreamType, FName BufferName)
 		{
@@ -302,6 +304,7 @@ namespace RealtimeMesh
 		virtual EPrimitiveType GetPrimitiveType() const override { return PT_TriangleList; }
 
 		virtual FIndexBuffer& GetIndexBuffer(bool& bDepthOnly, bool& bMatrixInverted, TFunctionRef<void(const TSharedRef<FRenderResource>&)> ResourceSubmitter) const override;
+		virtual FIndexBuffer& GetIndexBuffer(bool& bDepthOnly, bool& bMatrixInverted, struct FRealtimeMeshResourceReferenceList& ActiveResources) const override;
 
 		virtual FRealtimeMeshStreamRange GetValidRange() const override { return ValidRange; }
 		virtual bool IsValidStreamRange(const FRealtimeMeshStreamRange& StreamRange) const override;
@@ -309,6 +312,7 @@ namespace RealtimeMesh
 		virtual void Initialize(const TMap<FRealtimeMeshStreamKey, TSharedPtr<FRealtimeMeshGPUBuffer>>& Buffers) override;
 
 		virtual bool GatherVertexBufferResources(TFunctionRef<void(const TSharedRef<FRenderResource>&)> ResourceSubmitter) const override;
+		virtual bool GatherVertexBufferResources(struct FRealtimeMeshResourceReferenceList& ActiveResources) const override;
 
 		// FRenderResource interface.
 #if RMC_ENGINE_ABOVE_5_3

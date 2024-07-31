@@ -113,4 +113,6 @@ private:
 	virtual void HandleCollisionBodyUpdated(URealtimeMesh* RealtimeMesh, UBodySetup* BodySetup);
 
 	virtual void UpdateCollision();
+
+	friend class FRealtimeMeshDetailsCustomization;
 };

@@ -13,7 +13,6 @@
 #include "Mesh/RealtimeMeshDataStream.h"
 #include "Mesh/RealtimeMeshDistanceField.h"
 #include "Mesh/RealtimeMeshCardRepresentation.h"
-#include "Mesh/RealtimeMeshSimpleData.h"
 #include "RealtimeMeshSimple.generated.h"
 
 
@@ -57,13 +56,6 @@ namespace RealtimeMesh
 		 * @param InRange New section stream range
 		 */
 		virtual void UpdateStreamRange(FRealtimeMeshProxyCommandBatch& Commands, const FRealtimeMeshStreamRange& InRange) override;
-
-		/**
-		 * @brief Generates the collision mesh data for this section, adding it to the supplied CollisionData.
-		 * @param CollisionData Collision data to add new collision mesh data too.
-		 * @return Whether the generation succeeded. 
-		 */
-		virtual bool GenerateCollisionMesh(FRealtimeMeshTriMeshData& CollisionData);
 		
 		/**
 		 * @brief Serializes this section to the running archive.
@@ -204,7 +196,8 @@ namespace RealtimeMesh
 		/*
 		 * @brief Generate the collision mesh data for this section group, used to setup PhysX/Chaos collision
 		 */
-		virtual bool GenerateCollisionMesh(FRealtimeMeshTriMeshData& CollisionData);
+		virtual bool GenerateComplexCollision(FRealtimeMeshCollisionMesh& CollisionMesh);
+		
 		
 	protected:
 
@@ -228,7 +221,7 @@ namespace RealtimeMesh
 		/*
 		 * @brief Generate the collision mesh data for this LOD, used to setup PhysX/Chaos collision
 		 */
-		virtual bool GenerateCollisionMesh(FRealtimeMeshTriMeshData& CollisionData);
+		virtual bool GenerateComplexCollision(FRealtimeMeshComplexGeometry& ComplexGeometry);
 	};
 
 	DECLARE_MULTICAST_DELEGATE(FRealtimeMeshSimpleCollisionDataChangedEvent);
@@ -274,7 +267,7 @@ namespace RealtimeMesh
 		FRealtimeMeshSimpleGeometry SimpleGeometry;
 
 		// Mesh geometry used for the complex collision representation
-		FRealtimeMeshStreamSet ComplexMeshGeometry;
+		FRealtimeMeshComplexGeometry ComplexGeometry;
 
 		// Pending collision update promise. Used to alert when the collision finishes updating
 		mutable TSharedPtr<TPromise<ERealtimeMeshCollisionUpdateResult>> PendingCollisionPromise;
@@ -307,12 +300,12 @@ namespace RealtimeMesh
 		FRealtimeMeshSimpleGeometry GetSimpleGeometry() const;
 		TFuture<ERealtimeMeshCollisionUpdateResult> SetSimpleGeometry(const FRealtimeMeshSimpleGeometry& InSimpleGeometry);
 
-		bool HasCustomComplexMeshGeometry() const { return ComplexMeshGeometry.Num() > 0; }
+		bool HasCustomComplexMeshGeometry() const { return ComplexGeometry.NumMeshes() > 0; }
 		TFuture<ERealtimeMeshCollisionUpdateResult> ClearCustomComplexMeshGeometry();
-		TFuture<ERealtimeMeshCollisionUpdateResult> SetCustomComplexMeshGeometry(FRealtimeMeshStreamSet&& InComplexMeshGeometry);
-		TFuture<ERealtimeMeshCollisionUpdateResult> SetCustomComplexMeshGeometry(const FRealtimeMeshStreamSet& InComplexMeshGeometry);
-		void ProcessCustomComplexMeshGeometry(TFunctionRef<void(const FRealtimeMeshStreamSet&)> ProcessFunc) const;
-		TFuture<ERealtimeMeshCollisionUpdateResult> EditCustomComplexMeshGeometry(TFunctionRef<void(FRealtimeMeshStreamSet&)> EditFunc);
+		TFuture<ERealtimeMeshCollisionUpdateResult> SetCustomComplexMeshGeometry(FRealtimeMeshComplexGeometry&& InComplexMeshGeometry);
+		TFuture<ERealtimeMeshCollisionUpdateResult> SetCustomComplexMeshGeometry(const FRealtimeMeshComplexGeometry& InComplexMeshGeometry);
+		void ProcessCustomComplexMeshGeometry(TFunctionRef<void(const FRealtimeMeshComplexGeometry&)> ProcessFunc) const;
+		TFuture<ERealtimeMeshCollisionUpdateResult> EditCustomComplexMeshGeometry(TFunctionRef<void(FRealtimeMeshComplexGeometry&)> EditFunc);
 
 		const FRealtimeMeshDistanceField& GetDistanceField() const;
 		virtual void SetDistanceField(FRealtimeMeshProxyCommandBatch& Commands, FRealtimeMeshDistanceField&& InDistanceField) override;
@@ -324,11 +317,9 @@ namespace RealtimeMesh
 		virtual void SetCardRepresentation(FRealtimeMeshProxyCommandBatch& Commands, FRealtimeMeshCardRepresentation&& InCardRepresentation) override;
 		using FRealtimeMesh::SetCardRepresentation;
 		virtual void ClearCardRepresentation(FRealtimeMeshProxyCommandBatch& Commands) override;
-		using FRealtimeMesh::ClearCardRepresentation;
-
+		using FRealtimeMesh::ClearCardRepresentation;		
 		
-		
-		virtual bool GenerateCollisionMesh(FRealtimeMeshTriMeshData& CollisionData);
+		virtual bool GenerateComplexCollision(FRealtimeMeshComplexGeometry& ComplexGeometry);
 
 		virtual void InitializeProxy(FRealtimeMeshProxyCommandBatch& Commands) const override;
 		virtual void Reset(FRealtimeMeshProxyCommandBatch& Commands, bool bRemoveRenderProxy) override;
@@ -395,10 +386,10 @@ public:
 
 	bool HasCustomComplexMeshGeometry() const;
 	TFuture<ERealtimeMeshCollisionUpdateResult> ClearCustomComplexMeshGeometry();
-	TFuture<ERealtimeMeshCollisionUpdateResult> SetCustomComplexMeshGeometry(FRealtimeMeshStreamSet&& InComplexMeshGeometry);
-	TFuture<ERealtimeMeshCollisionUpdateResult> SetCustomComplexMeshGeometry(const FRealtimeMeshStreamSet& InComplexMeshGeometry);
-	void ProcessCustomComplexMeshGeometry(TFunctionRef<void(const FRealtimeMeshStreamSet&)> ProcessFunc) const;
-	TFuture<ERealtimeMeshCollisionUpdateResult> EditCustomComplexMeshGeometry(TFunctionRef<void(FRealtimeMeshStreamSet&)> EditFunc);
+	TFuture<ERealtimeMeshCollisionUpdateResult> SetCustomComplexMeshGeometry(FRealtimeMeshComplexGeometry&& InComplexMeshGeometry);
+	TFuture<ERealtimeMeshCollisionUpdateResult> SetCustomComplexMeshGeometry(const FRealtimeMeshComplexGeometry& InComplexMeshGeometry);
+	void ProcessCustomComplexMeshGeometry(TFunctionRef<void(const FRealtimeMeshComplexGeometry&)> ProcessFunc) const;
+	TFuture<ERealtimeMeshCollisionUpdateResult> EditCustomComplexMeshGeometry(TFunctionRef<void(FRealtimeMeshComplexGeometry&)> EditFunc);
 
 
 	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh", DisplayName="CreateSectionGroup", meta= (AutoCreateRefTerm = "CompletionCallback"))

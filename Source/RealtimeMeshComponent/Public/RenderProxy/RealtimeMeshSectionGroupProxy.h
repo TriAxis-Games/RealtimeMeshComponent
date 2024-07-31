@@ -10,6 +10,56 @@
 
 namespace RealtimeMesh
 {
+	using FRealtimeMeshSectionMask = TBitArray<TInlineAllocator<1>>;
+
+	class FRealtimeMeshActiveSectionIterator
+	{
+	private:
+		const FRealtimeMeshSectionGroupProxy& Proxy;
+		TConstSetBitIterator<TInlineAllocator<1>> Iterator;
+
+	public:
+		FRealtimeMeshActiveSectionIterator(const FRealtimeMeshSectionGroupProxy& InProxy, const FRealtimeMeshSectionMask& InMask)
+			: Proxy(InProxy), Iterator(TConstSetBitIterator(InMask)) { }
+		
+		/** Forwards iteration operator. */
+		FORCEINLINE FRealtimeMeshActiveSectionIterator& operator++()
+		{
+			++Iterator;
+			return *this;
+		}
+
+		FORCEINLINE bool operator==(const FRealtimeMeshActiveSectionIterator& Other) const
+		{
+			return Iterator == Other.Iterator;
+		}
+
+		FORCEINLINE bool operator!=(const FRealtimeMeshActiveSectionIterator& Other) const
+		{ 
+			return Iterator != Other.Iterator;
+		}
+
+		/** conversion to "bool" returning true if the iterator is valid. */
+		FORCEINLINE explicit operator bool() const
+		{
+			return (bool)Iterator;
+		}
+		/** inverse of the "bool" operator */
+		FORCEINLINE bool operator !() const 
+		{
+			return !(bool)*this;
+		}
+
+		FRealtimeMeshSectionProxy* operator*() const;
+		FRealtimeMeshSectionProxy& operator->() const;
+		
+		/** Index accessor. */
+		FORCEINLINE int32 GetIndex() const
+		{
+			return Iterator.GetIndex();
+		}
+	};
+	
 	class REALTIMEMESHCOMPONENT_API FRealtimeMeshSectionGroupProxy : public TSharedFromThis<FRealtimeMeshSectionGroupProxy>
 	{
 	private:
@@ -18,6 +68,9 @@ namespace RealtimeMesh
 		TSharedPtr<FRealtimeMeshVertexFactory> VertexFactory;
 		TArray<FRealtimeMeshSectionProxyRef> Sections;
 		TMap<FRealtimeMeshSectionKey, uint32> SectionMap;
+		FRealtimeMeshSectionMask ActiveSectionMask;		
+		FRealtimeMeshSectionMask ActiveStaticSectionMask;
+		FRealtimeMeshSectionMask ActiveDynamicSectionMask;
 		FRealtimeMeshStreamProxyMap Streams;
 #if RHI_RAYTRACING
 		FRayTracingGeometry RayTracingGeometry;
@@ -33,24 +86,16 @@ namespace RealtimeMesh
 		const FRealtimeMeshSectionGroupKey& GetKey() const { return Key; }
 		TSharedPtr<FRealtimeMeshVertexFactory> GetVertexFactory() const { return VertexFactory; }
 		FRealtimeMeshDrawMask GetDrawMask() const { return DrawMask; }
+		FRealtimeMeshActiveSectionIterator GetActiveSectionMaskIter() const { return FRealtimeMeshActiveSectionIterator(*this, ActiveSectionMask); }
+		FRealtimeMeshActiveSectionIterator GetActiveStaticSectionMaskIter() const { return FRealtimeMeshActiveSectionIterator(*this, ActiveStaticSectionMask); }
+		FRealtimeMeshActiveSectionIterator GetActiveDynamicSectionMaskIter() const { return FRealtimeMeshActiveSectionIterator(*this, ActiveDynamicSectionMask); }
 
 		FRealtimeMeshSectionProxyPtr GetSection(const FRealtimeMeshSectionKey& SectionKey) const;
 		TSharedPtr<FRealtimeMeshGPUBuffer> GetStream(const FRealtimeMeshStreamKey& StreamKey) const;
 
-		template<typename ProcessFunc>
-		void ProcessSections(ERealtimeMeshDrawMask InDrawMask, ProcessFunc ProcessFunction) const
-		{
-			if (DrawMask.IsSet(InDrawMask))
-			{
-				for (const FRealtimeMeshSectionProxyRef& Section : Sections)
-				{
-					if (Section->GetDrawMask().IsSet(InDrawMask))
-					{
-						ProcessFunction(Section);
-					}
-				}
-			}
-		}
+#if RHI_RAYTRACING
+		const FRayTracingGeometry* GetRayTracingGeometry() const { return &RayTracingGeometry; }
+#endif
 		
 		FRayTracingGeometry* GetRayTracingGeometry();
 		
@@ -60,8 +105,7 @@ namespace RealtimeMesh
 		virtual void CreateOrUpdateStream(const FRealtimeMeshSectionGroupStreamUpdateDataRef& InStream);
 		virtual void RemoveStream(const FRealtimeMeshStreamKey& StreamKey);
 
-		virtual void CreateMeshBatches(const FRealtimeMeshBatchCreationParams& Params, const TMap<int32, TTuple<FMaterialRenderProxy*, bool>>& Materials,
-		                               const FMaterialRenderProxy* WireframeMaterial, ERealtimeMeshSectionDrawType DrawType, bool bForceAllDynamic) const;
+		virtual bool InitializeMeshBatch(FMeshBatch& MeshBatch, FRealtimeMeshResourceReferenceList& Resources, bool bIsLocalToWorldDeterminantNegative, bool bWantsDepthOnly) const;
 
 		virtual bool UpdateCachedState(bool bShouldForceUpdate);
 		virtual void Reset();
@@ -71,5 +115,20 @@ namespace RealtimeMesh
 
 		void MarkStateDirty();
 		void RebuildSectionMap();
-	};
+
+		friend class FRealtimeMeshActiveSectionIterator;
+	};	
+
+	
+	FORCEINLINE FRealtimeMeshSectionProxy* FRealtimeMeshActiveSectionIterator::operator*() const
+	{
+		check(Proxy.Sections.IsValidIndex(Iterator.GetIndex()));
+		return &Proxy.Sections[Iterator.GetIndex()].Get();
+	}
+
+	FORCEINLINE FRealtimeMeshSectionProxy& FRealtimeMeshActiveSectionIterator::operator->() const
+	{
+		check(Proxy.Sections.IsValidIndex(Iterator.GetIndex()));
+		return Proxy.Sections[Iterator.GetIndex()].Get();
+	}
 }

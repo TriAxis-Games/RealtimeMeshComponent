@@ -62,15 +62,15 @@ namespace RealtimeMesh
 		return Bounds.GetBounds([&]() { return CalculateBounds(); });
 	}
 
-	TFuture<ERealtimeMeshCollisionUpdateResult> FRealtimeMesh::UpdateCollision(FRealtimeMeshCollisionData&& InCollisionData)
+	TFuture<ERealtimeMeshCollisionUpdateResult> FRealtimeMesh::UpdateCollision(FRealtimeMeshCollisionInfo&& InCollisionData)
 	{
 		const auto Promise = MakeShared<TPromise<ERealtimeMeshCollisionUpdateResult>>();
-		auto CollisionData = MakeShared<FRealtimeMeshCollisionData>(MoveTemp(InCollisionData));
+		auto CollisionData = MakeShared<FRealtimeMeshCollisionInfo>(MoveTemp(InCollisionData));
 
 		auto Handler = [Promise, SharedResources = SharedResources, CollisionData]() mutable
 		{
 			FRealtimeMeshScopeGuardWrite ScopeGuard(SharedResources->GetGuard());
-			if (ensure(SharedResources->GetCollisionUpdateHandler().IsBound()))
+			if (SharedResources->GetCollisionUpdateHandler().IsBound())
 			{
 				SharedResources->GetCollisionUpdateHandler().Execute(Promise, CollisionData, false);
 			}

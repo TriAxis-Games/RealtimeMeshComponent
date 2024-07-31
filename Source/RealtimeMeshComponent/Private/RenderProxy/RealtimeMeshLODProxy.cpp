@@ -40,6 +40,8 @@ namespace RealtimeMesh
 
 	void FRealtimeMeshLODProxy::CreateSectionGroupIfNotExists(const FRealtimeMeshSectionGroupKey& SectionGroupKey)
 	{
+		TRACE_CPUPROFILER_EVENT_SCOPE(FRealtimeMeshLODProxy::CreateSectionGroupIfNotExists);
+		
 		check(SectionGroupKey.IsPartOf(Key));
 
 		// Does this section already exist
@@ -53,6 +55,8 @@ namespace RealtimeMesh
 
 	void FRealtimeMeshLODProxy::RemoveSectionGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey)
 	{
+		TRACE_CPUPROFILER_EVENT_SCOPE(FRealtimeMeshLODProxy::RemoveSectionGroup);
+		
 		check(SectionGroupKey.IsPartOf(Key));
 
 		if (SectionGroupMap.Contains(SectionGroupKey))
@@ -61,34 +65,6 @@ namespace RealtimeMesh
 			SectionGroups.RemoveAt(SectionGroupIndex);
 			RebuildSectionGroupMap();
 			MarkStateDirty();
-		}
-	}
-
-	void FRealtimeMeshLODProxy::CreateMeshBatches(const FRealtimeMeshBatchCreationParams& Params, const TMap<int32, TTuple<FMaterialRenderProxy*, bool>>& Materials,
-	                                              const FMaterialRenderProxy* WireframeMaterial, ERealtimeMeshSectionDrawType DrawType, ERealtimeMeshBatchCreationFlags InclusionFlags) const
-	{
-		const ERealtimeMeshDrawMask DrawTypeMask = EnumHasAllFlags(InclusionFlags, ERealtimeMeshBatchCreationFlags::ForceAllDynamic)
-			                                           ? ERealtimeMeshDrawMask::DrawPassMask
-			                                           : DrawType == ERealtimeMeshSectionDrawType::Dynamic
-			                                           ? ERealtimeMeshDrawMask::DrawDynamic
-			                                           : ERealtimeMeshDrawMask::DrawStatic;
-
-		if (DrawMask.IsAnySet(DrawTypeMask))
-		{
-			for (const auto& SectionGroup : SectionGroups)
-			{
-				if (!EnumHasAllFlags(InclusionFlags, ERealtimeMeshBatchCreationFlags::SkipStaticRayTracedSections) 
-#if RHI_RAYTRACING
-					|| SectionGroup != StaticRaytracingSectionGroup
-#endif
-					)
-				{
-					if (SectionGroup->GetDrawMask().IsAnySet(DrawTypeMask))
-					{
-						SectionGroup->CreateMeshBatches(Params, Materials, WireframeMaterial, DrawType, EnumHasAllFlags(InclusionFlags, ERealtimeMeshBatchCreationFlags::ForceAllDynamic));
-					}
-				}
-			}
 		}
 	}
 
@@ -101,6 +77,8 @@ namespace RealtimeMesh
 	
 	bool FRealtimeMeshLODProxy::UpdateCachedState(bool bShouldForceUpdate)
 	{
+		TRACE_CPUPROFILER_EVENT_SCOPE(FRealtimeMeshLODProxy::UpdateCachedState);
+		
 		// Handle all SectionGroup updates
 		for (const auto& SectionGroup : SectionGroups)
 		{
@@ -113,11 +91,24 @@ namespace RealtimeMesh
 		}
 
 		FRealtimeMeshDrawMask NewDrawMask;
+		FRealtimeMeshSectionGroupMask NewActiveSectionGroupMask;		
+		FRealtimeMeshSectionGroupMask NewActiveStaticSectionGroupMask;
+		FRealtimeMeshSectionGroupMask NewActiveDynamicSectionGroupMask;
 		if (Config.bIsVisible && Config.ScreenSize >= 0)
 		{
-			for (const auto& SectionGroup : SectionGroups)
+			NewActiveSectionGroupMask.SetNum(SectionGroups.Num(), false);
+			NewActiveStaticSectionGroupMask.SetNum(SectionGroups.Num(), false);
+			NewActiveDynamicSectionGroupMask.SetNum(SectionGroups.Num(), false);
+			
+			for (auto It = SectionGroups.CreateConstIterator(); It; ++It)
 			{
-				NewDrawMask |= SectionGroup->GetDrawMask();
+				const FRealtimeMeshSectionGroupProxyRef& SectionGroup = *It;
+				auto SectionGroupDrawMask = SectionGroup->GetDrawMask();
+				NewDrawMask |= SectionGroupDrawMask;
+				
+				NewActiveSectionGroupMask[It.GetIndex()] = SectionGroupDrawMask.ShouldRender();
+				NewActiveStaticSectionGroupMask[It.GetIndex()] = SectionGroupDrawMask.ShouldRenderStaticPath();
+				NewActiveDynamicSectionGroupMask[It.GetIndex()] = SectionGroupDrawMask.ShouldRenderDynamicPath();
 			}
 		}
 
@@ -148,8 +139,12 @@ namespace RealtimeMesh
 			}			
 		}
 
-		const bool bStateChanged = DrawMask != NewDrawMask;
+		const bool bStateChanged = DrawMask != NewDrawMask || ActiveSectionGroupMask != NewActiveSectionGroupMask || ActiveStaticSectionGroupMask != NewActiveStaticSectionGroupMask ||
+			ActiveDynamicSectionGroupMask != NewActiveDynamicSectionGroupMask || StaticRaytracingSectionGroup != NewStaticRaytracingGroup;
 		DrawMask = NewDrawMask;
+		ActiveSectionGroupMask = NewActiveSectionGroupMask;
+		ActiveStaticSectionGroupMask = NewActiveStaticSectionGroupMask;
+		ActiveDynamicSectionGroupMask = NewActiveDynamicSectionGroupMask;
 		bIsStateDirty = false;
 #if RHI_RAYTRACING
 		StaticRaytracingSectionGroup = NewStaticRaytracingGroup;
@@ -173,6 +168,8 @@ namespace RealtimeMesh
 
 	void FRealtimeMeshLODProxy::Reset()
 	{
+		TRACE_CPUPROFILER_EVENT_SCOPE(FRealtimeMeshLODProxy::Reset);
+		
 		// Reset all the section groups
 		SectionGroups.Empty();
 		SectionGroupMap.Empty();

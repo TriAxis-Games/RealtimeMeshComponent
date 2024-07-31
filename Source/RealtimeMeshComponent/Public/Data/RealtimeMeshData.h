@@ -108,7 +108,7 @@ namespace RealtimeMesh
 		FRealtimeMeshProxyRef CreateRenderProxy(bool bForceRecreate = false) const;
 		virtual FBoxSphereBounds3f CalculateBounds() const;
 
-		TFuture<ERealtimeMeshCollisionUpdateResult> UpdateCollision(FRealtimeMeshCollisionData&& InCollisionData);
+		TFuture<ERealtimeMeshCollisionUpdateResult> UpdateCollision(FRealtimeMeshCollisionInfo&& InCollisionData);
 
 		friend class URealtimeMesh;
 	};

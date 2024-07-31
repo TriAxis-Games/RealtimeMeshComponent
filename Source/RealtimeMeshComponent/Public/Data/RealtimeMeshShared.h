@@ -9,7 +9,7 @@
 
 struct FRealtimeMeshSimpleGeometry;
 struct FRealtimeMeshCollisionConfiguration;
-struct FRealtimeMeshCollisionData;
+struct FRealtimeMeshCollisionInfo;
 enum class ERealtimeMeshCollisionUpdateResult : uint8;
 
 namespace RealtimeMesh
@@ -115,7 +115,7 @@ namespace RealtimeMesh
 
 	DECLARE_DELEGATE(FRealtimeMeshRequestEndOfFrameUpdateDelegate);
 	DECLARE_DELEGATE_ThreeParams(FRealtimeMeshCollisionUpdateDelegate, const TSharedRef<TPromise<ERealtimeMeshCollisionUpdateResult>>&,
-	                             const TSharedRef<FRealtimeMeshCollisionData>&, bool);
+	                             const TSharedRef<FRealtimeMeshCollisionInfo>&, bool);
 
 	class REALTIMEMESHCOMPONENT_API FRealtimeMeshSharedResources : public TSharedFromThis<FRealtimeMeshSharedResources>
 	{

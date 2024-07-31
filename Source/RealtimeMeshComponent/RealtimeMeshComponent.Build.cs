@@ -35,6 +35,8 @@ public class RealtimeMeshComponent : ModuleRules
                 "PhysicsCore",
 				"DeveloperSettings",
                 "Projects",
+                "Chaos",
+                "ChaosCore",
             }
             );
     }

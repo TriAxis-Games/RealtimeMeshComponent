@@ -225,32 +225,35 @@ void URealtimeMeshComponent::CollectPSOPrecacheData(const FPSOPrecacheParams& Ba
 {
 	FPSOPrecacheVertexFactoryDataList VFDataList;
 	const FVertexFactoryType* VFType = nullptr;
-	
-	if (const auto MeshRenderProxy = RealtimeMeshReference->GetMesh()->GetRenderProxy(true))
+
+	if (RealtimeMeshReference)
 	{
-		if (RealtimeMesh::IRealtimeMeshNaniteSceneProxyManager::IsNaniteSupportAvailable() && MeshRenderProxy->HasNaniteResources())
-		{			
-			if (NaniteLegacyMaterialsSupported())
-			{
-				VFDataList.Add(FPSOPrecacheVertexFactoryData(&Nanite::FVertexFactory::StaticType));
-			}
+		if (const auto MeshRenderProxy = RealtimeMeshReference->GetMesh()->GetRenderProxy(true))
+		{
+			if (RealtimeMesh::IRealtimeMeshNaniteSceneProxyManager::IsNaniteSupportAvailable() && MeshRenderProxy->HasNaniteResources())
+			{			
+				if (NaniteLegacyMaterialsSupported())
+				{
+					VFDataList.Add(FPSOPrecacheVertexFactoryData(&Nanite::FVertexFactory::StaticType));
+				}
 
-			if (NaniteComputeMaterialsSupported())
-			{
-				VFDataList.Add(FPSOPrecacheVertexFactoryData(&FNaniteVertexFactory::StaticType));
-			}
+				if (NaniteComputeMaterialsSupported())
+				{
+					VFDataList.Add(FPSOPrecacheVertexFactoryData(&FNaniteVertexFactory::StaticType));
+				}
 
-			for (int32 MaterialId = 0; MaterialId < GetNumMaterials(); MaterialId++)
-			{
-				if (UMaterialInterface* MaterialInterface = GetMaterial(MaterialId))
-				{					
-					FMaterialInterfacePSOPrecacheParams& ComponentParams = OutParams.AddDefaulted_GetRef();
-					ComponentParams.Priority = EPSOPrecachePriority::Medium;
-					ComponentParams.MaterialInterface = MaterialInterface;
-					ComponentParams.VertexFactoryDataList = VFDataList;
-					ComponentParams.PSOPrecacheParams = BasePrecachePSOParams;
-				}				
-			}			
+				for (int32 MaterialId = 0; MaterialId < GetNumMaterials(); MaterialId++)
+				{
+					if (UMaterialInterface* MaterialInterface = GetMaterial(MaterialId))
+					{					
+						FMaterialInterfacePSOPrecacheParams& ComponentParams = OutParams.AddDefaulted_GetRef();
+						ComponentParams.Priority = EPSOPrecachePriority::Medium;
+						ComponentParams.MaterialInterface = MaterialInterface;
+						ComponentParams.VertexFactoryDataList = VFDataList;
+						ComponentParams.PSOPrecacheParams = BasePrecachePSOParams;
+					}				
+				}			
+			}
 		}
 	}
 	

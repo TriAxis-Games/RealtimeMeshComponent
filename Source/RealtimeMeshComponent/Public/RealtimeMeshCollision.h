@@ -5,13 +5,22 @@
 #include "CoreMinimal.h"
 #include "Interface_CollisionDataProviderCore.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
+#include "Chaos/TriangleMeshImplicitObject.h"
+#include "Mesh/RealtimeMeshDataStream.h"
+#include "PhysicsEngine/BodySetup.h"
 #include "RealtimeMeshCollision.generated.h"
+
+namespace RealtimeMesh
+{
+	struct FRealtimeMeshStreamSet;
+}
 
 class UBodySetup;
 
 
+
 USTRUCT(BlueprintType)
-struct FRealtimeMeshCollisionConfiguration
+struct REALTIMEMESHCOMPONENT_API FRealtimeMeshCollisionConfiguration
 {
 	GENERATED_BODY()
 
@@ -22,6 +31,7 @@ public:
 		  , bShouldFastCookMeshes(false)
 		  , bFlipNormals(false)
 		  , bDeformableMesh(false)
+	, bDirectCook(false)
 	{
 	}
 
@@ -39,6 +49,8 @@ public:
 
 	UPROPERTY(Category="RealtimeMesh|Collision", EditAnywhere, BlueprintReadWrite)
 	bool bDeformableMesh;
+	
+	bool bDirectCook;
 
 
 	friend FArchive& operator<<(FArchive& Ar, FRealtimeMeshCollisionConfiguration& Config);
@@ -46,19 +58,11 @@ public:
 
 
 USTRUCT(BlueprintType)
-struct FRealtimeMeshCollisionShape
+struct REALTIMEMESHCOMPONENT_API FRealtimeMeshCollisionShape
 {
 	GENERATED_BODY()
 
 public:
-	FRealtimeMeshCollisionShape()
-		: Name(NAME_None)
-		  , Center(FVector::ZeroVector)
-		  , Rotation(FRotator::ZeroRotator)
-		  , bContributesToMass(true)
-	{
-	}
-
 	UPROPERTY(Category="RealtimeMesh|Collision", EditAnywhere, BlueprintReadWrite)
 	FName Name;
 
@@ -71,79 +75,80 @@ public:
 	UPROPERTY(Category="RealtimeMesh|Collision", EditAnywhere, BlueprintReadWrite)
 	bool bContributesToMass;
 
+	FRealtimeMeshCollisionShape()
+		: Name(NAME_None)
+		, Center(FVector::ZeroVector)
+		, Rotation(FRotator::ZeroRotator)
+		, bContributesToMass(true)
+	{
+	}
+
 	friend FArchive& operator<<(FArchive& Ar, FRealtimeMeshCollisionShape& Shape);
 };
 
 
 USTRUCT(BlueprintType)
-struct FRealtimeMeshCollisionSphere : public FRealtimeMeshCollisionShape
+struct REALTIMEMESHCOMPONENT_API FRealtimeMeshCollisionSphere : public FRealtimeMeshCollisionShape
 {
 	GENERATED_BODY()
 
 public:
+	UPROPERTY(Category="RealtimeMesh|Collision", EditAnywhere, BlueprintReadWrite)
+	float Radius;
+	
 	FRealtimeMeshCollisionSphere()
 		: Radius(0.5f)
 	{
 	}
 
-	UPROPERTY(Category="RealtimeMesh|Collision", EditAnywhere, BlueprintReadWrite)
-	float Radius;
-
 	friend FArchive& operator<<(FArchive& Ar, FRealtimeMeshCollisionSphere& Shape);
 };
 
 USTRUCT(BlueprintType)
-struct FRealtimeMeshCollisionBox : public FRealtimeMeshCollisionShape
+struct REALTIMEMESHCOMPONENT_API FRealtimeMeshCollisionBox : public FRealtimeMeshCollisionShape
 {
 	GENERATED_BODY()
 
 public:
+	UPROPERTY(Category="RealtimeMesh|Collision", EditAnywhere, BlueprintReadWrite)
+	FVector Extents;
+	
 	FRealtimeMeshCollisionBox(const FVector& InExtents = FVector(0.5f, 0.5f, 0.5f))
 		: Extents(InExtents)
 	{
 	}
-
-	UPROPERTY(Category="RealtimeMesh|Collision", EditAnywhere, BlueprintReadWrite)
-	FVector Extents;
 
 	friend FArchive& operator<<(FArchive& Ar, FRealtimeMeshCollisionBox& Shape);
 };
 
 
 USTRUCT(BlueprintType)
-struct FRealtimeMeshCollisionCapsule : public FRealtimeMeshCollisionShape
+struct REALTIMEMESHCOMPONENT_API FRealtimeMeshCollisionCapsule : public FRealtimeMeshCollisionShape
 {
 	GENERATED_BODY()
 
 public:
-	FRealtimeMeshCollisionCapsule()
-		: Radius(0.5f)
-		  , Length(0.5f)
-	{
-	}
-
 	UPROPERTY(Category="RealtimeMesh|Collision", EditAnywhere, BlueprintReadWrite)
 	float Radius;
 
 	UPROPERTY(Category="RealtimeMesh|Collision", EditAnywhere, BlueprintReadWrite)
 	float Length;
+	
+	FRealtimeMeshCollisionCapsule()
+		: Radius(0.5f)
+		, Length(0.5f)
+	{
+	}
 
 	friend FArchive& operator<<(FArchive& Ar, FRealtimeMeshCollisionCapsule& Shape);
 };
 
 USTRUCT(BlueprintType)
-struct FRealtimeMeshCollisionTaperedCapsule : public FRealtimeMeshCollisionShape
+struct REALTIMEMESHCOMPONENT_API FRealtimeMeshCollisionTaperedCapsule : public FRealtimeMeshCollisionShape
 {
 	GENERATED_BODY()
 
 public:
-	FRealtimeMeshCollisionTaperedCapsule()
-		: RadiusA(0.5f)
-		  , RadiusB(0.5f)
-		  , Length(0.5f)
-	{
-	}
-
 	UPROPERTY(Category="RealtimeMesh|Collision", EditAnywhere, BlueprintReadWrite)
 	float RadiusA;
 
@@ -152,25 +157,64 @@ public:
 
 	UPROPERTY(Category="RealtimeMesh|Collision", EditAnywhere, BlueprintReadWrite)
 	float Length;
+	
+	FRealtimeMeshCollisionTaperedCapsule()
+		: RadiusA(0.5f)
+		, RadiusB(0.5f)
+		, Length(0.5f)
+	{
+	}
 
 	friend FArchive& operator<<(FArchive& Ar, FRealtimeMeshCollisionTaperedCapsule& Shape);
 };
 
+
+struct REALTIMEMESHCOMPONENT_API FRealtimeMeshCookedConvexMeshData
+{
+private:
+	Chaos::FConvexPtr NonMirrored;
+public:
+	FRealtimeMeshCookedConvexMeshData(const Chaos::FConvexPtr& InNonMirrored)
+		: NonMirrored(InNonMirrored) { }
+	
+	bool HasNonMirrored() const { return NonMirrored.IsValid(); }
+
+	Chaos::FConvexPtr GetNonMirrored() const { return NonMirrored; }
+};
+
 USTRUCT(BlueprintType)
-struct FRealtimeMeshCollisionConvex : public FRealtimeMeshCollisionShape
+struct REALTIMEMESHCOMPONENT_API FRealtimeMeshCollisionConvex : public FRealtimeMeshCollisionShape
 {
 	GENERATED_BODY()
-
+private:
+	TArray<FVector> Vertices;
+	
+	mutable TSharedPtr<FRealtimeMeshCookedConvexMeshData> Cooked;
+	
 public:
+	UPROPERTY(Category="RealtimeMesh|Collision", EditAnywhere, BlueprintReadWrite)
+	FBox BoundingBox;
+	
 	FRealtimeMeshCollisionConvex()
 	{
 	}
 
-	UPROPERTY(Category="RealtimeMesh|Collision", EditAnywhere, BlueprintReadWrite)
-	TArray<FVector> Vertices;
+	void SetVertices(const TArray<FVector>& InVertices) { Vertices = InVertices; ReleaseCooked(); }
+	void SetVertices(TArray<FVector>&& InVertices) { Vertices = MoveTemp(InVertices); ReleaseCooked(); }
+	void ClearVertices() { Vertices.Empty(); ReleaseCooked(); }
+	const TArray<FVector>& GetVertices() const { return Vertices; }
 
-	UPROPERTY(Category="RealtimeMesh|Collision", EditAnywhere, BlueprintReadWrite)
-	FBox BoundingBox;
+	void EditVertices(const TFunctionRef<void(TArray<FVector>&)>& ProcessFunc)
+	{
+		ProcessFunc(Vertices);
+		ReleaseCooked();
+	}
+	
+	TSharedPtr<FRealtimeMeshCookedConvexMeshData> Cook() const;
+	bool NeedsCook() const { return !Cooked.IsValid(); }
+	bool HasCookedMesh() const { return Cooked.IsValid() && Cooked->HasNonMirrored(); }
+	TSharedPtr<FRealtimeMeshCookedConvexMeshData> GetCooked() const { return Cooked; }
+	void ReleaseCooked() const { Cooked.Reset(); }
 
 	friend FArchive& operator<<(FArchive& Ar, FRealtimeMeshCollisionConvex& Shape);
 };
@@ -239,7 +283,176 @@ public:
 	bool RemoveConvexHull(int32 Index);
 	bool RemoveConvexHull(FName ConvexHullName);
 
+	
+	TArray<int32> GetMeshIDsNeedingCook() const;
+	void CookHull(int32 Index) const;
+
 	friend FArchive& operator<<(FArchive& Ar, FRealtimeMeshSimpleGeometry& SimpleGeometry);
+
+	void CopyToBodySetup(UBodySetup* BodySetup) const;
+};
+
+
+
+struct REALTIMEMESHCOMPONENT_API FRealtimeMeshCollisionMeshCookedUVData
+{
+	/** Index buffer, required to go from face index to UVs */
+	TArray<RealtimeMesh::TIndex3<int32>> Triangles;
+	/** Vertex positions, used to determine barycentric co-ords */
+	TArray<FVector3f> Positions;
+	/** UV channels for each vertex */
+	TArray<TArray<FVector2f>> TexCoords;
+
+	friend FArchive& operator<<(FArchive& Ar, FRealtimeMeshCollisionMeshCookedUVData& UVInfo)
+	{
+		Ar << UVInfo.Triangles;
+		Ar << UVInfo.Positions;
+		Ar << UVInfo.TexCoords;
+
+		return Ar;
+	}
+
+	/** Get resource size of UV info */
+	void GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize) const;
+
+	void FillFromTriMesh(const struct FRealtimeMeshCollisionMesh& TriMeshCollisionData);
+};
+
+struct REALTIMEMESHCOMPONENT_API FRealtimeMeshCookedTriMeshData
+{
+private:
+	Chaos::FTriangleMeshImplicitObjectPtr TriMesh;
+	TArray<int32> VertexRemap;
+	TArray<int32> FaceRemap;
+	FRealtimeMeshCollisionMeshCookedUVData UVInfo;
+public:
+	
+	FRealtimeMeshCookedTriMeshData()
+		: TriMesh(nullptr)
+	{ }
+	FRealtimeMeshCookedTriMeshData(const Chaos::FTriangleMeshImplicitObjectPtr& InTriMesh,
+		TArray<int32>&& InVertexRemap, TArray<int32>&& InFaceRemap, FRealtimeMeshCollisionMeshCookedUVData&& InUVInfo)
+		: TriMesh(InTriMesh)
+		, VertexRemap(MoveTemp(InVertexRemap))
+		, FaceRemap(MoveTemp(InFaceRemap))
+		, UVInfo(MoveTemp(InUVInfo))
+	{ }
+	
+	bool HasMesh() const { return TriMesh.IsValid(); }
+	bool HasVertexRemap() const { return VertexRemap.Num() > 0; }
+	bool HasFaceRemap() const { return FaceRemap.Num() > 0; }
+	bool HasUVInfo() const { return UVInfo.Positions.Num() > 0 && UVInfo.Triangles.Num() > 0 && UVInfo.TexCoords.Num() > 0; }
+
+	Chaos::FTriangleMeshImplicitObjectPtr GetMesh() const { return TriMesh; }
+	const TArray<int32>& GetVertexRemap() const { return VertexRemap; }
+	const TArray<int32>& GetFaceRemap() const { return FaceRemap; }
+	const FRealtimeMeshCollisionMeshCookedUVData& GetUVInfo() const { return UVInfo; }
+
+	TArray<int32> ConsumeVertexRemap() { return MoveTemp(VertexRemap); }
+	TArray<int32> ConsumeFaceRemap() { return MoveTemp(FaceRemap); }
+	FRealtimeMeshCollisionMeshCookedUVData ConsumeUVInfo() { return MoveTemp(UVInfo); }	
+};
+
+USTRUCT(BlueprintType)
+struct REALTIMEMESHCOMPONENT_API FRealtimeMeshCollisionMesh
+{
+	GENERATED_BODY()
+private:	
+	TArray<FVector3f> Vertices;
+	TArray<RealtimeMesh::TIndex3<int32>> Triangles;
+	TArray<uint16> Materials;
+	TArray<TArray<FVector2f>> TexCoords;
+	
+	mutable TSharedPtr<FRealtimeMeshCookedTriMeshData> Cooked;
+	
+public:
+	UPROPERTY(Category="RealtimeMesh|Collision", EditAnywhere, BlueprintReadWrite)
+	FName Name;
+	
+	FRealtimeMeshCollisionMesh()
+	{
+	}
+
+	void SetVertices(const TArray<FVector3f>& InVertices) { Vertices = InVertices; ReleaseCooked(); }
+	void SetVertices(TArray<FVector3f>&& InVertices) { Vertices = MoveTemp(InVertices); ReleaseCooked(); }
+	void ClearVertices() { Vertices.Empty(); ReleaseCooked(); }
+	const TArray<FVector3f>& GetVertices() const { return Vertices; }
+	
+	void SetTriangles(const TArray<RealtimeMesh::TIndex3<int32>>& InTriangles) { Triangles = InTriangles; ReleaseCooked(); }
+	void SetTriangles(TArray<RealtimeMesh::TIndex3<int32>>&& InTriangles) { Triangles = MoveTemp(InTriangles); ReleaseCooked(); }
+	void ClearTriangles() { Triangles.Empty(); ReleaseCooked(); }
+	const TArray<RealtimeMesh::TIndex3<int32>>& GetTriangles() const { return Triangles; }
+	
+	void SetMaterials(const TArray<uint16>& InMaterials) { Materials = InMaterials; ReleaseCooked(); }
+	void SetMaterials(TArray<uint16>&& InMaterials) { Materials = MoveTemp(InMaterials); ReleaseCooked(); }
+	void ClearMaterials() { Materials.Empty(); ReleaseCooked(); }
+	const TArray<uint16>& GetMaterials() const { return Materials; }
+	
+	void SetTexCoords(const TArray<TArray<FVector2f>>& InTexCoords) { TexCoords = InTexCoords; ReleaseCooked(); }
+	void SetTexCoords(TArray<TArray<FVector2f>>&& InTexCoords) { TexCoords = MoveTemp(InTexCoords); ReleaseCooked(); }
+	void ClearTexCoords() { TexCoords.Empty(); ReleaseCooked(); }
+	const TArray<TArray<FVector2f>>& GetTexCoords() const { return TexCoords; }
+
+	bool Append(const RealtimeMesh::FRealtimeMeshStreamSet& Streams, int32 MaterialIndex);
+	bool Append(const RealtimeMesh::FRealtimeMeshStreamSet& Streams, int32 MaterialIndex, int32 FirstTriangle, int32 TriangleCount);
+	
+	TSharedPtr<FRealtimeMeshCookedTriMeshData> Cook(bool bFlipNormals = true) const;
+	bool NeedsCook() const { return !Cooked.IsValid(); }
+	bool HasCookedMesh() const { return Cooked.IsValid() && Cooked->HasMesh(); }
+	TSharedPtr<FRealtimeMeshCookedTriMeshData> GetCooked() const { return Cooked; }
+	void ReleaseCooked() const { Cooked.Reset(); }
+
+	
+	friend FArchive& operator<<(FArchive& Ar, FRealtimeMeshCollisionMesh& Shape);
+};
+
+
+USTRUCT(BlueprintType)
+struct REALTIMEMESHCOMPONENT_API FRealtimeMeshComplexGeometry
+{
+	GENERATED_BODY()
+
+private:
+	TSparseArray<FRealtimeMeshCollisionMesh> Meshes;
+	TMap<FName, int32> MeshesNameMap;
+
+public:
+
+	int32 NumMeshes() const { return Meshes.Num(); }
+	void Reset() { Meshes.Empty(); MeshesNameMap.Empty(); }
+	
+	int32 AddMesh(const FRealtimeMeshCollisionMesh& InMesh);
+	int32 AddMesh(FRealtimeMeshCollisionMesh&& InMesh);
+	bool InsertMesh(int32 Index, const FRealtimeMeshCollisionMesh& InMesh);
+	bool InsertMesh(int32 Index, FRealtimeMeshCollisionMesh&& InMesh);
+	int32 GetMeshIndexByName(FName MeshName) const;
+	bool GetMeshByName(FName MeshName, FRealtimeMeshCollisionMesh& OutMesh);
+	bool UpdateMesh(int32 Index, const FRealtimeMeshCollisionMesh& InMesh);
+	bool UpdateMesh(int32 Index, FRealtimeMeshCollisionMesh&& InMesh);
+	bool RemoveMesh(int32 Index);
+	bool RemoveMesh(FName MeshName);
+
+	TArray<int32> GetMeshIDsNeedingCook() const;
+	void CookMesh(int32 Index) const;
+
+	friend FArchive& operator<<(FArchive& Ar, FRealtimeMeshComplexGeometry& SimpleGeometry);
+
+	void CopyToBodySetup(UBodySetup* BodySetup, TArray<FRealtimeMeshCollisionMeshCookedUVData>& OutUVData) const;
+};
+
+USTRUCT(BlueprintType)
+struct REALTIMEMESHCOMPONENT_API FRealtimeMeshCollisionInfo
+{
+	GENERATED_BODY()
+
+public:
+	FRealtimeMeshSimpleGeometry SimpleGeometry;
+	FRealtimeMeshComplexGeometry ComplexGeometry;
+	FRealtimeMeshCollisionConfiguration Configuration;
+
+public:
+
+	friend FArchive& operator<<(FArchive& Ar, FRealtimeMeshComplexGeometry& SimpleGeometry);
 
 	void CopyToBodySetup(UBodySetup* BodySetup) const;
 };
@@ -321,40 +534,22 @@ public:
 	static FRealtimeMeshSimpleGeometry& RemoveConvex(UPARAM(ref) FRealtimeMeshSimpleGeometry& SimpleGeometry, int32 Index, bool& Success);
 	UFUNCTION(BlueprintCallable, Category = "Realtime Mesh|Convex Hulls")
 	static FRealtimeMeshSimpleGeometry& RemoveConvexByName(UPARAM(ref) FRealtimeMeshSimpleGeometry& SimpleGeometry, FName ConvexHullName, bool& Success);
+
 };
+
+UCLASS()
+class REALTIMEMESHCOMPONENT_API URealtimeMeshCollisionTools : public UBlueprintFunctionLibrary
+{
+	GENERATED_BODY()
+
+public:
+	UFUNCTION(BlueprintCallable, Category = "Realtime Mesh|Collision")
+	static bool FindCollisionUVRealtimeMesh(const struct FHitResult& Hit, int32 UVChannel, FVector2D& UV);
+};
+
 
 // ReSharper restore CppUEBlueprintCallableFunctionUnused
 
-struct REALTIMEMESHCOMPONENT_API FRealtimeMeshTriMeshData
-{
-private:
-	TArray<FVector3f> Vertices;
-	TArray<FTriIndices> Triangles;
-	TArray<uint16> Materials;
-	TArray<TArray<FVector2D>> UVs;
-
-public:
-	const TArray<FVector3f>& GetVertices() const { return Vertices; }
-	TArray<FVector3f>& GetVertices() { return Vertices; }
-
-
-	const TArray<FTriIndices>& GetTriangles() const { return Triangles; }
-	TArray<FTriIndices>& GetTriangles() { return Triangles; }
-	const TArray<uint16>& GetMaterials() const { return Materials; }
-	TArray<uint16>& GetMaterials() { return Materials; }
-	const TArray<TArray<FVector2D>>& GetUVs() const { return UVs; }
-	TArray<TArray<FVector2D>>& GetUVs() { return UVs; }
-
-	friend FArchive& operator<<(FArchive& Ar, FRealtimeMeshTriMeshData& MeshData);
-};
-
-
-struct REALTIMEMESHCOMPONENT_API FRealtimeMeshCollisionData
-{
-	FRealtimeMeshCollisionConfiguration Config;
-	FRealtimeMeshSimpleGeometry SimpleGeometry;
-	FRealtimeMeshTriMeshData ComplexGeometry;
-};
 
 UENUM()
 enum class ERealtimeMeshCollisionUpdateResult : uint8
@@ -364,4 +559,6 @@ enum class ERealtimeMeshCollisionUpdateResult : uint8
 	Ignored,
 	Error,
 };
+
+
 

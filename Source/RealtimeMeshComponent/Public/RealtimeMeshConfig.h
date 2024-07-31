@@ -107,10 +107,10 @@ struct REALTIMEMESHCOMPONENT_API FRealtimeMeshMaterialSlot
 	GENERATED_BODY()
 
 public:
-	UPROPERTY()
+	UPROPERTY(EditAnywhere)
 	FName SlotName;
 
-	UPROPERTY()
+	UPROPERTY(EditAnywhere)
 	UMaterialInterface* Material;
 
 	FRealtimeMeshMaterialSlot() : SlotName(NAME_None), Material(nullptr)
@@ -169,6 +169,21 @@ public:
 	bool bForceOpaque;
 
 	friend FArchive& operator<<(FArchive& Ar, FRealtimeMeshSectionConfig& Config);
+
+	bool operator==(const FRealtimeMeshSectionConfig& Other) const
+	{
+		return MaterialSlot == Other.MaterialSlot
+			&& DrawType == Other.DrawType
+			&& bIsVisible == Other.bIsVisible
+			&& bCastsShadow == Other.bCastsShadow
+			&& bIsMainPassRenderable == Other.bIsMainPassRenderable
+			&& bForceOpaque == Other.bForceOpaque;
+	}
+
+	bool operator!=(const FRealtimeMeshSectionConfig& Other) const
+	{
+		return !(*this == Other);
+	}
 };
 
 USTRUCT(BlueprintType)
@@ -190,6 +205,17 @@ public:
 	float ScreenSize;
 
 	friend FArchive& operator<<(FArchive& Ar, FRealtimeMeshLODConfig& Config);
+
+	bool operator==(const FRealtimeMeshLODConfig& Other) const
+	{
+		return bIsVisible == Other.bIsVisible
+			&& ScreenSize == Other.ScreenSize;
+	}
+
+	bool operator!=(const FRealtimeMeshLODConfig& Other) const
+	{
+		return !(*this == Other);
+	}
 };
 
 USTRUCT(BlueprintType)
@@ -207,6 +233,16 @@ public:
 	int32 ForcedLOD;
 
 	friend FArchive& operator<<(FArchive& Ar, FRealtimeMeshConfig& Config);
+
+	bool operator==(const FRealtimeMeshConfig& Other) const
+	{
+		return ForcedLOD == Other.ForcedLOD;
+	}
+
+	bool operator!=(const FRealtimeMeshConfig& Other) const
+	{
+		return !(*this == Other);
+	}
 };
 
 USTRUCT(BlueprintType)

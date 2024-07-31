@@ -17,9 +17,9 @@ namespace RealtimeMesh
 {
 	FRealtimeMeshSectionGroupProxy::FRealtimeMeshSectionGroupProxy(const FRealtimeMeshSharedResourcesRef& InSharedResources, const FRealtimeMeshSectionGroupKey& InKey)
 		: SharedResources(InSharedResources)
-		  , Key(InKey)
-		  , VertexFactory(SharedResources->CreateVertexFactory())
-		  , bIsStateDirty(true)
+		, Key(InKey)
+		, VertexFactory(SharedResources->CreateVertexFactory())
+		, bIsStateDirty(true)
 	{
 	}
 
@@ -48,7 +48,7 @@ namespace RealtimeMesh
 	FRayTracingGeometry* FRealtimeMeshSectionGroupProxy::GetRayTracingGeometry()
 	{
 #if RHI_RAYTRACING
-		return &RayTracingGeometry;
+		return RayTracingGeometry.IsValid()? &RayTracingGeometry : nullptr;
 #else
 		return nullptr;
 #endif
@@ -56,6 +56,8 @@ namespace RealtimeMesh
 
 	void FRealtimeMeshSectionGroupProxy::CreateSectionIfNotExists(const FRealtimeMeshSectionKey& SectionKey)
 	{
+		TRACE_CPUPROFILER_EVENT_SCOPE(FRealtimeMeshSectionGroupProxy::CreateSectionIfNotExists);
+
 		check(SectionKey.IsPartOf(Key));
 
 		// Does this section already exist
@@ -73,6 +75,8 @@ namespace RealtimeMesh
 
 	void FRealtimeMeshSectionGroupProxy::RemoveSection(const FRealtimeMeshSectionKey& SectionKey)
 	{
+		TRACE_CPUPROFILER_EVENT_SCOPE(FRealtimeMeshSectionGroupProxy::RemoveSection);
+
 		check(SectionKey.IsPartOf(Key));
 
 		if (SectionMap.Contains(SectionKey))
@@ -83,9 +87,11 @@ namespace RealtimeMesh
 			MarkStateDirty();
 		}
 	}
-	
+
 	void FRealtimeMeshSectionGroupProxy::CreateOrUpdateStream(const FRealtimeMeshSectionGroupStreamUpdateDataRef& InStream)
-	{		
+	{
+		TRACE_CPUPROFILER_EVENT_SCOPE(FRealtimeMeshSectionGroupProxy::CreateOrUpdateStream);
+
 		// If we didn't create the buffers async, create them now
 		InStream->InitializeIfRequired();
 
@@ -134,6 +140,8 @@ namespace RealtimeMesh
 
 	void FRealtimeMeshSectionGroupProxy::RemoveStream(const FRealtimeMeshStreamKey& StreamKey)
 	{
+		TRACE_CPUPROFILER_EVENT_SCOPE(FRealtimeMeshSectionGroupProxy::RemoveStream);
+
 		if (const auto* Stream = Streams.Find(StreamKey))
 		{
 			(*Stream)->ReleaseUnderlyingResource();
@@ -142,55 +150,67 @@ namespace RealtimeMesh
 		}
 	}
 
-	void FRealtimeMeshSectionGroupProxy::CreateMeshBatches(const FRealtimeMeshBatchCreationParams& Params, const TMap<int32, TTuple<FMaterialRenderProxy*, bool>>& Materials,
-	                                                       const FMaterialRenderProxy* WireframeMaterial, ERealtimeMeshSectionDrawType DrawType, bool bForceAllDynamic) const
+	bool FRealtimeMeshSectionGroupProxy::InitializeMeshBatch(FMeshBatch& MeshBatch, FRealtimeMeshResourceReferenceList& Resources, bool bIsLocalToWorldDeterminantNegative, bool bWantsDepthOnly) const
 	{
-		const ERealtimeMeshDrawMask DrawTypeMask = bForceAllDynamic
-			                                           ? ERealtimeMeshDrawMask::DrawPassMask
-			                                           : DrawType == ERealtimeMeshSectionDrawType::Dynamic
-			                                           ? ERealtimeMeshDrawMask::DrawDynamic
-			                                           : ERealtimeMeshDrawMask::DrawStatic;
+		if (ensure(VertexFactory && VertexFactory->IsInitialized()) == false)
+		{			
+			return false;
+		}
+		Resources.AddResource(VertexFactory);
+		VertexFactory->GatherVertexBufferResources(Resources);
 
-		check(DrawMask.IsAnySet(DrawTypeMask));
+		FMeshBatchElement& BatchElement = MeshBatch.Elements[0];		
+		BatchElement.IndexBuffer = &VertexFactory->GetIndexBuffer(bWantsDepthOnly, bIsLocalToWorldDeterminantNegative, Resources);
+		
+		MeshBatch.VertexFactory = VertexFactory.Get();
+		//MeshBatch.MaterialRenderProxy = Mat;
+		
+		MeshBatch.LODIndex = Key.LOD();
+		MeshBatch.SegmentIndex = 0;
 
-		for (const auto& Section : Sections)
-		{
-			if (Section->GetDrawMask().IsAnySet(DrawTypeMask))
-			{
-				check(GetVertexFactory() && GetVertexFactory().IsValid() && GetVertexFactory()->IsInitialized());
+		MeshBatch.ReverseCulling = bIsLocalToWorldDeterminantNegative;
+		MeshBatch.bDisableBackfaceCulling = false;
 
-				const bool bIsWireframe = WireframeMaterial != nullptr;
+		MeshBatch.CastShadow = DrawMask.ShouldRenderShadow();
+		MeshBatch.bUseForMaterial = true;
+		MeshBatch.bUseForDepthPass = true;
+		MeshBatch.bUseAsOccluder = true;
+		//MeshBatch.bWireframe = false;
 
-				FMaterialRenderProxy* SectionMaterial = nullptr;
-				bool bSupportsDithering = false;
+		MeshBatch.Type = VertexFactory->GetPrimitiveType();
+		MeshBatch.DepthPriorityGroup = SDPG_World;
 
-				if (!bIsWireframe)
-				{
-					const TTuple<FMaterialRenderProxy*, bool>* MatEntry = Materials.Find(Section->GetMaterialSlot());
-					if (MatEntry != nullptr && MatEntry->Get<0>() != nullptr)
-					{
-						SectionMaterial = MatEntry->Get<0>();
-						bSupportsDithering = MatEntry->Get<1>();
-					}
-					else
-					{
-						SectionMaterial = UMaterial::GetDefaultMaterial(MD_Surface)->GetRenderProxy();
-					}
-					ensure(SectionMaterial);
-				}
+		// TODO: What does this really do?
+		MeshBatch.bCanApplyViewModeOverrides = false;
+
+		// TODO: Should we even set this? or let the calling code set it since it has the info needed for knowing about a lod transition
+		// Maybe set it to true here and let the calling code turn if off if it's not necessary, lets this also decide it's not allowed
+		MeshBatch.bDitheredLODTransition = true;
+
+		// TODO: Support RVT rendering
+		MeshBatch.bRenderToVirtualTexture = false;
+		MeshBatch.RuntimeVirtualTextureMaterialType = 0;
+
+		MeshBatch.bOverlayMaterial = false;
 
 #if RHI_RAYTRACING
-				Section->CreateMeshBatch(Params, GetVertexFactory().ToSharedRef(), bIsWireframe ? WireframeMaterial : SectionMaterial, bIsWireframe, bSupportsDithering,
-				                         &RayTracingGeometry);
-#else
-				Section->CreateMeshBatch(Params, GetVertexFactory().ToSharedRef(), bIsWireframe? WireframeMaterial : SectionMaterial, bIsWireframe, bSupportsDithering);
+		MeshBatch.CastRayTracedShadow = MeshBatch.CastShadow;
 #endif
-			}
-		}
+
+		MeshBatch.bUseForWaterInfoTextureDepth = false;
+		MeshBatch.bUseForLumenSurfaceCacheCapture = false;
+
+#if UE_ENABLE_DEBUG_DRAWING
+		MeshBatch.VisualizeLODIndex = MeshBatch.LODIndex;
+#endif
+
+		return true;
 	}
 
 	bool FRealtimeMeshSectionGroupProxy::UpdateCachedState(bool bShouldForceUpdate)
 	{
+		TRACE_CPUPROFILER_EVENT_SCOPE(FRealtimeMeshSectionGroupProxy::UpdateCachedState);
+
 		// Handle the vertex factory first so sections can query it
 		if (bIsStateDirty || bShouldForceUpdate)
 		{
@@ -201,9 +221,12 @@ namespace RealtimeMesh
 			VertexFactory->Initialize(Streams);
 		}
 
+		
+		
 		// Handle all Section updates
-		for (const auto& Section : Sections)
+		for (auto It = Sections.CreateConstIterator(); It; ++It)
 		{
+			const FRealtimeMeshSectionProxyRef& Section = *It;
 			bIsStateDirty |= Section->UpdateCachedState(bIsStateDirty || bShouldForceUpdate, *this);
 		}
 
@@ -213,17 +236,34 @@ namespace RealtimeMesh
 		}
 
 		FRealtimeMeshDrawMask NewDrawMask;
-		for (const auto& Section : Sections)
+		FRealtimeMeshSectionMask NewActiveSectionMask;		
+		FRealtimeMeshSectionMask NewActiveStaticSectionMask;
+		FRealtimeMeshSectionMask NewActiveDynamicSectionMask;
+		NewActiveSectionMask.SetNum(Sections.Num(), false);
+		NewActiveStaticSectionMask.SetNum(Sections.Num(), false);
+		NewActiveDynamicSectionMask.SetNum(Sections.Num(), false);
+		
+		for (auto It = Sections.CreateConstIterator(); It; ++It)
 		{
-			NewDrawMask |= Section->GetDrawMask();
+			const FRealtimeMeshSectionProxyRef& Section = *It;
+			auto SectionDrawMask = Section->GetDrawMask();
+			NewDrawMask |= SectionDrawMask;
+
+			NewActiveSectionMask[It.GetIndex()] = SectionDrawMask.ShouldRender();
+			NewActiveStaticSectionMask[It.GetIndex()] = SectionDrawMask.ShouldRenderStaticPath();
+			NewActiveDynamicSectionMask[It.GetIndex()] = SectionDrawMask.ShouldRenderDynamicPath();
 		}
-		
-		const bool bStateChanged = DrawMask != NewDrawMask;
-		DrawMask = NewDrawMask;		
+
+		const bool bStateChanged = DrawMask != NewDrawMask || ActiveSectionMask != NewActiveSectionMask ||
+			ActiveStaticSectionMask != NewActiveStaticSectionMask || ActiveDynamicSectionMask != NewActiveDynamicSectionMask;
+		DrawMask = NewDrawMask;
+		ActiveSectionMask = NewActiveSectionMask;
+		ActiveStaticSectionMask = NewActiveStaticSectionMask;
+		ActiveDynamicSectionMask = NewActiveDynamicSectionMask;
 		bIsStateDirty = false;
-		
+
 		UpdateRayTracingInfo();
-		
+
 		return bStateChanged;
 	}
 
@@ -234,6 +274,8 @@ namespace RealtimeMesh
 
 	void FRealtimeMeshSectionGroupProxy::Reset()
 	{
+		TRACE_CPUPROFILER_EVENT_SCOPE(FRealtimeMeshSectionGroupProxy::Reset);
+
 #if RHI_RAYTRACING
 		RayTracingGeometry.ReleaseResource();
 #endif
@@ -265,12 +307,14 @@ namespace RealtimeMesh
 	void FRealtimeMeshSectionGroupProxy::UpdateRayTracingInfo()
 	{
 #if RHI_RAYTRACING
-		RayTracingGeometry.ReleaseResource();
+		TRACE_CPUPROFILER_EVENT_SCOPE(FRealtimeMeshSectionGroupProxy::UpdateRayTracingInfo);
 		
+		RayTracingGeometry.ReleaseResource();
+
 		if (DrawMask.HasAnyFlags() && VertexFactory.IsValid() && IsRayTracingEnabled())
 		{
 			check(VertexFactory->IsInitialized());
-			
+
 			const auto PositionStream = StaticCastSharedPtr<FRealtimeMeshVertexBuffer>(Streams.FindChecked(FRealtimeMeshStreams::Position));
 			const auto IndexStream = StaticCastSharedPtr<FRealtimeMeshIndexBuffer>(Streams.FindChecked(FRealtimeMeshStreams::Triangles));
 
@@ -278,7 +322,7 @@ namespace RealtimeMesh
 			// TODO: Get better debug name
 			Initializer.DebugName = TEXT("RealtimeMeshComponent");
 			Initializer.IndexBuffer = IndexStream->IndexBufferRHI;
-			Initializer.TotalPrimitiveCount = 0;//IndexStream->Num() / 3;
+			Initializer.TotalPrimitiveCount = 0;
 			Initializer.GeometryType = RTGT_Triangles;
 			Initializer.bFastBuild = true;
 			Initializer.bAllowUpdate = false;
@@ -288,8 +332,8 @@ namespace RealtimeMesh
 			{
 				FRayTracingGeometrySegment Segment;
 				Segment.VertexBuffer = PositionStream->VertexBufferRHI;
-				Segment.VertexBufferOffset = 0; // Section->GetStreamRange().GetMinVertex() * sizeof(FVector3f);
-				Segment.MaxVertices = PositionStream->Num(); // Section->GetStreamRange().NumVertices();
+				Segment.VertexBufferOffset = 0; 
+				Segment.MaxVertices = PositionStream->Num();
 				Segment.bEnabled = Section->GetDrawMask().IsAnySet(ERealtimeMeshDrawMask::DrawDynamic | ERealtimeMeshDrawMask::DrawStatic);
 				if (Segment.bEnabled)
 				{
@@ -314,7 +358,7 @@ namespace RealtimeMesh
 				UE_LOG(RealtimeMeshLog, Warning, TEXT("Unable to create ray tracing accelleration structures. Some triangles in buffer are unaccounted for in sections."));
 			}
 			else if (Initializer.Segments.Num() > 0)
-			{				
+			{
 				RayTracingGeometry.SetInitializer(Initializer);
 #if RMC_ENGINE_ABOVE_5_3
 				RayTracingGeometry.InitResource(FRHICommandListImmediate::Get());

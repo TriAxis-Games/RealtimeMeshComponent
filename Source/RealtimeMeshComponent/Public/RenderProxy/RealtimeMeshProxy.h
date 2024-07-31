@@ -10,6 +10,8 @@
 #include "Containers/Queue.h"
 #include "Mesh/RealtimeMeshCardRepresentation.h"
 #include "Mesh/RealtimeMeshDistanceField.h"
+#include "PhysicsEngine/AggregateGeom.h"
+
 
 struct IRealtimeMeshNaniteResources;
 struct FRealtimeMeshDistanceField;
@@ -17,20 +19,94 @@ enum class ERealtimeMeshSectionDrawType : uint8;
 
 namespace RealtimeMesh
 {
+
+	static_assert(REALTIME_MESH_MAX_LODS <= FBitSet::BitsPerWord, "REALTIME_MESH_MAX_LODS must be less than or equal to FBitSet::BitsPerWord");
+	using FRealtimeMeshLODMask = TBitArray<TFixedAllocator<1>>;
+
+
+	class FRealtimeMeshActiveLODIterator
+	{
+	private:
+		const FRealtimeMeshProxy& Proxy;
+		TConstSetBitIterator<TFixedAllocator<1>> Iterator;
+
+	public:
+		FRealtimeMeshActiveLODIterator(const FRealtimeMeshProxy& InProxy, const FRealtimeMeshLODMask& InMask)
+			: Proxy(InProxy), Iterator(TConstSetBitIterator(InMask)) { }
+		
+		/** Forwards iteration operator. */
+		FORCEINLINE FRealtimeMeshActiveLODIterator& operator++()
+		{
+			++Iterator;
+			return *this;
+		}
+
+		FORCEINLINE bool operator==(const FRealtimeMeshActiveLODIterator& Other) const
+		{
+			return Iterator == Other.Iterator;
+		}
+
+		FORCEINLINE bool operator!=(const FRealtimeMeshActiveLODIterator& Other) const
+		{ 
+			return Iterator != Other.Iterator;
+		}
+
+		/** conversion to "bool" returning true if the iterator is valid. */
+		FORCEINLINE explicit operator bool() const
+		{
+			return (bool)Iterator;
+		}
+		/** inverse of the "bool" operator */
+		FORCEINLINE bool operator !() const 
+		{
+			return !(bool)*this;
+		}
+
+		FRealtimeMeshLODProxy* operator*() const;
+		FRealtimeMeshLODProxy& operator->() const;
+		
+		/** Index accessor. */
+		FORCEINLINE int32 GetIndex() const
+		{
+			return Iterator.GetIndex();
+		}
+	};
+
+
+	
+	
 	class REALTIMEMESHCOMPONENT_API FRealtimeMeshProxy : public TSharedFromThis<FRealtimeMeshProxy>
 	{
 	protected:
+		
 		const FRealtimeMeshSharedResourcesRef SharedResources;
 		TFixedLODArray<FRealtimeMeshLODProxyPtr> LODs;
 		FRealtimeMeshDrawMask DrawMask;
-		TRange<int8> ValidLODRange;
-		TArray<TRange<float>> ScreenSizeRangeByLOD;
+		FRealtimeMeshLODMask ActiveLODMask;
+		FRealtimeMeshLODMask ScreenPercentageNextLODMask;
+		FRealtimeMeshLODMask ActiveStaticLODMask;
+		FRealtimeMeshLODMask ActiveDynamicLODMask;
 		uint32 bIsStateDirty : 1;
 
 		TUniquePtr<FDistanceFieldVolumeData> DistanceField;
 		TUniquePtr<FCardRepresentationData> CardRepresentation;
 
 		TSharedPtr<IRealtimeMeshNaniteResources> NaniteResources;
+
+#if UE_ENABLE_DEBUG_DRAWING
+		// If debug drawing is enabled, we store collision data here so that collision shapes can be rendered when requested by showflags
+
+		bool bOwnerIsNull = true;
+		/** Whether the collision data has been set up for rendering */
+		bool bHasCollisionData = false;
+		/** Collision trace flags */
+		ECollisionTraceFlag		CollisionTraceFlag;
+		/** Collision Response of this component */
+		FCollisionResponseContainer CollisionResponse;
+		/** Cached AggGeom holding the collision shapes to render */
+		FKAggregateGeom CachedAggGeom;
+
+#endif
 	public:
 		FRealtimeMeshProxy(const FRealtimeMeshSharedResourcesRef& InSharedResources);
 		virtual ~FRealtimeMeshProxy();
@@ -39,7 +115,12 @@ namespace RealtimeMesh
 
 		virtual ERHIFeatureLevel::Type GetRHIFeatureLevel() const;
 		FRealtimeMeshDrawMask GetDrawMask() const { return DrawMask; }
-		TRange<int8> GetValidLODRange() const { return ValidLODRange; }
+		int32 GetFirstLODIndex() const { return ActiveLODMask.Find(true); }
+		int32 GetLastLODIndex() const { return ActiveLODMask.FindLast(true); }
+		FRealtimeMeshActiveLODIterator GetActiveLODMaskIter() const { return FRealtimeMeshActiveLODIterator(*this, ActiveLODMask); }
+		FRealtimeMeshActiveLODIterator GetActiveStaticLODMaskIter() const { return FRealtimeMeshActiveLODIterator(*this, ActiveStaticLODMask); }
+		FRealtimeMeshActiveLODIterator GetActiveDynamicLODMaskIter() const { return FRealtimeMeshActiveLODIterator(*this, ActiveDynamicLODMask); }
+		
 		TRange<float> GetScreenSizeRangeForLOD(const FRealtimeMeshLODKey& LODKey) const;
 
 		virtual void SetDistanceField(FRealtimeMeshDistanceField&& InDistanceField);
@@ -62,13 +143,31 @@ namespace RealtimeMesh
 		virtual void AddLODIfNotExists(const FRealtimeMeshLODKey& LODKey);
 		virtual void RemoveLOD(const FRealtimeMeshLODKey& LODKey);
 
-		virtual void CreateMeshBatches(int32 LODIndex, const FRealtimeMeshBatchCreationParams& Params, const TMap<int32, TTuple<FMaterialRenderProxy*, bool>>& Materials,
-		                               const FMaterialRenderProxy* WireframeMaterial, ERealtimeMeshSectionDrawType DrawType, ERealtimeMeshBatchCreationFlags InclusionFlags) const;
+#if UE_ENABLE_DEBUG_DRAWING
+		virtual void SetCollisionRenderData(const FKAggregateGeom& InAggGeom, ECollisionTraceFlag InCollisionTraceFlag, const FCollisionResponseContainer& InCollisionResponse);
+#endif
 
-		virtual bool UpdatedCachedState(bool bShouldForceUpdate);
+		virtual void UpdatedCachedState(bool bShouldForceUpdate);
 		virtual void Reset();
 
 	protected:
 		void MarkStateDirty();
+
+		friend class FRealtimeMeshActiveLODIterator;
 	};
+
+
+
+	FORCEINLINE FRealtimeMeshLODProxy* FRealtimeMeshActiveLODIterator::operator*() const
+	{
+		check(Proxy.LODs.IsValidIndex(Iterator.GetIndex()) && Proxy.LODs[Iterator.GetIndex()].IsValid());
+		return Proxy.LODs[Iterator.GetIndex()].Get();
+	}
+
+	FORCEINLINE FRealtimeMeshLODProxy& FRealtimeMeshActiveLODIterator::operator->() const
+	{
+		check(Proxy.LODs.IsValidIndex(Iterator.GetIndex()) && Proxy.LODs[Iterator.GetIndex()].IsValid());
+		return *Proxy.LODs[Iterator.GetIndex()].Get();
+	}
+	
 }

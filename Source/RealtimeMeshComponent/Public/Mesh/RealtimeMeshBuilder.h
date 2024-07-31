@@ -89,12 +89,12 @@ namespace RealtimeMesh
 		{
 			if constexpr (bAllowSubstreamAccess)
 			{
-				BufferType StreamData = *reinterpret_cast<BufferType*>(Context.Stream.GetDataRawAtVertex(Index) + Context.ElementOffset);
+				BufferType StreamData = *reinterpret_cast<const BufferType*>(Context.Stream.GetDataRawAtVertex(Index) + Context.ElementOffset);
 				return ConvertRealtimeMeshType<BufferType, AccessType>(StreamData);
 			}
 			else
 			{
-				BufferType StreamData = *reinterpret_cast<BufferType*>(Context.Stream.GetDataRawAtVertex(Index));
+				BufferType StreamData = *reinterpret_cast<const BufferType*>(Context.Stream.GetDataRawAtVertex(Index));
 				return ConvertRealtimeMeshType<BufferType, AccessType>(StreamData);				
 			}
 		}

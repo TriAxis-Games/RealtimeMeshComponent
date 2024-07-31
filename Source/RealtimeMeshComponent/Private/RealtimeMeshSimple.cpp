@@ -61,86 +61,6 @@ namespace RealtimeMesh
 		MarkCollisionDirtyIfNecessary();
 	}
 
-	bool FRealtimeMeshSectionSimple::GenerateCollisionMesh(FRealtimeMeshTriMeshData& CollisionData)
-	{
-		FRealtimeMeshScopeGuardRead ScopeGuard(SharedResources->GetGuard());
-		if (bShouldCreateMeshCollision)
-		{
-			if (const auto SectionGroup = GetSectionGroupAs<FRealtimeMeshSectionGroupSimple>())
-			{
-				const auto PositionStream = SectionGroup->GetStream(FRealtimeMeshStreams::Position);
-				const auto TriangleStream = SectionGroup->GetStream(FRealtimeMeshStreams::Triangles);
-
-				const auto TexCoordsStream = SectionGroup->GetStream(FRealtimeMeshStreamKey(FRealtimeMeshStreams::TexCoords));
-
-				auto& CollisionVertices = CollisionData.GetVertices();
-				auto& CollisionUVs = CollisionData.GetUVs();
-				auto& CollisionMaterials = CollisionData.GetMaterials();
-				auto& CollisionTriangles = CollisionData.GetTriangles();
-
-				if (PositionStream && TriangleStream)
-				{
-					if (PositionStream->Num() >= 3 && (TriangleStream->Num() * TriangleStream->GetNumElements()) >= 3)
-					{
-						const int32 StartVertexIndex = CollisionVertices.Num();
-
-						// Copy in the vertices
-						const auto PositionsView = PositionStream->GetArrayView<FVector3f>();
-						CollisionVertices.Append(PositionsView.GetData(), PositionsView.Num());
-
-						if (TexCoordsStream)
-						{
-							CollisionUVs.SetNum(TexCoordsStream->GetNumElements());
-							for (int32 ChannelIndex = 0; ChannelIndex < TexCoordsStream->GetNumElements(); ChannelIndex++)
-							{
-								TRealtimeMeshStridedStreamBuilder<const FVector2d, void> UVData(*TexCoordsStream, ChannelIndex);
-								const int32 NumUVsToCopy = FMath::Min(UVData.Num(), PositionStream->Num());
-								auto& CollisionUVChannel = CollisionUVs[ChannelIndex];
-								CollisionUVChannel.SetNumUninitialized(NumUVsToCopy);
-								
-								for (int32 TexCoordIdx = 0; TexCoordIdx < NumUVsToCopy; TexCoordIdx++)
-								{
-									CollisionUVChannel[TexCoordIdx] = UVData[TexCoordIdx];
-								}
-
-								// Make sure the uv data is the same length as the position data
-								if (PositionStream->Num() > UVData.Num())
-								{
-									CollisionUVChannel.SetNumZeroed(PositionStream->Num());
-								}
-							}
-						}
-						else
-						{
-							// Zero fill a single channel since we didn't have valid UVs
-							CollisionUVs.SetNum(1);
-							CollisionUVs[0].SetNumZeroed(PositionStream->Num());
-						}
-
-						const int32 MaterialSlot = GetConfig().MaterialSlot;
-
-						TRealtimeMeshStreamBuilder<const TIndex3<uint32>, void> TrianglesData(*TriangleStream);
-						CollisionTriangles.Reserve(TrianglesData.Num());
-						CollisionMaterials.Reserve(TrianglesData.Num());
-
-						for (int32 TriIdx = 0; TriIdx < TrianglesData.Num(); TriIdx++)
-						{
-							FTriIndices& Tri = CollisionTriangles.AddDefaulted_GetRef();
-							Tri.v0 = TrianglesData[TriIdx].GetElement(0).GetValue() + StartVertexIndex;
-							Tri.v1 = TrianglesData[TriIdx].GetElement(1).GetValue() + StartVertexIndex;
-							Tri.v2 = TrianglesData[TriIdx].GetElement(2).GetValue() + StartVertexIndex;
-
-							CollisionMaterials.Add(MaterialSlot);
-						}
-						
-						return true;
-					}
-				}
-			}
-		}
-		return false;
-	}
-
 	bool FRealtimeMeshSectionSimple::Serialize(FArchive& Ar)
 	{
 		const bool bResult = FRealtimeMeshSection::Serialize(Ar);
@@ -452,16 +372,24 @@ namespace RealtimeMesh
 		return bResult;
 	}
 
-	bool FRealtimeMeshSectionGroupSimple::GenerateCollisionMesh(FRealtimeMeshTriMeshData& CollisionData)
+	bool FRealtimeMeshSectionGroupSimple::GenerateComplexCollision(FRealtimeMeshCollisionMesh& CollisionMesh)
 	{
 		FRealtimeMeshScopeGuardRead ScopeGuard(SharedResources->GetGuard());
 
-		bool bHasSectionData = false;
-		for (const auto& Section : Sections)
+		bool bHasMeshData = false;
+		for (const FRealtimeMeshSectionRef& Section : Sections)
 		{
-			bHasSectionData |= StaticCastSharedRef<FRealtimeMeshSectionSimple>(Section)->GenerateCollisionMesh(CollisionData);
+			const auto SimpleSection = StaticCastSharedRef<FRealtimeMeshSectionSimple>(Section);
+			if (SimpleSection->HasCollision())
+			{
+				CollisionMesh.Append(Streams, SimpleSection->GetConfig().MaterialSlot,
+					SimpleSection->GetStreamRange().GetMinIndex() / REALTIME_MESH_NUM_INDICES_PER_PRIMITIVE,
+					SimpleSection->GetStreamRange().NumPrimitives(REALTIME_MESH_NUM_INDICES_PER_PRIMITIVE));
+				bHasMeshData = true;
+			}
 		}
-		return bHasSectionData;
+
+		return bHasMeshData;
 	}
 
 	void FRealtimeMeshSectionGroupSimple::UpdatePolyGroupSections(FRealtimeMeshProxyCommandBatch& Commands, bool bUpdateDepthOnly)
@@ -534,21 +462,25 @@ namespace RealtimeMesh
 			(Sections.Num() == 0 || (Sections.Num() == 1 && Sections.Contains(FRealtimeMeshSectionKey::CreateForPolyGroup(Key, 0))));
 	}
 
-
-	bool FRealtimeMeshLODSimple::GenerateCollisionMesh(FRealtimeMeshTriMeshData& CollisionData)
+	bool FRealtimeMeshLODSimple::GenerateComplexCollision(FRealtimeMeshComplexGeometry& ComplexGeometry)
 	{
 		FRealtimeMeshScopeGuardRead ScopeGuard(SharedResources->GetGuard());
 
 		bool bHasSectionData = false;
 		for (const auto& SectionGroup : SectionGroups)
 		{
-			bHasSectionData |= StaticCastSharedRef<FRealtimeMeshSectionGroupSimple>(SectionGroup)->GenerateCollisionMesh(CollisionData);
+			FRealtimeMeshCollisionMesh NewMesh;
+			const bool bHadData = StaticCastSharedRef<FRealtimeMeshSectionGroupSimple>(SectionGroup)->GenerateComplexCollision(NewMesh);
+			if (bHadData)
+			{
+				ComplexGeometry.AddMesh(MoveTemp(NewMesh));
+				bHasSectionData = true;
+			}
 		}
 		return bHasSectionData;
 	}
 
 
-	
 	FRealtimeMeshRef FRealtimeMeshSharedResourcesSimple::CreateRealtimeMesh() const
 	{
 		return MakeShared<FRealtimeMeshSimple>(ConstCastSharedRef<FRealtimeMeshSharedResources>(this->AsShared()));
@@ -585,38 +517,38 @@ namespace RealtimeMesh
 	TFuture<ERealtimeMeshCollisionUpdateResult> FRealtimeMeshSimple::ClearCustomComplexMeshGeometry()
 	{
 		FRealtimeMeshScopeGuardWrite ScopeGuard(SharedResources->GetGuard());
-		if (ComplexMeshGeometry.Num() > 0)
+		if (ComplexGeometry.NumMeshes() > 0)
 		{
-			ComplexMeshGeometry.Empty();
+			ComplexGeometry.Reset();
 			return MarkCollisionDirty();
 		}
 
 		return MakeFulfilledPromise<ERealtimeMeshCollisionUpdateResult>(ERealtimeMeshCollisionUpdateResult::Ignored).GetFuture();
 	}
 
-	TFuture<ERealtimeMeshCollisionUpdateResult> FRealtimeMeshSimple::SetCustomComplexMeshGeometry(FRealtimeMeshStreamSet&& InComplexMeshGeometry)
+	TFuture<ERealtimeMeshCollisionUpdateResult> FRealtimeMeshSimple::SetCustomComplexMeshGeometry(FRealtimeMeshComplexGeometry&& InComplexMeshGeometry)
 	{
 		FRealtimeMeshScopeGuardWrite ScopeGuard(SharedResources->GetGuard());
-		ComplexMeshGeometry = MoveTemp(InComplexMeshGeometry);
+		ComplexGeometry = MoveTemp(InComplexMeshGeometry);
 		return MarkCollisionDirty();		
 	}
 
-	TFuture<ERealtimeMeshCollisionUpdateResult> FRealtimeMeshSimple::SetCustomComplexMeshGeometry(const FRealtimeMeshStreamSet& InComplexMeshGeometry)
+	TFuture<ERealtimeMeshCollisionUpdateResult> FRealtimeMeshSimple::SetCustomComplexMeshGeometry(const FRealtimeMeshComplexGeometry& InComplexMeshGeometry)
 	{
-		FRealtimeMeshStreamSet ComplexMeshGeometryCopy(InComplexMeshGeometry);
+		FRealtimeMeshComplexGeometry ComplexMeshGeometryCopy(InComplexMeshGeometry);
 		return SetCustomComplexMeshGeometry(MoveTemp(ComplexMeshGeometryCopy));
 	}
 
-	void FRealtimeMeshSimple::ProcessCustomComplexMeshGeometry(TFunctionRef<void(const FRealtimeMeshStreamSet&)> ProcessFunc) const
+	void FRealtimeMeshSimple::ProcessCustomComplexMeshGeometry(TFunctionRef<void(const FRealtimeMeshComplexGeometry&)> ProcessFunc) const
 	{
 		FRealtimeMeshScopeGuardRead ScopeGuard(SharedResources->GetGuard());
-		ProcessFunc(ComplexMeshGeometry);
+		ProcessFunc(ComplexGeometry);
 	}
 
-	TFuture<ERealtimeMeshCollisionUpdateResult> FRealtimeMeshSimple::EditCustomComplexMeshGeometry(TFunctionRef<void(FRealtimeMeshStreamSet&)> EditFunc)
+	TFuture<ERealtimeMeshCollisionUpdateResult> FRealtimeMeshSimple::EditCustomComplexMeshGeometry(TFunctionRef<void(FRealtimeMeshComplexGeometry&)> EditFunc)
 	{
 		FRealtimeMeshScopeGuardWrite ScopeGuard(SharedResources->GetGuard());
-		EditFunc(ComplexMeshGeometry);
+		EditFunc(ComplexGeometry);
 		return MarkCollisionDirty();
 	}
 
@@ -660,84 +592,17 @@ namespace RealtimeMesh
 		FRealtimeMesh::ClearCardRepresentation(Commands);
 	}
 
-	bool FRealtimeMeshSimple::GenerateCollisionMesh(FRealtimeMeshTriMeshData& CollisionData)
+	bool FRealtimeMeshSimple::GenerateComplexCollision(FRealtimeMeshComplexGeometry& OutComplexGeometry)
 	{
 		FRealtimeMeshScopeGuardRead ScopeGuard(SharedResources->GetGuard());
-		if (ComplexMeshGeometry.Num() > 0)
-		{
-			const auto PositionStream = ComplexMeshGeometry.Find(FRealtimeMeshStreams::Position);
-			const auto TriangleStream = ComplexMeshGeometry.Find(FRealtimeMeshStreams::Triangles);
-			const auto TexCoordsStream = ComplexMeshGeometry.Find(FRealtimeMeshStreamKey(FRealtimeMeshStreams::TexCoords));
 
-			auto& CollisionVertices = CollisionData.GetVertices();
-			auto& CollisionUVs = CollisionData.GetUVs();
-			auto& CollisionMaterials = CollisionData.GetMaterials();
-			auto& CollisionTriangles = CollisionData.GetTriangles();
-
-			if (PositionStream && TriangleStream)
-			{
-				if (PositionStream->Num() >= 3 && (TriangleStream->Num() * TriangleStream->GetNumElements()) >= 3)
-				{
-					const int32 StartVertexIndex = CollisionVertices.Num();
-
-					// Copy in the vertices
-					const auto PositionsView = PositionStream->GetArrayView<FVector3f>();
-					CollisionVertices.Append(PositionsView.GetData(), PositionsView.Num());
-
-					if (TexCoordsStream)
-					{
-						CollisionUVs.SetNum(TexCoordsStream->GetNumElements());
-						for (int32 ChannelIndex = 0; ChannelIndex < TexCoordsStream->GetNumElements(); ChannelIndex++)
-						{
-							TRealtimeMeshStridedStreamBuilder<const FVector2d, void> UVData(*TexCoordsStream, ChannelIndex);
-							const int32 NumUVsToCopy = FMath::Min(UVData.Num(), PositionStream->Num());
-							auto& CollisionUVChannel = CollisionUVs[ChannelIndex];
-							CollisionUVChannel.SetNumUninitialized(NumUVsToCopy);
-							
-							for (int32 TexCoordIdx = 0; TexCoordIdx < NumUVsToCopy; TexCoordIdx++)
-							{
-								CollisionUVChannel[TexCoordIdx] = UVData[TexCoordIdx];
-							}
-
-							// Make sure the uv data is the same length as the position data
-							if (PositionStream->Num() > UVData.Num())
-							{
-								CollisionUVChannel.SetNumZeroed(PositionStream->Num());
-							}
-						}
-					}
-					else
-					{
-						// Zero fill a single channel since we didn't have valid UVs
-						CollisionUVs.SetNum(1);
-						CollisionUVs[0].SetNumZeroed(PositionStream->Num());
-					}
-
-					TRealtimeMeshStreamBuilder<const TIndex3<uint32>, void> TrianglesData(*TriangleStream);
-					CollisionTriangles.Reserve(TrianglesData.Num());
-					CollisionMaterials.Reserve(TrianglesData.Num());
-
-					for (int32 TriIdx = 0; TriIdx < TrianglesData.Num(); TriIdx++)
-					{
-						FTriIndices& Tri = CollisionTriangles.AddDefaulted_GetRef();
-						Tri.v0 = TrianglesData[TriIdx].GetElement(0).GetValue() + StartVertexIndex;
-						Tri.v1 = TrianglesData[TriIdx].GetElement(1).GetValue() + StartVertexIndex;
-						Tri.v2 = TrianglesData[TriIdx].GetElement(2).GetValue() + StartVertexIndex;
-
-						CollisionMaterials.Add(0 /* Material Slot */);
-					}
-					
-					return true;
-				}
-			}
-			
-			return false;			
-		}		
+		// Copy any custom complex geometry
+		OutComplexGeometry = ComplexGeometry;
 		
 		// TODO: Allow other LOD to be used for collision?
 		if (LODs.IsValidIndex(0))
 		{
-			return StaticCastSharedRef<FRealtimeMeshLODSimple>(LODs[0])->GenerateCollisionMesh(CollisionData);
+			return StaticCastSharedRef<FRealtimeMeshLODSimple>(LODs[0])->GenerateComplexCollision(OutComplexGeometry);
 		}
 		return false;
 	}
@@ -787,11 +652,17 @@ namespace RealtimeMesh
 
 		if (Ar.CustomVer(FRealtimeMeshVersion::GUID) >= FRealtimeMeshVersion::SimpleMeshStoresCustomComplexCollision)
 		{
-			int32 NumStreams = ComplexMeshGeometry.Num();
-			Ar << NumStreams;
-
-			if (Ar.IsLoading())
+			if (Ar.CustomVer(FRealtimeMeshVersion::GUID) >= FRealtimeMeshVersion::CollisionOverhaul)
 			{
+				Ar << ComplexGeometry;
+			}
+			else
+			{
+				check(Ar.IsLoading())
+				FRealtimeMeshStreamSet ComplexMeshGeometry;
+				int32 NumStreams = ComplexMeshGeometry.Num();
+				Ar << NumStreams;
+
 				ComplexMeshGeometry.Empty();
 				for (int32 Index = 0; Index < NumStreams; Index++)
 				{
@@ -803,15 +674,10 @@ namespace RealtimeMesh
 
 					ComplexMeshGeometry.AddStream(MoveTemp(Stream));
 				}
-			}
-			else
-			{
-				ComplexMeshGeometry.ForEach([&Ar](FRealtimeMeshStream& Stream)
-				{					
-					FRealtimeMeshStreamKey StreamKey = Stream.GetStreamKey();
-					Ar << StreamKey;
-					Ar << Stream;
-				});
+				
+				FRealtimeMeshCollisionMesh CollisionMesh;
+				CollisionMesh.Append(ComplexMeshGeometry, 0);
+				ComplexGeometry.AddMesh(MoveTemp(CollisionMesh));
 			}
 		}
 
@@ -892,24 +758,24 @@ namespace RealtimeMesh
 		{
 			const bool bAsyncCook = CollisionConfig.bUseAsyncCook;
 
-			auto CollisionData = MakeShared<FRealtimeMeshCollisionData>();
-			CollisionData->Config = CollisionConfig;
+			auto CollisionData = MakeShared<FRealtimeMeshCollisionInfo>();
+			CollisionData->Configuration = CollisionConfig;
 			CollisionData->SimpleGeometry = SimpleGeometry;
 			
 			auto ThisWeak = TWeakPtr<FRealtimeMeshSimple>(StaticCastSharedRef<FRealtimeMeshSimple>(this->AsShared()));
 
 			const bool bGenerateOnOtherThread = bAsyncCook && IsInGameThread();
 
-			auto GenerationPromise = MakeShared<TPromise<TSharedPtr<FRealtimeMeshCollisionData>>>();
+			auto GenerationPromise = MakeShared<TPromise<TSharedPtr<FRealtimeMeshCollisionInfo>>>();
 
 			auto GenerateMeshDataLambda = [ThisWeak, GenerationPromise, CollisionData]() mutable
 			{
-				FRealtimeMeshTriMeshData CollisionMesh;
+				FRealtimeMeshComplexGeometry ComplexGeometry;
 				if (const auto ThisShared = ThisWeak.Pin())
 				{
-					if (ThisShared->GenerateCollisionMesh(CollisionMesh))
+					if (ThisShared->GenerateComplexCollision(ComplexGeometry))
 					{
-						CollisionData->ComplexGeometry = MoveTemp(CollisionMesh);
+						CollisionData->ComplexGeometry = MoveTemp(ComplexGeometry);
 					}
 				}
 				GenerationPromise->SetValue(CollisionData);
@@ -925,7 +791,7 @@ namespace RealtimeMesh
 				GenerateMeshDataLambda();
 			}
 
-			GenerationPromise->GetFuture().Next([ThisWeak, ResultPromise = PendingCollisionPromise](const TSharedPtr<FRealtimeMeshCollisionData>& CollisionData) mutable
+			GenerationPromise->GetFuture().Next([ThisWeak, ResultPromise = PendingCollisionPromise](const TSharedPtr<FRealtimeMeshCollisionInfo>& CollisionData) mutable
 			{
 				auto SendCollisionUpdate = [ThisWeak, ResultPromise, CollisionData]() mutable
 				{
@@ -936,6 +802,10 @@ namespace RealtimeMesh
 						          {
 							          ResultPromise->SetValue(Result);
 						          });
+					}
+					else
+					{
+						ResultPromise->SetValue(ERealtimeMeshCollisionUpdateResult::Ignored);
 					}
 				};
 
@@ -1318,22 +1188,22 @@ TFuture<ERealtimeMeshCollisionUpdateResult> URealtimeMeshSimple::ClearCustomComp
 	return GetMeshAs<FRealtimeMeshSimple>()->ClearCustomComplexMeshGeometry();
 }
 
-TFuture<ERealtimeMeshCollisionUpdateResult> URealtimeMeshSimple::SetCustomComplexMeshGeometry(FRealtimeMeshStreamSet&& InComplexMeshGeometry)
+TFuture<ERealtimeMeshCollisionUpdateResult> URealtimeMeshSimple::SetCustomComplexMeshGeometry(FRealtimeMeshComplexGeometry&& InComplexMeshGeometry)
 {
 	return GetMeshAs<FRealtimeMeshSimple>()->SetCustomComplexMeshGeometry(MoveTemp(InComplexMeshGeometry));
 }
 
-TFuture<ERealtimeMeshCollisionUpdateResult> URealtimeMeshSimple::SetCustomComplexMeshGeometry(const FRealtimeMeshStreamSet& InComplexMeshGeometry)
+TFuture<ERealtimeMeshCollisionUpdateResult> URealtimeMeshSimple::SetCustomComplexMeshGeometry(const FRealtimeMeshComplexGeometry& InComplexMeshGeometry)
 {
 	return GetMeshAs<FRealtimeMeshSimple>()->SetCustomComplexMeshGeometry(InComplexMeshGeometry);
 }
 
-void URealtimeMeshSimple::ProcessCustomComplexMeshGeometry(TFunctionRef<void(const FRealtimeMeshStreamSet&)> ProcessFunc) const
+void URealtimeMeshSimple::ProcessCustomComplexMeshGeometry(TFunctionRef<void(const FRealtimeMeshComplexGeometry&)> ProcessFunc) const
 {
 	return GetMeshAs<FRealtimeMeshSimple>()->ProcessCustomComplexMeshGeometry(ProcessFunc);
 }
 
-TFuture<ERealtimeMeshCollisionUpdateResult> URealtimeMeshSimple::EditCustomComplexMeshGeometry(TFunctionRef<void(FRealtimeMeshStreamSet&)> EditFunc)
+TFuture<ERealtimeMeshCollisionUpdateResult> URealtimeMeshSimple::EditCustomComplexMeshGeometry(TFunctionRef<void(FRealtimeMeshComplexGeometry&)> EditFunc)
 {
 	return GetMeshAs<FRealtimeMeshSimple>()->EditCustomComplexMeshGeometry(EditFunc);
 }

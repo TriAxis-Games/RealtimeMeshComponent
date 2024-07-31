@@ -21,12 +21,12 @@ namespace RealtimeMesh
 		FRealtimeMeshProxyRef RealtimeMeshProxy;
 
 		// All the in use materials
-		TMap<int32, TTuple<FMaterialRenderProxy*, bool>> Materials;
+		FRealtimeMeshMaterialProxyMap MaterialMap;
 
 		// Reference all the in-use buffers so that as long as this proxy is around these buffers will be too. 
 		// This is meant only for statically drawn sections. Dynamically drawn sections can update safely in place.
 		// Static sections get new buffers on each update.
-		TArray<TSharedRef<FRenderResource>> InUseBuffers;
+		FRealtimeMeshResourceReferenceList StaticResources;
 
 		// Reference to the body setup for rendering.
 		UBodySetup* BodySetup;
@@ -82,8 +82,6 @@ namespace RealtimeMesh
 
 	protected:
 		SIZE_T GetAllocatedSize(void) const;
-
-		FMaterialRenderProxy* GetMaterialSlot(int32 MaterialSlotId) const;
 
 		int8 GetCurrentFirstLOD() const;
 

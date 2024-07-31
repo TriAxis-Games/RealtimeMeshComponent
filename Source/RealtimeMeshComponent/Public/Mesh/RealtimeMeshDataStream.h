@@ -1003,16 +1003,23 @@ namespace RealtimeMesh
 		}
 		
 		template <typename VertexType>
-		void CopyRange(int32 StartIndex, TArrayView<VertexType> OutputElements)
+		void CopyRange(int32 StartIndex, TArrayView<VertexType> OutputElements) const
 		{
 			CopyRange(StartIndex, GetRealtimeMeshBufferLayout<VertexType>(), OutputElements.GetData(), OutputElements.Num());
 		}
 		
 		template <typename VertexType>
-		void CopyRange(int32 StartIndex, int32 Count, TArray<VertexType>& OutputElements)
+		void CopyRange(int32 StartIndex, int32 Count, TArray<VertexType>& OutputElements) const
 		{
 			const SizeType DestinationIndex = OutputElements.AddUninitialized(Count);
 			CopyRange(StartIndex, GetRealtimeMeshBufferLayout<VertexType>(), reinterpret_cast<uint8*>(&OutputElements[DestinationIndex]), Count);
+		}
+		
+		template <typename VertexType>
+		void CopyTo(TArray<VertexType>& OutElements) const
+		{
+			const SizeType DestinationIndex = OutElements.AddUninitialized(ArrayNum);
+			CopyRange(0, GetRealtimeMeshBufferLayout<VertexType>(), reinterpret_cast<uint8*>(&OutElements[DestinationIndex]), ArrayNum);
 		}
 
 

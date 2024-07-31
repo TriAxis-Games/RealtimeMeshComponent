@@ -23,6 +23,7 @@ DECLARE_STATS_GROUP(TEXT("RealtimeMesh"), STATGROUP_RealtimeMesh, STATCAT_Advanc
 
 #define REALTIME_MESH_MAX_TEX_COORDS MAX_STATIC_TEXCOORDS
 #define REALTIME_MESH_MAX_LODS MAX_STATIC_MESH_LODS
+#define REALTIME_MESH_MAX_LOD_INDEX (REALTIME_MESH_MAX_LODS - 1)
 
 // Maximum number of elements in a vertex stream 
 #define REALTIME_MESH_MAX_STREAM_ELEMENTS 8
@@ -59,6 +60,7 @@ namespace RealtimeMesh
 			SimpleMeshStoresCustomComplexCollision = 8,
 			DistanceFieldAndCardRepresentationSupport = 9,
 			SupportOptionalDataSerialization = 10,
+			CollisionOverhaul = 11,
 
 			// -----<new versions can be added above this line>-------------------------------------------------
 			VersionPlusOne,

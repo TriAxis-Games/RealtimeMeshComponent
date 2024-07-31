@@ -15,6 +15,7 @@
 #include "RealtimeMeshConfig.h"
 #include "SceneInterface.h"
 #include "ProfilingDebugging/LoadTimeTracker.h"
+#include "RenderProxy/RealtimeMeshProxyShared.h"
 
 #if RMC_ENGINE_ABOVE_5_2
 #include "MaterialDomain.h"
@@ -263,6 +264,47 @@ namespace RealtimeMesh
 		return *Normal.Get();
 	}
 
+	FIndexBuffer& FRealtimeMeshLocalVertexFactory::GetIndexBuffer(bool& bDepthOnly, bool& bMatrixInverted, struct FRealtimeMeshResourceReferenceList& ActiveResources) const
+	{
+		if (bDepthOnly)
+		{
+			if (bMatrixInverted)
+			{
+				if (const auto ReversedDepth = ReversedDepthOnlyIndexBuffer.Pin())
+				{
+					ActiveResources.AddResource(ReversedDepth);
+					return *ReversedDepth.Get();
+				}
+			}
+
+			if (const auto DepthOnly = DepthOnlyIndexBuffer.Pin())
+			{
+				ActiveResources.AddResource(DepthOnly);
+				bMatrixInverted = false;
+				return *DepthOnly.Get();
+			}
+		}
+
+		if (bMatrixInverted)
+		{
+			if (const auto Reversed = ReversedIndexBuffer.Pin())
+			{
+				ActiveResources.AddResource(Reversed);
+				bDepthOnly = false;
+				return *Reversed.Get();
+			}
+		}
+
+		const auto Normal = IndexBuffer.Pin();
+		check(Normal.IsValid());
+		ActiveResources.AddResource(Normal);
+
+		bMatrixInverted = false;
+		bDepthOnly = false;
+		return *Normal.Get();
+	}
+
+	
 	bool FRealtimeMeshLocalVertexFactory::IsValidStreamRange(const FRealtimeMeshStreamRange& StreamRange) const
 	{
 		return ValidRange.Contains(StreamRange);
@@ -378,6 +420,25 @@ namespace RealtimeMesh
 			ResourceSubmitter(Buffer.ToSharedRef());
 		}
 		return true;
+	}
+
+	bool FRealtimeMeshLocalVertexFactory::GatherVertexBufferResources(FRealtimeMeshResourceReferenceList& ActiveResources) const
+	{
+		TArray<TSharedPtr<FRealtimeMeshVertexBuffer>> TempBuffers;
+		for (const auto& Buffer : InUseVertexBuffers)
+		{
+			auto PinnedBuffer = Buffer.Pin();
+			if (!PinnedBuffer)
+			{
+				return false;
+			}
+			TempBuffers.Add(PinnedBuffer);
+		}
+		for (const auto& Buffer : TempBuffers)
+		{
+			ActiveResources.AddResource(Buffer);
+		}
+		return true;		
 	}
 
 
