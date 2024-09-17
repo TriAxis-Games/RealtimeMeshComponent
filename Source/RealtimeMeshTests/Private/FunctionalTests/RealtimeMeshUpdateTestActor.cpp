@@ -14,10 +14,9 @@ ARealtimeMeshUpdateTestActor::ARealtimeMeshUpdateTestActor()
 	
 }
 
-
-void ARealtimeMeshUpdateTestActor::OnGenerateMesh_Implementation()
+void ARealtimeMeshUpdateTestActor::OnConstruction(const FTransform& Transform)
 {
-	Super::OnGenerateMesh_Implementation();
+	Super::OnConstruction(Transform);
 
 	// Initialize the simple mesh
 	RealtimeMesh = GetRealtimeMeshComponent()->InitializeRealtimeMesh<URealtimeMeshSimple>();

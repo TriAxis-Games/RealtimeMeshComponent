@@ -8,73 +8,85 @@
 
 namespace RealtimeMesh
 {
-	struct REALTIMEMESHCOMPONENT_API FRealtimeMeshProxyCommandBatch
+	struct FRealtimeMeshCommandBatchIntermediateFuture : public TSharedFromThis<FRealtimeMeshCommandBatchIntermediateFuture>
 	{
-	private:
-		using TaskFunctionType = TUniqueFunction<void(FRealtimeMeshProxy&)>;
-		TArray<TaskFunctionType> Tasks;
-		FRealtimeMeshPtr Mesh;
-		bool bRequiresProxyRecreate;
+		TSharedRef<TPromise<ERealtimeMeshProxyUpdateStatus>> FinalPromise;
+		ERealtimeMeshProxyUpdateStatus Result;
+		uint8 bRenderThreadReady : 1;
+		uint8 bGameThreadReady : 1;
+		uint8 bFinalized : 1;
 
+		FRealtimeMeshCommandBatchIntermediateFuture();
+		void FinalizeRenderThread(ERealtimeMeshProxyUpdateStatus Status);
+		void FinalizeGameThread();
+	};
+
+	struct REALTIMEMESHCOMPONENT_API FRealtimeMeshProxyUpdateBuilder
+	{
 	public:
-		FRealtimeMeshProxyCommandBatch(const FRealtimeMeshSharedResourcesPtr& InSharedResources, bool bInRequiresProxyRecreate = false);
-		FRealtimeMeshProxyCommandBatch(const FRealtimeMeshPtr& InMesh, bool bInRequiresProxyRecreate = false);
+		using TaskFunctionType = TUniqueFunction<void(FRHICommandListBase&, FRealtimeMeshProxy&)>;
+	private:
+		TArray<TaskFunctionType> Tasks;
+		uint32 bRequiresProxyRecreate : 1;
+		uint32 bIsIgnoringCommands : 1;
+	public:
+		FRealtimeMeshProxyUpdateBuilder(bool bShouldIgnoreCommands = false)
+			: bRequiresProxyRecreate(false)
+			, bIsIgnoringCommands(bShouldIgnoreCommands)
+		{ }
+		UE_NONCOPYABLE(FRealtimeMeshProxyUpdateBuilder);
 
-		FRealtimeMeshProxyCommandBatch(const FRealtimeMeshProxyCommandBatch&) = delete;
-		FRealtimeMeshProxyCommandBatch(FRealtimeMeshProxyCommandBatch&&) = delete;
-		FRealtimeMeshProxyCommandBatch& operator=(const FRealtimeMeshProxyCommandBatch&) = delete;
-		FRealtimeMeshProxyCommandBatch& operator=(FRealtimeMeshProxyCommandBatch&&) = delete;
+		FORCEINLINE bool IsValid() const { return !bIsIgnoringCommands; }
+		FORCEINLINE operator bool() const { return IsValid(); }
 
-		operator bool() const { return Mesh.IsValid(); }
-
-		TFuture<ERealtimeMeshProxyUpdateStatus> Commit();
+		TFuture<ERealtimeMeshProxyUpdateStatus> Commit(const TSharedRef<const FRealtimeMesh>& Mesh);
 
 		void MarkForProxyRecreate() { bRequiresProxyRecreate = true; }
 		void ClearProxyRecreate() { bRequiresProxyRecreate = false; }
 
-		void AddMeshTask(TUniqueFunction<void(FRealtimeMeshProxy&)>&& Function, bool bInRequiresProxyRecreate = true);
+		void AddMeshTask(TUniqueFunction<void(FRHICommandListBase&, FRealtimeMeshProxy&)>&& Function, bool bInRequiresProxyRecreate = true);
 
 		template <typename MeshType>
-		void AddMeshTask(TUniqueFunction<void(MeshType&)>&& Function, bool bInRequiresProxyRecreate = true)
+		void AddMeshTask(TUniqueFunction<void(FRHICommandListBase&, MeshType&)>&& Function, bool bInRequiresProxyRecreate = true)
 		{
-			AddMeshTask([Func = MoveTemp(Function)](FRealtimeMeshProxy& LOD)
+			AddMeshTask([Func = MoveTemp(Function)](FRHICommandListBase& RHICmdList, FRealtimeMeshProxy& LOD)
 			{
-				Func(static_cast<MeshType&>(LOD));
+				Func(RHICmdList, static_cast<MeshType&>(LOD));
 			}, bInRequiresProxyRecreate);
 		}
 
-		void AddLODTask(const FRealtimeMeshLODKey& LODKey, TUniqueFunction<void(FRealtimeMeshLODProxy&)>&& Function, bool bInRequiresProxyRecreate = true);
+		void AddLODTask(const FRealtimeMeshLODKey& LODKey, TUniqueFunction<void(FRHICommandListBase&, FRealtimeMeshLODProxy&)>&& Function, bool bInRequiresProxyRecreate = true);
 
 		template <typename LODProxyType>
-		void AddLODTask(const FRealtimeMeshLODKey& LODKey, TUniqueFunction<void(LODProxyType&)>&& Function, bool bInRequiresProxyRecreate = true)
+		void AddLODTask(const FRealtimeMeshLODKey& LODKey, TUniqueFunction<void(FRHICommandListBase&, LODProxyType&)>&& Function, bool bInRequiresProxyRecreate = true)
 		{
-			AddLODTask(LODKey, [Func = MoveTemp(Function)](FRealtimeMeshLODProxy& LOD)
+			AddLODTask(LODKey, [Func = MoveTemp(Function)](FRHICommandListBase& RHICmdList, FRealtimeMeshLODProxy& LOD)
 			{
-				Func(static_cast<LODProxyType&>(LOD));
+				Func(RHICmdList, static_cast<LODProxyType&>(LOD));
 			}, bInRequiresProxyRecreate);
 		}
 
-		void AddSectionGroupTask(const FRealtimeMeshSectionGroupKey& SectionGroupKey, TUniqueFunction<void(FRealtimeMeshSectionGroupProxy&)>&& Function,
+		void AddSectionGroupTask(const FRealtimeMeshSectionGroupKey& SectionGroupKey, TUniqueFunction<void(FRHICommandListBase&, FRealtimeMeshSectionGroupProxy&)>&& Function,
 		                         bool bInRequiresProxyRecreate = true);
 
 		template <typename SectionGroupProxyType>
-		void AddSectionGroupTask(const FRealtimeMeshSectionGroupKey& SectionGroupKey, TUniqueFunction<void(SectionGroupProxyType&)>&& Function,
+		void AddSectionGroupTask(const FRealtimeMeshSectionGroupKey& SectionGroupKey, TUniqueFunction<void(FRHICommandListBase&, SectionGroupProxyType&)>&& Function,
 		                         bool bInRequiresProxyRecreate = true)
 		{
-			AddSectionGroupTask(SectionGroupKey, [Func = MoveTemp(Function)](FRealtimeMeshSectionGroupProxy& SectionGroup)
+			AddSectionGroupTask(SectionGroupKey, [Func = MoveTemp(Function)](FRHICommandListBase& RHICmdList, FRealtimeMeshSectionGroupProxy& SectionGroup)
 			{
-				Func(static_cast<SectionGroupProxyType&>(SectionGroup));
+				Func(RHICmdList, static_cast<SectionGroupProxyType&>(SectionGroup));
 			}, bInRequiresProxyRecreate);
 		}
 
-		void AddSectionTask(const FRealtimeMeshSectionKey& SectionKey, TUniqueFunction<void(FRealtimeMeshSectionProxy&)>&& Function, bool bInRequiresProxyRecreate = true);
+		void AddSectionTask(const FRealtimeMeshSectionKey& SectionKey, TUniqueFunction<void(FRHICommandListBase&, FRealtimeMeshSectionProxy&)>&& Function, bool bInRequiresProxyRecreate = true);
 
 		template <typename SectionProxyType>
-		void AddSectionTask(const FRealtimeMeshSectionKey& SectionKey, TUniqueFunction<void(SectionProxyType&)>&& Function, bool bInRequiresProxyRecreate = true)
+		void AddSectionTask(const FRealtimeMeshSectionKey& SectionKey, TUniqueFunction<void(FRHICommandListBase&, SectionProxyType&)>&& Function, bool bInRequiresProxyRecreate = true)
 		{
-			AddSectionTask(SectionKey, [Func = MoveTemp(Function)](FRealtimeMeshSectionProxy& Section)
+			AddSectionTask(SectionKey, [Func = MoveTemp(Function)](FRHICommandListBase& RHICmdList, FRealtimeMeshSectionProxy& Section)
 			{
-				Func(static_cast<SectionProxyType&>(Section));
+				Func(RHICmdList, static_cast<SectionProxyType&>(Section));
 			}, bInRequiresProxyRecreate);
 		}
 	};

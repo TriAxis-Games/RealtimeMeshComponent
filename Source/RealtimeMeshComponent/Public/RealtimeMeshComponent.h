@@ -17,8 +17,8 @@ class REALTIMEMESHCOMPONENT_API URealtimeMeshComponent : public UMeshComponent
 	GENERATED_BODY()
 
 private:
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = RealtimeMesh, Meta = (AllowPrivateAccess = "true", DisplayName = "Runtime Mesh"))
-	TObjectPtr<URealtimeMesh> RealtimeMeshReference;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Replicated, Category = RealtimeMesh, Meta = (AllowPrivateAccess = "true", DisplayName = "Runtime Mesh", ReplicatedUsing="OnRep_RealtimeMesh"))
+	TObjectPtr<URealtimeMesh> RealtimeMesh;
 
 public:
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "RealtimeMesh")
@@ -42,9 +42,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMeshComponent")
 	FORCEINLINE URealtimeMesh* GetRealtimeMesh() const
 	{
-		if (RealtimeMeshReference && RealtimeMeshReference->IsValidLowLevel())
+		if (RealtimeMesh && RealtimeMesh->IsValidLowLevel())
 		{
-			return RealtimeMeshReference;
+			return RealtimeMesh;
 		}
 		return nullptr;
 	}
@@ -52,12 +52,15 @@ public:
 	template<typename RealtimeMeshType>
 	FORCEINLINE RealtimeMeshType* GetRealtimeMeshAs() const
 	{
-		if (RealtimeMeshReference && RealtimeMeshReference->IsValidLowLevel())
+		if (RealtimeMesh && RealtimeMesh->IsValidLowLevel())
 		{
-			return CastChecked<RealtimeMeshType>(RealtimeMeshReference);
+			return CastChecked<RealtimeMeshType>(RealtimeMesh);
 		}
 		return nullptr;
 	}
+	
+	UFUNCTION()
+	void OnRep_RealtimeMesh(class URealtimeMesh *OldRealtimeMesh);
 
 public:
 	void GetStreamingRenderAssetInfo(FStreamingTextureLevelContext& LevelContext, TArray<FStreamingRenderAssetPrimitiveInfo>& OutStreamingRenderAssets) const
@@ -103,6 +106,7 @@ public:
 #endif
 	//~ End UPrimitiveComponent Interface
 
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 private:
 	virtual void BindToEvents(URealtimeMesh* RealtimeMesh);

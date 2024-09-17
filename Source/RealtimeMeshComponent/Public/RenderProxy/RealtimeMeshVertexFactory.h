@@ -3,13 +3,12 @@
 #pragma once
 
 #include "RealtimeMeshGPUBuffer.h"
-#include "RealtimeMeshConfig.h"
 #include "ShaderParameters.h"
 #include "Components.h"
 #include "VertexFactory.h"
+#include "Core/RealtimeMeshStreamRange.h"
 
 
-struct FRealtimeMeshStreamRange;
 class FMaterial;
 class FSceneView;
 struct FMeshBatchElement;
@@ -92,7 +91,7 @@ namespace RealtimeMesh
 		virtual FRealtimeMeshStreamRange GetValidRange() const = 0;
 		virtual bool IsValidStreamRange(const FRealtimeMeshStreamRange& StreamRange) const = 0;
 
-		virtual void Initialize(const TMap<FRealtimeMeshStreamKey, TSharedPtr<FRealtimeMeshGPUBuffer>>& Buffers) = 0;
+		virtual void Initialize(FRHICommandListBase& RHICmdList, const TMap<FRealtimeMeshStreamKey, TSharedPtr<FRealtimeMeshGPUBuffer>>& Buffers) = 0;
 
 		virtual FRHIUniformBuffer* GetUniformBuffer() const = 0;
 
@@ -265,7 +264,7 @@ namespace RealtimeMesh
 			  , DepthOnlyIndexBuffer(nullptr)
 			  , ReversedIndexBuffer(nullptr)
 			  , ReversedDepthOnlyIndexBuffer(nullptr)
-			  , ValidRange(FRealtimeMeshStreamRange::Empty)
+			  , ValidRange(FRealtimeMeshStreamRange::Empty())
 			  , ColorStreamIndex(INDEX_NONE)
 		{
 		}
@@ -309,7 +308,7 @@ namespace RealtimeMesh
 		virtual FRealtimeMeshStreamRange GetValidRange() const override { return ValidRange; }
 		virtual bool IsValidStreamRange(const FRealtimeMeshStreamRange& StreamRange) const override;
 
-		virtual void Initialize(const TMap<FRealtimeMeshStreamKey, TSharedPtr<FRealtimeMeshGPUBuffer>>& Buffers) override;
+		virtual void Initialize(FRHICommandListBase& RHICmdList, const TMap<FRealtimeMeshStreamKey, TSharedPtr<FRealtimeMeshGPUBuffer>>& Buffers) override;
 
 		virtual bool GatherVertexBufferResources(TFunctionRef<void(const TSharedRef<FRenderResource>&)> ResourceSubmitter) const override;
 		virtual bool GatherVertexBufferResources(struct FRealtimeMeshResourceReferenceList& ActiveResources) const override;

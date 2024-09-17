@@ -7,6 +7,7 @@
 #include "RealtimeMeshUpdateTestActor.generated.h"
 
 class URealtimeMeshSimple;
+
 UCLASS()
 class REALTIMEMESHTESTS_API ARealtimeMeshUpdateTestActor : public ARealtimeMeshActor
 {
@@ -24,6 +25,6 @@ public:
 	// Sets default values for this actor's properties
 	ARealtimeMeshUpdateTestActor();
 
-	virtual void OnGenerateMesh_Implementation() override;
+	virtual void OnConstruction(const FTransform& Transform) override;
 
 };

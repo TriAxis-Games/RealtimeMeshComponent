@@ -2,7 +2,9 @@
 
 
 #include "Mesh/RealtimeMeshBlueprintMeshBuilder.h"
-#include "Mesh/RealtimeMeshDataStream.h"
+#include "Engine/Engine.h"
+#include "RealtimeMeshComponentModule.h"
+#include "Core/RealtimeMeshDataStream.h"
 #if RMC_ENGINE_ABOVE_5_2
 #include "Logging/MessageLog.h"
 #endif
@@ -17,986 +19,1015 @@
 		CountTillNext = 1000; \
 	} 
 
-void RealtimeMesh::StreamBuilder::Private::IDataInterface::SetInt(RealtimeMesh::FRealtimeMeshStream* Stream, int32 Index, int32 ElementIdx, int32 NewValue)
+static TAutoConsoleVariable<int32> CVarRealtimeMeshStreamPoolMaxSizeThreshold(
+	TEXT("RealtimeMesh.StreamPool.MaxPoolSize"),
+	256,
+	TEXT("Maximum number of streams a URealtimeMeshStreamPool will allow to be in the pool before running garbage collection"));
+
+static TAutoConsoleVariable<int32> CVarRealtimeMeshStreamSetsPoolMaxSizeThreshold(
+	TEXT("RealtimeMesh.StreamSetPool.MaxPoolSize"),
+	64,
+	TEXT("Maximum number of streamsets a URealtimeMeshStreamPool will allow to be in the pool before running garbage collection"));
+
+static TAutoConsoleVariable<int32> CVarRealtimeMeshBuilderPoolMaxSizeThreshold(
+	TEXT("RealtimeMesh.Builder.MaxPoolSize"),
+	16,
+	TEXT("Maximum number of builders a URealtimeMeshStreamPool will allow to be in the pool before running garbage collection"));
+
+
+static RealtimeMesh::FRealtimeMeshBufferLayout GetBufferLayout(ERealtimeMeshSimpleStreamType StreamType, int32 NumElements)
 {
-	RMC_RATE_LIMIT_LOG({
-		FMessageLog("RealtimeMesh").Error(FText::Format(LOCTEXT("StreamBuilder_SetInt", "RealtimeMeshStream: Unable to SetInt on stream of type {0}"), FText::FromString(GetTypeName())));
-	});
-}
-
-void RealtimeMesh::StreamBuilder::Private::IDataInterface::SetLong(RealtimeMesh::FRealtimeMeshStream* Stream, int32 Index, int32 ElementIdx, int64 NewValue)
-{
-	RMC_RATE_LIMIT_LOG({
-		FMessageLog("RealtimeMesh").Error(FText::Format(LOCTEXT("StreamBuilder_SetLong", "RealtimeMeshStream: Unable to SetLong on stream of type {0}"), FText::FromString(GetTypeName())));
-	});
-}
-
-void RealtimeMesh::StreamBuilder::Private::IDataInterface::SetFloat(RealtimeMesh::FRealtimeMeshStream* Stream, int32 Index, int32 ElementIdx, float NewValue)
-{
-	RMC_RATE_LIMIT_LOG({
-		FMessageLog("RealtimeMesh").Error(FText::Format(LOCTEXT("StreamBuilder_SetFloat", "RealtimeMeshStream: Unable to SetFloat on stream of type {0}"), FText::FromString(GetTypeName())));
-	});
-}
-
-void RealtimeMesh::StreamBuilder::Private::IDataInterface::SetVector2(RealtimeMesh::FRealtimeMeshStream* Stream, int32 Index, int32 ElementIdx, const FVector2D& NewValue)
-{
-	RMC_RATE_LIMIT_LOG({
-		FMessageLog("RealtimeMesh").Error(FText::Format(LOCTEXT("StreamBuilder_SetVector2", "RealtimeMeshStream: Unable to SetVector2 on stream of type {0}"), FText::FromString(GetTypeName())));
-	});
-}
-
-void RealtimeMesh::StreamBuilder::Private::IDataInterface::SetVector3(RealtimeMesh::FRealtimeMeshStream* Stream, int32 Index, int32 ElementIdx, const FVector& NewValue)
-{
-	RMC_RATE_LIMIT_LOG({
-		FMessageLog("RealtimeMesh").Error(FText::Format(LOCTEXT("StreamBuilder_SetVector3", "RealtimeMeshStream: Unable to SetVector3 on stream of type {0}"), FText::FromString(GetTypeName())));
-	});
-}
-
-void RealtimeMesh::StreamBuilder::Private::IDataInterface::SetVector4(RealtimeMesh::FRealtimeMeshStream* Stream, int32 Index, int32 ElementIdx, const FVector4& NewValue)
-{
-	RMC_RATE_LIMIT_LOG({
-		FMessageLog("RealtimeMesh").Error(FText::Format(LOCTEXT("StreamBuilder_SetVector4", "RealtimeMeshStream: Unable to SetVector4 on stream of type {0}"), FText::FromString(GetTypeName())));
-	});
-}
-
-void RealtimeMesh::StreamBuilder::Private::IDataInterface::SetColor(FRealtimeMeshStream* Stream, int32 Index, int32 ElementIdx, const FLinearColor& NewValue)
-{
-	RMC_RATE_LIMIT_LOG({
-		FMessageLog("RealtimeMesh").Error(FText::Format(LOCTEXT("StreamBuilder_SetColor", "RealtimeMeshStream: Unable to SetColor on stream of type {0}"), FText::FromString(GetTypeName())));
-	});
-}
-
-int32 RealtimeMesh::StreamBuilder::Private::IDataInterface::GetInt(RealtimeMesh::FRealtimeMeshStream* Stream, int32 Index, int32 ElementIdx)
-{
-	RMC_RATE_LIMIT_LOG({
-		FMessageLog("RealtimeMesh").Error(FText::Format(LOCTEXT("StreamBuilder_GetInt", "RealtimeMeshStream: Unable to GetInt on stream of type {0}"), FText::FromString(GetTypeName())));
-	});
-	return 0;
-}
-
-int64 RealtimeMesh::StreamBuilder::Private::IDataInterface::GetLong(RealtimeMesh::FRealtimeMeshStream* Stream, int32 Index, int32 ElementIdx)
-{
-	RMC_RATE_LIMIT_LOG({
-		FMessageLog("RealtimeMesh").Error(FText::Format(LOCTEXT("StreamBuilder_GetLong", "RealtimeMeshStream: Unable to GetLong on stream of type {0}"), FText::FromString(GetTypeName())));
-	});
-	return 0;
-}
-
-float RealtimeMesh::StreamBuilder::Private::IDataInterface::GetFloat(RealtimeMesh::FRealtimeMeshStream* Stream, int32 Index, int32 ElementIdx)
-{
-	RMC_RATE_LIMIT_LOG({
-		FMessageLog("RealtimeMesh").Error(FText::Format(LOCTEXT("StreamBuilder_GetFloat", "RealtimeMeshStream: Unable to GetFloat on stream of type {0}"), FText::FromString(GetTypeName())));
-	});
-	return 0.0f;
-}
-
-FVector2D RealtimeMesh::StreamBuilder::Private::IDataInterface::GetVector2(RealtimeMesh::FRealtimeMeshStream* Stream, int32 Index, int32 ElementIdx)
-{
-	RMC_RATE_LIMIT_LOG({
-		FMessageLog("RealtimeMesh").Error(FText::Format(LOCTEXT("StreamBuilder_GetVector2", "RealtimeMeshStream: Unable to GetVector2 on stream of type {0}"), FText::FromString(GetTypeName())));
-	});
-	return FVector2d::ZeroVector;
-}
-
-FVector RealtimeMesh::StreamBuilder::Private::IDataInterface::GetVector3(RealtimeMesh::FRealtimeMeshStream* Stream, int32 Index, int32 ElementIdx)
-{
-	RMC_RATE_LIMIT_LOG({
-		FMessageLog("RealtimeMesh").Error(FText::Format(LOCTEXT("StreamBuilder_GetVector3", "RealtimeMeshStream: Unable to GetVector3 on stream of type {0}"), FText::FromString(GetTypeName())));
-	});
-	return FVector3d::ZeroVector;
-}
-
-FVector4 RealtimeMesh::StreamBuilder::Private::IDataInterface::GetVector4(RealtimeMesh::FRealtimeMeshStream* Stream, int32 Index, int32 ElementIdx)
-{
-	RMC_RATE_LIMIT_LOG({
-		FMessageLog("RealtimeMesh").Error(FText::Format(LOCTEXT("StreamBuilder_GetVector4", "RealtimeMeshStream: Unable to GetVector4 on stream of type {0}"), FText::FromString(GetTypeName())));
-	});
-	return FVector4d(0, 0, 0, 0);
-}
-
-FLinearColor RealtimeMesh::StreamBuilder::Private::IDataInterface::GetColor(FRealtimeMeshStream* Stream, int32 Index, int32 ElementIdx)
-{
-	RMC_RATE_LIMIT_LOG({
-		FMessageLog("RealtimeMesh").Error(FText::Format(LOCTEXT("StreamBuilder_GetColor", "RealtimeMeshStream: Unable to GetColor on stream of type {0}"), FText::FromString(GetTypeName())));
-	});
-	return FLinearColor::White;
-}
-
-
-void FRealtimeMeshStreamPtr::UpdateIfNecessary() const
-{
-	if (StreamSet)
-	{
-		if (StreamSet->GetChangeId() != ChangeId)
-		{
-			StreamState = RealtimeMesh::StreamBuilder::Private::GetStream(StreamSet->GetStreamSet(), StreamKey);
-			ChangeId = StreamSet->GetChangeId();
-		}
-	}
-	else if (StreamState.IsValid() || ChangeId != INDEX_NONE)
-	{
-		StreamState = RealtimeMesh::StreamBuilder::Private::FStreamState();
-		ChangeId = INDEX_NONE;
-	}
-}
-
-void FRealtimeMeshStreamRowPtr::UpdateIfNecessary() const
-{
-	if (StreamSet)
-	{
-		if (StreamSet->GetChangeId() != ChangeId)
-		{
-			StreamState = RealtimeMesh::StreamBuilder::Private::GetStream(StreamSet->GetStreamSet(), StreamKey);
-			ChangeId = StreamSet->GetChangeId();
-		}
-	}
-	else if (StreamState.IsValid() || ChangeId != INDEX_NONE)
-	{
-		StreamState = RealtimeMesh::StreamBuilder::Private::FStreamState();
-		ChangeId = INDEX_NONE;
-	}
-}
-
-/*void FRealtimeMeshLocalBuilderResources::UpdateIfNecessary(URealtimeMeshStreamSet* StreamSet)
-{
-	using namespace RealtimeMesh::StreamBuilder::Private;
-	
-	if (StreamSet)
-	{
-		if (StreamSet->GetChangeId() != ChangeId)
-		{
-			if (StreamSet)
-			{
-				auto& StreamSetRef = StreamSet->GetStreamSet();
-				
-				Position = GetStream(StreamSetRef, RealtimeMesh::FRealtimeMeshStreams::Position);
-				Tangents = GetStream(StreamSetRef, RealtimeMesh::FRealtimeMeshStreams::Tangents);
-				Colors = GetStream(StreamSetRef, RealtimeMesh::FRealtimeMeshStreams::Color);
-				TexCoords = GetStream(StreamSetRef, RealtimeMesh::FRealtimeMeshStreams::TexCoords);
-	
-				Triangles = GetStream(StreamSetRef, RealtimeMesh::FRealtimeMeshStreams::Triangles);
-				DepthOnlyTriangles = GetStream(StreamSetRef, RealtimeMesh::FRealtimeMeshStreams::DepthOnlyTriangles);
-	
-				PolyGroups = GetStream(StreamSetRef, RealtimeMesh::FRealtimeMeshStreams::PolyGroups);
-				DepthOnlyPolyGroups = GetStream(StreamSetRef, RealtimeMesh::FRealtimeMeshStreams::DepthOnlyPolyGroups);
-
-				ChangeId = StreamSet->GetChangeId();
-			}
-			else
-			{
-				Position = FStreamState(nullptr, nullptr, false);
-				Tangents = FStreamState(nullptr, nullptr, false);
-				Colors = FStreamState(nullptr, nullptr, false);
-				TexCoords = FStreamState(nullptr, nullptr, false);
-				
-				Triangles = FStreamState(nullptr, nullptr, false);
-				DepthOnlyTriangles = FStreamState(nullptr, nullptr, false);
-				
-				PolyGroups = FStreamState(nullptr, nullptr, false);
-				DepthOnlyPolyGroups = FStreamState(nullptr, nullptr, false);
-
-				ChangeId = INDEX_NONE;
-			}
-		}
-	}
-}*/
-
-
-URealtimeMeshStreamSet* URealtimeMeshStreamUtils::MakeRealtimeMeshStreamSet()
-{
-	return NewObject<URealtimeMeshStreamSet>();
-}
-
-FRealtimeMeshStreamPtr URealtimeMeshStreamUtils::GetStream(URealtimeMeshStreamSet* StreamSet, FRealtimeMeshStreamKey StreamKey)
-{
-	const auto StreamState = RealtimeMesh::StreamBuilder::Private::GetStream(StreamSet->GetStreamSet(), StreamKey);
-
-	return FRealtimeMeshStreamPtr(StreamSet, StreamKey, StreamState, StreamSet->GetChangeId());
-}
-
-FRealtimeMeshStreamPtr URealtimeMeshStreamUtils::AddStream(URealtimeMeshStreamSet* StreamSet, FRealtimeMeshStreamKey StreamKey, ERealtimeMeshSimpleStreamType StreamType, int32 NumElements)
-{
-	using namespace RealtimeMesh::StreamBuilder::Private;
-
-	TSharedPtr<IDataInterface> Interface = nullptr;
-	RealtimeMesh::FRealtimeMeshBufferLayout BufferLayout;
 	switch(StreamType)
 	{
 	case ERealtimeMeshSimpleStreamType::Int16:
-		Interface = MakeShared<TDataInterface<int16>>();
-		BufferLayout = RealtimeMesh::GetRealtimeMeshBufferLayout<int16>();
+		return RealtimeMesh::GetRealtimeMeshBufferLayout<int16>(NumElements);
+	case ERealtimeMeshSimpleStreamType::UInt16:
+		return RealtimeMesh::GetRealtimeMeshBufferLayout<uint16>(NumElements);
+	case ERealtimeMeshSimpleStreamType::Int32:
+		return RealtimeMesh::GetRealtimeMeshBufferLayout<int32>(NumElements);
+	case ERealtimeMeshSimpleStreamType::UInt32:
+		return RealtimeMesh::GetRealtimeMeshBufferLayout<uint32>(NumElements);
+	case ERealtimeMeshSimpleStreamType::Float:
+		return RealtimeMesh::GetRealtimeMeshBufferLayout<float>(NumElements);
+	case ERealtimeMeshSimpleStreamType::Vector2:
+		return RealtimeMesh::GetRealtimeMeshBufferLayout<FVector2f>(NumElements);
+	case ERealtimeMeshSimpleStreamType::Vector3:
+		return RealtimeMesh::GetRealtimeMeshBufferLayout<FVector3f>(NumElements);
+	case ERealtimeMeshSimpleStreamType::HalfVector2:
+		return RealtimeMesh::GetRealtimeMeshBufferLayout<FVector2DHalf>(NumElements);
+	case ERealtimeMeshSimpleStreamType::PackedNormal:
+		return RealtimeMesh::GetRealtimeMeshBufferLayout<FPackedNormal>(NumElements);
+	case ERealtimeMeshSimpleStreamType::PackedRGBA16N:
+		return RealtimeMesh::GetRealtimeMeshBufferLayout<FPackedRGBA16N>(NumElements);
+	case ERealtimeMeshSimpleStreamType::Triangle16:
+		ensure(NumElements == 1);
+		return RealtimeMesh::GetRealtimeMeshBufferLayout<RealtimeMesh::TIndex3<uint16>>();
+	case ERealtimeMeshSimpleStreamType::Triangle32:
+		ensure(NumElements == 1);
+		return RealtimeMesh::GetRealtimeMeshBufferLayout<RealtimeMesh::TIndex3<uint32>>();
+	default:
+
+		return RealtimeMesh::FRealtimeMeshBufferLayout();
+	}
+}
+
+
+
+bool FRealtimeMeshStreamRowPtr::IsValid() const
+{
+	return ::IsValid(Stream) && Stream->GetStream().IsValidIndex(RowIndex);
+}
+
+void URealtimeMeshStream::ClearAccessors()
+{
+	IntAccessors.Reset();
+	FloatAccessors.Reset();
+	Vector2Accessors.Reset();
+	Vector3Accessors.Reset();
+	Vector4Accessors.Reset();
+}
+
+void URealtimeMeshStream::SetupIntAccessors()
+{
+	for (int32 Index = 0; Index < Stream->GetNumElements(); Index++)
+	{
+		IntAccessors.Add(RealtimeMesh::TRealtimeMeshStridedStreamBuilder<int32, void>(*Stream, Index));
+	}
+}
+
+void URealtimeMeshStream::SetupFloatAccessors()
+{
+	for (int32 Index = 0; Index < Stream->GetNumElements(); Index++)
+	{
+		FloatAccessors.Add(RealtimeMesh::TRealtimeMeshStridedStreamBuilder<float, void>(*Stream, Index));
+	}
+}
+
+void URealtimeMeshStream::SetupVector2Accessors()
+{
+	for (int32 Index = 0; Index < Stream->GetNumElements(); Index++)
+	{
+		Vector2Accessors.Add(RealtimeMesh::TRealtimeMeshStridedStreamBuilder<FVector2D, void>(*Stream, Index));
+	}
+}
+
+void URealtimeMeshStream::SetupVector3Accessors()
+{
+	for (int32 Index = 0; Index < Stream->GetNumElements(); Index++)
+	{
+		Vector3Accessors.Add(RealtimeMesh::TRealtimeMeshStridedStreamBuilder<FVector, void>(*Stream, Index));
+	}
+}
+
+void URealtimeMeshStream::SetupVector4Accessors()
+{
+	for (int32 Index = 0; Index < Stream->GetNumElements(); Index++)
+	{
+		Vector4Accessors.Add(RealtimeMesh::TRealtimeMeshStridedStreamBuilder<FVector4, void>(*Stream, Index));
+	}
+}
+
+
+URealtimeMeshStreamSet::URealtimeMeshStreamSet()
+{
+	Streams = MakeUnique<RealtimeMesh::FRealtimeMeshStreamSet>();
+}
+
+RealtimeMesh::FRealtimeMeshStream URealtimeMeshStream::Consume()
+{
+	RealtimeMesh::FRealtimeMeshStream Temp = RealtimeMesh::FRealtimeMeshStream(MoveTemp(*Stream));
+	Stream.Reset();
+	return RealtimeMesh::FRealtimeMeshStream(MoveTemp(Temp));
+}
+
+void URealtimeMeshStream::Initialize(const FRealtimeMeshStreamKey& StreamKey, ERealtimeMeshSimpleStreamType StreamType, int32 NumElements)
+{
+	switch(StreamType)
+	{
+	case ERealtimeMeshSimpleStreamType::Int16:
+		Stream = MakeUnique<RealtimeMesh::FRealtimeMeshStream>(StreamKey, RealtimeMesh::GetRealtimeMeshBufferLayout<int16>(NumElements));
+		SetupIntAccessors();
 		break;
 	case ERealtimeMeshSimpleStreamType::UInt16:
-		Interface = MakeShared<TDataInterface<uint16>>();
-		BufferLayout = RealtimeMesh::GetRealtimeMeshBufferLayout<uint16>();
+		Stream = MakeUnique<RealtimeMesh::FRealtimeMeshStream>(StreamKey, RealtimeMesh::GetRealtimeMeshBufferLayout<uint16>(NumElements));
+		SetupIntAccessors();
 		break;
 	case ERealtimeMeshSimpleStreamType::Int32:
-		Interface = MakeShared<TDataInterface<int32>>();
-		BufferLayout = RealtimeMesh::GetRealtimeMeshBufferLayout<int32>();
+		Stream = MakeUnique<RealtimeMesh::FRealtimeMeshStream>(StreamKey, RealtimeMesh::GetRealtimeMeshBufferLayout<int32>(NumElements));
+		SetupIntAccessors();
 		break;
 	case ERealtimeMeshSimpleStreamType::UInt32:
-		Interface = MakeShared<TDataInterface<uint32>>();
-		BufferLayout = RealtimeMesh::GetRealtimeMeshBufferLayout<uint32>();
+		Stream = MakeUnique<RealtimeMesh::FRealtimeMeshStream>(StreamKey, RealtimeMesh::GetRealtimeMeshBufferLayout<uint32>(NumElements));
+		SetupIntAccessors();
 		break;
 	case ERealtimeMeshSimpleStreamType::Float:
-		Interface = MakeShared<TDataInterface<float>>();
-		BufferLayout = RealtimeMesh::GetRealtimeMeshBufferLayout<float>();
+		Stream = MakeUnique<RealtimeMesh::FRealtimeMeshStream>(StreamKey, RealtimeMesh::GetRealtimeMeshBufferLayout<float>(NumElements));
+		SetupFloatAccessors();
 		break;
 	case ERealtimeMeshSimpleStreamType::Vector2:
-		Interface = MakeShared<TDataInterface<FVector2f>>();
-		BufferLayout = RealtimeMesh::GetRealtimeMeshBufferLayout<FVector2f>();
+		Stream = MakeUnique<RealtimeMesh::FRealtimeMeshStream>(StreamKey, RealtimeMesh::GetRealtimeMeshBufferLayout<FVector2f>(NumElements));
+		SetupVector2Accessors();
 		break;
 	case ERealtimeMeshSimpleStreamType::Vector3:
-		Interface = MakeShared<TDataInterface<FVector3f>>();
-		BufferLayout = RealtimeMesh::GetRealtimeMeshBufferLayout<FVector3f>();
+		Stream = MakeUnique<RealtimeMesh::FRealtimeMeshStream>(StreamKey, RealtimeMesh::GetRealtimeMeshBufferLayout<FVector3f>(NumElements));
+		SetupVector3Accessors();
 		break;
 	case ERealtimeMeshSimpleStreamType::HalfVector2:
-		Interface = MakeShared<TDataInterface<FVector2DHalf>>();
-		BufferLayout = RealtimeMesh::GetRealtimeMeshBufferLayout<FVector2DHalf>();
+		Stream = MakeUnique<RealtimeMesh::FRealtimeMeshStream>(StreamKey, RealtimeMesh::GetRealtimeMeshBufferLayout<FVector2DHalf>(NumElements));
+		SetupVector2Accessors();
 		break;
 	case ERealtimeMeshSimpleStreamType::PackedNormal:
-		Interface = MakeShared<TDataInterface<FPackedNormal>>();
-		BufferLayout = RealtimeMesh::GetRealtimeMeshBufferLayout<FPackedNormal>();
+		Stream = MakeUnique<RealtimeMesh::FRealtimeMeshStream>(StreamKey, RealtimeMesh::GetRealtimeMeshBufferLayout<FPackedNormal>(NumElements));
+		SetupVector4Accessors();
 		break;
 	case ERealtimeMeshSimpleStreamType::PackedRGBA16N:
-		Interface = MakeShared<TDataInterface<FPackedRGBA16N>>();
-		BufferLayout = RealtimeMesh::GetRealtimeMeshBufferLayout<FPackedRGBA16N>();
+		Stream = MakeUnique<RealtimeMesh::FRealtimeMeshStream>(StreamKey, RealtimeMesh::GetRealtimeMeshBufferLayout<FPackedRGBA16N>(NumElements));
+		SetupVector4Accessors();
 		break;
 	case ERealtimeMeshSimpleStreamType::Triangle16:
-		Interface = MakeShared<TDataInterface<RealtimeMesh::TIndex3<uint16>>>();
-		BufferLayout = RealtimeMesh::GetRealtimeMeshBufferLayout<RealtimeMesh::TIndex3<uint16>>();
+		ensure(NumElements == 1);
+		Stream = MakeUnique<RealtimeMesh::FRealtimeMeshStream>(StreamKey, RealtimeMesh::GetRealtimeMeshBufferLayout<RealtimeMesh::TIndex3<uint16>>());
+		SetupVector4Accessors();
 		break;
 	case ERealtimeMeshSimpleStreamType::Triangle32:
-		Interface = MakeShared<TDataInterface<RealtimeMesh::TIndex3<uint32>>>();
-		BufferLayout = RealtimeMesh::GetRealtimeMeshBufferLayout<RealtimeMesh::TIndex3<uint32>>();
+		ensure(NumElements == 1);
+		Stream = MakeUnique<RealtimeMesh::FRealtimeMeshStream>(StreamKey, RealtimeMesh::GetRealtimeMeshBufferLayout<RealtimeMesh::TIndex3<uint32>>());
+		SetupVector4Accessors();
 		break;
 	default:
+		Stream.Reset();
+		ClearAccessors();
 		break;
 	}
-
-	const auto StreamState = GetOrCreateStream(StreamSet->GetStreamSet(), StreamKey, BufferLayout);
-	
-	return FRealtimeMeshStreamPtr(StreamSet, StreamKey, StreamState, StreamSet->GetChangeId());
 }
 
-const FRealtimeMeshStreamPtr& URealtimeMeshStreamUtils::GetNum(const FRealtimeMeshStreamPtr& Stream, int32& Num)
+int32 URealtimeMeshStream::GetNum(URealtimeMeshStream*& Builder)
 {
-	Stream.UpdateIfNecessary();
-	if (Stream.StreamState.IsValid())
+	Builder = this;
+	if (Stream.IsValid())
 	{
-		Num = Stream.StreamState.StreamPtr->Num();
+		return Stream->Num();
+	}
+	return 0;
+}
+
+bool URealtimeMeshStream::IsIndexValid(URealtimeMeshStream*& Builder, int32 Index)
+{
+	Builder = this;
+	if (Stream.IsValid())
+	{
+		return Stream->IsValidIndex(Index);
+	}
+	return false;
+}
+
+bool URealtimeMeshStream::IsEmpty(URealtimeMeshStream*& Builder)
+{
+	Builder = this;
+	if (Stream.IsValid())
+	{
+		return Stream->IsEmpty();
+	}
+	return true;
+}
+
+void URealtimeMeshStream::Reserve(URealtimeMeshStream*& Builder, int32 ExpectedSize)
+{
+	Builder = this;
+	if (Stream.IsValid())
+	{
+		Stream->Reserve(ExpectedSize);
+	}
+}
+
+void URealtimeMeshStream::Shrink(URealtimeMeshStream*& Builder)
+{
+	Builder = this;
+	if (Stream.IsValid())
+	{
+		Stream->Shrink();
+	}
+}
+
+void URealtimeMeshStream::Empty(URealtimeMeshStream*& Builder, int32 ExpectedSize)
+{
+	Builder = this;
+	if (Stream.IsValid())
+	{
+		Stream->Empty();
+	}
+}
+
+void URealtimeMeshStream::SetNumUninitialized(URealtimeMeshStream*& Builder, int32 NewNum)
+{
+	Builder = this;
+	if (Stream.IsValid())
+	{
+		Stream->SetNumUninitialized(NewNum);
+	}
+}
+
+void URealtimeMeshStream::SetNumZeroed(URealtimeMeshStream*& Builder, int32 NewNum)
+{
+	Builder = this;
+	if (Stream.IsValid())
+	{
+		Stream->SetNumZeroed(NewNum);
+	}
+}
+
+int32 URealtimeMeshStream::AddUninitialized(URealtimeMeshStream*& Builder, FRealtimeMeshStreamRowPtr& Row, int32 NumToAdd)
+{
+	Builder = this;
+	if (Stream.IsValid())
+	{
+		const int32 Index = Stream->AddUninitialized(NumToAdd);
+		Row = FRealtimeMeshStreamRowPtr(this, Index);
+		return Index;
+	}
+	return INDEX_NONE;
+}
+
+int32 URealtimeMeshStream::AddZeroed(URealtimeMeshStream*& Builder, FRealtimeMeshStreamRowPtr& Row, int32 NumToAdd)
+{
+	Builder = this;
+	if (Stream.IsValid())
+	{
+		const int32 Index = Stream->AddZeroed(NumToAdd);
+		Row = FRealtimeMeshStreamRowPtr(this, Index);
+		return Index;
+	}
+	return INDEX_NONE;
+}
+
+FRealtimeMeshStreamRowPtr URealtimeMeshStream::EditRow(URealtimeMeshStream*& Builder, int32 Index)
+{
+	Builder = this;
+	if (Stream.IsValid() && Stream->IsValidIndex(Index))
+	{
+		return FRealtimeMeshStreamRowPtr(this, Index);
+	}
+	return FRealtimeMeshStreamRowPtr();
+}
+
+int32 URealtimeMeshStream::AddInt(URealtimeMeshStream*& Builder, FRealtimeMeshStreamRowPtr& Row, int32 NewValue)
+{
+	Builder = this;
+	if (Stream.IsValid() && IntAccessors.Num() >= 1)
+	{
+		const int32 Index = IntAccessors[0].Add(NewValue);
+		Row = FRealtimeMeshStreamRowPtr(this, Index);
+		return Index;
+	}
+	return INDEX_NONE;
+}
+
+int32 URealtimeMeshStream::AddFloat(URealtimeMeshStream*& Builder, FRealtimeMeshStreamRowPtr& Row, float NewValue)
+{
+	Builder = this;
+	if (Stream.IsValid() && FloatAccessors.Num() >= 1)
+	{
+		const int32 Index = FloatAccessors[0].Add(NewValue);
+		Row = FRealtimeMeshStreamRowPtr(this, Index);
+		return Index;
+	}
+	return INDEX_NONE;
+}
+
+int32 URealtimeMeshStream::AddVector2(URealtimeMeshStream*& Builder, FRealtimeMeshStreamRowPtr& Row, FVector2D NewValue)
+{
+	Builder = this;
+	if (Stream.IsValid() && Vector2Accessors.Num() >= 1)
+	{
+		const int32 Index = Vector2Accessors[0].Add(NewValue);
+		Row = FRealtimeMeshStreamRowPtr(this, Index);
+		return Index;
+	}
+	return INDEX_NONE;
+}
+
+int32 URealtimeMeshStream::AddVector3(URealtimeMeshStream*& Builder, FRealtimeMeshStreamRowPtr& Row, FVector NewValue)
+{
+	Builder = this;
+	if (Stream.IsValid() && Vector3Accessors.Num() >= 1)
+	{
+		const int32 Index = Vector3Accessors[0].Add(NewValue);
+		Row = FRealtimeMeshStreamRowPtr(this, Index);
+		return Index;
+	}
+	return INDEX_NONE;
+}
+
+int32 URealtimeMeshStream::AddVector4(URealtimeMeshStream*& Builder, FRealtimeMeshStreamRowPtr& Row, FVector4 NewValue)
+{
+	Builder = this;
+	if (Stream.IsValid() && Vector4Accessors.Num() >= 1)
+	{
+		const int32 Index = Vector4Accessors[0].Add(NewValue);
+		Row = FRealtimeMeshStreamRowPtr(this, Index);
+		return Index;
+	}
+	return INDEX_NONE;
+}
+
+void URealtimeMeshStream::SetInt(URealtimeMeshStream*& Builder, FRealtimeMeshStreamRowPtr& Row, int32 Index, int32 NewValue)
+{
+	Builder = this;
+	if (Stream.IsValid() && IntAccessors.Num() >= 1 && IntAccessors[0].IsValidIndex(Index))
+	{
+		IntAccessors[0].Set(Index, NewValue);
+		Row = FRealtimeMeshStreamRowPtr(this, Index);
 	}
 	else
-	{		
-		Num = 0;
+	{
+		Row = FRealtimeMeshStreamRowPtr();
 	}
-	return Stream;
 }
 
-const FRealtimeMeshStreamPtr& URealtimeMeshStreamUtils::IsIndexValid(const FRealtimeMeshStreamPtr& Stream, int32 Index, bool& bIsValid)
+void URealtimeMeshStream::SetFloat(URealtimeMeshStream*& Builder, FRealtimeMeshStreamRowPtr& Row, int32 Index, float NewValue)
 {
-	Stream.UpdateIfNecessary();
-	if (Stream.StreamState.IsValid())
+	Builder = this;
+	if (Stream.IsValid() && FloatAccessors.Num() >= 1 && FloatAccessors[0].IsValidIndex(Index))
 	{
-		bIsValid = Stream.StreamState.StreamPtr->IsValidIndex(Index);
+		FloatAccessors[0].Set(Index, NewValue);
+		Row = FRealtimeMeshStreamRowPtr(this, Index);
 	}
 	else
 	{
-		bIsValid = false;
+		Row = FRealtimeMeshStreamRowPtr();
 	}
-	return Stream;
 }
 
-const FRealtimeMeshStreamPtr& URealtimeMeshStreamUtils::IsEmpty(const FRealtimeMeshStreamPtr& Stream, bool& bIsEmpty)
+void URealtimeMeshStream::SetVector2(URealtimeMeshStream*& Builder, FRealtimeMeshStreamRowPtr& Row, int32 Index, FVector2D NewValue)
 {
-	Stream.UpdateIfNecessary();
-	if (Stream.StreamState.IsValid())
+	Builder = this;
+	if (Stream.IsValid() && Vector2Accessors.Num() >= 1 && Vector2Accessors[0].IsValidIndex(Index))
 	{
-		bIsEmpty = Stream.StreamState.StreamPtr->IsEmpty();
+		Vector2Accessors[0].Set(Index, NewValue);
+		Row = FRealtimeMeshStreamRowPtr(this, Index);
 	}
 	else
 	{
-		bIsEmpty = false;
+		Row = FRealtimeMeshStreamRowPtr();
 	}
-	return Stream;
 }
 
-const FRealtimeMeshStreamPtr& URealtimeMeshStreamUtils::Reserve(const FRealtimeMeshStreamPtr& Stream, int32 Num)
+void URealtimeMeshStream::SetVector3(URealtimeMeshStream*& Builder, FRealtimeMeshStreamRowPtr& Row, int32 Index, FVector NewValue)
 {
-	Stream.UpdateIfNecessary();
-	if (Stream.StreamState.IsValid())
+	Builder = this;
+	if (Stream.IsValid() && Vector3Accessors.Num() >= 1 && Vector3Accessors[0].IsValidIndex(Index))
 	{
-		Stream.StreamState.StreamPtr->Reserve(Num);
-	}
-	return Stream;
-}
-
-const FRealtimeMeshStreamPtr& URealtimeMeshStreamUtils::Shrink(const FRealtimeMeshStreamPtr& Stream)
-{
-	Stream.UpdateIfNecessary();
-	if (Stream.StreamState.IsValid())
-	{
-		Stream.StreamState.StreamPtr->Shrink();
-	}
-	return Stream;
-}
-
-const FRealtimeMeshStreamPtr& URealtimeMeshStreamUtils::Empty(const FRealtimeMeshStreamPtr& Stream, int32 ExpectedSize)
-{
-	Stream.UpdateIfNecessary();
-	if (Stream.StreamState.IsValid())
-	{
-		Stream.StreamState.StreamPtr->Empty(ExpectedSize);
-	}
-	return Stream;
-}
-
-const FRealtimeMeshStreamPtr& URealtimeMeshStreamUtils::SetNumUninitialized(const FRealtimeMeshStreamPtr& Stream, int32 NewNum)
-{
-	Stream.UpdateIfNecessary();
-	if (Stream.StreamState.IsValid())
-	{
-		Stream.StreamState.StreamPtr->SetNumUninitialized(NewNum);
-	}
-	return Stream;
-}
-
-const FRealtimeMeshStreamPtr& URealtimeMeshStreamUtils::SetNumZeroed(const FRealtimeMeshStreamPtr& Stream, int32 NewNum)
-{
-	Stream.UpdateIfNecessary();
-	if (Stream.StreamState.IsValid())
-	{
-		Stream.StreamState.StreamPtr->SetNumZeroed(NewNum);
-	}
-	return Stream;
-}
-
-FRealtimeMeshStreamRowPtr URealtimeMeshStreamUtils::AddUninitialized(const FRealtimeMeshStreamPtr& Stream, int32 NumToAdd, int32& Index)
-{
-	Stream.UpdateIfNecessary();
-	if (Stream.StreamState.IsValid())
-	{
-		Index = Stream.StreamState.StreamPtr->AddUninitialized(NumToAdd);
+		Vector3Accessors[0].Set(Index, NewValue);
+		Row = FRealtimeMeshStreamRowPtr(this, Index);
 	}
 	else
 	{
-		Index = INDEX_NONE;
+		Row = FRealtimeMeshStreamRowPtr();
 	}
-	return FRealtimeMeshStreamRowPtr(Stream, Index);
 }
 
-FRealtimeMeshStreamRowPtr URealtimeMeshStreamUtils::AddZeroed(const FRealtimeMeshStreamPtr& Stream, int32 NumToAdd, int32& Index)
+void URealtimeMeshStream::SetVector4(URealtimeMeshStream*& Builder, FRealtimeMeshStreamRowPtr& Row, int32 Index, FVector4 NewValue)
 {
-	Stream.UpdateIfNecessary();
-	if (Stream.StreamState.IsValid())
+	Builder = this;
+	if (Stream.IsValid() && Vector4Accessors.Num() >= 1 && Vector4Accessors[0].IsValidIndex(Index))
 	{
-		Index = Stream.StreamState.StreamPtr->AddZeroed(NumToAdd);
+		Vector4Accessors[0].Set(Index, NewValue);
+		Row = FRealtimeMeshStreamRowPtr(this, Index);
 	}
 	else
 	{
-		Index = INDEX_NONE;
+		Row = FRealtimeMeshStreamRowPtr();
 	}
-	return FRealtimeMeshStreamRowPtr(Stream, Index);
 }
 
-#define RMC_IMPLEMENT_SIMPLE_ADD(Type, CodeType) \
-	FRealtimeMeshStreamRowPtr URealtimeMeshStreamUtils::Add##Type(const FRealtimeMeshStreamPtr& Stream, CodeType NewValue, int32& Index) \
-	{ \
-		Stream.UpdateIfNecessary(); \
-		if (Stream.StreamState.IsValid()) \
-		{ \
-			Index = Stream.StreamState.StreamPtr->AddUninitialized(); \
-			Stream.StreamState.Interface->Set##Type(Stream.StreamState.StreamPtr, Index, 0, NewValue); \
-		} \
-		else \
-		{ \
-			Index = INDEX_NONE; \
-		} \
-		return FRealtimeMeshStreamRowPtr(Stream, Index); \
+int32 URealtimeMeshStream::GetInt(URealtimeMeshStream*& Builder, FRealtimeMeshStreamRowPtr& Row, int32 Index)
+{
+	Builder = this;
+	if (Stream.IsValid() && IntAccessors.Num() >= 1 && IntAccessors[0].IsValidIndex(Index))
+	{
+		Row = FRealtimeMeshStreamRowPtr(this, Index);
+		return IntAccessors[0].GetValue(Index);
 	}
+	return 0;
+}
 
-RMC_IMPLEMENT_SIMPLE_ADD(Int, int32);
-RMC_IMPLEMENT_SIMPLE_ADD(Long, int64);
-RMC_IMPLEMENT_SIMPLE_ADD(Float, float);
-RMC_IMPLEMENT_SIMPLE_ADD(Vector2, FVector2D);
-RMC_IMPLEMENT_SIMPLE_ADD(Vector3, FVector);
-RMC_IMPLEMENT_SIMPLE_ADD(Vector4, FVector4);
-
-
-
-#define RMC_IMPLEMENT_SIMPLE_SET(Type, CodeType) \
-FRealtimeMeshStreamRowPtr URealtimeMeshStreamUtils::Set##Type(const FRealtimeMeshStreamPtr& Stream, int32 Index, CodeType NewValue) \
-	{ \
-		Stream.UpdateIfNecessary(); \
-		if (Stream.StreamState.IsValid()) \
-		{ \
-			Stream.StreamState.Interface->Set##Type(Stream.StreamState.StreamPtr, Index, 0, NewValue); \
-		} \
-		return FRealtimeMeshStreamRowPtr(Stream, Index); \
+float URealtimeMeshStream::GetFloat(URealtimeMeshStream*& Builder, FRealtimeMeshStreamRowPtr& Row, int32 Index)
+{
+	Builder = this;
+	if (Stream.IsValid() && FloatAccessors.Num() >= 1 && FloatAccessors[0].IsValidIndex(Index))
+	{
+		Row = FRealtimeMeshStreamRowPtr(this, Index);
+		return FloatAccessors[0].GetValue(Index);
 	}
+	return 0;
+}
 
-RMC_IMPLEMENT_SIMPLE_SET(Int, int32);
-RMC_IMPLEMENT_SIMPLE_SET(Long, int64);
-RMC_IMPLEMENT_SIMPLE_SET(Float, float);
-RMC_IMPLEMENT_SIMPLE_SET(Vector2, FVector2D);
-RMC_IMPLEMENT_SIMPLE_SET(Vector3, FVector);
-RMC_IMPLEMENT_SIMPLE_SET(Vector4, FVector4);
-
-
-
-#define RMC_IMPLEMENT_SIMPLE_GET(Type, CodeType, DefaultValue) \
-FRealtimeMeshStreamRowPtr URealtimeMeshStreamUtils::Get##Type(const FRealtimeMeshStreamPtr& Stream, int32 Index, int32 ElementIdx, CodeType& Value) \
-	{ \
-		Stream.UpdateIfNecessary(); \
-		if (Stream.StreamState.IsValid()) \
-		{ \
-			Value = Stream.StreamState.Interface->Get##Type(Stream.StreamState.StreamPtr, Index, ElementIdx); \
-		} \
-		else \
-		{ \
-			Value = DefaultValue; \
-		} \
-		return FRealtimeMeshStreamRowPtr(Stream, Index); \
+FVector2D URealtimeMeshStream::GetVector2(URealtimeMeshStream*& Builder, FRealtimeMeshStreamRowPtr& Row, int32 Index)
+{
+	Builder = this;
+	if (Stream.IsValid() && Vector2Accessors.Num() >= 1 && Vector2Accessors[0].IsValidIndex(Index))
+	{
+		Row = FRealtimeMeshStreamRowPtr(this, Index);
+		return Vector2Accessors[0].GetValue(Index);
 	}
+	return FVector2D::Zero();
+}
 
-RMC_IMPLEMENT_SIMPLE_GET(Int, int32, 0);
-RMC_IMPLEMENT_SIMPLE_GET(Long, int64, 0);
-RMC_IMPLEMENT_SIMPLE_GET(Float, float, 0);
-RMC_IMPLEMENT_SIMPLE_GET(Vector2, FVector2D, FVector2D());
-RMC_IMPLEMENT_SIMPLE_GET(Vector3, FVector, FVector());
-RMC_IMPLEMENT_SIMPLE_GET(Vector4, FVector4, FVector4())
-
-
-#define RMC_IMPLEMENT_SIMPLE_STREAM_SET(Type, CodeType) \
-	const FRealtimeMeshStreamRowPtr& URealtimeMeshStreamUtils::Set##Type##Element(const FRealtimeMeshStreamRowPtr& Stream, int32 Index, int32 ElementIdx, CodeType NewValue) \
-	{ \
-		Stream.UpdateIfNecessary(); \
-		if (Stream.StreamState.IsValid()) \
-		{ \
-			Stream.StreamState.Interface->Set##Type(Stream.StreamState.StreamPtr, Index, ElementIdx, NewValue); \
-		} \
-		return Stream; \
+FVector URealtimeMeshStream::GetVector3(URealtimeMeshStream*& Builder, FRealtimeMeshStreamRowPtr& Row, int32 Index)
+{
+	Builder = this;
+	if (Stream.IsValid() && Vector3Accessors.Num() >= 1 && Vector3Accessors[0].IsValidIndex(Index))
+	{
+		Row = FRealtimeMeshStreamRowPtr(this, Index);
+		return Vector3Accessors[0].GetValue(Index);
 	}
+	return FVector::Zero();
+}
 
-RMC_IMPLEMENT_SIMPLE_STREAM_SET(Int, int32);
-RMC_IMPLEMENT_SIMPLE_STREAM_SET(Long, int64);
-RMC_IMPLEMENT_SIMPLE_STREAM_SET(Float, float);
-RMC_IMPLEMENT_SIMPLE_STREAM_SET(Vector2, FVector2D);
-RMC_IMPLEMENT_SIMPLE_STREAM_SET(Vector3, FVector);
-RMC_IMPLEMENT_SIMPLE_STREAM_SET(Vector4, FVector4);
-
-
-#define RMC_IMPLEMENT_SIMPLE_STREAM_GET(Type, CodeType, DefaultValue) \
-const FRealtimeMeshStreamRowPtr& URealtimeMeshStreamUtils::Get##Type##Element(const FRealtimeMeshStreamRowPtr& Stream, int32 Index, int32 ElementIdx, CodeType& Value) \
-	{ \
-		Stream.UpdateIfNecessary(); \
-		if (Stream.StreamState.IsValid()) \
-		{ \
-			Value = Stream.StreamState.Interface->Get##Type(Stream.StreamState.StreamPtr, Index, ElementIdx); \
-		} \
-		else \
-		{ \
-			Value = DefaultValue; \
-		} \
-		return Stream; \
+FVector4 URealtimeMeshStream::GetVector4(URealtimeMeshStream*& Builder, FRealtimeMeshStreamRowPtr& Row, int32 Index)
+{
+	Builder = this;
+	if (Stream.IsValid() && Vector4Accessors.Num() >= 1 && Vector4Accessors[0].IsValidIndex(Index))
+	{
+		Row = FRealtimeMeshStreamRowPtr(this, Index);
+		return Vector4Accessors[0].GetValue(Index);
 	}
-
-RMC_IMPLEMENT_SIMPLE_STREAM_GET(Int, int32, 0);
-RMC_IMPLEMENT_SIMPLE_STREAM_GET(Long, int64, 0);
-RMC_IMPLEMENT_SIMPLE_STREAM_GET(Float, float, 0);
-RMC_IMPLEMENT_SIMPLE_STREAM_GET(Vector2, FVector2D, FVector2D());
-RMC_IMPLEMENT_SIMPLE_STREAM_GET(Vector3, FVector, FVector());
-RMC_IMPLEMENT_SIMPLE_STREAM_GET(Vector4, FVector4, FVector4())
+	return FVector4::Zero();
+}
 
 
-FRealtimeMeshLocalBuilder URealtimeMeshStreamUtils::MakeLocalMeshBuilder(URealtimeMeshStreamSet* StreamSet,	ERealtimeMeshSimpleStreamConfig WantedTangents,
+void URealtimeMeshStreamSet::AddStream(URealtimeMeshStream* Stream)
+{
+	if (ensure(IsValid(Stream)))
+	{
+		if (ensure(Stream->HasValidData()))
+		{
+			Streams->AddStream(Stream->Consume());
+		}
+	}
+}
+
+void URealtimeMeshStreamSet::RemoveStream(const FRealtimeMeshStreamKey& StreamKey)
+{
+	Streams->Remove(StreamKey);
+}
+
+URealtimeMeshLocalBuilder* URealtimeMeshStreamSet::MakeLocalMeshBuilder(ERealtimeMeshSimpleStreamConfig WantedTangents,
 	ERealtimeMeshSimpleStreamConfig WantedTexCoords, bool bWants32BitIndices, ERealtimeMeshSimpleStreamConfig WantedPolyGroupType,
-		bool bWantsColors, int32 WantedTexCoordChannels, bool bKeepExistingData)
+	bool bWantsColors, int32 WantedTexCoordChannels, bool bKeepExistingData)
 {
-	using namespace RealtimeMesh;
-	
-	if (auto* TriangleStream = StreamSet->GetStream(FRealtimeMeshStreams::Triangles))
-	{
-		if (!bKeepExistingData)
-		{
-			TriangleStream->Empty();
-		}
-		
-		if (bWants32BitIndices && TriangleStream->GetStride() < 3 * sizeof(uint32))
-		{
-			TriangleStream->ConvertTo<TIndex3<uint32>>();
-		}
-		else if (!bWants32BitIndices && TriangleStream->GetStride() > 3 * sizeof(uint16))
-		{
-			TriangleStream->ConvertTo<TIndex3<uint16>>();
-		}
-	}
+	URealtimeMeshLocalBuilder* Builder = NewObject<URealtimeMeshLocalBuilder>();
+	Builder->Initialize(WantedTangents, WantedTexCoords, bWants32BitIndices, WantedPolyGroupType, bWantsColors, WantedTexCoordChannels, bKeepExistingData);
 
-	if (auto* TriangleStream = StreamSet->GetStream(FRealtimeMeshStreams::DepthOnlyTriangles))
-	{
-		if (!bKeepExistingData)
-		{
-			TriangleStream->Empty();
-		}
-		
-		if (bWants32BitIndices && TriangleStream->GetStride() < 3 * sizeof(uint32))
-		{
-			TriangleStream->ConvertTo<TIndex3<uint32>>();
-		}
-		else if (!bWants32BitIndices && TriangleStream->GetStride() > 3 * sizeof(uint16))
-		{
-			TriangleStream->ConvertTo<TIndex3<uint16>>();
-		}
-	}
-		
-	FRealtimeMeshLocalBuilder NewBuilder(StreamSet);
+	Streams = MakeUnique<RealtimeMesh::FRealtimeMeshStreamSet>();
+	return Builder;	
+}
+
+
+URealtimeMeshLocalBuilder* URealtimeMeshLocalBuilder::Initialize(ERealtimeMeshSimpleStreamConfig WantedTangents, ERealtimeMeshSimpleStreamConfig WantedTexCoords,
+	bool bWants32BitIndices, ERealtimeMeshSimpleStreamConfig WantedPolyGroupType, bool bWantsColors, int32 WantedTexCoordChannels, bool bKeepExistingData)
+{
+	const auto TangentType = WantedTexCoords == ERealtimeMeshSimpleStreamConfig::HighPrecision ?
+		RealtimeMesh::GetRealtimeMeshDataElementType<FPackedRGBA16N>() : 
+		RealtimeMesh::GetRealtimeMeshDataElementType<FPackedNormal>();
+	
+	const auto TexCoordType = WantedTexCoords == ERealtimeMeshSimpleStreamConfig::HighPrecision ?
+		RealtimeMesh::GetRealtimeMeshDataElementType<FVector2f>() : 
+		RealtimeMesh::GetRealtimeMeshDataElementType<FVector2DHalf>();
+	
+	const auto TriangleType = bWants32BitIndices ?
+		RealtimeMesh::GetRealtimeMeshDataElementType<uint32>() : 
+		RealtimeMesh::GetRealtimeMeshDataElementType<uint16>();
+	
+	const auto PolyGroupType = WantedPolyGroupType == ERealtimeMeshSimpleStreamConfig::HighPrecision ?
+		RealtimeMesh::GetRealtimeMeshDataElementType<uint32>() : 
+		RealtimeMesh::GetRealtimeMeshDataElementType<uint16>();
+
+	bool bIsValid = true;
 
 	if (!bKeepExistingData)
 	{
-		NewBuilder.Builder->EmptyVertices();
-		NewBuilder.Builder->EmptyTriangles();
-		if (NewBuilder.Builder->HasDepthOnlyTriangles())
+		Streams = MakeUnique<RealtimeMesh::FRealtimeMeshStreamSet>();
+	}
+	
+	// Fixup triangles
+	if (auto* Stream = Streams->Find(RealtimeMesh::FRealtimeMeshStreams::Triangles))
+	{
+		bIsValid &= Stream->ConvertTo(RealtimeMesh::FRealtimeMeshBufferLayout(TriangleType, 3));
+	}
+
+	// Fixup depth only triangles
+	if (auto* Stream = Streams->Find(RealtimeMesh::FRealtimeMeshStreams::DepthOnlyTriangles))
+	{
+		bIsValid &= Stream->ConvertTo(RealtimeMesh::FRealtimeMeshBufferLayout(TriangleType, 3));
+	}
+
+	// Fixup polygroups
+	if (auto* Stream = Streams->Find(RealtimeMesh::FRealtimeMeshStreams::PolyGroups))
+	{
+		bIsValid &= Stream->ConvertTo(RealtimeMesh::FRealtimeMeshBufferLayout(PolyGroupType, 1));
+	}
+
+	// Fixup depth only poly groups
+	if (auto* Stream = Streams->Find(RealtimeMesh::FRealtimeMeshStreams::DepthOnlyPolyGroups))
+	{
+		bIsValid &= Stream->ConvertTo(RealtimeMesh::FRealtimeMeshBufferLayout(PolyGroupType, 1));
+	}
+
+	// Fixup tangents
+	if (auto* Stream = Streams->Find(RealtimeMesh::FRealtimeMeshStreams::Tangents))
+	{
+		bIsValid &= Stream->ConvertTo(RealtimeMesh::FRealtimeMeshBufferLayout(TangentType, 2));
+	}
+
+	// Fixup tex coords
+	if (auto* Stream = Streams->Find(RealtimeMesh::FRealtimeMeshStreams::TexCoords))
+	{
+		bIsValid &= Stream->ConvertTo(RealtimeMesh::FRealtimeMeshBufferLayout(TexCoordType, WantedTexCoordChannels));
+	}	
+
+	if (!ensureMsgf(bIsValid, TEXT("One of the streams is an invalid format!")))
+	{
+		Reset();
+		return this;
+	}
+	
+	MeshBuilder = MakeUnique<RealtimeMesh::TRealtimeMeshBuilderLocal<void, void, void, 1, void>>(*Streams);
+
+	if (!bKeepExistingData)
+	{
+		MeshBuilder->EmptyVertices();
+		MeshBuilder->EmptyTriangles();
+		if (MeshBuilder->HasDepthOnlyTriangles())
 		{
-			NewBuilder.Builder->EmptyDepthOnlyTriangles();
+			MeshBuilder->EmptyDepthOnlyTriangles();
 		}
 	}
 
 	// Setup colors
 	if (bWantsColors)
 	{
-		NewBuilder.Builder->EnableColors();
+		MeshBuilder->EnableColors();
 	}
 
 	// Setup tangents
 	if (WantedTangents != ERealtimeMeshSimpleStreamConfig::None)
 	{
-		NewBuilder.Builder->EnableTangents(WantedTangents == ERealtimeMeshSimpleStreamConfig::HighPrecision ?
-			RealtimeMesh::GetRealtimeMeshDataElementType<FPackedRGBA16N>() : 
-			RealtimeMesh::GetRealtimeMeshDataElementType<FPackedNormal>());
+		MeshBuilder->EnableTangents(TangentType);
 	}
 
 	// Setup tex coords
 	if (WantedTexCoords != ERealtimeMeshSimpleStreamConfig::None && WantedTexCoordChannels > 0)
 	{
-		const auto TexCoordElementType = WantedTexCoords == ERealtimeMeshSimpleStreamConfig::HighPrecision ?
-			RealtimeMesh::GetRealtimeMeshDataElementType<FVector2f>() : 
-			RealtimeMesh::GetRealtimeMeshDataElementType<FVector2DHalf>();
-		
-		NewBuilder.Builder->EnableTexCoords(TexCoordElementType, FMath::Clamp(WantedTexCoordChannels, 1, 4));
+		MeshBuilder->EnableTexCoords(TexCoordType, FMath::Clamp(WantedTexCoordChannels, 1, 4));
 
-		FRealtimeMeshStream* Stream = NewBuilder.StreamSet->GetStream(RealtimeMesh::FRealtimeMeshStreams::TexCoords);
-		check(Stream);
+		RealtimeMesh::FRealtimeMeshStream& Stream = Streams->FindChecked(RealtimeMesh::FRealtimeMeshStreams::TexCoords);
 
 		if (WantedTexCoordChannels > 1)
 		{
-			NewBuilder.UV1Builder = RealtimeMesh::TRealtimeMeshStridedStreamBuilder<FVector2f, void>(*Stream, 1);
+			UV1Builder = MakeUnique<RealtimeMesh::TRealtimeMeshStreamBuilder<FVector2d, void>>(Stream, 1);
 		}
 
 		if (WantedTexCoordChannels > 2)
 		{
-			NewBuilder.UV2Builder = RealtimeMesh::TRealtimeMeshStridedStreamBuilder<FVector2f, void>(*Stream, 2);
+			UV2Builder = MakeUnique<RealtimeMesh::TRealtimeMeshStreamBuilder<FVector2d, void>>(Stream, 2);
 		}
 
 		if (WantedTexCoordChannels > 3)
 		{
-			NewBuilder.UV3Builder = RealtimeMesh::TRealtimeMeshStridedStreamBuilder<FVector2f, void>(*Stream, 3);
+			UV3Builder = MakeUnique<RealtimeMesh::TRealtimeMeshStreamBuilder<FVector2d, void>>(Stream, 3);
 		}
 	}
 
 	if (WantedPolyGroupType != ERealtimeMeshSimpleStreamConfig::None)
 	{
-		NewBuilder.Builder->EnablePolyGroups(WantedTangents == ERealtimeMeshSimpleStreamConfig::HighPrecision ?
+		MeshBuilder->EnablePolyGroups(WantedTangents == ERealtimeMeshSimpleStreamConfig::HighPrecision ?
 			RealtimeMesh::GetRealtimeMeshDataElementType<uint32>() : 
 			RealtimeMesh::GetRealtimeMeshDataElementType<uint16>());
 	}
 
-	return NewBuilder;
+	return this;
 }
 
-const FRealtimeMeshLocalBuilder& URealtimeMeshStreamUtils::EnableTangents(const FRealtimeMeshLocalBuilder& Builder, bool bUseHighPrecision)
+void URealtimeMeshLocalBuilder::AddStream(URealtimeMeshStream* Stream)
 {
-	if (Builder.Builder.IsSet())
+	Super::AddStream(Stream);
+}
+
+void URealtimeMeshLocalBuilder::RemoveStream(const FRealtimeMeshStreamKey& StreamKey)
+{
+	if (StreamKey == RealtimeMesh::FRealtimeMeshStreams::Position || StreamKey == RealtimeMesh::FRealtimeMeshStreams::Triangles)
 	{
-		Builder.Builder->EnableTangents(bUseHighPrecision ?
+		MeshBuilder.Reset();
+		UV1Builder.Reset();
+		UV2Builder.Reset();
+		UV3Builder.Reset();
+	}
+
+	if (StreamKey == RealtimeMesh::FRealtimeMeshStreams::DepthOnlyTriangles)
+	{
+		DisableDepthOnlyTriangles();
+	}
+	
+	if (StreamKey == RealtimeMesh::FRealtimeMeshStreams::PolyGroups || StreamKey == RealtimeMesh::FRealtimeMeshStreams::DepthOnlyPolyGroups)
+	{
+		DisablePolyGroups();
+	}
+
+	if (StreamKey == RealtimeMesh::FRealtimeMeshStreams::Tangents)
+	{
+		DisableTangents();
+	}
+
+	if (StreamKey == RealtimeMesh::FRealtimeMeshStreams::Color)
+	{
+		DisableColors();
+	}
+
+	if (StreamKey == RealtimeMesh::FRealtimeMeshStreams::TexCoords)
+	{
+		DisableTexCoords();
+	}
+	
+	Super::RemoveStream(StreamKey);
+}
+
+void URealtimeMeshLocalBuilder::Reset()
+{
+	MeshBuilder.Reset();
+	UV1Builder.Reset();
+	UV2Builder.Reset();
+	UV3Builder.Reset();
+	Super::Reset();
+}
+
+URealtimeMeshLocalBuilder* URealtimeMeshLocalBuilder::EnableTangents(bool bUseHighIsValid)
+{
+	if (ensure(Streams.IsValid() && MeshBuilder.IsValid()))
+	{
+		MeshBuilder->DisableTangents();
+		MeshBuilder->EnableTangents(bUseHighIsValid ?
 			RealtimeMesh::GetRealtimeMeshDataElementType<FPackedRGBA16N>() : 
 			RealtimeMesh::GetRealtimeMeshDataElementType<FPackedNormal>());
 	}
-	else
-	{
-		RMC_RATE_LIMIT_LOG({
-			FMessageLog("RealtimeMesh").Error(LOCTEXT("MeshLocalBuilder_EnableTangents_InvalidBuilder", "EnableTangents: Builder not valid"));
-		});
-	}
-	return Builder;
+	return this;
 }
 
-const FRealtimeMeshLocalBuilder& URealtimeMeshStreamUtils::DisableTangents(const FRealtimeMeshLocalBuilder& Builder)
-{
-	if (Builder.Builder.IsSet())
+URealtimeMeshLocalBuilder* URealtimeMeshLocalBuilder::DisableTangents()
+{	
+	if (ensure(Streams.IsValid() && MeshBuilder.IsValid()))
 	{
-		Builder.Builder->DisableTangents();
+		MeshBuilder->DisableTangents();
 	}
-	else
-	{
-		RMC_RATE_LIMIT_LOG({
-			FMessageLog("RealtimeMesh").Error(LOCTEXT("MeshLocalBuilder_DisableTangents_InvalidBuilder", "DisableTangents: Builder not valid"));
-		});
-	}
-	return Builder;
+	return this;
 }
 
-const FRealtimeMeshLocalBuilder& URealtimeMeshStreamUtils::EnableColors(const FRealtimeMeshLocalBuilder& Builder)
+URealtimeMeshLocalBuilder* URealtimeMeshLocalBuilder::EnableColors()
 {
-	if (Builder.Builder.IsSet())
+	if (ensure(Streams.IsValid() && MeshBuilder.IsValid()))
 	{
-		Builder.Builder->EnableColors();
+		MeshBuilder->DisableColors();
+		MeshBuilder->EnableColors();
 	}
-	else
-	{
-		RMC_RATE_LIMIT_LOG({
-			FMessageLog("RealtimeMesh").Error(LOCTEXT("MeshLocalBuilder_EnableColors_InvalidBuilder", "EnableColors: Builder not valid"));
-		});
-	}
-	return Builder;
+	return this;
 }
 
-const FRealtimeMeshLocalBuilder& URealtimeMeshStreamUtils::DisableColors(const FRealtimeMeshLocalBuilder& Builder)
+URealtimeMeshLocalBuilder* URealtimeMeshLocalBuilder::DisableColors()
 {
-	if (Builder.Builder.IsSet())
+	if (ensure(Streams.IsValid() && MeshBuilder.IsValid()))
 	{
-		Builder.Builder->DisableColors();
+		MeshBuilder->DisableColors();
 	}
-	else
-	{
-		RMC_RATE_LIMIT_LOG({
-			FMessageLog("RealtimeMesh").Error(LOCTEXT("MeshLocalBuilder_DisableColors_InvalidBuilder", "DisableColors: Builder not valid"));
-		});
-	}
-	return Builder;
+	return this;
 }
 
-const FRealtimeMeshLocalBuilder& URealtimeMeshStreamUtils::EnableTexCoords(const FRealtimeMeshLocalBuilder& Builder, int32 NumChannels, bool bUseHighPrecision)
+URealtimeMeshLocalBuilder* URealtimeMeshLocalBuilder::EnableTexCoords(int32 NumChannels, bool bUseHighPrecision)
 {
-	if (Builder.Builder.IsSet())
+	if (ensure(Streams.IsValid() && MeshBuilder.IsValid()))
 	{
-		Builder.Builder->EnableTexCoords(bUseHighPrecision?
-			RealtimeMesh::GetRealtimeMeshDataElementType<FVector2f>() :
-			RealtimeMesh::GetRealtimeMeshDataElementType<FVector2DHalf>(), NumChannels);
-	
-		auto* Stream = Builder.StreamSet->GetStream(RealtimeMesh::FRealtimeMeshStreams::TexCoords);
-		check(Stream);
-	
+		MeshBuilder->DisableTexCoords();
+		const auto TexCoordElementType = bUseHighPrecision ?
+			RealtimeMesh::GetRealtimeMeshDataElementType<FVector2f>() : 
+			RealtimeMesh::GetRealtimeMeshDataElementType<FVector2DHalf>();
+
+		MeshBuilder->EnableTexCoords(TexCoordElementType, FMath::Clamp(NumChannels, 1, 4));
+
+		RealtimeMesh::FRealtimeMeshStream& Stream = Streams->FindChecked(RealtimeMesh::FRealtimeMeshStreams::TexCoords);
+
 		if (NumChannels > 1)
 		{
-			Builder.UV1Builder = RealtimeMesh::TRealtimeMeshStridedStreamBuilder<FVector2f, void>(*Stream, 1);
-		}
-		else
-		{
-			Builder.UV1Builder.Reset();
+			UV1Builder = MakeUnique<RealtimeMesh::TRealtimeMeshStreamBuilder<FVector2d, void>>(Stream, 1);
 		}
 
 		if (NumChannels > 2)
 		{
-			Builder.UV2Builder = RealtimeMesh::TRealtimeMeshStridedStreamBuilder<FVector2f, void>(*Stream, 2);
-		}
-		else
-		{
-			Builder.UV2Builder.Reset();
+			UV2Builder = MakeUnique<RealtimeMesh::TRealtimeMeshStreamBuilder<FVector2d, void>>(Stream, 2);
 		}
 
 		if (NumChannels > 3)
 		{
-			Builder.UV3Builder = RealtimeMesh::TRealtimeMeshStridedStreamBuilder<FVector2f, void>(*Stream, 3);
+			UV3Builder = MakeUnique<RealtimeMesh::TRealtimeMeshStreamBuilder<FVector2d, void>>(Stream, 3);
+		}		
+	}
+	return this;
+}
+
+URealtimeMeshLocalBuilder* URealtimeMeshLocalBuilder::DisableTexCoords()
+{
+	if (ensure(Streams.IsValid() && MeshBuilder.IsValid()))
+	{
+		MeshBuilder->DisableTexCoords();
+		UV1Builder.Reset();
+		UV2Builder.Reset();
+		UV3Builder.Reset();
+	}
+	return this;
+}
+
+URealtimeMeshLocalBuilder* URealtimeMeshLocalBuilder::EnableDepthOnlyTriangles(bool bUse32BitIndices)
+{
+	if (ensure(Streams.IsValid() && MeshBuilder.IsValid()))
+	{
+		MeshBuilder->DisableDepthOnlyTriangles();
+		MeshBuilder->EnableDepthOnlyTriangles(bUse32BitIndices ?
+			RealtimeMesh::GetRealtimeMeshDataElementType<uint32>() : 
+			RealtimeMesh::GetRealtimeMeshDataElementType<uint16>());
+	}
+	return this;
+}
+
+URealtimeMeshLocalBuilder* URealtimeMeshLocalBuilder::DisableDepthOnlyTriangles()
+{
+	if (ensure(Streams.IsValid() && MeshBuilder.IsValid()))
+	{
+		MeshBuilder->DisableDepthOnlyTriangles();
+	}
+	return this;
+}
+
+URealtimeMeshLocalBuilder* URealtimeMeshLocalBuilder::EnablePolyGroups(bool bUse32BitIndices)
+{
+	if (ensure(Streams.IsValid() && MeshBuilder.IsValid()))
+	{
+		MeshBuilder->DisablePolyGroups();
+		MeshBuilder->EnablePolyGroups(bUse32BitIndices ?
+			RealtimeMesh::GetRealtimeMeshDataElementType<uint32>() : 
+			RealtimeMesh::GetRealtimeMeshDataElementType<uint16>());
+	}
+	return this;
+}
+
+URealtimeMeshLocalBuilder* URealtimeMeshLocalBuilder::DisablePolyGroups()
+{
+	if (ensure(Streams.IsValid() && MeshBuilder.IsValid()))
+	{
+		MeshBuilder->DisablePolyGroups();
+	}
+	return this;
+}
+
+int32 URealtimeMeshLocalBuilder::AddTriangle(URealtimeMeshLocalBuilder*& Builder, int32 UV0, int32 UV1, int32 UV2, int32 PolyGroupIndex)
+{
+	check(IsValid(this));
+	Builder = this;
+	if (MeshBuilder.IsValid())
+	{
+		if (MeshBuilder->HasPolyGroups())
+		{
+			return MeshBuilder->AddTriangle(UV0, UV1, UV2, PolyGroupIndex);
 		}
 		else
 		{
-			Builder.UV3Builder.Reset();
+			return MeshBuilder->AddTriangle(UV0, UV1, UV2);
 		}
 	}
-	else
-	{
-		RMC_RATE_LIMIT_LOG({
-			FMessageLog("RealtimeMesh").Error(LOCTEXT("MeshLocalBuilder_EnableTexCoords_InvalidBuilder", "EnableTexCoords: Builder not valid"));
-		});
-	}
-	return Builder;
+	RMC_RATE_LIMIT_LOG({
+		FMessageLog("RealtimeMesh").Error(LOCTEXT("MeshLocalBuilder_AddTriangle_InvalidBuilder", "AddTriangle: Builder not valid"));
+	});
+	return INDEX_NONE;
 }
 
-const FRealtimeMeshLocalBuilder& URealtimeMeshStreamUtils::DisableTexCoords(const FRealtimeMeshLocalBuilder& Builder)
+void URealtimeMeshLocalBuilder::SetTriangle(URealtimeMeshLocalBuilder*& Builder, int32 Index, int32 UV0, int32 UV1, int32 UV2, int32 PolyGroupIndex)
 {
-	if (Builder.Builder.IsSet())
+	Builder = this;
+	if (MeshBuilder.IsValid())
 	{
-		Builder.Builder->DisableTexCoords();
+		MeshBuilder->SetTriangle(Index, UV0, UV1, UV2, PolyGroupIndex);
+		return;
 	}
-	else
-	{
-		RMC_RATE_LIMIT_LOG({
-			FMessageLog("RealtimeMesh").Error(LOCTEXT("MeshLocalBuilder_DisableTexCoords_InvalidBuilder", "DisableTexCoords: Builder not valid"));
-		});
-	}	
-	return Builder;
+	RMC_RATE_LIMIT_LOG({
+		FMessageLog("RealtimeMesh").Error(LOCTEXT("MeshLocalBuilder_SetTriangle_InvalidBuilder", "SetTriangle: Builder not valid"));
+	});
 }
 
-const FRealtimeMeshLocalBuilder& URealtimeMeshStreamUtils::EnableDepthOnlyTriangles(const FRealtimeMeshLocalBuilder& Builder, bool bUse32BitIndices)
+void URealtimeMeshLocalBuilder::GetTriangle(URealtimeMeshLocalBuilder*& Builder, int32 Index, int32& UV0, int32& UV1, int32& UV2, int32& PolyGroupIndex)
 {
-	if (Builder.Builder.IsSet())
+	Builder = this;
+	if (MeshBuilder.IsValid())
 	{
-		Builder.Builder->EnableDepthOnlyTriangles(bUse32BitIndices? 
-			RealtimeMesh::GetRealtimeMeshDataElementType<uint32>() : 
-			RealtimeMesh::GetRealtimeMeshDataElementType<uint16>());
-	}
-	else
-	{
-		RMC_RATE_LIMIT_LOG({
-			FMessageLog("RealtimeMesh").Error(LOCTEXT("MeshLocalBuilder_EnableDepthOnlyTriangles_InvalidBuilder", "EnableDepthOnlyTriangles: Builder not valid"));
-		});
-	}
-	return Builder;
-}
-
-const FRealtimeMeshLocalBuilder& URealtimeMeshStreamUtils::DisableDepthOnlyTriangles(const FRealtimeMeshLocalBuilder& Builder)
-{
-	if (Builder.Builder.IsSet())
-	{
-		Builder.Builder->DisableDepthOnlyTriangles();
-	}
-	else
-	{
-		RMC_RATE_LIMIT_LOG({
-			FMessageLog("RealtimeMesh").Error(LOCTEXT("MeshLocalBuilder_DisableDepthOnlyTriangles_InvalidBuilder", "DisableDepthOnlyTriangles: Builder not valid"));
-		});
-	}
-	return Builder;
-}
-
-const FRealtimeMeshLocalBuilder& URealtimeMeshStreamUtils::EnablePolyGroups(const FRealtimeMeshLocalBuilder& Builder, bool bUse32BitIndices)
-{
-	if (Builder.Builder.IsSet())
-	{
-		Builder.Builder->EnablePolyGroups(bUse32BitIndices? 
-			RealtimeMesh::GetRealtimeMeshDataElementType<uint32>() : 
-			RealtimeMesh::GetRealtimeMeshDataElementType<uint16>());
-	}
-	else
-	{
-		RMC_RATE_LIMIT_LOG({
-			FMessageLog("RealtimeMesh").Error(LOCTEXT("MeshLocalBuilder_EnablePolyGroups_InvalidBuilder", "EnablePolyGroups: Builder not valid"));
-		});
-	}
-	return Builder;
-}
-
-const FRealtimeMeshLocalBuilder& URealtimeMeshStreamUtils::DisablePolyGroups(const FRealtimeMeshLocalBuilder& Builder)
-{
-	if (Builder.Builder.IsSet())
-	{
-		Builder.Builder->DisablePolyGroups();
-	}
-	else
-	{
-		RMC_RATE_LIMIT_LOG({
-			FMessageLog("RealtimeMesh").Error(LOCTEXT("MeshLocalBuilder_DisablePolyGroups_InvalidBuilder", "DisablePolyGroups: Builder not valid"));
-		});
-	}
-	return Builder;
-}
-
-const FRealtimeMeshLocalBuilder& URealtimeMeshStreamUtils::AddTriangle(const FRealtimeMeshLocalBuilder& Builder, int32& TriangleIndex, int32 UV0, int32 UV1, int32 UV2, int32 PolyGroupIndex)
-{
-	if (Builder.Builder.IsSet())
-	{
-		TriangleIndex = Builder.Builder->AddTriangle(UV0, UV1, UV2, PolyGroupIndex);
-	}
-	else
-	{
-		RMC_RATE_LIMIT_LOG({
-			FMessageLog("RealtimeMesh").Error(LOCTEXT("MeshLocalBuilder_AddTriangle_InvalidBuilder", "AddTriangle: Builder not valid"));
-		});
-	}
-	return Builder;
-}
-
-const FRealtimeMeshLocalBuilder& URealtimeMeshStreamUtils::SetTriangle(const FRealtimeMeshLocalBuilder& Builder, int32 Index, int32 UV0, int32 UV1, int32 UV2, int32 PolyGroupIndex)
-{
-	if (Builder.Builder.IsSet())
-	{
-		Builder.Builder->SetTriangle(Index, UV0, UV1, UV2, PolyGroupIndex);
-	}
-	else
-	{
-		RMC_RATE_LIMIT_LOG({
-			FMessageLog("RealtimeMesh").Error(LOCTEXT("MeshLocalBuilder_SetTriangle_InvalidBuilder", "SetTriangle: Builder not valid"));
-		});
-	}
-	return Builder;
-}
-
-const FRealtimeMeshLocalBuilder& URealtimeMeshStreamUtils::GetTriangle(const FRealtimeMeshLocalBuilder& Builder, int32 Index, int32& UV0, int32& UV1, int32& UV2, int32& PolyGroupIndex)
-{
-	if (Builder.Builder.IsSet())
-	{
-		const auto Triangle = Builder.Builder->GetTriangle(Index);
+		const auto Triangle = MeshBuilder->GetTriangle(Index);
 		UV0 = Triangle.V0;
 		UV1 = Triangle.V1;
 		UV2 = Triangle.V2;
 		PolyGroupIndex = 0;
-		if (Builder.Builder->HasPolyGroups())
+		if (MeshBuilder->HasPolyGroups())
 		{
-			PolyGroupIndex = Builder.Builder->GetMaterialIndex(Index);
+			PolyGroupIndex = MeshBuilder->GetMaterialIndex(Index);
 		}
+		return;
 	}
-	else
-	{
-		UV0 = UV1 = UV2 = PolyGroupIndex = 0;
-		RMC_RATE_LIMIT_LOG({
-			FMessageLog("RealtimeMesh").Error(LOCTEXT("MeshLocalBuilder_GetTriangle_InvalidBuilder", "GetTriangle: Builder not valid"));
-		});
-	}
-	return Builder;
+	
+	UV0 = UV1 = UV2 = PolyGroupIndex = 0;
+	RMC_RATE_LIMIT_LOG({
+		FMessageLog("RealtimeMesh").Error(LOCTEXT("MeshLocalBuilder_GetTriangle_InvalidBuilder", "GetTriangle: Builder not valid"));
+	});
 }
 
-
-const FRealtimeMeshLocalBuilder& URealtimeMeshStreamUtils::AddVertex(const FRealtimeMeshLocalBuilder& Builder, int32& Index, FVector Position, FVector Normal,
-                                                                    FVector Tangent, FLinearColor Color, FVector2D UV0, FVector2D UV1, FVector2D UV2, FVector2D UV3)
+int32 URealtimeMeshLocalBuilder::AddVertex(URealtimeMeshLocalBuilder*& Builder, const FRealtimeMeshBasicVertex& InVertex)
 {
 	using namespace RealtimeMesh;
-	using namespace StreamBuilder::Private;
-	
-	if (Builder.Builder.IsSet())
+
+	check(IsValid(this));
+	Builder = this;
+	if (MeshBuilder.IsValid())
 	{
-		auto Vertex = Builder.Builder->AddVertex(FVector3f(Position));
+		auto Vertex = MeshBuilder->AddVertex(FVector3f(InVertex.Position));
 	
-		if (Builder.Builder->HasTangents())
+		if (MeshBuilder->HasTangents())
 		{
-			Vertex.SetNormalAndTangent(FVector3f(Normal), FVector3f(Tangent));
+			if (InVertex.Binormal.IsNearlyZero())
+			{
+				Vertex.SetNormalAndTangent(FVector3f(InVertex.Normal), FVector3f(InVertex.Tangent));				
+			}
+			else
+			{
+				Vertex.SetTangents(FVector3f(InVertex.Normal), FVector3f(InVertex.Binormal), FVector3f(InVertex.Tangent));
+			}
 		}
 	
-		if (Builder.Builder->HasVertexColors())
+		if (MeshBuilder->HasVertexColors())
 		{
-			Vertex.SetColor(Color);
+			Vertex.SetColor(InVertex.Color);
 		}
 	
-		if (Builder.Builder->HasTexCoords())
+		if (MeshBuilder->HasTexCoords())
 		{
-			Vertex.SetTexCoord(0, FVector2f(UV0));
+			Vertex.SetTexCoord(0, FVector2f(InVertex.UV0));
 
-			if (Builder.UV1Builder.IsSet())
+			if (UV1Builder.IsValid())
 			{
-				Builder.UV1Builder->SetElement(Vertex.GetIndex(), 1, FVector2f(UV1));
+				UV1Builder->SetElement(Vertex.GetIndex(), 1, InVertex.UV1);
 			}
-			if (Builder.UV2Builder.IsSet())
+			if (UV2Builder.IsValid())
 			{
-				Builder.UV2Builder->SetElement(Vertex.GetIndex(), 2, FVector2f(UV2));
+				UV2Builder->SetElement(Vertex.GetIndex(), 2, InVertex.UV2);
 			}
-			if (Builder.UV3Builder.IsSet())
+			if (UV3Builder.IsValid())
 			{
-				Builder.UV3Builder->SetElement(Vertex.GetIndex(), 3, FVector2f(UV3));
+				UV3Builder->SetElement(Vertex.GetIndex(), 3, InVertex.UV3);
 			}
 		}
 
-		Index = Vertex.GetIndex();
+		return Vertex.GetIndex();
 	}
-	else
-	{
-		RMC_RATE_LIMIT_LOG({
-			FMessageLog("RealtimeMesh").Error(LOCTEXT("MeshLocalBuilder_AddVertex_InvalidBuilder", "AddVertex: Builder not valid"));
-		});
-	}	
-	return Builder;
+	
+	RMC_RATE_LIMIT_LOG({
+		FMessageLog("RealtimeMesh").Error(LOCTEXT("MeshLocalBuilder_AddVertex_InvalidBuilder", "AddVertex: Builder not valid"));
+	});
+	return INDEX_NONE;
 }
 
-const FRealtimeMeshLocalBuilder& URealtimeMeshStreamUtils::EditVertex(const FRealtimeMeshLocalBuilder& Builder, int32 Index, FVector Position, bool bWritePosition, FVector Normal,
-	bool bWriteNormal, FVector Tangent, bool bWriteTangent, FLinearColor Color, bool bWriteColor, FVector2D UV0, bool bWriteUV0, FVector2D UV1, bool bWriteUV1, FVector2D UV2,
-	bool bWriteUV2, FVector2D UV3, bool bWriteUV3)
+void URealtimeMeshLocalBuilder::EditVertex(URealtimeMeshLocalBuilder*& Builder, int32 Index, FVector Position, bool bWritePosition, FVector Normal, bool bWriteNormal, FVector Tangent,
+	bool bWriteTangent, FLinearColor Color, bool bWriteColor, FVector2D UV0, bool bWriteUV0, FVector2D UV1, bool bWriteUV1, FVector2D UV2, bool bWriteUV2, FVector2D UV3,
+	bool bWriteUV3)
 {
 	using namespace RealtimeMesh;
-	using namespace StreamBuilder::Private;
 
-	if (Builder.Builder.IsSet())
+	Builder = this;
+	if (MeshBuilder.IsValid())
 	{
-		auto Vertex = Builder.Builder->EditVertex(Index);
+		auto Vertex = MeshBuilder->EditVertex(Index);
 
 		if (bWritePosition)
 		{
 			Vertex.SetPosition(FVector3f(Position));
 		}
 	
-		if (bWriteNormal && Builder.Builder->HasTangents())
+		if (bWriteNormal && MeshBuilder->HasTangents())
 		{
 			Vertex.SetNormal(FVector3f(Normal));
 		}
-		if (bWriteTangent && Builder.Builder->HasTangents())
+		if (bWriteTangent && MeshBuilder->HasTangents())
 		{
 			Vertex.SetTangent(FVector3f(Tangent));
 		}
 	
-		if (bWriteColor && Builder.Builder->HasVertexColors())
+		if (bWriteColor && MeshBuilder->HasVertexColors())
 		{
 			Vertex.SetColor(Color);
 		}
 	
-		if (bWriteUV0 && Builder.Builder->HasTexCoords())
+		if (bWriteUV0 && MeshBuilder->HasTexCoords())
 		{
 			Vertex.SetTexCoord(0, FVector2f(UV0));
 		}
-		if (bWriteUV1 && Builder.UV1Builder.IsSet())
+		if (bWriteUV1 && UV1Builder.IsValid())
 		{
-			Builder.UV1Builder->Set(Vertex.GetIndex(), FVector2f(UV1));
+			UV1Builder->Set(Vertex.GetIndex(), UV1);
 		}
-		if (bWriteUV2 && Builder.UV2Builder.IsSet())
+		if (bWriteUV2 && UV1Builder.IsValid())
 		{
-			Builder.UV2Builder->Set(Vertex.GetIndex(), FVector2f(UV2));
+			UV2Builder->Set(Vertex.GetIndex(), UV2);
 		}
-		if (bWriteUV3 && Builder.UV3Builder.IsSet())
+		if (bWriteUV3 && UV3Builder.IsValid())
 		{
-			Builder.UV3Builder->Set(Vertex.GetIndex(), FVector2f(UV3));
+			UV3Builder->Set(Vertex.GetIndex(), UV3);
 		}
+		return;
 	}
-	else
-	{
-		RMC_RATE_LIMIT_LOG({
-			FMessageLog("RealtimeMesh").Error(LOCTEXT("MeshLocalBuilder_EditVertex_InvalidBuilder", "EditVertex: Builder not valid"));
-		});
-	}
-	return Builder;
+	
+	RMC_RATE_LIMIT_LOG({
+		FMessageLog("RealtimeMesh").Error(LOCTEXT("MeshLocalBuilder_EditVertex_InvalidBuilder", "EditVertex: Builder not valid"));
+	});
 }
 
-const FRealtimeMeshLocalBuilder& URealtimeMeshStreamUtils::GetVertex(const FRealtimeMeshLocalBuilder& Builder, int32 Index, FVector& Position, FVector& Normal,
-	FVector& Tangent, FLinearColor& Color, FVector2D& UV0, FVector2D& UV1, FVector2D& UV2, FVector2D& UV3)
+void URealtimeMeshLocalBuilder::GetVertex(URealtimeMeshLocalBuilder*& Builder, int32 Index, FVector& Position, FVector& Normal, FVector& Tangent, FLinearColor& Color, FVector2D& UV0,
+	FVector2D& UV1, FVector2D& UV2, FVector2D& UV3)
 {
-	if (Builder.Builder.IsSet())
+	Builder = this;
+	if (MeshBuilder.IsValid())
 	{
-		const auto Vertex = Builder.Builder->EditVertex(Index);
+		const auto Vertex = MeshBuilder->EditVertex(Index);
 
 		Position = FVector(Vertex.GetPosition());
 
-		if (Builder.Builder->HasTangents())
+		if (MeshBuilder->HasTangents())
 		{
 			Normal = FVector(Vertex.GetNormal());
 			Tangent = FVector(Vertex.GetTangent());		
 		}
 	
-		if (Builder.Builder->HasVertexColors())
+		if (MeshBuilder->HasVertexColors())
 		{
 			Color = Vertex.GetLinearColor();		
 		}
 
-		if (Builder.Builder->HasTexCoords())
+		if (MeshBuilder->HasTexCoords())
 		{
 			UV0 = FVector2D(Vertex.GetTexCoord(0));
 		}
 
-		if (Builder.UV1Builder.IsSet())
+		if (UV1Builder.IsValid())
 		{
-			UV1 = FVector2D(Builder.UV1Builder->Get(Index).Get());
+			UV1 = FVector2D(UV1Builder->Get(Index).Get());
 		}
-		if (Builder.UV2Builder.IsSet())
+		if (UV2Builder.IsValid())
 		{
-			UV2 = FVector2D(Builder.UV2Builder->Get(Index).Get());
+			UV2 = FVector2D(UV2Builder->Get(Index).Get());
 		}
-		if (Builder.UV3Builder.IsSet())
+		if (UV3Builder.IsValid())
 		{
-			UV3 = FVector2D(Builder.UV3Builder->Get(Index).Get());
+			UV3 = FVector2D(UV3Builder->Get(Index).Get());
 		}
 	}
 	else
@@ -1010,9 +1041,390 @@ const FRealtimeMeshLocalBuilder& URealtimeMeshStreamUtils::GetVertex(const FReal
 		RMC_RATE_LIMIT_LOG({
 			FMessageLog("RealtimeMesh").Error(LOCTEXT("MeshLocalBuilder_GetVertex_InvalidBuilder", "GetVertex: Builder not valid"));
 		});
-	}	
-	return Builder;
+	}
 }
+
+
+
+URealtimeMeshStream* URealtimeMeshStreamPool::RequestStream(const FRealtimeMeshStreamKey& StreamKey, ERealtimeMeshSimpleStreamType StreamType, int32 NumElements)
+{	
+	if (CachedStreams.Num() > 0)
+	{
+		auto Stream = CachedStreams.Pop(false);
+		Stream->Initialize(StreamKey, StreamType, NumElements);
+		return Stream;
+	}
+	
+	URealtimeMeshStream* NewStream = NewObject<URealtimeMeshStream>();
+	NewStream->Initialize(StreamKey, StreamType, NumElements);
+
+	// If we have allocated more streams than our safety threshold, drop our holds on the existing streams.
+	// This will allow them to be garbage-collected (eventually)
+	if (!ensure(AllCreatedStreams.Num() < CVarRealtimeMeshStreamPoolMaxSizeThreshold.GetValueOnGameThread()))
+	{
+		UE_LOG(RealtimeMeshLog, Warning, TEXT("URealtimeMeshStreamPool Threshold of %d Allocated Streams exceeded! Releasing references to all current streams and forcing a garbage collection."), CVarRealtimeMeshStreamPoolMaxSizeThreshold.GetValueOnGameThread());
+		AllCreatedStreams.Reset();
+		GEngine->ForceGarbageCollection(true);
+	}
+
+	AllCreatedStreams.Add(NewStream);
+	return NewStream;
+}
+
+void URealtimeMeshStreamPool::ReturnStream(URealtimeMeshStream* Stream)
+{
+	if (ensure(Stream) && ensure(AllCreatedStreams.Contains(Stream)))
+	{
+		Stream->Reset();
+		if (ensure(CachedStreams.Contains(Stream) == false))
+		{
+			CachedStreams.Add(Stream);
+		}
+	}
+}
+
+URealtimeMeshStreamSet* URealtimeMeshStreamPool::RequestStreamSet()
+{	
+	if (CachedStreamSets.Num() > 0)
+	{
+		return CachedStreamSets.Pop(false);
+	}
+	
+	URealtimeMeshStreamSet* NewStreamSet = NewObject<URealtimeMeshStreamSet>();
+
+	// If we have allocated more streams than our safety threshold, drop our holds on the existing streams.
+	// This will allow them to be garbage-collected (eventually)
+	if (!ensure(AllCreatedStreamSets.Num() < CVarRealtimeMeshStreamSetsPoolMaxSizeThreshold.GetValueOnGameThread()))
+	{
+		UE_LOG(RealtimeMeshLog, Warning, TEXT("URealtimeMeshStreamPool Threshold of %d Allocated StreamSets exceeded! Releasing references to all current streamssets and forcing a garbage collection."), CVarRealtimeMeshStreamSetsPoolMaxSizeThreshold.GetValueOnGameThread());
+		AllCreatedStreamSets.Reset();
+		GEngine->ForceGarbageCollection(true);
+	}
+
+	AllCreatedStreamSets.Add(NewStreamSet);
+	return NewStreamSet;
+}
+
+void URealtimeMeshStreamPool::ReturnStreamSet(URealtimeMeshStreamSet* StreamSet)
+{
+	if (ensure(StreamSet) && ensure(AllCreatedStreamSets.Contains(StreamSet)))
+	{
+		StreamSet->Reset();
+		if (ensure(CachedStreamSets.Contains(StreamSet) == false))
+		{
+			CachedStreamSets.Add(StreamSet);
+		}
+	}
+}
+
+URealtimeMeshLocalBuilder* URealtimeMeshStreamPool::RequestMeshBuilder()
+{
+	if (CachedBuilders.Num() > 0)
+	{
+		return CachedBuilders.Pop(false);
+	}
+	
+	URealtimeMeshLocalBuilder* NewBuilder = NewObject<URealtimeMeshLocalBuilder>();
+
+	// If we have allocated more streams than our safety threshold, drop our holds on the existing streams.
+	// This will allow them to be garbage-collected (eventually)
+	if (!ensure(AllCreatedBuilders.Num() < CVarRealtimeMeshBuilderPoolMaxSizeThreshold.GetValueOnGameThread()))
+	{
+		UE_LOG(RealtimeMeshLog, Warning, TEXT("URealtimeMeshStreamPool Threshold of %d Allocated Builders exceeded! Releasing references to all current builders and forcing a garbage collection."), CVarRealtimeMeshBuilderPoolMaxSizeThreshold.GetValueOnGameThread());
+		AllCreatedBuilders.Reset();
+		GEngine->ForceGarbageCollection(true);
+	}
+
+	AllCreatedBuilders.Add(NewBuilder);
+	return NewBuilder;
+}
+
+void URealtimeMeshStreamPool::ReturnMeshBuilder(URealtimeMeshLocalBuilder* Builder)
+{
+	if (ensure(Builder) && ensure(AllCreatedBuilders.Contains(Builder)))
+	{
+		Builder->Reset();
+		if (ensure(CachedBuilders.Contains(Builder) == false))
+		{
+			CachedBuilders.Add(Builder);
+		}
+	}
+}
+
+void URealtimeMeshStreamPool::ReturnAllStreams()
+{
+	{
+		CachedStreams = AllCreatedStreams;
+		for (URealtimeMeshStream* Stream : CachedStreams)
+		{
+			if (Stream)
+			{
+				Stream->Reset();
+			}
+		}
+
+		ensure(0 == CachedStreams.RemoveAll([](const URealtimeMeshStream* Stream) { return Stream == nullptr; }));
+	}
+	{
+		CachedStreamSets = AllCreatedStreamSets;
+		for (URealtimeMeshStreamSet* StreamSet : CachedStreamSets)
+		{
+			if (StreamSet)
+			{
+				StreamSet->Reset();
+			}
+		}
+
+		ensure(0 == CachedStreamSets.RemoveAll([](const URealtimeMeshStreamSet* StreamSet) { return StreamSet == nullptr; }));
+	}
+	{
+		CachedBuilders = AllCreatedBuilders;
+		for (URealtimeMeshLocalBuilder* Builder : CachedBuilders)
+		{
+			if (Builder)
+			{
+				Builder->Reset();
+			}
+		}
+
+		ensure(0 == CachedBuilders.RemoveAll([](const URealtimeMeshLocalBuilder* Builder) { return Builder == nullptr; }));
+	}
+}
+
+void URealtimeMeshStreamPool::FreeAllStreams()
+{
+	CachedStreams.Reset();
+	AllCreatedStreams.Reset();
+	CachedStreamSets.Reset();
+	AllCreatedStreamSets.Reset();
+	CachedBuilders.Reset();
+	AllCreatedBuilders.Reset();
+}
+
+
+
+URealtimeMeshStreamSet* URealtimeMeshStreamUtils::CopyStreamSetFromComponents(URealtimeMeshStreamSet* Streams,
+	const TArray<int32>& Triangles, const TArray<int32>& PolyGroups,
+	const TArray<FVector>& Positions, const TArray<FVector>& Normals, const TArray<FVector>& Tangents,
+	const TArray<FVector>& Binormals, const TArray<FLinearColor>& Colors, const TArray<FVector2D>& UV0,
+	const TArray<FVector2D>& UV1, const TArray<FVector2D>& UV2, const TArray<FVector2D>& UV3,
+	bool bUse32BitIndices, bool bUseHighPrecisionTangents, bool bUseHighPrecisionTexCoords)
+{
+	if (!IsValid(Streams))
+	{
+		return nullptr;
+	}
+
+	if (auto* Stream = Streams->GetStreamSet().Find(RealtimeMesh::FRealtimeMeshStreams::Triangles))
+	{
+		ensure(Stream->ConvertTo(RealtimeMesh::FRealtimeMeshBufferLayout(bUse32BitIndices?
+			RealtimeMesh::GetRealtimeMeshDataElementType<uint32>() : RealtimeMesh::GetRealtimeMeshDataElementType<uint16>() , 3)));
+	}	
+
+	RealtimeMesh::TRealtimeMeshBuilderLocal<void, void, void, 1, void> Builder(Streams->GetStreamSet());
+
+	const bool bHasTangents = Normals.Num() > 0 || Tangents.Num() > 0 || Binormals.Num() > 0;
+	const int32 NumUVs = UV3.Num() > 0 ? 4 : (UV2.Num() > 0 ? 3 : (UV1.Num() > 0 ? 2 : (UV0.Num() > 0 ? 1 : 0)));
+
+	if (bHasTangents)
+	{
+		Builder.EnableTangents(bUseHighPrecisionTangents? RealtimeMesh::GetRealtimeMeshDataElementType<FPackedRGBA16N>() : RealtimeMesh::GetRealtimeMeshDataElementType<FPackedNormal>());
+	}
+
+	if (NumUVs > 0)
+	{
+		Builder.EnableTexCoords(bUseHighPrecisionTexCoords? RealtimeMesh::GetRealtimeMeshDataElementType<FVector2f>() : RealtimeMesh::GetRealtimeMeshDataElementType<FVector2DHalf>(), NumUVs);
+	}
+
+	if (Colors.Num() > 0)
+	{
+		Builder.EnableColors();
+	}
+	
+	for (int32 Index = 0; Index < Positions.Num(); Index++)
+	{
+		auto Vertex = Builder.AddVertex(FVector3f(Positions[Index]));
+
+		if (Normals.Num() > Vertex)
+		{
+			if (Tangents.Num() > 0)
+			{
+				if (Binormals.Num() > 0)
+				{
+					Vertex.SetTangents(FVector3f(Normals[Index]), FVector3f(Binormals[Index]), FVector3f(Tangents[Index]));
+				}
+				else
+				{
+					Vertex.SetNormalAndTangent(FVector3f(Normals[Index]), FVector3f(Tangents[Index]));
+				}
+			}
+			else
+			{
+				Vertex.SetNormal(FVector3f(Normals[Index]));				
+			}
+		}
+
+		if (Colors.Num() > Vertex)
+		{
+			Vertex.SetColor(Colors[Index]);
+		}
+
+		if (UV0.Num() > Vertex)
+		{
+			Vertex.SetTexCoord(FVector2f(UV0[Index]));
+		}	
+	}
+
+	if (NumUVs > 0)
+	{
+		if (UV1.Num() > 0)
+		{
+			RealtimeMesh::TRealtimeMeshStridedStreamBuilder<FVector2f, void> UV0Builder(Streams->GetStreamSet().FindChecked(RealtimeMesh::FRealtimeMeshStreams::TexCoords), 1);
+
+			const int32 NumToCopy = FMath::Min(Builder.NumVertices(), UV1.Num());
+			for (int32 Index = 0; Index < NumToCopy; Index++)
+			{
+				UV0Builder.Set(Index, FVector2f(UV1[Index]));
+			}
+		}
+
+		if (UV2.Num() > 0)
+		{
+			RealtimeMesh::TRealtimeMeshStridedStreamBuilder<FVector2f, void> UV1Builder(Streams->GetStreamSet().FindChecked(RealtimeMesh::FRealtimeMeshStreams::TexCoords), 2);
+
+			const int32 NumToCopy = FMath::Min(Builder.NumVertices(), UV2.Num());
+			for (int32 Index = 0; Index < NumToCopy; Index++)
+			{
+				UV1Builder.Set(Index, FVector2f(UV2[Index]));
+			}
+		}
+
+		if (UV3.Num() > 0)
+		{
+			RealtimeMesh::TRealtimeMeshStridedStreamBuilder<FVector2f, void> UV2Builder(Streams->GetStreamSet().FindChecked(RealtimeMesh::FRealtimeMeshStreams::TexCoords), 3);
+
+			const int32 NumToCopy = FMath::Min(Builder.NumVertices(), UV3.Num());
+			for (int32 Index = 0; Index < NumToCopy; Index++)
+			{
+				UV2Builder.Set(Index, FVector2f(UV3[Index]));
+			}
+		}		
+	}
+
+	if (PolyGroups.Num() > 0)
+	{
+		for (int32 Index = 0; Index < Triangles.Num(); Index+=3)
+		{
+			Builder.AddTriangle(Triangles[Index + 0], Triangles[Index + 1], Triangles[Index + 2], PolyGroups.IsValidIndex(Index / 3) ? PolyGroups[Index / 3] : 0);
+		}	
+	}
+	else
+	{		
+		for (int32 Index = 0; Index < Triangles.Num(); Index+=3)
+		{
+			Builder.AddTriangle(Triangles[Index + 0], Triangles[Index + 1], Triangles[Index + 2]);
+		}
+	}
+	return Streams;
+}
+
+
+
+const FRealtimeMeshStreamRowPtr& URealtimeMeshStreamUtils::SetIntElement(const FRealtimeMeshStreamRowPtr& Row, int32 Index, int32 ElementIdx, int32 NewValue)
+{
+	if (Row.IsValid() && Row.Stream->IntAccessors.Num() > ElementIdx)
+	{
+		Row.Stream->IntAccessors[ElementIdx].Set(Index, NewValue);
+	}
+	return Row;
+}
+
+const FRealtimeMeshStreamRowPtr& URealtimeMeshStreamUtils::SetFloatElement(const FRealtimeMeshStreamRowPtr& Row, int32 Index, int32 ElementIdx, float NewValue)
+{
+	if (Row.IsValid() && Row.Stream->FloatAccessors.Num() > ElementIdx)
+	{
+		Row.Stream->FloatAccessors[ElementIdx].Set(Index, NewValue);
+	}
+	return Row;
+}
+
+const FRealtimeMeshStreamRowPtr& URealtimeMeshStreamUtils::SetVector2Element(const FRealtimeMeshStreamRowPtr& Row, int32 Index, int32 ElementIdx, FVector2D NewValue)
+{
+	if (Row.IsValid() && Row.Stream->Vector2Accessors.Num() > ElementIdx)
+	{
+		Row.Stream->Vector2Accessors[ElementIdx].Set(Index, NewValue);
+	}
+	return Row;
+}
+
+const FRealtimeMeshStreamRowPtr& URealtimeMeshStreamUtils::SetVector3Element(const FRealtimeMeshStreamRowPtr& Row, int32 Index, int32 ElementIdx, FVector NewValue)
+{
+	if (Row.IsValid() && Row.Stream->Vector3Accessors.Num() > ElementIdx)
+	{
+		Row.Stream->Vector3Accessors[ElementIdx].Set(Index, NewValue);
+	}
+	return Row;
+}
+
+const FRealtimeMeshStreamRowPtr& URealtimeMeshStreamUtils::SetVector4Element(const FRealtimeMeshStreamRowPtr& Row, int32 Index, int32 ElementIdx, FVector4 NewValue)
+{
+	if (Row.IsValid() && Row.Stream->Vector4Accessors.Num() > ElementIdx)
+	{
+		Row.Stream->Vector4Accessors[ElementIdx].Set(Index, NewValue);
+	}
+	return Row;
+}
+
+int32 URealtimeMeshStreamUtils::GetIntElement(const FRealtimeMeshStreamRowPtr& Row, int32 Index, int32 ElementIdx, FRealtimeMeshStreamRowPtr& OutRow)
+{
+	OutRow = Row;
+	if (ensure(Row.IsValid() && Row.Stream->IntAccessors.Num() > ElementIdx))
+	{
+		return Row.Stream->IntAccessors[ElementIdx].Get(Index);
+	}
+	return 0;
+}
+
+float URealtimeMeshStreamUtils::GetFloatElement(const FRealtimeMeshStreamRowPtr& Row, int32 Index, int32 ElementIdx, FRealtimeMeshStreamRowPtr& OutRow)
+{
+	OutRow = Row;
+	if (ensure(Row.IsValid() && Row.Stream->FloatAccessors.Num() > ElementIdx))
+	{
+		return Row.Stream->FloatAccessors[ElementIdx].Get(Index);
+	}
+	return 0.0f;
+}
+
+FVector2D URealtimeMeshStreamUtils::GetVector2Element(const FRealtimeMeshStreamRowPtr& Row, int32 Index, int32 ElementIdx, FRealtimeMeshStreamRowPtr& OutRow)
+{
+	OutRow = Row;
+	if (ensure(Row.IsValid() && Row.Stream->Vector2Accessors.Num() > ElementIdx))
+	{
+		return Row.Stream->Vector2Accessors[ElementIdx].Get(Index);
+	}
+	return FVector2D::ZeroVector;
+}
+
+FVector URealtimeMeshStreamUtils::GetVector3Element(const FRealtimeMeshStreamRowPtr& Row, int32 Index, int32 ElementIdx, FRealtimeMeshStreamRowPtr& OutRow)
+{
+	OutRow = Row;
+	if (ensure(Row.IsValid() && Row.Stream->Vector3Accessors.Num() > ElementIdx))
+	{
+		return Row.Stream->Vector3Accessors[ElementIdx].Get(Index);
+	}
+	return FVector::ZeroVector;
+}
+
+FVector4 URealtimeMeshStreamUtils::GetVector4Element(const FRealtimeMeshStreamRowPtr& Row, int32 Index, int32 ElementIdx, FRealtimeMeshStreamRowPtr& OutRow)
+{
+	OutRow = Row;
+	if (ensure(Row.IsValid() && Row.Stream->Vector4Accessors.Num() > ElementIdx))
+	{
+		return Row.Stream->Vector4Accessors[ElementIdx].Get(Index);
+	}
+	return FVector4::Zero();
+}
+
 
 
 #undef LOCTEXT_NAMESPACE

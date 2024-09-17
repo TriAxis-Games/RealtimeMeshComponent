@@ -13,9 +13,15 @@ public class RealtimeMeshComponent : ModuleRules
         PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
         bUseUnity = false;
         //IncludeOrderVersion = EngineIncludeOrderVersion.Latest;
+        
+        PublicDefinitions.Add("WITH_REALTIME_MESH=1");
+        PublicDefinitions.Add("IS_REALTIME_MESH_LIBRARY=1");
 
         // This is to access RayTracing Definitions
         PrivateIncludePaths.Add(Path.Combine(EngineDirectory, "Shaders", "Shared"));
+        PublicIncludePaths.Add(Path.Combine(ModuleDirectory, "Public", "Interface"));
+
+        //PublicDefinitions.Add("REALTIME_MESH_INTERFACE_ROOT=");
         
         PublicDependencyModuleNames.AddRange(
             new string[]

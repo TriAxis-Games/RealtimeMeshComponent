@@ -5,7 +5,7 @@
 
 #include "RealtimeMeshLibrary.h"
 #include "RealtimeMeshSimple.h"
-#include "Mesh/RealtimeMeshBuilder.h"
+#include "Core/RealtimeMeshBuilder.h"
 
 #include "RealtimeMeshCubeGeneratorExample.h"
 
@@ -20,9 +20,9 @@ ARealtimeMeshBasicUsageActor::ARealtimeMeshBasicUsageActor()
 	PrimaryActorTick.bStartWithTickEnabled = true;
 }
 
-void ARealtimeMeshBasicUsageActor::OnGenerateMesh_Implementation()
+void ARealtimeMeshBasicUsageActor::OnConstruction(const FTransform& Transform)
 {
-	Super::OnGenerateMesh_Implementation();
+	Super::OnConstruction(Transform);
 
 	// Initialize the simple mesh
 	URealtimeMeshSimple* RealtimeMesh = GetRealtimeMeshComponent()->InitializeRealtimeMesh<URealtimeMeshSimple>();
@@ -58,13 +58,13 @@ void ARealtimeMeshBasicUsageActor::OnGenerateMesh_Implementation()
 
 	RealtimeMesh->UpdateSectionConfig(PolyGroup0Key, RealtimeMesh->GetSectionConfig(PolyGroup0Key), true);
 	RealtimeMesh->UpdateSectionConfig(PolyGroup1Key, RealtimeMesh->GetSectionConfig(PolyGroup1Key), true);
-	RealtimeMesh->UpdateSectionConfig(PolyGroup2Key, FRealtimeMeshSectionConfig(ERealtimeMeshSectionDrawType::Static, 0), true);
+	RealtimeMesh->UpdateSectionConfig(PolyGroup2Key, FRealtimeMeshSectionConfig(0), true);
 
 	// Setup simple collision shape for this mesh
 	FRealtimeMeshSimpleGeometry SimpleGeometry = RealtimeMesh->GetSimpleGeometry();
-	SimpleGeometry.AddBox(FRealtimeMeshCollisionBox(FVector(200, 200, 400)));
-	SimpleGeometry.AddBox(FRealtimeMeshCollisionBox(FVector(400, 200, 200)));
-	SimpleGeometry.AddBox(FRealtimeMeshCollisionBox(FVector(200, 400, 200)));
+	SimpleGeometry.Boxes.Add(FRealtimeMeshCollisionBox(FVector(200, 200, 400)));
+	SimpleGeometry.Boxes.Add(FRealtimeMeshCollisionBox(FVector(400, 200, 200)));
+	SimpleGeometry.Boxes.Add(FRealtimeMeshCollisionBox(FVector(200, 400, 200)));
 	RealtimeMesh->SetSimpleGeometry(SimpleGeometry);
 	
 	FRealtimeMeshCollisionConfiguration CollisionConfig;

@@ -2,6 +2,7 @@
 
 #include "RealtimeMeshComponent.h"
 
+#include "GameDelegates.h"
 #include "MaterialDomain.h"
 #include "NaniteVertexFactory.h"
 #include "RealtimeMeshComponentModule.h"
@@ -12,6 +13,7 @@
 #include "NavigationSystem.h"
 #include "RenderProxy/RealtimeMeshNaniteProxyInterface.h"
 #include "RenderProxy/RealtimeMeshProxy.h"
+#include "Net/UnrealNetwork.h"
 
 
 DECLARE_CYCLE_STAT(TEXT("RealtimeMeshComponent - Collision Data Received"), STAT_RealtimeMeshComponent_NewCollisionMeshReceived, STATGROUP_RealtimeMesh);
@@ -20,30 +22,35 @@ DECLARE_CYCLE_STAT(TEXT("RealtimeMeshComponent - Create Scene Proxy"), STAT_Real
 URealtimeMeshComponent::URealtimeMeshComponent()
 {
 	SetNetAddressable();
+	SetIsReplicatedByDefault(true);
 }
 
 void URealtimeMeshComponent::SetRealtimeMesh(URealtimeMesh* NewMesh)
 {
 	// Bail if we're already assigned to this mesh
-	if (IsValid(NewMesh) && IsValid(RealtimeMeshReference) && NewMesh == RealtimeMeshReference)
+	if (IsValid(NewMesh) && IsValid(RealtimeMesh) && NewMesh == RealtimeMesh)
 	{
 		return;
 	}
 
 	bool bUpdatedMesh = false;
 	// Unlink from any existing runtime mesh
-	if (IsValid(RealtimeMeshReference))
+	if (IsValid(RealtimeMesh))
 	{
-		UnbindFromEvents(RealtimeMeshReference);
-		RealtimeMeshReference = nullptr;
+		///RemoveReplicatedSubObject(RealtimeMesh);
+		
+		UnbindFromEvents(RealtimeMesh);
+		RealtimeMesh = nullptr;
 		bUpdatedMesh = true;
 	}
 
 	if (IsValid(NewMesh))
 	{
-		RealtimeMeshReference = NewMesh;
-		BindToEvents(RealtimeMeshReference);
+		RealtimeMesh = NewMesh;
+		BindToEvents(RealtimeMesh);
 		bUpdatedMesh = true;
+
+		//AddReplicatedSubObject(RealtimeMesh);
 	}
 
 	if (bUpdatedMesh)
@@ -59,20 +66,36 @@ URealtimeMesh* URealtimeMeshComponent::InitializeRealtimeMesh(TSubclassOf<URealt
 	URealtimeMesh* NewMesh = nullptr;
 	if (MeshClass)
 	{
-		NewMesh = NewObject<URealtimeMesh>(IsValid(GetOuter()) ? GetOuter() : this, MeshClass);
+		NewMesh = NewObject<URealtimeMesh>(this->GetOwner(), MeshClass);
+		check(IsValid(NewMesh));
 	}
 	SetRealtimeMesh(NewMesh);
 	return NewMesh;
 }
 
+void URealtimeMeshComponent::OnRep_RealtimeMesh(class URealtimeMesh *OldRealtimeMesh)
+{
+	if (RealtimeMesh != OldRealtimeMesh)
+	{		
+		// Properly handle replicated RealtimeMesh property change by putting the old value back
+		// and applying the modification through a proper call to SetStaticMesh.
+		URealtimeMesh* NewRealtimeMesh = RealtimeMesh;
+
+		// Put back the old value with minimal logic involved
+		RealtimeMesh = OldRealtimeMesh;
+
+		// Go through all the logic required to properly apply a new realtime mesh.
+		SetRealtimeMesh(NewRealtimeMesh);
+	}
+}
 
 void URealtimeMeshComponent::OnRegister()
 {
 	Super::OnRegister();
 
-	if (RealtimeMeshReference)
+	if (RealtimeMesh)
 	{
-		BindToEvents(RealtimeMeshReference);
+		BindToEvents(RealtimeMesh);
 		UpdateCollision();
 	}
 }
@@ -81,9 +104,9 @@ void URealtimeMeshComponent::OnUnregister()
 {
 	Super::OnUnregister();
 
-	if (RealtimeMeshReference)
+	if (RealtimeMesh)
 	{
-		UnbindFromEvents(RealtimeMeshReference);
+		UnbindFromEvents(RealtimeMesh);
 	}
 }
 
@@ -103,9 +126,9 @@ FPrimitiveSceneProxy* URealtimeMeshComponent::CreateSceneProxy()
 {
 	SCOPE_CYCLE_COUNTER(STAT_RealtimeMeshComponent_CreateSceneProxy);
 
-	if (RealtimeMeshReference != nullptr)
+	if (RealtimeMesh != nullptr)
 	{
-		if (const auto MeshRenderProxy = RealtimeMeshReference->GetMesh()->GetRenderProxy(true))
+		if (const auto MeshRenderProxy = RealtimeMesh->GetMesh()->GetRenderProxy(true))
 		{
 			// This is using the implementation in the RMC-Pro to support nanite, without that module present, the RMC doesn't support nanite.
 			if (RealtimeMesh::IRealtimeMeshNaniteSceneProxyManager::IsNaniteSupportAvailable() && MeshRenderProxy->HasNaniteResources())
@@ -118,7 +141,8 @@ FPrimitiveSceneProxy* URealtimeMeshComponent::CreateSceneProxy()
 				}				
 			}
 			
-			return new RealtimeMesh::FRealtimeMeshComponentSceneProxy(this, MeshRenderProxy.ToSharedRef());
+			const int32 ProxyVersion = RealtimeMesh->GetMesh()->IncrementProxyVersionIfNotSameFrame();			
+			return new RealtimeMesh::FRealtimeMeshComponentSceneProxy(this, MeshRenderProxy.ToSharedRef(), ProxyVersion);
 		}
 	}
 
@@ -226,12 +250,13 @@ void URealtimeMeshComponent::CollectPSOPrecacheData(const FPSOPrecacheParams& Ba
 	FPSOPrecacheVertexFactoryDataList VFDataList;
 	const FVertexFactoryType* VFType = nullptr;
 
-	if (RealtimeMeshReference)
+	if (RealtimeMesh)
 	{
-		if (const auto MeshRenderProxy = RealtimeMeshReference->GetMesh()->GetRenderProxy(true))
+		if (const auto MeshRenderProxy = RealtimeMesh->GetMesh()->GetRenderProxy(true))
 		{
 			if (RealtimeMesh::IRealtimeMeshNaniteSceneProxyManager::IsNaniteSupportAvailable() && MeshRenderProxy->HasNaniteResources())
-			{			
+			{
+#if RMC_ENGINE_BELOW_5_5
 				if (NaniteLegacyMaterialsSupported())
 				{
 					VFDataList.Add(FPSOPrecacheVertexFactoryData(&Nanite::FVertexFactory::StaticType));
@@ -241,6 +266,7 @@ void URealtimeMeshComponent::CollectPSOPrecacheData(const FPSOPrecacheParams& Ba
 				{
 					VFDataList.Add(FPSOPrecacheVertexFactoryData(&FNaniteVertexFactory::StaticType));
 				}
+#endif
 
 				for (int32 MaterialId = 0; MaterialId < GetNumMaterials(); MaterialId++)
 				{
@@ -261,27 +287,34 @@ void URealtimeMeshComponent::CollectPSOPrecacheData(const FPSOPrecacheParams& Ba
 }
 #endif
 
-void URealtimeMeshComponent::BindToEvents(URealtimeMesh* RealtimeMesh)
+void URealtimeMeshComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
-	RealtimeMesh->OnBoundsChanged().AddUObject(this, &URealtimeMeshComponent::HandleBoundsUpdated);
-	RealtimeMesh->OnRenderDataChanged().AddUObject(this, &URealtimeMeshComponent::HandleMeshRenderingDataChanged);
-	RealtimeMesh->OnCollisionBodyUpdated().AddUObject(this, &URealtimeMeshComponent::HandleCollisionBodyUpdated);
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	
+	DOREPLIFETIME(URealtimeMeshComponent, RealtimeMesh);
 }
 
-void URealtimeMeshComponent::UnbindFromEvents(URealtimeMesh* RealtimeMesh)
+void URealtimeMeshComponent::BindToEvents(URealtimeMesh* InRealtimeMesh)
 {
-	RealtimeMesh->OnBoundsChanged().RemoveAll(this);
-	RealtimeMesh->OnRenderDataChanged().RemoveAll(this);
-	RealtimeMesh->OnCollisionBodyUpdated().RemoveAll(this);
+	InRealtimeMesh->OnBoundsChanged().AddUObject(this, &URealtimeMeshComponent::HandleBoundsUpdated);
+	InRealtimeMesh->OnRenderDataChanged().AddUObject(this, &URealtimeMeshComponent::HandleMeshRenderingDataChanged);
+	InRealtimeMesh->OnCollisionBodyUpdated().AddUObject(this, &URealtimeMeshComponent::HandleCollisionBodyUpdated);
+}
+
+void URealtimeMeshComponent::UnbindFromEvents(URealtimeMesh* InRealtimeMesh)
+{
+	InRealtimeMesh->OnBoundsChanged().RemoveAll(this);
+	InRealtimeMesh->OnRenderDataChanged().RemoveAll(this);
+	InRealtimeMesh->OnCollisionBodyUpdated().RemoveAll(this);
 }
 
 
-void URealtimeMeshComponent::HandleBoundsUpdated(URealtimeMesh* IncomingMesh)
+void URealtimeMeshComponent::HandleBoundsUpdated(URealtimeMesh* InRealtimeMesh)
 {
 	UpdateBounds();
 }
 
-void URealtimeMeshComponent::HandleMeshRenderingDataChanged(URealtimeMesh* IncomingMesh, bool bShouldProxyRecreate)
+void URealtimeMeshComponent::HandleMeshRenderingDataChanged(URealtimeMesh* InRealtimeMesh, bool bShouldProxyRecreate)
 {
 	if (bShouldProxyRecreate)
 	{
@@ -290,7 +323,7 @@ void URealtimeMeshComponent::HandleMeshRenderingDataChanged(URealtimeMesh* Incom
 	}
 }
 
-void URealtimeMeshComponent::HandleCollisionBodyUpdated(URealtimeMesh* RealtimeMesh, UBodySetup* BodySetup)
+void URealtimeMeshComponent::HandleCollisionBodyUpdated(URealtimeMesh* InRealtimeMesh, UBodySetup* BodySetup)
 {
 	UpdateCollision();
 }

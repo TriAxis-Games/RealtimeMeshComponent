@@ -68,8 +68,10 @@ namespace RealtimeMesh
 		BatchElement.bIsInstanceRuns = false;
 		BatchElement.bForceInstanceCulling = false;
 		BatchElement.bPreserveInstanceOrder = false;
+#if RMC_ENGINE_ABOVE_5_4
 		BatchElement.bFetchInstanceCountFromScene = false;
-
+#endif
+		
 #if UE_ENABLE_DEBUG_DRAWING
 		BatchElement.VisualizeElementIndex = INDEX_NONE;
 #endif
@@ -81,6 +83,7 @@ namespace RealtimeMesh
 		return true;
 	}
 
+	UE_DISABLE_OPTIMIZATION
 	bool FRealtimeMeshSectionProxy::UpdateCachedState(bool bShouldForceUpdate, FRealtimeMeshSectionGroupProxy& ParentGroup)
 	{
 		TRACE_CPUPROFILER_EVENT_SCOPE(FRealtimeMeshSectionProxy::UpdateCachedState);
@@ -117,11 +120,6 @@ namespace RealtimeMesh
 					NewDrawMask.SetFlag(ERealtimeMeshDrawMask::DrawShadowPass);
 				}
 			}
-
-			if (NewDrawMask.HasAnyFlags())
-			{
-				NewDrawMask.SetFlag(Config.DrawType == ERealtimeMeshSectionDrawType::Static ? ERealtimeMeshDrawMask::DrawStatic : ERealtimeMeshDrawMask::DrawDynamic);
-			}
 		}
 
 		const bool bStateChanged = DrawMask != NewDrawMask;
@@ -129,6 +127,7 @@ namespace RealtimeMesh
 		bIsStateDirty = false;
 		return bStateChanged;
 	}
+	UE_ENABLE_OPTIMIZATION
 
 	void FRealtimeMeshSectionProxy::MarkStateDirty()
 	{

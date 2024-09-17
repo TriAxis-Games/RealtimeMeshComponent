@@ -14,11 +14,9 @@ ARealtimeMeshLatentUpdateTestActor::ARealtimeMeshLatentUpdateTestActor()
 	
 }
 
-
-void ARealtimeMeshLatentUpdateTestActor::OnGenerateMesh_Implementation()
+void ARealtimeMeshLatentUpdateTestActor::OnConstruction(const FTransform& Transform)
 {
-	Super::OnGenerateMesh_Implementation();
-
+	Super::OnConstruction(Transform);
 }
 
 void ARealtimeMeshLatentUpdateTestActor::BeginPlay()
@@ -62,10 +60,9 @@ void ARealtimeMeshLatentUpdateTestActor::BeginPlay()
 		AppendBox(Builder, FVector3f(200, 100, 100), 1);
 		AppendBox(Builder, FVector3f(100, 200, 100), 2);
 		
-		const auto SectionGroupKey = FRealtimeMeshSectionGroupKey::Create(0, FName(TEXT("Test")));
 		RealtimeMesh->CreateSectionGroup(GroupB, MoveTemp(StreamSet));
 
-		RealtimeMesh->UpdateSectionConfig(FRealtimeMeshSectionKey::CreateForPolyGroup(SectionGroupKey, 1), FRealtimeMeshSectionConfig(ERealtimeMeshSectionDrawType::Static, 0));
-		RealtimeMesh->UpdateSectionConfig(FRealtimeMeshSectionKey::CreateForPolyGroup(SectionGroupKey, 2), FRealtimeMeshSectionConfig(ERealtimeMeshSectionDrawType::Static, 1));
+		RealtimeMesh->UpdateSectionConfig(FRealtimeMeshSectionKey::CreateForPolyGroup(GroupB, 1), FRealtimeMeshSectionConfig(0));
+		RealtimeMesh->UpdateSectionConfig(FRealtimeMeshSectionKey::CreateForPolyGroup(GroupB, 2), FRealtimeMeshSectionConfig(1));
 	}
 }

@@ -3,7 +3,6 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Mesh/RealtimeMeshAlgo.h"
 #include "Modules/ModuleManager.h"
 
 /**

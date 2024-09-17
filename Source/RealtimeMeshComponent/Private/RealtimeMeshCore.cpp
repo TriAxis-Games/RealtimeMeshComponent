@@ -7,6 +7,7 @@
 #include "Data/RealtimeMeshLOD.h"
 #include "Data/RealtimeMeshSection.h"
 #include "Data/RealtimeMeshData.h"
+#include "Core/RealtimeMeshKeys.h"
 #include "RenderProxy/RealtimeMeshLODProxy.h"
 #include "RenderProxy/RealtimeMeshProxy.h"
 #include "RenderProxy/RealtimeMeshSectionGroupProxy.h"
@@ -92,9 +93,9 @@ namespace RealtimeMesh
 		return MakeShared<FRealtimeMeshSectionGroup>(ConstCastSharedRef<FRealtimeMeshSharedResources>(this->AsShared()), InKey);
 	}
 
-	FRealtimeMeshLODDataRef FRealtimeMeshSharedResources::CreateLOD(const FRealtimeMeshLODKey& InKey) const
+	FRealtimeMeshLODRef FRealtimeMeshSharedResources::CreateLOD(const FRealtimeMeshLODKey& InKey) const
 	{
-		return MakeShared<FRealtimeMeshLODData>(ConstCastSharedRef<FRealtimeMeshSharedResources>(this->AsShared()), InKey);
+		return MakeShared<FRealtimeMeshLOD>(ConstCastSharedRef<FRealtimeMeshSharedResources>(this->AsShared()), InKey);
 	}
 
 	FRealtimeMeshRef FRealtimeMeshSharedResources::CreateRealtimeMesh() const
@@ -108,3 +109,4 @@ namespace RealtimeMesh
 		return MakeShared<FRealtimeMeshSharedResources>();
 	}
 }
+

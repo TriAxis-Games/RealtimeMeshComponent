@@ -3,8 +3,10 @@
 #pragma once
 
 #include "RealtimeMeshCore.h"
-#include "RealtimeMeshConfig.h"
 #include "RealtimeMeshProxyShared.h"
+#include "Core/RealtimeMeshKeys.h"
+#include "Core/RealtimeMeshSectionConfig.h"
+#include "Core/RealtimeMeshStreamRange.h"
 
 namespace RealtimeMesh
 {

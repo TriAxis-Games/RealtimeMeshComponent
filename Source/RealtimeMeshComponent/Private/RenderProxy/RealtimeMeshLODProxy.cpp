@@ -3,6 +3,7 @@
 #include "RenderProxy/RealtimeMeshLODProxy.h"
 
 #include "Data/RealtimeMeshShared.h"
+#include "Core/RealtimeMeshLODConfig.h"
 #include "RenderProxy/RealtimeMeshSectionGroupProxy.h"
 #include "RenderProxy/RealtimeMeshSectionProxy.h"
 
@@ -75,14 +76,14 @@ namespace RealtimeMesh
 	}
 #endif
 	
-	bool FRealtimeMeshLODProxy::UpdateCachedState(bool bShouldForceUpdate)
+	bool FRealtimeMeshLODProxy::UpdateCachedState(FRHICommandListBase& RHICmdList, bool bShouldForceUpdate)
 	{
 		TRACE_CPUPROFILER_EVENT_SCOPE(FRealtimeMeshLODProxy::UpdateCachedState);
 		
 		// Handle all SectionGroup updates
 		for (const auto& SectionGroup : SectionGroups)
 		{
-			bIsStateDirty |= SectionGroup->UpdateCachedState(bIsStateDirty || bShouldForceUpdate);
+			bIsStateDirty |= SectionGroup->UpdateCachedState(RHICmdList, bIsStateDirty || bShouldForceUpdate);
 		}
 
 		if (!bIsStateDirty && !bShouldForceUpdate)
@@ -96,9 +97,9 @@ namespace RealtimeMesh
 		FRealtimeMeshSectionGroupMask NewActiveDynamicSectionGroupMask;
 		if (Config.bIsVisible && Config.ScreenSize >= 0)
 		{
-			NewActiveSectionGroupMask.SetNum(SectionGroups.Num(), false);
-			NewActiveStaticSectionGroupMask.SetNum(SectionGroups.Num(), false);
-			NewActiveDynamicSectionGroupMask.SetNum(SectionGroups.Num(), false);
+			NewActiveSectionGroupMask.Add(false, SectionGroups.Num());
+			NewActiveStaticSectionGroupMask.Add(false, SectionGroups.Num());
+			NewActiveDynamicSectionGroupMask.Add(false, SectionGroups.Num());
 			
 			for (auto It = SectionGroups.CreateConstIterator(); It; ++It)
 			{
@@ -139,12 +140,9 @@ namespace RealtimeMesh
 			}			
 		}
 
-		const bool bStateChanged = DrawMask != NewDrawMask || ActiveSectionGroupMask != NewActiveSectionGroupMask || ActiveStaticSectionGroupMask != NewActiveStaticSectionGroupMask ||
-			ActiveDynamicSectionGroupMask != NewActiveDynamicSectionGroupMask || StaticRaytracingSectionGroup != NewStaticRaytracingGroup;
+		const bool bStateChanged = DrawMask != NewDrawMask || ActiveSectionGroupMask != NewActiveSectionGroupMask || StaticRaytracingSectionGroup != NewStaticRaytracingGroup;
 		DrawMask = NewDrawMask;
 		ActiveSectionGroupMask = NewActiveSectionGroupMask;
-		ActiveStaticSectionGroupMask = NewActiveStaticSectionGroupMask;
-		ActiveDynamicSectionGroupMask = NewActiveDynamicSectionGroupMask;
 		bIsStateDirty = false;
 #if RHI_RAYTRACING
 		StaticRaytracingSectionGroup = NewStaticRaytracingGroup;

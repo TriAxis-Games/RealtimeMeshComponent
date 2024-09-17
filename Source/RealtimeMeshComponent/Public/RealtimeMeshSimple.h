@@ -4,13 +4,12 @@
 
 #include "CoreMinimal.h"
 #include "RealtimeMesh.h"
-#include "RealtimeMeshConfig.h"
 #include "Data/RealtimeMeshLOD.h"
 #include "Data/RealtimeMeshSection.h"
 #include "Data/RealtimeMeshSectionGroup.h"
 #include "Interface_CollisionDataProviderCore.h"
-#include "Mesh/RealtimeMeshBuilder.h"
-#include "Mesh/RealtimeMeshDataStream.h"
+#include "Core/RealtimeMeshBuilder.h"
+#include "Core/RealtimeMeshDataStream.h"
 #include "Mesh/RealtimeMeshDistanceField.h"
 #include "Mesh/RealtimeMeshCardRepresentation.h"
 #include "RealtimeMeshSimple.generated.h"
@@ -52,10 +51,10 @@ namespace RealtimeMesh
 
 		/**
 		 * @brief Update the stream range for this section
-		 * @param Commands Running command queue that we send RT commands too. This is used for command batching.
+		 * @param ProxyBuilder Running command queue that we send RT commands too. This is used for command batching.
 		 * @param InRange New section stream range
 		 */
-		virtual void UpdateStreamRange(FRealtimeMeshProxyCommandBatch& Commands, const FRealtimeMeshStreamRange& InRange) override;
+		virtual void UpdateStreamRange(FRealtimeMeshProxyUpdateBuilder& ProxyBuilder, const FRealtimeMeshStreamRange& InRange) override;
 		
 		/**
 		 * @brief Serializes this section to the running archive.
@@ -66,9 +65,9 @@ namespace RealtimeMesh
 
 		/**
 		 * @brief Resets the section to a default state
-		 * @param Commands Running command queue that we send RT commands too. This is used for command batching.
+		 * @param ProxyBuilder Running command queue that we send RT commands too. This is used for command batching.
 		 */
-		virtual void Reset(FRealtimeMeshProxyCommandBatch& Commands) override;
+		virtual void Reset(FRealtimeMeshProxyUpdateBuilder& ProxyBuilder) override;
 
 	protected:
 		/**
@@ -147,46 +146,38 @@ namespace RealtimeMesh
 
 		/*
 		 * @brief Create or update a stream in the mesh data
-		 * @param Commands Running command queue that we send RT commands too. This is used for command batching.
+		 * @param ProxyBuilder Running command queue that we send RT commands too. This is used for command batching.
 		 * @param Stream The stream to create or update
 		 */
-		virtual void CreateOrUpdateStream(FRealtimeMeshProxyCommandBatch& Commands, FRealtimeMeshStream&& Stream) override;
+		virtual void CreateOrUpdateStream(FRealtimeMeshProxyUpdateBuilder& ProxyBuilder, FRealtimeMeshStream&& Stream) override;
 
 		/*
 		 * @brief Remove a stream from the mesh data
-		 * @param Commands Running command queue that we send RT commands too. This is used for command batching.
+		 * @param ProxyBuilder Running command queue that we send RT commands too. This is used for command batching.
 		 * @param StreamKey Key to identify the stream
 		 */
-		virtual void RemoveStream(FRealtimeMeshProxyCommandBatch& Commands, const FRealtimeMeshStreamKey& StreamKey) override;
+		virtual void RemoveStream(FRealtimeMeshProxyUpdateBuilder& ProxyBuilder, const FRealtimeMeshStreamKey& StreamKey) override;
 
 
 		using FRealtimeMeshSectionGroup::SetAllStreams;
 		/*
 		 * @brief Set all the streams in the mesh data
-		 * @param Commands Running command queue that we send RT commands too. This is used for command batching.
+		 * @param ProxyBuilder Running command queue that we send RT commands too. This is used for command batching.
 		 * @param InStreams The new streams to set
 		 */
-		virtual void SetAllStreams(FRealtimeMeshProxyCommandBatch& Commands, FRealtimeMeshStreamSet&& InStreams) override;
-
-		PRAGMA_DISABLE_DEPRECATION_WARNINGS
-		UE_DEPRECATED(all, "FRealtimeMeshSimpleMeshData is deprecated, use FRealtimeMeshStreamSet and TRealtimeMeshBuilderLocal instead and its helper functions which are more efficient and flexible")
-		TFuture<ERealtimeMeshProxyUpdateStatus> UpdateFromSimpleMesh(const FRealtimeMeshSimpleMeshData& MeshData);
-		
-		UE_DEPRECATED(all, "FRealtimeMeshSimpleMeshData is deprecated, use FRealtimeMeshStreamSet and TRealtimeMeshBuilderLocal instead and its helper functions which are more efficient and flexible")
-		void UpdateFromSimpleMesh(FRealtimeMeshProxyCommandBatch& Commands, const FRealtimeMeshSimpleMeshData& MeshData);
-		PRAGMA_ENABLE_DEPRECATION_WARNINGS
+		virtual void SetAllStreams(FRealtimeMeshProxyUpdateBuilder& ProxyBuilder, FRealtimeMeshStreamSet&& InStreams) override;
 
 		/*
 		 * @brief Setup the proxy for this section group
-		 * @param Commands Running command queue that we send RT commands too. This is used for command batching.
+		 * @param ProxyBuilder Running command queue that we send RT commands too. This is used for command batching.
 		 */
-		virtual void InitializeProxy(FRealtimeMeshProxyCommandBatch& Commands) override;
+		virtual void InitializeProxy(FRealtimeMeshProxyUpdateBuilder& ProxyBuilder) override;
 
 		/*
 		 * @brief Reset this section group, removing all streams, and config
-		 * @param Commands Running command queue that we send RT commands too. This is used for command batching.
+		 * @param ProxyBuilder Running command queue that we send RT commands too. This is used for command batching.
 		 */
-		virtual void Reset(FRealtimeMeshProxyCommandBatch& Commands) override;
+		virtual void Reset(FRealtimeMeshProxyUpdateBuilder& ProxyBuilder) override;
 
 		/*
 		 * @brief Serialize this section group
@@ -201,20 +192,20 @@ namespace RealtimeMesh
 		
 	protected:
 
-		virtual void UpdatePolyGroupSections(FRealtimeMeshProxyCommandBatch& Commands, bool bUpdateDepthOnly);
+		virtual void UpdatePolyGroupSections(FRealtimeMeshProxyUpdateBuilder& ProxyBuilder, bool bUpdateDepthOnly);
 		virtual FRealtimeMeshSectionConfig DefaultPolyGroupSectionHandler(int32 PolyGroupIndex) const;
 		
 		bool ShouldCreateSingularSection() const;
 	};
 
 	/*
-	 * @brief Concrete implementation of FRealtimeMeshLODData for the simple realtime mesh implementation
+	 * @brief Concrete implementation of FRealtimeMeshLOD for the simple realtime mesh implementation
 	 */
-	class REALTIMEMESHCOMPONENT_API FRealtimeMeshLODSimple : public FRealtimeMeshLODData
+	class REALTIMEMESHCOMPONENT_API FRealtimeMeshLODSimple : public FRealtimeMeshLOD
 	{
 	public:
 		FRealtimeMeshLODSimple(const FRealtimeMeshSharedResourcesRef& InSharedResources, const FRealtimeMeshLODKey& InKey)
-			: FRealtimeMeshLODData(InSharedResources, InKey)
+			: FRealtimeMeshLOD(InSharedResources, InKey)
 		{
 		}
 
@@ -248,7 +239,7 @@ namespace RealtimeMesh
 			return MakeShared<FRealtimeMeshSectionGroupSimple>(ConstCastSharedRef<FRealtimeMeshSharedResources>(this->AsShared()), InKey);
 		}
 
-		virtual FRealtimeMeshLODDataRef CreateLOD(const FRealtimeMeshLODKey& InKey) const override
+		virtual FRealtimeMeshLODRef CreateLOD(const FRealtimeMeshLODKey& InKey) const override
 		{
 			return MakeShared<FRealtimeMeshLODSimple>(ConstCastSharedRef<FRealtimeMeshSharedResources>(this->AsShared()), InKey);
 		}
@@ -295,6 +286,13 @@ namespace RealtimeMesh
 			SharedResources->As<FRealtimeMeshSharedResourcesSimple>().OnCollisionDataChanged().RemoveAll(this);
 		}
 
+		TFuture<ERealtimeMeshProxyUpdateStatus> CreateSectionGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey, const FRealtimeMeshSectionGroupConfig& InConfig = FRealtimeMeshSectionGroupConfig(), bool bShouldAutoCreateSectionsForPolyGroups = true);
+		TFuture<ERealtimeMeshProxyUpdateStatus> CreateSectionGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey, FRealtimeMeshStreamSet&& MeshData, const FRealtimeMeshSectionGroupConfig& InConfig = FRealtimeMeshSectionGroupConfig(), bool bShouldAutoCreateSectionsForPolyGroups = true);
+		TFuture<ERealtimeMeshProxyUpdateStatus> CreateSectionGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey, const FRealtimeMeshStreamSet& MeshData, const FRealtimeMeshSectionGroupConfig& InConfig = FRealtimeMeshSectionGroupConfig(), bool bShouldAutoCreateSectionsForPolyGroups = true);
+		TFuture<ERealtimeMeshProxyUpdateStatus> UpdateSectionGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey, FRealtimeMeshStreamSet&& MeshData);
+		TFuture<ERealtimeMeshProxyUpdateStatus> UpdateSectionGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey, const FRealtimeMeshStreamSet& MeshData);
+
+
 		FRealtimeMeshCollisionConfiguration GetCollisionConfig() const;
 		TFuture<ERealtimeMeshCollisionUpdateResult> SetCollisionConfig(const FRealtimeMeshCollisionConfiguration& InCollisionConfig);
 		FRealtimeMeshSimpleGeometry GetSimpleGeometry() const;
@@ -308,21 +306,23 @@ namespace RealtimeMesh
 		TFuture<ERealtimeMeshCollisionUpdateResult> EditCustomComplexMeshGeometry(TFunctionRef<void(FRealtimeMeshComplexGeometry&)> EditFunc);
 
 		const FRealtimeMeshDistanceField& GetDistanceField() const;
-		virtual void SetDistanceField(FRealtimeMeshProxyCommandBatch& Commands, FRealtimeMeshDistanceField&& InDistanceField) override;
+		virtual void SetDistanceField(FRealtimeMeshProxyUpdateBuilder& ProxyBuilder, FRealtimeMeshDistanceField&& InDistanceField) override;
 		using FRealtimeMesh::SetDistanceField;
-		virtual void ClearDistanceField(FRealtimeMeshProxyCommandBatch& Commands) override;
+		virtual void ClearDistanceField(FRealtimeMeshProxyUpdateBuilder& ProxyBuilder) override;
 		using FRealtimeMesh::ClearDistanceField;
 
 		const FRealtimeMeshCardRepresentation* GetCardRepresentation() const;
-		virtual void SetCardRepresentation(FRealtimeMeshProxyCommandBatch& Commands, FRealtimeMeshCardRepresentation&& InCardRepresentation) override;
+		virtual void SetCardRepresentation(FRealtimeMeshProxyUpdateBuilder& ProxyBuilder, FRealtimeMeshCardRepresentation&& InCardRepresentation) override;
 		using FRealtimeMesh::SetCardRepresentation;
-		virtual void ClearCardRepresentation(FRealtimeMeshProxyCommandBatch& Commands) override;
+		virtual void ClearCardRepresentation(FRealtimeMeshProxyUpdateBuilder& ProxyBuilder) override;
 		using FRealtimeMesh::ClearCardRepresentation;		
 		
 		virtual bool GenerateComplexCollision(FRealtimeMeshComplexGeometry& ComplexGeometry);
 
-		virtual void InitializeProxy(FRealtimeMeshProxyCommandBatch& Commands) const override;
-		virtual void Reset(FRealtimeMeshProxyCommandBatch& Commands, bool bRemoveRenderProxy) override;
+		virtual void InitializeProxy(FRealtimeMeshProxyUpdateBuilder& ProxyBuilder) const override;
+		
+		using FRealtimeMesh::Reset;
+		virtual void Reset(FRealtimeMeshProxyUpdateBuilder& ProxyBuilder, bool bRemoveRenderProxy) override;
 
 		virtual bool Serialize(FArchive& Ar, URealtimeMesh* Owner) override;
 
@@ -352,22 +352,13 @@ protected:
 public:
 	TSharedRef<RealtimeMesh::FRealtimeMeshSimple> GetMeshData() const { return StaticCastSharedRef<RealtimeMesh::FRealtimeMeshSimple>(GetMesh()); }
 
-	TFuture<ERealtimeMeshProxyUpdateStatus> CreateSectionGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey, bool bShouldAutoCreateSectionsForPolyGroups = true);
+	TFuture<ERealtimeMeshProxyUpdateStatus> CreateSectionGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey, const FRealtimeMeshSectionGroupConfig& InConfig = FRealtimeMeshSectionGroupConfig(), bool bShouldAutoCreateSectionsForPolyGroups = true);
 
-	TFuture<ERealtimeMeshProxyUpdateStatus> CreateSectionGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey, FRealtimeMeshStreamSet&& MeshData, bool bShouldAutoCreateSectionsForPolyGroups = true);
-	TFuture<ERealtimeMeshProxyUpdateStatus> CreateSectionGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey, const FRealtimeMeshStreamSet& MeshData, bool bShouldAutoCreateSectionsForPolyGroups = true);
+	TFuture<ERealtimeMeshProxyUpdateStatus> CreateSectionGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey, FRealtimeMeshStreamSet&& MeshData, const FRealtimeMeshSectionGroupConfig& InConfig = FRealtimeMeshSectionGroupConfig(), bool bShouldAutoCreateSectionsForPolyGroups = true);
+	TFuture<ERealtimeMeshProxyUpdateStatus> CreateSectionGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey, const FRealtimeMeshStreamSet& MeshData, const FRealtimeMeshSectionGroupConfig& InConfig = FRealtimeMeshSectionGroupConfig(), bool bShouldAutoCreateSectionsForPolyGroups = true);
 	
 	TFuture<ERealtimeMeshProxyUpdateStatus> UpdateSectionGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey, FRealtimeMeshStreamSet&& MeshData);
-	TFuture<ERealtimeMeshProxyUpdateStatus> UpdateSectionGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey, const FRealtimeMeshStreamSet& MeshData);
-	
-	// DEPRECATE
-	PRAGMA_DISABLE_DEPRECATION_WARNINGS
-	UE_DEPRECATED(all, "FRealtimeMeshSimpleMeshData is deprecated, use FRealtimeMeshStreamSet and TRealtimeMeshBuilderLocal instead and its helper functions which are more efficient and flexible")
-	TFuture<ERealtimeMeshProxyUpdateStatus> CreateSectionGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey, const FRealtimeMeshSimpleMeshData& MeshData);
-	UE_DEPRECATED(all, "FRealtimeMeshSimpleMeshData is deprecated, use FRealtimeMeshStreamSet and TRealtimeMeshBuilderLocal instead and its helper functions which are more efficient and flexible")
-	TFuture<ERealtimeMeshProxyUpdateStatus> UpdateSectionGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey, const FRealtimeMeshSimpleMeshData& MeshData);
-	PRAGMA_ENABLE_DEPRECATION_WARNINGS
-	
+	TFuture<ERealtimeMeshProxyUpdateStatus> UpdateSectionGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey, const FRealtimeMeshStreamSet& MeshData);	
 	
 	TFuture<ERealtimeMeshProxyUpdateStatus> CreateSection(const FRealtimeMeshSectionKey& SectionKey, const FRealtimeMeshSectionConfig& Config,
 															const FRealtimeMeshStreamRange& StreamRange, bool bShouldCreateCollision = false);
@@ -379,7 +370,7 @@ public:
 	TArray<FRealtimeMeshSectionGroupKey> GetSectionGroups(const FRealtimeMeshLODKey& LODKey) const;
 	TSharedPtr<FRealtimeMeshSectionGroupSimple> GetSectionGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey) const;
 	
-	bool ProcessMesh(const FRealtimeMeshSectionGroupKey& SectionGroupKey, const TFunctionRef<void(const FRealtimeMeshStreamSet&)>& ProcessFunc) const;
+	void ProcessMesh(const FRealtimeMeshSectionGroupKey& SectionGroupKey, const TFunctionRef<void(const FRealtimeMeshStreamSet&)>& ProcessFunc) const;
 	TFuture<ERealtimeMeshProxyUpdateStatus> EditMeshInPlace(const FRealtimeMeshSectionGroupKey& SectionGroupKey, const TFunctionRef<TSet<FRealtimeMeshStreamKey>(FRealtimeMeshStreamSet&)>& EditFunc);
 
 
@@ -392,63 +383,32 @@ public:
 	TFuture<ERealtimeMeshCollisionUpdateResult> EditCustomComplexMeshGeometry(TFunctionRef<void(FRealtimeMeshComplexGeometry&)> EditFunc);
 
 
-	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh", DisplayName="CreateSectionGroup", meta= (AutoCreateRefTerm = "CompletionCallback"))
-	void CreateSectionGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey, URealtimeMeshStreamSet* MeshData, const FRealtimeMeshSimpleCompletionCallback& CompletionCallback);
-
-	PRAGMA_DISABLE_DEPRECATION_WARNINGS
-	UE_DEPRECATED(all, "FRealtimeMeshSimpleMeshData is deprecated, use FRealtimeMeshStreamSet and TRealtimeMeshBuilderLocal instead and its helper functions which are more efficient and flexible")
-	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh", DisplayName="CreateSectionGroupFromSimpleMesh", meta= (AutoCreateRefTerm = "CompletionCallback"))
-	void CreateSectionGroupFromSimple(const FRealtimeMeshSectionGroupKey& SectionGroupKey, const FRealtimeMeshSimpleMeshData& MeshData, const FRealtimeMeshSimpleCompletionCallback& CompletionCallback);
-	PRAGMA_ENABLE_DEPRECATION_WARNINGS
+	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh", DisplayName="CreateSectionGroup", meta=(AutoCreateRefTerm="OnComplete"))
+	void CreateSectionGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey, URealtimeMeshStreamSet* MeshData, const FRealtimeMeshSimpleCompletionCallback& OnComplete);
 	
-	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh", DisplayName="CreateSectionGroupUnique", meta= (AutoCreateRefTerm = "CompletionCallback"))
-	FRealtimeMeshSectionGroupKey CreateSectionGroupUnique(const FRealtimeMeshLODKey& LODKey, URealtimeMeshStreamSet* MeshData, const FRealtimeMeshSimpleCompletionCallback& CompletionCallback);
-
-	PRAGMA_DISABLE_DEPRECATION_WARNINGS
-	UE_DEPRECATED(all, "FRealtimeMeshSimpleMeshData is deprecated, use FRealtimeMeshStreamSet and TRealtimeMeshBuilderLocal instead and its helper functions which are more efficient and flexible")
-	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh", DisplayName="CreateSectionGroupUniqueFromSimpleMesh", meta= (AutoCreateRefTerm = "CompletionCallback"))
-	FRealtimeMeshSectionGroupKey CreateSectionGroupUniqueFromSimple(const FRealtimeMeshLODKey& LODKey,const FRealtimeMeshSimpleMeshData& MeshData, const FRealtimeMeshSimpleCompletionCallback& CompletionCallback);
-	PRAGMA_ENABLE_DEPRECATION_WARNINGS
+	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh", DisplayName="CreateSectionGroupUnique", meta=(AutoCreateRefTerm="OnComplete"))
+	FRealtimeMeshSectionGroupKey CreateSectionGroupUnique(const FRealtimeMeshLODKey& LODKey, URealtimeMeshStreamSet* MeshData, const FRealtimeMeshSimpleCompletionCallback& OnComplete);
 	
-	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh", DisplayName="UpdateSectionGroup", meta= (AutoCreateRefTerm = "CompletionCallback"))
-	void UpdateSectionGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey, URealtimeMeshStreamSet* MeshData, const FRealtimeMeshSimpleCompletionCallback& CompletionCallback);
+	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh", DisplayName="UpdateSectionGroup", meta=(AutoCreateRefTerm="OnComplete"))
+	void UpdateSectionGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey, URealtimeMeshStreamSet* MeshData, const FRealtimeMeshSimpleCompletionCallback& OnComplete);
 
-	PRAGMA_DISABLE_DEPRECATION_WARNINGS
-	UE_DEPRECATED(all, "FRealtimeMeshSimpleMeshData is deprecated, use FRealtimeMeshStreamSet and TRealtimeMeshBuilderLocal instead and its helper functions which are more efficient and flexible")
-	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh", DisplayName="UpdateSectionGroupFromSimpleMesh", meta= (AutoCreateRefTerm = "CompletionCallback"))
-	void UpdateSectionGroupFromSimple(const FRealtimeMeshSectionGroupKey& SectionGroupKey, const FRealtimeMeshSimpleMeshData& MeshData, const FRealtimeMeshSimpleCompletionCallback& CompletionCallback);
-	PRAGMA_ENABLE_DEPRECATION_WARNINGS
-
-
-	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh", DisplayName="CreateSection", meta = (AutoCreateRefTerm = "Config, StreamRange, CompletionCallback"))
+	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh", DisplayName="CreateSection", meta = (AutoCreateRefTerm = "Config, StreamRange, OnComplete"))
 	void CreateSection(const FRealtimeMeshSectionKey& SectionKey, const FRealtimeMeshSectionConfig& Config,
-								 const FRealtimeMeshStreamRange& StreamRange, bool bShouldCreateCollision, const FRealtimeMeshSimpleCompletionCallback& CompletionCallback);
+								 const FRealtimeMeshStreamRange& StreamRange, bool bShouldCreateCollision, const FRealtimeMeshSimpleCompletionCallback& OnComplete);
 
-	UE_DEPRECATED(all, "Use CreateSection instead")
-	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh", DisplayName="CreateSectionUnique", meta = (AutoCreateRefTerm = "Config, StreamRange, CompletionCallback"))
-	FRealtimeMeshSectionKey CreateSectionUnique(const FRealtimeMeshSectionGroupKey& SectionGroupKey, const FRealtimeMeshSectionConfig& Config,
-														  const FRealtimeMeshStreamRange& StreamRange, bool bShouldCreateCollision,
-														  const FRealtimeMeshSimpleCompletionCallback& CompletionCallback);
-	
-
-
-
-	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh", DisplayName="UpdateSectionConfig", meta = (AutoCreateRefTerm = "SectionKey, bShouldCreateCollision, CompletionCallback"))
+	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh", DisplayName="UpdateSectionConfig", meta = (AutoCreateRefTerm = "SectionKey, bShouldCreateCollision, OnComplete"))
 	void UpdateSectionConfig(const FRealtimeMeshSectionKey& SectionKey, const FRealtimeMeshSectionConfig& Config, bool bShouldCreateCollision,
-									   const FRealtimeMeshSimpleCompletionCallback& CompletionCallback);
-
+									   const FRealtimeMeshSimpleCompletionCallback& OnComplete);
 
 	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh")
 	TArray<FRealtimeMeshSectionKey> GetSectionsInGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey);
 
 
-	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh", DisplayName="RemoveSection", meta = (AutoCreateRefTerm = "SectionKey, CompletionCallback"))
-	void RemoveSection(const FRealtimeMeshSectionKey& SectionKey, const FRealtimeMeshSimpleCompletionCallback& CompletionCallback);
+	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh", DisplayName="RemoveSection", meta = (AutoCreateRefTerm = "SectionKey, OnComplete"))
+	void RemoveSection(const FRealtimeMeshSectionKey& SectionKey, const FRealtimeMeshSimpleCompletionCallback& OnComplete);
 
-	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh", DisplayName="RemoveSectionGroup", meta = (AutoCreateRefTerm = "SectionGroupKey, CompletionCallback"))
-	void RemoveSectionGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey, const FRealtimeMeshSimpleCompletionCallback& CompletionCallback);
-
-
+	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh", DisplayName="RemoveSectionGroup", meta = (AutoCreateRefTerm = "SectionGroupKey, OnComplete"))
+	void RemoveSectionGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey, const FRealtimeMeshSimpleCompletionCallback& OnComplete);
 	
 	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh")
 	void SetShouldAutoCreateSectionsForPolyGroups(const FRealtimeMeshSectionGroupKey& SectionGroupKey, bool bNewValue);
@@ -464,16 +424,16 @@ public:
 
 	TFuture<ERealtimeMeshProxyUpdateStatus> SetSectionVisibility(const FRealtimeMeshSectionKey& SectionKey, bool bIsVisible);
 
-	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh", DisplayName="SetSectionVisibility", meta = (AutoCreateRefTerm = "SectionKey, CompletionCallback"))
-	void SetSectionVisibility(const FRealtimeMeshSectionKey& SectionKey, bool bIsVisible, const FRealtimeMeshSimpleCompletionCallback& CompletionCallback);
+	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh", DisplayName="SetSectionVisibility", meta = (AutoCreateRefTerm = "SectionKey, OnComplete"))
+	void SetSectionVisibility(const FRealtimeMeshSectionKey& SectionKey, bool bIsVisible, const FRealtimeMeshSimpleCompletionCallback& OnComplete);
 	
 	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh", meta = (AutoCreateRefTerm = "SectionKey"))
 	bool IsSectionCastingShadow(const FRealtimeMeshSectionKey& SectionKey) const;
 
 	TFuture<ERealtimeMeshProxyUpdateStatus> SetSectionCastShadow(const FRealtimeMeshSectionKey& SectionKey, bool bCastShadow);
 
-	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh", DisplayName="SetSectionCastShadow", meta = (AutoCreateRefTerm = "SectionKey, CompletionCallback"))
-	void SetSectionCastShadow(const FRealtimeMeshSectionKey& SectionKey, bool bCastShadow, const FRealtimeMeshSimpleCompletionCallback& CompletionCallback);
+	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh", DisplayName="SetSectionCastShadow", meta = (AutoCreateRefTerm = "SectionKey, OnComplete"))
+	void SetSectionCastShadow(const FRealtimeMeshSectionKey& SectionKey, bool bCastShadow, const FRealtimeMeshSimpleCompletionCallback& OnComplete);
 	
 	TFuture<ERealtimeMeshProxyUpdateStatus> RemoveSection(const FRealtimeMeshSectionKey& SectionKey);
 
@@ -484,8 +444,8 @@ public:
 	
 	TFuture<ERealtimeMeshProxyUpdateStatus> SetDistanceField(FRealtimeMeshDistanceField&& InDistanceField);
 	
-	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh", meta = (AutoCreateRefTerm = "CompletionCallback"))
-	void SetDistanceField(const FRealtimeMeshDistanceField& DistanceField, const FRealtimeMeshSimpleCompletionCallback& CompletionCallback);
+	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh", meta = (AutoCreateRefTerm = "OnComplete"))
+	void SetDistanceField(const FRealtimeMeshDistanceField& DistanceField, const FRealtimeMeshSimpleCompletionCallback& OnComplete);
 	
 	TFuture<ERealtimeMeshProxyUpdateStatus> ClearDistanceField();
 
@@ -493,8 +453,8 @@ public:
 	
 	TFuture<ERealtimeMeshProxyUpdateStatus> SetCardRepresentation(FRealtimeMeshCardRepresentation&& InCardRepresentation);
 	
-	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh", meta = (AutoCreateRefTerm = "CompletionCallback"))
-	void SetCardRepresentation(const FRealtimeMeshCardRepresentation& CardRepresentation, const FRealtimeMeshSimpleCompletionCallback& CompletionCallback);
+	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh", meta = (AutoCreateRefTerm = "OnComplete"))
+	void SetCardRepresentation(const FRealtimeMeshCardRepresentation& CardRepresentation, const FRealtimeMeshSimpleCompletionCallback& OnComplete);
 	
 	TFuture<ERealtimeMeshProxyUpdateStatus> ClearCardRepresentation();
 	
@@ -503,16 +463,16 @@ public:
 
 	TFuture<ERealtimeMeshCollisionUpdateResult> SetCollisionConfig(const FRealtimeMeshCollisionConfiguration& InCollisionConfig);
 
-	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh", DisplayName="SetCollisionConfig")
-	void SetCollisionConfig(const FRealtimeMeshCollisionConfiguration& InCollisionConfig, const FRealtimeMeshSimpleCollisionCompletionCallback& CompletionCallback);
+	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh", DisplayName="SetCollisionConfig", meta = (AutoCreateRefTerm = "OnComplete"))
+	void SetCollisionConfig(const FRealtimeMeshCollisionConfiguration& InCollisionConfig, const FRealtimeMeshSimpleCollisionCompletionCallback& OnComplete);
 	
 	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh")
 	FRealtimeMeshSimpleGeometry GetSimpleGeometry() const;
 
 	TFuture<ERealtimeMeshCollisionUpdateResult> SetSimpleGeometry(const FRealtimeMeshSimpleGeometry& InSimpleGeometry);
 
-	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh", DisplayName="SetSimpleGeometry")
-	void SetSimpleGeometry(const FRealtimeMeshSimpleGeometry& InSimpleGeometry, const FRealtimeMeshSimpleCollisionCompletionCallback& CompletionCallback);
+	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh", DisplayName="SetSimpleGeometry", meta = (AutoCreateRefTerm = "OnComplete"))
+	void SetSimpleGeometry(const FRealtimeMeshSimpleGeometry& InSimpleGeometry, const FRealtimeMeshSimpleCollisionCompletionCallback& OnComplete);
 	
 	virtual void Reset(bool bCreateNewMeshData) override;
 	

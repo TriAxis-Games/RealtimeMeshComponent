@@ -10,7 +10,7 @@ namespace RealtimeMesh
 	using FRealtimeMeshContiguousElementDataConverter = TFunction<void(const void*, void*, uint32)>;
 
 	
-	struct REALTIMEMESHCOMPONENT_API FRealtimeMeshElementConversionKey
+	struct REALTIMEMESHCOMPONENT_INTERFACE_API FRealtimeMeshElementConversionKey
 	{
 		const FRealtimeMeshElementType FromType;
 		const FRealtimeMeshElementType ToType;
@@ -31,7 +31,7 @@ namespace RealtimeMesh
 		}
 	};
 
-	struct REALTIMEMESHCOMPONENT_API FRealtimeMeshElementConverters
+	struct REALTIMEMESHCOMPONENT_INTERFACE_API FRealtimeMeshElementConverters
 	{
 	private:
 		const FRealtimeMeshElementDataConverter ElementConverter;
@@ -55,7 +55,7 @@ namespace RealtimeMesh
 		}
 	};
 
-	struct REALTIMEMESHCOMPONENT_API FRealtimeMeshTypeConversionUtilities
+	struct REALTIMEMESHCOMPONENT_INTERFACE_API FRealtimeMeshTypeConversionUtilities
 	{
 	private:
 		static TMap<FRealtimeMeshElementConversionKey, FRealtimeMeshElementConverters> TypeConversionMap;

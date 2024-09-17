@@ -4,6 +4,7 @@
 #include "RealtimeMeshGuard.h"
 #include "Data/RealtimeMeshShared.h"
 #include "Data/RealtimeMeshSection.h"
+#include "Data/RealtimeMeshUpdateBuilder.h"
 #include "RenderProxy/RealtimeMeshGPUBuffer.h"
 #include "RenderProxy/RealtimeMeshProxyCommandBatch.h"
 #include "RenderProxy/RealtimeMeshSectionGroupProxy.h"
@@ -32,7 +33,7 @@ namespace RealtimeMesh
 
 	FRealtimeMeshStreamRange FRealtimeMeshSectionGroup::GetInUseRange() const
 	{
-		FRealtimeMeshScopeGuardRead ScopeGuard(SharedResources->GetGuard());
+		FRealtimeMeshScopeGuardRead ScopeGuard(SharedResources);
 		TOptional<FRealtimeMeshStreamRange> NewRange;
 		for (const auto& Section : Sections)
 		{
@@ -44,42 +45,53 @@ namespace RealtimeMesh
 			NewRange = NewRange->Hull(Section->GetStreamRange());
 		}
 
-		return NewRange.IsSet() ? *NewRange : FRealtimeMeshStreamRange::Empty;
+		return NewRange.IsSet() ? *NewRange : FRealtimeMeshStreamRange::Empty();
 	}
 
 	FBoxSphereBounds3f FRealtimeMeshSectionGroup::GetLocalBounds() const
 	{
-		FRealtimeMeshScopeGuardRead ScopeGuard(SharedResources->GetGuard());
+		FRealtimeMeshScopeGuardRead ScopeGuard(SharedResources);
 		return Bounds.GetBounds([&]() { return CalculateBounds(); });
 	}
 
 	bool FRealtimeMeshSectionGroup::HasSections() const
 	{
-		FRealtimeMeshScopeGuardRead ScopeGuard(SharedResources->GetGuard());
+		FRealtimeMeshScopeGuardRead ScopeGuard(SharedResources);
 		return Sections.Num() > 0;
 	}
 
 	int32 FRealtimeMeshSectionGroup::NumSections() const
 	{
-		FRealtimeMeshScopeGuardRead ScopeGuard(SharedResources->GetGuard());
+		FRealtimeMeshScopeGuardRead ScopeGuard(SharedResources);
 		return Sections.Num();
 	}
 
 	bool FRealtimeMeshSectionGroup::HasStreams() const
 	{
-		FRealtimeMeshScopeGuardRead ScopeGuard(SharedResources->GetGuard());
+		FRealtimeMeshScopeGuardRead ScopeGuard(SharedResources);
 		return Streams.Num() > 0;
 	}
 
 	TSet<FRealtimeMeshStreamKey> FRealtimeMeshSectionGroup::GetStreamKeys() const
 	{
-		FRealtimeMeshScopeGuardRead ScopeGuard(SharedResources->GetGuard());
+		FRealtimeMeshScopeGuardRead ScopeGuard(SharedResources);
 		return Streams;
+	}
+
+	TSet<FRealtimeMeshSectionKey> FRealtimeMeshSectionGroup::GetSectionKeys() const
+	{
+		FRealtimeMeshScopeGuardRead ScopeGuard(SharedResources);
+		TSet<FRealtimeMeshSectionKey> SectionKeys;
+		for (const auto& Section : Sections)
+		{
+			SectionKeys.Add(Section->GetKey());
+		}
+		return SectionKeys;
 	}
 
 	FRealtimeMeshSectionPtr FRealtimeMeshSectionGroup::GetSection(const FRealtimeMeshSectionKey& SectionKey) const
 	{
-		FRealtimeMeshScopeGuardRead ScopeGuard(SharedResources->GetGuard());
+		FRealtimeMeshScopeGuardRead ScopeGuard(SharedResources);
 		if (SectionKey.IsPartOf(Key) && Sections.Contains(SectionKey))
 		{
 			return *Sections.Find(SectionKey);
@@ -87,43 +99,45 @@ namespace RealtimeMesh
 		return nullptr;
 	}
 
-	void FRealtimeMeshSectionGroup::Initialize(FRealtimeMeshProxyCommandBatch& Commands)
+	void FRealtimeMeshSectionGroup::Initialize(FRealtimeMeshProxyUpdateBuilder& ProxyBuilder, const FRealtimeMeshSectionGroupConfig& InConfig)
 	{
-		FRealtimeMeshScopeGuardWrite ScopeGuard(SharedResources->GetGuard());
+		FRealtimeMeshScopeGuardWriteCheck LockCheck(SharedResources);
+		Config = InConfig;
 		Bounds.Reset();
 
-		if (Commands)
+		if (ProxyBuilder)
 		{
-			InitializeProxy(Commands);
+			InitializeProxy(ProxyBuilder);
 		}
 	}
 
 	TFuture<ERealtimeMeshProxyUpdateStatus> FRealtimeMeshSectionGroup::Reset()
 	{
-		FRealtimeMeshProxyCommandBatch Commands(SharedResources->GetOwner());
-		Reset(Commands);
-		return Commands.Commit();
+		FRealtimeMeshUpdateContext UpdateContext(SharedResources);
+		Reset(UpdateContext);
+		return UpdateContext.Commit();
 	}
 
-	void FRealtimeMeshSectionGroup::Reset(FRealtimeMeshProxyCommandBatch& Commands)
+	void FRealtimeMeshSectionGroup::Reset(FRealtimeMeshProxyUpdateBuilder& ProxyBuilder)
 	{
-		FRealtimeMeshScopeGuardWrite ScopeGuard(SharedResources->GetGuard());
+		FRealtimeMeshScopeGuardWriteCheck LockCheck(SharedResources);
 
 		const auto StreamsToRemove = GetStreamKeys();
 		const auto SectionsToRemove = GetSectionKeys();
 
+		Config = FRealtimeMeshSectionGroupConfig();
 		Streams.Empty();
 		Sections.Empty();
 		Bounds.Reset();
 
-		if (Commands)
+		if (ProxyBuilder)
 		{
-			Commands.AddSectionGroupTask(Key, [](FRealtimeMeshSectionGroupProxy& Proxy)
+			ProxyBuilder.AddSectionGroupTask(Key, [](FRHICommandListBase& RHICmdList, FRealtimeMeshSectionGroupProxy& Proxy)
 			{
 				Proxy.Reset();
 			});
 
-			InitializeProxy(Commands);
+			InitializeProxy(ProxyBuilder);
 		}
 
 		SharedResources->BroadcastSectionGroupBoundsChanged(Key);
@@ -134,28 +148,66 @@ namespace RealtimeMesh
 
 	void FRealtimeMeshSectionGroup::SetOverrideBounds(const FBoxSphereBounds3f& InBounds)
 	{
-		FRealtimeMeshScopeGuardWrite ScopeGuard(SharedResources->GetGuard());
+		FRealtimeMeshScopeGuardWrite ScopeGuard(SharedResources);
 		Bounds.SetUserSetBounds(InBounds);
 		SharedResources->BroadcastSectionGroupBoundsChanged(Key);
 	}
 
 	void FRealtimeMeshSectionGroup::ClearOverrideBounds()
 	{
-		FRealtimeMeshScopeGuardWrite ScopeGuard(SharedResources->GetGuard());
+		FRealtimeMeshScopeGuardWrite ScopeGuard(SharedResources);
 		Bounds.ClearUserSetBounds();
 		SharedResources->BroadcastSectionGroupBoundsChanged(Key);
 	}
 
-	TFuture<ERealtimeMeshProxyUpdateStatus> FRealtimeMeshSectionGroup::CreateOrUpdateStream(FRealtimeMeshStream&& Stream)
+	TFuture<ERealtimeMeshProxyUpdateStatus> FRealtimeMeshSectionGroup::UpdateConfig(const FRealtimeMeshSectionGroupConfig& InConfig)
 	{
-		FRealtimeMeshProxyCommandBatch Commands(SharedResources->GetOwner());
-		CreateOrUpdateStream(Commands, MoveTemp(Stream));
-		return Commands.Commit();
+		FRealtimeMeshUpdateContext UpdateContext(SharedResources);
+		UpdateConfig(UpdateContext, [InConfig](FRealtimeMeshSectionGroupConfig& ExistingConfig) { ExistingConfig = InConfig; });
+		return UpdateContext.Commit();
 	}
 
-	void FRealtimeMeshSectionGroup::CreateOrUpdateStream(FRealtimeMeshProxyCommandBatch& Commands, FRealtimeMeshStream&& Stream)
+	void FRealtimeMeshSectionGroup::UpdateConfig(FRealtimeMeshProxyUpdateBuilder& ProxyBuilder, const FRealtimeMeshSectionGroupConfig& InConfig)
 	{
-		FRealtimeMeshScopeGuardWrite ScopeGuard(SharedResources->GetGuard());
+		UpdateConfig(ProxyBuilder, [InConfig](FRealtimeMeshSectionGroupConfig& ExistingConfig) { ExistingConfig = InConfig; });
+	}
+
+	TFuture<ERealtimeMeshProxyUpdateStatus> FRealtimeMeshSectionGroup::UpdateConfig(TFunction<void(FRealtimeMeshSectionGroupConfig&)> EditFunc)
+	{
+		FRealtimeMeshUpdateContext UpdateContext(SharedResources);
+		UpdateConfig(UpdateContext, EditFunc);
+		return UpdateContext.Commit();
+	}
+
+	void FRealtimeMeshSectionGroup::UpdateConfig(FRealtimeMeshProxyUpdateBuilder& ProxyBuilder, TFunction<void(FRealtimeMeshSectionGroupConfig&)> EditFunc)
+	{
+		FRealtimeMeshScopeGuardWriteCheck LockCheck(SharedResources);
+
+		bool bShouldRecreateProxy = ShouldRecreateProxyOnChange();
+		EditFunc(Config);
+		bShouldRecreateProxy |= ShouldRecreateProxyOnChange();
+
+		if (ProxyBuilder)
+		{
+			ProxyBuilder.AddSectionGroupTask(Key, [Config = Config](FRHICommandListBase& RHICmdList, FRealtimeMeshSectionGroupProxy& Proxy)
+			{
+				Proxy.UpdateConfig(Config);
+			}, bShouldRecreateProxy);
+		}
+
+		SharedResources->BroadcastSectionGroupChanged(Key, ERealtimeMeshChangeType::Updated);
+	}
+
+	TFuture<ERealtimeMeshProxyUpdateStatus> FRealtimeMeshSectionGroup::CreateOrUpdateStream(FRealtimeMeshStream&& Stream)
+	{
+		FRealtimeMeshUpdateContext UpdateContext(SharedResources);
+		CreateOrUpdateStream(UpdateContext, MoveTemp(Stream));
+		return UpdateContext.Commit();
+	}
+
+	void FRealtimeMeshSectionGroup::CreateOrUpdateStream(FRealtimeMeshProxyUpdateBuilder& ProxyBuilder, FRealtimeMeshStream&& Stream)
+	{
+		FRealtimeMeshScopeGuardWriteCheck LockCheck(SharedResources);
 
 		const auto StreamKey = Stream.GetStreamKey();
 		bool bAlreadyExisted = false;
@@ -164,21 +216,21 @@ namespace RealtimeMesh
 		Streams.FindOrAdd(StreamKey, &bAlreadyExisted);
 
 		// Create the update data for the GPU
-		if (Commands && SharedResources->WantsStreamOnGPU(StreamKey))
+		if (ProxyBuilder && SharedResources->WantsStreamOnGPU(StreamKey))
 		{
 			if (Stream.Num() > 0)
 			{
 				const auto UpdateData = MakeShared<FRealtimeMeshSectionGroupStreamUpdateData>(MoveTemp(Stream));
 				UpdateData->ConfigureBuffer(EBufferUsageFlags::Static, true);
 
-				Commands.AddSectionGroupTask(Key, [UpdateData = UpdateData](FRealtimeMeshSectionGroupProxy& Proxy)
+				ProxyBuilder.AddSectionGroupTask(Key, [UpdateData = UpdateData](FRHICommandListBase& RHICmdList, FRealtimeMeshSectionGroupProxy& Proxy)
 				{
-					Proxy.CreateOrUpdateStream(UpdateData);
-				}, ShouldRecreateProxyOnStreamChange());
+					Proxy.CreateOrUpdateStream(RHICmdList, UpdateData);
+				}, ShouldRecreateProxyOnChange());
 			}
 			else
 			{
-				Commands.AddSectionGroupTask(Key, [StreamKey](FRealtimeMeshSectionGroupProxy& Proxy)
+				ProxyBuilder.AddSectionGroupTask(Key, [StreamKey](FRHICommandListBase& RHICmdList, FRealtimeMeshSectionGroupProxy& Proxy)
 				{
 					Proxy.RemoveStream(StreamKey);
 				});
@@ -190,23 +242,23 @@ namespace RealtimeMesh
 
 	TFuture<ERealtimeMeshProxyUpdateStatus> FRealtimeMeshSectionGroup::RemoveStream(const FRealtimeMeshStreamKey& StreamKey)
 	{
-		FRealtimeMeshProxyCommandBatch Commands(SharedResources->GetOwner());
-		RemoveStream(Commands, StreamKey);
-		return Commands.Commit();
+		FRealtimeMeshUpdateContext UpdateContext(SharedResources);
+		RemoveStream(UpdateContext, StreamKey);
+		return UpdateContext.Commit();
 	}
 
-	void FRealtimeMeshSectionGroup::RemoveStream(FRealtimeMeshProxyCommandBatch& Commands, const FRealtimeMeshStreamKey& StreamKey)
+	void FRealtimeMeshSectionGroup::RemoveStream(FRealtimeMeshProxyUpdateBuilder& ProxyBuilder, const FRealtimeMeshStreamKey& StreamKey)
 	{
-		FRealtimeMeshScopeGuardWrite ScopeGuard(SharedResources->GetGuard());
+		FRealtimeMeshScopeGuardWriteCheck LockCheck(SharedResources);
 
 		if (Streams.Remove(StreamKey))
 		{
-			if (Commands && SharedResources->WantsStreamOnGPU(StreamKey))
+			if (ProxyBuilder && SharedResources->WantsStreamOnGPU(StreamKey))
 			{
-				Commands.AddSectionGroupTask(Key, [StreamKey](FRealtimeMeshSectionGroupProxy& Proxy)
+				ProxyBuilder.AddSectionGroupTask(Key, [StreamKey](FRHICommandListBase& RHICmdList, FRealtimeMeshSectionGroupProxy& Proxy)
 				{
 					Proxy.RemoveStream(StreamKey);
-				}, ShouldRecreateProxyOnStreamChange());
+				}, ShouldRecreateProxyOnChange());
 			}
 		}
 
@@ -215,28 +267,28 @@ namespace RealtimeMesh
 
 	TFuture<ERealtimeMeshProxyUpdateStatus> FRealtimeMeshSectionGroup::SetAllStreams(const FRealtimeMeshStreamSet& InStreams)
 	{
-		FRealtimeMeshProxyCommandBatch Commands(SharedResources->GetOwner());
+		FRealtimeMeshUpdateContext UpdateContext(SharedResources);
 		FRealtimeMeshStreamSet CopySet(InStreams);
-		SetAllStreams(Commands, MoveTemp(CopySet));
-		return Commands.Commit();
+		SetAllStreams(UpdateContext, MoveTemp(CopySet));
+		return UpdateContext.Commit();
 	}
 
-	void FRealtimeMeshSectionGroup::SetAllStreams(FRealtimeMeshProxyCommandBatch& Commands, const FRealtimeMeshStreamSet& InStreams)
+	void FRealtimeMeshSectionGroup::SetAllStreams(FRealtimeMeshProxyUpdateBuilder& ProxyBuilder, const FRealtimeMeshStreamSet& InStreams)
 	{
 		FRealtimeMeshStreamSet CopySet(InStreams);
-		SetAllStreams(Commands, MoveTemp(CopySet));
+		SetAllStreams(ProxyBuilder, MoveTemp(CopySet));
 	}
 
 	TFuture<ERealtimeMeshProxyUpdateStatus> FRealtimeMeshSectionGroup::SetAllStreams(FRealtimeMeshStreamSet&& InStreams)
 	{
-		FRealtimeMeshProxyCommandBatch Commands(SharedResources->GetOwner());
-		SetAllStreams(Commands, InStreams);
-		return Commands.Commit();
+		FRealtimeMeshUpdateContext UpdateContext(SharedResources);
+		SetAllStreams(UpdateContext, InStreams);
+		return UpdateContext.Commit();
 	}
 
-	void FRealtimeMeshSectionGroup::SetAllStreams(FRealtimeMeshProxyCommandBatch& Commands, FRealtimeMeshStreamSet&& InStreams)
+	void FRealtimeMeshSectionGroup::SetAllStreams(FRealtimeMeshProxyUpdateBuilder& ProxyBuilder, FRealtimeMeshStreamSet&& InStreams)
 	{
-		FRealtimeMeshScopeGuardWrite ScopeGuard(SharedResources->GetGuard());
+		FRealtimeMeshScopeGuardWriteCheck LockCheck(SharedResources);
 
 		TSet<FRealtimeMeshStreamKey> ExistingStreamKeys = Streams;
 
@@ -245,31 +297,31 @@ namespace RealtimeMesh
 		{
 			if (!InStreams.Contains(StreamKey))
 			{
-				RemoveStream(Commands, StreamKey);
+				RemoveStream(ProxyBuilder, StreamKey);
 			}
 		}
 
 		// Create/Update streams
 		InStreams.ForEach([&](FRealtimeMeshStream& Stream)
 		{
-			CreateOrUpdateStream(Commands, MoveTemp(Stream));			
+			CreateOrUpdateStream(ProxyBuilder, MoveTemp(Stream));			
 		});
 	}
 
 	TFuture<ERealtimeMeshProxyUpdateStatus> FRealtimeMeshSectionGroup::CreateOrUpdateSection(const FRealtimeMeshSectionKey& SectionKey, const FRealtimeMeshSectionConfig& InConfig,
 	                                                                                         const FRealtimeMeshStreamRange& InStreamRange)
 	{
-		FRealtimeMeshProxyCommandBatch Commands(SharedResources->GetOwner());
-		CreateOrUpdateSection(Commands, SectionKey, InConfig, InStreamRange);
-		return Commands.Commit();
+		FRealtimeMeshUpdateContext UpdateContext(SharedResources);
+		CreateOrUpdateSection(UpdateContext, SectionKey, InConfig, InStreamRange);
+		return UpdateContext.Commit();
 	}
 
-	void FRealtimeMeshSectionGroup::CreateOrUpdateSection(FRealtimeMeshProxyCommandBatch& Commands, const FRealtimeMeshSectionKey& SectionKey,
-	                                                      const FRealtimeMeshSectionConfig& InConfig, const FRealtimeMeshStreamRange& InStreamRange)
+	void FRealtimeMeshSectionGroup::CreateOrUpdateSection(FRealtimeMeshProxyUpdateBuilder& ProxyBuilder, const FRealtimeMeshSectionKey& SectionKey,
+		const FRealtimeMeshSectionConfig& InConfig, const FRealtimeMeshStreamRange& InStreamRange)
 	{
 		check(SectionKey.IsPartOf(Key));
 
-		FRealtimeMeshScopeGuardWrite ScopeGuard(SharedResources->GetGuard());
+		FRealtimeMeshScopeGuardWriteCheck LockCheck(SharedResources);
 
 		const bool bExisted = Sections.Contains(SectionKey);
 
@@ -278,35 +330,35 @@ namespace RealtimeMesh
 			const auto Section = SharedResources->CreateSection(SectionKey);
 			Sections.Add(Section);
 
-			Commands.AddSectionGroupTask(Key, [SectionKey](FRealtimeMeshSectionGroupProxy& Proxy)
+			ProxyBuilder.AddSectionGroupTask(Key, [SectionKey](FRHICommandListBase& RHICmdList, FRealtimeMeshSectionGroupProxy& Proxy)
 			{
 				Proxy.CreateSectionIfNotExists(SectionKey);
 			});
 		}
 
 		const auto& Section = *Sections.Find(SectionKey);
-		Section->Initialize(Commands, InConfig, InStreamRange);
+		Section->Initialize(ProxyBuilder, InConfig, InStreamRange);
 
 		SharedResources->BroadcastSectionChanged(SectionKey, bExisted ? ERealtimeMeshChangeType::Updated : ERealtimeMeshChangeType::Added);
 	}
 
 	TFuture<ERealtimeMeshProxyUpdateStatus> FRealtimeMeshSectionGroup::RemoveSection(const FRealtimeMeshSectionKey& SectionKey)
 	{
-		FRealtimeMeshProxyCommandBatch Commands(SharedResources->GetOwner());
-		RemoveSection(Commands, SectionKey);
-		return Commands.Commit();
+		FRealtimeMeshUpdateContext UpdateContext(SharedResources);
+		RemoveSection(UpdateContext, SectionKey);
+		return UpdateContext.Commit();
 	}
 
-	void FRealtimeMeshSectionGroup::RemoveSection(FRealtimeMeshProxyCommandBatch& Commands, const FRealtimeMeshSectionKey& SectionKey)
+	void FRealtimeMeshSectionGroup::RemoveSection(FRealtimeMeshProxyUpdateBuilder& ProxyBuilder, const FRealtimeMeshSectionKey& SectionKey)
 	{
-		FRealtimeMeshScopeGuardWrite ScopeGuard(SharedResources->GetGuard());
+		FRealtimeMeshScopeGuardWriteCheck LockCheck(SharedResources);
 
-		if (Sections.Remove(SectionKey) && Commands)
+		if (Sections.Remove(SectionKey) && ProxyBuilder)
 		{
-			Commands.AddSectionGroupTask(Key, [SectionKey](FRealtimeMeshSectionGroupProxy& Proxy)
+			ProxyBuilder.AddSectionGroupTask(Key, [SectionKey](FRHICommandListBase& RHICmdList, FRealtimeMeshSectionGroupProxy& Proxy)
 			{
 				Proxy.RemoveSection(SectionKey);
-			}, ShouldRecreateProxyOnStreamChange());
+			}, ShouldRecreateProxyOnChange());
 		}
 
 		SharedResources->BroadcastSectionChanged(SectionKey, ERealtimeMeshChangeType::Removed);
@@ -351,6 +403,7 @@ namespace RealtimeMesh
 			}
 		}
 
+		Ar << Config;
 		Ar << Bounds;
 		if (Ar.CustomVer(FRealtimeMeshVersion::GUID) < FRealtimeMeshVersion::DataRestructure)
 		{
@@ -360,19 +413,21 @@ namespace RealtimeMesh
 		return true;
 	}
 
-	void FRealtimeMeshSectionGroup::InitializeProxy(FRealtimeMeshProxyCommandBatch& Commands)
+	void FRealtimeMeshSectionGroup::InitializeProxy(FRealtimeMeshProxyUpdateBuilder& ProxyBuilder)
 	{
-		FRealtimeMeshScopeGuardRead ScopeGuard(SharedResources->GetGuard());
-
-		// We only send sections here, we rely on the derived to setup the streams
-		for (const auto& Section : Sections)
+		if (ProxyBuilder)
 		{
-			Commands.AddSectionGroupTask(Key, [SectionKey = Section->GetKey()](FRealtimeMeshSectionGroupProxy& Proxy)
+			// We only send sections here, we rely on the derived to setup the streams
+			for (const auto& Section : Sections)
 			{
-				Proxy.CreateSectionIfNotExists(SectionKey);
-			}, ShouldRecreateProxyOnStreamChange());
+				ProxyBuilder.AddSectionGroupTask(Key, [SectionKey = Section->GetKey(), Config = Config](FRHICommandListBase& RHICmdList, FRealtimeMeshSectionGroupProxy& Proxy)
+				{
+					Proxy.CreateSectionIfNotExists(SectionKey);
+					Proxy.UpdateConfig(Config);
+				}, ShouldRecreateProxyOnChange());
 
-			Section->InitializeProxy(Commands);
+				Section->InitializeProxy(ProxyBuilder);
+			}
 		}
 	}
 
@@ -384,7 +439,7 @@ namespace RealtimeMesh
 
 	/*void FRealtimeMeshSectionGroup::ApplyStateUpdate(FRealtimeMeshProxyCommandBatch& Commands, FRealtimeMeshSectionGroupUpdateContext& Update)
 	{
-		FRealtimeMeshScopeGuardWrite ScopeGuard(SharedResources->GetGuard());
+		FRealtimeMeshScopeGuardWrite ScopeGuard(SharedResources);
 		
 		TSet<FRealtimeMeshStreamKey> UpdatedStreams;
 
@@ -491,7 +546,7 @@ namespace RealtimeMesh
 
 	FBoxSphereBounds3f FRealtimeMeshSectionGroup::CalculateBounds() const
 	{
-		FRealtimeMeshScopeGuardRead ScopeGuard(SharedResources->GetGuard());
+		FRealtimeMeshScopeGuardRead ScopeGuard(SharedResources);
 
 		TOptional<FBoxSphereBounds3f> NewBounds;
 		for (const auto& Section : Sections)
@@ -513,7 +568,7 @@ namespace RealtimeMesh
 	{
 		if (RealtimeMeshSectionKey.IsPartOf(Key))
 		{
-			FRealtimeMeshScopeGuardWrite ScopeGuard(SharedResources->GetGuard());
+			FRealtimeMeshScopeGuardWrite ScopeGuard(SharedResources);
 			Bounds.ClearCachedValue();
 			SharedResources->BroadcastSectionGroupBoundsChanged(Key);
 		}
@@ -523,7 +578,7 @@ namespace RealtimeMesh
 	{
 		if (RealtimeMeshSectionKey.IsPartOf(Key))
 		{
-			FRealtimeMeshScopeGuardWrite ScopeGuard(SharedResources->GetGuard());
+			FRealtimeMeshScopeGuardWrite ScopeGuard(SharedResources);
 			Bounds.ClearCachedValue();
 			SharedResources->BroadcastSectionGroupBoundsChanged(Key);
 		}
@@ -531,7 +586,7 @@ namespace RealtimeMesh
 
 	/*void FRealtimeMeshSectionGroup::HandleSectionStreamRangeChanged(const FRealtimeMeshSectionKey& RealtimeMeshSectionKey)
 	{
-		FRealtimeMeshScopeGuardWrite ScopeGuard(SharedResources->GetGuard());
+		FRealtimeMeshScopeGuardWrite ScopeGuard(SharedResources);
 
 		TOptional<FRealtimeMeshStreamRange> NewRange;
 		for (const auto& Section : Sections)
@@ -556,11 +611,6 @@ namespace RealtimeMesh
 			SharedResources->BroadcastSectionGroupInUseRangeChanged(Key);
 		}
 	}*/
-
-	bool FRealtimeMeshSectionGroup::ShouldRecreateProxyOnStreamChange() const
-	{
-		return true;
-	}
 }
 
 #undef LOCTEXT_NAMESPACE

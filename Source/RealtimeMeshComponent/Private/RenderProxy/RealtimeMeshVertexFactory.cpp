@@ -12,7 +12,6 @@
 #include "SpeedTreeWind.h"
 #include "Rendering/ColorVertexBuffer.h"
 #include "MeshMaterialShader.h"
-#include "RealtimeMeshConfig.h"
 #include "SceneInterface.h"
 #include "ProfilingDebugging/LoadTimeTracker.h"
 #include "RenderProxy/RealtimeMeshProxyShared.h"
@@ -310,7 +309,7 @@ namespace RealtimeMesh
 		return ValidRange.Contains(StreamRange);
 	}
 
-	void FRealtimeMeshLocalVertexFactory::Initialize(const TMap<FRealtimeMeshStreamKey, TSharedPtr<FRealtimeMeshGPUBuffer>>& Buffers)
+	void FRealtimeMeshLocalVertexFactory::Initialize(FRHICommandListBase& RHICmdList, const TMap<FRealtimeMeshStreamKey, TSharedPtr<FRealtimeMeshGPUBuffer>>& Buffers)
 	{
 		FDataType DataType;
 
@@ -390,7 +389,7 @@ namespace RealtimeMesh
 			ValidRange = FRealtimeMeshStreamRange(ValidVertexRange, ValidIndexRange);
 			
 #if RMC_ENGINE_ABOVE_5_3
-			InitResource(FRHICommandListImmediate::Get());
+			InitResource(RHICmdList);
 #else
 			InitResource();
 #endif

@@ -1,6 +1,6 @@
 ﻿// Copyright (c) 2015-2024 TriAxis Games, L.L.C. All Rights Reserved.
 
-#include "Mesh/RealtimeMeshBuilder.h"
+#include "Core/RealtimeMeshBuilder.h"
 #include "Misc/AutomationTest.h"
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(RealtimeMeshStreamAccessorTests,  "RealtimeMeshComponent.RealtimeMeshBuilderAccessors",

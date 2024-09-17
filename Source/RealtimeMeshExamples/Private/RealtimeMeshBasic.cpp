@@ -11,8 +11,10 @@ ARealtimeMeshBasic::ARealtimeMeshBasic()
 	PrimaryActorTick.bCanEverTick = false;
 }
 
-void ARealtimeMeshBasic::OnGenerateMesh_Implementation()
+void ARealtimeMeshBasic::OnConstruction(const FTransform& Transform)
 {
+	Super::OnConstruction(Transform);
+	
 	// Initialize to a simple mesh, this behaves the most like a ProceduralMeshComponent
 	// Where you can set the mesh data and forget about it.
 	URealtimeMeshSimple* RealtimeMesh = GetRealtimeMeshComponent()->InitializeRealtimeMesh<URealtimeMeshSimple>();
@@ -80,10 +82,8 @@ void ARealtimeMeshBasic::OnGenerateMesh_Implementation()
 	RealtimeMesh->CreateSectionGroup(GroupKey, StreamSet);
 
 	// Update the configuration of both the polygroup sections.
-	RealtimeMesh->UpdateSectionConfig(PolyGroup0SectionKey, FRealtimeMeshSectionConfig(ERealtimeMeshSectionDrawType::Static, 0));
-	RealtimeMesh->UpdateSectionConfig(PolyGroup1SectionKey, FRealtimeMeshSectionConfig(ERealtimeMeshSectionDrawType::Static, 1));
-	
-	Super::OnGenerateMesh_Implementation();
+	RealtimeMesh->UpdateSectionConfig(PolyGroup0SectionKey, FRealtimeMeshSectionConfig(0));
+	RealtimeMesh->UpdateSectionConfig(PolyGroup1SectionKey, FRealtimeMeshSectionConfig(1));
 }
 
 

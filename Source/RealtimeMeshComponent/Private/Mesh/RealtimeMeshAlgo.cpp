@@ -3,9 +3,9 @@
 
 #include "Mesh/RealtimeMeshAlgo.h"
 
-#include "Mesh/RealtimeMeshBuilder.h"
-#include "Mesh/RealtimeMeshDataStream.h"
-#include "Mesh/RealtimeMeshDataTypes.h"
+#include "Core/RealtimeMeshBuilder.h"
+#include "Core/RealtimeMeshDataStream.h"
+#include "Core/RealtimeMeshDataTypes.h"
 
 using namespace RealtimeMesh;
 

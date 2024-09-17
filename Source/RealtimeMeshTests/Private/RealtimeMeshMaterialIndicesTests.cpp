@@ -2,8 +2,8 @@
 
 #include "Algo/RandomShuffle.h"
 #include "Mesh/RealtimeMeshAlgo.h"
-#include "Mesh/RealtimeMeshBuilder.h"
-#include "Mesh/RealtimeMeshDataStream.h"
+#include "Core/RealtimeMeshBuilder.h"
+#include "Core/RealtimeMeshDataStream.h"
 #include "Misc/AutomationTest.h"
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(RealtimeMeshMaterialIndicesTests, "RealtimeMeshComponent.RealtimeMeshMaterialIndices", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)

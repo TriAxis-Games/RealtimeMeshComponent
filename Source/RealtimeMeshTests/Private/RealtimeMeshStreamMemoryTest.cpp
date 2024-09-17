@@ -1,7 +1,7 @@
 ﻿// Copyright (c) 2015-2024 TriAxis Games, L.L.C. All Rights Reserved.
 
 #include "Mesh/RealtimeMeshAlgo.h"
-#include "Mesh/RealtimeMeshBuilder.h"
+#include "Core/RealtimeMeshBuilder.h"
 #include "Misc/AutomationTest.h"
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(RealtimeMeshStreamMemoryTest, "Private.RealtimeMeshStreamMemoryTest", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)

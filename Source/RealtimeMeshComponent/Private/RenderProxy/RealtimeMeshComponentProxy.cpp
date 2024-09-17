@@ -9,6 +9,7 @@
 #include "UnrealEngine.h"
 #include "SceneManagement.h"
 #include "RayTracingInstance.h"
+#include "RealtimeMeshSceneViewExtension.h"
 #include "RenderProxy/RealtimeMeshLODProxy.h"
 #if RMC_ENGINE_ABOVE_5_2
 #include "MaterialDomain.h"
@@ -27,13 +28,15 @@ DECLARE_CYCLE_STAT(TEXT("RealtimeMeshComponentSceneProxy - Get Dynamic Ray Traci
 
 namespace RealtimeMesh
 {
-	FRealtimeMeshComponentSceneProxy::FRealtimeMeshComponentSceneProxy(URealtimeMeshComponent* Component, const FRealtimeMeshProxyRef& InRealtimeMeshProxy)
+	FRealtimeMeshComponentSceneProxy::FRealtimeMeshComponentSceneProxy(URealtimeMeshComponent* Component, const FRealtimeMeshProxyRef& InRealtimeMeshProxy, int32 InKnownVersion)
 		: FPrimitiveSceneProxy(Component)
 		  , RealtimeMeshProxy(InRealtimeMeshProxy)
 		  , BodySetup(Component->GetBodySetup())
 		  , bAnyMaterialUsesDithering(false)
 	{
 		check(Component->GetRealtimeMesh() != nullptr);
+
+		KnownRMCVersion = InKnownVersion;
 
 		for (int32 MaterialIndex = 0; MaterialIndex < Component->GetNumMaterials(); MaterialIndex++)
 		{
@@ -59,14 +62,14 @@ namespace RealtimeMesh
 		bStaticElementsAlwaysUseProxyPrimitiveUniformBuffer = true;
 		bVerifyUsedMaterials = false;
 		
-		bSupportsDistanceFieldRepresentation = MaterialRelevance.bOpaque && !MaterialRelevance.bUsesSingleLayerWaterMaterial && RealtimeMeshProxy->HasDistanceFieldData();
+		//bSupportsDistanceFieldRepresentation = MaterialRelevance.bOpaque && !MaterialRelevance.bUsesSingleLayerWaterMaterial && RealtimeMeshProxy->HasDistanceFieldData();
 		
 		//bCastsDynamicIndirectShadow = Component->bCastDynamicShadow && Component->CastShadow && Component->Mobility != EComponentMobility::Static;
 		//DynamicIndirectShadowMinVisibility = 0.1f;
 
 
 #if RHI_RAYTRACING
-		bSupportsRayTracing = true; //InRealtimeMeshProxy->HasRayTracingGeometry();
+		//bSupportsRayTracing = true; //InRealtimeMeshProxy->HasRayTracingGeometry();
 		//bDynamicRayTracingGeometry = false;
 
 #if RMC_ENGINE_BELOW_5_4
@@ -122,6 +125,20 @@ namespace RealtimeMesh
 		check(true);
 	}
 
+#if RMC_ENGINE_ABOVE_5_4
+	void FRealtimeMeshComponentSceneProxy::CreateRenderThreadResources(FRHICommandListBase& RHICmdList)
+	{
+		RealtimeMeshProxy->ProcessCommands(RHICmdList, KnownRMCVersion);
+		FPrimitiveSceneProxy::CreateRenderThreadResources(RHICmdList);
+	}
+#else
+	void FRealtimeMeshComponentSceneProxy::CreateRenderThreadResources()
+	{		
+		RealtimeMeshProxy->ProcessCommands(GRHICommandList.GetImmediateCommandList(), KnownRMCVersion);
+		FPrimitiveSceneProxy::CreateRenderThreadResources();
+	}
+#endif
+
 	bool FRealtimeMeshComponentSceneProxy::CanBeOccluded() const
 	{
 		return !MaterialRelevance.bDisableDepthTest;
@@ -169,18 +186,20 @@ namespace RealtimeMesh
 			const auto LODScreenSizes = RealtimeMeshProxy->GetScreenSizeRangeForLOD(LodIt.GetIndex());
 
 			// Walk all section groups within the LOD
-			for (auto SectionGroupIt = LOD->GetActiveStaticSectionGroupMaskIter(); SectionGroupIt; ++SectionGroupIt)
-			{
+			for (auto SectionGroupIt = LOD->GetActiveSectionGroupMaskIter(); SectionGroupIt; ++SectionGroupIt)
+			{				
 				const FRealtimeMeshSectionGroupProxy* SectionGroup = *SectionGroupIt;
-				check(SectionGroup->GetDrawMask().ShouldRenderStaticPath());
+				if (!SectionGroup->GetDrawMask().ShouldRenderStaticPath())
+				{
+					continue;
+				}
 
 				auto VertexFactory = SectionGroup->GetVertexFactory();
 				check(VertexFactory && VertexFactory.IsValid() && VertexFactory->IsInitialized());
 
-				for (auto SectionIt = SectionGroup->GetActiveStaticSectionMaskIter(); SectionIt; ++SectionIt)
+				for (auto SectionIt = SectionGroup->GetActiveSectionMaskIter(); SectionIt; ++SectionIt)
 				{
 					const FRealtimeMeshSectionProxy* Section = *SectionIt;
-					check(Section->GetDrawMask().ShouldRenderStaticPath());
 
 					FMaterialRenderProxy* MaterialProxy = MaterialMap.GetMaterial(Section->GetMaterialSlot());
 					
@@ -254,18 +273,20 @@ namespace RealtimeMesh
 						const auto LODScreenSizes = RealtimeMeshProxy->GetScreenSizeRangeForLOD(LodIt.GetIndex());
 
 						// Walk all section groups within the LOD
-						for (auto SectionGroupIt = bForceDynamicPath? LOD->GetActiveSectionGroupMaskIter() : LOD->GetActiveDynamicSectionGroupMaskIter(); SectionGroupIt; ++SectionGroupIt)
+						for (auto SectionGroupIt = bForceDynamicPath? LOD->GetActiveSectionGroupMaskIter() : LOD->GetActiveSectionGroupMaskIter(); SectionGroupIt; ++SectionGroupIt)
 						{
 							const FRealtimeMeshSectionGroupProxy* SectionGroup = *SectionGroupIt;
-							check(SectionGroup->GetDrawMask().ShouldRenderDynamicPath() || (bForceDynamicPath && LOD->GetDrawMask().ShouldRenderStaticPath()));
+							if (!bForceDynamicPath && !SectionGroup->GetDrawMask().ShouldRenderDynamicPath())
+							{
+								continue;
+							}
 
 							auto VertexFactory = SectionGroup->GetVertexFactory();
 							check(VertexFactory && VertexFactory.IsValid() && VertexFactory->IsInitialized());
 
-							for (auto SectionIt = bForceDynamicPath? SectionGroup->GetActiveSectionMaskIter() : SectionGroup->GetActiveDynamicSectionMaskIter(); SectionIt; ++SectionIt)
+							for (auto SectionIt = bForceDynamicPath? SectionGroup->GetActiveSectionMaskIter() : SectionGroup->GetActiveSectionMaskIter(); SectionIt; ++SectionIt)
 							{
 								const FRealtimeMeshSectionProxy* Section = *SectionIt;
-								check(Section->GetDrawMask().ShouldRenderDynamicPath() || (bForceDynamicPath && Section->GetDrawMask().ShouldRenderStaticPath()));
 
 								FMaterialRenderProxy* MaterialProxy = MaterialMap.GetMaterial(Section->GetMaterialSlot());
 								
@@ -368,17 +389,18 @@ namespace RealtimeMesh
 
 	bool FRealtimeMeshComponentSceneProxy::HasRayTracingRepresentation() const
 	{
-#if RHI_RAYTRACING
+		return false;
+/*#if RHI_RAYTRACING
 		return bSupportsRayTracing;
 #else
 		return false;
-#endif
+#endif*/
 	}
 
 #if RMC_ENGINE_ABOVE_5_4
 	TArray<FRayTracingGeometry*> FRealtimeMeshComponentSceneProxy::GetStaticRayTracingGeometries() const
 	{
-#if RHI_RAYTRACING
+/*#if RHI_RAYTRACING
 		if (IsRayTracingAllowed() && bSupportsRayTracing)
 		{
 			TArray<FRayTracingGeometry*> RayTracingGeometries;
@@ -399,7 +421,7 @@ namespace RealtimeMesh
 			
 			return MoveTemp(RayTracingGeometries);
 		}
-#endif // RHI_RAYTRACING
+#endif // RHI_RAYTRACING*/
 		return {};
 	}
 #endif // RMC_ENGINE_ABOVE_5_4
@@ -410,7 +432,7 @@ namespace RealtimeMesh
 	{
 		SCOPE_CYCLE_COUNTER(STAT_RealtimeMeshComponentSceneProxy_GetDynamicRayTracingInstances);
 
-		const uint32 LODIndex = FMath::Max(GetLOD(Context.ReferenceView), (int32)GetCurrentFirstLODIdx_RenderThread());
+		/*const uint32 LODIndex = FMath::Max(GetLOD(Context.ReferenceView), (int32)GetCurrentFirstLODIdx_RenderThread());
 
 		TMap<const FRayTracingGeometry*, int32> CurrentRayTracingGeometries;
 
@@ -488,7 +510,7 @@ namespace RealtimeMesh
 				RayTracingInstance.BuildInstanceMaskAndFlags(GetScene().GetFeatureLevel());
 #endif
 			}		
-		}
+		}*/
 	}
 #endif // RHI_RAYTRACING
 

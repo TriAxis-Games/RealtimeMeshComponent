@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "RealtimeMeshConfig.h"
+#include "RealtimeMeshStreamRange.h"
 #include "RealtimeMeshDataTypes.h"
 #include "RealtimeMeshDataConversion.h"
 #include "Containers/StridedView.h"
@@ -16,13 +16,13 @@
 #include "Templates/MakeUnsigned.h"
 #endif
 
-// included primarily for NatVis helpers
-#include <string>
 
-#include "Templates/RemoveCV.h"
+struct FRealtimeMeshStreamKey;
 
 namespace RealtimeMesh
 {
+	class FRealtimeMeshGPUBuffer;
+
 	struct FRealtimeMeshStreams
 	{
 		inline static const FName PositionStreamName = FName(TEXT("Position"));
@@ -123,7 +123,7 @@ namespace RealtimeMesh
 	};
 	
 
-	struct REALTIMEMESHCOMPONENT_API FRealtimeMeshStreamLinkage
+	struct REALTIMEMESHCOMPONENT_INTERFACE_API FRealtimeMeshStreamLinkage
 	{
 	public:
 		struct FStreamLinkageInfo
@@ -177,10 +177,9 @@ namespace RealtimeMesh
 				Func(*It->Stream, It->DefaultRowValue);
 			}
 		}
-	};
+	};	
 	
-	
-	struct REALTIMEMESHCOMPONENT_API FRealtimeMeshStream : FResourceArrayInterface
+	struct REALTIMEMESHCOMPONENT_INTERFACE_API FRealtimeMeshStream : FResourceArrayInterface
 	{
 		using AllocatorType = TSizedHeapAllocator<32>;
 		using SizeType = AllocatorType::SizeType;
@@ -1032,66 +1031,7 @@ namespace RealtimeMesh
 			Ar.CountBytes(ArrayNum * GetStride(), ArrayMax * GetStride());
 		}
 
-		friend FArchive& operator<<(FArchive& Ar, FRealtimeMeshStream& Stream)
-		{
-			if (Ar.CustomVer(FRealtimeMeshVersion::GUID) >= FRealtimeMeshVersion::StreamsNowHoldEntireKey)
-			{
-				Ar << Stream.StreamKey;
-			}
-			else
-			{
-				FName StreamName;
-				Ar << StreamName;
-				Stream.StreamKey = FRealtimeMeshStreamKey(ERealtimeMeshStreamType::Unknown, StreamName);
-			}
-
-			Ar << Stream.Layout;
-			Stream.CacheStrides();
-			
-			if (Ar.IsLoading())
-			{
-				if (Ar.CustomVer(FRealtimeMeshVersion::GUID) < FRealtimeMeshVersion::StreamsNowHoldEntireKey)
-				{
-					ERealtimeMeshStreamType StreamType =
-					(Stream.Layout == GetRealtimeMeshBufferLayout<uint32>() ||
-						Stream.Layout == GetRealtimeMeshBufferLayout<int32>() ||
-						Stream.Layout == GetRealtimeMeshBufferLayout<uint16>())
-						? ERealtimeMeshStreamType::Index
-						: ERealtimeMeshStreamType::Vertex;
-					Stream.StreamKey = FRealtimeMeshStreamKey(ERealtimeMeshStreamType::Unknown, Stream.StreamKey.GetName());
-				}
-			}
-
-			Stream.CountBytes(Ar);
-
-			SizeType SerializedNum = Ar.IsLoading() ? 0 : Stream.ArrayNum;;
-			Ar << SerializedNum;
-
-			if (SerializedNum > 0)
-			{
-				Stream.ArrayNum = 0;
-
-				// Serialize simple bytes which require no construction or destruction.
-				if (SerializedNum && Ar.IsLoading())
-				{
-					Stream.ResizeAllocation(SerializedNum);
-				}
-
-				// TODO: This will not handle endianness of the vertex data for say a network archive.
-				Ar.Serialize(Stream.GetData(), SerializedNum * Stream.GetStride());
-				Stream.ArrayNum = SerializedNum;
-
-				if (Ar.IsLoading())
-				{					
-					Stream.BroadcastNumChanged();
-				}
-			}
-			else if (Ar.IsLoading())
-			{
-				Stream.Empty();
-			}
-			return Ar;
-		}
+		friend FArchive& operator<<(FArchive& Ar, FRealtimeMeshStream& Stream);
 
 		bool IsLinked() const { return Linkage != nullptr; }
 		void UnLink()
@@ -1279,7 +1219,7 @@ namespace RealtimeMesh
 	};
 
 
-	struct REALTIMEMESHCOMPONENT_API FRealtimeMeshStreamSet
+	struct REALTIMEMESHCOMPONENT_INTERFACE_API FRealtimeMeshStreamSet
 	{
 	private:
 		TMap<FRealtimeMeshStreamKey, TUniquePtr<FRealtimeMeshStream>> Streams;
@@ -1556,47 +1496,10 @@ namespace RealtimeMesh
 			}
 		}
 
-		friend FArchive& operator<<(FArchive& Ar, FRealtimeMeshStreamSet& StreamSet)
-		{
-			int32 NumStreams = StreamSet.Num();
-			Ar << NumStreams;
-
-			if (Ar.IsLoading())
-			{
-				StreamSet.Streams.Empty();
-				for (int32 Index = 0; Index < NumStreams; Index++)
-				{
-					FRealtimeMeshStreamKey StreamKey;
-					Ar << StreamKey;
-					FRealtimeMeshStream Stream;
-					Ar << Stream;
-					Stream.SetStreamKey(StreamKey);
-					
-					StreamSet.AddStream(MoveTemp(Stream));
-				}
-			}
-			else
-			{
-				StreamSet.ForEach([&Ar](FRealtimeMeshStream& Stream)
-				{					
-					FRealtimeMeshStreamKey StreamKey = Stream.GetStreamKey();
-					Ar << StreamKey;
-					Ar << Stream;
-				});
-			}
-
-			return Ar;
-		}
-
+		friend FArchive& operator<<(FArchive& Ar, FRealtimeMeshStreamSet& StreamSet);
 	};
 
 	using FRealtimeMeshStreamProxyMap = TMap<FRealtimeMeshStreamKey, TSharedPtr<FRealtimeMeshGPUBuffer>>;
 
 
-	namespace NatVis
-	{
-		REALTIMEMESHCOMPONENT_API std::string GetRowElementAsString(const FRealtimeMeshStream& Stream, int32 Row, int32 Element) noexcept;
-	
-		REALTIMEMESHCOMPONENT_API std::string GetRowAsString(const FRealtimeMeshStream& Stream, int32 Row, int32 Element) noexcept;
-	}
 }

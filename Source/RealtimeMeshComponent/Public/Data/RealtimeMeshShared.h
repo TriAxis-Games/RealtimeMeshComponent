@@ -3,9 +3,10 @@
 #pragma once
 
 #include "RealtimeMeshCore.h"
-#include "RealtimeMeshConfig.h"
 #include "RealtimeMeshGuard.h"
-#include "Mesh/RealtimeMeshDataStream.h"
+#include "Core/RealtimeMeshKeys.h"
+#include "Core/RealtimeMeshDataStream.h"
+#include "Async/Async.h"
 
 struct FRealtimeMeshSimpleGeometry;
 struct FRealtimeMeshCollisionConfiguration;
@@ -110,7 +111,7 @@ namespace RealtimeMesh
 	DECLARE_MULTICAST_DELEGATE_OneParam(FRealtimeMeshLODPropertyChangedEvent, const FRealtimeMeshLODKey&);
 
 	DECLARE_MULTICAST_DELEGATE(FRealtimeMeshPropertyChangedEvent);
-	DECLARE_MULTICAST_DELEGATE_OneParam(FRealtimeMeshRenderDataChangedEvent, bool);
+	DECLARE_MULTICAST_DELEGATE_TwoParams(FRealtimeMeshRenderDataChangedEvent, bool, int32);
 
 
 	DECLARE_DELEGATE(FRealtimeMeshRequestEndOfFrameUpdateDelegate);
@@ -196,7 +197,10 @@ namespace RealtimeMesh
 
 
 		FRealtimeMeshSectionChangedEvent& OnSectionChanged() { return SectionChangedEvent; }
-		void BroadcastSectionChanged(const FRealtimeMeshSectionKey& SectionKey, ERealtimeMeshChangeType Type) const { SectionChangedEvent.Broadcast(SectionKey, Type); }
+		void BroadcastSectionChanged(const FRealtimeMeshSectionKey& SectionKey, ERealtimeMeshChangeType Type) const
+		{
+			SectionChangedEvent.Broadcast(SectionKey, Type);
+		}
 
 		void BroadcastSectionChanged(const TSet<FRealtimeMeshSectionKey>& SectionKeys, ERealtimeMeshChangeType Type) const
 		{
@@ -299,13 +303,61 @@ namespace RealtimeMesh
 
 
 		FRealtimeMeshRenderDataChangedEvent& OnMeshRenderDataChanged() { return MeshRenderDataChangedEvent; }
-		void BroadcastMeshRenderDataChanged(bool bShouldRecreateProxies) const { MeshRenderDataChangedEvent.Broadcast(bShouldRecreateProxies); }
+		void BroadcastMeshRenderDataChanged(bool bShouldRecreateProxies, int32 CommandsVersion) const
+		{
+			if (IsInGameThread())
+			{
+				MeshRenderDataChangedEvent.Broadcast(bShouldRecreateProxies, CommandsVersion);
+			}
+			else
+			{
+				AsyncTask(ENamedThreads::GameThread, [ThisWeak = this->AsWeak(), bShouldRecreateProxies, CommandsVersion]()
+				{
+					if (const auto Pinned = ThisWeak.Pin())
+					{
+						Pinned->MeshRenderDataChangedEvent.Broadcast(bShouldRecreateProxies, CommandsVersion);
+					}
+				});
+			}
+		}
 
 		FRealtimeMeshPropertyChangedEvent& OnMeshConfigChanged() { return MeshConfigChangedEvent; }
-		void BroadcastMeshConfigChanged() const { MeshConfigChangedEvent.Broadcast(); }
+		void BroadcastMeshConfigChanged() const
+		{
+			if (IsInGameThread())
+			{
+				MeshConfigChangedEvent.Broadcast();
+			}
+			else
+			{
+				AsyncTask(ENamedThreads::GameThread, [ThisWeak = this->AsWeak()]()
+				{
+					if (const auto Pinned = ThisWeak.Pin())
+					{
+						Pinned->MeshConfigChangedEvent.Broadcast();
+					}
+				});
+			}
+		}
 
 		FRealtimeMeshPropertyChangedEvent& OnMeshBoundsChanged() { return MeshBoundsChangedEvent; }
-		void BroadcastMeshBoundsChanged() const { MeshBoundsChangedEvent.Broadcast(); }
+		void BroadcastMeshBoundsChanged() const
+		{
+			if (IsInGameThread())
+			{
+				MeshBoundsChangedEvent.Broadcast();
+			}
+			else
+			{
+				AsyncTask(ENamedThreads::GameThread, [ThisWeak = this->AsWeak()]()
+				{
+					if (const auto Pinned = ThisWeak.Pin())
+					{
+						Pinned->MeshBoundsChangedEvent.Broadcast();
+					}
+				});
+			}
+		}
 
 		FRealtimeMeshRequestEndOfFrameUpdateDelegate& GetEndOfFrameRequestHandler() { return EndOfFrameRequestHandler; }
 		FRealtimeMeshCollisionUpdateDelegate& GetCollisionUpdateHandler() { return CollisionUpdateHandler; }
@@ -319,7 +371,7 @@ namespace RealtimeMesh
 
 		virtual FRealtimeMeshSectionRef CreateSection(const FRealtimeMeshSectionKey& InKey) const;
 		virtual FRealtimeMeshSectionGroupRef CreateSectionGroup(const FRealtimeMeshSectionGroupKey& InKey) const;
-		virtual FRealtimeMeshLODDataRef CreateLOD(const FRealtimeMeshLODKey& InKey) const;
+		virtual FRealtimeMeshLODRef CreateLOD(const FRealtimeMeshLODKey& InKey) const;
 
 		virtual FRealtimeMeshRef CreateRealtimeMesh() const;
 

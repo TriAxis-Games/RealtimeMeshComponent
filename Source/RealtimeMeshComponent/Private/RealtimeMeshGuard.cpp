@@ -1,6 +1,8 @@
 ﻿// Copyright (c) 2015-2024 TriAxis Games, L.L.C. All Rights Reserved.
 
 #include "RealtimeMeshGuard.h"
+
+#include "Data/RealtimeMeshData.h"
 #include "Data/RealtimeMeshShared.h"
 
 namespace RealtimeMesh
@@ -88,8 +90,22 @@ namespace RealtimeMesh
 			checkf(false, TEXT("WriteUnlock called when the thread doesn't hold the lock."));
 		}
 	}
-	
-	
+
+	bool FRealtimeMeshGuard::IsWriteLocked()
+	{
+		Threading::Private::FRealtimeMeshGuardThreadState& State = Threading::Private::ActiveThreadLocks.FindOrAdd(this);		
+		const uint32 ThisThreadId = FPlatformTLS::GetCurrentThreadId();
+		return State.WriteDepth > 0 && CurrentWriterThreadId.Load() == ThisThreadId;
+	}
+
+	bool FRealtimeMeshGuard::IsReadLocked()
+	{
+		Threading::Private::FRealtimeMeshGuardThreadState& State = Threading::Private::ActiveThreadLocks.FindOrAdd(this);
+		const uint32 ThisThreadId = FPlatformTLS::GetCurrentThreadId();
+		return State.ReadDepth > 0 || (State.WriteDepth > 0 && CurrentWriterThreadId.Load() == ThisThreadId);
+	}
+
+
 	FRealtimeMeshScopeGuardRead::FRealtimeMeshScopeGuardRead(FRealtimeMeshGuard& InGuard, bool bLockImmediately)
 		: Guard(InGuard)
 		  , bIsLocked(false)
@@ -102,15 +118,13 @@ namespace RealtimeMesh
 	}
 
 	FRealtimeMeshScopeGuardRead::FRealtimeMeshScopeGuardRead(const FRealtimeMeshSharedResourcesRef& InSharedResources, bool bLockImmediately)
-		: Guard(InSharedResources->GetGuard())
-		  , bIsLocked(false)
-	{
-		if (bLockImmediately)
-		{
-			Guard.ReadLock();
-			bIsLocked = true;
-		}
-	}
+		: FRealtimeMeshScopeGuardRead(InSharedResources->GetGuard(), bLockImmediately)
+	{ }
+
+	FRealtimeMeshScopeGuardRead::FRealtimeMeshScopeGuardRead(const FRealtimeMeshPtr& InMesh, bool bLockImmediately)
+		: FRealtimeMeshScopeGuardRead(InMesh->GetSharedResources(), bLockImmediately)
+	{ }
+
 
 	FRealtimeMeshScopeGuardWrite::FRealtimeMeshScopeGuardWrite(FRealtimeMeshGuard& InGuard, bool bLockImmediately)
 		: Guard(InGuard)
@@ -124,13 +138,18 @@ namespace RealtimeMesh
 	}
 
 	FRealtimeMeshScopeGuardWrite::FRealtimeMeshScopeGuardWrite(const FRealtimeMeshSharedResourcesRef& InSharedResources, bool bLockImmediately)
-		: Guard(InSharedResources->GetGuard())
-		  , bIsLocked(false)
+		: FRealtimeMeshScopeGuardWrite(InSharedResources->GetGuard(), bLockImmediately)
+	{ }
+	
+	FRealtimeMeshScopeGuardWrite::FRealtimeMeshScopeGuardWrite(const FRealtimeMeshPtr& InMesh, bool bLockImmediately)
+		: FRealtimeMeshScopeGuardWrite(InMesh->GetSharedResources(), bLockImmediately)
+	{ }
+
+	FRealtimeMeshScopeGuardWriteCheck::FRealtimeMeshScopeGuardWriteCheck(const FRealtimeMeshSharedResourcesRef& SharedResources): FRealtimeMeshScopeGuardWriteCheck(SharedResources->GetGuard())
 	{
-		if (bLockImmediately)
-		{
-			Guard.WriteLock();
-			bIsLocked = true;
-		}
+	}
+
+	FRealtimeMeshScopeGuardReadCheck::FRealtimeMeshScopeGuardReadCheck(const FRealtimeMeshSharedResourcesRef& SharedResources): FRealtimeMeshScopeGuardReadCheck(SharedResources->GetGuard())
+	{
 	}
 }

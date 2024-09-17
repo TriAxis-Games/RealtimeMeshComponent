@@ -2,16 +2,15 @@
 
 #pragma once
 
-#include "RealtimeMeshCore.h"
-#include "Templates/RemoveCV.h"
-#include "RealtimeMeshDataTypes.generated.h"
+#include "RealtimeMeshInterfaceFwd.h"
 
 
-USTRUCT(BlueprintType)
-struct REALTIMEMESHCOMPONENT_API FRealtimeMeshPolygonGroupRange
+struct FRealtimeMeshPolygonGroupRange
 {
-	GENERATED_BODY()
-public:
+	int32 StartIndex;	
+	int32 Count;	
+	int32 PolygonGroupIndex;
+	
 	FRealtimeMeshPolygonGroupRange()
 		: StartIndex(0)
 		, Count(0)
@@ -23,16 +22,6 @@ public:
 		, Count(InCount)
 		, PolygonGroupIndex(InMaterialIndex)
 	{ }
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RealtimeMesh")
-	int32 StartIndex;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RealtimeMesh")
-	int32 Count;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RealtimeMesh")
-	int32 PolygonGroupIndex;
-
 
 	friend bool operator==(const FRealtimeMeshPolygonGroupRange& Left, const FRealtimeMeshPolygonGroupRange& Right)
 	{
@@ -462,20 +451,21 @@ namespace RealtimeMesh
 		IET_MAX,
 	};
 
-	struct REALTIMEMESHCOMPONENT_API FRealtimeMeshElementType
+	struct FRealtimeMeshElementType
 	{
 	private:
 		ERealtimeMeshDatumType Type;
 		uint8 NumDatums : 3;
 	public:
-		constexpr FRealtimeMeshElementType() : Type(ERealtimeMeshDatumType::Unknown), NumDatums(0)
-		{
-		}
+		constexpr FRealtimeMeshElementType()
+			: Type(ERealtimeMeshDatumType::Unknown)
+			, NumDatums(0)
+		{ }
 
 		constexpr FRealtimeMeshElementType(ERealtimeMeshDatumType InType, int32 InNumDatums)
-			: Type(InType), NumDatums(InNumDatums)
-		{
-		}
+			: Type(InType)
+			, NumDatums(InNumDatums)
+		{ }
 
 		constexpr bool IsValid() const { return Type != ERealtimeMeshDatumType::Unknown && NumDatums > 0; }
 		constexpr ERealtimeMeshDatumType GetDatumType() const { return Type; }
@@ -502,39 +492,12 @@ namespace RealtimeMesh
 			return ::HashCombine(::GetTypeHash(Element.Type), ::GetTypeHash(Element.NumDatums));
 		}
 
-		friend FArchive& operator<<(FArchive& Ar, FRealtimeMeshElementType& ElementType)
-		{
-			Ar << ElementType.Type;
-
-			uint8 TempNumDatums = ElementType.NumDatums;
-			Ar << TempNumDatums;
-			ElementType.NumDatums = TempNumDatums;
-
-			if (Ar.CustomVer(FRealtimeMeshVersion::GUID) < FRealtimeMeshVersion::ImprovingDataTypes)
-			{
-				// TODO: Remove these
-				bool bTempNormalized = false;
-				Ar << bTempNormalized;
-
-				bool bTempShouldConvertToFloat = false;
-				Ar << bTempShouldConvertToFloat;
-
-				if (Ar.IsLoading())
-				{
-					if (bTempNormalized && bTempShouldConvertToFloat && ElementType.Type == ERealtimeMeshDatumType::Int8)
-					{
-						ElementType.Type = ERealtimeMeshDatumType::Int8Float;
-					}
-				}
-			}
-
-			return Ar;
-		}
+		friend FArchive& operator<<(FArchive& Ar, FRealtimeMeshElementType& ElementType);
 		
-		static const FRealtimeMeshElementType Invalid;
+		REALTIMEMESHCOMPONENT_INTERFACE_API static const FRealtimeMeshElementType Invalid;
 	};
 
-	struct REALTIMEMESHCOMPONENT_API FRealtimeMeshBufferLayout
+	struct FRealtimeMeshBufferLayout
 	{
 	private:
 		FRealtimeMeshElementType ElementType;
@@ -555,8 +518,6 @@ namespace RealtimeMesh
 		constexpr bool IsValid() const { return ElementType.IsValid() && NumElements > 0; }
 		constexpr const FRealtimeMeshElementType& GetElementType() const { return ElementType; }
 		constexpr int32 GetNumElements() const { return NumElements; }
-		//bool HasElementIdentifiers() const { return Elements.Num() > 0; }
-		//TConstArrayView<FName> GetElements() const { return MakeArrayView(Elements); }
 
 		constexpr bool operator==(const FRealtimeMeshBufferLayout& Other) const { return ElementType == Other.ElementType && NumElements == Other.NumElements; }
 		constexpr bool operator!=(const FRealtimeMeshBufferLayout& Other) const { return ElementType != Other.ElementType || NumElements != Other.NumElements; }
@@ -571,24 +532,13 @@ namespace RealtimeMesh
 			return ::HashCombine(GetTypeHash(DataType.ElementType), ::GetTypeHash(DataType.NumElements));
 		}
 
-		friend FArchive& operator<<(FArchive& Ar, FRealtimeMeshBufferLayout& Layout)
-		{
-			Ar << Layout.ElementType;
+		friend FArchive& operator<<(FArchive& Ar, FRealtimeMeshBufferLayout& Layout);
 
-			if (Ar.CustomVer(FRealtimeMeshVersion::GUID) < FRealtimeMeshVersion::RemovedNamedStreamElements)
-			{
-				TArray<FName, TInlineAllocator<REALTIME_MESH_MAX_STREAM_ELEMENTS>> Elements;
-				Ar << Elements;
-			}
-			Ar << Layout.NumElements;
-			return Ar;
-		}
-
-		static const FRealtimeMeshBufferLayout Invalid;
+		REALTIMEMESHCOMPONENT_INTERFACE_API static const FRealtimeMeshBufferLayout Invalid;
 	};
 
 
-	struct REALTIMEMESHCOMPONENT_API FRealtimeMeshBufferMemoryLayout
+	struct FRealtimeMeshBufferMemoryLayout
 	{
 	private:
 		const uint8 Stride;
@@ -605,7 +555,7 @@ namespace RealtimeMesh
 		FORCEINLINE uint8 GetAlignment() const { return Alignment; }
 	};
 
-	struct REALTIMEMESHCOMPONENT_API FRealtimeMeshElementTypeDetails
+	struct FRealtimeMeshElementTypeDetails
 	{
 	private:
 		const EVertexElementType VertexType;
@@ -775,7 +725,7 @@ namespace RealtimeMesh
 		
 
 
-	struct REALTIMEMESHCOMPONENT_API FRealtimeMeshBufferLayoutUtilities
+	struct REALTIMEMESHCOMPONENT_INTERFACE_API FRealtimeMeshBufferLayoutUtilities
 	{
 	private:
 		static const TMap<FRealtimeMeshElementType, FRealtimeMeshElementTypeDetails> SupportedTypeDefinitions;
@@ -825,20 +775,20 @@ namespace RealtimeMesh
 		struct TRowVisualizer;
 		
 #define DEFINE_VISUALIZER_SET(Type) \
-		template<> struct REALTIMEMESHCOMPONENT_API TRawVisualizer<Type, 2> \
+		template<> struct TRawVisualizer<Type, 2> \
 		{ \
 			Type X; \
 			Type Y; \
 		}; \
 		using TRawVisualizer_##Type##_2 = TRawVisualizer<Type, 2>; \
-		template<> struct REALTIMEMESHCOMPONENT_API TRawVisualizer<Type, 3> \
+		template<> struct TRawVisualizer<Type, 3> \
 		{ \
 			Type X; \
 			Type Y; \
 			Type Z; \
 		}; \
 		using TRawVisualizer_##Type##_3 = TRawVisualizer<Type, 3>; \
-		template<> struct REALTIMEMESHCOMPONENT_API TRawVisualizer<Type, 4> \
+		template<> struct TRawVisualizer<Type, 4> \
 		{ \
 			Type X; \
 			Type Y; \
@@ -848,31 +798,31 @@ namespace RealtimeMesh
 		using TRawVisualizer_##Type##_4 = TRawVisualizer<Type, 4>; \
 
 #define DEFINE_VISUALISER_ROW_SET(Type) \
-		template<> struct REALTIMEMESHCOMPONENT_API TRowVisualizer<Type, 2> \
+		template<> struct TRowVisualizer<Type, 2> \
 		{ \
 			Type Elements[2]; \
 		}; \
-		template<> struct REALTIMEMESHCOMPONENT_API TRowVisualizer<Type, 3> \
+		template<> struct TRowVisualizer<Type, 3> \
 		{ \
 			Type Elements[3]; \
 		}; \
-		template<> struct REALTIMEMESHCOMPONENT_API TRowVisualizer<Type, 4> \
+		template<> struct TRowVisualizer<Type, 4> \
 		{ \
 			Type Elements[4]; \
 		}; \
-		template<> struct REALTIMEMESHCOMPONENT_API TRowVisualizer<Type, 5> \
+		template<> struct TRowVisualizer<Type, 5> \
 		{ \
 			Type Elements[5]; \
 		}; \
-		template<> struct REALTIMEMESHCOMPONENT_API TRowVisualizer<Type, 6> \
+		template<> struct TRowVisualizer<Type, 6> \
 		{ \
 			Type Elements[6]; \
 		}; \
-		template<> struct REALTIMEMESHCOMPONENT_API TRowVisualizer<Type, 7> \
+		template<> struct TRowVisualizer<Type, 7> \
 		{ \
 			Type Elements[7]; \
 		}; \
-		template<> struct REALTIMEMESHCOMPONENT_API TRowVisualizer<Type, 8> \
+		template<> struct TRowVisualizer<Type, 8> \
 		{ \
 			Type Elements[8]; \
 		}; \

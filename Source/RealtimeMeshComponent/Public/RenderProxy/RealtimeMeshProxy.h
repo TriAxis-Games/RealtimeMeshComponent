@@ -4,8 +4,8 @@
 
 #include "RealtimeMeshComponentProxy.h"
 #include "RealtimeMeshCore.h"
+#include "RealtimeMeshProxyCommandBatch.h"
 #include "RealtimeMeshProxyShared.h"
-#include "RealtimeMeshConfig.h"
 #include "HAL/ThreadSafeBool.h"
 #include "Containers/Queue.h"
 #include "Mesh/RealtimeMeshCardRepresentation.h"
@@ -13,12 +13,12 @@
 #include "PhysicsEngine/AggregateGeom.h"
 
 
-struct IRealtimeMeshNaniteResources;
 struct FRealtimeMeshDistanceField;
 enum class ERealtimeMeshSectionDrawType : uint8;
 
 namespace RealtimeMesh
 {
+	struct IRealtimeMeshNaniteResources;
 
 	static_assert(REALTIME_MESH_MAX_LODS <= FBitSet::BitsPerWord, "REALTIME_MESH_MAX_LODS must be less than or equal to FBitSet::BitsPerWord");
 	using FRealtimeMeshLODMask = TBitArray<TFixedAllocator<1>>;
@@ -76,9 +76,8 @@ namespace RealtimeMesh
 	
 	
 	class REALTIMEMESHCOMPONENT_API FRealtimeMeshProxy : public TSharedFromThis<FRealtimeMeshProxy>
-	{
-	protected:
-		
+	{		
+	protected:		
 		const FRealtimeMeshSharedResourcesRef SharedResources;
 		TFixedLODArray<FRealtimeMeshLODProxyPtr> LODs;
 		FRealtimeMeshDrawMask DrawMask;
@@ -93,12 +92,23 @@ namespace RealtimeMesh
 
 		TSharedPtr<IRealtimeMeshNaniteResources> NaniteResources;
 
+
+		struct FCommandBatch
+		{
+			TArray<FRealtimeMeshProxyUpdateBuilder::TaskFunctionType> Tasks;
+			TSharedPtr<FRealtimeMeshCommandBatchIntermediateFuture> ThreadState;
+			int32 RequiredVersion;
+		};
+		TMpscQueue<FCommandBatch> CommandQueue;
+		int32 MaxAllowedVersion;
+
 #if UE_ENABLE_DEBUG_DRAWING
 		// If debug drawing is enabled, we store collision data here so that collision shapes can be rendered when requested by showflags
 
 		bool bOwnerIsNull = true;
 		/** Whether the collision data has been set up for rendering */
 		bool bHasCollisionData = false;
+
 		/** Collision trace flags */
 		ECollisionTraceFlag		CollisionTraceFlag;
 		/** Collision Response of this component */
@@ -127,7 +137,7 @@ namespace RealtimeMesh
 		bool HasDistanceFieldData() const;
 		const FDistanceFieldVolumeData* GetDistanceFieldData() const { return DistanceField.Get(); }
 		
-		virtual void SetNaniteResources(TSharedPtr<IRealtimeMeshNaniteResources> InNaniteResources);
+		virtual void SetNaniteResources(const TSharedPtr<IRealtimeMeshNaniteResources>& InNaniteResources);
 		bool HasNaniteResources() const;
 		template<typename ResourcesType>
 		TSharedPtr<ResourcesType> GetNaniteResources() const { return StaticCastSharedPtr<ResourcesType>(NaniteResources); }
@@ -147,7 +157,10 @@ namespace RealtimeMesh
 		virtual void SetCollisionRenderData(const FKAggregateGeom& InAggGeom, ECollisionTraceFlag InCollisionTraceFlag, const FCollisionResponseContainer& InCollisionResponse);
 #endif
 
-		virtual void UpdatedCachedState(bool bShouldForceUpdate);
+		void EnqueueCommandBatch(TArray<FRealtimeMeshProxyUpdateBuilder::TaskFunctionType>&& InTasks, const TSharedPtr<FRealtimeMeshCommandBatchIntermediateFuture>& ThreadState, int32 InRequiredVersion);
+		void ProcessCommands(FRHICommandListBase& RHICmdList, int32 NewKnownVersion = INDEX_NONE);
+		
+		virtual void UpdatedCachedState(FRHICommandListBase& RHICmdList, bool bShouldForceUpdate);
 		virtual void Reset();
 
 	protected:

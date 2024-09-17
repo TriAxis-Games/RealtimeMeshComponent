@@ -2,10 +2,10 @@
 
 #pragma once
 
-#include "RealtimeMeshConfig.h"
 #include "RealtimeMeshCore.h"
 #include "RealtimeMeshProxyShared.h"
 #include "RealtimeMeshSectionGroupProxy.h"
+#include "Core/RealtimeMeshLODConfig.h"
 
 namespace RealtimeMesh
 {
@@ -67,9 +67,7 @@ namespace RealtimeMesh
 		const FRealtimeMeshLODKey Key;
 		TArray<FRealtimeMeshSectionGroupProxyRef> SectionGroups;
 		TMap<FRealtimeMeshSectionGroupKey, uint32> SectionGroupMap;
-		FRealtimeMeshSectionGroupMask ActiveSectionGroupMask;		
-		FRealtimeMeshSectionGroupMask ActiveStaticSectionGroupMask;
-		FRealtimeMeshSectionGroupMask ActiveDynamicSectionGroupMask;
+		FRealtimeMeshSectionGroupMask ActiveSectionGroupMask;
 		TOptional<FRealtimeMeshSectionGroupKey> OverrideStaticRayTracingGroup;
 
 		FRealtimeMeshLODConfig Config;
@@ -88,8 +86,6 @@ namespace RealtimeMesh
 		const FRealtimeMeshLODConfig& GetConfig() const { return Config; }
 		FRealtimeMeshDrawMask GetDrawMask() const { return DrawMask; }
 		FRealtimeMeshActiveSectionGroupIterator GetActiveSectionGroupMaskIter() const { return FRealtimeMeshActiveSectionGroupIterator(*this, ActiveSectionGroupMask); }
-		FRealtimeMeshActiveSectionGroupIterator GetActiveStaticSectionGroupMaskIter() const { return FRealtimeMeshActiveSectionGroupIterator(*this, ActiveStaticSectionGroupMask); }
-		FRealtimeMeshActiveSectionGroupIterator GetActiveDynamicSectionGroupMaskIter() const { return FRealtimeMeshActiveSectionGroupIterator(*this, ActiveDynamicSectionGroupMask); }
 		float GetScreenSize() const { return Config.ScreenSize; }
 
 		FRealtimeMeshSectionGroupProxyPtr GetStaticRayTracedSectionGroup() const { return StaticRaytracingSectionGroup; }
@@ -105,7 +101,7 @@ namespace RealtimeMesh
 		virtual FRayTracingGeometry* GetStaticRayTracingGeometry() const;
 #endif
 		
-		virtual bool UpdateCachedState(bool bShouldForceUpdate);
+		virtual bool UpdateCachedState(FRHICommandListBase& RHICmdList, bool bShouldForceUpdate);
 		virtual void Reset();
 
 	protected:

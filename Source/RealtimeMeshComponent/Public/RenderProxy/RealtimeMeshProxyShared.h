@@ -128,7 +128,13 @@ namespace RealtimeMesh
 		{
 			if (MaterialSupportsDither.Num() < Index + 1)
 			{
+#if RMC_ENGINE_ABOVE_5_3
 				MaterialSupportsDither.SetNum(Index + 1, false);
+#else
+				int32 OldNum = MaterialSupportsDither.Num();
+				MaterialSupportsDither.SetNumUninitialized(Index + 1);
+				MaterialSupportsDither.SetRange(OldNum, (Index + 1) - OldNum, false);
+#endif
 			}
 			MaterialSupportsDither[Index] = bInSupportsDither;
 		}

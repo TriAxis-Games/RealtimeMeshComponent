@@ -3,9 +3,8 @@
 #pragma once
 
 #include "CoreTypes.h"
-#include "RealtimeMeshDataStream.h"
-#include "RealtimeMeshDataTypes.h"
-#include "RealtimeMeshConfig.h"
+#include "Core/RealtimeMeshDataStream.h"
+#include "Core/RealtimeMeshDataTypes.h"
 #include "Algo/StableSort.h"
 
 struct FRealtimeMeshPolygonGroupRange;

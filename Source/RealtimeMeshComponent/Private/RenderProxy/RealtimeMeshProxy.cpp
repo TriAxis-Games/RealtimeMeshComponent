@@ -2,6 +2,7 @@
 
 #include "RenderProxy/RealtimeMeshProxy.h"
 
+#include "RealtimeMeshSceneViewExtension.h"
 #include "Data/RealtimeMeshShared.h"
 #include "RenderProxy/RealtimeMeshLODProxy.h"
 
@@ -14,6 +15,7 @@ namespace RealtimeMesh
 		, ActiveStaticLODMask(false, REALTIME_MESH_MAX_LODS)
 		, ActiveDynamicLODMask(false, REALTIME_MESH_MAX_LODS)
 		, bIsStateDirty(true)
+		, MaxAllowedVersion(0)
 	{
 	}
 
@@ -23,6 +25,12 @@ namespace RealtimeMesh
 		// This is so that all the resources can be safely freed correctly.
 		check(IsInRenderingThread());
 		Reset();
+
+		while (!CommandQueue.IsEmpty())
+		{
+			auto Entry = CommandQueue.Dequeue();
+			Entry->ThreadState->FinalizeRenderThread(ERealtimeMeshProxyUpdateStatus::NoProxy);
+		}	
 	}
 
 	ERHIFeatureLevel::Type FRealtimeMeshProxy::GetRHIFeatureLevel() const
@@ -42,8 +50,21 @@ namespace RealtimeMesh
 		}
 		
 		// Find previous active lod
+#if RMC_ENGINE_ABOVE_5_3
 		const int32 NextActive = ScreenPercentageNextLODMask.FindFrom(true, REALTIME_MESH_MAX_LOD_INDEX - (LODIndex - 1));
+#else
+		int32 NextActive = INDEX_NONE;
 
+		for (int32 Index = REALTIME_MESH_MAX_LOD_INDEX - (LODIndex - 1); Index < REALTIME_MESH_MAX_LODS; Index++)
+		{
+			if (ScreenPercentageNextLODMask[Index])
+			{
+				NextActive = Index;
+				break;
+			}
+		}		
+#endif
+		
 		// If there is no valid lod higher than us, then we just use max value for the upper end
 		if (NextActive == INDEX_NONE)
 		{
@@ -69,7 +90,7 @@ namespace RealtimeMesh
 #endif
 	}
 
-	void FRealtimeMeshProxy::SetNaniteResources(TSharedPtr<IRealtimeMeshNaniteResources> InNaniteResources)
+	void FRealtimeMeshProxy::SetNaniteResources(const TSharedPtr<IRealtimeMeshNaniteResources>& InNaniteResources)
 	{
 		check(IsInRenderingThread());
 
@@ -140,16 +161,42 @@ namespace RealtimeMesh
 			
 		//bOwnerIsNull = ParentBaseComponent->GetOwner() == nullptr;
 	}
+
+	void FRealtimeMeshProxy::EnqueueCommandBatch(TArray<FRealtimeMeshProxyUpdateBuilder::TaskFunctionType>&& InTasks, const TSharedPtr<FRealtimeMeshCommandBatchIntermediateFuture>& ThreadState, int32 InRequiredVersion)
+	{
+		CommandQueue.Enqueue(FCommandBatch { MoveTemp(InTasks), ThreadState, InRequiredVersion });
+	}
+
+	void FRealtimeMeshProxy::ProcessCommands(FRHICommandListBase& RHICmdList, int32 NewKnownVersion)
+	{
+		MaxAllowedVersion = NewKnownVersion != INDEX_NONE? NewKnownVersion : MaxAllowedVersion;
+		while (!CommandQueue.IsEmpty() && CommandQueue.Peek()->RequiredVersion <= MaxAllowedVersion)
+		{
+			auto Entry = CommandQueue.Dequeue();
+			for (const auto& Task : Entry->Tasks)
+			{
+				Task(RHICmdList, *this);
+			}
+			UpdatedCachedState(RHICmdList, false);
+			Entry->ThreadState->FinalizeRenderThread(ERealtimeMeshProxyUpdateStatus::Updated);
+		}
+
+		if (!CommandQueue.IsEmpty())
+		{
+			const int32 NextVersion = CommandQueue.Peek()->RequiredVersion;
+			check(true);
+		}
+	}
 #endif
 
-	void FRealtimeMeshProxy::UpdatedCachedState(bool bShouldForceUpdate)
+	void FRealtimeMeshProxy::UpdatedCachedState(FRHICommandListBase& RHICmdList, bool bShouldForceUpdate)
 	{
 		TRACE_CPUPROFILER_EVENT_SCOPE(FRealtimeMeshProxy::UpdatedCachedState);
 		
 		// Handle all LOD updates next
 		for (const auto& LOD : LODs)
 		{
-			bIsStateDirty |= LOD->UpdateCachedState(bShouldForceUpdate);
+			bIsStateDirty |= LOD->UpdateCachedState(RHICmdList, bShouldForceUpdate);
 		}
 
 		if (!bIsStateDirty && !bShouldForceUpdate)

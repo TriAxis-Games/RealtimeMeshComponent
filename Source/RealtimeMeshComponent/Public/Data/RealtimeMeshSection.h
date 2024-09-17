@@ -3,13 +3,11 @@
 #pragma once
 
 #include "RealtimeMeshCore.h"
-#include "RealtimeMeshConfig.h"
 #include "Data/RealtimeMeshShared.h"
+#include "RenderProxy/RealtimeMeshProxy.h"
 
 namespace RealtimeMesh
 {
-	struct FRealtimeMeshProxyCommandBatch;
-
 	/**
 	 * @brief This is the base class for all section types. It contains the shared resources, and the key used to identify the section.
 	 * It also contains the bounds, and also the config and stream range for the section.
@@ -50,54 +48,48 @@ namespace RealtimeMesh
 		}
 
 		/**
-		 * @brief 
-		 * @return Gets the current parent SectionGroup
+		 * @brief Gets the current parent SectionGroup
+		 * @return Parent SectionGroup to this section
 		 */
 		FRealtimeMeshSectionGroupPtr GetSectionGroup() const;
 
 		/**
-		 * @brief 
-		 * @return Gets the key used to identify this section
+		 * @brief Gets the key used to identify this section
 		 */
 		const FRealtimeMeshSectionKey& GetKey() const { return Key; }
 
 		/**
-		 * @brief 
-		 * @return Gets the Config for this section
+		 * @brief Gets the Config for this section
 		 */
 		FRealtimeMeshSectionConfig GetConfig() const;
 
 		/**
-		 * @brief 
-		 * @return Gets the StreamRange for this section, which controls the range of the parent buffers we render for this section
+		 * @brief Gets the StreamRange for this section, which controls the range of the parent buffers we render for this section
 		 */
 		FRealtimeMeshStreamRange GetStreamRange() const;
 
 		/**
-		 * @brief 
-		 * @return Gets the bounds for this section in local space
+		 * @brief Gets the bounds for this section in local space
 		 */
 		FBoxSphereBounds3f GetLocalBounds() const;
 
 		/**
-		 * @brief 
-		 * @return Is this section currently visible
+		 * @brief Is this section currently visible
 		 */
 		bool IsVisible() const { return GetConfig().bIsVisible; }
 
 		/**
-		 * @brief 
-		 * @return Is this section currently casting shadows
+		 * @brief Is this section currently casting shadows
 		 */
 		bool IsCastingShadow() const { return GetConfig().bCastsShadow; }
 
 		/**
 		 * @brief Initializes this section, setting up the starting config/streamrange
-		 * @param Commands Running commandqueue that we send RT commands too. This is used for command batching.
+		 * @param ProxyBuilder Running commandqueue that we send RT commands too. This is used for command batching.
 		 * @param InConfig Initial config for this section
 		 * @param InRange Initial stream range to render for this section
 		 */
-		virtual void Initialize(FRealtimeMeshProxyCommandBatch& Commands, const FRealtimeMeshSectionConfig& InConfig, const FRealtimeMeshStreamRange& InRange);
+		virtual void Initialize(FRealtimeMeshProxyUpdateBuilder& ProxyBuilder, const FRealtimeMeshSectionConfig& InConfig, const FRealtimeMeshStreamRange& InRange);
 
 		/**
 		 * @brief Resets the section to a default state. For batching several commands together, use the Reset(FRealtimeMeshProxyCommandBatch&) variant.
@@ -107,9 +99,9 @@ namespace RealtimeMesh
 
 		/**
 		 * @brief Resets the section to a default state
-		 * @param Commands Running command queue that we send RT commands too. This is used for command batching.
+		 * @param ProxyBuilder Running command queue that we send RT commands too. This is used for command batching.
 		 */
-		virtual void Reset(FRealtimeMeshProxyCommandBatch& Commands);
+		virtual void Reset(FRealtimeMeshProxyUpdateBuilder& ProxyBuilder);
 
 		/**
 		 * @brief Sets a custom bounds for this section, overriding the calculated bounds and skipping calculation.
@@ -137,10 +129,10 @@ namespace RealtimeMesh
 
 		/**
 		 * @brief Update the config for this section
-		 * @param Commands Running command queue that we send RT commands too. This is used for command batching.
+		 * @param ProxyBuilder Running command queue that we send RT commands too. This is used for command batching.
 		 * @param InConfig New section config
 		 */
-		virtual void UpdateConfig(FRealtimeMeshProxyCommandBatch& Commands, const FRealtimeMeshSectionConfig& InConfig);
+		virtual void UpdateConfig(FRealtimeMeshProxyUpdateBuilder& ProxyBuilder, const FRealtimeMeshSectionConfig& InConfig);
 
 		/**
 		 * @brief Edits the config for this section using the specified function
@@ -151,10 +143,10 @@ namespace RealtimeMesh
 
 		/**
 		 * @brief Edits the config for this section using the specified function
-		 * @param Commands Running command queue that we send RT commands too. This is used for command batching.
+		 * @param ProxyBuilder Running command queue that we send RT commands too. This is used for command batching.
 		 * @param EditFunc Function to call to edit the config
 		 */
-		virtual void UpdateConfig(FRealtimeMeshProxyCommandBatch& Commands, TFunction<void(FRealtimeMeshSectionConfig&)> EditFunc);
+		virtual void UpdateConfig(FRealtimeMeshProxyUpdateBuilder& ProxyBuilder, TFunction<void(FRealtimeMeshSectionConfig&)> EditFunc);
 
 		/**
 		 * @brief Update the stream range for this section
@@ -165,10 +157,10 @@ namespace RealtimeMesh
 
 		/**
 		 * @brief Update the stream range for this section
-		 * @param Commands Running command queue that we send RT commands too. This is used for command batching.
+		 * @param ProxyBuilder Running command queue that we send RT commands too. This is used for command batching.
 		 * @param InRange New section stream range
 		 */
-		virtual void UpdateStreamRange(FRealtimeMeshProxyCommandBatch& Commands, const FRealtimeMeshStreamRange& InRange);
+		virtual void UpdateStreamRange(FRealtimeMeshProxyUpdateBuilder& ProxyBuilder, const FRealtimeMeshStreamRange& InRange);
 
 		/**
 		 * @brief Update the visibility for the section
@@ -179,10 +171,10 @@ namespace RealtimeMesh
 
 		/**
 		 * @brief Update the visibility for the section
-		 * @param Commands Running command queue that we send RT commands too. This is used for command batching.
+		 * @param ProxyBuilder Running command queue that we send RT commands too. This is used for command batching.
 		 * @param bIsVisible New visibility for section
 		 */
-		virtual void SetVisibility(FRealtimeMeshProxyCommandBatch& Commands, bool bIsVisible);
+		virtual void SetVisibility(FRealtimeMeshProxyUpdateBuilder& ProxyBuilder, bool bIsVisible);
 
 		/**
 		 * @brief Update the shadow casting state for the section
@@ -193,10 +185,10 @@ namespace RealtimeMesh
 
 		/**
 		 * @brief Update the shadow casting state for the section
-		 * @param Commands Running command queue that we send RT commands too. This is used for command batching.
+		 * @param ProxyBuilder Running command queue that we send RT commands too. This is used for command batching.
 		 * @param bCastShadow New shadow casting state for section
 		 */
-		virtual void SetCastShadow(FRealtimeMeshProxyCommandBatch& Commands, bool bCastShadow);
+		virtual void SetCastShadow(FRealtimeMeshProxyUpdateBuilder& ProxyBuilder, bool bCastShadow);
 
 		/**
 		 * @brief Serializes this section to the running archive.
@@ -207,9 +199,10 @@ namespace RealtimeMesh
 
 		/**
 		 * @brief Initializes the proxy, adding all the necessary commands to initialize the state to the supplied CommandBatch
-		 * @param Commands Running command queue that we send RT commands too. This is used for command batching.
+		 * @param ProxyBuilder Running command queue that we send RT commands too. This is used for command batching.
 		 */
-		virtual void InitializeProxy(FRealtimeMeshProxyCommandBatch& Commands);
+		virtual void InitializeProxy(FRealtimeMeshProxyUpdateBuilder& ProxyBuilder);
+		
 	protected:
 		/**
 		 * @brief Marks the bounds dirty, to request a recalculate, if the bounds are not overriden by a custom bound
@@ -226,7 +219,7 @@ namespace RealtimeMesh
 		 * @brief 
 		 * @return Should we request a proxy recreate for the component when this section changes?
 		 */
-		virtual bool ShouldRecreateProxyOnChange() const { return Config.DrawType == ERealtimeMeshSectionDrawType::Static; }
+		virtual bool ShouldRecreateProxyOnChange() const;
 	};
 
 

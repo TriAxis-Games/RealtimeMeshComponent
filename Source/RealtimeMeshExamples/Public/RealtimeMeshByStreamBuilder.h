@@ -18,7 +18,5 @@ public:
 
 protected:
 
-	// Called when the mesh generation should happen. This could be called in the
-	// editor for placed actors, or at runtime for spawned actors.
-	virtual void OnGenerateMesh_Implementation() override;
+	virtual void OnConstruction(const FTransform& Transform) override;
 };

@@ -41,20 +41,9 @@ namespace RealtimeMesh
 	public:
 		FRealtimeMeshGuard()
 			: CurrentWriterThreadId(0)
-		{
-			/*TlsSlot = FPlatformTLS::AllocTlsSlot();
-			CurrentWriterThreadId.Store(0);*/
-		}
+		{ }
 
-		~FRealtimeMeshGuard()
-		{		
-			/*
-			if (FPlatformTLS::IsValidTlsSlot(TlsSlot))
-			{
-				check(CurrentWriterThreadId.Load() == 0);
-				FPlatformTLS::FreeTlsSlot(TlsSlot);
-			}*/
-		}
+		~FRealtimeMeshGuard() { }
 
 		FRealtimeMeshGuard(const FRealtimeMeshGuard& InOther) = delete;
 		FRealtimeMeshGuard(FRealtimeMeshGuard&& InOther) = delete;
@@ -66,52 +55,10 @@ namespace RealtimeMesh
 		void ReadUnlock();
 		void WriteUnlock();
 
+		bool IsWriteLocked();
+		bool IsReadLocked();
+
 	private:
-		/*// We use 32 bits to store our depths (16 read and 16 write) allowing a maximum
-		// recursive lock of depth 65,536. This unions to whatever the platform ptr size
-		// is so we can store this directly into TLS without allocating more storage
-		class FRealtimeMeshGuardTls
-		{
-		public:
-			FRealtimeMeshGuardTls()
-				: WriteDepth(0)
-				  , ReadDepth(0)
-			{
-			}
-
-			union
-			{
-				struct
-				{
-					uint16 WriteDepth;
-					uint16 ReadDepth;
-				};
-
-				void* PtrDummy;
-			};
-		};
-
-		// Helper for modifying the current TLS data
-		template <typename CallableType>
-		FRealtimeMeshGuardTls ModifyTls(CallableType Callable)
-		{
-			checkSlow(FPlatformTLS::IsValidTlsSlot(TlsSlot));
-
-			void* ThreadData = FPlatformTLS::GetTlsValue(TlsSlot);
-
-			FRealtimeMeshGuardTls TlsData;
-			TlsData.PtrDummy = ThreadData;
-
-			Callable(TlsData);
-
-			FPlatformTLS::SetTlsValue(TlsSlot, TlsData.PtrDummy);
-
-			return TlsData;
-		}*/
-
-
-
-		//uint32 TlsSlot;
 		TAtomic<uint32> CurrentWriterThreadId;
 		FRWLock InnerLock;
 	};
@@ -122,6 +69,7 @@ namespace RealtimeMesh
 	public:
 		RMC_NODISCARD_CTOR explicit FRealtimeMeshScopeGuardRead(FRealtimeMeshGuard& InGuard, bool bLockImmediately = true);
 		RMC_NODISCARD_CTOR explicit FRealtimeMeshScopeGuardRead(const FRealtimeMeshSharedResourcesRef& InSharedResources, bool bLockImmediately = true);
+		RMC_NODISCARD_CTOR explicit FRealtimeMeshScopeGuardRead(const FRealtimeMeshPtr& InMesh, bool bLockImmediately = true);
 
 		void Lock()
 		{
@@ -158,6 +106,7 @@ namespace RealtimeMesh
 	public:
 		RMC_NODISCARD_CTOR explicit FRealtimeMeshScopeGuardWrite(FRealtimeMeshGuard& InGuard, bool bLockImmediately = true);
 		RMC_NODISCARD_CTOR explicit FRealtimeMeshScopeGuardWrite(const FRealtimeMeshSharedResourcesRef& InSharedResources, bool bLockImmediately = true);
+		RMC_NODISCARD_CTOR explicit FRealtimeMeshScopeGuardWrite(const FRealtimeMeshPtr& InMesh, bool bLockImmediately = true);
 
 		void Lock()
 		{
@@ -242,5 +191,49 @@ namespace RealtimeMesh
 
 		FRealtimeMeshGuard& Guard;
 		ERealtimeMeshGuardLockType LockType;
+	};
+
+
+	
+	
+
+	struct REALTIMEMESHCOMPONENT_API FRealtimeMeshScopeGuardWriteCheck
+	{		
+		RMC_NODISCARD_CTOR explicit FRealtimeMeshScopeGuardWriteCheck(FRealtimeMeshGuard& InGuard)
+			: Guard(InGuard)
+		{
+			check(Guard.IsWriteLocked());
+		}
+		RMC_NODISCARD_CTOR explicit FRealtimeMeshScopeGuardWriteCheck(const FRealtimeMeshSharedResourcesRef& SharedResources);
+
+		~FRealtimeMeshScopeGuardWriteCheck()
+		{
+			check(Guard.IsWriteLocked());
+		}
+		
+	private:
+		UE_NONCOPYABLE(FRealtimeMeshScopeGuardWriteCheck);
+
+		FRealtimeMeshGuard& Guard;
+	};
+	
+	struct REALTIMEMESHCOMPONENT_API FRealtimeMeshScopeGuardReadCheck
+	{		
+		RMC_NODISCARD_CTOR explicit FRealtimeMeshScopeGuardReadCheck(FRealtimeMeshGuard& InGuard)
+			: Guard(InGuard)
+		{
+			check(Guard.IsReadLocked());
+		}
+		RMC_NODISCARD_CTOR explicit FRealtimeMeshScopeGuardReadCheck(const FRealtimeMeshSharedResourcesRef& SharedResources);
+
+		~FRealtimeMeshScopeGuardReadCheck()
+		{
+			check(Guard.IsReadLocked());
+		}
+		
+	private:
+		UE_NONCOPYABLE(FRealtimeMeshScopeGuardReadCheck);
+
+		FRealtimeMeshGuard& Guard;
 	};
 }

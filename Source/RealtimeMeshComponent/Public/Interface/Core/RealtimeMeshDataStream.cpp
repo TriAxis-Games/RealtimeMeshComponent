@@ -1,11 +1,9 @@
 ﻿// Copyright (c) 2015-2024 TriAxis Games, L.L.C. All Rights Reserved.
 
 
-#include "Mesh/RealtimeMeshDataStream.h"
+#include "RealtimeMeshDataStream.h"
 
 #include <string>
-
-#include "Algo/AllOf.h"
 
 
 namespace RealtimeMesh::NatVis

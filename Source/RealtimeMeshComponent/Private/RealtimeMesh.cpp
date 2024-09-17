@@ -5,6 +5,8 @@
 #include "Data/RealtimeMeshData.h"
 #include "Data/RealtimeMeshLOD.h"
 #include "Interface_CollisionDataProviderCore.h"
+#include "Chaos/TriangleMeshImplicitObject.h"
+#include "Core/RealtimeMeshFuture.h"
 #include "Misc/LazySingleton.h"
 #include "PhysicsEngine/BodySetup.h"
 #include "Logging/MessageLog.h"
@@ -31,9 +33,10 @@ URealtimeMesh::URealtimeMesh(const FObjectInitializer& ObjectInitializer)
 	: UObject(ObjectInitializer)
 	, BodySetup(nullptr)
 	, CollisionUpdateVersionCounter(0)
-	, CurrentCollisionVersion(INDEX_NONE)
+	, CurrentCollisionVersion(0)
 	, bShouldSerializeMeshData(true)
-{	
+{
+
 }
 
 void URealtimeMesh::BroadcastBoundsChangedEvent()
@@ -55,12 +58,12 @@ void URealtimeMesh::BroadcastBoundsChangedEvent()
 	}
 }
 
-void URealtimeMesh::BroadcastRenderDataChangedEvent(bool bShouldRecreateProxies)
+void URealtimeMesh::BroadcastRenderDataChangedEvent(bool bShouldRecreateProxies, int32 CommandsVersion)
 {
 	if (!IsInGameThread())
 	{
 		TWeakObjectPtr<URealtimeMesh> WeakThis(this);
-		AsyncTask(ENamedThreads::GameThread, [WeakThis, bShouldRecreateProxies]()
+		AsyncTask(ENamedThreads::GameThread, [WeakThis, bShouldRecreateProxies, CommandsVersion]()
 		{
 			if (const auto Mesh = WeakThis.Get())
 			{
@@ -169,7 +172,7 @@ void URealtimeMesh::Reset(bool bCreateNewMeshData)
 	UVData.Empty();
 
 	BroadcastBoundsChangedEvent();
-	BroadcastRenderDataChangedEvent(true);
+	//BroadcastRenderDataChangedEvent(true);
 	BroadcastCollisionBodyUpdatedEvent(nullptr);
 }
 
@@ -293,6 +296,11 @@ UMaterialInterface* URealtimeMesh::GetMaterial(int32 SlotIndex) const
 	return nullptr;
 }
 
+UWorld* URealtimeMesh::GetWorld() const
+{
+	return Super::GetWorld();
+}
+
 void URealtimeMesh::PostInitProperties()
 {
 	UObject::PostInitProperties();
@@ -381,11 +389,11 @@ void URealtimeMesh::InitiateCollisionUpdate(const TSharedRef<TPromise<ERealtimeM
 			{
 				if (Index < MeshesNeedingCook.Num())
 				{
-					UpdateState->CollisionInfo->ComplexGeometry.CookMesh(MeshesNeedingCook[Index]);
+					URealtimeMeshCollisionTools::CookComplexMesh(UpdateState->CollisionInfo->ComplexGeometry.GetByIndex(Index));
 				}
 				else
 				{
-					UpdateState->CollisionInfo->SimpleGeometry.CookHull(ConvexObjectsNeedingCook[Index - MeshesNeedingCook.Num()]);
+					URealtimeMeshCollisionTools::CookConvexHull(UpdateState->CollisionInfo->SimpleGeometry.ConvexHulls.GetByIndex(Index - MeshesNeedingCook.Num()));
 				}
 			});			
 					
@@ -416,7 +424,7 @@ void URealtimeMesh::InitiateCollisionUpdate(const TSharedRef<TPromise<ERealtimeM
 
 			if (NewBodySetup->CollisionTraceFlag != CTF_UseComplexAsSimple)
 			{
-				CollisionState->CollisionInfo->SimpleGeometry.CopyToBodySetup(NewBodySetup);
+				URealtimeMeshCollisionTools::CopySimpleGeometryToBodySetup(CollisionState->CollisionInfo->SimpleGeometry, NewBodySetup);
 				for (auto& Convex : NewBodySetup->AggGeom.ConvexElems)
 				{
 					Convex.GetChaosConvexMesh()->SetDoCollide(false);				
@@ -429,8 +437,12 @@ void URealtimeMesh::InitiateCollisionUpdate(const TSharedRef<TPromise<ERealtimeM
 			TArray<FRealtimeMeshCollisionMeshCookedUVData> NewUVData;
 			if (NewBodySetup->CollisionTraceFlag != CTF_UseSimpleAsComplex)
 			{
-				CollisionState->CollisionInfo->ComplexGeometry.CopyToBodySetup(NewBodySetup, NewUVData);	
+				URealtimeMeshCollisionTools::CopyComplexGeometryToBodySetup(CollisionState->CollisionInfo->ComplexGeometry, NewBodySetup, NewUVData);
+#if RMC_ENGINE_ABOVE_5_4
 				for (auto& Mesh : NewBodySetup->TriMeshGeometries)
+#else
+				for (auto& Mesh : NewBodySetup->ChaosTriMeshes)
+#endif
 				{
 					Mesh->SetDoCollide(false);
 #if TRACK_CHAOS_GEOMETRY
@@ -459,7 +471,7 @@ void URealtimeMesh::InitiateCollisionUpdate(const TSharedRef<TPromise<ERealtimeM
 	// Finalize collision update
 	CookFuture.Then([Promise, ApplyCollisionFunction = MoveTemp(ApplyCollisionFunction)](TFuture<TSharedRef<FCollisionUpdateState>>&& Future) mutable
 	{
-		AsyncTask(ENamedThreads::GameThread, [Promise, ApplyCollisionFunction = MoveTemp(ApplyCollisionFunction), CollisionState = Future.Consume()]() mutable
+		AsyncTask(ENamedThreads::GameThread, [Promise, ApplyCollisionFunction = MoveTemp(ApplyCollisionFunction), CollisionState = Future.Get()]() mutable
 		{
 			Promise->EmplaceValue(ApplyCollisionFunction(CollisionState));
 		});
@@ -471,10 +483,10 @@ void URealtimeMesh::HandleBoundsUpdated()
 	BroadcastBoundsChangedEvent();
 }
 
-void URealtimeMesh::HandleMeshRenderingDataChanged(bool bShouldRecreateProxies)
+void URealtimeMesh::HandleMeshRenderingDataChanged(bool bShouldRecreateProxies, int32 CommandsVersion)
 {
 	Modify(true);
-	BroadcastRenderDataChangedEvent(bShouldRecreateProxies);
+	BroadcastRenderDataChangedEvent(bShouldRecreateProxies, CommandsVersion);
 }
 
 
@@ -548,5 +560,6 @@ void URealtimeMesh::MarkForEndOfFrameUpdate()
 {
 	FRealtimeMeshEndOfFrameUpdateManager::Get().MarkComponentForUpdate(this);
 }
+
 
 #undef LOCTEXT_NAMESPACE

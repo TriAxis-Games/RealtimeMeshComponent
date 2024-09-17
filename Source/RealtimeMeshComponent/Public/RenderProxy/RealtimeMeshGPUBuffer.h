@@ -2,11 +2,13 @@
 
 #pragma once
 
-#include "Mesh/RealtimeMeshDataTypes.h"
+#include "Core/RealtimeMeshDataTypes.h"
 #include "Containers/ResourceArray.h"
-#include "Mesh/RealtimeMeshDataStream.h"
+#include "Core/RealtimeMeshDataStream.h"
 #if RMC_ENGINE_ABOVE_5_2
+#if RMC_ENGINE_BELOW_5_5
 #include "RHIResourceUpdates.h"
+#endif
 #include "DataDrivenShaderPlatformInfo.h"
 #endif
 
@@ -81,7 +83,7 @@ namespace RealtimeMesh
 			}*/
 		}
 
-		void InitializeIfRequired()
+		void InitializeIfRequired(FRHICommandListBase& RHICmdList)
 		{
 			if (!Buffer.IsValid())
 			{
@@ -91,15 +93,14 @@ namespace RealtimeMesh
 				CreateInfo.bWithoutNativeResource = Stream.Num() == 0 || Stream.GetStride() == 0;
 
 #if RMC_ENGINE_ABOVE_5_3
-				FRHIAsyncCommandList CommandList;
 				if (GetStreamKey().IsVertexStream())
 				{
-					Buffer = CommandList->CreateVertexBuffer(Stream.GetResourceDataSize(), UsageFlags | BUF_VertexBuffer | BUF_ShaderResource, CreateInfo);
+					Buffer = RHICmdList.CreateVertexBuffer(Stream.GetResourceDataSize(), UsageFlags | BUF_VertexBuffer | BUF_ShaderResource, CreateInfo);
 				}
 				else
 				{
 					check(GetStreamKey().IsIndexStream());
-					Buffer =  CommandList->CreateIndexBuffer(Stream.GetElementStride(), Stream.GetResourceDataSize(), UsageFlags | BUF_IndexBuffer | BUF_ShaderResource, CreateInfo);
+					Buffer =  RHICmdList.CreateIndexBuffer(Stream.GetElementStride(), Stream.GetResourceDataSize(), UsageFlags | BUF_IndexBuffer | BUF_ShaderResource, CreateInfo);
 				}
 #else
 				if (GetStreamKey().IsVertexStream())
@@ -156,7 +157,7 @@ namespace RealtimeMesh
 		}
 
 		virtual ERealtimeMeshStreamType GetStreamType() const = 0;
-		virtual void InitializeResources() = 0;
+		virtual void InitializeResources(FRHICommandListBase& RHICmdList) = 0;
 		virtual void ReleaseUnderlyingResource() = 0;
 		virtual bool IsResourceInitialized() const = 0;
 
@@ -171,7 +172,7 @@ namespace RealtimeMesh
 
 		static constexpr int32 RHIUpdateBatchSize = 16;
 
-		virtual void ApplyBufferUpdate(TRHIResourceUpdateBatcher<RHIUpdateBatchSize>& Batcher, const FRealtimeMeshSectionGroupStreamUpdateDataRef& UpdateData)
+		virtual void ApplyBufferUpdate(FRHICommandListBase& RHICmdList, const FRealtimeMeshSectionGroupStreamUpdateDataRef& UpdateData)
 		{
 			check(BufferLayout == UpdateData->GetBufferLayout());
 			BufferNum = UpdateData->GetNumElements();
@@ -197,10 +198,10 @@ namespace RealtimeMesh
 
 		virtual ERealtimeMeshStreamType GetStreamType() const override { return ERealtimeMeshStreamType::Vertex; }
 
-		virtual void InitializeResources() override
+		virtual void InitializeResources(FRHICommandListBase& RHICmdList) override
 		{
 #if RMC_ENGINE_ABOVE_5_3
-			InitResource(FRHICommandListImmediate::Get());
+			InitResource(RHICmdList);
 #else
 			InitResource();
 #endif
@@ -237,18 +238,17 @@ namespace RealtimeMesh
 		}
 #endif
 
-		virtual void ApplyBufferUpdate(TRHIResourceUpdateBatcher<RHIUpdateBatchSize>& Batcher,
-		                               const FRealtimeMeshSectionGroupStreamUpdateDataRef& UpdateData) override
+		virtual void ApplyBufferUpdate(FRHICommandListBase& RHICmdList, const FRealtimeMeshSectionGroupStreamUpdateDataRef& UpdateData) override
 		{
 			check(IsInitialized());
 
-			FRealtimeMeshGPUBuffer::ApplyBufferUpdate(Batcher, UpdateData);
+			FRealtimeMeshGPUBuffer::ApplyBufferUpdate(RHICmdList, UpdateData);
 			{
 				VertexBufferRHI = UpdateData->GetBuffer();
 				if (ShaderResourceViewRHI)
 				{
 #if RMC_ENGINE_ABOVE_5_3
-					ShaderResourceViewRHI = FRHICommandListImmediate::Get().CreateShaderResourceView(FShaderResourceViewInitializer(UpdateData->GetNumElements() > 0? VertexBufferRHI : nullptr, GetElementFormat()));
+					ShaderResourceViewRHI = RHICmdList.CreateShaderResourceView(FShaderResourceViewInitializer(UpdateData->GetNumElements() > 0? VertexBufferRHI : nullptr, GetElementFormat()));
 #else
 					ShaderResourceViewRHI = RHICreateShaderResourceView(FShaderResourceViewInitializer(UpdateData->GetNumElements() > 0? VertexBufferRHI : nullptr, GetElementFormat()));
 #endif
@@ -284,10 +284,10 @@ namespace RealtimeMesh
 
 		virtual ERealtimeMeshStreamType GetStreamType() const override { return ERealtimeMeshStreamType::Index; }
 
-		virtual void InitializeResources() override
+		virtual void InitializeResources(FRHICommandListBase& RHICmdList) override
 		{
 #if RMC_ENGINE_ABOVE_5_3
-			InitResource(FRHICommandListImmediate::Get());
+			InitResource(RHICmdList);
 #else
 			InitResource();
 #endif
@@ -313,11 +313,10 @@ namespace RealtimeMesh
 		}
 #endif
 
-		virtual void ApplyBufferUpdate(TRHIResourceUpdateBatcher<RHIUpdateBatchSize>& Batcher,
-		                               const FRealtimeMeshSectionGroupStreamUpdateDataRef& UpdateData) override
+		virtual void ApplyBufferUpdate(FRHICommandListBase& RHICmdList, const FRealtimeMeshSectionGroupStreamUpdateDataRef& UpdateData) override
 		{
 			check(IsInitialized());
-			FRealtimeMeshGPUBuffer::ApplyBufferUpdate(Batcher, UpdateData);
+			FRealtimeMeshGPUBuffer::ApplyBufferUpdate(RHICmdList, UpdateData);
 
 			// Adjust size by number of elements to handle structs containing 3 indices.
 			BufferNum *= BufferLayout.GetNumElements();

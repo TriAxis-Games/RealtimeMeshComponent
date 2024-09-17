@@ -2,7 +2,6 @@
 
 #pragma once
 
-#include "RealtimeMeshConfig.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "RealtimeMeshLibrary.generated.h"
 

@@ -2,7 +2,7 @@
 
 #include "RealtimeMeshLibrary.h"
 #include "RealtimeMeshSimple.h"
-#include "Mesh/RealtimeMeshDataStream.h"
+#include "Core/RealtimeMeshDataStream.h"
 
 FRealtimeMeshLODKey URealtimeMeshBlueprintFunctionLibrary::Conv_IntToRealtimeMeshLODKey(int32 LODIndex)
 {

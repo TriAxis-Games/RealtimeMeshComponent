@@ -4,7 +4,7 @@
 
 #include "RealtimeMeshCore.h"
 #include "Data/RealtimeMeshData.h"
-#include "RealtimeMeshCollision.h"
+#include "RealtimeMeshCollisionLibrary.h"
 #include "Interfaces/Interface_CollisionDataProvider.h"
 #if RMC_ENGINE_ABOVE_5_2
 #include "Tickable.h"
@@ -35,7 +35,7 @@ public:
 
 protected:
 	void BroadcastBoundsChangedEvent();
-	void BroadcastRenderDataChangedEvent(bool bShouldRecreateProxies);
+	void BroadcastRenderDataChangedEvent(bool bShouldRecreateProxies, int32 CommandsVersion = INDEX_NONE);
 	void BroadcastCollisionBodyUpdatedEvent(UBodySetup* NewBodySetup);
 
 	void Initialize(const TSharedRef<RealtimeMesh::FRealtimeMeshSharedResources>& InSharedResources);
@@ -45,13 +45,13 @@ protected:
 	RealtimeMesh::FRealtimeMeshSharedResourcesPtr SharedResources;
 	RealtimeMesh::FRealtimeMeshPtr MeshRef;
 
-	UPROPERTY(EditAnywhere)
+	UPROPERTY()
 	TArray<FRealtimeMeshMaterialSlot> MaterialSlots;
 
 	UPROPERTY(Transient)
 	TMap<FName, int32> SlotNameLookup;
 
-	UPROPERTY(Instanced)
+	UPROPERTY(Transient)
 	TObjectPtr<UBodySetup> BodySetup;
 	TArray<FRealtimeMeshCollisionMeshCookedUVData> UVData;
 
@@ -255,6 +255,8 @@ public:
 
 public:
 	//	Begin UObject interface
+	virtual UWorld* GetWorld() const override;
+	virtual bool IsSupportedForNetworking() const override { return true; }
 	virtual void PostInitProperties() override;
 	virtual void BeginDestroy() override;
 	virtual void Serialize(FArchive& Ar) override;
@@ -263,7 +265,7 @@ public:
 
 protected:
 	virtual void HandleBoundsUpdated();
-	virtual void HandleMeshRenderingDataChanged(bool bShouldRecreateProxies);
+	virtual void HandleMeshRenderingDataChanged(bool bShouldRecreateProxies, int32 CommandsVersion);
 
 	virtual void ProcessEndOfFrameUpdates();
 

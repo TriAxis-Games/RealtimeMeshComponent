@@ -7,10 +7,10 @@
 #include "RealtimeMeshLibrary.h"
 #include "RealtimeMeshSimple.h"
 #include "Mesh/RealtimeMeshBasicShapeTools.h"
-#include "Mesh/RealtimeMeshBuilder.h"
+#include "Core/RealtimeMeshBuilder.h"
 
 
-ARealtimeMeshStressTestActor::ARealtimeMeshStressTestActor()
+ARealtimeMeshStressTestActor2::ARealtimeMeshStressTestActor2()
 {
 	PrimaryActorTick.bCanEverTick = true;
 	PrimaryActorTick.bStartWithTickEnabled = true;
@@ -22,9 +22,9 @@ static const auto Section0Key = FRealtimeMeshSectionKey::Create(SectionGroupKey,
 static const auto Section1Key = FRealtimeMeshSectionKey::Create(SectionGroupKey, FName("Section1"));
 static const auto Section2Key = FRealtimeMeshSectionKey::Create(SectionGroupKey, FName("Section2"));
 
-void ARealtimeMeshStressTestActor::OnGenerateMesh_Implementation()
+void ARealtimeMeshStressTestActor2::OnConstruction(const FTransform& Transform)
 {
-	Super::OnGenerateMesh_Implementation();
+	Super::OnConstruction(Transform);
 
 	// Initialize the simple mesh
 	URealtimeMeshSimple* RealtimeMesh = GetRealtimeMeshComponent()->InitializeRealtimeMesh<URealtimeMeshSimple>();
@@ -34,14 +34,14 @@ void ARealtimeMeshStressTestActor::OnGenerateMesh_Implementation()
 	RealtimeMesh->SetupMaterialSlot(1, "SecondaryMaterial", UMaterial::GetDefaultMaterial(EMaterialDomain::MD_Surface));
 
 	// Setup empty structure
-	RealtimeMesh->CreateSectionGroup(SectionGroupKey, false);
-	RealtimeMesh->CreateSection(Section0Key, FRealtimeMeshSectionConfig(ERealtimeMeshSectionDrawType::Dynamic, 0), FRealtimeMeshStreamRange(), false);
-	RealtimeMesh->CreateSection(Section1Key, FRealtimeMeshSectionConfig(ERealtimeMeshSectionDrawType::Dynamic, 1), FRealtimeMeshStreamRange(), false);
-	RealtimeMesh->CreateSection(Section2Key, FRealtimeMeshSectionConfig(ERealtimeMeshSectionDrawType::Dynamic, 2), FRealtimeMeshStreamRange(), false);
+	RealtimeMesh->CreateSectionGroup(SectionGroupKey, FRealtimeMeshSectionGroupConfig(ERealtimeMeshSectionDrawType::Static), false);
+	RealtimeMesh->CreateSection(Section0Key, FRealtimeMeshSectionConfig(0), FRealtimeMeshStreamRange(), false);
+	RealtimeMesh->CreateSection(Section1Key, FRealtimeMeshSectionConfig(1), FRealtimeMeshStreamRange(), false);
+	RealtimeMesh->CreateSection(Section2Key, FRealtimeMeshSectionConfig(2), FRealtimeMeshStreamRange(), false);
 
 }
 
-void ARealtimeMeshStressTestActor::TickActor(float DeltaTime, ELevelTick TickType, FActorTickFunction& ThisTickFunction)
+void ARealtimeMeshStressTestActor2::TickActor(float DeltaTime, ELevelTick TickType, FActorTickFunction& ThisTickFunction)
 {
 	if (PendingGeneration.IsValid())
 	{
