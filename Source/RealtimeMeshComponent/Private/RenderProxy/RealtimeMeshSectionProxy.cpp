@@ -9,7 +9,6 @@ namespace RealtimeMesh
 	FRealtimeMeshSectionProxy::FRealtimeMeshSectionProxy(const FRealtimeMeshSharedResourcesRef& InSharedResources, const FRealtimeMeshSectionKey InKey)
 		: SharedResources(InSharedResources)
 		, Key(InKey)
-		, bIsStateDirty(true)
 	{
 	}
 
@@ -23,7 +22,6 @@ namespace RealtimeMesh
 		if (Config != NewConfig)
 		{
 			Config = NewConfig;
-			MarkStateDirty();
 		}
 	}
 
@@ -32,7 +30,6 @@ namespace RealtimeMesh
 		if (StreamRange != NewStreamRange)
 		{
 			StreamRange = NewStreamRange;
-			MarkStateDirty();
 		}
 	}
 
@@ -84,14 +81,9 @@ namespace RealtimeMesh
 	}
 
 	UE_DISABLE_OPTIMIZATION
-	bool FRealtimeMeshSectionProxy::UpdateCachedState(bool bShouldForceUpdate, FRealtimeMeshSectionGroupProxy& ParentGroup)
+	void FRealtimeMeshSectionProxy::UpdateCachedState(FRealtimeMeshSectionGroupProxy& ParentGroup)
 	{
 		TRACE_CPUPROFILER_EVENT_SCOPE(FRealtimeMeshSectionProxy::UpdateCachedState);
-
-		if (!bIsStateDirty && !bShouldForceUpdate)
-		{
-			return false;
-		}
 
 		// First evaluate whether we have valid mesh data to render			
 		bool bHasValidMeshData = StreamRange.NumPrimitives(REALTIME_MESH_NUM_INDICES_PER_PRIMITIVE) > 0 &&
@@ -103,7 +95,7 @@ namespace RealtimeMesh
 			bHasValidMeshData = ParentGroup.GetVertexFactory().IsValid() && ParentGroup.GetVertexFactory()->IsValidStreamRange(StreamRange);
 		}
 
-		FRealtimeMeshDrawMask NewDrawMask;
+		DrawMask = FRealtimeMeshDrawMask();
 
 		// Then build the draw mask if it is valid
 		if (bHasValidMeshData)
@@ -112,33 +104,23 @@ namespace RealtimeMesh
 			{
 				if (Config.bIsMainPassRenderable)
 				{
-					NewDrawMask.SetFlag(ERealtimeMeshDrawMask::DrawMainPass);
+					DrawMask.SetFlag(ERealtimeMeshDrawMask::DrawMainPass);
 				}
 
 				if (Config.bCastsShadow)
 				{
-					NewDrawMask.SetFlag(ERealtimeMeshDrawMask::DrawShadowPass);
+					DrawMask.SetFlag(ERealtimeMeshDrawMask::DrawShadowPass);
 				}
 			}
 		}
-
-		const bool bStateChanged = DrawMask != NewDrawMask;
-		DrawMask = NewDrawMask;
-		bIsStateDirty = false;
-		return bStateChanged;
 	}
 	UE_ENABLE_OPTIMIZATION
 
-	void FRealtimeMeshSectionProxy::MarkStateDirty()
-	{
-		bIsStateDirty = true;
-	}
 
 	void FRealtimeMeshSectionProxy::Reset()
 	{
 		Config = FRealtimeMeshSectionConfig();
 		StreamRange = FRealtimeMeshStreamRange();
 		DrawMask = FRealtimeMeshDrawMask();
-		bIsStateDirty = true;
 	}
 }

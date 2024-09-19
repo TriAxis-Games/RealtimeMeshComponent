@@ -7,6 +7,56 @@
 
 namespace RealtimeMesh
 {
+	FRealtimeMeshAccessContext::FRealtimeMeshAccessContext(const TSharedRef<const FRealtimeMesh>& InMesh)
+		: ReadGuard(InMesh->GetSharedResources()->GetGuard())
+		, Resources(InMesh->GetSharedResources())
+	{ }
+
+	FRealtimeMeshAccessContext::FRealtimeMeshAccessContext(const FRealtimeMeshSharedResourcesRef& InResources)
+		: ReadGuard(InResources->GetGuard())
+		, Resources(InResources)
+	{ }
+
+	FRealtimeMeshUpdateContext::FRealtimeMeshUpdateContext(const TSharedRef<FRealtimeMesh>& InMesh)
+		: WriteGuard(InMesh->GetSharedResources()->GetGuard())
+		, ProxyBuilder(!InMesh->GetRenderProxy().IsValid())
+		, Resources(InMesh->GetSharedResources())
+		, UpdateState(Resources->CreateUpdateState())
+		, RHICmdList(InPlace)
+	{ }
+
+	FRealtimeMeshUpdateContext::FRealtimeMeshUpdateContext(const FRealtimeMeshSharedResourcesRef& InResources)
+		: WriteGuard(InResources->GetGuard())
+		, ProxyBuilder(!InResources->GetOwner().IsValid() || !InResources->GetOwner()->GetRenderProxy().IsValid())
+		, Resources(InResources)
+		, UpdateState(Resources->CreateUpdateState())
+		, RHICmdList(InPlace)
+	{ }
+
+	FRealtimeMeshUpdateContext::~FRealtimeMeshUpdateContext()
+	{
+		if (RHICmdList.IsSet())
+		{
+			Commit();
+		}
+	}
+
+	TFuture<ERealtimeMeshProxyUpdateStatus> FRealtimeMeshUpdateContext::Commit()
+	{
+		if (auto Mesh = Resources->GetOwner())
+		{
+			Mesh->FinalizeUpdate(*this);
+
+			// Force async cmd list to fire before we potentially submit the proxy
+			RHICmdList.Reset();
+			return ProxyBuilder.Commit(Mesh.ToSharedRef());
+		}
+
+		// Go ahead and submit the cmd list
+		RHICmdList.Reset();
+		return MakeFulfilledPromise<ERealtimeMeshProxyUpdateStatus>(ERealtimeMeshProxyUpdateStatus::NoProxy).GetFuture();
+	}
+
 	TFuture<ERealtimeMeshProxyUpdateStatus> FRealtimeMeshUpdateBuilder::Commit(const TSharedRef<FRealtimeMesh>& Mesh)
 	{
 		FRealtimeMeshUpdateContext UpdateContext(Mesh);
@@ -19,20 +69,20 @@ namespace RealtimeMesh
 		return UpdateContext.Commit();		
 	}
 
-	void FRealtimeMeshUpdateBuilder::AddMeshTask(TUniqueFunction<void(FRealtimeMeshProxyUpdateBuilder&, FRealtimeMesh&)>&& Function)
+	void FRealtimeMeshUpdateBuilder::AddMeshTask(TUniqueFunction<void(FRealtimeMeshUpdateContext&, FRealtimeMesh&)>&& Function)
 	{
 		Tasks.Add(MoveTemp(Function));
 	}
 
-	void FRealtimeMeshUpdateBuilder::AddLODTask(const FRealtimeMeshLODKey& LODKey, TUniqueFunction<void(FRealtimeMeshProxyUpdateBuilder&, FRealtimeMeshLOD&)>&& Function)
+	void FRealtimeMeshUpdateBuilder::AddLODTask(const FRealtimeMeshLODKey& LODKey, TUniqueFunction<void(FRealtimeMeshUpdateContext&, FRealtimeMeshLOD&)>&& Function)
 	{
-		AddMeshTask([LODKey, Func = MoveTemp(Function)](FRealtimeMeshProxyUpdateBuilder& ProxyBuilder, const FRealtimeMesh& Mesh)
+		AddMeshTask([LODKey, Func = MoveTemp(Function)](FRealtimeMeshUpdateContext& UpdateContext, const FRealtimeMesh& Mesh)
 		{
-			const FRealtimeMeshLODPtr LOD = Mesh.GetLOD(LODKey);
+			const FRealtimeMeshLODPtr LOD = Mesh.GetLOD(UpdateContext, LODKey);
 
 			if (ensure(LOD.IsValid()))
 			{
-				Func(ProxyBuilder, *LOD.Get());
+				Func(UpdateContext, *LOD.Get());
 			}
 			else
 			{
@@ -45,15 +95,15 @@ namespace RealtimeMesh
 		});
 	}
 
-	void FRealtimeMeshUpdateBuilder::AddSectionGroupTask(const FRealtimeMeshSectionGroupKey& SectionGroupKey, TUniqueFunction<void(FRealtimeMeshProxyUpdateBuilder&, FRealtimeMeshSectionGroup&)>&& Function)
+	void FRealtimeMeshUpdateBuilder::AddSectionGroupTask(const FRealtimeMeshSectionGroupKey& SectionGroupKey, TUniqueFunction<void(FRealtimeMeshUpdateContext&, FRealtimeMeshSectionGroup&)>&& Function)
 	{
-		AddLODTask(SectionGroupKey.LOD(), [SectionGroupKey, Func = MoveTemp(Function)](FRealtimeMeshProxyUpdateBuilder& ProxyBuilder, const FRealtimeMeshLOD& LOD)
+		AddLODTask(SectionGroupKey.LOD(), [SectionGroupKey, Func = MoveTemp(Function)](FRealtimeMeshUpdateContext& UpdateContext, const FRealtimeMeshLOD& LOD)
 		{
-			const FRealtimeMeshSectionGroupPtr SectionGroup = LOD.GetSectionGroup(SectionGroupKey);
+			const FRealtimeMeshSectionGroupPtr SectionGroup = LOD.GetSectionGroup(UpdateContext, SectionGroupKey);
 
 			if (ensure(SectionGroup.IsValid()))
 			{
-				Func(ProxyBuilder, *SectionGroup.Get());
+				Func(UpdateContext, *SectionGroup.Get());
 			}
 			else
 			{
@@ -66,15 +116,15 @@ namespace RealtimeMesh
 		});
 	}
 
-	void FRealtimeMeshUpdateBuilder::AddSectionTask(const FRealtimeMeshSectionKey& SectionKey, TUniqueFunction<void(FRealtimeMeshProxyUpdateBuilder&, FRealtimeMeshSection&)>&& Function)
+	void FRealtimeMeshUpdateBuilder::AddSectionTask(const FRealtimeMeshSectionKey& SectionKey, TUniqueFunction<void(FRealtimeMeshUpdateContext&, FRealtimeMeshSection&)>&& Function)
 	{
-		AddSectionGroupTask(SectionKey.SectionGroup(), [SectionKey, Func = MoveTemp(Function)](FRealtimeMeshProxyUpdateBuilder& ProxyBuilder, const FRealtimeMeshSectionGroup& SectionGroup)
+		AddSectionGroupTask(SectionKey.SectionGroup(), [SectionKey, Func = MoveTemp(Function)](FRealtimeMeshUpdateContext& UpdateContext, const FRealtimeMeshSectionGroup& SectionGroup)
 		{
-			const FRealtimeMeshSectionPtr Section = SectionGroup.GetSection(SectionKey);
+			const FRealtimeMeshSectionPtr Section = SectionGroup.GetSection(UpdateContext, SectionKey);
 
 			if (ensure(Section.IsValid()))
 			{
-				Func(ProxyBuilder, *Section.Get());
+				Func(UpdateContext, *Section.Get());
 			}
 			else
 			{
@@ -97,26 +147,28 @@ namespace RealtimeMesh
 
 	void FRealtimeMeshAccessor::Execute(const TSharedRef<const FRealtimeMesh>& Mesh)
 	{
+		FRealtimeMeshAccessContext LockContext(Mesh);
+		
 		for (auto& Task : Tasks)
 		{
-			Task(*Mesh);
+			Task(LockContext, *Mesh);
 		}	
 	}
 
-	void FRealtimeMeshAccessor::AddMeshTask(TUniqueFunction<void(const FRealtimeMesh&)>&& Function)
+	void FRealtimeMeshAccessor::AddMeshTask(TUniqueFunction<void(const FRealtimeMeshAccessContext&, const FRealtimeMesh&)>&& Function)
 	{
 		Tasks.Add(MoveTemp(Function));
 	}
 
-	void FRealtimeMeshAccessor::AddLODTask(const FRealtimeMeshLODKey& LODKey, TUniqueFunction<void(const FRealtimeMeshLOD&)>&& Function)
+	void FRealtimeMeshAccessor::AddLODTask(const FRealtimeMeshLODKey& LODKey, TUniqueFunction<void(const FRealtimeMeshAccessContext&, const FRealtimeMeshLOD&)>&& Function)
 	{
-		AddMeshTask([LODKey, Func = MoveTemp(Function)](const FRealtimeMesh& Mesh)
+		AddMeshTask([LODKey, Func = MoveTemp(Function)](const FRealtimeMeshAccessContext& LockContext, const FRealtimeMesh& Mesh)
 		{
-			const FRealtimeMeshLODPtr LOD = Mesh.GetLOD(LODKey);
+			const FRealtimeMeshLODPtr LOD = Mesh.GetLOD(LockContext, LODKey);
 
 			if (ensure(LOD.IsValid()))
 			{
-				Func(*LOD.Get());
+				Func(LockContext, *LOD.Get());
 			}
 			else
 			{
@@ -129,15 +181,15 @@ namespace RealtimeMesh
 		});
 	}
 
-	void FRealtimeMeshAccessor::AddSectionGroupTask(const FRealtimeMeshSectionGroupKey& SectionGroupKey, TUniqueFunction<void(const FRealtimeMeshSectionGroup&)>&& Function)
+	void FRealtimeMeshAccessor::AddSectionGroupTask(const FRealtimeMeshSectionGroupKey& SectionGroupKey, TUniqueFunction<void(const FRealtimeMeshAccessContext&, const FRealtimeMeshSectionGroup&)>&& Function)
 	{
-		AddLODTask(SectionGroupKey.LOD(), [SectionGroupKey, Func = MoveTemp(Function)](const FRealtimeMeshLOD& LOD)
+		AddLODTask(SectionGroupKey.LOD(), [SectionGroupKey, Func = MoveTemp(Function)](const FRealtimeMeshAccessContext& LockContext, const FRealtimeMeshLOD& LOD)
 		{
-			const FRealtimeMeshSectionGroupPtr SectionGroup = LOD.GetSectionGroup(SectionGroupKey);
+			const FRealtimeMeshSectionGroupPtr SectionGroup = LOD.GetSectionGroup(LockContext, SectionGroupKey);
 
 			if (ensure(SectionGroup.IsValid()))
 			{
-				Func(*SectionGroup.Get());
+				Func(LockContext, *SectionGroup.Get());
 			}
 			else
 			{
@@ -150,15 +202,15 @@ namespace RealtimeMesh
 		});
 	}
 
-	void FRealtimeMeshAccessor::AddSectionTask(const FRealtimeMeshSectionKey& SectionKey, TUniqueFunction<void(const FRealtimeMeshSection&)>&& Function)
+	void FRealtimeMeshAccessor::AddSectionTask(const FRealtimeMeshSectionKey& SectionKey, TUniqueFunction<void(const FRealtimeMeshAccessContext&, const FRealtimeMeshSection&)>&& Function)
 	{
-		AddSectionGroupTask(SectionKey.SectionGroup(), [SectionKey, Func = MoveTemp(Function)](const FRealtimeMeshSectionGroup& SectionGroup)
+		AddSectionGroupTask(SectionKey.SectionGroup(), [SectionKey, Func = MoveTemp(Function)](const FRealtimeMeshAccessContext& LockContext, const FRealtimeMeshSectionGroup& SectionGroup)
 		{
-			const FRealtimeMeshSectionPtr Section = SectionGroup.GetSection(SectionKey);
+			const FRealtimeMeshSectionPtr Section = SectionGroup.GetSection(LockContext, SectionKey);
 
 			if (ensure(Section.IsValid()))
 			{
-				Func(*Section.Get());
+				Func(LockContext, *Section.Get());
 			}
 			else
 			{

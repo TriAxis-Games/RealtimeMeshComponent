@@ -2,6 +2,7 @@
 
 #include "RenderProxy/RealtimeMeshProxy.h"
 
+#include "RealtimeMeshComponentModule.h"
 #include "RealtimeMeshSceneViewExtension.h"
 #include "Data/RealtimeMeshShared.h"
 #include "RenderProxy/RealtimeMeshLODProxy.h"
@@ -14,8 +15,6 @@ namespace RealtimeMesh
 		, ScreenPercentageNextLODMask(false, REALTIME_MESH_MAX_LODS)
 		, ActiveStaticLODMask(false, REALTIME_MESH_MAX_LODS)
 		, ActiveDynamicLODMask(false, REALTIME_MESH_MAX_LODS)
-		, bIsStateDirty(true)
-		, MaxAllowedVersion(0)
 	{
 	}
 
@@ -124,7 +123,6 @@ namespace RealtimeMesh
 		}
 
 		LODs[LODKey] = SharedResources->CreateLODProxy(LODKey);
-		MarkStateDirty();
 	}
 
 	void FRealtimeMeshProxy::RemoveLOD(const FRealtimeMeshLODKey& LODKey)
@@ -146,8 +144,6 @@ namespace RealtimeMesh
 					break;
 				}
 			}
-
-			MarkStateDirty();
 		}
 	}
 
@@ -162,49 +158,44 @@ namespace RealtimeMesh
 		//bOwnerIsNull = ParentBaseComponent->GetOwner() == nullptr;
 	}
 
-	void FRealtimeMeshProxy::EnqueueCommandBatch(TArray<FRealtimeMeshProxyUpdateBuilder::TaskFunctionType>&& InTasks, const TSharedPtr<FRealtimeMeshCommandBatchIntermediateFuture>& ThreadState, int32 InRequiredVersion)
+	void FRealtimeMeshProxy::EnqueueCommandBatch(TArray<FRealtimeMeshProxyUpdateBuilder::TaskFunctionType>&& InTasks, const TSharedPtr<FRealtimeMeshCommandBatchIntermediateFuture>& ThreadState)
 	{
-		CommandQueue.Enqueue(FCommandBatch { MoveTemp(InTasks), ThreadState, InRequiredVersion });
+		CommandQueue.Enqueue(FCommandBatch { MoveTemp(InTasks), ThreadState });
 	}
 
-	void FRealtimeMeshProxy::ProcessCommands(FRHICommandListBase& RHICmdList, int32 NewKnownVersion)
+	void FRealtimeMeshProxy::ProcessCommands(FRHICommandListBase& RHICmdList)
 	{
-		MaxAllowedVersion = NewKnownVersion != INDEX_NONE? NewKnownVersion : MaxAllowedVersion;
-		while (!CommandQueue.IsEmpty() && CommandQueue.Peek()->RequiredVersion <= MaxAllowedVersion)
+		FScopeLock Lock(&CommandQueueLock);
+		
+		bool bHadAnyUpdates = false;
+		while (!CommandQueue.IsEmpty())
 		{
 			auto Entry = CommandQueue.Dequeue();
 			for (const auto& Task : Entry->Tasks)
 			{
 				Task(RHICmdList, *this);
 			}
-			UpdatedCachedState(RHICmdList, false);
 			Entry->ThreadState->FinalizeRenderThread(ERealtimeMeshProxyUpdateStatus::Updated);
+			bHadAnyUpdates = true;
 		}
 
-		if (!CommandQueue.IsEmpty())
+		if (bHadAnyUpdates)
 		{
-			const int32 NextVersion = CommandQueue.Peek()->RequiredVersion;
-			check(true);
+			UpdatedCachedState(RHICmdList);
 		}
 	}
 #endif
 
-	void FRealtimeMeshProxy::UpdatedCachedState(FRHICommandListBase& RHICmdList, bool bShouldForceUpdate)
+	void FRealtimeMeshProxy::UpdatedCachedState(FRHICommandListBase& RHICmdList)
 	{
 		TRACE_CPUPROFILER_EVENT_SCOPE(FRealtimeMeshProxy::UpdatedCachedState);
 		
 		// Handle all LOD updates next
 		for (const auto& LOD : LODs)
 		{
-			bIsStateDirty |= LOD->UpdateCachedState(RHICmdList, bShouldForceUpdate);
-		}
-
-		if (!bIsStateDirty && !bShouldForceUpdate)
-		{
-			return;
+			LOD->UpdateCachedState(RHICmdList);
 		}
 		
-		bIsStateDirty = false;
 		DrawMask = FRealtimeMeshDrawMask();
 		ActiveLODMask = FRealtimeMeshLODMask(false, REALTIME_MESH_MAX_LODS);
 		ScreenPercentageNextLODMask = FRealtimeMeshLODMask(false, REALTIME_MESH_MAX_LODS);
@@ -230,11 +221,6 @@ namespace RealtimeMesh
 		check(!DrawMask.HasAnyFlags() || ActiveLODMask.CountSetBits() > 0);
 	}
 
-	void FRealtimeMeshProxy::MarkStateDirty()
-	{
-		bIsStateDirty = true;
-	}
-
 	void FRealtimeMeshProxy::Reset()
 	{
 		TRACE_CPUPROFILER_EVENT_SCOPE(FRealtimeMeshProxy::Reset);
@@ -246,8 +232,5 @@ namespace RealtimeMesh
 		ScreenPercentageNextLODMask.SetRange(0, REALTIME_MESH_MAX_LODS, false);
 		ActiveStaticLODMask.SetRange(0, REALTIME_MESH_MAX_LODS, false);
 		ActiveDynamicLODMask.SetRange(0, REALTIME_MESH_MAX_LODS, false);
-		/*ValidLODRange = TRange<int8>::Empty();
-		ScreenSizeRangeByLOD.Empty();*/
-		bIsStateDirty = false;
 	}
 }

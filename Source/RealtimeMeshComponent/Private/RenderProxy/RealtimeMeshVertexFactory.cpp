@@ -12,6 +12,7 @@
 #include "SpeedTreeWind.h"
 #include "Rendering/ColorVertexBuffer.h"
 #include "MeshMaterialShader.h"
+#include "RealtimeMeshComponentModule.h"
 #include "SceneInterface.h"
 #include "ProfilingDebugging/LoadTimeTracker.h"
 #include "RenderProxy/RealtimeMeshProxyShared.h"
@@ -222,46 +223,6 @@ namespace RealtimeMesh
 		return TUniformBufferRef<FLocalVertexFactoryUniformShaderParameters>::CreateUniformBufferImmediate(UniformParameters, UniformBuffer_MultiFrame);
 	}
 
-	FIndexBuffer& FRealtimeMeshLocalVertexFactory::GetIndexBuffer(bool& bDepthOnly, bool& bMatrixInverted,
-	                                                              TFunctionRef<void(const TSharedRef<FRenderResource>&)> ResourceSubmitter) const
-	{
-		if (bDepthOnly)
-		{
-			if (bMatrixInverted)
-			{
-				if (const auto ReversedDepth = ReversedDepthOnlyIndexBuffer.Pin())
-				{
-					ResourceSubmitter(ReversedDepth.ToSharedRef());
-					return *ReversedDepth.Get();
-				}
-			}
-
-			if (const auto DepthOnly = DepthOnlyIndexBuffer.Pin())
-			{
-				ResourceSubmitter(DepthOnly.ToSharedRef());
-				bMatrixInverted = false;
-				return *DepthOnly.Get();
-			}
-		}
-
-		if (bMatrixInverted)
-		{
-			if (const auto Reversed = ReversedIndexBuffer.Pin())
-			{
-				ResourceSubmitter(Reversed.ToSharedRef());
-				bDepthOnly = false;
-				return *Reversed.Get();
-			}
-		}
-
-		const auto Normal = IndexBuffer.Pin();
-		check(Normal.IsValid());
-		ResourceSubmitter(Normal.ToSharedRef());
-
-		bMatrixInverted = false;
-		bDepthOnly = false;
-		return *Normal.Get();
-	}
 
 	FIndexBuffer& FRealtimeMeshLocalVertexFactory::GetIndexBuffer(bool& bDepthOnly, bool& bMatrixInverted, struct FRealtimeMeshResourceReferenceList& ActiveResources) const
 	{
@@ -375,6 +336,7 @@ namespace RealtimeMesh
 
 		// Bind all index buffers
 		BindIndexBuffer(bIsValid, ValidIndexRange, IndexBuffer, Buffers, FRealtimeMeshStreams::TrianglesStreamName);
+		bIsValid &= IndexBuffer != nullptr;
 		//BindIndexBuffer(bIsValid, ValidIndexRange, ReversedIndexBuffer, Buffers, FRealtimeMeshStreamNames::ReversedTrianglesStreamName, true);
 		//BindIndexBuffer(bIsValid, ValidIndexRange, DepthOnlyIndexBuffer, Buffers, FRealtimeMeshStreamNames::DepthOnlyTrianglesStreamName, true);
 		//BindIndexBuffer(bIsValid, ValidIndexRange, ReversedDepthOnlyIndexBuffer, Buffers, FRealtimeMeshStreamNames::ReversedDepthOnlyTrianglesStreamName, true);
@@ -400,25 +362,6 @@ namespace RealtimeMesh
 			ValidRange = FRealtimeMeshStreamRange(0, 0, 0, 0);
 			InUseVertexBuffers.Empty();
 		}
-	}
-
-	bool FRealtimeMeshLocalVertexFactory::GatherVertexBufferResources(TFunctionRef<void(const TSharedRef<FRenderResource>&)> ResourceSubmitter) const
-	{
-		TArray<TSharedPtr<FRealtimeMeshVertexBuffer>> TempBuffers;
-		for (const auto& Buffer : InUseVertexBuffers)
-		{
-			auto PinnedBuffer = Buffer.Pin();
-			if (!PinnedBuffer)
-			{
-				return false;
-			}
-			TempBuffers.Add(PinnedBuffer);
-		}
-		for (const auto& Buffer : TempBuffers)
-		{
-			ResourceSubmitter(Buffer.ToSharedRef());
-		}
-		return true;
 	}
 
 	bool FRealtimeMeshLocalVertexFactory::GatherVertexBufferResources(FRealtimeMeshResourceReferenceList& ActiveResources) const

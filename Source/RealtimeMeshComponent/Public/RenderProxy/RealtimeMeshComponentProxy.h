@@ -34,14 +34,12 @@ namespace RealtimeMesh
 		// Store the combined material relevance.
 		FMaterialRelevance MaterialRelevance;
 
-		int32 KnownRMCVersion;
-
 		uint32 bAnyMaterialUsesDithering : 1;
 		uint32 bSupportsRayTracing : 1;
 
 	public:
 		/*Constructor, copies the whole mesh data to feed to UE */
-		FRealtimeMeshComponentSceneProxy(URealtimeMeshComponent* Component, const FRealtimeMeshProxyRef& InRealtimeMeshProxy, int32 InKnownVersion);
+		FRealtimeMeshComponentSceneProxy(URealtimeMeshComponent* Component, const FRealtimeMeshProxyRef& InRealtimeMeshProxy);
 
 		virtual ~FRealtimeMeshComponentSceneProxy() override;
 

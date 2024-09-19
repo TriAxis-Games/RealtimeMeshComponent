@@ -42,9 +42,56 @@ SIZE_T FRealtimeMeshDistanceField::GetResourceSizeBytes() const
 	return ResSize.GetTotalMemoryBytes();
 }
 
+
+struct FSparseDistanceFieldMip_OLD
+{
+	FIntVector IndirectionDimensions;
+	int32 NumDistanceFieldBricks;
+	FVector VolumeToVirtualUVScale;
+	FVector VolumeToVirtualUVAdd;
+	FVector2D DistanceFieldToVolumeScaleBias;
+	uint32 BulkOffset;
+	uint32 BulkSize;
+
+	friend FArchive& operator<<(FArchive& Ar, FSparseDistanceFieldMip_OLD& Mip)
+	{
+		Ar << Mip.IndirectionDimensions << Mip.NumDistanceFieldBricks << Mip.VolumeToVirtualUVScale << Mip.VolumeToVirtualUVAdd << Mip.DistanceFieldToVolumeScaleBias << Mip.BulkOffset << Mip.BulkSize;
+		return Ar;
+	}
+};
+
+
 void FRealtimeMeshDistanceField::Serialize(FArchive& Ar, UObject* Owner)
-{	
-	Ar << Bounds << bMostlyTwoSided << Mips << AlwaysLoadedMip;
+{
+	Ar << Bounds;
+	Ar << bMostlyTwoSided;
+
+#if RMC_ENGINE_ABOVE_5_4
+	if (Ar.EngineVer().GetMajor() == 5 && Ar.EngineVer().GetMinor() < 4)
+	{
+		TStaticArray<FSparseDistanceFieldMip_OLD, DistanceField::NumMips> OldMips;
+		Ar << OldMips;
+
+		for (int32 Index = 0; Index < Mips.Num(); Index++)
+		{
+			Mips[Index].IndirectionDimensions = OldMips[Index].IndirectionDimensions;
+			Mips[Index].NumDistanceFieldBricks = OldMips[Index].NumDistanceFieldBricks;
+			Mips[Index].VolumeToVirtualUVScale = FVector3f(OldMips[Index].VolumeToVirtualUVScale);
+			Mips[Index].VolumeToVirtualUVAdd = FVector3f(OldMips[Index].VolumeToVirtualUVAdd);
+			Mips[Index].DistanceFieldToVolumeScaleBias = FVector2f(OldMips[Index].DistanceFieldToVolumeScaleBias);
+			Mips[Index].BulkOffset = OldMips[Index].BulkOffset;
+			Mips[Index].BulkSize = OldMips[Index].BulkSize;
+		}		
+	}
+	else
+#endif
+	{
+		Ar << Mips;
+	}
+
+	
+
+	Ar << AlwaysLoadedMip;
 	StreamableMips.Serialize(Ar, Owner, 0);
 }
 

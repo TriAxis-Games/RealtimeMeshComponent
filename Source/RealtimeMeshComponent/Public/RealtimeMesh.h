@@ -62,8 +62,6 @@ protected:
 	/* Collision data to cook for any pending async cook */
 	//TOptional<FRealtimeMeshCollisionUpdate> PendingCollisionUpdate;
 
-	/* Counter for generating version identifier for collision updates */
-	int32 CollisionUpdateVersionCounter;
 
 	/* Currently applied collision version, used for ignoring old cooks in async */
 	int32 CurrentCollisionVersion;
@@ -265,19 +263,17 @@ public:
 
 protected:
 	virtual void HandleBoundsUpdated();
-	virtual void HandleMeshRenderingDataChanged(bool bShouldRecreateProxies, int32 CommandsVersion);
-
-	virtual void ProcessEndOfFrameUpdates();
-
-	void MarkForEndOfFrameUpdate();
+	virtual void HandleRenderProxyRequiresUpdate();
 
 protected: // Collision
 
-	void InitiateCollisionUpdate(const TSharedRef<TPromise<ERealtimeMeshCollisionUpdateResult>>& Promise,
-		const TSharedRef<FRealtimeMeshCollisionInfo>& NewCollisionInfo, bool bForceSyncUpdate);
+	/*void InitiateCollisionUpdate(const TSharedRef<TPromise<ERealtimeMeshCollisionUpdateResult>>& Promise,
+		const TSharedRef<FRealtimeMeshCollisionInfo>& NewCollisionInfo, bool bForceSyncUpdate);*/
+
+	ERealtimeMeshCollisionUpdateResult ApplyCollisionUpdate(FRealtimeMeshCollisionInfo&& InCollisionData, int32 NewCollisionKey);
 	
-	friend struct FRealtimeMeshEndOfFrameUpdateManager;
 	friend class FRealtimeMeshDetailsCustomization;
+	friend class RealtimeMesh::FRealtimeMesh;
 };
 
 

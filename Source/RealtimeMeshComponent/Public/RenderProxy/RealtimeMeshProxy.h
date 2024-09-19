@@ -85,22 +85,21 @@ namespace RealtimeMesh
 		FRealtimeMeshLODMask ScreenPercentageNextLODMask;
 		FRealtimeMeshLODMask ActiveStaticLODMask;
 		FRealtimeMeshLODMask ActiveDynamicLODMask;
-		uint32 bIsStateDirty : 1;
 
 		TUniquePtr<FDistanceFieldVolumeData> DistanceField;
 		TUniquePtr<FCardRepresentationData> CardRepresentation;
 
 		TSharedPtr<IRealtimeMeshNaniteResources> NaniteResources;
 
+		
 
 		struct FCommandBatch
 		{
 			TArray<FRealtimeMeshProxyUpdateBuilder::TaskFunctionType> Tasks;
 			TSharedPtr<FRealtimeMeshCommandBatchIntermediateFuture> ThreadState;
-			int32 RequiredVersion;
 		};
 		TMpscQueue<FCommandBatch> CommandQueue;
-		int32 MaxAllowedVersion;
+		FCriticalSection CommandQueueLock;
 
 #if UE_ENABLE_DEBUG_DRAWING
 		// If debug drawing is enabled, we store collision data here so that collision shapes can be rendered when requested by showflags
@@ -157,14 +156,13 @@ namespace RealtimeMesh
 		virtual void SetCollisionRenderData(const FKAggregateGeom& InAggGeom, ECollisionTraceFlag InCollisionTraceFlag, const FCollisionResponseContainer& InCollisionResponse);
 #endif
 
-		void EnqueueCommandBatch(TArray<FRealtimeMeshProxyUpdateBuilder::TaskFunctionType>&& InTasks, const TSharedPtr<FRealtimeMeshCommandBatchIntermediateFuture>& ThreadState, int32 InRequiredVersion);
-		void ProcessCommands(FRHICommandListBase& RHICmdList, int32 NewKnownVersion = INDEX_NONE);
+		void EnqueueCommandBatch(TArray<FRealtimeMeshProxyUpdateBuilder::TaskFunctionType>&& InTasks, const TSharedPtr<FRealtimeMeshCommandBatchIntermediateFuture>& ThreadState);
+		void ProcessCommands(FRHICommandListBase& RHICmdList);
 		
-		virtual void UpdatedCachedState(FRHICommandListBase& RHICmdList, bool bShouldForceUpdate);
+		virtual void UpdatedCachedState(FRHICommandListBase& RHICmdList);
 		virtual void Reset();
 
 	protected:
-		void MarkStateDirty();
 
 		friend class FRealtimeMeshActiveLODIterator;
 	};

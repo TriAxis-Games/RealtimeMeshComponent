@@ -18,7 +18,6 @@ namespace RealtimeMesh
 		FRealtimeMeshSectionConfig Config;
 		FRealtimeMeshStreamRange StreamRange;
 		FRealtimeMeshDrawMask DrawMask;
-		uint32 bIsStateDirty : 1;
 
 	public:
 		FRealtimeMeshSectionProxy(const FRealtimeMeshSharedResourcesRef& InSharedResources, const FRealtimeMeshSectionKey InKey);
@@ -36,10 +35,7 @@ namespace RealtimeMesh
 		virtual bool InitializeMeshBatch(FMeshBatch& MeshBatch, FRHIUniformBuffer* PrimitiveUniformBuffer) const;
 		
 		
-		virtual bool UpdateCachedState(bool bShouldForceUpdate, FRealtimeMeshSectionGroupProxy& ParentGroup);
+		virtual void UpdateCachedState(FRealtimeMeshSectionGroupProxy& ParentGroup);
 		virtual void Reset();
-
-	protected:
-		void MarkStateDirty();
 	};
 }

@@ -117,14 +117,19 @@ namespace RealtimeMesh
 		
 		auto ThreadState = MakeShared<FRealtimeMeshCommandBatchIntermediateFuture>();
 
-		Proxy->EnqueueCommandBatch(MoveTemp(Tasks), ThreadState, Mesh->GetProxyVersion());
+		Proxy->EnqueueCommandBatch(MoveTemp(Tasks), ThreadState);
 
 		DoOnGameThread([ThreadState, MeshWeak = Mesh.ToWeakPtr(), bRecreateProxies = static_cast<bool>(bRequiresProxyRecreate)]()
 		{
-			if (const auto MeshToMarkDirty = MeshWeak.Pin())
+			if (bRecreateProxies)
 			{
-				// TODO: We probably shouldn't always have to do this
-				const_cast<FRealtimeMesh&>(*MeshToMarkDirty).MarkRenderStateDirty(bRecreateProxies, INDEX_NONE);
+				if (const auto MeshToMarkDirty = MeshWeak.Pin())
+				{
+					if (MeshToMarkDirty->GetSharedResources()->OnRenderProxyRequiresUpdate().IsBound())
+					{
+						MeshToMarkDirty->GetSharedResources()->OnRenderProxyRequiresUpdate().Broadcast();
+					}
+				}
 			}
 
 			ThreadState->FinalizeGameThread();

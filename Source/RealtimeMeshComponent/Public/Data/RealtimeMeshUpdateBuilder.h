@@ -10,38 +10,188 @@
 
 namespace RealtimeMesh
 {
-	struct REALTIMEMESHCOMPONENT_API FRealtimeMeshUpdateContext
+
+	struct REALTIMEMESHCOMPONENT_API FRealtimeMeshLockContext
 	{
+	protected:
+		FRealtimeMeshLockContext() = default;
+		UE_NONCOPYABLE(FRealtimeMeshLockContext);		
+	};
+
+	
+	struct REALTIMEMESHCOMPONENT_API FRealtimeMeshAccessContext : public FRealtimeMeshLockContext
+	{
+		FRealtimeMeshScopeGuardRead ReadGuard;
+		FRealtimeMeshSharedResourcesRef Resources;
+
+		FRealtimeMeshAccessContext(const TSharedRef<const FRealtimeMesh>& InMesh);
+
+		FRealtimeMeshAccessContext(const FRealtimeMeshSharedResourcesRef& InResources);
+
+		UE_NONCOPYABLE(FRealtimeMeshAccessContext);
+	};
+
+
+	struct REALTIMEMESHCOMPONENT_API FRealtimeMeshStructuredDirtyTree
+	{
+	private:
+		struct SectionGroupEntry
+		{
+			TSet<FName> Sections;
+			bool bDirty;
+		};
+
+		struct LODEntry
+		{
+			TMap<FName, SectionGroupEntry> SectionGroups;
+			bool bDirty;
+		};
+
+		
+		TFixedLODArray<LODEntry> DirtyTree;
+
+	public:
+		FRealtimeMeshStructuredDirtyTree()
+		{
+			DirtyTree.SetNum(REALTIME_MESH_MAX_LODS);
+		}
+		
+		void Flag(const FRealtimeMeshLODKey& LODKey)
+		{
+			DirtyTree[LODKey].bDirty = true;
+		}
+
+		void Flag(const FRealtimeMeshSectionGroupKey& SectionGroupKey)
+		{
+			DirtyTree[SectionGroupKey.LOD()].SectionGroups.FindOrAdd(SectionGroupKey.Name()).bDirty = true;
+		}
+
+		void Flag(const FRealtimeMeshSectionKey& SectionKey)
+		{
+			DirtyTree[SectionKey.LOD()].SectionGroups.FindOrAdd(SectionKey.SectionGroup().Name()).Sections.Add(SectionKey.Name());
+		}
+
+		bool IsDirty(const FRealtimeMeshLODKey& LODKey, bool bIncludeChildren = true) const
+		{
+			auto& LODEntry = DirtyTree[LODKey];
+			return LODEntry.bDirty || (bIncludeChildren && !LODEntry.SectionGroups.IsEmpty());
+		}
+
+		bool IsDirty(const FRealtimeMeshSectionGroupKey& SectionGroup, bool bIncludeChildren = true) const
+		{
+			if (auto* SectionGroupEntry = DirtyTree[SectionGroup.LOD()].SectionGroups.Find(SectionGroup.Name()))
+			{
+				return SectionGroupEntry->bDirty || (bIncludeChildren && !SectionGroupEntry->Sections.IsEmpty());
+			}
+			return false;
+		}
+
+		bool IsDirty(const FRealtimeMeshSectionKey& SectionKey) const
+		{
+			if (auto* SectionGroupEntry = DirtyTree[SectionKey.LOD()].SectionGroups.Find(SectionKey.SectionGroup().Name()))
+			{
+				return SectionGroupEntry->Sections.Contains(SectionKey.Name());
+			}
+			return false;			
+		}
+		
+	};
+
+	struct REALTIMEMESHCOMPONENT_API FRealtimeMeshStructuredStreamDirtyTree
+	{		
+	private:
+		TMap<FRealtimeMeshSectionGroupKey, TSet<FRealtimeMeshStreamKey>> DirtyStreams;
+
+	public:
+		
+		void Flag(const FRealtimeMeshSectionGroupKey& SectionGroupKey, const FRealtimeMeshStreamKey& StreamKey)
+		{
+			DirtyStreams.FindOrAdd(SectionGroupKey).Add(StreamKey);
+		}
+
+		bool HasDirtyStreams(const FRealtimeMeshSectionGroupKey& SectionGroup) const
+		{
+			return DirtyStreams.Contains(SectionGroup) && !DirtyStreams[SectionGroup].IsEmpty();
+		}
+
+		const TSet<FRealtimeMeshStreamKey>& GetDirtyStreams(const FRealtimeMeshSectionGroupKey& SectionGroup) const
+		{
+			return DirtyStreams.FindChecked(SectionGroup);
+		}		
+	};
+
+	struct REALTIMEMESHCOMPONENT_API FRealtimeMeshSectionRangeDirtyTree
+	{		
+	private:
+		TSet<FRealtimeMeshSectionKey> Dirty;
+
+	public:
+		
+		void Flag(const FRealtimeMeshSectionKey& SectionKey)
+		{
+			Dirty.Add(SectionKey);
+		}
+
+		bool IsDirty(const FRealtimeMeshSectionKey& SectionKey) const
+		{
+			return Dirty.Contains(SectionKey);
+		}
+	};
+
+	
+	struct REALTIMEMESHCOMPONENT_API FRealtimeMeshUpdateState
+	{
+		FRealtimeMeshStructuredDirtyTree BoundsDirtyTree;
+		FRealtimeMeshStructuredDirtyTree ConfigDirtyTree;
+		FRealtimeMeshStructuredStreamDirtyTree StreamDirtyTree;
+		FRealtimeMeshSectionRangeDirtyTree StreamRangeDirtyTree;
+
+		
+
+
+		uint32 bNeedsBoundsUpdate : 1;
+		uint32 bNeedsCollisionUpdate : 1;
+		uint32 bNeedsRenderProxyUpdate : 1;
+
+		FRealtimeMeshUpdateState()
+			: bNeedsBoundsUpdate(false)
+			, bNeedsCollisionUpdate(false)
+			, bNeedsRenderProxyUpdate(false)
+		{ }
+	};
+
+
+	struct REALTIMEMESHCOMPONENT_API FRealtimeMeshUpdateContext : public FRealtimeMeshLockContext
+	{
+	private:
 		FRealtimeMeshScopeGuardWrite WriteGuard;
 		FRealtimeMeshProxyUpdateBuilder ProxyBuilder;
 		FRealtimeMeshSharedResourcesRef Resources;
+		FRealtimeMeshUpdateStateRef UpdateState;
+		TOptional<FRHIAsyncCommandList> RHICmdList;
 
-		FRealtimeMeshUpdateContext(const TSharedRef<FRealtimeMesh>& InMesh)
-			: WriteGuard(InMesh->GetSharedResources()->GetGuard())
-			, ProxyBuilder(!InMesh->GetRenderProxy().IsValid())
-			, Resources(InMesh->GetSharedResources())
-		{ }
+	public:
+		FRealtimeMeshUpdateContext(const TSharedRef<FRealtimeMesh>& InMesh);
+
+		FRealtimeMeshUpdateContext(const FRealtimeMeshSharedResourcesRef& InResources);
+
+		~FRealtimeMeshUpdateContext();
+
+		UE_NONCOPYABLE(FRealtimeMeshUpdateContext)
+
+		bool ShouldUpdateProxy() const { return ProxyBuilder.IsValid(); }
 		
-		FRealtimeMeshUpdateContext(const FRealtimeMeshSharedResourcesRef& InResources)
-			: WriteGuard(InResources->GetGuard())
-			, ProxyBuilder(!InResources->GetOwner().IsValid() || !InResources->GetOwner()->GetRenderProxy().IsValid())
-			, Resources(InResources)
-		{ }
+		FRealtimeMeshProxyUpdateBuilder* GetProxyBuilder() { return ProxyBuilder.IsValid()? &ProxyBuilder : nullptr; }
+		operator FRealtimeMeshProxyUpdateBuilder& () { return ProxyBuilder; }
 
-		FRealtimeMeshProxyUpdateBuilder& GetProxyBuilder() { return ProxyBuilder; }
-		operator FRealtimeMeshProxyUpdateBuilder& () { return ProxyBuilder; }		
-			
+		FRHIAsyncCommandList& GetRHICmdList() { check(RHICmdList.IsSet()); return *RHICmdList; }
 
-		auto Commit()
-		{
-			if (auto Mesh = Resources->GetOwner())
-			{
-				return ProxyBuilder.Commit(Mesh.ToSharedRef());
-			}
+		FRealtimeMeshUpdateState& GetState() { return *UpdateState; }
+		template<typename UpdateStateType>
+		UpdateStateType& GetState() { return static_cast<UpdateStateType&>(GetState()); }
 
-			return MakeFulfilledPromise<ERealtimeMeshProxyUpdateStatus>(ERealtimeMeshProxyUpdateStatus::NoProxy).GetFuture();
-		}
-		
+
+		TFuture<ERealtimeMeshProxyUpdateStatus> Commit();
 	};
 
 	
@@ -54,7 +204,7 @@ namespace RealtimeMesh
 	struct REALTIMEMESHCOMPONENT_API FRealtimeMeshUpdateBuilder
 	{
 	public:
-		using TaskFunctionType = TUniqueFunction<void(FRealtimeMeshProxyUpdateBuilder&, FRealtimeMesh&)>;
+		using TaskFunctionType = TUniqueFunction<void(FRealtimeMeshUpdateContext&, FRealtimeMesh&)>;
 	private:
 		TArray<TaskFunctionType> Tasks;
 
@@ -64,47 +214,47 @@ namespace RealtimeMesh
 		
 		TFuture<ERealtimeMeshProxyUpdateStatus> Commit(const TSharedRef<FRealtimeMesh>& Mesh);
 
-		void AddMeshTask(TUniqueFunction<void(FRealtimeMeshProxyUpdateBuilder&, FRealtimeMesh&)>&& Function);
+		void AddMeshTask(TUniqueFunction<void(FRealtimeMeshUpdateContext&, FRealtimeMesh&)>&& Function);
 
 		template <typename MeshType>
-		void AddMeshTask(TUniqueFunction<void(FRealtimeMeshProxyUpdateBuilder&, MeshType&)>&& Function)
+		void AddMeshTask(TUniqueFunction<void(FRealtimeMeshUpdateContext&, MeshType&)>&& Function)
 		{
-			AddMeshTask([Func = MoveTemp(Function)](FRealtimeMeshProxyUpdateBuilder& ProxyBuilder, FRealtimeMesh& LOD)
+			AddMeshTask([Func = MoveTemp(Function)](FRealtimeMeshUpdateContext& UpdateContext, FRealtimeMesh& LOD)
 			{
-				Func(ProxyBuilder, static_cast<MeshType&>(LOD));
+				Func(UpdateContext, static_cast<MeshType&>(LOD));
 			});
 		}
 
-		void AddLODTask(const FRealtimeMeshLODKey& LODKey, TUniqueFunction<void(FRealtimeMeshProxyUpdateBuilder&, FRealtimeMeshLOD&)>&& Function);
+		void AddLODTask(const FRealtimeMeshLODKey& LODKey, TUniqueFunction<void(FRealtimeMeshUpdateContext&, FRealtimeMeshLOD&)>&& Function);
 
 		template <typename LODProxyType>
-		void AddLODTask(const FRealtimeMeshLODKey& LODKey, TUniqueFunction<void(FRealtimeMeshProxyUpdateBuilder&, LODProxyType&)>&& Function)
+		void AddLODTask(const FRealtimeMeshLODKey& LODKey, TUniqueFunction<void(FRealtimeMeshUpdateContext&, LODProxyType&)>&& Function)
 		{
-			AddLODTask(LODKey, [Func = MoveTemp(Function)](FRealtimeMeshProxyUpdateBuilder& ProxyBuilder, FRealtimeMeshLOD& LOD)
+			AddLODTask(LODKey, [Func = MoveTemp(Function)](FRealtimeMeshUpdateContext& UpdateContext, FRealtimeMeshLOD& LOD)
 			{
-				Func(ProxyBuilder, static_cast<LODProxyType&>(LOD));
+				Func(UpdateContext, static_cast<LODProxyType&>(LOD));
 			});
 		}
 
-		void AddSectionGroupTask(const FRealtimeMeshSectionGroupKey& SectionGroupKey, TUniqueFunction<void(FRealtimeMeshProxyUpdateBuilder&, FRealtimeMeshSectionGroup&)>&& Function);
+		void AddSectionGroupTask(const FRealtimeMeshSectionGroupKey& SectionGroupKey, TUniqueFunction<void(FRealtimeMeshUpdateContext&, FRealtimeMeshSectionGroup&)>&& Function);
 
 		template <typename SectionGroupProxyType>
-		void AddSectionGroupTask(const FRealtimeMeshSectionGroupKey& SectionGroupKey, TUniqueFunction<void(FRealtimeMeshProxyUpdateBuilder&, SectionGroupProxyType&)>&& Function)
+		void AddSectionGroupTask(const FRealtimeMeshSectionGroupKey& SectionGroupKey, TUniqueFunction<void(FRealtimeMeshUpdateContext&, SectionGroupProxyType&)>&& Function)
 		{
-			AddSectionGroupTask(SectionGroupKey, [Func = MoveTemp(Function)](FRealtimeMeshProxyUpdateBuilder& ProxyBuilder, FRealtimeMeshSectionGroup& SectionGroup)
+			AddSectionGroupTask(SectionGroupKey, [Func = MoveTemp(Function)](FRealtimeMeshUpdateContext& UpdateContext, FRealtimeMeshSectionGroup& SectionGroup)
 			{
-				Func(ProxyBuilder, static_cast<SectionGroupProxyType&>(SectionGroup));
+				Func(UpdateContext, static_cast<SectionGroupProxyType&>(SectionGroup));
 			});
 		}
 
-		void AddSectionTask(const FRealtimeMeshSectionKey& SectionKey, TUniqueFunction<void(FRealtimeMeshProxyUpdateBuilder&, FRealtimeMeshSection&)>&& Function);
+		void AddSectionTask(const FRealtimeMeshSectionKey& SectionKey, TUniqueFunction<void(FRealtimeMeshUpdateContext&, FRealtimeMeshSection&)>&& Function);
 
 		template <typename SectionProxyType>
-		void AddSectionTask(const FRealtimeMeshSectionKey& SectionKey, TUniqueFunction<void(FRealtimeMeshProxyUpdateBuilder&, SectionProxyType&)>&& Function)
+		void AddSectionTask(const FRealtimeMeshSectionKey& SectionKey, TUniqueFunction<void(FRealtimeMeshUpdateContext&, SectionProxyType&)>&& Function)
 		{
-			AddSectionTask(SectionKey, [Func = MoveTemp(Function)](FRealtimeMeshProxyUpdateBuilder& ProxyBuilder, FRealtimeMeshSection& Section)
+			AddSectionTask(SectionKey, [Func = MoveTemp(Function)](FRealtimeMeshUpdateContext& UpdateContext, FRealtimeMeshSection& Section)
 			{
-				Func(ProxyBuilder, static_cast<SectionProxyType&>(Section));
+				Func(UpdateContext, static_cast<SectionProxyType&>(Section));
 			});
 		}
 	};
@@ -115,7 +265,7 @@ namespace RealtimeMesh
 	struct REALTIMEMESHCOMPONENT_API FRealtimeMeshAccessor
 	{
 	public:
-		using TaskFunctionType = TUniqueFunction<void(const FRealtimeMesh&)>;
+		using TaskFunctionType = TUniqueFunction<void(const FRealtimeMeshAccessContext&, const FRealtimeMesh&)>;
 	private:
 		TArray<TaskFunctionType> Tasks;
 
@@ -125,47 +275,47 @@ namespace RealtimeMesh
 		
 		void Execute(const TSharedRef<const FRealtimeMesh>& Mesh);
 
-		void AddMeshTask(TUniqueFunction<void(const FRealtimeMesh&)>&& Function);
+		void AddMeshTask(TUniqueFunction<void(const FRealtimeMeshAccessContext&, const FRealtimeMesh&)>&& Function);
 
 		template <typename MeshType>
-		void AddMeshTask(TUniqueFunction<void(const MeshType&)>&& Function)
+		void AddMeshTask(TUniqueFunction<void(const FRealtimeMeshAccessContext&, const MeshType&)>&& Function)
 		{
-			AddMeshTask([Func = MoveTemp(Function)](const FRealtimeMesh& LOD)
+			AddMeshTask([Func = MoveTemp(Function)](const FRealtimeMeshAccessContext& LockContext, const FRealtimeMesh& LOD)
 			{
-				Func(static_cast<const MeshType&>(LOD));
+				Func(LockContext, static_cast<const MeshType&>(LOD));
 			});
 		}
 
-		void AddLODTask(const FRealtimeMeshLODKey& LODKey, TUniqueFunction<void(const FRealtimeMeshLOD&)>&& Function);
+		void AddLODTask(const FRealtimeMeshLODKey& LODKey, TUniqueFunction<void(const FRealtimeMeshAccessContext&, const FRealtimeMeshLOD&)>&& Function);
 
 		template <typename LODProxyType>
-		void AddLODTask(const FRealtimeMeshLODKey& LODKey, TUniqueFunction<void(const LODProxyType&)>&& Function)
+		void AddLODTask(const FRealtimeMeshLODKey& LODKey, TUniqueFunction<void(const FRealtimeMeshAccessContext&, const LODProxyType&)>&& Function)
 		{
-			AddLODTask(LODKey, [Func = MoveTemp(Function)](const FRealtimeMeshLOD& LOD)
+			AddLODTask(LODKey, [Func = MoveTemp(Function)](const FRealtimeMeshAccessContext& LockContext, const FRealtimeMeshLOD& LOD)
 			{
-				Func(static_cast<const LODProxyType&>(LOD));
+				Func(LockContext, static_cast<const LODProxyType&>(LOD));
 			});
 		}
 
-		void AddSectionGroupTask(const FRealtimeMeshSectionGroupKey& SectionGroupKey, TUniqueFunction<void(const FRealtimeMeshSectionGroup&)>&& Function);
+		void AddSectionGroupTask(const FRealtimeMeshSectionGroupKey& SectionGroupKey, TUniqueFunction<void(const FRealtimeMeshAccessContext&, const FRealtimeMeshSectionGroup&)>&& Function);
 
 		template <typename SectionGroupProxyType>
-		void AddSectionGroupTask(const FRealtimeMeshSectionGroupKey& SectionGroupKey, TUniqueFunction<void(const SectionGroupProxyType&)>&& Function)
+		void AddSectionGroupTask(const FRealtimeMeshSectionGroupKey& SectionGroupKey, TUniqueFunction<void(const FRealtimeMeshAccessContext&, const SectionGroupProxyType&)>&& Function)
 		{
-			AddSectionGroupTask(SectionGroupKey, [Func = MoveTemp(Function)](const FRealtimeMeshSectionGroup& SectionGroup)
+			AddSectionGroupTask(SectionGroupKey, [Func = MoveTemp(Function)](const FRealtimeMeshAccessContext& LockContext, const FRealtimeMeshSectionGroup& SectionGroup)
 			{
-				Func(static_cast<const SectionGroupProxyType&>(SectionGroup));
+				Func(LockContext, static_cast<const SectionGroupProxyType&>(SectionGroup));
 			});
 		}
 
-		void AddSectionTask(const FRealtimeMeshSectionKey& SectionKey, TUniqueFunction<void(const FRealtimeMeshSection&)>&& Function);
+		void AddSectionTask(const FRealtimeMeshSectionKey& SectionKey, TUniqueFunction<void(const FRealtimeMeshAccessContext&, const FRealtimeMeshSection&)>&& Function);
 
 		template <typename SectionProxyType>
-		void AddSectionTask(const FRealtimeMeshSectionKey& SectionKey, TUniqueFunction<void(const SectionProxyType&)>&& Function)
+		void AddSectionTask(const FRealtimeMeshSectionKey& SectionKey, TUniqueFunction<void(const FRealtimeMeshAccessContext&, const SectionProxyType&)>&& Function)
 		{
-			AddSectionTask(SectionKey, [Func = MoveTemp(Function)](const FRealtimeMeshSection& Section)
+			AddSectionTask(SectionKey, [Func = MoveTemp(Function)](const FRealtimeMeshAccessContext& LockContext, const FRealtimeMeshSection& Section)
 			{
-				Func(static_cast<const SectionProxyType&>(Section));
+				Func(LockContext, static_cast<const SectionProxyType&>(Section));
 			});
 		}
 	};

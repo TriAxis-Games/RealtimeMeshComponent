@@ -12,7 +12,6 @@ namespace RealtimeMesh
 	FRealtimeMeshLODProxy::FRealtimeMeshLODProxy(const FRealtimeMeshSharedResourcesRef& InSharedResources, const FRealtimeMeshLODKey& InKey)
 		: SharedResources(InSharedResources)
 		  , Key(InKey)
-		  , bIsStateDirty(true)
 	{
 	}
 
@@ -36,7 +35,6 @@ namespace RealtimeMesh
 	void FRealtimeMeshLODProxy::UpdateConfig(const FRealtimeMeshLODConfig& NewConfig)
 	{
 		Config = NewConfig;
-		MarkStateDirty();
 	}
 
 	void FRealtimeMeshLODProxy::CreateSectionGroupIfNotExists(const FRealtimeMeshSectionGroupKey& SectionGroupKey)
@@ -50,7 +48,6 @@ namespace RealtimeMesh
 		{
 			const int32 SectionGroupIndex = SectionGroups.Add(SharedResources->CreateSectionGroupProxy(SectionGroupKey));
 			SectionGroupMap.Add(SectionGroupKey, SectionGroupIndex);
-			MarkStateDirty();
 		}
 	}
 
@@ -65,7 +62,6 @@ namespace RealtimeMesh
 			const int32 SectionGroupIndex = SectionGroupMap[SectionGroupKey];
 			SectionGroups.RemoveAt(SectionGroupIndex);
 			RebuildSectionGroupMap();
-			MarkStateDirty();
 		}
 	}
 
@@ -76,46 +72,34 @@ namespace RealtimeMesh
 	}
 #endif
 	
-	bool FRealtimeMeshLODProxy::UpdateCachedState(FRHICommandListBase& RHICmdList, bool bShouldForceUpdate)
+	void FRealtimeMeshLODProxy::UpdateCachedState(FRHICommandListBase& RHICmdList)
 	{
 		TRACE_CPUPROFILER_EVENT_SCOPE(FRealtimeMeshLODProxy::UpdateCachedState);
 		
 		// Handle all SectionGroup updates
 		for (const auto& SectionGroup : SectionGroups)
 		{
-			bIsStateDirty |= SectionGroup->UpdateCachedState(RHICmdList, bIsStateDirty || bShouldForceUpdate);
+			SectionGroup->UpdateCachedState(RHICmdList);
 		}
 
-		if (!bIsStateDirty && !bShouldForceUpdate)
-		{
-			return false;
-		}
-
-		FRealtimeMeshDrawMask NewDrawMask;
-		FRealtimeMeshSectionGroupMask NewActiveSectionGroupMask;		
-		FRealtimeMeshSectionGroupMask NewActiveStaticSectionGroupMask;
-		FRealtimeMeshSectionGroupMask NewActiveDynamicSectionGroupMask;
+		DrawMask = FRealtimeMeshDrawMask();
+		ActiveSectionGroupMask.SetNumUninitialized(SectionGroups.Num());
+		ActiveSectionGroupMask.SetRange(0, SectionGroups.Num(), false);
 		if (Config.bIsVisible && Config.ScreenSize >= 0)
-		{
-			NewActiveSectionGroupMask.Add(false, SectionGroups.Num());
-			NewActiveStaticSectionGroupMask.Add(false, SectionGroups.Num());
-			NewActiveDynamicSectionGroupMask.Add(false, SectionGroups.Num());
-			
+		{			
 			for (auto It = SectionGroups.CreateConstIterator(); It; ++It)
 			{
 				const FRealtimeMeshSectionGroupProxyRef& SectionGroup = *It;
 				auto SectionGroupDrawMask = SectionGroup->GetDrawMask();
-				NewDrawMask |= SectionGroupDrawMask;
+				DrawMask |= SectionGroupDrawMask;
 				
-				NewActiveSectionGroupMask[It.GetIndex()] = SectionGroupDrawMask.ShouldRender();
-				NewActiveStaticSectionGroupMask[It.GetIndex()] = SectionGroupDrawMask.ShouldRenderStaticPath();
-				NewActiveDynamicSectionGroupMask[It.GetIndex()] = SectionGroupDrawMask.ShouldRenderDynamicPath();
+				ActiveSectionGroupMask[It.GetIndex()] = SectionGroupDrawMask.ShouldRender();
 			}
 		}
 
 		FRealtimeMeshSectionGroupProxyPtr NewStaticRaytracingGroup;
 
-		if (NewDrawMask.ShouldRenderStaticPath())
+		if (DrawMask.ShouldRenderStaticPath())
 		{
 			// If the group is overriden use it.
 			if (OverrideStaticRayTracingGroup.IsSet())
@@ -139,20 +123,10 @@ namespace RealtimeMesh
 				}				
 			}			
 		}
-
-		const bool bStateChanged = DrawMask != NewDrawMask || ActiveSectionGroupMask != NewActiveSectionGroupMask || StaticRaytracingSectionGroup != NewStaticRaytracingGroup;
-		DrawMask = NewDrawMask;
-		ActiveSectionGroupMask = NewActiveSectionGroupMask;
-		bIsStateDirty = false;
+		
 #if RHI_RAYTRACING
 		StaticRaytracingSectionGroup = NewStaticRaytracingGroup;
 #endif
-		return bStateChanged;
-	}
-
-	void FRealtimeMeshLODProxy::MarkStateDirty()
-	{
-		bIsStateDirty = true;
 	}
 
 	void FRealtimeMeshLODProxy::RebuildSectionGroupMap()
@@ -174,6 +148,5 @@ namespace RealtimeMesh
 
 		Config = FRealtimeMeshLODConfig();
 		DrawMask = FRealtimeMeshDrawMask();
-		bIsStateDirty = true;
 	}
 }

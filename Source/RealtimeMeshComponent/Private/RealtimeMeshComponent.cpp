@@ -141,8 +141,7 @@ FPrimitiveSceneProxy* URealtimeMeshComponent::CreateSceneProxy()
 				}				
 			}
 			
-			const int32 ProxyVersion = RealtimeMesh->GetMesh()->IncrementProxyVersionIfNotSameFrame();			
-			return new RealtimeMesh::FRealtimeMeshComponentSceneProxy(this, MeshRenderProxy.ToSharedRef(), ProxyVersion);
+			return new RealtimeMesh::FRealtimeMeshComponentSceneProxy(this, MeshRenderProxy.ToSharedRef());
 		}
 	}
 

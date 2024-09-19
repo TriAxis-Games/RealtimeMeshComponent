@@ -6,8 +6,12 @@
 #include "Data/RealtimeMeshShared.h"
 #include "RenderProxy/RealtimeMeshProxy.h"
 
+
 namespace RealtimeMesh
 {
+	struct FRealtimeMeshLockContext;
+	struct FRealtimeMeshUpdateContext;
+	
 	/**
 	 * @brief This is the base class for all section types. It contains the shared resources, and the key used to identify the section.
 	 * It also contains the bounds, and also the config and stream range for the section.
@@ -37,158 +41,127 @@ namespace RealtimeMesh
 		virtual ~FRealtimeMeshSection() = default;
 
 		/**
+		 * @brief Gets the current parent SectionGroup
+		 * @param LockContext Context object for access to the RMC data
+		 * @return Parent SectionGroup to this section
+		 */
+		FRealtimeMeshSectionGroupPtr GetSectionGroup(const FRealtimeMeshLockContext& LockContext) const;
+		
+		/**
 		 * @brief Gets the parent SectionGroup as the specified type
 		 * @tparam SectionGroupType Type of the section group
+		 * @param LockContext Context object for access to the RMC data
 		 * @return 
 		 */
 		template <typename SectionGroupType>
-		TSharedPtr<SectionGroupType> GetSectionGroupAs() const
+		TSharedPtr<SectionGroupType> GetSectionGroupAs(const FRealtimeMeshLockContext& LockContext) const
 		{
-			return StaticCastSharedPtr<SectionGroupType>(GetSectionGroup());
+			return StaticCastSharedPtr<SectionGroupType>(GetSectionGroup(LockContext));
 		}
 
 		/**
-		 * @brief Gets the current parent SectionGroup
-		 * @return Parent SectionGroup to this section
-		 */
-		FRealtimeMeshSectionGroupPtr GetSectionGroup() const;
-
-		/**
 		 * @brief Gets the key used to identify this section
+		 * @param LockContext Context object for access to the RMC data
 		 */
-		const FRealtimeMeshSectionKey& GetKey() const { return Key; }
+		const FRealtimeMeshSectionKey& GetKey(const FRealtimeMeshLockContext& LockContext) const { return Key; }
 
 		/**
 		 * @brief Gets the Config for this section
+		 * @param LockContext Context object for access to the RMC data
 		 */
-		FRealtimeMeshSectionConfig GetConfig() const;
+		FRealtimeMeshSectionConfig GetConfig(const FRealtimeMeshLockContext& LockContext) const;
 
 		/**
 		 * @brief Gets the StreamRange for this section, which controls the range of the parent buffers we render for this section
+		 * @param LockContext Context object for access to the RMC data
 		 */
-		FRealtimeMeshStreamRange GetStreamRange() const;
+		FRealtimeMeshStreamRange GetStreamRange(const FRealtimeMeshLockContext& LockContext) const;
 
 		/**
 		 * @brief Gets the bounds for this section in local space
+		 * @param LockContext Context object for access to the RMC data
 		 */
-		FBoxSphereBounds3f GetLocalBounds() const;
+		TOptional<FBoxSphereBounds3f> GetLocalBounds(const FRealtimeMeshLockContext& LockContext) const;
 
 		/**
 		 * @brief Is this section currently visible
+		 * @param LockContext Context object for access to the RMC data
 		 */
-		bool IsVisible() const { return GetConfig().bIsVisible; }
+		bool IsVisible(const FRealtimeMeshLockContext& LockContext) const { return GetConfig(LockContext).bIsVisible; }
 
 		/**
 		 * @brief Is this section currently casting shadows
+		 * @param LockContext Context object for access to the RMC data
 		 */
-		bool IsCastingShadow() const { return GetConfig().bCastsShadow; }
+		bool IsCastingShadow(const FRealtimeMeshLockContext& LockContext) const { return GetConfig(LockContext).bCastsShadow; }
 
 		/**
 		 * @brief Initializes this section, setting up the starting config/streamrange
-		 * @param ProxyBuilder Running commandqueue that we send RT commands too. This is used for command batching.
+		 * @param UpdateContext Update context used for this operation
 		 * @param InConfig Initial config for this section
 		 * @param InRange Initial stream range to render for this section
 		 */
-		virtual void Initialize(FRealtimeMeshProxyUpdateBuilder& ProxyBuilder, const FRealtimeMeshSectionConfig& InConfig, const FRealtimeMeshStreamRange& InRange);
-
-		/**
-		 * @brief Resets the section to a default state. For batching several commands together, use the Reset(FRealtimeMeshProxyCommandBatch&) variant.
-		 * @return Future that will be set when the reset is complete, and will provide the status of the command completion.
-		 */
-		TFuture<ERealtimeMeshProxyUpdateStatus> Reset();
+		virtual void Initialize(FRealtimeMeshUpdateContext& UpdateContext, const FRealtimeMeshSectionConfig& InConfig, const FRealtimeMeshStreamRange& InRange);
 
 		/**
 		 * @brief Resets the section to a default state
-		 * @param ProxyBuilder Running command queue that we send RT commands too. This is used for command batching.
+		 * @param UpdateContext Update context used for this operation
 		 */
-		virtual void Reset(FRealtimeMeshProxyUpdateBuilder& ProxyBuilder);
+		virtual void Reset(FRealtimeMeshUpdateContext& UpdateContext);
 
 		/**
 		 * @brief Sets a custom bounds for this section, overriding the calculated bounds and skipping calculation.
+		 * @param UpdateContext Update context used for this operation
 		 * @param InBounds The new bounds to use for this section in local space
 		 */
-		void SetOverrideBounds(const FBoxSphereBounds3f& InBounds);
+		void SetOverrideBounds(FRealtimeMeshUpdateContext& UpdateContext, const FBoxSphereBounds3f& InBounds);
 
 		/**
-		 * @brief 
+		 * @brief Does this section have custom bounds
+		 * @param LockContext Context object for access to the RMC data
 		 * @return Does this section have a custom bounds set 
 		 */
-		bool HasOverrideBounds() const { return Bounds.HasUserSetBounds(); }
+		bool HasOverrideBounds(const FRealtimeMeshLockContext& LockContext) const { return Bounds.HasUserSetBounds(); }
 
 		/**
 		 * @brief Clears any overriding bounds
 		 */
-		void ClearOverrideBounds();
+		void ClearOverrideBounds(FRealtimeMeshUpdateContext& UpdateContext);
 
 		/**
 		 * @brief Update the config for this section
-		 * @param InConfig New section config
-		 * @return Future that will be set when the update is complete, and will provide the status of the command completion.
-		 */
-		TFuture<ERealtimeMeshProxyUpdateStatus> UpdateConfig(const FRealtimeMeshSectionConfig& InConfig);
-
-		/**
-		 * @brief Update the config for this section
-		 * @param ProxyBuilder Running command queue that we send RT commands too. This is used for command batching.
+		 * @param UpdateContext Update context used for this operation
 		 * @param InConfig New section config
 		 */
-		virtual void UpdateConfig(FRealtimeMeshProxyUpdateBuilder& ProxyBuilder, const FRealtimeMeshSectionConfig& InConfig);
+		virtual void UpdateConfig(FRealtimeMeshUpdateContext& UpdateContext, const FRealtimeMeshSectionConfig& InConfig);
 
 		/**
 		 * @brief Edits the config for this section using the specified function
-		 * @param EditFunc Function to call to edit the config
-		 * @return Future that will be set when the update is complete, and will provide the status of the command completion.
-		 */
-		TFuture<ERealtimeMeshProxyUpdateStatus> UpdateConfig(TFunction<void(FRealtimeMeshSectionConfig&)> EditFunc);
-
-		/**
-		 * @brief Edits the config for this section using the specified function
-		 * @param ProxyBuilder Running command queue that we send RT commands too. This is used for command batching.
+		 * @param UpdateContext Update context used for this operation
 		 * @param EditFunc Function to call to edit the config
 		 */
-		virtual void UpdateConfig(FRealtimeMeshProxyUpdateBuilder& ProxyBuilder, TFunction<void(FRealtimeMeshSectionConfig&)> EditFunc);
+		virtual void UpdateConfig(FRealtimeMeshUpdateContext& UpdateContext, TFunction<void(FRealtimeMeshSectionConfig&)> EditFunc);
 
 		/**
 		 * @brief Update the stream range for this section
-		 * @param InRange New section stream range
-		 * @return Future that will be set when the update is complete, and will provide the status of the command completion.
-		 */
-		TFuture<ERealtimeMeshProxyUpdateStatus> UpdateStreamRange(const FRealtimeMeshStreamRange& InRange);
-
-		/**
-		 * @brief Update the stream range for this section
-		 * @param ProxyBuilder Running command queue that we send RT commands too. This is used for command batching.
+		 * @param UpdateContext Update context used for this operation
 		 * @param InRange New section stream range
 		 */
-		virtual void UpdateStreamRange(FRealtimeMeshProxyUpdateBuilder& ProxyBuilder, const FRealtimeMeshStreamRange& InRange);
+		virtual void UpdateStreamRange(FRealtimeMeshUpdateContext& UpdateContext, const FRealtimeMeshStreamRange& InRange);
 
 		/**
 		 * @brief Update the visibility for the section
-		 * @param bIsVisible New visibility for section
-		 * @return Future that will be set when the update is complete, and will provide the status of the command completion.
-		 */
-		TFuture<ERealtimeMeshProxyUpdateStatus> SetVisibility(bool bIsVisible);
-
-		/**
-		 * @brief Update the visibility for the section
-		 * @param ProxyBuilder Running command queue that we send RT commands too. This is used for command batching.
+		 * @param UpdateContext Update context used for this operation
 		 * @param bIsVisible New visibility for section
 		 */
-		virtual void SetVisibility(FRealtimeMeshProxyUpdateBuilder& ProxyBuilder, bool bIsVisible);
+		virtual void SetVisibility(FRealtimeMeshUpdateContext& UpdateContext, bool bIsVisible);
 
 		/**
 		 * @brief Update the shadow casting state for the section
-		 * @param bCastShadow New shadow casting state for section
-		 * @return Future that will be set when the update is complete, and will provide the status of the command completion.
-		 */
-		TFuture<ERealtimeMeshProxyUpdateStatus> SetCastShadow(bool bCastShadow);
-
-		/**
-		 * @brief Update the shadow casting state for the section
-		 * @param ProxyBuilder Running command queue that we send RT commands too. This is used for command batching.
+		 * @param UpdateContext Update context used for this operation
 		 * @param bCastShadow New shadow casting state for section
 		 */
-		virtual void SetCastShadow(FRealtimeMeshProxyUpdateBuilder& ProxyBuilder, bool bCastShadow);
+		virtual void SetCastShadow(FRealtimeMeshUpdateContext& UpdateContext, bool bCastShadow);
 
 		/**
 		 * @brief Serializes this section to the running archive.
@@ -199,27 +172,21 @@ namespace RealtimeMesh
 
 		/**
 		 * @brief Initializes the proxy, adding all the necessary commands to initialize the state to the supplied CommandBatch
-		 * @param ProxyBuilder Running command queue that we send RT commands too. This is used for command batching.
+		 * @param UpdateContext Update context used for this operation
 		 */
-		virtual void InitializeProxy(FRealtimeMeshProxyUpdateBuilder& ProxyBuilder);
-		
+		virtual void InitializeProxy(FRealtimeMeshUpdateContext& UpdateContext);
+
+
+		virtual void FinalizeUpdate(FRealtimeMeshUpdateContext& UpdateContext);
+
+		virtual bool ShouldRecreateProxyOnChange(const FRealtimeMeshLockContext& LockContext) const;
 	protected:
-		/**
-		 * @brief Marks the bounds dirty, to request a recalculate, if the bounds are not overriden by a custom bound
-		 */
-		void MarkBoundsDirtyIfNotOverridden() const;
-
-		/**
-		 * @brief Calculates the bounds from the mesh data for this section
-		 * @return The new calculated bounds.
-		 */
-		virtual FBoxSphereBounds3f CalculateBounds() const;
-
-		/**
-		 * @brief 
-		 * @return Should we request a proxy recreate for the component when this section changes?
-		 */
-		virtual bool ShouldRecreateProxyOnChange() const;
+		const FRealtimeMeshSectionKey& GetKey_AssumesLocked() const { return Key; }
+		friend struct FRealtimeMeshSectionRefKeyFuncs;
+		friend class FRealtimeMeshSectionGroup;
+		
+		void MarkBoundsDirtyIfNotOverridden(FRealtimeMeshUpdateContext& UpdateContext);
+		void UpdateCalculatedBounds(FRealtimeMeshUpdateContext& UpdateContext, TOptional<FBoxSphereBounds3f>& CalculatedBounds);
 	};
 
 
@@ -233,7 +200,7 @@ namespace RealtimeMesh
 		 */
 		static KeyInitType GetSetKey(ElementInitType Element)
 		{
-			return Element->GetKey();
+			return Element->GetKey_AssumesLocked();
 		}
 
 		/**

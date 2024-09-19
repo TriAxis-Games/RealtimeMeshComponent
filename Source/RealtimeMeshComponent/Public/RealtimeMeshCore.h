@@ -77,6 +77,9 @@ namespace RealtimeMesh
 
 	struct FRealtimeMeshStream;
 
+	struct FRealtimeMeshUpdateState;
+	CREATE_RMC_PTR_TYPES(FRealtimeMeshUpdateState);
+	
 	class FRealtimeMeshVertexFactory;
 	CREATE_RMC_PTR_TYPES(FRealtimeMeshVertexFactory);
 

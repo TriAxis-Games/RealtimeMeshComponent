@@ -75,7 +75,6 @@ namespace RealtimeMesh
 #if RHI_RAYTRACING
 		FRealtimeMeshSectionGroupProxyPtr StaticRaytracingSectionGroup;
 #endif
-		uint32 bIsStateDirty : 1;
 		
 
 	public:
@@ -101,11 +100,10 @@ namespace RealtimeMesh
 		virtual FRayTracingGeometry* GetStaticRayTracingGeometry() const;
 #endif
 		
-		virtual bool UpdateCachedState(FRHICommandListBase& RHICmdList, bool bShouldForceUpdate);
+		virtual void UpdateCachedState(FRHICommandListBase& RHICmdList);
 		virtual void Reset();
 
 	protected:
-		void MarkStateDirty();
 		void RebuildSectionGroupMap();
 
 		friend class FRealtimeMeshActiveSectionGroupIterator;

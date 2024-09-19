@@ -9,6 +9,7 @@
 #include "UnrealEngine.h"
 #include "SceneManagement.h"
 #include "RayTracingInstance.h"
+#include "RealtimeMeshComponentModule.h"
 #include "RealtimeMeshSceneViewExtension.h"
 #include "RenderProxy/RealtimeMeshLODProxy.h"
 #if RMC_ENGINE_ABOVE_5_2
@@ -23,20 +24,18 @@ DECLARE_CYCLE_STAT(TEXT("RealtimeMeshComponentSceneProxy - Draw Static Mesh Elem
 DECLARE_CYCLE_STAT(TEXT("RealtimeMeshComponentSceneProxy - Get Dynamic Ray Tracing Instances"), STAT_RealtimeMeshComponentSceneProxy_GetDynamicRayTracingInstances,
                    STATGROUP_RealtimeMesh);
 
-#define RMC_LOG_VERBOSE(Format, ...) \
-	//UE_LOG(RealtimeMeshLog, Verbose, TEXT("[RMCSP:%d Mesh:%d Thread:%d]: " Format), GetUniqueID(), (RealtimeMeshProxy? RealtimeMeshProxy->GetMeshID() : -1), FPlatformTLS::GetCurrentThreadId(), ##__VA_ARGS__);
 
 namespace RealtimeMesh
 {
-	FRealtimeMeshComponentSceneProxy::FRealtimeMeshComponentSceneProxy(URealtimeMeshComponent* Component, const FRealtimeMeshProxyRef& InRealtimeMeshProxy, int32 InKnownVersion)
+UE_DISABLE_OPTIMIZATION
+	
+	FRealtimeMeshComponentSceneProxy::FRealtimeMeshComponentSceneProxy(URealtimeMeshComponent* Component, const FRealtimeMeshProxyRef& InRealtimeMeshProxy)
 		: FPrimitiveSceneProxy(Component)
 		  , RealtimeMeshProxy(InRealtimeMeshProxy)
 		  , BodySetup(Component->GetBodySetup())
 		  , bAnyMaterialUsesDithering(false)
 	{
 		check(Component->GetRealtimeMesh() != nullptr);
-
-		KnownRMCVersion = InKnownVersion;
 
 		for (int32 MaterialIndex = 0; MaterialIndex < Component->GetNumMaterials(); MaterialIndex++)
 		{
@@ -62,7 +61,7 @@ namespace RealtimeMesh
 		bStaticElementsAlwaysUseProxyPrimitiveUniformBuffer = true;
 		bVerifyUsedMaterials = false;
 		
-		//bSupportsDistanceFieldRepresentation = MaterialRelevance.bOpaque && !MaterialRelevance.bUsesSingleLayerWaterMaterial && RealtimeMeshProxy->HasDistanceFieldData();
+		bSupportsDistanceFieldRepresentation = MaterialRelevance.bOpaque && !MaterialRelevance.bUsesSingleLayerWaterMaterial && RealtimeMeshProxy->HasDistanceFieldData();
 		
 		//bCastsDynamicIndirectShadow = Component->bCastDynamicShadow && Component->CastShadow && Component->Mobility != EComponentMobility::Static;
 		//DynamicIndirectShadowMinVisibility = 0.1f;
@@ -128,13 +127,13 @@ namespace RealtimeMesh
 #if RMC_ENGINE_ABOVE_5_4
 	void FRealtimeMeshComponentSceneProxy::CreateRenderThreadResources(FRHICommandListBase& RHICmdList)
 	{
-		RealtimeMeshProxy->ProcessCommands(RHICmdList, KnownRMCVersion);
+		RealtimeMeshProxy->ProcessCommands(RHICmdList);
 		FPrimitiveSceneProxy::CreateRenderThreadResources(RHICmdList);
 	}
 #else
 	void FRealtimeMeshComponentSceneProxy::CreateRenderThreadResources()
 	{		
-		RealtimeMeshProxy->ProcessCommands(GRHICommandList.GetImmediateCommandList(), KnownRMCVersion);
+		RealtimeMeshProxy->ProcessCommands(GRHICommandList.GetImmediateCommandList());
 		FPrimitiveSceneProxy::CreateRenderThreadResources();
 	}
 #endif
@@ -173,7 +172,7 @@ namespace RealtimeMesh
 	void FRealtimeMeshComponentSceneProxy::DrawStaticElements(FStaticPrimitiveDrawInterface* PDI)
 	{
 		SCOPE_CYCLE_COUNTER(STAT_RealtimeMeshComponentSceneProxy_DrawStaticMeshElements);
-
+	
 		// Walk active LODs
 		for (auto LodIt = RealtimeMeshProxy->GetActiveStaticLODMaskIter(); LodIt; ++LodIt)
 		{
@@ -197,6 +196,8 @@ namespace RealtimeMesh
 				auto VertexFactory = SectionGroup->GetVertexFactory();
 				check(VertexFactory && VertexFactory.IsValid() && VertexFactory->IsInitialized());
 
+				check(SectionGroup->GetStream(FRealtimeMeshStreams::Triangles)->IsResourceInitialized());
+
 				for (auto SectionIt = SectionGroup->GetActiveSectionMaskIter(); SectionIt; ++SectionIt)
 				{
 					const FRealtimeMeshSectionProxy* Section = *SectionIt;
@@ -214,6 +215,9 @@ namespace RealtimeMesh
 					// Let Section finish setup
 					bIsValid = bIsValid && Section->InitializeMeshBatch(MeshBatch, GetUniformBuffer());
 
+					check(MeshBatch.VertexFactory == VertexFactory.Get());
+					check(MeshBatch.VertexFactory && MeshBatch.VertexFactory->IsInitialized());
+
 					if (bIsValid)
 					{						
 						// TODO: Should this check material?
@@ -228,6 +232,8 @@ namespace RealtimeMesh
 						BatchElement.MinScreenSize = LODScreenSizes.GetLowerBoundValue();
 						BatchElement.MaxScreenSize = LODScreenSizes.GetUpperBoundValue();
 
+						//check(MeshBatch.Validate(this, GetScene().GetFeatureLevel()));
+
 						PDI->DrawMesh(MeshBatch, LODScreenSizes.GetLowerBoundValue());
 					}
 				}
@@ -239,7 +245,7 @@ namespace RealtimeMesh
 	                                                              FMeshElementCollector& Collector) const
 	{
 		SCOPE_CYCLE_COUNTER(STAT_RealtimeMeshComponentSceneProxy_GetDynamicMeshElements);
-
+	
 		// Set up wireframe material (if needed)
 		const bool bWireframe = AllowDebugViewmodes() && ViewFamily.EngineShowFlags.Wireframe;
 
@@ -311,6 +317,9 @@ namespace RealtimeMesh
 								// Let Section finish setup
 								bIsValid = bIsValid && Section->InitializeMeshBatch(MeshBatch, GetUniformBuffer());
 
+								check(MeshBatch.VertexFactory && MeshBatch.VertexFactory->IsInitialized());
+								check(MeshBatch.Elements[0].IndexBuffer && MeshBatch.Elements[0].IndexBuffer->IsInitialized());
+								
 								if (bIsValid)
 								{						
 									// TODO: Should this check material?
@@ -620,6 +629,9 @@ namespace RealtimeMesh
 	{
 		return (FPrimitiveSceneProxy::GetAllocatedSize());
 	}
+
+	UE_ENABLE_OPTIMIZATION
+	
 }
 
 #undef RMC_LOG_VERBOSE

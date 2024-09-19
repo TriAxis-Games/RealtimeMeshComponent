@@ -3,6 +3,7 @@
 
 #include "RealtimeMeshSceneViewExtension.h"
 
+#include "RealtimeMeshComponentModule.h"
 #include "RenderGraphBuilder.h"
 #include "RenderProxy/RealtimeMeshProxy.h"
 
@@ -32,7 +33,7 @@ void FRealtimeMeshSceneViewExtension::BeginRenderViewFamily(FSceneViewFamily& In
 
 void FRealtimeMeshSceneViewExtension::PreRenderViewFamily_RenderThread(FRDGBuilder& GraphBuilder, FSceneViewFamily& InViewFamily)
 {
-	for (auto It = ActiveProxies.CreateIterator(); It; ++It)
+	/*for (auto It = ActiveProxies.CreateIterator(); It; ++It)
 	{
 		if (auto Pinned = It->Pin())
 		{
@@ -42,5 +43,9 @@ void FRealtimeMeshSceneViewExtension::PreRenderViewFamily_RenderThread(FRDGBuild
 		{
 			It.RemoveCurrent();
 		}
-	}
+	}*/
+}
+
+void FRealtimeMeshSceneViewExtension::PostRenderView_RenderThread(FRDGBuilder& GraphBuilder, FSceneView& InView)
+{
 }

@@ -8,6 +8,7 @@
 #include "Data/RealtimeMeshSection.h"
 #include "Data/RealtimeMeshData.h"
 #include "Core/RealtimeMeshKeys.h"
+#include "Data/RealtimeMeshUpdateBuilder.h"
 #include "RenderProxy/RealtimeMeshLODProxy.h"
 #include "RenderProxy/RealtimeMeshProxy.h"
 #include "RenderProxy/RealtimeMeshSectionGroupProxy.h"
@@ -21,6 +22,7 @@ enum class ERealtimeMeshStreamType_OLD
 	Vertex,
 	Index,
 };
+static_assert(sizeof(ERealtimeMeshStreamType_OLD) == 4);
 
 FArchive& operator<<(FArchive& Ar, FRealtimeMeshStreamKey& Key)
 {
@@ -52,6 +54,11 @@ namespace RealtimeMesh
 	{
 		if (const auto ProxyPinned = Proxy.Pin()) { return ProxyPinned->GetRHIFeatureLevel(); }
 		return GMaxRHIFeatureLevel;
+	}
+
+	FRealtimeMeshUpdateStateRef FRealtimeMeshSharedResources::CreateUpdateState() const
+	{
+		return MakeShared<FRealtimeMeshUpdateState>();
 	}
 
 	FRealtimeMeshVertexFactoryRef FRealtimeMeshSharedResources::CreateVertexFactory() const

@@ -176,7 +176,7 @@ private:
 			}
 			else
 			{
-				UE_LOG(LogTemp, Warning, TEXT("Name %s already exists in the map"), *Name.ToString());
+				UE_LOG(LogRealtimeMeshInterface, Warning, TEXT("Name %s already exists in the map"), *Name.ToString());
 			}
 		}
 	}
@@ -193,12 +193,12 @@ private:
 				}
 				else
 				{
-					UE_LOG(LogTemp, Warning, TEXT("Name %s does not match the index %d"), *Name.ToString(), Index);
+					UE_LOG(LogRealtimeMeshInterface, Warning, TEXT("Name %s does not match the index %d"), *Name.ToString(), Index);
 				}
 			}
 			else
 			{
-				UE_LOG(LogTemp, Warning, TEXT("Name %s does not exist in the map"), *Name.ToString());
+				UE_LOG(LogRealtimeMeshInterface, Warning, TEXT("Name %s does not exist in the map"), *Name.ToString());
 			}
 		}
 	}
@@ -472,7 +472,7 @@ private:
 			}
 			else
 			{
-				UE_LOG(LogTemp, Warning, TEXT("Name %s already exists in the map"), *Name.ToString());
+				UE_LOG(LogRealtimeMeshInterface, Warning, TEXT("Name %s already exists in the map"), *Name.ToString());
 			}
 		}
 	}
@@ -489,12 +489,12 @@ private:
 				}
 				else
 				{
-					UE_LOG(LogTemp, Warning, TEXT("Name %s does not match the index %d"), *Name.ToString(), Index);
+					UE_LOG(LogRealtimeMeshInterface, Warning, TEXT("Name %s does not match the index %d"), *Name.ToString(), Index);
 				}
 			}
 			else
 			{
-				UE_LOG(LogTemp, Warning, TEXT("Name %s does not exist in the map"), *Name.ToString());
+				UE_LOG(LogRealtimeMeshInterface, Warning, TEXT("Name %s does not exist in the map"), *Name.ToString());
 			}
 		}
 	}

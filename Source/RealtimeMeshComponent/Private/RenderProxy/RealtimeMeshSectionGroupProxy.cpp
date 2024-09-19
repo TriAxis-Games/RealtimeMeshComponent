@@ -19,7 +19,6 @@ namespace RealtimeMesh
 		: SharedResources(InSharedResources)
 		, Key(InKey)
 		, VertexFactory(SharedResources->CreateVertexFactory())
-		, bIsStateDirty(true)
 	{
 	}
 
@@ -59,7 +58,6 @@ namespace RealtimeMesh
 		if (Config != NewConfig)
 		{
 			Config = NewConfig;
-			MarkStateDirty();
 		}
 	}
 
@@ -74,7 +72,6 @@ namespace RealtimeMesh
 		{
 			const int32 SectionIndex = Sections.Add(SharedResources->CreateSectionProxy(SectionKey));
 			SectionMap.Add(SectionKey, SectionIndex);
-			MarkStateDirty();
 		}
 		else
 		{
@@ -93,7 +90,6 @@ namespace RealtimeMesh
 			const int32 SectionIndex = SectionMap[SectionKey];
 			Sections.RemoveAt(SectionIndex);
 			RebuildSectionMap();
-			MarkStateDirty();
 		}
 	}
 
@@ -102,48 +98,30 @@ namespace RealtimeMesh
 		TRACE_CPUPROFILER_EVENT_SCOPE(FRealtimeMeshSectionGroupProxy::CreateOrUpdateStream);
 
 		// If we didn't create the buffers async, create them now
-		InStream->InitializeIfRequired(RHICmdList);
+		InStream->FinalizeInitialization(RHICmdList);
 
 		check(InStream->GetBuffer().IsValid() && InStream->GetBuffer()->GetSize() > 0);
 
-		TSharedPtr<FRealtimeMeshGPUBuffer> GPUBuffer;
-
-
-		// If we have the stream already, just update it
+		// Release any existing stream
 		if (const TSharedPtr<FRealtimeMeshGPUBuffer>* FoundBuffer = Streams.Find(InStream->GetStreamKey()))
-		{
-			// We only stream in place if the existing buffer is zero or the same size as the new one
-			if ((FoundBuffer->Get()->Num() == 0 || FoundBuffer->Get()->Num() == InStream->GetNumElements()) &&
-				FoundBuffer->Get()->GetBufferLayout() == InStream->GetBufferLayout())
-			{
-				GPUBuffer = *FoundBuffer;
-			}
-			else
-			{
-				(*FoundBuffer)->ReleaseUnderlyingResource();
-			}
+		{			
+			(*FoundBuffer)->ReleaseUnderlyingResource();
+			Streams.Remove(InStream->GetStreamKey());
 		}
 
-		if (!GPUBuffer)
-		{
-			GPUBuffer = InStream->GetStreamKey().GetStreamType() == ERealtimeMeshStreamType::Vertex
-				            ? StaticCastSharedRef<FRealtimeMeshGPUBuffer>(MakeShared<FRealtimeMeshVertexBuffer>(InStream->GetBufferLayout()))
-				            : StaticCastSharedRef<FRealtimeMeshGPUBuffer>(MakeShared<FRealtimeMeshIndexBuffer>(InStream->GetBufferLayout()));
+		// Create a new GPU buffer
+		TSharedPtr<FRealtimeMeshGPUBuffer> GPUBuffer = InStream->GetStreamKey().GetStreamType() == ERealtimeMeshStreamType::Vertex
+							? StaticCastSharedRef<FRealtimeMeshGPUBuffer>(MakeShared<FRealtimeMeshVertexBuffer>(InStream->GetBufferLayout()))
+							: StaticCastSharedRef<FRealtimeMeshGPUBuffer>(MakeShared<FRealtimeMeshIndexBuffer>(InStream->GetBufferLayout()));
 
-			// We must initialize the resources first before we then apply a buffer to it.
-			GPUBuffer->InitializeResources(RHICmdList);
-
-			// Add it to the buffer set		
-			Streams.Add(InStream->GetStreamKey(), GPUBuffer);
-		}
+		GPUBuffer->InitializeResources(RHICmdList, InStream);
+		Streams.Add(InStream->GetStreamKey(), GPUBuffer);
 
 		check(GPUBuffer);
 		check(GPUBuffer->IsResourceInitialized());
 
-		// TODO: Allow batching across calls 
-		GPUBuffer->ApplyBufferUpdate(RHICmdList, InStream);
-
-		MarkStateDirty();
+		/*// TODO: Allow batching across calls 
+		GPUBuffer->ApplyBufferUpdate(RHICmdList, InStream);*/
 	}
 
 	void FRealtimeMeshSectionGroupProxy::RemoveStream(const FRealtimeMeshStreamKey& StreamKey)
@@ -154,7 +132,6 @@ namespace RealtimeMesh
 		{
 			(*Stream)->ReleaseUnderlyingResource();
 			Streams.Remove(StreamKey);
-			MarkStateDirty();
 		}
 	}
 
@@ -169,7 +146,6 @@ namespace RealtimeMesh
 
 		FMeshBatchElement& BatchElement = MeshBatch.Elements[0];		
 		BatchElement.IndexBuffer = &VertexFactory->GetIndexBuffer(bWantsDepthOnly, bIsLocalToWorldDeterminantNegative, Resources);
-		
 		MeshBatch.VertexFactory = VertexFactory.Get();
 		//MeshBatch.MaterialRenderProxy = Mat;
 		
@@ -217,71 +193,45 @@ namespace RealtimeMesh
 		return true;
 	}
 
-	bool FRealtimeMeshSectionGroupProxy::UpdateCachedState(FRHICommandListBase& RHICmdList, bool bShouldForceUpdate)
+	void FRealtimeMeshSectionGroupProxy::UpdateCachedState(FRHICommandListBase& RHICmdList)
 	{
 		TRACE_CPUPROFILER_EVENT_SCOPE(FRealtimeMeshSectionGroupProxy::UpdateCachedState);
 
 		// Handle the vertex factory first so sections can query it
-		if (bIsStateDirty || bShouldForceUpdate)
-		{
-			if (!VertexFactory)
-			{
-				VertexFactory = SharedResources->CreateVertexFactory();
-			}
-			VertexFactory->Initialize(RHICmdList, Streams);
-		}
 
+		if (!VertexFactory)
+		{
+			VertexFactory = SharedResources->CreateVertexFactory();
+		}
 		
+		VertexFactory->Initialize(RHICmdList, Streams);
 		
 		// Handle all Section updates
 		for (auto It = Sections.CreateConstIterator(); It; ++It)
 		{
 			const FRealtimeMeshSectionProxyRef& Section = *It;
-			bIsStateDirty |= Section->UpdateCachedState(bIsStateDirty || bShouldForceUpdate, *this);
+			Section->UpdateCachedState(*this);
 		}
 
-		if (!bIsStateDirty && !bShouldForceUpdate)
-		{
-			return false;
-		}
-
-		FRealtimeMeshDrawMask NewDrawMask;
-		FRealtimeMeshSectionMask NewActiveSectionMask;		
-		FRealtimeMeshSectionMask NewActiveStaticSectionMask;
-		FRealtimeMeshSectionMask NewActiveDynamicSectionMask;
-		NewActiveSectionMask.Add(false, Sections.Num());
-		NewActiveStaticSectionMask.Add(false, Sections.Num());
-		NewActiveDynamicSectionMask.Add(false, Sections.Num());
+		DrawMask = FRealtimeMeshDrawMask();
+		ActiveSectionMask.SetNumUninitialized(Sections.Num());
+		ActiveSectionMask.SetRange(0, Sections.Num(), false);
 		
 		for (auto It = Sections.CreateConstIterator(); It; ++It)
 		{
 			const FRealtimeMeshSectionProxyRef& Section = *It;
 			auto SectionDrawMask = Section->GetDrawMask();
-			NewDrawMask |= SectionDrawMask;
+			DrawMask |= SectionDrawMask;
 
-			NewActiveSectionMask[It.GetIndex()] = SectionDrawMask.ShouldRender();
-			NewActiveStaticSectionMask[It.GetIndex()] = SectionDrawMask.ShouldRenderStaticPath();
-			NewActiveDynamicSectionMask[It.GetIndex()] = SectionDrawMask.ShouldRenderDynamicPath();
+			ActiveSectionMask[It.GetIndex()] = SectionDrawMask.ShouldRender();
 		}		
 
-		if (NewDrawMask.HasAnyFlags())
+		if (DrawMask.HasAnyFlags())
 		{
-			NewDrawMask.SetFlag(Config.DrawType == ERealtimeMeshSectionDrawType::Static ? ERealtimeMeshDrawMask::DrawStatic : ERealtimeMeshDrawMask::DrawDynamic);
-		}		
-
-		const bool bStateChanged = DrawMask != NewDrawMask || ActiveSectionMask != NewActiveSectionMask;
-		DrawMask = NewDrawMask;
-		ActiveSectionMask = NewActiveSectionMask;
-		bIsStateDirty = false;
+			DrawMask.SetFlag(Config.DrawType == ERealtimeMeshSectionDrawType::Static ? ERealtimeMeshDrawMask::DrawStatic : ERealtimeMeshDrawMask::DrawDynamic);
+		}
 
 		UpdateRayTracingInfo(RHICmdList);
-
-		return bStateChanged;
-	}
-
-	void FRealtimeMeshSectionGroupProxy::MarkStateDirty()
-	{
-		bIsStateDirty = true;
 	}
 
 	void FRealtimeMeshSectionGroupProxy::Reset()
@@ -313,7 +263,6 @@ namespace RealtimeMesh
 		SectionMap.Reset();
 
 		DrawMask = FRealtimeMeshDrawMask();
-		bIsStateDirty = true;
 	}
 
 	void FRealtimeMeshSectionGroupProxy::UpdateRayTracingInfo(FRHICommandListBase& RHICmdList)

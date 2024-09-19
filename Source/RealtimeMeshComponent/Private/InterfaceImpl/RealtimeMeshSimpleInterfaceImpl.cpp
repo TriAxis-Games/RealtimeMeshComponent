@@ -6,11 +6,12 @@
 #include "Core/RealtimeMeshSimpleInterface.h"
 #include "RenderProxy/RealtimeMeshProxyCommandBatch.h"
 #include "Core/RealtimeMeshModularFeatures.h"
+#include "Data/RealtimeMeshUpdateBuilder.h"
 
 namespace RealtimeMesh
 {
 
-	class FRealtimeMeshSimpleImpl_v0 : public IRealtimeMeshSimple_v0
+	/*class FRealtimeMeshSimpleImpl_v0 : public IRealtimeMeshSimple_v0
 	{
 		TSharedRef<FRealtimeMeshSimple> Mesh;
 	public:
@@ -30,7 +31,8 @@ namespace RealtimeMesh
 
 		virtual TFuture<ERealtimeMeshProxyUpdateStatus> Reset(bool bShouldRecreate) override
 		{
-			return Mesh->Reset(bShouldRecreate);
+			FRealtimeMeshUpdateContext UpdateContext(Mesh);
+			return Mesh->Reset(UpdateContext, bShouldRecreate);
 		}
 	};
 
@@ -83,5 +85,5 @@ namespace RealtimeMesh
 	};
 
 	// Register the interface
-	TRealtimeMeshModularFeatureRegistration<FRealtimeMeshSimpleInterfaceImpl_v0> GRealtimeMeshSimpleInterfaceImpl_v0;
+	TRealtimeMeshModularFeatureRegistration<FRealtimeMeshSimpleInterfaceImpl_v0> GRealtimeMeshSimpleInterfaceImpl_v0;*/
 }

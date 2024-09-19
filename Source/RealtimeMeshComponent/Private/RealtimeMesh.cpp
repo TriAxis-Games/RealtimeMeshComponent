@@ -7,6 +7,7 @@
 #include "Interface_CollisionDataProviderCore.h"
 #include "Chaos/TriangleMeshImplicitObject.h"
 #include "Core/RealtimeMeshFuture.h"
+#include "Data/RealtimeMeshUpdateBuilder.h"
 #include "Misc/LazySingleton.h"
 #include "PhysicsEngine/BodySetup.h"
 #include "Logging/MessageLog.h"
@@ -32,7 +33,6 @@ DECLARE_CYCLE_STAT(TEXT("RealtimeMeshDelayedActions - Finalize Collision Cooked 
 URealtimeMesh::URealtimeMesh(const FObjectInitializer& ObjectInitializer)
 	: UObject(ObjectInitializer)
 	, BodySetup(nullptr)
-	, CollisionUpdateVersionCounter(0)
 	, CurrentCollisionVersion(0)
 	, bShouldSerializeMeshData(true)
 {
@@ -100,17 +100,20 @@ void URealtimeMesh::Initialize(const TSharedRef<RealtimeMesh::FRealtimeMeshShare
 {
 	if (SharedResources)
 	{
-		SharedResources->OnMeshBoundsChanged().RemoveAll(this);
-		SharedResources->OnMeshRenderDataChanged().RemoveAll(this);
+		SharedResources->OnRenderProxyRequiresUpdate().RemoveAll(this);
+		SharedResources->OnBoundsChanged().RemoveAll(this);
 	}
 
 	SharedResources = InSharedResources;
 
-	SharedResources->OnMeshBoundsChanged().AddUObject(this, &URealtimeMesh::HandleBoundsUpdated);
+	SharedResources->OnRenderProxyRequiresUpdate().AddUObject(this, &URealtimeMesh::HandleRenderProxyRequiresUpdate);
+	SharedResources->OnBoundsChanged().AddUObject(this, &URealtimeMesh::HandleBoundsUpdated);
+
+	/*SharedResources->OnMeshBoundsChanged().AddUObject(this, &URealtimeMesh::HandleBoundsUpdated);
 	SharedResources->OnMeshRenderDataChanged().AddUObject(this, &URealtimeMesh::HandleMeshRenderingDataChanged);
 
 	SharedResources->GetEndOfFrameRequestHandler() = RealtimeMesh::FRealtimeMeshRequestEndOfFrameUpdateDelegate::CreateUObject(this, &URealtimeMesh::MarkForEndOfFrameUpdate);
-	SharedResources->GetCollisionUpdateHandler() = RealtimeMesh::FRealtimeMeshCollisionUpdateDelegate::CreateUObject(this, &URealtimeMesh::InitiateCollisionUpdate);
+	SharedResources->GetCollisionUpdateHandler() = RealtimeMesh::FRealtimeMeshCollisionUpdateDelegate::CreateUObject(this, &URealtimeMesh::InitiateCollisionUpdate);*/
 
 	MeshRef = SharedResources->CreateRealtimeMesh();
 	SharedResources->SetOwnerMesh(this, MeshRef.ToSharedRef());
@@ -155,10 +158,10 @@ void URealtimeMesh::Reset(bool bCreateNewMeshData)
 {
 	RealtimeMesh::FRealtimeMeshScopeGuardWrite ScopeGuard(SharedResources->GetGuard());
 	
-	UE_LOG(LogTemp, Warning, TEXT("RM Resetting... %s"), *GetName());
 	if (!bCreateNewMeshData)
 	{
-		GetMesh()->Reset();
+		RealtimeMesh::FRealtimeMeshUpdateContext UpdateContext(GetMesh());
+		GetMesh()->Reset(UpdateContext);
 	}
 	else
 	{
@@ -178,22 +181,26 @@ void URealtimeMesh::Reset(bool bCreateNewMeshData)
 
 FBoxSphereBounds URealtimeMesh::GetLocalBounds() const
 {
-	return FBoxSphereBounds(GetMesh()->GetLocalBounds());
+	RealtimeMesh::FRealtimeMeshAccessContext AccessContext(GetMesh());
+	auto LocalBounds = GetMesh()->GetLocalBounds(AccessContext);
+	return LocalBounds.IsSet()? FBoxSphereBounds(LocalBounds.GetValue()) : FBoxSphereBounds(FSphere(FVector::ZeroVector, 1));
 }
 
 
 FRealtimeMeshLODKey URealtimeMesh::AddLOD(const FRealtimeMeshLODConfig& Config)
 {
+	RealtimeMesh::FRealtimeMeshUpdateContext UpdateContext(GetMesh());
 	FRealtimeMeshLODKey LODKey;
-	GetMesh()->AddLOD(Config, &LODKey);
+	GetMesh()->AddLOD(UpdateContext, Config, &LODKey);
 	return LODKey;
 }
 
 void URealtimeMesh::UpdateLODConfig(FRealtimeMeshLODKey LODKey, const FRealtimeMeshLODConfig& Config)
 {
-	if (const auto LOD = GetMesh()->GetLOD(LODKey))
+	RealtimeMesh::FRealtimeMeshUpdateContext UpdateContext(GetMesh());
+	if (const auto LOD = GetMesh()->GetLOD(UpdateContext, LODKey))
 	{
-		LOD->UpdateConfig(Config);
+		LOD->UpdateConfig(UpdateContext, Config);
 	}
 	else
 	{
@@ -203,7 +210,8 @@ void URealtimeMesh::UpdateLODConfig(FRealtimeMeshLODKey LODKey, const FRealtimeM
 
 void URealtimeMesh::RemoveTrailingLOD()
 {
-	GetMesh()->RemoveTrailingLOD();
+	RealtimeMesh::FRealtimeMeshUpdateContext UpdateContext(GetMesh());
+	GetMesh()->RemoveTrailingLOD(UpdateContext);
 }
 
 
@@ -348,7 +356,7 @@ void URealtimeMesh::PostDuplicate(bool bDuplicateForPIE)
 	UObject::PostDuplicate(bDuplicateForPIE);
 }
 
-void URealtimeMesh::InitiateCollisionUpdate(const TSharedRef<TPromise<ERealtimeMeshCollisionUpdateResult>>& Promise, const TSharedRef<FRealtimeMeshCollisionInfo>& CollisionUpdate,
+/*void URealtimeMesh::InitiateCollisionUpdate(const TSharedRef<TPromise<ERealtimeMeshCollisionUpdateResult>>& Promise, const TSharedRef<FRealtimeMeshCollisionInfo>& CollisionUpdate,
                                             bool bForceSyncUpdate)
 {
 	check(IsInGameThread());
@@ -476,6 +484,58 @@ void URealtimeMesh::InitiateCollisionUpdate(const TSharedRef<TPromise<ERealtimeM
 			Promise->EmplaceValue(ApplyCollisionFunction(CollisionState));
 		});
 	});
+}*/
+
+ERealtimeMeshCollisionUpdateResult URealtimeMesh::ApplyCollisionUpdate(FRealtimeMeshCollisionInfo&& InCollisionData, int32 NewCollisionKey)
+{
+	if (NewCollisionKey > CurrentCollisionVersion)
+	{
+		UBodySetup* NewBodySetup = NewObject<UBodySetup>(this, NAME_None, (IsTemplate() ? RF_Public : RF_NoFlags));
+		NewBodySetup->BodySetupGuid = FGuid::NewGuid();
+		NewBodySetup->bGenerateMirroredCollision = false;
+		NewBodySetup->bDoubleSidedGeometry = true;
+		NewBodySetup->bCreatedPhysicsMeshes = true;
+		NewBodySetup->bSupportUVsAndFaceRemap = true;
+		NewBodySetup->CollisionTraceFlag = InCollisionData.Configuration.bUseComplexAsSimpleCollision ? CTF_UseComplexAsSimple : CTF_UseDefault;
+
+		if (NewBodySetup->CollisionTraceFlag != CTF_UseComplexAsSimple)
+		{
+			URealtimeMeshCollisionTools::CopySimpleGeometryToBodySetup(InCollisionData.SimpleGeometry, NewBodySetup);
+			for (auto& Convex : NewBodySetup->AggGeom.ConvexElems)
+			{
+				Convex.GetChaosConvexMesh()->SetDoCollide(false);				
+#if TRACK_CHAOS_GEOMETRY
+				Convex.GetChaosConvexMesh()->Track(Chaos::MakeSerializable(Convex.GetChaosConvexMesh()), "Realtime Mesh");
+#endif
+			}
+		}
+
+		TArray<FRealtimeMeshCollisionMeshCookedUVData> NewUVData;
+		if (NewBodySetup->CollisionTraceFlag != CTF_UseSimpleAsComplex)
+		{
+			URealtimeMeshCollisionTools::CopyComplexGeometryToBodySetup(InCollisionData.ComplexGeometry, NewBodySetup, NewUVData);
+#if RMC_ENGINE_ABOVE_5_4
+			for (auto& Mesh : NewBodySetup->TriMeshGeometries)
+#else
+			for (auto& Mesh : NewBodySetup->ChaosTriMeshes)
+#endif
+			{
+				Mesh->SetDoCollide(false);
+#if TRACK_CHAOS_GEOMETRY
+				Mesh->Track(Chaos::MakeSerializable(Mesh), "Realtime Mesh");
+#endif
+			}
+		}
+
+		BodySetup = NewBodySetup;
+		UVData = MoveTemp(NewUVData);
+		CurrentCollisionVersion = NewCollisionKey;
+			
+		BroadcastCollisionBodyUpdatedEvent(NewBodySetup);
+
+		return ERealtimeMeshCollisionUpdateResult::Updated;
+	}
+	return ERealtimeMeshCollisionUpdateResult::Ignored;
 }
 
 void URealtimeMesh::HandleBoundsUpdated()
@@ -483,82 +543,10 @@ void URealtimeMesh::HandleBoundsUpdated()
 	BroadcastBoundsChangedEvent();
 }
 
-void URealtimeMesh::HandleMeshRenderingDataChanged(bool bShouldRecreateProxies, int32 CommandsVersion)
+void URealtimeMesh::HandleRenderProxyRequiresUpdate()
 {
 	Modify(true);
-	BroadcastRenderDataChangedEvent(bShouldRecreateProxies, CommandsVersion);
-}
-
-
-struct FRealtimeMeshEndOfFrameUpdateManager
-{
-private:
-	FCriticalSection SyncRoot;
-	TSet<TWeakObjectPtr<URealtimeMesh>> MeshesToUpdate;
-	FDelegateHandle EndOfFrameUpdateHandle;
-
-	void OnPreSendAllEndOfFrameUpdates(UWorld* World)
-	{
-		SyncRoot.Lock();
-		auto MeshesCopy = MoveTemp(MeshesToUpdate);
-		SyncRoot.Unlock();
-
-		for (const auto& Mesh : MeshesCopy)
-		{
-			if (Mesh.IsValid())
-			{
-				Mesh->ProcessEndOfFrameUpdates();
-			}
-		}
-	}
-
-public:
-	~FRealtimeMeshEndOfFrameUpdateManager()
-	{
-		if (EndOfFrameUpdateHandle.IsValid())
-		{
-			FWorldDelegates::OnWorldPostActorTick.Remove(EndOfFrameUpdateHandle);
-			EndOfFrameUpdateHandle.Reset();
-		}
-	}
-
-	void MarkComponentForUpdate(URealtimeMesh* RealtimeMesh)
-	{
-		FScopeLock Lock(&SyncRoot);
-		if (!EndOfFrameUpdateHandle.IsValid())
-		{
-			
-			// TODO: Moved this to post actor tick from OnWorldPreSendAlLEndOfFrameUpdates... Is this the best option?
-			// Servers were not getting events but ever ~60 seconds
-			EndOfFrameUpdateHandle = FWorldDelegates::OnWorldPostActorTick.AddLambda([this](UWorld* World, ELevelTick TickType, float DeltaSeconds) { OnPreSendAllEndOfFrameUpdates(World); });
-		}
-		MeshesToUpdate.Add(RealtimeMesh);
-	}
-
-	void ClearComponentForUpdate(URealtimeMesh* RealtimeMesh)
-	{
-		FScopeLock Lock(&SyncRoot);
-		MeshesToUpdate.Remove(RealtimeMesh);
-	}
-
-	static FRealtimeMeshEndOfFrameUpdateManager& Get()
-	{
-		return TLazySingleton<FRealtimeMeshEndOfFrameUpdateManager>::Get();
-	}
-};
-
-
-void URealtimeMesh::ProcessEndOfFrameUpdates()
-{
-	if (MeshRef)
-	{
-		(*MeshRef).ProcessEndOfFrameUpdates();
-	}
-}
-
-void URealtimeMesh::MarkForEndOfFrameUpdate()
-{
-	FRealtimeMeshEndOfFrameUpdateManager::Get().MarkComponentForUpdate(this);
+	BroadcastRenderDataChangedEvent(true, INDEX_NONE);
 }
 
 

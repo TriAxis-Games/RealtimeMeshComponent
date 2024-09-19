@@ -30,4 +30,5 @@ protected:
 	virtual void BeginRenderViewFamily(FSceneViewFamily& InViewFamily) override;
 
 	virtual void PreRenderViewFamily_RenderThread(FRDGBuilder& GraphBuilder, FSceneViewFamily& InViewFamily) override;
+	virtual void PostRenderView_RenderThread(FRDGBuilder& GraphBuilder, FSceneView& InView) override;
 };

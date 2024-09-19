@@ -76,7 +76,6 @@ namespace RealtimeMesh
 #endif
 
 		FRealtimeMeshDrawMask DrawMask;
-		uint32 bIsStateDirty : 1;
 
 	public:
 		FRealtimeMeshSectionGroupProxy(const FRealtimeMeshSharedResourcesRef& InSharedResources, const FRealtimeMeshSectionGroupKey& InKey);
@@ -109,13 +108,12 @@ namespace RealtimeMesh
 
 		virtual bool InitializeMeshBatch(FMeshBatch& MeshBatch, FRealtimeMeshResourceReferenceList& Resources, bool bIsLocalToWorldDeterminantNegative, bool bWantsDepthOnly) const;
 
-		virtual bool UpdateCachedState(FRHICommandListBase& RHICmdList, bool bShouldForceUpdate);
+		virtual void UpdateCachedState(FRHICommandListBase& RHICmdList);
 		virtual void Reset();
 
 	protected:
 		virtual void UpdateRayTracingInfo(FRHICommandListBase& RHICmdList);
 
-		void MarkStateDirty();
 		void RebuildSectionMap();
 
 		friend class FRealtimeMeshActiveSectionIterator;

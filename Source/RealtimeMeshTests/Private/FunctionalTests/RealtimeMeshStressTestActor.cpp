@@ -98,7 +98,7 @@ void ARealtimeMeshStressTestActor2::TickActor(float DeltaTime, ELevelTick TickTy
 			
 			Promise.EmplaceValue(RealtimeMeshRef);
 		});
-		
-		Super::TickActor(DeltaTime, TickType, ThisTickFunction);
 	}
+		
+	Super::TickActor(DeltaTime, TickType, ThisTickFunction);
 }

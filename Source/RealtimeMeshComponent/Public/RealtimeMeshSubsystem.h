@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "RealtimeMeshCore.h"
 #include "Subsystems/WorldSubsystem.h"
 #include "RealtimeMeshSubsystem.generated.h"
 
@@ -29,3 +30,25 @@ private:
 	TSharedPtr<class FRealtimeMeshSceneViewExtension> SceneViewExtension;
 	bool bInitialized;
 };
+
+
+namespace RealtimeMesh
+{
+	struct FRealtimeMeshEndOfFrameUpdateManager
+	{
+	private:
+		FCriticalSection SyncRoot;
+		TSet<FRealtimeMeshWeakPtr> MeshesToUpdate;
+		FDelegateHandle EndOfFrameUpdateHandle;
+
+		void OnPreSendAllEndOfFrameUpdates(UWorld* World);
+
+	public:
+		~FRealtimeMeshEndOfFrameUpdateManager();
+
+		void MarkComponentForUpdate(const FRealtimeMeshWeakPtr& InMesh);
+		void ClearComponentForUpdate(const FRealtimeMeshWeakPtr& InMesh);
+
+		static FRealtimeMeshEndOfFrameUpdateManager& Get();
+	};
+}
