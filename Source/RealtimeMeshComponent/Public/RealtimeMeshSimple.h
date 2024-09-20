@@ -485,6 +485,8 @@ public:
 	virtual void Reset(bool bCreateNewMeshData) override;
 	
 	virtual void PostDuplicate(bool bDuplicateForPIE) override;
+	virtual void PostLoad() override;
+	virtual void PostLoadSubobjects(FObjectInstancingGraph* OuterInstanceGraph) override;
 };
 
 #undef LOCTEXT_NAMESPACE

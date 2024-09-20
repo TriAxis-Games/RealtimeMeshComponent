@@ -787,7 +787,7 @@ namespace RealtimeMesh
 URealtimeMeshSimple::URealtimeMeshSimple(const FObjectInitializer& ObjectInitializer)
 	: URealtimeMesh(ObjectInitializer)
 {
-	if (!HasAnyFlags(RF_ClassDefaultObject))
+	if (!IsTemplate())
 	{
 		Initialize(MakeShared<RealtimeMesh::FRealtimeMeshSharedResourcesSimple>());
 
@@ -1147,7 +1147,7 @@ void URealtimeMeshSimple::SetSectionVisibility(const FRealtimeMeshSectionKey& Se
 	SetSectionVisibility(SectionKey, bIsVisible)
 		.Next([CompletionCallback](ERealtimeMeshProxyUpdateStatus Status)
 		{
-			CompletionCallback.ExecuteIfBound(Status);
+			(void)CompletionCallback.ExecuteIfBound(Status);
 		});
 }
 
@@ -1185,7 +1185,7 @@ void URealtimeMeshSimple::SetSectionCastShadow(const FRealtimeMeshSectionKey& Se
 	SetSectionCastShadow(SectionKey, bCastShadow)
 		.Next([CompletionCallback](ERealtimeMeshProxyUpdateStatus Status)
 		{
-			CompletionCallback.ExecuteIfBound(Status);
+			(void)CompletionCallback.ExecuteIfBound(Status);
 		});
 }
 
@@ -1235,7 +1235,7 @@ void URealtimeMeshSimple::SetDistanceField(const FRealtimeMeshDistanceField& InD
 	SetDistanceField(MoveTemp(Copy))
 		.Next([CompletionCallback](ERealtimeMeshProxyUpdateStatus Status)
 		{
-			CompletionCallback.ExecuteIfBound(Status);
+			(void)CompletionCallback.ExecuteIfBound(Status);
 		});
 }
 
@@ -1264,7 +1264,7 @@ void URealtimeMeshSimple::SetCardRepresentation(const FRealtimeMeshCardRepresent
 	SetCardRepresentation(MoveTemp(Copy))
 		.Next([CompletionCallback](ERealtimeMeshProxyUpdateStatus Status)
 		{
-			CompletionCallback.ExecuteIfBound(Status);
+			(void)CompletionCallback.ExecuteIfBound(Status);
 		});
 }
 
@@ -1291,7 +1291,7 @@ void URealtimeMeshSimple::SetCollisionConfig(const FRealtimeMeshCollisionConfigu
 	SetCollisionConfig(InCollisionConfig)
 		.Next([CompletionCallback](ERealtimeMeshCollisionUpdateResult Status)
 		{
-			CompletionCallback.ExecuteIfBound(Status);
+			(void)CompletionCallback.ExecuteIfBound(Status);
 		});
 }
 
@@ -1311,7 +1311,7 @@ void URealtimeMeshSimple::SetSimpleGeometry(const FRealtimeMeshSimpleGeometry& I
 	SetSimpleGeometry(InSimpleGeometry)
 		.Next([CompletionCallback](ERealtimeMeshCollisionUpdateResult Status)
 		{
-			CompletionCallback.ExecuteIfBound(Status);
+			(void)CompletionCallback.ExecuteIfBound(Status);
 		});
 }
 
@@ -1323,9 +1323,22 @@ void URealtimeMeshSimple::Reset(bool bCreateNewMeshData)
 void URealtimeMeshSimple::PostDuplicate(bool bDuplicateForPIE)
 {
 	Super::PostDuplicate(bDuplicateForPIE);
-	StaticCastSharedPtr<FRealtimeMeshSimple>(MeshRef)->MarkCollisionDirtyNoCallback();
+
+	if (!IsTemplate())
+	{
+		StaticCastSharedPtr<FRealtimeMeshSimple>(MeshRef)->MarkCollisionDirtyNoCallback();
+	}
 }
 
+void URealtimeMeshSimple::PostLoad()
+{
+	Super::PostLoad();
+}
+
+void URealtimeMeshSimple::PostLoadSubobjects(FObjectInstancingGraph* OuterInstanceGraph)
+{
+	Super::PostLoadSubobjects(OuterInstanceGraph);
+}
 
 
 #undef LOCTEXT_NAMESPACE

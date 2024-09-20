@@ -168,7 +168,11 @@ namespace RealtimeMesh
 		FRealtimeMeshProxyUpdateBuilder ProxyBuilder;
 		FRealtimeMeshSharedResourcesRef Resources;
 		FRealtimeMeshUpdateStateRef UpdateState;
+#if RMC_ENGINE_ABOVE_5_5
+		TUniquePtr<FRHICommandList> RHICmdList;
+#else
 		TOptional<FRHIAsyncCommandList> RHICmdList;
+#endif
 
 	public:
 		FRealtimeMeshUpdateContext(const TSharedRef<FRealtimeMesh>& InMesh);
@@ -184,8 +188,12 @@ namespace RealtimeMesh
 		FRealtimeMeshProxyUpdateBuilder* GetProxyBuilder() { return ProxyBuilder.IsValid()? &ProxyBuilder : nullptr; }
 		operator FRealtimeMeshProxyUpdateBuilder& () { return ProxyBuilder; }
 
-		FRHIAsyncCommandList& GetRHICmdList() { check(RHICmdList.IsSet()); return *RHICmdList; }
-
+#if RMC_ENGINE_ABOVE_5_5
+		FRHICommandList& GetRHICmdList();
+#else
+		FRHIAsyncCommandList& GetRHICmdList();
+#endif
+		
 		FRealtimeMeshUpdateState& GetState() { return *UpdateState; }
 		template<typename UpdateStateType>
 		UpdateStateType& GetState() { return static_cast<UpdateStateType&>(GetState()); }

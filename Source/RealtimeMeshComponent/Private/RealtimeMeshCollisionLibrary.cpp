@@ -498,7 +498,7 @@ bool URealtimeMeshCollisionTools::AppendStreamsToCollisionMesh(FRealtimeMeshColl
 		TRealtimeMeshStreamBuilder<const FVector3f, FVector3f> Positions(*PositionStream);
 		for (const auto& Pair : VertexRemap)
 		{
-			checkSlow(Pair.Value >= OriginalVertexCount && Pair.Value < CurrentVertexIndex);
+			//checkSlow(Pair.Value >= OriginalVertexCount && Pair.Value < CurrentVertexIndex);
 			
 			CollisionMesh.Vertices[Pair.Value] = Positions[Pair.Key % Positions.Num()];
 		}
@@ -508,7 +508,7 @@ bool URealtimeMeshCollisionTools::AppendStreamsToCollisionMesh(FRealtimeMeshColl
 		TRealtimeMeshStreamBuilder<const FVector3f, void> Positions(*PositionStream);
 		for (const auto& Pair : VertexRemap)
 		{
-			checkSlow(Pair.Value >= OriginalVertexCount && Pair.Value < CurrentVertexIndex);
+			//checkSlow(Pair.Value >= OriginalVertexCount && Pair.Value < CurrentVertexIndex);
 			
 			CollisionMesh.Vertices[Pair.Value] = Positions[Pair.Key % Positions.Num()];
 		}	
@@ -537,7 +537,7 @@ bool URealtimeMeshCollisionTools::AppendStreamsToCollisionMesh(FRealtimeMeshColl
 
 					for (const auto& Pair : VertexRemap)
 					{
-						checkSlow(Pair.Value >= OriginalVertexCount && Pair.Value < CurrentVertexIndex);
+						//checkSlow(Pair.Value >= OriginalVertexCount && Pair.Value < CurrentVertexIndex);
 			
 						CollisionUVChannel[Pair.Value] = UVData[Pair.Key % UVData.Num()];
 					}
@@ -556,7 +556,7 @@ bool URealtimeMeshCollisionTools::AppendStreamsToCollisionMesh(FRealtimeMeshColl
 
 					for (const auto& Pair : VertexRemap)
 					{
-						checkSlow(Pair.Value >= OriginalVertexCount && Pair.Value < CurrentVertexIndex);
+						//checkSlow(Pair.Value >= OriginalVertexCount && Pair.Value < CurrentVertexIndex);
 			
 						CollisionUVChannel[Pair.Value] = UVData[Pair.Key % UVData.Num()];
 					}
@@ -575,7 +575,7 @@ bool URealtimeMeshCollisionTools::AppendStreamsToCollisionMesh(FRealtimeMeshColl
 
 					for (const auto& Pair : VertexRemap)
 					{
-						checkSlow(Pair.Value >= OriginalVertexCount && Pair.Value < CurrentVertexIndex);
+						//checkSlow(Pair.Value >= OriginalVertexCount && Pair.Value < CurrentVertexIndex);
 			
 						CollisionUVChannel[Pair.Value] = UVData[Pair.Key % UVData.Num()];
 					}

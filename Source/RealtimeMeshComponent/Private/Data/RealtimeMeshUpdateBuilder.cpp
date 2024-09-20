@@ -2,6 +2,7 @@
 
 #include "Data/RealtimeMeshUpdateBuilder.h"
 #include "RealtimeMeshComponentModule.h"
+#include "RenderingThread.h"
 
 #define LOCTEXT_NAMESPACE "RealtimeMesh"
 
@@ -22,38 +23,75 @@ namespace RealtimeMesh
 		, ProxyBuilder(!InMesh->GetRenderProxy().IsValid())
 		, Resources(InMesh->GetSharedResources())
 		, UpdateState(Resources->CreateUpdateState())
+#if RMC_ENGINE_ABOVE_5_5
+		, RHICmdList(MakeUnique<FRHICommandList>())
+#else
 		, RHICmdList(InPlace)
-	{ }
+#endif
+	{
+#if RMC_ENGINE_ABOVE_5_5		
+		RHICmdList->SwitchPipeline(ERHIPipeline::Graphics);
+#endif
+	}
 
 	FRealtimeMeshUpdateContext::FRealtimeMeshUpdateContext(const FRealtimeMeshSharedResourcesRef& InResources)
-		: WriteGuard(InResources->GetGuard())
-		, ProxyBuilder(!InResources->GetOwner().IsValid() || !InResources->GetOwner()->GetRenderProxy().IsValid())
-		, Resources(InResources)
-		, UpdateState(Resources->CreateUpdateState())
-		, RHICmdList(InPlace)
-	{ }
+		: FRealtimeMeshUpdateContext(InResources->GetOwner().ToSharedRef()) { }
 
 	FRealtimeMeshUpdateContext::~FRealtimeMeshUpdateContext()
 	{
+#if RMC_ENGINE_ABOVE_5_5
+		if (RHICmdList.IsValid())
+#else
 		if (RHICmdList.IsSet())
+#endif
 		{
 			Commit();
-		}
+		}		
 	}
+
+#if RMC_ENGINE_ABOVE_5_5
+	FRHICommandList& FRealtimeMeshUpdateContext::GetRHICmdList()
+	{
+		check(RHICmdList.IsValid());
+		return *RHICmdList;
+	}	
+#else
+	FRHIAsyncCommandList& FRealtimeMeshUpdateContext::GetRHICmdList()
+	{
+		check(RHICmdList.IsSet());
+		return *RHICmdList;
+	}
+#endif
 
 	TFuture<ERealtimeMeshProxyUpdateStatus> FRealtimeMeshUpdateContext::Commit()
 	{
+		auto SendCmdListIfReady = [&]()
+		{
+			if (RHICmdList)
+			{
+#if RMC_ENGINE_ABOVE_5_5
+				RHICmdList->FinishRecording();
+
+				ENQUEUE_RENDER_COMMAND(RealtimeMeshAsyncSubmission)(
+					[this, RHIAsyncCmdList = RHICmdList.Release()](FRHICommandListImmediate& RHICmdList)
+					{
+						RHICmdList.QueueAsyncCommandListSubmit(RHIAsyncCmdList);
+					});
+#else
+				RHICmdList.Reset();				
+#endif				
+			}
+		};
+		
 		if (auto Mesh = Resources->GetOwner())
 		{
 			Mesh->FinalizeUpdate(*this);
 
-			// Force async cmd list to fire before we potentially submit the proxy
-			RHICmdList.Reset();
+			SendCmdListIfReady();
 			return ProxyBuilder.Commit(Mesh.ToSharedRef());
 		}
 
-		// Go ahead and submit the cmd list
-		RHICmdList.Reset();
+		SendCmdListIfReady();
 		return MakeFulfilledPromise<ERealtimeMeshProxyUpdateStatus>(ERealtimeMeshProxyUpdateStatus::NoProxy).GetFuture();
 	}
 

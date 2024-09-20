@@ -18,17 +18,11 @@ protected:
 		meta = (ExposeFunctionCategories = "Mesh,Rendering,Physics,Components|StaticMesh", AllowPrivateAccess = "true"))
 	TObjectPtr<class URealtimeMeshComponent> RealtimeMeshComponent;
 	
-	UPROPERTY(Transient, Instanced)
-	mutable TObjectPtr<class URealtimeMeshStreamPool> StreamPool;
-
 public:
 	ARealtimeMeshActor();
 
 	UFUNCTION(Category = RealtimeMeshActor, BlueprintCallable)
 	URealtimeMeshComponent* GetRealtimeMeshComponent() const { return RealtimeMeshComponent; }
-
-	UFUNCTION(BlueprintCallable, Category="RealtimeMesh")
-	URealtimeMeshStreamPool* GetStreamPool() const;	
 	
 	UFUNCTION(BlueprintCallable, Category="RealtimeMesh")
 	URealtimeMeshStream* MakeStream(const FRealtimeMeshStreamKey& StreamKey, ERealtimeMeshSimpleStreamType StreamType, int32 NumElements);

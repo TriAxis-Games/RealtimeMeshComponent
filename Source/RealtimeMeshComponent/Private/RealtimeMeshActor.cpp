@@ -18,20 +18,7 @@ ARealtimeMeshActor::ARealtimeMeshActor()
 	RealtimeMeshComponent->SetGenerateOverlapEvents(false);
 	RealtimeMeshComponent->SetCollisionProfileName(UCollisionProfile::BlockAll_ProfileName);
 
-	//RealtimeMeshComponent->CollisionType = ECollisionTraceFlag::CTF_UseDefault;
-
 	SetRootComponent(RealtimeMeshComponent);
-}
-
-URealtimeMeshStreamPool* ARealtimeMeshActor::GetStreamPool() const
-{
-	if (IsValid(StreamPool))
-	{
-		return StreamPool;
-	}
-
-	StreamPool = NewObject<URealtimeMeshStreamPool>();
-	return StreamPool;
 }
 
 URealtimeMeshStream* ARealtimeMeshActor::MakeStream(const FRealtimeMeshStreamKey& StreamKey, ERealtimeMeshSimpleStreamType StreamType, int32 NumElements)
