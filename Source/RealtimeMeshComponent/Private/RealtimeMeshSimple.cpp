@@ -25,10 +25,11 @@ namespace RealtimeMesh
 	{
 		static thread_local bool bShouldDeferPolyGroupUpdates = false;		
 	}	
-	
+
+	UE_DISABLE_OPTIMIZATION
 	FRealtimeMeshSectionSimple::FRealtimeMeshSectionSimple(const FRealtimeMeshSharedResourcesRef& InSharedResources, const FRealtimeMeshSectionKey& InKey)
 		: FRealtimeMeshSection(InSharedResources, InKey)
-		  , bShouldCreateMeshCollision(false)
+		, bShouldCreateMeshCollision(false)
 	{
 	}
 
@@ -54,7 +55,7 @@ namespace RealtimeMesh
 		MarkBoundsDirtyIfNotOverridden(UpdateContext);
 		MarkCollisionDirty(UpdateContext);
 	}
-
+UE_ENABLE_OPTIMIZATION
 	bool FRealtimeMeshSectionSimple::Serialize(FArchive& Ar)
 	{
 		const bool bResult = FRealtimeMeshSection::Serialize(Ar);
@@ -620,6 +621,16 @@ namespace RealtimeMesh
 
 		// Default it back to a single LOD.
 		InitializeLODs(UpdateContext, {FRealtimeMeshLODConfig()});
+	}
+
+	void FRealtimeMeshSimple::FinalizeUpdate(FRealtimeMeshUpdateContext& UpdateContext)
+	{
+		FRealtimeMesh::FinalizeUpdate(UpdateContext);
+
+		if (UpdateContext.GetState<FRealtimeMeshSimpleUpdateState>().CollisionGroupDirtySet.HasAnyDirty())
+		{
+			MarkCollisionDirtyNoCallback();
+		}
 	}
 
 	bool FRealtimeMeshSimple::Serialize(FArchive& Ar, URealtimeMesh* Owner)

@@ -220,6 +220,11 @@ namespace RealtimeMesh
 		{
 			return DirtyCollisionSectionGroups.Contains(SectionGroup);
 		}
+
+		bool HasAnyDirty() const
+		{
+			return !DirtyCollisionSectionGroups.IsEmpty();
+		}
 	};
 	
 	struct FRealtimeMeshSimpleUpdateState : FRealtimeMeshUpdateState
@@ -333,6 +338,8 @@ namespace RealtimeMesh
 		
 		using FRealtimeMesh::Reset;
 		virtual void Reset(FRealtimeMeshUpdateContext& UpdateContext, bool bRemoveRenderProxy) override;
+
+		virtual void FinalizeUpdate(FRealtimeMeshUpdateContext& UpdateContext) override;
 
 		virtual bool Serialize(FArchive& Ar, URealtimeMesh* Owner) override;
 	protected:
