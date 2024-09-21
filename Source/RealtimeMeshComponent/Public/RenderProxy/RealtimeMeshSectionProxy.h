@@ -19,6 +19,8 @@ namespace RealtimeMesh
 		FRealtimeMeshStreamRange StreamRange;
 		FRealtimeMeshDrawMask DrawMask;
 
+		bool bRangeChanged;
+
 	public:
 		FRealtimeMeshSectionProxy(const FRealtimeMeshSharedResourcesRef& InSharedResources, const FRealtimeMeshSectionKey InKey);
 		virtual ~FRealtimeMeshSectionProxy();
@@ -29,6 +31,8 @@ namespace RealtimeMesh
 		int32 GetMaterialSlot() const { return Config.MaterialSlot; }
 		FRealtimeMeshDrawMask GetDrawMask() const { return DrawMask; }
 
+		bool IsRangeDirty() const { return bRangeChanged; }
+		
 		virtual void UpdateConfig(const FRealtimeMeshSectionConfig& NewConfig);
 		virtual void UpdateStreamRange(const FRealtimeMeshStreamRange& NewStreamRange);
 		

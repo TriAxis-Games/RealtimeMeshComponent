@@ -415,18 +415,65 @@ protected:
 
 
 
+USTRUCT(BlueprintType)
+struct REALTIMEMESHCOMPONENT_API FRealtimeMeshStreamSetFromComponents
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="RealtimeMesh|MeshData")
+	TArray<int32> Triangles;
+	
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="RealtimeMesh|MeshData")
+	TArray<int32> PolyGroups;
+	
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="RealtimeMesh|MeshData")
+	TArray<FVector> Positions;
+	
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="RealtimeMesh|MeshData")
+	TArray<FVector> Normals;
+	
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="RealtimeMesh|MeshData")
+	TArray<FVector> Tangents;
+	
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="RealtimeMesh|MeshData")
+	TArray<FVector> Binormals;
+	
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="RealtimeMesh|MeshData")
+	TArray<FLinearColor> Colors;
+	
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="RealtimeMesh|MeshData")
+	TArray<FVector2D> UV0;
+	
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="RealtimeMesh|MeshData")
+	TArray<FVector2D> UV1;
+	
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="RealtimeMesh|MeshData")
+	TArray<FVector2D> UV2;
+	
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="RealtimeMesh|MeshData")
+	TArray<FVector2D> UV3;
+	
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="RealtimeMesh|MeshData")
+	bool bUse32BitIndices = false;
+	
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="RealtimeMesh|MeshData")
+	bool bUseHighPrecisionTangents = false;
+	
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="RealtimeMesh|MeshData")
+	bool bUseHighPrecisionTexCoords = false;
+};
+
+
+
+
 UCLASS(meta=(ScriptName="RealtimeMeshStreamUtils"))
 class REALTIMEMESHCOMPONENT_API URealtimeMeshStreamUtils : public UBlueprintFunctionLibrary
 {
 	GENERATED_BODY()
 public:
 
-	UFUNCTION(BlueprintCallable, Category="RealtimeMesh|MeshData", meta=(AutoCreateRefTerm="PolyGroups,Normals,Tangents,Binormals,Colors,UV0,UV1,UV2,UV3"))
-	static URealtimeMeshStreamSet* CopyStreamSetFromComponents(URealtimeMeshStreamSet* Streams,
-		const TArray<int32>& Triangles, const TArray<int32>& PolyGroups,
-		const TArray<FVector>& Positions, const TArray<FVector>& Normals, const TArray<FVector>& Tangents,
-		const TArray<FVector>& Binormals, const TArray<FLinearColor>& Colors, const TArray<FVector2D>& UV0,
-		const TArray<FVector2D>& UV1, const TArray<FVector2D>& UV2, const TArray<FVector2D>& UV3, bool bUse32BitIndices = true, bool bUseHighPrecisionTangents = false, bool bUseHighPrecisionTexCoords = false );
+	UFUNCTION(BlueprintCallable, Category="RealtimeMesh|MeshData")
+	static URealtimeMeshStreamSet* CopyStreamSetFromComponents(URealtimeMeshStreamSet* Streams, const FRealtimeMeshStreamSetFromComponents& Components);
 
 	UFUNCTION(BlueprintCallable, Category="RealtimeMesh|MeshData")
 	static const FRealtimeMeshStreamRowPtr& SetIntElement(const FRealtimeMeshStreamRowPtr& Row, int32 Index, int32 ElementIdx, int32 NewValue);

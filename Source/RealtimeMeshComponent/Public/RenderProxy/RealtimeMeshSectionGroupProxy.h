@@ -76,6 +76,7 @@ namespace RealtimeMesh
 #endif
 
 		FRealtimeMeshDrawMask DrawMask;
+		bool bVertexFactoryDirty;
 
 	public:
 		FRealtimeMeshSectionGroupProxy(const FRealtimeMeshSharedResourcesRef& InSharedResources, const FRealtimeMeshSectionGroupKey& InKey);

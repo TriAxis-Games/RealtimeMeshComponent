@@ -988,28 +988,26 @@ TFuture<ERealtimeMeshCollisionUpdateResult> URealtimeMeshSimple::EditCustomCompl
 	return GetMeshAs<FRealtimeMeshSimple>()->EditCustomComplexMeshGeometry(EditFunc);
 }
 
-void URealtimeMeshSimple::CreateSectionGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey, URealtimeMeshStreamSet* MeshData)
+void URealtimeMeshSimple::CreateSectionGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey, URealtimeMeshStreamSet* MeshData, const FRealtimeMeshSimpleCompletionCallback& OnComplete)
 {
-	/*if (!IsValid(MeshData))
+	if (!IsValid(MeshData))
 	{
-		ensure(IsInGameThread());
-		//check(IsValid(MeshData));
-		CompletionCallback.ExecuteIfBound(ERealtimeMeshProxyUpdateStatus::NoUpdate);
+		(void)OnComplete.ExecuteIfBound(ERealtimeMeshProxyUpdateStatus::NoUpdate);
 		return;
-	}*/
+	}
 	TFuture<ERealtimeMeshProxyUpdateStatus> Continuation = MeshData? CreateSectionGroup(SectionGroupKey, MeshData->GetStreamSet()) : CreateSectionGroup(SectionGroupKey);	
-	/*Continuation.Next([CompletionCallback](ERealtimeMeshProxyUpdateStatus Status)
+	Continuation.Next([OnComplete](ERealtimeMeshProxyUpdateStatus Status)
 	{
 		ensure(IsInGameThread());
-		CompletionCallback.ExecuteIfBound(Status);
-	});*/
+		(void)OnComplete.ExecuteIfBound(Status);
+	});
 }
 
 FRealtimeMeshSectionGroupKey URealtimeMeshSimple::CreateSectionGroupUnique(const FRealtimeMeshLODKey& LODKey, URealtimeMeshStreamSet* MeshData,
                                                                            const FRealtimeMeshSimpleCompletionCallback& CompletionCallback)
 {
 	const FRealtimeMeshSectionGroupKey SectionGroupKey = FRealtimeMeshSectionGroupKey::CreateUnique(LODKey);
-	CreateSectionGroup(SectionGroupKey, MeshData);
+	CreateSectionGroup(SectionGroupKey, MeshData, CompletionCallback);
 	return SectionGroupKey;
 }
 

@@ -66,10 +66,11 @@ URealtimeMesh* URealtimeMeshComponent::InitializeRealtimeMesh(TSubclassOf<URealt
 	URealtimeMesh* NewMesh = nullptr;
 	if (MeshClass)
 	{
-		NewMesh = NewObject<URealtimeMesh>(this->GetOwner(), MeshClass);
+		NewMesh = NewObject<URealtimeMesh>(this, MeshClass);
 		check(IsValid(NewMesh));
 	}
 	SetRealtimeMesh(NewMesh);
+	check(IsValid(NewMesh));
 	return NewMesh;
 }
 

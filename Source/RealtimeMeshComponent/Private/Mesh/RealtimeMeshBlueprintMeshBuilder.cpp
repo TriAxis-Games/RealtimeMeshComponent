@@ -1203,12 +1203,7 @@ void URealtimeMeshStreamPool::FreeAllStreams()
 
 
 
-URealtimeMeshStreamSet* URealtimeMeshStreamUtils::CopyStreamSetFromComponents(URealtimeMeshStreamSet* Streams,
-	const TArray<int32>& Triangles, const TArray<int32>& PolyGroups,
-	const TArray<FVector>& Positions, const TArray<FVector>& Normals, const TArray<FVector>& Tangents,
-	const TArray<FVector>& Binormals, const TArray<FLinearColor>& Colors, const TArray<FVector2D>& UV0,
-	const TArray<FVector2D>& UV1, const TArray<FVector2D>& UV2, const TArray<FVector2D>& UV3,
-	bool bUse32BitIndices, bool bUseHighPrecisionTangents, bool bUseHighPrecisionTexCoords)
+URealtimeMeshStreamSet* URealtimeMeshStreamUtils::CopyStreamSetFromComponents(URealtimeMeshStreamSet* Streams, const FRealtimeMeshStreamSetFromComponents& Components)
 {
 	if (!IsValid(Streams))
 	{
@@ -1217,118 +1212,116 @@ URealtimeMeshStreamSet* URealtimeMeshStreamUtils::CopyStreamSetFromComponents(UR
 
 	if (auto* Stream = Streams->GetStreamSet().Find(RealtimeMesh::FRealtimeMeshStreams::Triangles))
 	{
-		ensure(Stream->ConvertTo(RealtimeMesh::FRealtimeMeshBufferLayout(bUse32BitIndices?
+		ensure(Stream->ConvertTo(RealtimeMesh::FRealtimeMeshBufferLayout(Components.bUse32BitIndices?
 			RealtimeMesh::GetRealtimeMeshDataElementType<uint32>() : RealtimeMesh::GetRealtimeMeshDataElementType<uint16>() , 3)));
 	}	
 
 	RealtimeMesh::TRealtimeMeshBuilderLocal<void, void, void, 1, void> Builder(Streams->GetStreamSet());
 
-	const bool bHasTangents = Normals.Num() > 0 || Tangents.Num() > 0 || Binormals.Num() > 0;
-	const int32 NumUVs = UV3.Num() > 0 ? 4 : (UV2.Num() > 0 ? 3 : (UV1.Num() > 0 ? 2 : (UV0.Num() > 0 ? 1 : 0)));
+	const bool bHasTangents = Components.Normals.Num() > 0 || Components.Tangents.Num() > 0 || Components.Binormals.Num() > 0;
+	const int32 NumUVs = Components.UV3.Num() > 0 ? 4 : (Components.UV2.Num() > 0 ? 3 : (Components.UV1.Num() > 0 ? 2 : (Components.UV0.Num() > 0 ? 1 : 0)));
 
 	if (bHasTangents)
 	{
-		Builder.EnableTangents(bUseHighPrecisionTangents? RealtimeMesh::GetRealtimeMeshDataElementType<FPackedRGBA16N>() : RealtimeMesh::GetRealtimeMeshDataElementType<FPackedNormal>());
+		Builder.EnableTangents(Components.bUseHighPrecisionTangents? RealtimeMesh::GetRealtimeMeshDataElementType<FPackedRGBA16N>() : RealtimeMesh::GetRealtimeMeshDataElementType<FPackedNormal>());
 	}
 
 	if (NumUVs > 0)
 	{
-		Builder.EnableTexCoords(bUseHighPrecisionTexCoords? RealtimeMesh::GetRealtimeMeshDataElementType<FVector2f>() : RealtimeMesh::GetRealtimeMeshDataElementType<FVector2DHalf>(), NumUVs);
+		Builder.EnableTexCoords(Components.bUseHighPrecisionTexCoords? RealtimeMesh::GetRealtimeMeshDataElementType<FVector2f>() : RealtimeMesh::GetRealtimeMeshDataElementType<FVector2DHalf>(), NumUVs);
 	}
 
-	if (Colors.Num() > 0)
+	if (Components.Colors.Num() > 0)
 	{
 		Builder.EnableColors();
 	}
 	
-	for (int32 Index = 0; Index < Positions.Num(); Index++)
+	for (int32 Index = 0; Index < Components.Positions.Num(); Index++)
 	{
-		auto Vertex = Builder.AddVertex(FVector3f(Positions[Index]));
+		auto Vertex = Builder.AddVertex(FVector3f(Components.Positions[Index]));
 
-		if (Normals.Num() > Vertex)
+		if (Components.Normals.Num() > Vertex)
 		{
-			if (Tangents.Num() > 0)
+			if (Components.Tangents.Num() > 0)
 			{
-				if (Binormals.Num() > 0)
+				if (Components.Binormals.Num() > 0)
 				{
-					Vertex.SetTangents(FVector3f(Normals[Index]), FVector3f(Binormals[Index]), FVector3f(Tangents[Index]));
+					Vertex.SetTangents(FVector3f(Components.Normals[Index]), FVector3f(Components.Binormals[Index]), FVector3f(Components.Tangents[Index]));
 				}
 				else
 				{
-					Vertex.SetNormalAndTangent(FVector3f(Normals[Index]), FVector3f(Tangents[Index]));
+					Vertex.SetNormalAndTangent(FVector3f(Components.Normals[Index]), FVector3f(Components.Tangents[Index]));
 				}
 			}
 			else
 			{
-				Vertex.SetNormal(FVector3f(Normals[Index]));				
+				Vertex.SetNormal(FVector3f(Components.Normals[Index]));				
 			}
 		}
 
-		if (Colors.Num() > Vertex)
+		if (Components.Colors.Num() > Vertex)
 		{
-			Vertex.SetColor(Colors[Index]);
+			Vertex.SetColor(Components.Colors[Index]);
 		}
 
-		if (UV0.Num() > Vertex)
+		if (Components.UV0.Num() > Vertex)
 		{
-			Vertex.SetTexCoord(FVector2f(UV0[Index]));
+			Vertex.SetTexCoord(FVector2f(Components.UV0[Index]));
 		}	
 	}
 
 	if (NumUVs > 0)
 	{
-		if (UV1.Num() > 0)
+		if (Components.UV1.Num() > 0)
 		{
 			RealtimeMesh::TRealtimeMeshStridedStreamBuilder<FVector2f, void> UV0Builder(Streams->GetStreamSet().FindChecked(RealtimeMesh::FRealtimeMeshStreams::TexCoords), 1);
 
-			const int32 NumToCopy = FMath::Min(Builder.NumVertices(), UV1.Num());
+			const int32 NumToCopy = FMath::Min(Builder.NumVertices(), Components.UV1.Num());
 			for (int32 Index = 0; Index < NumToCopy; Index++)
 			{
-				UV0Builder.Set(Index, FVector2f(UV1[Index]));
+				UV0Builder.Set(Index, FVector2f(Components.UV1[Index]));
 			}
 		}
 
-		if (UV2.Num() > 0)
+		if (Components.UV2.Num() > 0)
 		{
 			RealtimeMesh::TRealtimeMeshStridedStreamBuilder<FVector2f, void> UV1Builder(Streams->GetStreamSet().FindChecked(RealtimeMesh::FRealtimeMeshStreams::TexCoords), 2);
 
-			const int32 NumToCopy = FMath::Min(Builder.NumVertices(), UV2.Num());
+			const int32 NumToCopy = FMath::Min(Builder.NumVertices(), Components.UV2.Num());
 			for (int32 Index = 0; Index < NumToCopy; Index++)
 			{
-				UV1Builder.Set(Index, FVector2f(UV2[Index]));
+				UV1Builder.Set(Index, FVector2f(Components.UV2[Index]));
 			}
 		}
 
-		if (UV3.Num() > 0)
+		if (Components.UV3.Num() > 0)
 		{
 			RealtimeMesh::TRealtimeMeshStridedStreamBuilder<FVector2f, void> UV2Builder(Streams->GetStreamSet().FindChecked(RealtimeMesh::FRealtimeMeshStreams::TexCoords), 3);
 
-			const int32 NumToCopy = FMath::Min(Builder.NumVertices(), UV3.Num());
+			const int32 NumToCopy = FMath::Min(Builder.NumVertices(), Components.UV3.Num());
 			for (int32 Index = 0; Index < NumToCopy; Index++)
 			{
-				UV2Builder.Set(Index, FVector2f(UV3[Index]));
+				UV2Builder.Set(Index, FVector2f(Components.UV3[Index]));
 			}
 		}		
 	}
 
-	if (PolyGroups.Num() > 0)
+	if (Components.PolyGroups.Num() > 0)
 	{
-		for (int32 Index = 0; Index < Triangles.Num(); Index+=3)
+		for (int32 Index = 0; Index < Components.Triangles.Num(); Index+=3)
 		{
-			Builder.AddTriangle(Triangles[Index + 0], Triangles[Index + 1], Triangles[Index + 2], PolyGroups.IsValidIndex(Index / 3) ? PolyGroups[Index / 3] : 0);
+			Builder.AddTriangle(Components.Triangles[Index + 0], Components.Triangles[Index + 1], Components.Triangles[Index + 2], Components.PolyGroups.IsValidIndex(Index / 3) ? Components.PolyGroups[Index / 3] : 0);
 		}	
 	}
 	else
 	{		
-		for (int32 Index = 0; Index < Triangles.Num(); Index+=3)
+		for (int32 Index = 0; Index < Components.Triangles.Num(); Index+=3)
 		{
-			Builder.AddTriangle(Triangles[Index + 0], Triangles[Index + 1], Triangles[Index + 2]);
+			Builder.AddTriangle(Components.Triangles[Index + 0], Components.Triangles[Index + 1], Components.Triangles[Index + 2]);
 		}
 	}
 	return Streams;
 }
-
-
 
 const FRealtimeMeshStreamRowPtr& URealtimeMeshStreamUtils::SetIntElement(const FRealtimeMeshStreamRowPtr& Row, int32 Index, int32 ElementIdx, int32 NewValue)
 {

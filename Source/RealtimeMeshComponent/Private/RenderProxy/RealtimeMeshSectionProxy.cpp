@@ -9,6 +9,7 @@ namespace RealtimeMesh
 	FRealtimeMeshSectionProxy::FRealtimeMeshSectionProxy(const FRealtimeMeshSharedResourcesRef& InSharedResources, const FRealtimeMeshSectionKey InKey)
 		: SharedResources(InSharedResources)
 		, Key(InKey)
+		, bRangeChanged(false)
 	{
 	}
 
@@ -30,6 +31,7 @@ namespace RealtimeMesh
 		if (StreamRange != NewStreamRange)
 		{
 			StreamRange = NewStreamRange;
+			bRangeChanged = true;
 		}
 	}
 
@@ -80,11 +82,12 @@ namespace RealtimeMesh
 		return true;
 	}
 
-	UE_DISABLE_OPTIMIZATION
 	void FRealtimeMeshSectionProxy::UpdateCachedState(FRealtimeMeshSectionGroupProxy& ParentGroup)
 	{
 		TRACE_CPUPROFILER_EVENT_SCOPE(FRealtimeMeshSectionProxy::UpdateCachedState);
 
+		bRangeChanged = false;
+		
 		// First evaluate whether we have valid mesh data to render			
 		bool bHasValidMeshData = StreamRange.NumPrimitives(REALTIME_MESH_NUM_INDICES_PER_PRIMITIVE) > 0 &&
 			StreamRange.NumVertices() >= REALTIME_MESH_NUM_INDICES_PER_PRIMITIVE;
@@ -114,8 +117,6 @@ namespace RealtimeMesh
 			}
 		}
 	}
-	UE_ENABLE_OPTIMIZATION
-
 
 	void FRealtimeMeshSectionProxy::Reset()
 	{

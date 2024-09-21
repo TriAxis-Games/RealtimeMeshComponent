@@ -26,9 +26,7 @@ DECLARE_CYCLE_STAT(TEXT("RealtimeMeshComponentSceneProxy - Get Dynamic Ray Traci
 
 
 namespace RealtimeMesh
-{
-UE_DISABLE_OPTIMIZATION
-	
+{	
 	FRealtimeMeshComponentSceneProxy::FRealtimeMeshComponentSceneProxy(URealtimeMeshComponent* Component, const FRealtimeMeshProxyRef& InRealtimeMeshProxy)
 		: FPrimitiveSceneProxy(Component)
 		  , RealtimeMeshProxy(InRealtimeMeshProxy)
@@ -628,10 +626,7 @@ UE_DISABLE_OPTIMIZATION
 	SIZE_T FRealtimeMeshComponentSceneProxy::GetAllocatedSize() const
 	{
 		return (FPrimitiveSceneProxy::GetAllocatedSize());
-	}
-
-	UE_ENABLE_OPTIMIZATION
-	
+	}	
 }
 
 #undef RMC_LOG_VERBOSE

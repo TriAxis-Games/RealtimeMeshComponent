@@ -9,6 +9,7 @@
 #if RMC_ENGINE_ABOVE_5_2
 #include "MaterialDomain.h"
 #endif
+#include "Algo/AnyOf.h"
 #include "RenderProxy/RealtimeMeshSectionProxy.h"
 #include "RenderProxy/RealtimeMeshVertexFactory.h"
 #include "Materials/Material.h"
@@ -19,6 +20,7 @@ namespace RealtimeMesh
 		: SharedResources(InSharedResources)
 		, Key(InKey)
 		, VertexFactory(SharedResources->CreateVertexFactory())
+		, bVertexFactoryDirty(false)
 	{
 	}
 
@@ -58,6 +60,7 @@ namespace RealtimeMesh
 		if (Config != NewConfig)
 		{
 			Config = NewConfig;
+			bVertexFactoryDirty = true;
 		}
 	}
 
@@ -90,6 +93,7 @@ namespace RealtimeMesh
 			const int32 SectionIndex = SectionMap[SectionKey];
 			Sections.RemoveAt(SectionIndex);
 			RebuildSectionMap();
+			bVertexFactoryDirty = true;
 		}
 	}
 
@@ -120,8 +124,7 @@ namespace RealtimeMesh
 		check(GPUBuffer);
 		check(GPUBuffer->IsResourceInitialized());
 
-		/*// TODO: Allow batching across calls 
-		GPUBuffer->ApplyBufferUpdate(RHICmdList, InStream);*/
+		bVertexFactoryDirty = true;
 	}
 
 	void FRealtimeMeshSectionGroupProxy::RemoveStream(const FRealtimeMeshStreamKey& StreamKey)
@@ -132,6 +135,7 @@ namespace RealtimeMesh
 		{
 			(*Stream)->ReleaseUnderlyingResource();
 			Streams.Remove(StreamKey);
+			bVertexFactoryDirty = true;
 		}
 	}
 
@@ -199,12 +203,18 @@ namespace RealtimeMesh
 
 		// Handle the vertex factory first so sections can query it
 
+		bool bNeedsFactoryInitialization = bVertexFactoryDirty || !VertexFactory->IsInitialized() ||
+			Algo::AnyOf(Sections, [](const FRealtimeMeshSectionProxyRef& Section) { return Section->IsRangeDirty(); });
+		
 		if (!VertexFactory)
 		{
 			VertexFactory = SharedResources->CreateVertexFactory();
 		}
-		
-		VertexFactory->Initialize(RHICmdList, Streams);
+
+		if (bNeedsFactoryInitialization)
+		{
+			VertexFactory->Initialize(RHICmdList, Streams);
+		}
 		
 		// Handle all Section updates
 		for (auto It = Sections.CreateConstIterator(); It; ++It)
@@ -231,7 +241,10 @@ namespace RealtimeMesh
 			DrawMask.SetFlag(Config.DrawType == ERealtimeMeshSectionDrawType::Static ? ERealtimeMeshDrawMask::DrawStatic : ERealtimeMeshDrawMask::DrawDynamic);
 		}
 
-		UpdateRayTracingInfo(RHICmdList);
+		if (bNeedsFactoryInitialization)
+		{
+			UpdateRayTracingInfo(RHICmdList);
+		}
 	}
 
 	void FRealtimeMeshSectionGroupProxy::Reset()
