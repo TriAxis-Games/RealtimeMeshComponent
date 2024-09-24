@@ -1,6 +1,8 @@
 ﻿// Copyright (c) 2015-2024 TriAxis Games, L.L.C. All Rights Reserved.
 
 #include "RealtimeMeshSimple.h"
+
+#include "RealtimeMeshComponent.h"
 #include "RealtimeMeshCore.h"
 #include "Core/RealtimeMeshBuilder.h"
 #include "RenderProxy/RealtimeMeshProxyCommandBatch.h"
@@ -25,11 +27,10 @@ namespace RealtimeMesh
 	{
 		static thread_local bool bShouldDeferPolyGroupUpdates = false;		
 	}	
-
-	UE_DISABLE_OPTIMIZATION
+	
 	FRealtimeMeshSectionSimple::FRealtimeMeshSectionSimple(const FRealtimeMeshSharedResourcesRef& InSharedResources, const FRealtimeMeshSectionKey& InKey)
 		: FRealtimeMeshSection(InSharedResources, InKey)
-		, bShouldCreateMeshCollision(false)
+		  , bShouldCreateMeshCollision(false)
 	{
 	}
 
@@ -55,7 +56,7 @@ namespace RealtimeMesh
 		MarkBoundsDirtyIfNotOverridden(UpdateContext);
 		MarkCollisionDirty(UpdateContext);
 	}
-UE_ENABLE_OPTIMIZATION
+
 	bool FRealtimeMeshSectionSimple::Serialize(FArchive& Ar)
 	{
 		const bool bResult = FRealtimeMeshSection::Serialize(Ar);
@@ -626,7 +627,7 @@ UE_ENABLE_OPTIMIZATION
 	void FRealtimeMeshSimple::FinalizeUpdate(FRealtimeMeshUpdateContext& UpdateContext)
 	{
 		FRealtimeMesh::FinalizeUpdate(UpdateContext);
-
+		
 		if (UpdateContext.GetState<FRealtimeMeshSimpleUpdateState>().CollisionGroupDirtySet.HasAnyDirty())
 		{
 			MarkCollisionDirtyNoCallback();
@@ -805,6 +806,15 @@ URealtimeMeshSimple::URealtimeMeshSimple(const FObjectInitializer& ObjectInitial
 		FRealtimeMeshUpdateContext UpdateContext(GetMeshData());
 		MeshRef->InitializeLODs(UpdateContext, RealtimeMesh::TFixedLODArray<FRealtimeMeshLODConfig>{FRealtimeMeshLODConfig()});
 	}
+}
+
+URealtimeMeshSimple* URealtimeMeshSimple::InitializeRealtimeMeshSimple(URealtimeMeshComponent* Owner)
+{
+	if (IsValid(Owner))
+	{
+		return Owner->InitializeRealtimeMesh<URealtimeMeshSimple>();
+	}
+	return nullptr;
 }
 
 // ReSharper disable once CppMemberFunctionMayBeConst

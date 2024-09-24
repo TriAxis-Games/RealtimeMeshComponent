@@ -61,8 +61,8 @@ namespace RealtimeMesh
 		
 		bSupportsDistanceFieldRepresentation = MaterialRelevance.bOpaque && !MaterialRelevance.bUsesSingleLayerWaterMaterial && RealtimeMeshProxy->HasDistanceFieldData();
 		
-		//bCastsDynamicIndirectShadow = Component->bCastDynamicShadow && Component->CastShadow && Component->Mobility != EComponentMobility::Static;
-		//DynamicIndirectShadowMinVisibility = 0.1f;
+		bCastsDynamicIndirectShadow = Component->bCastDynamicShadow && Component->CastShadow && Component->Mobility != EComponentMobility::Static;
+		DynamicIndirectShadowMinVisibility = 0.1f;
 
 
 #if RHI_RAYTRACING
@@ -363,6 +363,7 @@ namespace RealtimeMesh
 #endif
 	}
 
+	UE_DISABLE_OPTIMIZATION
 	void FRealtimeMeshComponentSceneProxy::GetDistanceFieldAtlasData(const FDistanceFieldVolumeData*& OutDistanceFieldData, float& SelfShadowBias) const
 	{
 		OutDistanceFieldData = RealtimeMeshProxy->GetDistanceFieldData();
@@ -381,8 +382,13 @@ namespace RealtimeMesh
 
 	bool FRealtimeMeshComponentSceneProxy::HasDistanceFieldRepresentation() const
 	{
-		return CastsDynamicShadow() && AffectsDistanceFieldLighting() && RealtimeMeshProxy->HasDistanceFieldData();
+		bool bCastsDS = CastsDynamicShadow();
+		bool bAffectsDFLighting = AffectsDistanceFieldLighting();
+		bool bHasDF = RealtimeMeshProxy->HasDistanceFieldData();
+		
+		return bCastsDS && bAffectsDFLighting && bHasDF;
 	}
+	UE_ENABLE_OPTIMIZATION
 
 	bool FRealtimeMeshComponentSceneProxy::HasDynamicIndirectShadowCasterRepresentation() const
 	{

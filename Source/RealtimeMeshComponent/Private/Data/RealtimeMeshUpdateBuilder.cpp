@@ -124,7 +124,7 @@ namespace RealtimeMesh
 			}
 			else
 			{
-				UE_LOG(RealtimeMeshLog, Error, TEXT("Failed to find LOD %s"), *LODKey.ToString());
+				UE_LOG(LogRealtimeMesh, Error, TEXT("Failed to find LOD %s"), *LODKey.ToString());
 
 				FMessageLog("RealtimeMesh").Error(
 				FText::Format(LOCTEXT("RealtimeMeshUpdate_LODTask", "RealtimeMeshUpdate_LODTask: Failed to find LOD {0}"),
@@ -145,7 +145,7 @@ namespace RealtimeMesh
 			}
 			else
 			{
-				UE_LOG(RealtimeMeshLog, Error, TEXT("Failed to find SectionGroup %s"), *SectionGroupKey.ToString());
+				UE_LOG(LogRealtimeMesh, Error, TEXT("Failed to find SectionGroup %s"), *SectionGroupKey.ToString());
 
 				FMessageLog("RealtimeMesh").Error(
 				FText::Format(LOCTEXT("RealtimeMeshUpdate_SectionGroupTask", "RealtimeMeshUpdate_SectionGroupTask: Failed to find SectionGroup {0}"),
@@ -166,7 +166,7 @@ namespace RealtimeMesh
 			}
 			else
 			{
-				UE_LOG(RealtimeMeshLog, Error, TEXT("Failed to find Section %s"), *SectionKey.ToString());
+				UE_LOG(LogRealtimeMesh, Error, TEXT("Failed to find Section %s"), *SectionKey.ToString());
 
 				FMessageLog("RealtimeMesh").Error(
 				FText::Format(LOCTEXT("RealtimeMeshUpdate_Section", "RealtimeMeshUpdate_Section: Failed to find Section {0}"),
@@ -210,7 +210,7 @@ namespace RealtimeMesh
 			}
 			else
 			{
-				UE_LOG(RealtimeMeshLog, Error, TEXT("Failed to find LOD %s"), *LODKey.ToString());
+				UE_LOG(LogRealtimeMesh, Error, TEXT("Failed to find LOD %s"), *LODKey.ToString());
 
 				FMessageLog("RealtimeMesh").Error(
 				FText::Format(LOCTEXT("RealtimeMeshAccessor_LODTask", "RealtimeMeshAccessor_LODTask: Failed to find LOD {0}"),
@@ -231,7 +231,7 @@ namespace RealtimeMesh
 			}
 			else
 			{
-				UE_LOG(RealtimeMeshLog, Error, TEXT("Failed to find SectionGroup %s"), *SectionGroupKey.ToString());
+				UE_LOG(LogRealtimeMesh, Error, TEXT("Failed to find SectionGroup %s"), *SectionGroupKey.ToString());
 
 				FMessageLog("RealtimeMesh").Error(
 				FText::Format(LOCTEXT("RealtimeMeshAccessor_SectionGroupTask", "RealtimeMeshAccessor_SectionGroupTask: Failed to find SectionGroup {0}"),
@@ -252,7 +252,7 @@ namespace RealtimeMesh
 			}
 			else
 			{
-				UE_LOG(RealtimeMeshLog, Error, TEXT("Failed to find Section %s"), *SectionKey.ToString());
+				UE_LOG(LogRealtimeMesh, Error, TEXT("Failed to find Section %s"), *SectionKey.ToString());
 
 				FMessageLog("RealtimeMesh").Error(
 				FText::Format(LOCTEXT("RealtimeMeshAccessor_Section", "RealtimeMeshAccessor_Section: Failed to find Section {0}"),

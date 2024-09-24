@@ -41,7 +41,7 @@ struct REALTIMEMESHCOMPONENT_API FRealtimeMeshBasicVertex
 	GENERATED_BODY()
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="RealtimeMesh|MeshData")
-	FVector Position;
+	FVector Position = FVector::Zero();
 	
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="RealtimeMesh|MeshData")
 	FVector Normal = FVector::UnitZ();
@@ -105,7 +105,7 @@ protected:
 	friend struct FRealtimeMeshStreamRowPtr;
 	friend class URealtimeMeshStreamUtils;
 	
-	TUniquePtr<RealtimeMesh::FRealtimeMeshStream> Stream;
+	TSharedPtr<RealtimeMesh::FRealtimeMeshStream> Stream;
 
 	TArray<RealtimeMesh::TRealtimeMeshStridedStreamBuilder<int32, void>> IntAccessors;
 	TArray<RealtimeMesh::TRealtimeMeshStridedStreamBuilder<float, void>> FloatAccessors;
@@ -119,6 +119,7 @@ protected:
 	void SetupVector2Accessors();
 	void SetupVector3Accessors();
 	void SetupVector4Accessors();
+	
 public:
 
 	RealtimeMesh::FRealtimeMeshStream& GetStream() { return *Stream; }
@@ -207,12 +208,14 @@ class REALTIMEMESHCOMPONENT_API URealtimeMeshStreamSet : public UObject
 {
 	GENERATED_BODY()
 protected:
-	TUniquePtr<RealtimeMesh::FRealtimeMeshStreamSet> Streams;
+	TSharedPtr<RealtimeMesh::FRealtimeMeshStreamSet> Streams;
+	virtual void EnsureInitialized();
 public:
-	URealtimeMeshStreamSet();
-	
-	RealtimeMesh::FRealtimeMeshStreamSet& GetStreamSet() { return *Streams; }
-	const RealtimeMesh::FRealtimeMeshStreamSet& GetStreamSet() const { return *Streams; }
+	URealtimeMeshStreamSet() = default;
+
+	RealtimeMesh::FRealtimeMeshStreamSet& GetStreamSet() { EnsureInitialized(); return *Streams; }
+	const RealtimeMesh::FRealtimeMeshStreamSet& GetStreamSet() const { const_cast<URealtimeMeshStreamSet*>(this)->EnsureInitialized(); return *Streams; }
+	RealtimeMesh::FRealtimeMeshStreamSet Consume();
 	
 	UFUNCTION(BlueprintCallable, Category="Realtime Mesh")
 	virtual void AddStream(URealtimeMeshStream* Stream);
@@ -223,7 +226,8 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Realtime Mesh")
 	virtual void Reset()
 	{
-		Streams = MakeUnique<RealtimeMesh::FRealtimeMeshStreamSet>();
+		Streams.Reset();
+		EnsureInitialized();
 	}
 	
 	UFUNCTION(BlueprintCallable, Category="RealtimeMesh|MeshData")
@@ -246,7 +250,9 @@ protected:
 	TUniquePtr<RealtimeMesh::TRealtimeMeshStreamBuilder<FVector2D, void>> UV1Builder;
 	TUniquePtr<RealtimeMesh::TRealtimeMeshStreamBuilder<FVector2D, void>> UV2Builder;
 	TUniquePtr<RealtimeMesh::TRealtimeMeshStreamBuilder<FVector2D, void>> UV3Builder;
+	virtual void EnsureInitialized() override;
 public:
+	URealtimeMeshLocalBuilder() = default;
 
 	void Initialize(TUniquePtr<RealtimeMesh::FRealtimeMeshStreamSet>&& InStreams,
 		TUniquePtr<RealtimeMesh::TRealtimeMeshBuilderLocal<void, void, void, 1, void>>&& InBuilder,
@@ -254,7 +260,7 @@ public:
 		TUniquePtr<RealtimeMesh::TRealtimeMeshStreamBuilder<FVector2D, void>>&& InUV2Builder,
 		TUniquePtr<RealtimeMesh::TRealtimeMeshStreamBuilder<FVector2D, void>>&& InUV3Builder)
 	{
-		Streams = MoveTemp(InStreams);
+		Streams = MakeShared<RealtimeMesh::FRealtimeMeshStreamSet>(MoveTemp(*InStreams));
 		MeshBuilder = MoveTemp(InBuilder);
 		UV1Builder = MoveTemp(InUV1Builder);
 		UV2Builder = MoveTemp(InUV2Builder);
@@ -336,6 +342,8 @@ public:
 	UFUNCTION(BlueprintCallable, Category="RealtimeMesh|MeshData")
 	void GetVertex(URealtimeMeshLocalBuilder*& Builder, int32 Index, FVector& Position, FVector& Normal,
 		FVector& Tangent, FLinearColor& Color, FVector2D& UV0, FVector2D& UV1, FVector2D& UV2, FVector2D& UV3);
+
+	friend class URealtimeMeshStreamSet;
 };
 
 

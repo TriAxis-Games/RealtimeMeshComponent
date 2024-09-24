@@ -146,7 +146,7 @@ void URealtimeMeshBasicShapeTools::AppendMesh(FRealtimeMeshStreamSet& TargetMesh
 	
 	if (!SourcePositionStream || !SourceTriangleStream)
 	{
-		UE_LOG(RealtimeMeshLog, Warning, TEXT("Unable to AppendMesh, MeshDataToAdd does not contain a position and triangle stream"));
+		UE_LOG(LogRealtimeMesh, Warning, TEXT("Unable to AppendMesh, MeshDataToAdd does not contain a position and triangle stream"));
 		return;
 	}
 

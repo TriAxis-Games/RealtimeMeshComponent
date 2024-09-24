@@ -12,7 +12,7 @@
 #include "RealtimeMesh.generated.h"
 
 
-UCLASS(Blueprintable, Abstract, ClassGroup = Rendering, HideCategories = (Object, Activation, Cooking))
+UCLASS(BlueprintType, Blueprintable, ConversionRoot, Abstract, ClassGroup = Rendering, HideCategories = (Object, Activation, Cooking))
 class REALTIMEMESHCOMPONENT_API URealtimeMesh : public UObject
 {
 	GENERATED_UCLASS_BODY()

@@ -17,7 +17,7 @@ class REALTIMEMESHCOMPONENT_API URealtimeMeshComponent : public UMeshComponent
 	GENERATED_BODY()
 
 private:
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Replicated, Category = RealtimeMesh, Meta = (AllowPrivateAccess = "true", DisplayName = "Runtime Mesh", ReplicatedUsing="OnRep_RealtimeMesh"))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Replicated, Category = RealtimeMesh, Meta = (AllowPrivateAccess = "true", DisplayName = "RealtimeMesh", ReplicatedUsing="OnRep_RealtimeMesh"))
 	TObjectPtr<URealtimeMesh> RealtimeMesh;
 
 public:
@@ -30,7 +30,7 @@ public:
 	void SetRealtimeMesh(URealtimeMesh* NewMesh);
 
 	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMeshComponent", meta=(DeterminesOutputType="MeshClass"))
-	URealtimeMesh* InitializeRealtimeMesh(TSubclassOf<URealtimeMesh> MeshClass);
+	URealtimeMesh* InitializeRealtimeMesh(UPARAM(meta = (AllowAbstract = "false")) TSubclassOf<URealtimeMesh> MeshClass);
 
 	template <typename MeshType>
 	MeshType* InitializeRealtimeMesh(TSubclassOf<URealtimeMesh> MeshClass = MeshType::StaticClass())

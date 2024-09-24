@@ -362,9 +362,10 @@ UCLASS(Blueprintable)
 class REALTIMEMESHCOMPONENT_API URealtimeMeshSimple : public URealtimeMesh
 {
 	GENERATED_UCLASS_BODY()
-protected:
-
 public:
+	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh")
+	static URealtimeMeshSimple* InitializeRealtimeMeshSimple(URealtimeMeshComponent* Owner);
+	
 	TSharedRef<RealtimeMesh::FRealtimeMeshSimple> GetMeshData() const { return StaticCastSharedRef<RealtimeMesh::FRealtimeMeshSimple>(GetMesh()); }
 
 	TFuture<ERealtimeMeshProxyUpdateStatus> CreateSectionGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey, const FRealtimeMeshSectionGroupConfig& InConfig = FRealtimeMeshSectionGroupConfig(), bool bShouldAutoCreateSectionsForPolyGroups = true);

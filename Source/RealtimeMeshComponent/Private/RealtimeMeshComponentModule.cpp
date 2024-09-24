@@ -34,4 +34,4 @@ void FRealtimeMeshComponentPlugin::ShutdownModule()
 {
 }
 
-DEFINE_LOG_CATEGORY(RealtimeMeshLog);
+DEFINE_LOG_CATEGORY(LogRealtimeMesh);

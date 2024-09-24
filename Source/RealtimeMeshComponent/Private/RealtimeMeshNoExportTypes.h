@@ -46,26 +46,26 @@ struct FRealtimeMeshPolygonGroupRange
 	GENERATED_BODY()
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RealtimeMesh")
-	int32 StartIndex;
+	int32 StartIndex = 0;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RealtimeMesh")
-	int32 Count;
+	int32 Count = 0;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RealtimeMesh")
-	int32 PolygonGroupIndex;
+	int32 PolygonGroupIndex = 0;
 };
 
 
-USTRUCT(NoExport, BlueprintType, meta=(HasNativeMake="RealtimeMeshComponent.RealtimeMeshBlueprintFunctionLibrary.MakeStreamRange"))
+USTRUCT(NoExport, BlueprintType, meta=(HasNativeMake="/Script/RealtimeMeshComponent.RealtimeMeshBlueprintFunctionLibrary:MakeStreamRange"))
 struct FRealtimeMeshStreamRange
 {
 	GENERATED_BODY()
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="RealtimeMesh|Streams")
-	FInt32Range Vertices;
+	FInt32Range Vertices = FInt32Range::Empty();
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="RealtimeMesh|Streams")
-	FInt32Range Indices;
+	FInt32Range Indices = FInt32Range::Empty();
 };
 
 USTRUCT(NoExport, BlueprintType)
@@ -93,26 +93,26 @@ struct FRealtimeMeshSectionConfig
 	GENERATED_BODY()
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="RealtimeMesh|Section|Config")
-	int32 MaterialSlot;
+	int32 MaterialSlot = 0;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="RealtimeMesh|Section|Config")
-	bool bIsVisible;
+	bool bIsVisible = true;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="RealtimeMesh|Section|Config")
-	bool bCastsShadow;
+	bool bCastsShadow = true;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="RealtimeMesh|Section|Config", AdvancedDisplay)
-	bool bIsMainPassRenderable;
+	bool bIsMainPassRenderable = true;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="RealtimeMesh|Section|Config", AdvancedDisplay)
-	bool bForceOpaque;
+	bool bForceOpaque = true;
 };
 
 USTRUCT(NoExport, BlueprintType)
 struct FRealtimeMeshSectionGroupConfig
 {
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="RealtimeMesh|SectionGroup|Config", AdvancedDisplay)
-	ERealtimeMeshSectionDrawType DrawType;
+	ERealtimeMeshSectionDrawType DrawType = ERealtimeMeshSectionDrawType::Static;
 };
 
 USTRUCT(NoExport, BlueprintType)
@@ -121,10 +121,10 @@ struct FRealtimeMeshLODConfig
 	GENERATED_BODY()
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="RealtimeMesh|LOD|Config")
-	bool bIsVisible;
+	bool bIsVisible = true;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="RealtimeMesh|LOD|Config")
-	float ScreenSize;
+	float ScreenSize = 0.0;
 };
 
 USTRUCT(NoExport, BlueprintType)
@@ -133,7 +133,7 @@ struct FRealtimeMeshConfig
 	GENERATED_BODY()
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="RealtimeMesh|LOD|Config")
-	int32 ForcedLOD;
+	int32 ForcedLOD = -1;
 };
 
 USTRUCT(NoExport, BlueprintType)
@@ -141,7 +141,7 @@ struct FRealtimeMeshLODKey
 {
 	GENERATED_BODY()
 	
-	int8 LODIndex;
+	int8 LODIndex = -1;
 };
 
 USTRUCT(NoExport, BlueprintType)
@@ -151,7 +151,7 @@ struct FRealtimeMeshSectionGroupKey
 
 private:
 	FName GroupName;
-	int8 LODIndex;
+	int8 LODIndex = -1;
 };
 
 USTRUCT(NoExport, BlueprintType)
@@ -162,7 +162,7 @@ struct FRealtimeMeshSectionKey
 private:
 	FName GroupName;
 	FName SectionName;
-	int8 LODIndex;
+	int8 LODIndex = -1;
 };
 
 UENUM(BlueprintType)
@@ -174,13 +174,13 @@ enum class ERealtimeMeshStreamType : uint8
 };
 
 
-USTRUCT(NoExport, BlueprintType,  meta=(HasNativeMake="RealtimeMeshComponent.RealtimeMeshBlueprintFunctionLibrary.MakeStreamKey"))
+USTRUCT(NoExport, BlueprintType,  meta=(HasNativeMake="/Script/RealtimeMeshComponent.RealtimeMeshBlueprintFunctionLibrary:MakeStreamKey"))
 struct FRealtimeMeshStreamKey
 {
 	GENERATED_BODY()
 private:
 	UPROPERTY(VisibleAnywhere, Category="RealtimeMesh|Key")
-	ERealtimeMeshStreamType StreamType;
+	ERealtimeMeshStreamType StreamType = ERealtimeMeshStreamType::Unknown;
 	
 	UPROPERTY(VisibleAnywhere, Category="RealtimeMesh|Key")
 	FName StreamName;
@@ -203,22 +203,22 @@ struct FRealtimeMeshCollisionConfiguration
 	GENERATED_BODY()
 
 	UPROPERTY(Category="RealtimeMesh|Collision", EditAnywhere, BlueprintReadWrite)
-	bool bUseComplexAsSimpleCollision;
+	bool bUseComplexAsSimpleCollision = true;
 
 	UPROPERTY(Category="RealtimeMesh|Collision", EditAnywhere, BlueprintReadWrite)
-	bool bUseAsyncCook;
+	bool bUseAsyncCook = true;
 
 	UPROPERTY(Category="RealtimeMesh|Collision", EditAnywhere, BlueprintReadWrite)
-	bool bShouldFastCookMeshes;
+	bool bShouldFastCookMeshes = false;
 
 	UPROPERTY(Category="RealtimeMesh|Collision", EditAnywhere, BlueprintReadWrite)
-	bool bFlipNormals;
+	bool bFlipNormals = false;
 
 	UPROPERTY(Category="RealtimeMesh|Collision", EditAnywhere, BlueprintReadWrite)
-	bool bDeformableMesh;
+	bool bDeformableMesh = false;
 	
 	UPROPERTY(Category="RealtimeMesh|Collision", EditAnywhere, BlueprintReadWrite)
-	bool bMergeAllMeshes;
+	bool bMergeAllMeshes = false;
 };
 
 

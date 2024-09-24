@@ -127,12 +127,6 @@ void URealtimeMeshStream::SetupVector4Accessors()
 	}
 }
 
-
-URealtimeMeshStreamSet::URealtimeMeshStreamSet()
-{
-	Streams = MakeUnique<RealtimeMesh::FRealtimeMeshStreamSet>();
-}
-
 RealtimeMesh::FRealtimeMeshStream URealtimeMeshStream::Consume()
 {
 	RealtimeMesh::FRealtimeMeshStream Temp = RealtimeMesh::FRealtimeMeshStream(MoveTemp(*Stream));
@@ -145,53 +139,53 @@ void URealtimeMeshStream::Initialize(const FRealtimeMeshStreamKey& StreamKey, ER
 	switch(StreamType)
 	{
 	case ERealtimeMeshSimpleStreamType::Int16:
-		Stream = MakeUnique<RealtimeMesh::FRealtimeMeshStream>(StreamKey, RealtimeMesh::GetRealtimeMeshBufferLayout<int16>(NumElements));
+		Stream = MakeShared<RealtimeMesh::FRealtimeMeshStream>(StreamKey, RealtimeMesh::GetRealtimeMeshBufferLayout<int16>(NumElements));
 		SetupIntAccessors();
 		break;
 	case ERealtimeMeshSimpleStreamType::UInt16:
-		Stream = MakeUnique<RealtimeMesh::FRealtimeMeshStream>(StreamKey, RealtimeMesh::GetRealtimeMeshBufferLayout<uint16>(NumElements));
+		Stream = MakeShared<RealtimeMesh::FRealtimeMeshStream>(StreamKey, RealtimeMesh::GetRealtimeMeshBufferLayout<uint16>(NumElements));
 		SetupIntAccessors();
 		break;
 	case ERealtimeMeshSimpleStreamType::Int32:
-		Stream = MakeUnique<RealtimeMesh::FRealtimeMeshStream>(StreamKey, RealtimeMesh::GetRealtimeMeshBufferLayout<int32>(NumElements));
+		Stream = MakeShared<RealtimeMesh::FRealtimeMeshStream>(StreamKey, RealtimeMesh::GetRealtimeMeshBufferLayout<int32>(NumElements));
 		SetupIntAccessors();
 		break;
 	case ERealtimeMeshSimpleStreamType::UInt32:
-		Stream = MakeUnique<RealtimeMesh::FRealtimeMeshStream>(StreamKey, RealtimeMesh::GetRealtimeMeshBufferLayout<uint32>(NumElements));
+		Stream = MakeShared<RealtimeMesh::FRealtimeMeshStream>(StreamKey, RealtimeMesh::GetRealtimeMeshBufferLayout<uint32>(NumElements));
 		SetupIntAccessors();
 		break;
 	case ERealtimeMeshSimpleStreamType::Float:
-		Stream = MakeUnique<RealtimeMesh::FRealtimeMeshStream>(StreamKey, RealtimeMesh::GetRealtimeMeshBufferLayout<float>(NumElements));
+		Stream = MakeShared<RealtimeMesh::FRealtimeMeshStream>(StreamKey, RealtimeMesh::GetRealtimeMeshBufferLayout<float>(NumElements));
 		SetupFloatAccessors();
 		break;
 	case ERealtimeMeshSimpleStreamType::Vector2:
-		Stream = MakeUnique<RealtimeMesh::FRealtimeMeshStream>(StreamKey, RealtimeMesh::GetRealtimeMeshBufferLayout<FVector2f>(NumElements));
+		Stream = MakeShared<RealtimeMesh::FRealtimeMeshStream>(StreamKey, RealtimeMesh::GetRealtimeMeshBufferLayout<FVector2f>(NumElements));
 		SetupVector2Accessors();
 		break;
 	case ERealtimeMeshSimpleStreamType::Vector3:
-		Stream = MakeUnique<RealtimeMesh::FRealtimeMeshStream>(StreamKey, RealtimeMesh::GetRealtimeMeshBufferLayout<FVector3f>(NumElements));
+		Stream = MakeShared<RealtimeMesh::FRealtimeMeshStream>(StreamKey, RealtimeMesh::GetRealtimeMeshBufferLayout<FVector3f>(NumElements));
 		SetupVector3Accessors();
 		break;
 	case ERealtimeMeshSimpleStreamType::HalfVector2:
-		Stream = MakeUnique<RealtimeMesh::FRealtimeMeshStream>(StreamKey, RealtimeMesh::GetRealtimeMeshBufferLayout<FVector2DHalf>(NumElements));
+		Stream = MakeShared<RealtimeMesh::FRealtimeMeshStream>(StreamKey, RealtimeMesh::GetRealtimeMeshBufferLayout<FVector2DHalf>(NumElements));
 		SetupVector2Accessors();
 		break;
 	case ERealtimeMeshSimpleStreamType::PackedNormal:
-		Stream = MakeUnique<RealtimeMesh::FRealtimeMeshStream>(StreamKey, RealtimeMesh::GetRealtimeMeshBufferLayout<FPackedNormal>(NumElements));
+		Stream = MakeShared<RealtimeMesh::FRealtimeMeshStream>(StreamKey, RealtimeMesh::GetRealtimeMeshBufferLayout<FPackedNormal>(NumElements));
 		SetupVector4Accessors();
 		break;
 	case ERealtimeMeshSimpleStreamType::PackedRGBA16N:
-		Stream = MakeUnique<RealtimeMesh::FRealtimeMeshStream>(StreamKey, RealtimeMesh::GetRealtimeMeshBufferLayout<FPackedRGBA16N>(NumElements));
+		Stream = MakeShared<RealtimeMesh::FRealtimeMeshStream>(StreamKey, RealtimeMesh::GetRealtimeMeshBufferLayout<FPackedRGBA16N>(NumElements));
 		SetupVector4Accessors();
 		break;
 	case ERealtimeMeshSimpleStreamType::Triangle16:
 		ensure(NumElements == 1);
-		Stream = MakeUnique<RealtimeMesh::FRealtimeMeshStream>(StreamKey, RealtimeMesh::GetRealtimeMeshBufferLayout<RealtimeMesh::TIndex3<uint16>>());
+		Stream = MakeShared<RealtimeMesh::FRealtimeMeshStream>(StreamKey, RealtimeMesh::GetRealtimeMeshBufferLayout<RealtimeMesh::TIndex3<uint16>>());
 		SetupVector4Accessors();
 		break;
 	case ERealtimeMeshSimpleStreamType::Triangle32:
 		ensure(NumElements == 1);
-		Stream = MakeUnique<RealtimeMesh::FRealtimeMeshStream>(StreamKey, RealtimeMesh::GetRealtimeMeshBufferLayout<RealtimeMesh::TIndex3<uint32>>());
+		Stream = MakeShared<RealtimeMesh::FRealtimeMeshStream>(StreamKey, RealtimeMesh::GetRealtimeMeshBufferLayout<RealtimeMesh::TIndex3<uint32>>());
 		SetupVector4Accessors();
 		break;
 	default:
@@ -496,12 +490,32 @@ FVector4 URealtimeMeshStream::GetVector4(URealtimeMeshStream*& Builder, FRealtim
 }
 
 
+
+
+
+void URealtimeMeshStreamSet::EnsureInitialized()
+{
+	if (!Streams.IsValid())
+	{
+		Streams = MakeShared<RealtimeMesh::FRealtimeMeshStreamSet>();
+	}
+}
+
+RealtimeMesh::FRealtimeMeshStreamSet URealtimeMeshStreamSet::Consume()
+{
+	EnsureInitialized();
+	RealtimeMesh::FRealtimeMeshStreamSet Temp = RealtimeMesh::FRealtimeMeshStreamSet(MoveTemp(*Streams));
+	Reset();
+	return RealtimeMesh::FRealtimeMeshStreamSet(MoveTemp(Temp));
+}
+
 void URealtimeMeshStreamSet::AddStream(URealtimeMeshStream* Stream)
 {
 	if (ensure(IsValid(Stream)))
 	{
 		if (ensure(Stream->HasValidData()))
 		{
+			EnsureInitialized();
 			Streams->AddStream(Stream->Consume());
 		}
 	}
@@ -509,7 +523,10 @@ void URealtimeMeshStreamSet::AddStream(URealtimeMeshStream* Stream)
 
 void URealtimeMeshStreamSet::RemoveStream(const FRealtimeMeshStreamKey& StreamKey)
 {
-	Streams->Remove(StreamKey);
+	if (Streams)
+	{
+		Streams->Remove(StreamKey);
+	}
 }
 
 URealtimeMeshLocalBuilder* URealtimeMeshStreamSet::MakeLocalMeshBuilder(ERealtimeMeshSimpleStreamConfig WantedTangents,
@@ -517,16 +534,22 @@ URealtimeMeshLocalBuilder* URealtimeMeshStreamSet::MakeLocalMeshBuilder(ERealtim
 	bool bWantsColors, int32 WantedTexCoordChannels, bool bKeepExistingData)
 {
 	URealtimeMeshLocalBuilder* Builder = NewObject<URealtimeMeshLocalBuilder>();
+	Builder->Streams = MoveTemp(Streams);
+	Streams.Reset();
 	Builder->Initialize(WantedTangents, WantedTexCoords, bWants32BitIndices, WantedPolyGroupType, bWantsColors, WantedTexCoordChannels, bKeepExistingData);
-
-	Streams = MakeUnique<RealtimeMesh::FRealtimeMeshStreamSet>();
 	return Builder;	
 }
 
 
-URealtimeMeshLocalBuilder* URealtimeMeshLocalBuilder::Initialize(ERealtimeMeshSimpleStreamConfig WantedTangents, ERealtimeMeshSimpleStreamConfig WantedTexCoords,
-	bool bWants32BitIndices, ERealtimeMeshSimpleStreamConfig WantedPolyGroupType, bool bWantsColors, int32 WantedTexCoordChannels, bool bKeepExistingData)
+void URealtimeMeshLocalBuilder::EnsureInitialized()
 {
+	Super::EnsureInitialized();
+	
+}
+
+URealtimeMeshLocalBuilder* URealtimeMeshLocalBuilder::Initialize(ERealtimeMeshSimpleStreamConfig WantedTangents, ERealtimeMeshSimpleStreamConfig WantedTexCoords,
+                                                                 bool bWants32BitIndices, ERealtimeMeshSimpleStreamConfig WantedPolyGroupType, bool bWantsColors, int32 WantedTexCoordChannels, bool bKeepExistingData)
+{	
 	const auto TangentType = WantedTexCoords == ERealtimeMeshSimpleStreamConfig::HighPrecision ?
 		RealtimeMesh::GetRealtimeMeshDataElementType<FPackedRGBA16N>() : 
 		RealtimeMesh::GetRealtimeMeshDataElementType<FPackedNormal>();
@@ -547,8 +570,10 @@ URealtimeMeshLocalBuilder* URealtimeMeshLocalBuilder::Initialize(ERealtimeMeshSi
 
 	if (!bKeepExistingData)
 	{
-		Streams = MakeUnique<RealtimeMesh::FRealtimeMeshStreamSet>();
+		Reset();
 	}
+	EnsureInitialized();
+	check(Streams.IsValid());
 	
 	// Fixup triangles
 	if (auto* Stream = Streams->Find(RealtimeMesh::FRealtimeMeshStreams::Triangles))
@@ -1062,7 +1087,7 @@ URealtimeMeshStream* URealtimeMeshStreamPool::RequestStream(const FRealtimeMeshS
 	// This will allow them to be garbage-collected (eventually)
 	if (!ensure(AllCreatedStreams.Num() < CVarRealtimeMeshStreamPoolMaxSizeThreshold.GetValueOnGameThread()))
 	{
-		UE_LOG(RealtimeMeshLog, Warning, TEXT("URealtimeMeshStreamPool Threshold of %d Allocated Streams exceeded! Releasing references to all current streams and forcing a garbage collection."), CVarRealtimeMeshStreamPoolMaxSizeThreshold.GetValueOnGameThread());
+		UE_LOG(LogRealtimeMesh, Warning, TEXT("URealtimeMeshStreamPool Threshold of %d Allocated Streams exceeded! Releasing references to all current streams and forcing a garbage collection."), CVarRealtimeMeshStreamPoolMaxSizeThreshold.GetValueOnGameThread());
 		AllCreatedStreams.Reset();
 		GEngine->ForceGarbageCollection(true);
 	}
@@ -1096,7 +1121,7 @@ URealtimeMeshStreamSet* URealtimeMeshStreamPool::RequestStreamSet()
 	// This will allow them to be garbage-collected (eventually)
 	if (!ensure(AllCreatedStreamSets.Num() < CVarRealtimeMeshStreamSetsPoolMaxSizeThreshold.GetValueOnGameThread()))
 	{
-		UE_LOG(RealtimeMeshLog, Warning, TEXT("URealtimeMeshStreamPool Threshold of %d Allocated StreamSets exceeded! Releasing references to all current streamssets and forcing a garbage collection."), CVarRealtimeMeshStreamSetsPoolMaxSizeThreshold.GetValueOnGameThread());
+		UE_LOG(LogRealtimeMesh, Warning, TEXT("URealtimeMeshStreamPool Threshold of %d Allocated StreamSets exceeded! Releasing references to all current streamssets and forcing a garbage collection."), CVarRealtimeMeshStreamSetsPoolMaxSizeThreshold.GetValueOnGameThread());
 		AllCreatedStreamSets.Reset();
 		GEngine->ForceGarbageCollection(true);
 	}
@@ -1130,7 +1155,7 @@ URealtimeMeshLocalBuilder* URealtimeMeshStreamPool::RequestMeshBuilder()
 	// This will allow them to be garbage-collected (eventually)
 	if (!ensure(AllCreatedBuilders.Num() < CVarRealtimeMeshBuilderPoolMaxSizeThreshold.GetValueOnGameThread()))
 	{
-		UE_LOG(RealtimeMeshLog, Warning, TEXT("URealtimeMeshStreamPool Threshold of %d Allocated Builders exceeded! Releasing references to all current builders and forcing a garbage collection."), CVarRealtimeMeshBuilderPoolMaxSizeThreshold.GetValueOnGameThread());
+		UE_LOG(LogRealtimeMesh, Warning, TEXT("URealtimeMeshStreamPool Threshold of %d Allocated Builders exceeded! Releasing references to all current builders and forcing a garbage collection."), CVarRealtimeMeshBuilderPoolMaxSizeThreshold.GetValueOnGameThread());
 		AllCreatedBuilders.Reset();
 		GEngine->ForceGarbageCollection(true);
 	}
