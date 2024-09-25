@@ -15,6 +15,8 @@ namespace RealtimeMesh
 		, ScreenPercentageNextLODMask(false, REALTIME_MESH_MAX_LODS)
 		, ActiveStaticLODMask(false, REALTIME_MESH_MAX_LODS)
 		, ActiveDynamicLODMask(false, REALTIME_MESH_MAX_LODS)
+		, ReferencingHandle(MakeShared<uint8>(0xFF))
+		, CollisionTraceFlag(CTF_UseSimpleAndComplex)
 	{
 	}
 
@@ -157,6 +159,7 @@ namespace RealtimeMesh
 			
 		//bOwnerIsNull = ParentBaseComponent->GetOwner() == nullptr;
 	}
+#endif
 
 	void FRealtimeMeshProxy::EnqueueCommandBatch(TArray<FRealtimeMeshProxyUpdateBuilder::TaskFunctionType>&& InTasks, const TSharedPtr<FRealtimeMeshCommandBatchIntermediateFuture>& ThreadState)
 	{
@@ -184,7 +187,6 @@ namespace RealtimeMesh
 			UpdatedCachedState(RHICmdList);
 		}
 	}
-#endif
 
 	void FRealtimeMeshProxy::UpdatedCachedState(FRHICommandListBase& RHICmdList)
 	{

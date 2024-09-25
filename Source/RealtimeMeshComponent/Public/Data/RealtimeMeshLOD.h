@@ -23,6 +23,8 @@ namespace RealtimeMesh
 
 		const FRealtimeMeshLODKey& GetKey(const FRealtimeMeshLockContext& LockContext) const { return Key; }
 		bool HasSectionGroups(const FRealtimeMeshLockContext& LockContext) const;
+		
+		FRealtimeMeshLODConfig GetConfig(const FRealtimeMeshLockContext& LockContext) const { return Config; }
 
 		template <typename SectionGroupType>
 		TSharedPtr<SectionGroupType> GetSectionGroupAs(const FRealtimeMeshLockContext& LockContext, const FRealtimeMeshSectionGroupKey& SectionGroupKey) const
@@ -74,6 +76,7 @@ namespace RealtimeMesh
 		virtual void FinalizeUpdate(FRealtimeMeshUpdateContext& UpdateContext);
 		
 		virtual bool ShouldRecreateProxyOnChange(const FRealtimeMeshLockContext& LockContext) { return true; }
+
 	protected:
 
 		void MarkBoundsDirtyIfNotOverridden(FRealtimeMeshUpdateContext& UpdateContext);

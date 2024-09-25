@@ -125,6 +125,7 @@ namespace RealtimeMesh
 #if RMC_ENGINE_ABOVE_5_4
 	void FRealtimeMeshComponentSceneProxy::CreateRenderThreadResources(FRHICommandListBase& RHICmdList)
 	{
+		MeshReferencingHandle = RealtimeMeshProxy->GetReferencingHandle();		
 		RealtimeMeshProxy->ProcessCommands(RHICmdList);
 		FPrimitiveSceneProxy::CreateRenderThreadResources(RHICmdList);
 	}

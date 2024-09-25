@@ -19,6 +19,7 @@ namespace RealtimeMesh
 	private:
 		// THis is the proxy we're rendering
 		FRealtimeMeshProxyRef RealtimeMeshProxy;
+		TSharedPtr<uint8> MeshReferencingHandle;
 
 		// All the in use materials
 		FRealtimeMeshMaterialProxyMap MaterialMap;

@@ -101,6 +101,8 @@ namespace RealtimeMesh
 		TMpscQueue<FCommandBatch> CommandQueue;
 		FCriticalSection CommandQueueLock;
 
+		TSharedRef<uint8> ReferencingHandle;
+
 #if UE_ENABLE_DEBUG_DRAWING
 		// If debug drawing is enabled, we store collision data here so that collision shapes can be rendered when requested by showflags
 
@@ -120,6 +122,8 @@ namespace RealtimeMesh
 		FRealtimeMeshProxy(const FRealtimeMeshSharedResourcesRef& InSharedResources);
 		virtual ~FRealtimeMeshProxy();
 
+		bool HasAnyReferencingComponents() const { return !ReferencingHandle.IsUnique(); }
+		const TSharedRef<uint8>& GetReferencingHandle() const { return ReferencingHandle; }
 		const FRealtimeMeshSharedResourcesRef& GetSharedResources() const { return SharedResources; }
 
 		virtual ERHIFeatureLevel::Type GetRHIFeatureLevel() const;

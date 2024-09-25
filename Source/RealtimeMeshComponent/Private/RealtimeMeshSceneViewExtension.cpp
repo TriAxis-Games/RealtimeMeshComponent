@@ -33,17 +33,22 @@ void FRealtimeMeshSceneViewExtension::BeginRenderViewFamily(FSceneViewFamily& In
 
 void FRealtimeMeshSceneViewExtension::PreRenderViewFamily_RenderThread(FRDGBuilder& GraphBuilder, FSceneViewFamily& InViewFamily)
 {
-	/*for (auto It = ActiveProxies.CreateIterator(); It; ++It)
+	for (auto It = ActiveProxies.CreateIterator(); It; ++It)
 	{
 		if (auto Pinned = It->Pin())
 		{
-			Pinned->ProcessCommands(GraphBuilder.RHICmdList);
+			// We only process commands if there are no components using it, this allows syncing to
+			// the render thread, but without causing issues with existing components.
+			if (!Pinned->HasAnyReferencingComponents())
+			{
+				Pinned->ProcessCommands(GraphBuilder.RHICmdList);
+			}
 		}
 		else
 		{
 			It.RemoveCurrent();
 		}
-	}*/
+	}
 }
 
 void FRealtimeMeshSceneViewExtension::PostRenderView_RenderThread(FRDGBuilder& GraphBuilder, FSceneView& InView)
