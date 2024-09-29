@@ -7,7 +7,7 @@ namespace RealtimeMesh
 {
 	void FRealtimeMeshSectionGroupStreamUpdateData::CreateBufferAsyncIfPossible(FRealtimeMeshUpdateContext& UpdateContext)
 	{
-		if (GRHISupportsAsyncTextureCreation)
+		if (false && GRHISupportsAsyncTextureCreation)
 		{
 			auto& RHICmdList = UpdateContext.GetRHICmdList();
 

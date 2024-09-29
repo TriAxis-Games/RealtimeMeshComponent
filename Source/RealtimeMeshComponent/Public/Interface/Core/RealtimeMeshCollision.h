@@ -295,6 +295,8 @@ public:
 		}
 		return false;
 	}
+
+	bool IsEmpty() const { return Shapes.Num() == 0; }
 	
 	auto CreateIterator() const { return Shapes.CreateIterator(); }
 	auto CreateConstIterator() const { return Shapes.CreateConstIterator(); }
@@ -316,6 +318,10 @@ struct REALTIMEMESHCOMPONENT_INTERFACE_API FRealtimeMeshSimpleGeometry
 	FSimpleShapeSet<FRealtimeMeshCollisionTaperedCapsule> TaperedCapsules;
 	FSimpleShapeSet<FRealtimeMeshCollisionConvex> ConvexHulls;
 
+	bool HasAnyShapes() const
+	{
+		return !Spheres.IsEmpty() || !Boxes.IsEmpty() || !Capsules.IsEmpty() || !TaperedCapsules.IsEmpty() || !ConvexHulls.IsEmpty();
+	}
 	
 	TArray<int32> GetMeshIDsNeedingCook() const
 	{

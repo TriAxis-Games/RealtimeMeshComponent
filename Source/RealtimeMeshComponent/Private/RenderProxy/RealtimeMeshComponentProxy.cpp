@@ -119,7 +119,6 @@ namespace RealtimeMesh
 
 	FRealtimeMeshComponentSceneProxy::~FRealtimeMeshComponentSceneProxy()
 	{
-		check(true);
 	}
 
 #if RMC_ENGINE_ABOVE_5_4
@@ -364,7 +363,6 @@ namespace RealtimeMesh
 #endif
 	}
 
-	UE_DISABLE_OPTIMIZATION
 	void FRealtimeMeshComponentSceneProxy::GetDistanceFieldAtlasData(const FDistanceFieldVolumeData*& OutDistanceFieldData, float& SelfShadowBias) const
 	{
 		OutDistanceFieldData = RealtimeMeshProxy->GetDistanceFieldData();
@@ -389,7 +387,6 @@ namespace RealtimeMesh
 		
 		return bCastsDS && bAffectsDFLighting && bHasDF;
 	}
-	UE_ENABLE_OPTIMIZATION
 
 	bool FRealtimeMeshComponentSceneProxy::HasDynamicIndirectShadowCasterRepresentation() const
 	{

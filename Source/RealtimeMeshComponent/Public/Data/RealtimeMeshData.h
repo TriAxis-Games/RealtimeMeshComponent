@@ -13,7 +13,6 @@
 #include "Core/RealtimeMeshMaterial.h"
 #include "Mesh/RealtimeMeshCardRepresentation.h"
 #include "Mesh/RealtimeMeshDistanceField.h"
-#include "RenderProxy/RealtimeMeshProxyCommandBatch.h"
 
 struct FTriMeshCollisionData;
 class URealtimeMesh;
@@ -191,6 +190,7 @@ namespace RealtimeMesh
 		virtual void ProcessEndOfFrameUpdates() { }
 		
 		virtual void FinalizeUpdate(FRealtimeMeshUpdateContext& UpdateContext);
+
 	protected:
 
 		int32 GetNextCollisionUpdateVersion() { return CollisionUpdateVersionCounter.Increment(); }
