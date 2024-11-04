@@ -1518,7 +1518,7 @@ namespace RealtimeMesh
 		void SetTangents(int32 VertIdx, const FVector3f& Normal, const FVector3f& Binormal, const FVector3f& Tangent)
 		{
 			checkf(HasTangents(), TEXT("Vertex tangents not enabled"));
-			Tangents->Set(VertIdx, TRealtimeMeshTangents<FVector4f>(Normal, Tangent, Tangent));
+			Tangents->Set(VertIdx, TRealtimeMeshTangents<FVector4f>(Normal, Binormal, Tangent));
 		}
 
 		void SetTexCoord(int32 VertIdx, int32 TexCoordIdx, const FVector2f& TexCoord)
