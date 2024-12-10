@@ -308,7 +308,7 @@ namespace RealtimeMesh
 				Segment.VertexBuffer = PositionStream->VertexBufferRHI;
 				Segment.VertexBufferOffset = 0; 
 				Segment.MaxVertices = PositionStream->Num();
-				Segment.bEnabled = Section->GetDrawMask().IsAnySet(ERealtimeMeshDrawMask::DrawDynamic | ERealtimeMeshDrawMask::DrawStatic);
+				Segment.bEnabled = DrawMask.IsAnySet(ERealtimeMeshDrawMask::DrawDynamic | ERealtimeMeshDrawMask::DrawStatic);
 				if (Segment.bEnabled)
 				{
 					Segment.FirstPrimitive = Section->GetStreamRange().GetMinIndex() / 3;
