@@ -214,7 +214,7 @@ namespace RealtimeMesh
 #endif
 				}
 				
-				/*Batcher.QueueUpdateRequest(VertexBufferRHI, UpdateData->GetNumElements() > 0? UpdateData->GetBuffer() : nullptr);
+				//Batcher.QueueUpdateRequest(VertexBufferRHI, UpdateData->GetNumElements() > 0? UpdateData->GetBuffer() : nullptr);
 
 #if RMC_ENGINE_BELOW_5_3
 				if (ShaderResourceViewRHI)
