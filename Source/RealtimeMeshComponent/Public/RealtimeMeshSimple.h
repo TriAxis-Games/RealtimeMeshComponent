@@ -348,7 +348,7 @@ namespace RealtimeMesh
 
 		virtual void ProcessEndOfFrameUpdates() override;
 
-		friend class URealtimeMeshSimple;
+		friend class ::URealtimeMeshSimple;
 	};
 }
 

@@ -6,6 +6,7 @@
 #include "ComponentAssetBroker.h"
 #include "EngineUtils.h"
 #include "IAssetTools.h"
+#include "Editor.h"
 #include "ToolMenus.h"
 #include "IPluginWardenModule.h"
 #include "RealtimeMeshComponent.h"
