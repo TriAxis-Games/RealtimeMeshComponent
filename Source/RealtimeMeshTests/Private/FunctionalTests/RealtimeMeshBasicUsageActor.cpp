@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2015-2024 TriAxis Games, L.L.C. All Rights Reserved.
+﻿// Copyright (c) 2015-2025 TriAxis Games, L.L.C. All Rights Reserved.
 
 
 #include "FunctionalTests/RealtimeMeshBasicUsageActor.h"
@@ -8,6 +8,8 @@
 #include "Core/RealtimeMeshBuilder.h"
 
 #include "RealtimeMeshCubeGeneratorExample.h"
+
+using namespace RealtimeMesh;
 
 static constexpr float BlendTime = 0.5f;
 

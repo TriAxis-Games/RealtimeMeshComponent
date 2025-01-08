@@ -1,9 +1,11 @@
-﻿// Copyright (c) 2015-2024 TriAxis Games, L.L.C. All Rights Reserved.
+﻿// Copyright (c) 2015-2025 TriAxis Games, L.L.C. All Rights Reserved.
 
 
 #include "Mesh/RealtimeMeshBasicShapeTools.h"
 #include "RealtimeMeshSimple.h"
 #include "RealtimeMeshComponentModule.h"
+
+using namespace RealtimeMesh;
 
 static void ConvertQuadToTriangles(TArray<int32>& Triangles, TArray<int32>& MaterialIndices, int32 Vert0, int32 Vert1, int32 Vert2, int32 Vert3, int32 NewMaterialGroup)
 {

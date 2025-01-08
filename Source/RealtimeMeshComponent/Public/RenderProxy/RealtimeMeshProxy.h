@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2015-2024 TriAxis Games, L.L.C. All Rights Reserved.
+﻿// Copyright (c) 2015-2025 TriAxis Games, L.L.C. All Rights Reserved.
 
 #pragma once
 
@@ -11,6 +11,7 @@
 #include "Mesh/RealtimeMeshCardRepresentation.h"
 #include "Mesh/RealtimeMeshDistanceField.h"
 #include "PhysicsEngine/AggregateGeom.h"
+#include "Containers/MpscQueue.h"
 
 
 struct FRealtimeMeshDistanceField;

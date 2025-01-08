@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2015-2024 TriAxis Games, L.L.C. All Rights Reserved.
+﻿// Copyright (c) 2015-2025 TriAxis Games, L.L.C. All Rights Reserved.
 
 #pragma once
 
@@ -15,7 +15,7 @@ class REALTIMEMESHTESTS_API ARealtimeMeshStressTestActor2 : public ARealtimeMesh
 {
 	GENERATED_BODY()
 private:
-	TFuture<TSharedPtr<TStrongObjectPtr<URealtimeMeshSimple>>> PendingGeneration;
+	TFuture<void> PendingGeneration;
 
 public:
 	// Sets default values for this actor's properties

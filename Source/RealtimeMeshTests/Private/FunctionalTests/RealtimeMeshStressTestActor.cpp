@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2015-2024 TriAxis Games, L.L.C. All Rights Reserved.
+﻿// Copyright (c) 2015-2025 TriAxis Games, L.L.C. All Rights Reserved.
 
 
 #include "FunctionalTests/RealtimeMeshStressTestActor.h"
@@ -9,6 +9,7 @@
 #include "Mesh/RealtimeMeshBasicShapeTools.h"
 #include "Core/RealtimeMeshBuilder.h"
 
+using namespace RealtimeMesh;
 
 ARealtimeMeshStressTestActor2::ARealtimeMeshStressTestActor2()
 {
@@ -53,7 +54,7 @@ void ARealtimeMeshStressTestActor2::TickActor(float DeltaTime, ELevelTick TickTy
 	{
 		TSharedRef<TStrongObjectPtr<URealtimeMeshSimple>> RealtimeMeshRef = MakeShared<TStrongObjectPtr<URealtimeMeshSimple>>(RealtimeMesh);
 
-		TPromise<TSharedPtr<TStrongObjectPtr<URealtimeMeshSimple>>> Promise;
+		TPromise<void> Promise;
 		PendingGeneration = Promise.GetFuture();
 
 		AsyncTask(ENamedThreads::AnyThread, [RealtimeMeshRef, Promise = MoveTemp(Promise)]() mutable
@@ -96,7 +97,7 @@ void ARealtimeMeshStressTestActor2::TickActor(float DeltaTime, ELevelTick TickTy
 			RealtimeMeshRef.Get()->UpdateSectionRange(Section1Key, Section1Range);
 			RealtimeMeshRef.Get()->UpdateSectionRange(Section2Key, Section2Range);
 			
-			Promise.EmplaceValue(RealtimeMeshRef);
+			Promise.EmplaceValue();
 		});
 	}
 		

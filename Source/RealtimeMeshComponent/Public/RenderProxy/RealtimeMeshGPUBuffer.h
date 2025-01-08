@@ -1,4 +1,4 @@
-// Copyright (c) 2015-2024 TriAxis Games, L.L.C. All Rights Reserved.
+// Copyright (c) 2015-2025 TriAxis Games, L.L.C. All Rights Reserved.
 
 #pragma once
 
@@ -214,7 +214,7 @@ namespace RealtimeMesh
 #endif
 				}
 				
-				/*Batcher.QueueUpdateRequest(VertexBufferRHI, UpdateData->GetNumElements() > 0? UpdateData->GetBuffer() : nullptr);
+				//Batcher.QueueUpdateRequest(VertexBufferRHI, UpdateData->GetNumElements() > 0? UpdateData->GetBuffer() : nullptr);
 
 #if RMC_ENGINE_BELOW_5_3
 				if (ShaderResourceViewRHI)

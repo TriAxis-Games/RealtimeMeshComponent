@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2015-2024 TriAxis Games, L.L.C. All Rights Reserved.
+﻿// Copyright (c) 2015-2025 TriAxis Games, L.L.C. All Rights Reserved.
 
 #include "RealtimeMeshSimple.h"
 
@@ -20,6 +20,7 @@
 
 #define LOCTEXT_NAMESPACE "RealtimeMeshSimple"
 
+using namespace RealtimeMesh;
 
 namespace RealtimeMesh
 {
@@ -768,11 +769,11 @@ namespace RealtimeMesh
 				if (const auto ThisShared = ThisWeak.Pin())
 				{
 					FRealtimeMeshAccessContext AccessContext(ThisShared.ToSharedRef());
-					FRealtimeMeshComplexGeometry ComplexGeometry;
+					FRealtimeMeshComplexGeometry NewComplexGeometry;
 					
-					if (ThisShared->GenerateComplexCollision(AccessContext, ComplexGeometry))
+					if (ThisShared->GenerateComplexCollision(AccessContext, NewComplexGeometry))
 					{
-						CollisionData->ComplexGeometry = MoveTemp(ComplexGeometry);
+						CollisionData->ComplexGeometry = MoveTemp(NewComplexGeometry);
 					}
 
 					auto CollisionUpdateFuture = ThisShared->UpdateCollision(MoveTemp(*CollisionData), UpdateKey);
@@ -1334,9 +1335,9 @@ void URealtimeMeshSimple::SetSimpleGeometry(const FRealtimeMeshSimpleGeometry& I
 		});
 }
 
-void URealtimeMeshSimple::Reset(bool bCreateNewMeshData)
+void URealtimeMeshSimple::Reset()
 {
-	Super::Reset(bCreateNewMeshData);
+	Super::Reset();
 }
 
 void URealtimeMeshSimple::PostDuplicate(bool bDuplicateForPIE)

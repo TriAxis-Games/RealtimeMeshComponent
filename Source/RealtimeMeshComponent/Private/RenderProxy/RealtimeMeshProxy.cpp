@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2015-2024 TriAxis Games, L.L.C. All Rights Reserved.
+﻿// Copyright (c) 2015-2025 TriAxis Games, L.L.C. All Rights Reserved.
 
 #include "RenderProxy/RealtimeMeshProxy.h"
 
@@ -16,7 +16,9 @@ namespace RealtimeMesh
 		, ActiveStaticLODMask(false, REALTIME_MESH_MAX_LODS)
 		, ActiveDynamicLODMask(false, REALTIME_MESH_MAX_LODS)
 		, ReferencingHandle(MakeShared<uint8>(0xFF))
+#if UE_ENABLE_DEBUG_DRAWING
 		, CollisionTraceFlag(CTF_UseSimpleAndComplex)
+#endif
 	{
 	}
 

@@ -1,9 +1,10 @@
-﻿// Copyright (c) 2015-2024 TriAxis Games, L.L.C. All Rights Reserved.
+﻿// Copyright (c) 2015-2025 TriAxis Games, L.L.C. All Rights Reserved.
 
 
 #include "RealtimeMeshByStreamBuilder.h"
 #include "RealtimeMeshSimple.h"
 
+using namespace RealtimeMesh;
 
 ARealtimeMeshByStreamBuilder::ARealtimeMeshByStreamBuilder()
 {

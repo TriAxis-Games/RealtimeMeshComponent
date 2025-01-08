@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2015-2024 TriAxis Games, L.L.C. All Rights Reserved.
+﻿// Copyright (c) 2015-2025 TriAxis Games, L.L.C. All Rights Reserved.
 
 
 #include "Mesh/RealtimeMeshBlueprintMeshBuilder.h"
@@ -650,17 +650,17 @@ URealtimeMeshLocalBuilder* URealtimeMeshLocalBuilder::Initialize(ERealtimeMeshSi
 
 		if (WantedTexCoordChannels > 1)
 		{
-			UV1Builder = MakeUnique<RealtimeMesh::TRealtimeMeshStreamBuilder<FVector2d, void>>(Stream, 1);
+			UV1Builder = MakeUnique<RealtimeMesh::TRealtimeMeshStridedStreamBuilder<FVector2d, void>>(Stream, 1);
 		}
 
 		if (WantedTexCoordChannels > 2)
 		{
-			UV2Builder = MakeUnique<RealtimeMesh::TRealtimeMeshStreamBuilder<FVector2d, void>>(Stream, 2);
+			UV2Builder = MakeUnique<RealtimeMesh::TRealtimeMeshStridedStreamBuilder<FVector2d, void>>(Stream, 2);
 		}
 
 		if (WantedTexCoordChannels > 3)
 		{
-			UV3Builder = MakeUnique<RealtimeMesh::TRealtimeMeshStreamBuilder<FVector2d, void>>(Stream, 3);
+			UV3Builder = MakeUnique<RealtimeMesh::TRealtimeMeshStridedStreamBuilder<FVector2d, void>>(Stream, 3);
 		}
 	}
 
@@ -781,17 +781,17 @@ URealtimeMeshLocalBuilder* URealtimeMeshLocalBuilder::EnableTexCoords(int32 NumC
 
 		if (NumChannels > 1)
 		{
-			UV1Builder = MakeUnique<RealtimeMesh::TRealtimeMeshStreamBuilder<FVector2d, void>>(Stream, 1);
+			UV1Builder = MakeUnique<RealtimeMesh::TRealtimeMeshStridedStreamBuilder<FVector2d, void>>(Stream, 1);
 		}
 
 		if (NumChannels > 2)
 		{
-			UV2Builder = MakeUnique<RealtimeMesh::TRealtimeMeshStreamBuilder<FVector2d, void>>(Stream, 2);
+			UV2Builder = MakeUnique<RealtimeMesh::TRealtimeMeshStridedStreamBuilder<FVector2d, void>>(Stream, 2);
 		}
 
 		if (NumChannels > 3)
 		{
-			UV3Builder = MakeUnique<RealtimeMesh::TRealtimeMeshStreamBuilder<FVector2d, void>>(Stream, 3);
+			UV3Builder = MakeUnique<RealtimeMesh::TRealtimeMeshStridedStreamBuilder<FVector2d, void>>(Stream, 3);
 		}		
 	}
 	return this;
@@ -941,15 +941,15 @@ int32 URealtimeMeshLocalBuilder::AddVertex(URealtimeMeshLocalBuilder*& Builder, 
 
 			if (UV1Builder.IsValid())
 			{
-				UV1Builder->SetElement(Vertex.GetIndex(), 1, InVertex.UV1);
+				UV1Builder->SetElement(Vertex.GetIndex(), 0, InVertex.UV1);
 			}
 			if (UV2Builder.IsValid())
 			{
-				UV2Builder->SetElement(Vertex.GetIndex(), 2, InVertex.UV2);
+				UV2Builder->SetElement(Vertex.GetIndex(), 0, InVertex.UV2);
 			}
 			if (UV3Builder.IsValid())
 			{
-				UV3Builder->SetElement(Vertex.GetIndex(), 3, InVertex.UV3);
+				UV3Builder->SetElement(Vertex.GetIndex(), 0, InVertex.UV3);
 			}
 		}
 
@@ -1075,7 +1075,11 @@ URealtimeMeshStream* URealtimeMeshStreamPool::RequestStream(const FRealtimeMeshS
 {	
 	if (CachedStreams.Num() > 0)
 	{
+#if RMC_ENGINE_ABOVE_5_5
+		auto Stream = CachedStreams.Pop(EAllowShrinking::Yes);
+#else
 		auto Stream = CachedStreams.Pop(false);
+#endif
 		Stream->Initialize(StreamKey, StreamType, NumElements);
 		return Stream;
 	}

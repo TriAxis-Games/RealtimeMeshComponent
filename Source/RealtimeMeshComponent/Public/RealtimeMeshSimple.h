@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2015-2024 TriAxis Games, L.L.C. All Rights Reserved.
+﻿// Copyright (c) 2015-2025 TriAxis Games, L.L.C. All Rights Reserved.
 
 #pragma once
 
@@ -19,7 +19,6 @@
 
 class URealtimeMeshStreamSet;
 class URealtimeMeshSimple;
-using namespace RealtimeMesh;
 
 
 namespace RealtimeMesh
@@ -348,7 +347,7 @@ namespace RealtimeMesh
 
 		virtual void ProcessEndOfFrameUpdates() override;
 
-		friend class URealtimeMeshSimple;
+		friend class ::URealtimeMeshSimple;
 	};
 }
 
@@ -370,11 +369,11 @@ public:
 
 	TFuture<ERealtimeMeshProxyUpdateStatus> CreateSectionGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey, const FRealtimeMeshSectionGroupConfig& InConfig = FRealtimeMeshSectionGroupConfig(), bool bShouldAutoCreateSectionsForPolyGroups = true);
 
-	TFuture<ERealtimeMeshProxyUpdateStatus> CreateSectionGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey, FRealtimeMeshStreamSet&& MeshData, const FRealtimeMeshSectionGroupConfig& InConfig = FRealtimeMeshSectionGroupConfig(), bool bShouldAutoCreateSectionsForPolyGroups = true);
-	TFuture<ERealtimeMeshProxyUpdateStatus> CreateSectionGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey, const FRealtimeMeshStreamSet& MeshData, const FRealtimeMeshSectionGroupConfig& InConfig = FRealtimeMeshSectionGroupConfig(), bool bShouldAutoCreateSectionsForPolyGroups = true);
+	TFuture<ERealtimeMeshProxyUpdateStatus> CreateSectionGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey, RealtimeMesh::FRealtimeMeshStreamSet&& MeshData, const FRealtimeMeshSectionGroupConfig& InConfig = FRealtimeMeshSectionGroupConfig(), bool bShouldAutoCreateSectionsForPolyGroups = true);
+	TFuture<ERealtimeMeshProxyUpdateStatus> CreateSectionGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey, const RealtimeMesh::FRealtimeMeshStreamSet& MeshData, const FRealtimeMeshSectionGroupConfig& InConfig = FRealtimeMeshSectionGroupConfig(), bool bShouldAutoCreateSectionsForPolyGroups = true);
 	
-	TFuture<ERealtimeMeshProxyUpdateStatus> UpdateSectionGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey, FRealtimeMeshStreamSet&& MeshData);
-	TFuture<ERealtimeMeshProxyUpdateStatus> UpdateSectionGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey, const FRealtimeMeshStreamSet& MeshData);	
+	TFuture<ERealtimeMeshProxyUpdateStatus> UpdateSectionGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey, RealtimeMesh::FRealtimeMeshStreamSet&& MeshData);
+	TFuture<ERealtimeMeshProxyUpdateStatus> UpdateSectionGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey, const RealtimeMesh::FRealtimeMeshStreamSet& MeshData);	
 	
 	TFuture<ERealtimeMeshProxyUpdateStatus> CreateSection(const FRealtimeMeshSectionKey& SectionKey, const FRealtimeMeshSectionConfig& Config,
 															const FRealtimeMeshStreamRange& StreamRange, bool bShouldCreateCollision = false);
@@ -384,10 +383,10 @@ public:
 
 
 	TArray<FRealtimeMeshSectionGroupKey> GetSectionGroups(const FRealtimeMeshLODKey& LODKey) const;
-	TSharedPtr<FRealtimeMeshSectionGroupSimple> GetSectionGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey) const;
+	TSharedPtr<RealtimeMesh::FRealtimeMeshSectionGroupSimple> GetSectionGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey) const;
 	
-	void ProcessMesh(const FRealtimeMeshSectionGroupKey& SectionGroupKey, const TFunctionRef<void(const FRealtimeMeshStreamSet&)>& ProcessFunc) const;
-	TFuture<ERealtimeMeshProxyUpdateStatus> EditMeshInPlace(const FRealtimeMeshSectionGroupKey& SectionGroupKey, const TFunctionRef<TSet<FRealtimeMeshStreamKey>(FRealtimeMeshStreamSet&)>& EditFunc);
+	void ProcessMesh(const FRealtimeMeshSectionGroupKey& SectionGroupKey, const TFunctionRef<void(const RealtimeMesh::FRealtimeMeshStreamSet&)>& ProcessFunc) const;
+	TFuture<ERealtimeMeshProxyUpdateStatus> EditMeshInPlace(const FRealtimeMeshSectionGroupKey& SectionGroupKey, const TFunctionRef<TSet<FRealtimeMeshStreamKey>(RealtimeMesh::FRealtimeMeshStreamSet&)>& EditFunc);
 
 
 
@@ -465,7 +464,7 @@ public:
 	
 	TFuture<ERealtimeMeshProxyUpdateStatus> ClearDistanceField();
 
-	const FRealtimeMeshCardRepresentation* GetCardRepresentation(const FRealtimeMeshLockContext& LockContext) const;
+	const FRealtimeMeshCardRepresentation* GetCardRepresentation(const RealtimeMesh::FRealtimeMeshLockContext& LockContext) const;
 	
 	TFuture<ERealtimeMeshProxyUpdateStatus> SetCardRepresentation(FRealtimeMeshCardRepresentation&& InCardRepresentation);
 	
@@ -490,7 +489,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh", DisplayName="SetSimpleGeometry", meta = (AutoCreateRefTerm = "OnComplete"))
 	void SetSimpleGeometry(const FRealtimeMeshSimpleGeometry& InSimpleGeometry, const FRealtimeMeshSimpleCollisionCompletionCallback& OnComplete);
 	
-	virtual void Reset(bool bCreateNewMeshData) override;
+	virtual void Reset() override;
 	
 	virtual void PostDuplicate(bool bDuplicateForPIE) override;
 	virtual void PostLoad() override;

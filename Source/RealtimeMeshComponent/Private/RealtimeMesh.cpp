@@ -1,4 +1,4 @@
-// Copyright (c) 2015-2024 TriAxis Games, L.L.C. All Rights Reserved.
+// Copyright (c) 2015-2025 TriAxis Games, L.L.C. All Rights Reserved.
 
 #include "RealtimeMesh.h"
 #include "RealtimeMeshComponent.h"
@@ -154,29 +154,27 @@ bool URealtimeMesh::CalcTexCoordAtLocation(const FVector& BodySpaceLocation, int
 	return bSuccess;
 }
 
-void URealtimeMesh::Reset(bool bCreateNewMeshData)
+void URealtimeMesh::Reset()
 {
-	RealtimeMesh::FRealtimeMeshScopeGuardWrite ScopeGuard(SharedResources->GetGuard());
-	
-	if (!bCreateNewMeshData)
+	if (MeshRef.IsValid())
 	{
 		RealtimeMesh::FRealtimeMeshUpdateContext UpdateContext(GetMesh());
 		GetMesh()->Reset(UpdateContext);
+	
+		BroadcastBoundsChangedEvent();
+		//BroadcastRenderDataChangedEvent(true);
+		BroadcastCollisionBodyUpdatedEvent(nullptr);
 	}
-	else
-	{
-		Initialize(SharedResources->CreateSharedResources());
-	}
-
+	
 	MaterialSlots.Empty();
 	SlotNameLookup.Empty();
-	
+
+	if (BodySetup)
+	{
+		BodySetup->InvalidatePhysicsData();
+	}
 	BodySetup = nullptr;
 	UVData.Empty();
-
-	BroadcastBoundsChangedEvent();
-	//BroadcastRenderDataChangedEvent(true);
-	BroadcastCollisionBodyUpdatedEvent(nullptr);
 }
 
 FBoxSphereBounds URealtimeMesh::GetLocalBounds() const
@@ -321,6 +319,8 @@ void URealtimeMesh::PostInitProperties()
 
 void URealtimeMesh::BeginDestroy()
 {
+	Reset();
+	
 	Super::BeginDestroy();
 }
 

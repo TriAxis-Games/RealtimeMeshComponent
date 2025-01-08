@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2015-2024 TriAxis Games, L.L.C. All Rights Reserved.
+﻿// Copyright (c) 2015-2025 TriAxis Games, L.L.C. All Rights Reserved.
 
 #pragma once
 
@@ -247,18 +247,18 @@ class REALTIMEMESHCOMPONENT_API URealtimeMeshLocalBuilder : public URealtimeMesh
 	GENERATED_BODY()
 protected:
 	TUniquePtr<RealtimeMesh::TRealtimeMeshBuilderLocal<void, void, void, 1, void>> MeshBuilder;
-	TUniquePtr<RealtimeMesh::TRealtimeMeshStreamBuilder<FVector2D, void>> UV1Builder;
-	TUniquePtr<RealtimeMesh::TRealtimeMeshStreamBuilder<FVector2D, void>> UV2Builder;
-	TUniquePtr<RealtimeMesh::TRealtimeMeshStreamBuilder<FVector2D, void>> UV3Builder;
+	TUniquePtr<RealtimeMesh::TRealtimeMeshStridedStreamBuilder<FVector2D, void>> UV1Builder;
+	TUniquePtr<RealtimeMesh::TRealtimeMeshStridedStreamBuilder<FVector2D, void>> UV2Builder;
+	TUniquePtr<RealtimeMesh::TRealtimeMeshStridedStreamBuilder<FVector2D, void>> UV3Builder;
 	virtual void EnsureInitialized() override;
 public:
 	URealtimeMeshLocalBuilder() = default;
 
 	void Initialize(TUniquePtr<RealtimeMesh::FRealtimeMeshStreamSet>&& InStreams,
 		TUniquePtr<RealtimeMesh::TRealtimeMeshBuilderLocal<void, void, void, 1, void>>&& InBuilder,
-		TUniquePtr<RealtimeMesh::TRealtimeMeshStreamBuilder<FVector2D, void>>&& InUV1Builder,
-		TUniquePtr<RealtimeMesh::TRealtimeMeshStreamBuilder<FVector2D, void>>&& InUV2Builder,
-		TUniquePtr<RealtimeMesh::TRealtimeMeshStreamBuilder<FVector2D, void>>&& InUV3Builder)
+		TUniquePtr<RealtimeMesh::TRealtimeMeshStridedStreamBuilder<FVector2D, void>>&& InUV1Builder,
+		TUniquePtr<RealtimeMesh::TRealtimeMeshStridedStreamBuilder<FVector2D, void>>&& InUV2Builder,
+		TUniquePtr<RealtimeMesh::TRealtimeMeshStridedStreamBuilder<FVector2D, void>>&& InUV3Builder)
 	{
 		Streams = MakeShared<RealtimeMesh::FRealtimeMeshStreamSet>(MoveTemp(*InStreams));
 		MeshBuilder = MoveTemp(InBuilder);

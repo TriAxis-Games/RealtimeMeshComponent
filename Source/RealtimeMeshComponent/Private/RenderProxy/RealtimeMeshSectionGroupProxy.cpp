@@ -1,4 +1,4 @@
-// Copyright (c) 2015-2024 TriAxis Games, L.L.C. All Rights Reserved.
+// Copyright (c) 2015-2025 TriAxis Games, L.L.C. All Rights Reserved.
 
 #include "RenderProxy/RealtimeMeshSectionGroupProxy.h"
 
@@ -322,7 +322,11 @@ namespace RealtimeMesh
 				Initializer.TotalPrimitiveCount += Segment.NumPrimitives;
 
 				HighestSegmentPrimitive = FMath::Max<uint32>(HighestSegmentPrimitive, Segment.FirstPrimitive + Segment.NumPrimitives);
-				Initializer.Segments.Add(Segment);
+
+				if (Segment.NumPrimitives > 0)
+				{
+					Initializer.Segments.Add(Segment);
+				}
 			}
 
 			const bool bIsDataValid = HighestSegmentPrimitive <= Initializer.TotalPrimitiveCount;
@@ -339,7 +343,12 @@ namespace RealtimeMesh
 #else
 				RayTracingGeometry.InitResource();				
 #endif
+				
+#if RMC_ENGINE_ABOVE_5_5				
+				check(RayTracingGeometry.GetRHI()->IsValid());
+#else
 				check(RayTracingGeometry.RayTracingGeometryRHI.IsValid());
+#endif
 			}
 		}
 #endif

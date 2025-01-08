@@ -1,7 +1,7 @@
-﻿// Copyright (c) 2015-2024 TriAxis Games, L.L.C. All Rights Reserved.
+﻿// Copyright (c) 2015-2025 TriAxis Games, L.L.C. All Rights Reserved.
 
 #include "Misc/AutomationTest.h"
-#include "Core//RealtimeMeshDataTypes.h"
+#include "Core/RealtimeMeshDataTypes.h"
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FRealtimeMeshElementTypeTests, "RealtimeMeshComponent.RealtimeMeshElementType",
                                  EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
