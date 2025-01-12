@@ -243,7 +243,7 @@ namespace RealtimeMesh
 
 		if (bNeedsFactoryInitialization)
 		{
-			UpdateRayTracingInfo(RHICmdList);
+			DrawMask.SetFlag(UpdateRayTracingInfo(RHICmdList)? ERealtimeMeshDrawMask::RayTracing : ERealtimeMeshDrawMask::None);
 		}
 	}
 
@@ -278,14 +278,41 @@ namespace RealtimeMesh
 		DrawMask = FRealtimeMeshDrawMask();
 	}
 
-	void FRealtimeMeshSectionGroupProxy::UpdateRayTracingInfo(FRHICommandListBase& RHICmdList)
+	bool FRealtimeMeshSectionGroupProxy::UpdateRayTracingInfo(FRHICommandListBase& RHICmdList)
 	{
 #if RHI_RAYTRACING
 		TRACE_CPUPROFILER_EVENT_SCOPE(FRealtimeMeshSectionGroupProxy::UpdateRayTracingInfo);
 		
 		RayTracingGeometry.ReleaseResource();
 
-		if (DrawMask.HasAnyFlags() && VertexFactory.IsValid() && IsRayTracingEnabled())
+		bool bShouldGenerateRayTracingGeometry = DrawMask.HasAnyFlags() && VertexFactory.IsValid() && IsRayTracingEnabled();
+
+		// We need to check if the sections are contiguous with no gaps and using the entire index buffer...
+		// If it is not then we weed to allocate a ray tracing index buffer and pack the active sections down into it.
+		// This is because the ray tracing geometry can't have gaps in the index buffer.
+
+		TRangeSet<int32> SectionIndexRanges;
+		for (const auto& Section : Sections)
+		{
+			if (Section->GetDrawMask().ShouldRender() && Section->GetDrawMask().ShouldRenderMainPass())
+			{
+				SectionIndexRanges.Add(TRange<int32>(Section->GetStreamRange().GetMinIndex(), Section->GetStreamRange().GetMaxIndex() + 1));
+			}
+		}
+
+		const int32 MinIndex = SectionIndexRanges.HasMinBound() ? (SectionIndexRanges.GetMinBoundValue() + (SectionIndexRanges.GetMinBound().IsInclusive()? 0 : 1)) : 0;
+		const int32 MaxIndex = SectionIndexRanges.HasMaxBound() ? (SectionIndexRanges.GetMaxBoundValue() - (SectionIndexRanges.GetMaxBound().IsInclusive()? 0 : 1)) : 0;
+
+		const bool bAreSectionsContiguous = !SectionIndexRanges.IsEmpty() && SectionIndexRanges.Contains(TRange<int32>(MinIndex, MaxIndex + 1));
+
+		if (!bAreSectionsContiguous)
+		{
+			// TODO: Implement ray tracing index buffer creation
+			UE_LOG(LogRealtimeMesh, Warning, TEXT("Unable to create ray tracing accelleration structures. Some triangles in buffer are unaccounted for in sections."));
+			bShouldGenerateRayTracingGeometry = false;
+		}		
+
+		if (bShouldGenerateRayTracingGeometry)
 		{
 			check(VertexFactory->IsInitialized());
 
@@ -293,64 +320,48 @@ namespace RealtimeMesh
 			const auto IndexStream = StaticCastSharedPtr<FRealtimeMeshIndexBuffer>(Streams.FindChecked(FRealtimeMeshStreams::Triangles));
 
 			FRayTracingGeometryInitializer Initializer;
-			// TODO: Get better debug name
-			Initializer.DebugName = TEXT("RealtimeMeshComponent");
+			Initializer.DebugName = *(SharedResources->GetMeshName().ToString() + TEXT("_") + Key.ToString() + " RTGeometry");
+			Initializer.OwnerName = SharedResources->GetMeshName();
+			
 			Initializer.IndexBuffer = IndexStream->IndexBufferRHI;
-			Initializer.TotalPrimitiveCount = 0;
+			Initializer.IndexBufferOffset = IndexStream->IndexBufferRHI->GetStride() * MinIndex;
+			Initializer.TotalPrimitiveCount = ((MaxIndex - MinIndex) + 1) / 3;
 			Initializer.GeometryType = RTGT_Triangles;
 			Initializer.bFastBuild = true;
 			Initializer.bAllowUpdate = false;
 
-			uint32 HighestSegmentPrimitive = 0;
 			for (const auto& Section : Sections)
 			{
-				FRayTracingGeometrySegment Segment;
-				Segment.VertexBuffer = PositionStream->VertexBufferRHI;
-				Segment.VertexBufferOffset = 0; 
-				Segment.MaxVertices = PositionStream->Num();
-				Segment.bEnabled = Section->GetDrawMask().IsAnySet(ERealtimeMeshDrawMask::DrawDynamic | ERealtimeMeshDrawMask::DrawStatic);
-				if (Segment.bEnabled)
+				if (Section->GetDrawMask().ShouldRender() && Section->GetDrawMask().ShouldRenderMainPass())
 				{
+					FRayTracingGeometrySegment Segment;
+					Segment.VertexBuffer = PositionStream->VertexBufferRHI;
+					Segment.VertexBufferOffset = 0; 
+					Segment.MaxVertices = PositionStream->Num();
 					Segment.FirstPrimitive = Section->GetStreamRange().GetMinIndex() / 3;
 					Segment.NumPrimitives = Section->GetStreamRange().NumPrimitives(3);
-				}
-				else
-				{
-					Segment.FirstPrimitive = 0;
-					Segment.NumPrimitives = 0;
-				}
-				Initializer.TotalPrimitiveCount += Segment.NumPrimitives;
-
-				HighestSegmentPrimitive = FMath::Max<uint32>(HighestSegmentPrimitive, Segment.FirstPrimitive + Segment.NumPrimitives);
-
-				if (Segment.NumPrimitives > 0)
-				{
+					check(Segment.NumPrimitives > 0);
 					Initializer.Segments.Add(Segment);
 				}
 			}
 
-			const bool bIsDataValid = HighestSegmentPrimitive <= Initializer.TotalPrimitiveCount;
-
-			if (!bIsDataValid)
-			{
-				UE_LOG(LogRealtimeMesh, Warning, TEXT("Unable to create ray tracing accelleration structures. Some triangles in buffer are unaccounted for in sections."));
-			}
-			else if (Initializer.Segments.Num() > 0)
-			{
-				RayTracingGeometry.SetInitializer(Initializer);
+			RayTracingGeometry.SetInitializer(Initializer);
 #if RMC_ENGINE_ABOVE_5_3
-				RayTracingGeometry.InitResource(RHICmdList);
+			RayTracingGeometry.InitResource(RHICmdList);
 #else
-				RayTracingGeometry.InitResource();				
+			RayTracingGeometry.InitResource();				
 #endif
 				
 #if RMC_ENGINE_ABOVE_5_5				
-				check(RayTracingGeometry.GetRHI()->IsValid());
+			check(RayTracingGeometry.GetRHI()->IsValid());
 #else
-				check(RayTracingGeometry.RayTracingGeometryRHI.IsValid());
+			check(RayTracingGeometry.RayTracingGeometryRHI.IsValid());
 #endif
-			}
+
+			return true;
 		}
+		
+		return false;
 #endif
 	}
 

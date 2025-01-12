@@ -73,9 +73,9 @@ namespace RealtimeMesh
 				RHICmdList->FinishRecording();
 
 				ENQUEUE_RENDER_COMMAND(RealtimeMeshAsyncSubmission)(
-					[this, RHIAsyncCmdList = RHICmdList.Release()](FRHICommandListImmediate& RHICmdList)
+					[this, RHIAsyncCmdList = RHICmdList.Release()](FRHICommandListImmediate& CmdList)
 					{
-						RHICmdList.QueueAsyncCommandListSubmit(RHIAsyncCmdList);
+						CmdList.QueueAsyncCommandListSubmit(RHIAsyncCmdList);
 					});
 #else
 				RHICmdList.Reset();				

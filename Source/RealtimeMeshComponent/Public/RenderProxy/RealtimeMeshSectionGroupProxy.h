@@ -113,7 +113,7 @@ namespace RealtimeMesh
 		virtual void Reset();
 
 	protected:
-		virtual void UpdateRayTracingInfo(FRHICommandListBase& RHICmdList);
+		virtual bool UpdateRayTracingInfo(FRHICommandListBase& RHICmdList);
 
 		void RebuildSectionMap();
 

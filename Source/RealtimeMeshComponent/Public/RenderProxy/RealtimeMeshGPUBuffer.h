@@ -228,7 +228,7 @@ namespace RealtimeMesh
 						Batcher.QueueUpdateRequest(ShaderResourceViewRHI, nullptr, 0, 0);
 					}
 				}
-#endif#1#
+#endif
 			}
 		}*/
 	};

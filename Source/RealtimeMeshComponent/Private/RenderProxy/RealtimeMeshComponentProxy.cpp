@@ -24,6 +24,10 @@ DECLARE_CYCLE_STAT(TEXT("RealtimeMeshComponentSceneProxy - Draw Static Mesh Elem
 DECLARE_CYCLE_STAT(TEXT("RealtimeMeshComponentSceneProxy - Get Dynamic Ray Tracing Instances"), STAT_RealtimeMeshComponentSceneProxy_GetDynamicRayTracingInstances,
                    STATGROUP_RealtimeMesh);
 
+static TAutoConsoleVariable<int32> CVarRayTracingRealtimeMesh(
+	TEXT("r.RayTracing.Geometry.RealtimeMeshes"),
+	1,
+	TEXT("Include realtime meshes in ray tracing effects (default = 1 (realtime meshes enabled in ray tracing))"));
 
 namespace RealtimeMesh
 {	
@@ -66,7 +70,7 @@ namespace RealtimeMesh
 
 
 #if RHI_RAYTRACING
-		//bSupportsRayTracing = true; //InRealtimeMeshProxy->HasRayTracingGeometry();
+		bSupportsRayTracing = true; //InRealtimeMeshProxy->HasRayTracingGeometry()
 		//bDynamicRayTracingGeometry = false;
 
 #if RMC_ENGINE_BELOW_5_4
@@ -167,6 +171,17 @@ namespace RealtimeMesh
 		return Result;
 	}
 
+	inline void SetupMeshBatchForRuntimeVirtualTexture(FMeshBatch& MeshBatch)
+	{
+		MeshBatch.CastShadow = 0;
+		MeshBatch.bUseAsOccluder = 0;
+		MeshBatch.bUseForDepthPass = 0;
+		MeshBatch.bUseForMaterial = 0;
+		MeshBatch.bDitheredLODTransition = 0;
+		MeshBatch.bRenderToVirtualTexture = 1;
+	}
+
+	
 	void FRealtimeMeshComponentSceneProxy::DrawStaticElements(FStaticPrimitiveDrawInterface* PDI)
 	{
 		SCOPE_CYCLE_COUNTER(STAT_RealtimeMeshComponentSceneProxy_DrawStaticMeshElements);
@@ -222,7 +237,9 @@ namespace RealtimeMesh
 						MeshBatch.bDitheredLODTransition &= bAnyMaterialUsesDithering && !IsMovable() && LODMask.IsDithered() &&
 							MaterialMap.GetMaterialSupportsDither(Section->GetMaterialSlot());
 						MeshBatch.CastShadow &= bCastDynamicShadow;
+#if RHI_RAYTRACING
 						MeshBatch.CastRayTracedShadow &= bCastDynamicShadow;
+#endif
 
 						auto& BatchElement = MeshBatch.Elements[0];
 
@@ -232,7 +249,19 @@ namespace RealtimeMesh
 
 						//check(MeshBatch.Validate(this, GetScene().GetFeatureLevel()));
 
-						PDI->DrawMesh(MeshBatch, LODScreenSizes.GetLowerBoundValue());
+						if (RuntimeVirtualTextureMaterialTypes.Num() > 0)
+						{
+							// Runtime virtual texture mesh elements.
+							FMeshBatch RVTMeshBatch(MeshBatch);
+							SetupMeshBatchForRuntimeVirtualTexture(RVTMeshBatch);
+							for (ERuntimeVirtualTextureMaterialType MaterialType : RuntimeVirtualTextureMaterialTypes)
+							{
+								RVTMeshBatch.RuntimeVirtualTextureMaterialType = (uint32)MaterialType;
+								PDI->DrawMesh(RVTMeshBatch, LODScreenSizes.GetLowerBoundValue());
+							}
+						}
+
+						PDI->DrawMesh(MeshBatch, LODScreenSizes.GetLowerBoundValue());						
 					}
 				}
 			}			
@@ -324,14 +353,16 @@ namespace RealtimeMesh
 									MeshBatch.bDitheredLODTransition &= bAnyMaterialUsesDithering && !IsMovable() && LODMask.IsDithered() &&
 										MaterialMap.GetMaterialSupportsDither(Section->GetMaterialSlot());
 									MeshBatch.CastShadow &= bCastDynamicShadow;
+#if RHI_RAYTRACING
 									MeshBatch.CastRayTracedShadow &= bCastDynamicShadow;
+#endif
 
 									auto& BatchElement = MeshBatch.Elements[0];
 
 									// Setup LOD screen sizes
 									BatchElement.MinScreenSize = LODScreenSizes.GetLowerBoundValue();
 									BatchElement.MaxScreenSize = LODScreenSizes.GetUpperBoundValue();
-
+									
 									Collector.AddMesh(ViewIndex, MeshBatch);
 								}
 							}
@@ -398,20 +429,24 @@ namespace RealtimeMesh
 		return RealtimeMeshProxy->GetCardRepresentation();
 	}
 
-	bool FRealtimeMeshComponentSceneProxy::HasRayTracingRepresentation() const
-	{
-		return false;
-/*#if RHI_RAYTRACING
-		return bSupportsRayTracing;
-#else
-		return false;
-#endif*/
-	}
 
+#if RHI_RAYTRACING
+	bool FRealtimeMeshComponentSceneProxy::IsRayTracingStaticRelevant() const
+	{
+		// Still some work to finish for static ray tracing to behave correctly as it's initialized on the GT before
+		// the 
+		return false && RealtimeMeshProxy->GetDrawMask().CanRenderInStaticRayTracing();
+	}
+	
 #if RMC_ENGINE_ABOVE_5_4
+
 	TArray<FRayTracingGeometry*> FRealtimeMeshComponentSceneProxy::GetStaticRayTracingGeometries() const
 	{
-/*#if RHI_RAYTRACING
+		if (!CVarRayTracingRealtimeMesh.GetValueOnAnyThread())
+		{
+			return { };
+		}
+		
 		if (IsRayTracingAllowed() && bSupportsRayTracing)
 		{
 			TArray<FRayTracingGeometry*> RayTracingGeometries;
@@ -432,98 +467,124 @@ namespace RealtimeMesh
 			
 			return MoveTemp(RayTracingGeometries);
 		}
-#endif // RHI_RAYTRACING*/
 		return {};
 	}
 #endif // RMC_ENGINE_ABOVE_5_4
+	
 
-#if RHI_RAYTRACING
+#if RMC_ENGINE_ABOVE_5_5
+	void FRealtimeMeshComponentSceneProxy::GetDynamicRayTracingInstances(class FRayTracingInstanceCollector& Collector)
+#else
 	void FRealtimeMeshComponentSceneProxy::GetDynamicRayTracingInstances(struct FRayTracingMaterialGatheringContext& Context,
 	                                                                     TArray<struct FRayTracingInstance>& OutRayTracingInstances)
+#endif
 	{
 		SCOPE_CYCLE_COUNTER(STAT_RealtimeMeshComponentSceneProxy_GetDynamicRayTracingInstances);
 
-		/*const uint32 LODIndex = FMath::Max(GetLOD(Context.ReferenceView), (int32)GetCurrentFirstLODIdx_RenderThread());
-
-		TMap<const FRayTracingGeometry*, int32> CurrentRayTracingGeometries;
-
-		if (auto LOD = RealtimeMeshProxy->GetLOD(LODIndex))
+		if (!CVarRayTracingRealtimeMesh.GetValueOnRenderThread())
 		{
-			check(LOD->GetDrawMask().ShouldRenderDynamicPath() || LOD->GetDrawMask().ShouldRenderStaticPath());
+			return;
+		}
+
+#if RMC_ENGINE_ABOVE_5_5
+		const uint32 LODIndex = FMath::Max(GetLOD(Collector.GetReferenceView()), (int32)GetCurrentFirstLODIdx_RenderThread());
+#else
+		const uint32 LODIndex = FMath::Max(GetLOD(Context.ReferenceView), (int32)GetCurrentFirstLODIdx_RenderThread());
+#endif
+
+		auto LOD = RealtimeMeshProxy->GetLOD(LODIndex);
+		if (!LOD || !LOD->GetDrawMask().ShouldRenderInRayTracing())
+		{
+			return;
+		}
+		
+		TMap<const FRayTracingGeometry*, int32> CurrentRayTracingGeometries;		
+
+		const auto LODScreenSizes = RealtimeMeshProxy->GetScreenSizeRangeForLOD(LODIndex);
+
+		// Walk all section groups within the LOD
+		for (auto SectionGroupIt = LOD->GetActiveSectionGroupMaskIter(); SectionGroupIt; ++SectionGroupIt)
+		{			
+			const FRealtimeMeshSectionGroupProxy* SectionGroup = *SectionGroupIt;
+			check(SectionGroup->GetDrawMask().ShouldRenderDynamicPath() || LOD->GetDrawMask().ShouldRenderStaticPath());
+
+			if (!SectionGroup->GetDrawMask().ShouldRenderInRayTracing())
+			{
+				continue;
+			}
+
+			auto VertexFactory = SectionGroup->GetVertexFactory();
+			check(VertexFactory && VertexFactory.IsValid() && VertexFactory->IsInitialized());
+
+			const FRayTracingGeometry* RayTracingGeometry = SectionGroup->GetRayTracingGeometry();
 			
-			const auto LODScreenSizes = RealtimeMeshProxy->GetScreenSizeRangeForLOD(LODIndex);
-
-			// Walk all section groups within the LOD
-			for (auto SectionGroupIt = LOD->GetActiveSectionGroupMaskIter(); SectionGroupIt; ++SectionGroupIt)
-			{			
-				const FRealtimeMeshSectionGroupProxy* SectionGroup = *SectionGroupIt;
-				check(SectionGroup->GetDrawMask().ShouldRenderDynamicPath() || LOD->GetDrawMask().ShouldRenderStaticPath());
-
-				if (LOD->GetStaticRayTracedSectionGroup() && LOD->GetStaticRayTracedSectionGroup().Get() == SectionGroup)
+			check(RayTracingGeometry->Initializer.TotalPrimitiveCount > 0);
+			check(RayTracingGeometry->Initializer.IndexBuffer.IsValid());
+			
+#if RMC_ENGINE_ABOVE_5_5
+			checkf(RayTracingGeometry->GetRHI(), TEXT("Ray tracing instance must have a valid geometry."));
+			FRayTracingInstance RayTracingInstance;
+#else
+			checkf(RayTracingGeometry->RayTracingGeometryRHI, TEXT("Ray tracing instance must have a valid geometry."));
+			FRayTracingInstance& RayTracingInstance = OutRayTracingInstances.AddDefaulted_GetRef();
+#endif
+			
+			RayTracingInstance.Geometry = RayTracingGeometry;
+			RayTracingInstance.InstanceTransforms.Add(GetLocalToWorld());
+			
+			if (RayTracingGeometry->IsValid() && RayTracingGeometry->IsInitialized())
+			{
+				for (auto SectionIt = SectionGroup->GetActiveSectionMaskIter(); SectionIt; ++SectionIt)
 				{
-					continue;
-				}
+					const FRealtimeMeshSectionProxy* Section = *SectionIt;
+					check(Section->GetDrawMask().ShouldRenderDynamicPath() || Section->GetDrawMask().ShouldRenderStaticPath());
 
-				auto VertexFactory = SectionGroup->GetVertexFactory();
-				check(VertexFactory && VertexFactory.IsValid() && VertexFactory->IsInitialized());
+					FMaterialRenderProxy* MaterialProxy = MaterialMap.GetMaterial(Section->GetMaterialSlot());
 
-				const FRayTracingGeometry* RayTracingGeometry = SectionGroup->GetRayTracingGeometry();
-				
-				check(RayTracingGeometry->Initializer.TotalPrimitiveCount > 0);
-				check(RayTracingGeometry->Initializer.IndexBuffer.IsValid());
-				checkf(RayTracingGeometry->RayTracingGeometryRHI, TEXT("Ray tracing instance must have a valid geometry."));				
+					FMeshBatch MeshBatch;
 
-				auto& RayTracingInstance = OutRayTracingInstances.AddDefaulted_GetRef();
-				RayTracingInstance.Geometry = RayTracingGeometry;
-				RayTracingInstance.InstanceTransforms.Add(GetLocalToWorld());
-				
-				if (RayTracingGeometry->IsValid() && RayTracingGeometry->IsInitialized())
-				{
-					for (auto SectionIt = SectionGroup->GetActiveSectionMaskIter(); SectionIt; ++SectionIt)
-					{
-						const FRealtimeMeshSectionProxy* Section = *SectionIt;
-						check(Section->GetDrawMask().ShouldRenderDynamicPath() || Section->GetDrawMask().ShouldRenderStaticPath());
+					MeshBatch.MaterialRenderProxy = MaterialProxy? MaterialProxy : UMaterial::GetDefaultMaterial(MD_Surface)->GetRenderProxy();
+					MeshBatch.bWireframe = false;
 
-						FMaterialRenderProxy* MaterialProxy = MaterialMap.GetMaterial(Section->GetMaterialSlot());
+					// Let SectionGroup do initial setup
+					FRealtimeMeshResourceReferenceList DynamicResources;					
+					bool bIsValid = SectionGroup->InitializeMeshBatch(MeshBatch, DynamicResources, IsLocalToWorldDeterminantNegative(), false);
 
-						FMeshBatch MeshBatch;
+					// Let Section finish setup
+					bIsValid = bIsValid && Section->InitializeMeshBatch(MeshBatch, GetUniformBuffer());
 
-						MeshBatch.MaterialRenderProxy = MaterialProxy? MaterialProxy : UMaterial::GetDefaultMaterial(MD_Surface)->GetRenderProxy();
-						MeshBatch.bWireframe = false;
+					if (bIsValid)
+					{						
+						// TODO: Should this check material?
+						MeshBatch.bDitheredLODTransition &= false;
+						MeshBatch.CastShadow &= bCastDynamicShadow;
+#if RMC_ENGINE_ABOVE_5_5
+						MeshBatch.CastShadow &= IsShadowCast(Collector.GetReferenceView());
+#endif
+						MeshBatch.CastRayTracedShadow &= bCastDynamicShadow;
 
-						// Let SectionGroup do initial setup
-						FRealtimeMeshResourceReferenceList DynamicResources;					
-						bool bIsValid = SectionGroup->InitializeMeshBatch(MeshBatch, DynamicResources, IsLocalToWorldDeterminantNegative(), false);
+						auto& BatchElement = MeshBatch.Elements[0];
 
-						// Let Section finish setup
-						bIsValid = bIsValid && Section->InitializeMeshBatch(MeshBatch, GetUniformBuffer());
+						// Setup LOD screen sizes
+						BatchElement.MinScreenSize = LODScreenSizes.GetLowerBoundValue();
+						BatchElement.MaxScreenSize = LODScreenSizes.GetUpperBoundValue();
 
-						if (bIsValid)
-						{						
-							// TODO: Should this check material?
-							MeshBatch.bDitheredLODTransition &= false;
-							MeshBatch.CastShadow &= bCastDynamicShadow;
-							MeshBatch.CastRayTracedShadow &= bCastDynamicShadow;
-
-							auto& BatchElement = MeshBatch.Elements[0];
-
-							// Setup LOD screen sizes
-							BatchElement.MinScreenSize = LODScreenSizes.GetLowerBoundValue();
-							BatchElement.MaxScreenSize = LODScreenSizes.GetUpperBoundValue();
-
-							MeshBatch.SegmentIndex = RayTracingInstance.Materials.Num();
-							RayTracingInstance.Materials.Add(MeshBatch);
-						}
+						MeshBatch.SegmentIndex = RayTracingInstance.Materials.Num();
+						RayTracingInstance.Materials.Add(MeshBatch);
 					}
 				}
-				
+			}
+			
 #if RMC_ENGINE_BELOW_5_2
-				RayTracingInstance.BuildInstanceMaskAndFlags(GetScene().GetFeatureLevel());
+			RayTracingInstance.BuildInstanceMaskAndFlags(GetScene().GetFeatureLevel());
 #endif
-			}		
-		}*/
+
+#if RMC_ENGINE_ABOVE_5_5				
+			Collector.AddRayTracingInstance(MoveTemp(RayTracingInstance));
+#endif
+		}
 	}
-#endif // RHI_RAYTRACING
+#endif
 
 	int8 FRealtimeMeshComponentSceneProxy::GetCurrentFirstLOD() const
 	{

@@ -63,11 +63,7 @@ namespace RealtimeMesh
 
 		virtual void DrawStaticElements(FStaticPrimitiveDrawInterface* PDI) override;
 
-		virtual bool HasRayTracingRepresentation() const;
 
-#if RMC_ENGINE_ABOVE_5_4
-		virtual TArray<FRayTracingGeometry*> GetStaticRayTracingGeometries() const;
-#endif
 		virtual void GetDynamicMeshElements(const TArray<const FSceneView*>& Views, const FSceneViewFamily& ViewFamily, uint32 VisibilityMap,
 		                                    FMeshElementCollector& Collector) const override;
 
@@ -80,11 +76,19 @@ namespace RealtimeMesh
 		
 #if RHI_RAYTRACING
 		virtual bool IsRayTracingRelevant() const override { return true; }
-		virtual bool IsRayTracingStaticRelevant() const override { return true; }
+		virtual bool HasRayTracingRepresentation() const override { return bSupportsRayTracing; }
+		virtual bool IsRayTracingStaticRelevant() const override;
 
+#if RMC_ENGINE_ABOVE_5_4
+		virtual TArray<FRayTracingGeometry*> GetStaticRayTracingGeometries() const override;
+#endif
+		
 		/** Gathers dynamic ray tracing instances from this proxy. */
+#if RMC_ENGINE_ABOVE_5_5
+		virtual void GetDynamicRayTracingInstances(class FRayTracingInstanceCollector& Collector) override;
+#else
 		virtual void GetDynamicRayTracingInstances(struct FRayTracingMaterialGatheringContext& Context, TArray<struct FRayTracingInstance>& OutRayTracingInstances) override;
-
+#endif
 #endif // RHI_RAYTRACING
 
 	protected:

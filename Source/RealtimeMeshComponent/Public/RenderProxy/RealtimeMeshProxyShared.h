@@ -18,7 +18,9 @@ namespace RealtimeMesh
 		DrawShadowPass = 0x8,
 		DrawDepthPass = 0x10,
 
-
+		RayTracing = 0x20,
+		DynamicRayTracing = 0x40,
+		
 		DrawPassMask = DrawStatic | DrawDynamic,
 	};
 
@@ -52,6 +54,9 @@ namespace RealtimeMesh
 		FORCEINLINE bool ShouldRenderStaticPath() const { return ShouldRender() && ShouldRenderMainPass() && IsStaticSection(); }
 		FORCEINLINE bool ShouldRenderDynamicPath() const { return ShouldRender() && ShouldRenderMainPass() && !IsStaticSection(); }
 		FORCEINLINE bool ShouldRenderShadow() const { return ShouldRender() && EnumHasAllFlags(MaskValue, ERealtimeMeshDrawMask::DrawShadowPass); }
+
+		FORCEINLINE bool ShouldRenderInRayTracing() const { return ShouldRender() && ShouldRenderMainPass() && EnumHasAllFlags(MaskValue, ERealtimeMeshDrawMask::RayTracing); }
+		FORCEINLINE bool CanRenderInStaticRayTracing() const { return ShouldRenderInRayTracing() && !EnumHasAllFlags(MaskValue, ERealtimeMeshDrawMask::DynamicRayTracing);}
 
 		FORCEINLINE bool operator==(const FRealtimeMeshDrawMask& Other) const { return MaskValue == Other.MaskValue; }
 		FORCEINLINE bool operator!=(const FRealtimeMeshDrawMask& Other) const { return MaskValue != Other.MaskValue; }

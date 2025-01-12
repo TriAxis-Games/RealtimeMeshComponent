@@ -206,12 +206,20 @@ namespace RealtimeMesh
 		ActiveStaticLODMask = FRealtimeMeshLODMask(false, REALTIME_MESH_MAX_LODS);
 		ActiveDynamicLODMask = FRealtimeMeshLODMask(false, REALTIME_MESH_MAX_LODS);
 
+		bool bHasInvalidStaticRayTracingSection = false;
 		for (int32 LODIndex = 0; LODIndex < LODs.Num(); LODIndex++)
 		{
 			const auto& LOD = LODs[LODIndex];
 
 			const auto LODDrawMask = LOD->GetDrawMask();
 			DrawMask |= LODDrawMask;
+
+			// if a lod has ray tracing data after a lod that doesn't we have to use dynamic ray tracing for the entire mesh
+			if (bHasInvalidStaticRayTracingSection && LODDrawMask.CanRenderInStaticRayTracing())
+			{
+				DrawMask.SetFlag(ERealtimeMeshDrawMask::DynamicRayTracing);
+			}
+			bHasInvalidStaticRayTracingSection |= !LODDrawMask.CanRenderInStaticRayTracing();
 
 			if (LODDrawMask.HasAnyFlags())
 			{

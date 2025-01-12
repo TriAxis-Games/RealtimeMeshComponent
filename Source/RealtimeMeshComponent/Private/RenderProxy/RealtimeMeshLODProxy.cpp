@@ -2,6 +2,7 @@
 
 #include "RenderProxy/RealtimeMeshLODProxy.h"
 
+#include "Algo/IndexOf.h"
 #include "Data/RealtimeMeshShared.h"
 #include "Core/RealtimeMeshLODConfig.h"
 #include "RenderProxy/RealtimeMeshSectionGroupProxy.h"
@@ -68,7 +69,7 @@ namespace RealtimeMesh
 #if RHI_RAYTRACING
 	FRayTracingGeometry* FRealtimeMeshLODProxy::GetStaticRayTracingGeometry() const
 	{
-		return StaticRaytracingSectionGroup.IsValid()? StaticRaytracingSectionGroup->GetRayTracingGeometry() : nullptr;
+		return SectionGroups.IsValidIndex(StaticRayTraceSectionGroup)? SectionGroups[StaticRayTraceSectionGroup]->GetRayTracingGeometry() : nullptr;
 	}
 #endif
 	
@@ -86,47 +87,40 @@ namespace RealtimeMesh
 		ActiveSectionGroupMask.SetNumUninitialized(SectionGroups.Num());
 		ActiveSectionGroupMask.SetRange(0, SectionGroups.Num(), false);
 		if (Config.bIsVisible && Config.ScreenSize >= 0)
-		{			
+		{
+			uint32 RayTracingRelevantSectionGroupCount = 0;
+			
 			for (auto It = SectionGroups.CreateConstIterator(); It; ++It)
 			{
 				const FRealtimeMeshSectionGroupProxyRef& SectionGroup = *It;
 				auto SectionGroupDrawMask = SectionGroup->GetDrawMask();
 				DrawMask |= SectionGroupDrawMask;
+
+				if (SectionGroupDrawMask.ShouldRenderInRayTracing())
+				{
+					RayTracingRelevantSectionGroupCount++;
+				}
 				
 				ActiveSectionGroupMask[It.GetIndex()] = SectionGroupDrawMask.ShouldRender();
 			}
-		}
 
-		FRealtimeMeshSectionGroupProxyPtr NewStaticRaytracingGroup;
-
-		if (DrawMask.ShouldRenderStaticPath())
-		{
-			// If the group is overriden use it.
-			if (OverrideStaticRayTracingGroup.IsSet())
+			if (RayTracingRelevantSectionGroupCount > 1 || DrawMask.IsSet(ERealtimeMeshDrawMask::DrawDynamic))
 			{
-				NewStaticRaytracingGroup = GetSectionGroup(OverrideStaticRayTracingGroup.GetValue());
+				DrawMask.SetFlag(ERealtimeMeshDrawMask::DynamicRayTracing);
 			}
-
-			if (!NewStaticRaytracingGroup.IsValid())
-			{
-				int32 CurrentLargestSectionGroup = 0;
-				for (const auto& SectionGroup : SectionGroups)
-				{
-					if (SectionGroup->GetDrawMask().ShouldRenderStaticPath())
-					{
-						if (SectionGroup->GetVertexFactory()->GetValidRange().NumPrimitives(REALTIME_MESH_NUM_INDICES_PER_PRIMITIVE) > CurrentLargestSectionGroup)
-						{
-							CurrentLargestSectionGroup = SectionGroup->GetVertexFactory()->GetValidRange().NumPrimitives(REALTIME_MESH_NUM_INDICES_PER_PRIMITIVE);
-							NewStaticRaytracingGroup = SectionGroup;				
-						}
-					}
-				}				
-			}			
 		}
-		
-#if RHI_RAYTRACING
-		StaticRaytracingSectionGroup = NewStaticRaytracingGroup;
-#endif
+
+		if (DrawMask.CanRenderInStaticRayTracing())
+		{
+			StaticRayTraceSectionGroup = Algo::IndexOfByPredicate(SectionGroups, [](const FRealtimeMeshSectionGroupProxyRef& SectionGroup)
+			{
+				return SectionGroup->GetDrawMask().CanRenderInStaticRayTracing();
+			});		
+		}
+		else
+		{
+			StaticRayTraceSectionGroup = INDEX_NONE;
+		}
 	}
 
 	void FRealtimeMeshLODProxy::RebuildSectionGroupMap()
