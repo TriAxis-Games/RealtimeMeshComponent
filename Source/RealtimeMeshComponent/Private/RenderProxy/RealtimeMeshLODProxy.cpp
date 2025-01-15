@@ -110,6 +110,7 @@ namespace RealtimeMesh
 			}
 		}
 
+#if RHI_RAYTRACING
 		if (DrawMask.CanRenderInStaticRayTracing())
 		{
 			StaticRayTraceSectionGroup = Algo::IndexOfByPredicate(SectionGroups, [](const FRealtimeMeshSectionGroupProxyRef& SectionGroup)
@@ -121,6 +122,7 @@ namespace RealtimeMesh
 		{
 			StaticRayTraceSectionGroup = INDEX_NONE;
 		}
+#endif
 	}
 
 	void FRealtimeMeshLODProxy::RebuildSectionGroupMap()
@@ -142,5 +144,9 @@ namespace RealtimeMesh
 
 		Config = FRealtimeMeshLODConfig();
 		DrawMask = FRealtimeMeshDrawMask();
+		
+#if RHI_RAYTRACING
+		StaticRayTraceSectionGroup = INDEX_NONE;
+#endif
 	}
 }
