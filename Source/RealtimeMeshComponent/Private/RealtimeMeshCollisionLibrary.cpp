@@ -7,9 +7,6 @@
 #include "Core/RealtimeMeshBuilder.h"
 #include "PhysicsEngine/BodySetup.h"
 #include "PhysicsEngine/PhysicsSettings.h"
-#include "Templates/SharedPointer.h"
-#include "CoreMinimal.h"
-
 
 bool URealtimeMeshCollisionTools::FindCollisionUVRealtimeMesh(const FHitResult& Hit, int32 UVChannel, FVector2D& UV)
 {

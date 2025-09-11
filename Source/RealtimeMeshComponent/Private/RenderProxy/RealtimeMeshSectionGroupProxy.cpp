@@ -2,7 +2,6 @@
 
 #include "RenderProxy/RealtimeMeshSectionGroupProxy.h"
 
-//#include "MaterialDomain.h"
 #include "RealtimeMeshComponentModule.h"
 #include "Data/RealtimeMeshShared.h"
 #include "RenderProxy/RealtimeMeshLODProxy.h"
@@ -321,7 +320,9 @@ namespace RealtimeMesh
 
 			FRayTracingGeometryInitializer Initializer;
 			Initializer.DebugName = *(SharedResources->GetMeshName().ToString() + TEXT("_") + Key.ToString() + " RTGeometry");
-			//Initializer.OwnerName = SharedResources->GetMeshName();
+#if RMC_ENGINE_ABOVE_5_4
+			Initializer.OwnerName = SharedResources->GetMeshName();
+#endif
 			
 			Initializer.IndexBuffer = IndexStream->IndexBufferRHI;
 			Initializer.IndexBufferOffset = IndexStream->IndexBufferRHI->GetStride() * MinIndex;
