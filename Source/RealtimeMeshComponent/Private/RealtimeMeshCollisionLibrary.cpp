@@ -8,7 +8,6 @@
 #include "PhysicsEngine/BodySetup.h"
 #include "PhysicsEngine/PhysicsSettings.h"
 
-
 bool URealtimeMeshCollisionTools::FindCollisionUVRealtimeMesh(const FHitResult& Hit, int32 UVChannel, FVector2D& UV)
 {
 	bool bSuccess = false;
@@ -73,7 +72,8 @@ void URealtimeMeshCollisionTools::CookConvexHull(FRealtimeMeshCollisionConvex& C
 #if RMC_ENGINE_ABOVE_5_4
 		return Chaos::FConvexPtr(new FConvex(ConvexVertices, 0.0f));
 #else
-		return MakeShared<FConvex>(ConvexVertices, 0.0f).ToSharedPtr();
+		TSharedPtr<FConvex> convexPtr = MakeShared<FConvex>(ConvexVertices, 0.0f);
+		return convexPtr;
 #endif
 	};
 

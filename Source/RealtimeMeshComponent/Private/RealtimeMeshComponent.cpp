@@ -3,7 +3,9 @@
 #include "RealtimeMeshComponent.h"
 
 #include "GameDelegates.h"
+#if RMC_ENGINE_ABOVE_5_2
 #include "MaterialDomain.h"
+#endif
 #include "NaniteVertexFactory.h"
 #include "RealtimeMeshComponentModule.h"
 #include "RenderProxy/RealtimeMeshComponentProxy.h"

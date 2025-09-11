@@ -3,7 +3,9 @@
 
 #include "FunctionalTests/RealtimeMeshStressTestActor.h"
 
+#if RMC_ENGINE_ABOVE_5_2
 #include "MaterialDomain.h"
+#endif
 #include "RealtimeMeshLibrary.h"
 #include "RealtimeMeshSimple.h"
 #include "Mesh/RealtimeMeshBasicShapeTools.h"
