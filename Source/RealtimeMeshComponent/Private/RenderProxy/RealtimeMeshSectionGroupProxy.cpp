@@ -321,7 +321,7 @@ namespace RealtimeMesh
 
 			FRayTracingGeometryInitializer Initializer;
 			Initializer.DebugName = *(SharedResources->GetMeshName().ToString() + TEXT("_") + Key.ToString() + " RTGeometry");
-			Initializer.OwnerName = SharedResources->GetMeshName();
+			//Initializer.OwnerName = SharedResources->GetMeshName();
 			
 			Initializer.IndexBuffer = IndexStream->IndexBufferRHI;
 			Initializer.IndexBufferOffset = IndexStream->IndexBufferRHI->GetStride() * MinIndex;

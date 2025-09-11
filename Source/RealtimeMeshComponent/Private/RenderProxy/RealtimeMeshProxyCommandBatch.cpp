@@ -119,7 +119,8 @@ namespace RealtimeMesh
 
 		Proxy->EnqueueCommandBatch(MoveTemp(Tasks), ThreadState);
 
-		DoOnGameThread([ThreadState, MeshWeak = Mesh.ToWeakPtr(), bRecreateProxies = static_cast<bool>(bRequiresProxyRecreate)]()
+		TWeakPtr<const RealtimeMesh::FRealtimeMesh> meshWeak = Mesh;
+		DoOnGameThread([ThreadState, MeshWeak = meshWeak, bRecreateProxies = static_cast<bool>(bRequiresProxyRecreate)]()
 		{
 			if (bRecreateProxies)
 			{

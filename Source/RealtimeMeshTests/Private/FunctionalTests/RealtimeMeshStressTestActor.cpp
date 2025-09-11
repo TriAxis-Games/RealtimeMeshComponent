@@ -3,7 +3,7 @@
 
 #include "FunctionalTests/RealtimeMeshStressTestActor.h"
 
-#include "MaterialDomain.h"
+//#include "MaterialDomain.h"
 #include "RealtimeMeshLibrary.h"
 #include "RealtimeMeshSimple.h"
 #include "Mesh/RealtimeMeshBasicShapeTools.h"

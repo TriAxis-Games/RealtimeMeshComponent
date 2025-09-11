@@ -5,6 +5,7 @@
 #include "CoreFwd.h"
 #include "UObject/NameTypes.h"
 #include "Math/Range.h"
+#include "RealtimeMeshInterfaceFwd.h"
 
 enum class ERealtimeMeshStreamType : uint8
 {

@@ -3,7 +3,7 @@
 #include "RealtimeMeshComponent.h"
 
 #include "GameDelegates.h"
-#include "MaterialDomain.h"
+//#include "MaterialDomain.h"
 #include "NaniteVertexFactory.h"
 #include "RealtimeMeshComponentModule.h"
 #include "RenderProxy/RealtimeMeshComponentProxy.h"
