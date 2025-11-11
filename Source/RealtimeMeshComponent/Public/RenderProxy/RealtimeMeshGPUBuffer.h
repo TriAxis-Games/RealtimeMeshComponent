@@ -5,12 +5,7 @@
 #include "Core/RealtimeMeshDataTypes.h"
 #include "Containers/ResourceArray.h"
 #include "Core/RealtimeMeshDataStream.h"
-#if RMC_ENGINE_ABOVE_5_2
-#if RMC_ENGINE_BELOW_5_5
-#include "RHIResourceUpdates.h"
-#endif
 #include "DataDrivenShaderPlatformInfo.h"
-#endif
 
 namespace RealtimeMesh
 {
@@ -130,11 +125,7 @@ namespace RealtimeMesh
 
 		virtual void InitializeResources(FRHICommandListBase& RHICmdList, const FRealtimeMeshSectionGroupStreamUpdateDataRef& UpdateData) override
 		{
-#if RMC_ENGINE_ABOVE_5_3
 			InitResource(RHICmdList);
-#else
-			InitResource();
-#endif
 
 			check(BufferLayout == UpdateData->GetBufferLayout());
 			BufferNum = UpdateData->GetNumElements();
@@ -151,11 +142,7 @@ namespace RealtimeMesh
 			
 			if (VertexBufferRHI && RHISupportsManualVertexFetch(GMaxRHIShaderPlatform))
 			{
-#if RMC_ENGINE_ABOVE_5_3
 				ShaderResourceViewRHI = RHICmdList.CreateShaderResourceView(FShaderResourceViewInitializer(VertexBufferRHI, GetElementFormat()));
-#else
-				ShaderResourceViewRHI = RHICreateShaderResourceView(FShaderResourceViewInitializer(VertexBufferRHI, GetElementFormat()));
-#endif
 			}
 		}
 
@@ -166,7 +153,6 @@ namespace RealtimeMesh
 		/** Gets the format of the vertex */
 		FORCEINLINE EVertexElementType GetVertexType() const { return ElementDetails.GetVertexType(); }
 
-#if RMC_ENGINE_ABOVE_5_3
 		virtual void InitRHI(FRHICommandListBase& RHICmdList) override
 		{
 			/*FRHIResourceCreateInfo CreateInfo(TEXT("RealtimeMeshBuffer-Vertex-Init"));
@@ -177,18 +163,6 @@ namespace RealtimeMesh
 				ShaderResourceViewRHI = RHICmdList.CreateShaderResourceView(FShaderResourceViewInitializer(VertexBufferRHI, GetElementFormat()));
 			}*/
 		}
-#else
-		virtual void InitRHI() override
-		{
-			FRHIResourceCreateInfo CreateInfo(TEXT("RealtimeMeshBuffer-Vertex-Init"));
-			CreateInfo.bWithoutNativeResource = true;
-			VertexBufferRHI = RHICreateVertexBuffer(0, BUF_VertexBuffer | BUF_Static, CreateInfo);
-			if (VertexBufferRHI && RHISupportsManualVertexFetch(GMaxRHIShaderPlatform))
-			{
-				ShaderResourceViewRHI = RHICreateShaderResourceView(FShaderResourceViewInitializer(nullptr, GetElementFormat()));
-			}
-		}
-#endif
 
 		virtual void ReleaseRHI() override
 		{
@@ -246,11 +220,7 @@ namespace RealtimeMesh
 
 		virtual void InitializeResources(FRHICommandListBase& RHICmdList, const FRealtimeMeshSectionGroupStreamUpdateDataRef& UpdateData) override
 		{
-#if RMC_ENGINE_ABOVE_5_3
 			InitResource(RHICmdList);
-#else
-			InitResource();
-#endif
 			
 			check(BufferLayout == UpdateData->GetBufferLayout());
 			BufferNum = UpdateData->GetNumElements();
@@ -273,21 +243,12 @@ namespace RealtimeMesh
 
 		virtual bool IsResourceInitialized() const override { return IsInitialized(); }
 		
-#if RMC_ENGINE_ABOVE_5_3
 		virtual void InitRHI(FRHICommandListBase& RHICmdList) override
 		{
 			/*FRHIResourceCreateInfo CreateInfo(TEXT("RealtimeMeshBuffer-Vertex-Init"));
 			CreateInfo.bWithoutNativeResource = true;
 			IndexBufferRHI = RHICmdList.CreateIndexBuffer(sizeof(uint16), 0, BUF_VertexBuffer | BUF_Static, CreateInfo);*/
 		}
-#else
-		virtual void InitRHI() override
-		{
-			FRHIResourceCreateInfo CreateInfo(TEXT("RealtimeMeshBuffer-Vertex-Init"));
-			CreateInfo.bWithoutNativeResource = true;
-			IndexBufferRHI = RHICreateIndexBuffer(sizeof(uint16), 0, BUF_IndexBuffer | BUF_Static, CreateInfo);
-		}
-#endif
 
 		virtual void ReleaseRHI() override
 		{

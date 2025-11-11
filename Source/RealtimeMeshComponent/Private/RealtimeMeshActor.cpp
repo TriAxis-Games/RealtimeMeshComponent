@@ -5,9 +5,7 @@
 #include "RealtimeMeshSubsystem.h"
 #include "Engine/CollisionProfile.h"
 #include "Mesh/RealtimeMeshBlueprintMeshBuilder.h"
-#if RMC_ENGINE_ABOVE_5_2
 #include "Engine/Level.h"
-#endif
 
 #define LOCTEXT_NAMESPACE "ARealtimeMeshActor"
 
@@ -44,12 +42,10 @@ void ARealtimeMeshActor::BeginPlay()
 		SetReplicates(true);
 	}
 
-#if RMC_ENGINE_ABOVE_5_3
 	if (RealtimeMeshComponent && RealtimeMeshComponent->BodyInstance.bSimulatePhysics)
 	{
 		SetPhysicsReplicationMode(EPhysicsReplicationMode::Resimulation);
 	}
-#endif
 	
 	Super::BeginPlay();
 }
@@ -65,9 +61,6 @@ ARealtimeMeshActor::ARealtimeMeshActor()
 
 	SetRootComponent(RealtimeMeshComponent);
 
-#if RMC_ENGINE_BELOW_5_1
-	RegisterWithGenerationManager();
-#endif
 }
 
 
@@ -87,18 +80,13 @@ void ARealtimeMeshActor::OnConstruction(const FTransform& Transform)
 void ARealtimeMeshActor::PostLoad()
 {
 	Super::PostLoad();
-
-#if RMC_ENGINE_ABOVE_5_1
 	RegisterWithGenerationManager();
-#endif
 }
 
 void ARealtimeMeshActor::PostActorCreated()
 {
 	Super::PostActorCreated();
-#if RMC_ENGINE_ABOVE_5_1
 	RegisterWithGenerationManager();
-#endif
 }
 
 void ARealtimeMeshActor::Destroyed()

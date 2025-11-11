@@ -6,15 +6,7 @@
 #include "RealtimeMeshDataTypes.h"
 #include "RealtimeMeshDataConversion.h"
 #include "Containers/StridedView.h"
-
-#if RMC_ENGINE_BELOW_5_1
-// Included for TMakeUnsigned in 5.0
-#include "Containers/RingBuffer.h"
-#endif
-
-#if RMC_ENGINE_ABOVE_5_4
 #include "Templates/MakeUnsigned.h"
-#endif
 
 
 struct FRealtimeMeshStreamKey;
@@ -73,6 +65,11 @@ namespace RealtimeMesh
 			, Data(InData)
 		{
 		}
+		FRealtimeMeshStreamDefaultRowValue(const FRealtimeMeshBufferLayout& InLayout, TArray<uint8, TInlineAllocator<64>>&& InData)
+			: Layout(InLayout)
+			, Data(MoveTemp(InData))
+		{
+		}
 
 		template<typename ValueType>
 		static FRealtimeMeshStreamDefaultRowValue Create(const ValueType& Value, const FRealtimeMeshBufferLayout& FinalLayout = FRealtimeMeshBufferLayout::Invalid)
@@ -83,7 +80,9 @@ namespace RealtimeMesh
 			// If the final layout is the current one, just return the new value
 			if (FinalLayout == FRealtimeMeshBufferLayout::Invalid || FinalLayout == SourceLayout)
 			{
-				return FRealtimeMeshStreamDefaultRowValue(SourceLayout, TArray<uint8, TInlineAllocator<64>>{reinterpret_cast<const uint8*>(&Value), SourceMemoryLayout.GetStride()});
+				const uint8* SourceData = reinterpret_cast<const uint8*>(&Value);
+				TArray<uint8, TInlineAllocator<64>> DataCopy(SourceData, SourceMemoryLayout.GetStride());
+				return FRealtimeMeshStreamDefaultRowValue(SourceLayout, MoveTemp(DataCopy));
 			}
 			
 			const FRealtimeMeshElementType FromType = SourceLayout.GetElementType();
@@ -113,7 +112,7 @@ namespace RealtimeMesh
 				Converter.ConvertSingleElement(&Value, ConvertedData.GetData());
 			}
 
-			return FRealtimeMeshStreamDefaultRowValue(FinalLayout, ConvertedData);
+			return FRealtimeMeshStreamDefaultRowValue(FinalLayout, MoveTemp(ConvertedData));
 		}
 
 		bool HasData() const { return Layout.IsValid() && Data.Num() > 0; }
@@ -730,7 +729,7 @@ namespace RealtimeMesh
 
 				if (bAllowShrinking)
 				{
-					ResizeAllocationShrink(ArrayNum);
+					ResizeAllocationShrink(ArrayNum - Count);
 				}
 
 				ArrayNum -= Count;

@@ -11,9 +11,11 @@
 #include "IPluginWardenModule.h"
 #include "RealtimeMeshComponent.h"
 #include "RealtimeMeshMenuExtension.h"
+#include "RealtimeMeshComponentDetailsCustomization.h"
 #include "Framework/Notifications/NotificationManager.h"
 #include "Interfaces/IPluginManager.h"
 #include "Widgets/Notifications/SNotificationList.h"
+#include "PropertyEditorModule.h"
 
 #define LOCTEXT_NAMESPACE "RealtimeMeshEditorModule"
 
@@ -33,6 +35,13 @@ void FRealtimeMeshEditorModule::StartupModule()
 	FRealtimeMeshEditorStyle::Initialize();
 	FRealtimeMeshEditorStyle::ReloadTextures();
 	FRealtimeMeshEditorCommands::Register();
+
+	// Register details customizations
+	FPropertyEditorModule& PropertyModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
+	PropertyModule.RegisterCustomClassLayout(
+		URealtimeMeshComponent::StaticClass()->GetFName(),
+		FOnGetDetailCustomizationInstance::CreateStatic(&FRealtimeMeshComponentDetailsCustomization::MakeInstance)
+	);
 
 	PluginCommands = MakeShareable(new FUICommandList);
 
@@ -84,6 +93,13 @@ void FRealtimeMeshEditorModule::ShutdownModule()
 		}
 	}
 #endif
+
+	// Unregister details customizations
+	if (FModuleManager::Get().IsModuleLoaded("PropertyEditor"))
+	{
+		FPropertyEditorModule& PropertyModule = FModuleManager::GetModuleChecked<FPropertyEditorModule>("PropertyEditor");
+		PropertyModule.UnregisterCustomClassLayout(URealtimeMeshComponent::StaticClass()->GetFName());
+	}
 
 	UToolMenus::UnRegisterStartupCallback(this);
 	UToolMenus::UnregisterOwner(this);

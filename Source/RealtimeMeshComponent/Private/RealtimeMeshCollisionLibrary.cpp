@@ -44,7 +44,7 @@ void URealtimeMeshCollisionTools::CookConvexHull(FRealtimeMeshCollisionConvex& C
 		if(NumHullVerts == 0)
 		{
 #if RMC_ENGINE_ABOVE_5_4
-			Chaos::FConvexPtr(nullptr);
+			return Chaos::FConvexPtr(nullptr);
 #else
 			return TSharedPtr<FConvex>(nullptr);
 #endif

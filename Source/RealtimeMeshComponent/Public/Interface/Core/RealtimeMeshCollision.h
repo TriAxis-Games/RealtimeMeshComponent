@@ -160,7 +160,7 @@ public:
 
 
 template<typename ShapeType>
-struct REALTIMEMESHCOMPONENT_INTERFACE_API FSimpleShapeSet
+struct FSimpleShapeSet
 {
 private:
 	TSparseArray<ShapeType> Shapes;
@@ -297,6 +297,7 @@ public:
 	}
 
 	bool IsEmpty() const { return Shapes.Num() == 0; }
+	int32 Num() const { return Shapes.Num(); }
 	
 	auto CreateIterator() const { return Shapes.CreateIterator(); }
 	auto CreateConstIterator() const { return Shapes.CreateConstIterator(); }

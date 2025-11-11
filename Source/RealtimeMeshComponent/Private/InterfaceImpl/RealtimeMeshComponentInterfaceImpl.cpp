@@ -18,13 +18,27 @@ namespace RealtimeMesh
 		{
 			return NewObject<URealtimeMeshComponent>(Owner, Name, Flags);
 		}
+
+		virtual void SetRealtimeMesh(UMeshComponent* MeshComponent, UObject* Mesh) const override;
+		
 		/*virtual TSharedRef<IRealtimeMesh_v0> GetRealtimeMesh(UMeshComponent* MeshComponent) const override
 		{
 			URealtimeMeshComponent* RealtimeMeshComp = CastChecked<URealtimeMeshComponent>(MeshComponent);
 			return nullptr;
 		}*/
 	};
-	
+
+	void FRealtimeMeshInterfaceImpl_v0::SetRealtimeMesh(UMeshComponent* MeshComponent, UObject* Mesh) const
+	{
+		if (URealtimeMeshComponent* Comp = Cast<URealtimeMeshComponent>(MeshComponent))
+		{
+			if (URealtimeMesh* MeshType = Cast<URealtimeMesh>(Mesh))
+			{
+				Comp->SetRealtimeMesh(MeshType);
+			}
+		}
+	}
+
 	// Register the interface
 	TRealtimeMeshModularFeatureRegistration<FRealtimeMeshInterfaceImpl_v0> GRealtimeMeshInterfaceImpl_v0;
 }

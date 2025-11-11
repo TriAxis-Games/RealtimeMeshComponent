@@ -27,7 +27,9 @@ public class RealtimeMeshTests : ModuleRules
                 "Engine",
                 "Slate",
                 "SlateCore",
-                "RealtimeMeshComponent"
+                "RenderCore",
+                "RHI",
+                "RealtimeMeshComponent",
             }
         );
     }

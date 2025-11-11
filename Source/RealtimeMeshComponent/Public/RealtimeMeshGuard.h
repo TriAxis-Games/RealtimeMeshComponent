@@ -67,9 +67,9 @@ namespace RealtimeMesh
 	struct REALTIMEMESHCOMPONENT_API FRealtimeMeshScopeGuardRead
 	{
 	public:
-		RMC_NODISCARD_CTOR explicit FRealtimeMeshScopeGuardRead(FRealtimeMeshGuard& InGuard, bool bLockImmediately = true);
-		RMC_NODISCARD_CTOR explicit FRealtimeMeshScopeGuardRead(const FRealtimeMeshSharedResourcesRef& InSharedResources, bool bLockImmediately = true);
-		RMC_NODISCARD_CTOR explicit FRealtimeMeshScopeGuardRead(const FRealtimeMeshPtr& InMesh, bool bLockImmediately = true);
+		UE_NODISCARD_CTOR explicit FRealtimeMeshScopeGuardRead(FRealtimeMeshGuard& InGuard, bool bLockImmediately = true);
+		UE_NODISCARD_CTOR explicit FRealtimeMeshScopeGuardRead(const FRealtimeMeshSharedResourcesRef& InSharedResources, bool bLockImmediately = true);
+		UE_NODISCARD_CTOR explicit FRealtimeMeshScopeGuardRead(const FRealtimeMeshPtr& InMesh, bool bLockImmediately = true);
 
 		void Lock()
 		{
@@ -104,9 +104,9 @@ namespace RealtimeMesh
 	struct REALTIMEMESHCOMPONENT_API FRealtimeMeshScopeGuardWrite
 	{
 	public:
-		RMC_NODISCARD_CTOR explicit FRealtimeMeshScopeGuardWrite(FRealtimeMeshGuard& InGuard, bool bLockImmediately = true);
-		RMC_NODISCARD_CTOR explicit FRealtimeMeshScopeGuardWrite(const FRealtimeMeshSharedResourcesRef& InSharedResources, bool bLockImmediately = true);
-		RMC_NODISCARD_CTOR explicit FRealtimeMeshScopeGuardWrite(const FRealtimeMeshPtr& InMesh, bool bLockImmediately = true);
+		UE_NODISCARD_CTOR explicit FRealtimeMeshScopeGuardWrite(FRealtimeMeshGuard& InGuard, bool bLockImmediately = true);
+		UE_NODISCARD_CTOR explicit FRealtimeMeshScopeGuardWrite(const FRealtimeMeshSharedResourcesRef& InSharedResources, bool bLockImmediately = true);
+		UE_NODISCARD_CTOR explicit FRealtimeMeshScopeGuardWrite(const FRealtimeMeshPtr& InMesh, bool bLockImmediately = true);
 
 		void Lock()
 		{
@@ -147,7 +147,7 @@ namespace RealtimeMesh
 	struct REALTIMEMESHCOMPONENT_API FRealtimeMeshScopeGuardReadWrite
 	{
 	public:
-		RMC_NODISCARD_CTOR explicit FRealtimeMeshScopeGuardReadWrite(FRealtimeMeshGuard& InGuard, ERealtimeMeshGuardLockType InLockType)
+		UE_NODISCARD_CTOR explicit FRealtimeMeshScopeGuardReadWrite(FRealtimeMeshGuard& InGuard, ERealtimeMeshGuardLockType InLockType)
 			: Guard(InGuard)
 			  , LockType(ERealtimeMeshGuardLockType::Unlocked)
 		{
@@ -199,12 +199,12 @@ namespace RealtimeMesh
 
 	struct REALTIMEMESHCOMPONENT_API FRealtimeMeshScopeGuardWriteCheck
 	{		
-		RMC_NODISCARD_CTOR explicit FRealtimeMeshScopeGuardWriteCheck(FRealtimeMeshGuard& InGuard)
+		UE_NODISCARD_CTOR explicit FRealtimeMeshScopeGuardWriteCheck(FRealtimeMeshGuard& InGuard)
 			: Guard(InGuard)
 		{
 			check(Guard.IsWriteLocked());
 		}
-		RMC_NODISCARD_CTOR explicit FRealtimeMeshScopeGuardWriteCheck(const FRealtimeMeshSharedResourcesRef& SharedResources);
+		UE_NODISCARD_CTOR explicit FRealtimeMeshScopeGuardWriteCheck(const FRealtimeMeshSharedResourcesRef& SharedResources);
 
 		~FRealtimeMeshScopeGuardWriteCheck()
 		{
@@ -219,12 +219,12 @@ namespace RealtimeMesh
 	
 	struct REALTIMEMESHCOMPONENT_API FRealtimeMeshScopeGuardReadCheck
 	{		
-		RMC_NODISCARD_CTOR explicit FRealtimeMeshScopeGuardReadCheck(FRealtimeMeshGuard& InGuard)
+		UE_NODISCARD_CTOR explicit FRealtimeMeshScopeGuardReadCheck(FRealtimeMeshGuard& InGuard)
 			: Guard(InGuard)
 		{
 			check(Guard.IsReadLocked());
 		}
-		RMC_NODISCARD_CTOR explicit FRealtimeMeshScopeGuardReadCheck(const FRealtimeMeshSharedResourcesRef& SharedResources);
+		UE_NODISCARD_CTOR explicit FRealtimeMeshScopeGuardReadCheck(const FRealtimeMeshSharedResourcesRef& SharedResources);
 
 		~FRealtimeMeshScopeGuardReadCheck()
 		{

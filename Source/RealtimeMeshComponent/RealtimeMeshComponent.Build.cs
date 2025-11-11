@@ -7,9 +7,8 @@ public class RealtimeMeshComponent : ModuleRules
 {
     public RealtimeMeshComponent(ReadOnlyTargetRules rules) : base(rules)
     {
-        //bEnforceIWYU = true;
-        //IWYUSupport = 
-        //bLegacyPublicIncludePaths = false;
+        //IWYUSupport = IWYUSupport.None;
+        bLegacyPublicIncludePaths = false;
         PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
         bUseUnity = false;
         //IncludeOrderVersion = EngineIncludeOrderVersion.Latest;
@@ -26,17 +25,18 @@ public class RealtimeMeshComponent : ModuleRules
         PublicDependencyModuleNames.AddRange(
             new string[]
             {
-                "Core", "CoreUObject", "GeometryCore",
+                "Core", 
+                "CoreUObject", 
+                "GeometryCore",
+                "RenderCore",
+                "RHI",
             }
             );
 
         PrivateDependencyModuleNames.AddRange(
             new string[]
             {
-                "CoreUObject",
                 "Engine",
-                "RenderCore",
-                "RHI",
                 "NavigationSystem",
                 "PhysicsCore",
 				"DeveloperSettings",

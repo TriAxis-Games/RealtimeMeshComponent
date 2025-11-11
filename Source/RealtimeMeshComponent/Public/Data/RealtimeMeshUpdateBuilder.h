@@ -146,9 +146,6 @@ namespace RealtimeMesh
 		FRealtimeMeshStructuredStreamDirtyTree StreamDirtyTree;
 		FRealtimeMeshSectionRangeDirtyTree StreamRangeDirtyTree;
 
-		
-
-
 		uint32 bNeedsBoundsUpdate : 1;
 		uint32 bNeedsCollisionUpdate : 1;
 		uint32 bNeedsRenderProxyUpdate : 1;

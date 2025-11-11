@@ -1,0 +1,309 @@
+// Copyright (c) 2015-2025 TriAxis Games, L.L.C. All Rights Reserved.
+
+#include "/Engine/Private/VertexFactoryCommon.ush"
+#include "/Engine/Private/SceneData.ush"
+#include "/Engine/Private/LocalVertexFactoryCommon.ush"
+
+// Use the same uniform buffer approach as LocalVertexFactory
+// The uniform buffer will be automatically bound and contains the SRVs
+
+// Define vertex offset constant like LocalVertexFactory
+#define VF_VertexOffset 0
+
+// Hard-coded debug colors
+#define DEBUG_NORMAL_COLOR float3(0, 0, 1)    // Blue
+#define DEBUG_TANGENT_COLOR float3(1, 0, 0)   // Red  
+#define DEBUG_BINORMAL_COLOR float3(0, 1, 0)  // Green
+
+// These will be defined by the vertex factory based on console variables
+#ifndef SHOW_NORMALS
+	#define SHOW_NORMALS 0
+#endif
+#ifndef SHOW_TANGENTS
+	#define SHOW_TANGENTS 0
+#endif
+#ifndef SHOW_BINORMALS
+	#define SHOW_BINORMALS 0
+#endif
+#ifndef DEBUG_LINE_LENGTH
+	#define DEBUG_LINE_LENGTH 50.0f
+#endif
+
+struct FVertexFactoryInput
+{
+	//float4 Position : ATTRIBUTE0;
+	//float4 TangentX : ATTRIBUTE1;
+	//float4 TangentZ : ATTRIBUTE2;
+	//float4 Color : ATTRIBUTE3;
+	
+	uint VertexId : SV_VertexID;
+	
+	VF_GPUSCENE_DECLARE_INPUT_BLOCK(13)
+};
+
+// Position-only input for depth/shadow passes
+struct FPositionOnlyVertexFactoryInput
+{
+	float4 Position : ATTRIBUTE0;
+	
+	uint VertexId : SV_VertexID;
+	
+	VF_GPUSCENE_DECLARE_INPUT_BLOCK(13)
+};
+
+// Position and normal input for certain shadow passes
+struct FPositionAndNormalOnlyVertexFactoryInput
+{
+	float4 Position : ATTRIBUTE0;
+	float4 TangentZ : ATTRIBUTE2;
+	
+	uint VertexId : SV_VertexID;
+	
+	VF_GPUSCENE_DECLARE_INPUT_BLOCK(13)
+};
+
+struct FVertexFactoryIntermediates
+{
+	float3 Position;
+	float3 TangentX;
+	float3 TangentY;
+	float3 TangentZ;
+	float4 Color;
+	
+	FSceneDataIntermediates SceneData;
+	
+#if VF_SUPPORTS_PRIMITIVE_SCENE_DATA
+	uint PrimitiveId;
+#endif
+};
+
+// Use the struct from LocalVertexFactoryCommon.ush instead of redefining
+
+FVertexFactoryIntermediates GetVertexFactoryIntermediates(FVertexFactoryInput Input)
+{
+	FVertexFactoryIntermediates Intermediates = (FVertexFactoryIntermediates)0;
+	
+	// Decode debug parameters from uniform buffer
+	uint DebugModeBitmask = LocalVF.VertexFetch_Parameters[1];
+	float DebugLineLength = asfloat(LocalVF.VertexFetch_Parameters[2]);
+	uint NumActiveChannels = LocalVF.VertexFetch_Parameters[3];
+	
+	// Calculate which vertex and which debug channel we're rendering
+	// LinearIndex: [0,1,2,3,4,5...] where each pair is a line
+	uint LinearIndex = Input.VertexId;
+	uint LineIndex = LinearIndex / 2; // Which line (0,0,1,1,2,2...)  
+	bool bIsEndVertex = (LinearIndex % 2) == 1; // Start or end vertex of the line
+	
+	// Decode which vertex and which channel from the line index
+	uint VertexIndex = LineIndex / NumActiveChannels; // Which actual vertex
+	uint ChannelIndex = LineIndex % NumActiveChannels; // Which debug channel for this vertex
+	
+	uint VertexOffset = LocalVF.VertexFetch_Parameters[VF_VertexOffset] + VertexIndex * 3;
+	
+	Intermediates.Position.x = LocalVF.VertexFetch_PositionBuffer[VertexOffset + 0];
+	Intermediates.Position.y = LocalVF.VertexFetch_PositionBuffer[VertexOffset + 1];
+	Intermediates.Position.z = LocalVF.VertexFetch_PositionBuffer[VertexOffset + 2];
+
+	if (bIsEndVertex)
+	{
+		// Fetch packed tangents for this vertex
+		uint TangentVertexId = VertexIndex;
+		half3 TangentInputX = LocalVF.VertexFetch_PackedTangentsBuffer[2 * (LocalVF.VertexFetch_Parameters[VF_VertexOffset] + TangentVertexId) + 0].xyz;
+		half4 TangentInputZ = LocalVF.VertexFetch_PackedTangentsBuffer[2 * (LocalVF.VertexFetch_Parameters[VF_VertexOffset] + TangentVertexId) + 1].xyzw;
+		
+		// Apply tangent bias
+		half3 TangentX = TangentBias(TangentInputX);
+		half4 TangentZ = TangentBias(TangentInputZ);
+		half3 TangentY = cross(TangentZ.xyz, TangentX.xyz) * TangentZ.w;
+		
+		// Map channel index to actual debug mode based on bitmask
+		// We need to determine which active channel this ChannelIndex refers to
+		float3 DebugVector = float3(0, 0, 1); // Default fallback
+		uint CurrentChannel = 0;
+		
+		// Check each bit and assign channels in order: normals, tangents, binormals
+		if ((DebugModeBitmask & 1) && CurrentChannel == ChannelIndex) // Normals
+		{
+			DebugVector = TangentZ.xyz;
+		}
+		else if (DebugModeBitmask & 1) CurrentChannel++;
+		
+		if ((DebugModeBitmask & 2) && CurrentChannel == ChannelIndex) // Tangents  
+		{
+			DebugVector = TangentX.xyz;
+		}
+		else if (DebugModeBitmask & 2) CurrentChannel++;
+		
+		if ((DebugModeBitmask & 4) && CurrentChannel == ChannelIndex) // Binormals
+		{
+			DebugVector = TangentY.xyz;
+		}
+		
+		Intermediates.Position += DebugVector * DebugLineLength;
+	}
+	
+	// For debug lines, we don't need proper tangents - just set defaults
+	Intermediates.TangentX = float3(1, 0, 0);
+	Intermediates.TangentY = float3(0, 1, 0);
+	Intermediates.TangentZ = float3(0, 0, 1);
+	
+	// Set color based on which debug channel this line represents
+	float3 DebugColor = DEBUG_NORMAL_COLOR; // Default: blue
+	uint CurrentChannel = 0;
+	
+	// Check each bit and assign colors in order: normals, tangents, binormals
+	if ((DebugModeBitmask & 1) && CurrentChannel == ChannelIndex) // Normals
+	{
+		DebugColor = DEBUG_NORMAL_COLOR; // Blue
+	}
+	else if (DebugModeBitmask & 1) CurrentChannel++;
+	
+	if ((DebugModeBitmask & 2) && CurrentChannel == ChannelIndex) // Tangents  
+	{
+		DebugColor = DEBUG_TANGENT_COLOR; // Red
+	}
+	else if (DebugModeBitmask & 2) CurrentChannel++;
+	
+	if ((DebugModeBitmask & 4) && CurrentChannel == ChannelIndex) // Binormals
+	{
+		DebugColor = DEBUG_BINORMAL_COLOR; // Green
+	}
+	
+	Intermediates.Color = float4(DebugColor, 1.0);
+	
+	Intermediates.SceneData = VF_GPUSCENE_GET_INTERMEDIATES(Input);
+	
+#if VF_SUPPORTS_PRIMITIVE_SCENE_DATA
+	Intermediates.PrimitiveId = Intermediates.SceneData.PrimitiveId;
+#endif
+
+	return Intermediates;
+}
+
+float4 VertexFactoryGetWorldPosition(FVertexFactoryInput Input, FVertexFactoryIntermediates Intermediates)
+{
+	// The position calculation is already done in GetVertexFactoryIntermediates
+	// Just transform to world space
+	return TransformLocalToTranslatedWorld(Intermediates.Position, Intermediates.SceneData.InstanceData.LocalToWorld);
+}
+
+float4 VertexFactoryGetRasterizedWorldPosition(FVertexFactoryInput Input, FVertexFactoryIntermediates Intermediates, float4 InWorldPosition)
+{
+	return InWorldPosition;
+}
+
+// Position-only vertex factory functions for depth/shadow passes
+float4 VertexFactoryGetWorldPosition(FPositionOnlyVertexFactoryInput Input)
+{
+	// For position-only passes, just return the vertex position without line generation
+	FSceneDataIntermediates SceneData = VF_GPUSCENE_GET_INTERMEDIATES(Input);
+	return TransformLocalToTranslatedWorld(Input.Position.xyz, SceneData.InstanceData.LocalToWorld);
+}
+
+float4 VertexFactoryGetRasterizedWorldPosition(FPositionOnlyVertexFactoryInput Input, float4 InWorldPosition)
+{
+	return InWorldPosition;
+}
+
+// Position and normal functions for shadow passes that need normals
+float4 VertexFactoryGetWorldPosition(FPositionAndNormalOnlyVertexFactoryInput Input)
+{
+	FSceneDataIntermediates SceneData = VF_GPUSCENE_GET_INTERMEDIATES(Input);
+	return TransformLocalToTranslatedWorld(Input.Position.xyz, SceneData.InstanceData.LocalToWorld);
+}
+
+float3 VertexFactoryGetWorldNormal(FPositionAndNormalOnlyVertexFactoryInput Input)
+{
+	// For debug lines, just return a default normal
+	return float3(0, 0, 1);
+}
+
+float3 VertexFactoryGetWorldNormal(FVertexFactoryInput Input, FVertexFactoryIntermediates Intermediates)
+{
+	return RotateLocalToWorld(Intermediates.TangentZ, Intermediates.SceneData.InstanceData.LocalToWorld, Intermediates.SceneData.InstanceData.InvNonUniformScale);
+}
+
+float3 VertexFactoryGetPositionForVertexLighting(FVertexFactoryInput Input, FVertexFactoryIntermediates Intermediates, float3 TranslatedWorldPosition)
+{
+	return TranslatedWorldPosition;
+}
+
+void CalcTangentToLocal(FVertexFactoryInput Input, FVertexFactoryIntermediates Intermediates, out float3x3 TangentToLocal)
+{
+	TangentToLocal[0] = Intermediates.TangentX;
+	TangentToLocal[1] = Intermediates.TangentY;
+	TangentToLocal[2] = Intermediates.TangentZ;
+}
+
+float3x3 VertexFactoryGetTangentToLocal(FVertexFactoryInput Input, FVertexFactoryIntermediates Intermediates)
+{
+	float3x3 Result;
+	CalcTangentToLocal(Input, Intermediates, Result);
+	return Result;
+}
+
+FVertexFactoryInterpolantsVSToPS VertexFactoryGetInterpolantsVSToPS(FVertexFactoryInput Input, FVertexFactoryIntermediates Intermediates, FMaterialVertexParameters VertexParameters)
+{
+	FVertexFactoryInterpolantsVSToPS Interpolants = (FVertexFactoryInterpolantsVSToPS)0;
+	
+#if INTERPOLATE_VERTEX_COLOR
+	// Use the color computed in GetVertexFactoryIntermediates
+	Interpolants.Color = Intermediates.Color;
+#endif
+
+	return Interpolants;
+}
+
+FMaterialPixelParameters GetMaterialPixelParameters(FVertexFactoryInterpolantsVSToPS Interpolants, float4 SvPosition)
+{
+	FMaterialPixelParameters Result = MakeInitializedMaterialPixelParameters();
+	
+#if INTERPOLATE_VERTEX_COLOR
+	Result.VertexColor = Interpolants.Color;
+#endif
+	
+	return Result;
+}
+
+FMaterialVertexParameters GetMaterialVertexParameters(FVertexFactoryInput Input, FVertexFactoryIntermediates Intermediates, float3 WorldPosition, float3x3 TangentToLocal)
+{
+	FMaterialVertexParameters Result = (FMaterialVertexParameters)0;
+	Result.SceneData = Intermediates.SceneData;
+	Result.WorldPosition = WorldPosition;
+	Result.VertexColor = Intermediates.Color;
+	Result.TangentToWorld = mul(TangentToLocal, DFToFloat3x3(Intermediates.SceneData.InstanceData.LocalToWorld)); 
+	
+	return Result;
+}
+
+// 5-parameter version for velocity shader
+FMaterialVertexParameters GetMaterialVertexParameters(FVertexFactoryInput Input, FVertexFactoryIntermediates Intermediates, float3 WorldPosition, float3x3 TangentToLocal, bool bForVelocity)
+{
+	FMaterialVertexParameters Result = (FMaterialVertexParameters)0;
+	Result.SceneData = Intermediates.SceneData;
+	Result.WorldPosition = WorldPosition;
+	Result.VertexColor = Intermediates.Color;
+	Result.TangentToWorld = mul(TangentToLocal, DFToFloat3x3(Intermediates.SceneData.InstanceData.LocalToWorld)); 
+	
+	return Result;
+}
+
+float4 VertexFactoryGetPreviousWorldPosition(FVertexFactoryInput Input, FVertexFactoryIntermediates Intermediates)
+{
+	return VertexFactoryGetWorldPosition(Input, Intermediates);
+}
+
+uint VertexFactoryGetPrimitiveId(FVertexFactoryInterpolantsVSToPS Interpolants)
+{
+	return 0; // Debug rendering doesn't need primitive ID
+}
+
+// Define that we've implemented the scene data function
+#define VF_IMPLEMENTED_GET_SCENE_DATA_INTERMEDIATES 1
+
+FSceneDataIntermediates GetSceneDataIntermediates(FVertexFactoryIntermediates Intermediates)
+{
+	return Intermediates.SceneData;
+}
+
+#include "/Engine/Private/VertexFactoryDefaultInterface.ush"

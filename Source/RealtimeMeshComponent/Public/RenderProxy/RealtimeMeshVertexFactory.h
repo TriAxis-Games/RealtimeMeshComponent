@@ -21,11 +21,7 @@ namespace RealtimeMesh
 	public:
 		FRealtimeMeshNullColorVertexBuffer() = default;
 		virtual ~FRealtimeMeshNullColorVertexBuffer() override = default;
-#if RMC_ENGINE_ABOVE_5_3
 		virtual void InitRHI(FRHICommandListBase& RHICmdList) override;
-#else
-		virtual void InitRHI() override;
-#endif
 		virtual void ReleaseRHI() override;
 
 		FShaderResourceViewRHIRef VertexBufferSRV;
@@ -35,11 +31,7 @@ namespace RealtimeMesh
 	public:
 		FRealtimeMeshNullTangentVertexBuffer() = default;
 		virtual ~FRealtimeMeshNullTangentVertexBuffer() override = default;
-#if RMC_ENGINE_ABOVE_5_3
 		virtual void InitRHI(FRHICommandListBase& RHICmdList) override;
-#else
-		virtual void InitRHI() override;
-#endif
 		virtual void ReleaseRHI() override;
 
 		FShaderResourceViewRHIRef VertexBufferSRV;
@@ -49,26 +41,16 @@ namespace RealtimeMesh
 	public:
 		FRealtimeMeshNullTexCoordVertexBuffer() = default;
 		virtual ~FRealtimeMeshNullTexCoordVertexBuffer() override = default;
-#if RMC_ENGINE_ABOVE_5_3
 		virtual void InitRHI(FRHICommandListBase& RHICmdList) override;
-#else
-		virtual void InitRHI() override;
-#endif
 		virtual void ReleaseRHI() override;
 
 		FShaderResourceViewRHIRef VertexBufferSRV;
 	};
 
 	/** The global null color vertex buffer, which is set with a stride of 0 on meshes without a color component. */
-#if RMC_ENGINE_ABOVE_5_3
-	extern REALTIMEMESHCOMPONENT_API TGlobalResource<FNullColorVertexBuffer, FRenderResource::EInitPhase::Pre> GRealtimeMeshNullColorVertexBuffer;
-	extern REALTIMEMESHCOMPONENT_API TGlobalResource<FNullColorVertexBuffer, FRenderResource::EInitPhase::Pre> GRealtimeMeshNullTangentVertexBuffer;
-	extern REALTIMEMESHCOMPONENT_API TGlobalResource<FNullColorVertexBuffer, FRenderResource::EInitPhase::Pre> GRealtimeMeshNullTexCoordVertexBuffer;
-#else
-	extern REALTIMEMESHCOMPONENT_API TGlobalResource<FNullColorVertexBuffer> GRealtimeMeshNullColorVertexBuffer;
-	extern REALTIMEMESHCOMPONENT_API TGlobalResource<FNullColorVertexBuffer> GRealtimeMeshNullTangentVertexBuffer;
-	extern REALTIMEMESHCOMPONENT_API TGlobalResource<FNullColorVertexBuffer> GRealtimeMeshNullTexCoordVertexBuffer;
-#endif
+	extern REALTIMEMESHCOMPONENT_API TGlobalResource<FRealtimeMeshNullColorVertexBuffer, FRenderResource::EInitPhase::Pre> GRealtimeMeshNullColorVertexBuffer;
+	extern REALTIMEMESHCOMPONENT_API TGlobalResource<FRealtimeMeshNullTangentVertexBuffer, FRenderResource::EInitPhase::Pre> GRealtimeMeshNullTangentVertexBuffer;
+	extern REALTIMEMESHCOMPONENT_API TGlobalResource<FRealtimeMeshNullTexCoordVertexBuffer, FRenderResource::EInitPhase::Pre> GRealtimeMeshNullTexCoordVertexBuffer;
 
 	
 	extern REALTIMEMESHCOMPONENT_API TUniformBufferRef<FLocalVertexFactoryUniformShaderParameters> CreateRealtimeMeshVFUniformBuffer(
@@ -163,14 +145,9 @@ namespace RealtimeMesh
 				}
 			}
 		}
-
-#if RMC_ENGINE_ABOVE_5_3		
+	
 		static void BindTexCoordsBuffer(bool& bIsValid, FInt32Range& ValidRange, TSet<TWeakPtr<FRealtimeMeshVertexBuffer>>& InUseBuffers, TArray<FVertexStreamComponent, TFixedAllocator<MAX_STATIC_TEXCOORDS / 2>>& OutStreamComponents,
 				uint8& OutNumTexCoords, const FRealtimeMeshStreamProxyMap& Buffers, FName BufferName, EVertexStreamUsage Usage, bool bIsOptional = false, bool bAllowZeroStride = false)
-#else
-		static void BindTexCoordsBuffer(bool& bIsValid, FInt32Range& ValidRange, TSet<TWeakPtr<FRealtimeMeshVertexBuffer>>& InUseBuffers, TArray<FVertexStreamComponent, TFixedAllocator<MAX_STATIC_TEXCOORDS / 2>>& OutStreamComponents,
-				int32& OutNumTexCoords, const FRealtimeMeshStreamProxyMap& Buffers, FName BufferName, EVertexStreamUsage Usage, bool bIsOptional = false, bool bAllowZeroStride = false)
-#endif
 		{
 			const TSharedPtr<FRealtimeMeshGPUBuffer> FoundBuffer = FindBuffer(Buffers, ERealtimeMeshStreamType::Vertex, BufferName);
 
@@ -289,9 +266,8 @@ namespace RealtimeMesh
 
 		static void GetPSOPrecacheVertexFetchElements(EVertexInputStreamType VertexInputStreamType, FVertexDeclarationElementList& Elements);
 		
-#if RMC_ENGINE_ABOVE_5_2
 		static void GetVertexElements(ERHIFeatureLevel::Type FeatureLevel, EVertexInputStreamType InputStreamType, bool bSupportsManualVertexFetch, FDataType& Data, FVertexDeclarationElementList& Elements);
-#endif
+
 		
 		/**
 		* Copy the data from another vertex factory
@@ -311,11 +287,7 @@ namespace RealtimeMesh
 		virtual bool GatherVertexBufferResources(struct FRealtimeMeshResourceReferenceList& ActiveResources) const override;
 
 		// FRenderResource interface.
-#if RMC_ENGINE_ABOVE_5_3
 		virtual void InitRHI(FRHICommandListBase& RHICmdList) override;
-#else
-		virtual void InitRHI() override;
-#endif
 		
 		virtual void ReleaseRHI() override;
 
@@ -373,18 +345,13 @@ namespace RealtimeMesh
 		const FDataType& GetData() const { return Data; }
 
 
-#if RMC_ENGINE_ABOVE_5_2
-		static
-#endif
-		void GetVertexElements(
+		static void GetVertexElements(
 			ERHIFeatureLevel::Type FeatureLevel, 
 			EVertexInputStreamType InputStreamType, 
 			bool bSupportsManualVertexFetch,
 			FDataType& Data, 
 			FVertexDeclarationElementList& Elements,
-#if RMC_ENGINE_ABOVE_5_2
-			FVertexStreamList& InOutStreams, 
-#endif
+			FVertexStreamList& InOutStreams,
 			int32& OutColorStreamIndex);
 		
 		FDataType Data;

@@ -67,10 +67,17 @@ URealtimeMesh* URealtimeMeshComponent::InitializeRealtimeMesh(TSubclassOf<URealt
 	if (MeshClass)
 	{
 		NewMesh = NewObject<URealtimeMesh>(this, MeshClass);
-		check(IsValid(NewMesh));
+		if (!ensureMsgf(IsValid(NewMesh), TEXT("RealtimeMeshComponent: Failed to create mesh object from class %s"), 
+			MeshClass ? *MeshClass->GetName() : TEXT("NULL")))
+		{
+			return nullptr;
+		}
 	}
 	SetRealtimeMesh(NewMesh);
-	check(IsValid(NewMesh));
+	if (!ensureMsgf(IsValid(NewMesh), TEXT("RealtimeMeshComponent: SetRealtimeMesh failed to set valid mesh")))
+	{
+		return nullptr;
+	}
 	return NewMesh;
 }
 
@@ -127,16 +134,16 @@ FPrimitiveSceneProxy* URealtimeMeshComponent::CreateSceneProxy()
 {
 	SCOPE_CYCLE_COUNTER(STAT_RealtimeMeshComponent_CreateSceneProxy);
 
-	if (RealtimeMesh != nullptr)
-	{
+	if (IsValid(RealtimeMesh))
+	{		
 		if (const auto MeshRenderProxy = RealtimeMesh->GetMesh()->GetRenderProxy(true))
 		{
 			// This is using the implementation in the RMC-Pro to support nanite, without that module present, the RMC doesn't support nanite.
-			if (RealtimeMesh::IRealtimeMeshNaniteSceneProxyManager::IsNaniteSupportAvailable() && MeshRenderProxy->HasNaniteResources())
+			if (RealtimeMesh::IRealtimeMeshNaniteSceneProxyManager::IsNaniteSupportAvailable())
 			{
 				RealtimeMesh::IRealtimeMeshNaniteSceneProxyManager& NaniteModule = RealtimeMesh::IRealtimeMeshNaniteSceneProxyManager::GetNaniteModule();
 
-				if (NaniteModule.ShouldUseNanite(this))
+				if (MeshRenderProxy->HasNaniteResources_GT() && NaniteModule.ShouldUseNanite(this))
 				{					
 					return RealtimeMesh::IRealtimeMeshNaniteSceneProxyManager::GetNaniteModule().CreateNewSceneProxy(this, MeshRenderProxy.ToSharedRef());
 				}				
@@ -229,7 +236,7 @@ UMaterialInterface* URealtimeMeshComponent::GetMaterial(int32 ElementIndex) cons
 	UMaterialInterface* Mat = Super::GetMaterial(ElementIndex);
 
 	// Return override material if it exists
-	if (Mat != nullptr)
+	if (IsValid(Mat))
 	{
 		return Mat;
 	}
@@ -254,7 +261,7 @@ void URealtimeMeshComponent::CollectPSOPrecacheData(const FPSOPrecacheParams& Ba
 	{
 		if (const auto MeshRenderProxy = RealtimeMesh->GetMesh()->GetRenderProxy(true))
 		{
-			if (RealtimeMesh::IRealtimeMeshNaniteSceneProxyManager::IsNaniteSupportAvailable() && MeshRenderProxy->HasNaniteResources())
+			if (RealtimeMesh::IRealtimeMeshNaniteSceneProxyManager::IsNaniteSupportAvailable() && MeshRenderProxy->HasNaniteResources_GT())
 			{
 #if RMC_ENGINE_BELOW_5_5
 				if (NaniteLegacyMaterialsSupported())
@@ -296,16 +303,28 @@ void URealtimeMeshComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty
 
 void URealtimeMeshComponent::BindToEvents(URealtimeMesh* InRealtimeMesh)
 {
-	InRealtimeMesh->OnBoundsChanged().AddUObject(this, &URealtimeMeshComponent::HandleBoundsUpdated);
-	InRealtimeMesh->OnRenderDataChanged().AddUObject(this, &URealtimeMeshComponent::HandleMeshRenderingDataChanged);
-	InRealtimeMesh->OnCollisionBodyUpdated().AddUObject(this, &URealtimeMeshComponent::HandleCollisionBodyUpdated);
+	BoundsChangedHandle = InRealtimeMesh->OnBoundsChanged().AddUObject(this, &URealtimeMeshComponent::HandleBoundsUpdated);
+	RenderDataChangedHandle = InRealtimeMesh->OnRenderDataChanged().AddUObject(this, &URealtimeMeshComponent::HandleMeshRenderingDataChanged);
+	CollisionBodyUpdatedHandle = InRealtimeMesh->OnCollisionBodyUpdated().AddUObject(this, &URealtimeMeshComponent::HandleCollisionBodyUpdated);
 }
 
 void URealtimeMeshComponent::UnbindFromEvents(URealtimeMesh* InRealtimeMesh)
 {
-	InRealtimeMesh->OnBoundsChanged().RemoveAll(this);
-	InRealtimeMesh->OnRenderDataChanged().RemoveAll(this);
-	InRealtimeMesh->OnCollisionBodyUpdated().RemoveAll(this);
+	if (BoundsChangedHandle.IsValid())
+	{
+	       InRealtimeMesh->OnBoundsChanged().Remove(BoundsChangedHandle);
+	       BoundsChangedHandle.Reset();
+	}
+	if (RenderDataChangedHandle.IsValid())
+	{
+	       InRealtimeMesh->OnRenderDataChanged().Remove(RenderDataChangedHandle);
+	       RenderDataChangedHandle.Reset();
+	}
+	if (CollisionBodyUpdatedHandle.IsValid())
+	{
+	       InRealtimeMesh->OnCollisionBodyUpdated().Remove(CollisionBodyUpdatedHandle);
+	       CollisionBodyUpdatedHandle.Reset();
+	}
 }
 
 

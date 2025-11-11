@@ -283,6 +283,9 @@ namespace RealtimeMesh
 		// Pending collision update promise. Used to alert when the collision finishes updating
 		mutable TSharedPtr<TPromise<ERealtimeMeshCollisionUpdateResult>> PendingCollisionPromise;
 
+		// Nanite representation of this mesh
+		FRealtimeMeshNaniteResourcesPtr NaniteResources;
+		
 		// Distance field representation for this mesh
 		FRealtimeMeshDistanceField DistanceField;
 
@@ -292,6 +295,7 @@ namespace RealtimeMesh
 	public:
 		FRealtimeMeshSimple(const FRealtimeMeshSharedResourcesRef& InSharedResources)
 			: FRealtimeMesh(InSharedResources)
+			, NaniteResources()
 		{
 		
 		}
@@ -322,6 +326,12 @@ namespace RealtimeMesh
 		TFuture<ERealtimeMeshCollisionUpdateResult> SetCustomComplexMeshGeometry(const FRealtimeMeshComplexGeometry& InComplexMeshGeometry);
 		void ProcessCustomComplexMeshGeometry(TFunctionRef<void(const FRealtimeMeshComplexGeometry&)> ProcessFunc) const;
 		TFuture<ERealtimeMeshCollisionUpdateResult> EditCustomComplexMeshGeometry(TFunctionRef<void(FRealtimeMeshComplexGeometry&)> EditFunc);
+
+		bool HasNaniteResources(const FRealtimeMeshLockContext& LockContext) const;
+		const FRealtimeMeshNaniteResources& GetNaniteResources() const { return *NaniteResources.Get(); }
+		void SetNaniteResources(FRealtimeMeshUpdateContext& UpdateContext, FRealtimeMeshNaniteResourcesPtr&& InNaniteResources);
+		virtual void ClearNaniteResources(FRealtimeMeshUpdateContext& UpdateContext) override;
+
 
 		const FRealtimeMeshDistanceField& GetDistanceField() const;
 		virtual void SetDistanceField(FRealtimeMeshUpdateContext& UpdateContext, FRealtimeMeshDistanceField&& InDistanceField) override;
@@ -382,6 +392,7 @@ public:
 	TFuture<ERealtimeMeshProxyUpdateStatus> UpdateSectionRange(const FRealtimeMeshSectionKey& SectionKey, const FRealtimeMeshStreamRange& StreamRange);
 
 
+	TArray<FRealtimeMeshLODKey> GetLODs() const;
 	TArray<FRealtimeMeshSectionGroupKey> GetSectionGroups(const FRealtimeMeshLODKey& LODKey) const;
 	TSharedPtr<RealtimeMesh::FRealtimeMeshSectionGroupSimple> GetSectionGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey) const;
 	

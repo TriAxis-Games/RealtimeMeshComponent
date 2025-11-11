@@ -6,7 +6,10 @@
 #include "RealtimeMeshDataTypes.h"
 #include "RealtimeMeshDataStream.h"
 #include "Templates/Invoke.h"
+
+#if RMC_ENGINE_BELOW_5_6
 #include "Traits/IsVoidType.h"
+#endif
 
 #if RMC_ENGINE_ABOVE_5_4
 #include "Templates/ChooseClass.h"
@@ -486,22 +489,22 @@ namespace RealtimeMesh
 		DEFINE_BINARY_OPERATOR_VARIATIONS(AccessElementType, >>)
 #undef DEFINE_BINARY_OPERATOR_VARIATIONS
 		
-#define DEFINE_BINARY_OPERATOR_VARIATIONS(op) \
+#define DEFINE_BINARY_OPERATOR_VARIATIONS(op, simpleop) \
 		template <typename U = AccessElementType> \
-		FORCEINLINE TEnableIfWritable<TRealtimeMeshElementAccessor&, U> operator op(const AccessElementType& Right) { SetValue(GetValue() op Right); return *this; } \
+		FORCEINLINE TEnableIfWritable<TRealtimeMeshElementAccessor&, U> operator op(const AccessElementType& Right) { SetValue(GetValue() simpleop Right); return *this; } \
 		template <typename U = AccessElementType> \
-		FORCEINLINE TEnableIfWritable<TRealtimeMeshElementAccessor&, U> operator op(const TRealtimeMeshElementAccessor& Right) { SetValue(GetValue() op Right.GetValue()); return *this; }
-		DEFINE_BINARY_OPERATOR_VARIATIONS(+=)
-		DEFINE_BINARY_OPERATOR_VARIATIONS(-=)
-		DEFINE_BINARY_OPERATOR_VARIATIONS(*=)
-		DEFINE_BINARY_OPERATOR_VARIATIONS(/=)
-		DEFINE_BINARY_OPERATOR_VARIATIONS(%=)
-		DEFINE_BINARY_OPERATOR_VARIATIONS(&=)
-		DEFINE_BINARY_OPERATOR_VARIATIONS(|=)
-		DEFINE_BINARY_OPERATOR_VARIATIONS(^=)
-		DEFINE_BINARY_OPERATOR_VARIATIONS(<<=)
-		DEFINE_BINARY_OPERATOR_VARIATIONS(>>=)
-#undef DEFINE_BINARY_OPERATOR_VARIATIONS		
+		FORCEINLINE TEnableIfWritable<TRealtimeMeshElementAccessor&, U> operator op(const TRealtimeMeshElementAccessor& Right) { SetValue(GetValue() simpleop Right.GetValue()); return *this; }
+		DEFINE_BINARY_OPERATOR_VARIATIONS(+=, +)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(-=, -)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(*=, *)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(/=, /)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(%=, %)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(&=, &)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(|=, |)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(^=, ^)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(<<=, <<)
+		DEFINE_BINARY_OPERATOR_VARIATIONS(>>=, >>)
+#undef DEFINE_BINARY_OPERATOR_VARIATIONS
 	};
 	
 	template<typename InAccessType, typename InBufferType, bool bAllowSubstreamAccess = false>
@@ -594,44 +597,45 @@ namespace RealtimeMesh
 	
 
 		template <typename U = AccessType>
-		FORCEINLINE TEnableIfWritable<TRealtimeMeshIndexedBufferAccessor&, U> SetRange(SizeType StartElementIdx, TArrayView<AccessElementType> Elements)
+		FORCEINLINE TEnableIfWritable<TRealtimeMeshIndexedBufferAccessor&, U> SetRange(SizeType StartElementIdx, TArrayView<const AccessElementType> Elements)
 		{
-			checkf(StartElementIdx + Elements.Num() <= NumElements, TEXT("Too many elements passed to SetRange"));
-			for (int32 ElementIdx = 0; ElementIdx < Elements.Num(); ++ElementIdx)
+			// Clamp to available space to prevent writing past the end of the row
+			const int32 NumElementsToCopy = FMath::Min(Elements.Num(), NumElements - StartElementIdx);
+			for (int32 ElementIdx = 0; ElementIdx < NumElementsToCopy; ++ElementIdx)
 			{
 				SetElement(StartElementIdx + ElementIdx, Elements[ElementIdx]);
 			}
 			return *this;
 		}
-		
+
 		template <typename U = AccessType>
-		FORCEINLINE TEnableIfWritable<TRealtimeMeshIndexedBufferAccessor&, U> SetAll(TArrayView<AccessElementType> Elements)
+		FORCEINLINE TEnableIfWritable<TRealtimeMeshIndexedBufferAccessor&, U> SetAll(TArrayView<const AccessElementType> Elements)
 		{
-			return SetAll<U>(0, Elements);
+			return SetRange<U>(0, Elements);
 		}
 
 		template <typename U = AccessType>
 		FORCEINLINE TEnableIfWritable<TRealtimeMeshIndexedBufferAccessor&, U> SetRange(SizeType StartElementIdx, std::initializer_list<AccessElementType> Elements)
 		{
-			return SetAll<U>(StartElementIdx, MakeArrayView(Elements));
+			return SetRange<U>(StartElementIdx, MakeArrayView(Elements));
 		}
 
 		template <typename U = AccessType>
 		FORCEINLINE TEnableIfWritable<TRealtimeMeshIndexedBufferAccessor&, U> SetAll(std::initializer_list<AccessElementType> Elements)
 		{
-			return SetAll<U>(0, MakeArrayView(Elements));
+			return SetRange<U>(0, MakeArrayView(Elements));
 		}
 
 		template <typename U = AccessType>
 		FORCEINLINE TEnableIfWritable<TRealtimeMeshIndexedBufferAccessor&, U> SetRange(SizeType StartElementIdx, const TArray<AccessElementType>& Elements)
 		{
-			return SetAll<U>(StartElementIdx, MakeArrayView(Elements));
+			return SetRange<U>(StartElementIdx, MakeArrayView(Elements));
 		}
 
 		template <typename U = AccessType>
 		FORCEINLINE TEnableIfWritable<TRealtimeMeshIndexedBufferAccessor&, U> SetAll(const TArray<AccessElementType>& Elements)
 		{
-			return SetAll<U>(0, MakeArrayView(Elements));
+			return SetRange<U>(0, MakeArrayView(Elements));
 		}
 
 #define DEFINE_BINARY_OPERATOR_VARIATIONS(ret, op) \
@@ -929,7 +933,7 @@ namespace RealtimeMesh
 		}
 
 		template <typename U = AccessType>
-		FORCEINLINE TEnableIfWritable<void, U> SetRange(int32 StartIndex, TArrayView<AccessType> Elements)
+		FORCEINLINE TEnableIfWritable<void, U> SetRange(int32 StartIndex, TArrayView<const AccessType> Elements)
 		{
 			RangeCheck(StartIndex + Elements.Num() - 1);
 			for (int32 Index = 0; Index < Elements.Num(); Index++)
@@ -968,7 +972,7 @@ namespace RealtimeMesh
 		}
 
 		template <typename U = AccessType>
-		FORCEINLINE TEnableIfWritable<void, U> Append(TArrayView<AccessType> Elements)
+		FORCEINLINE TEnableIfWritable<void, U> Append(TArrayView<const AccessType> Elements)
 		{
 			const SizeType StartIndex = AddUninitialized(Elements.Num());
 			SetRange(StartIndex, Elements);
@@ -1460,7 +1464,8 @@ namespace RealtimeMesh
 
 		VertexBuilder AddVertex()
 		{
-			return Vertices.AddZeroed();
+			const SizeType Index = Vertices.AddZeroed().GetIndex();
+			return VertexBuilder(*this, Index);
 		}
 
 		VertexBuilder AddVertex(const FVector3f& InPosition)
@@ -1541,7 +1546,7 @@ namespace RealtimeMesh
 			if constexpr (FRealtimeMeshBufferTypeTraits<TexCoordStreamType>::NumElements == 1)
 			{
 				check(TexCoordIdx == 0);
-				return TexCoords->GetValue(VertIdx);
+				return TexCoords->GetValue(VertIdx)[0];
 			}
 			else
 			{

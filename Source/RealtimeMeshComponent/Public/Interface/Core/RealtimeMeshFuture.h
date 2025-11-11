@@ -23,6 +23,15 @@ namespace RealtimeMesh
 	};
 	ENUM_CLASS_FLAGS(ERealtimeMeshThreadType);
 
+	/**
+	 * Checks if the current thread is one of the allowed thread types.
+	 * 
+	 * @param AllowedThreads Bitfield of allowed thread types to check against
+	 * @return true if current thread matches any of the allowed types
+	 * 
+	 * @note THREAD SAFETY: This function is thread-safe and can be called from any thread.
+	 * It uses UE's thread detection functions which are atomic operations.
+	 */
 	inline bool RealtimeMeshIsInAllowedThread(ERealtimeMeshThreadType AllowedThreads)
 	{
 		return
@@ -58,7 +67,7 @@ namespace RealtimeMesh
 				auto Future = Function();
 				Future.Then([Promise = MoveTemp(Promise)](TFuture<ReturnValue>&& Res) mutable
 				{
-					Promise.EmplaceValue(Res.Get());
+					Promise.EmplaceValue(Res.Consume());
 				});	
 			}
 			else
@@ -66,6 +75,7 @@ namespace RealtimeMesh
 				Promise.EmplaceValue(Function());			
 			}
 		}
+		
 		
 		template<typename Func>
 		void SetPromiseValue(TPromise<void>&& Promise, Func& Function)
@@ -100,7 +110,7 @@ namespace RealtimeMesh
 				auto Future = Function(MoveTemp(Param));
 				Future.Then([Promise = MoveTemp(Promise)](TFuture<ReturnValue>&& Res) mutable
 				{
-					Promise.EmplaceValue(Res.Get());
+					Promise.EmplaceValue(Res.Consume());
 				});				
 			}
 			else
@@ -118,7 +128,7 @@ namespace RealtimeMesh
 			if constexpr (TFutureDetect<ContinuationResult>::IsFuture)
 			{
 				auto Future = Function(MoveTemp(Param));
-				Future.Next([Promise = MoveTemp(Promise)](TFuture<ReturnValue>&&) mutable
+				Future.Then([Promise = MoveTemp(Promise)](TFuture<ReturnValue>&&) mutable
 				{
 					Promise.EmplaceValue();
 				});				
@@ -132,42 +142,24 @@ namespace RealtimeMesh
 		
 	}
 
-
-
-#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION <= 3
-	template<typename InternalResultType>
-	class TFutureBaseStateGetter
-	{
-	public:
-		typedef TSharedPtr<TFutureState<InternalResultType>, ESPMode::ThreadSafe> StateType;
-		
-		const StateType& GetState() const
-		{
-			check(State.IsValid());
-			return State;
-		}
-	private:
-		/** Holds the future's state. */
-		StateType State;
-	};
-	static_assert(sizeof(TFutureBaseStateGetter<int32>) == sizeof(TFuture<int32>));
-#endif
-
 	
-
-	template<typename ResultType>
-	static ResultType ConsumeFuture(TFuture<ResultType>&& Future)
-	{
-#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 4
-		return Future.Consume();
-#else
-		TFuture<ResultType> Temp = MoveTemp(Future);
-		// This is a hack, but it works until we stop supporting 5.2
-		return MoveTemp(const_cast<ResultType&>(reinterpret_cast<TFutureBaseStateGetter<ResultType>*>(&Temp)->GetState()->GetResult()));
-#endif
-	}
-	
-	
+	/**
+	 * Executes a callable on one of the specified allowed thread types.
+	 * If already on an allowed thread, executes immediately. Otherwise, dispatches to an appropriate thread.
+	 * 
+	 * @param AllowedThreads Bitfield specifying which thread types are allowed for execution
+	 * @param Callable Function/lambda to execute
+	 * @return TFuture containing the result of the callable
+	 * 
+	 * @note THREAD SAFETY: This function is thread-safe and handles cross-thread dispatch.
+	 * - If called from an allowed thread: Executes immediately on current thread
+	 * - If called from disallowed thread: Safely dispatches via UE's thread system
+	 * - Async dispatches use thread pool, Game/Render use UE's named thread queues
+	 * - The returned TFuture is thread-safe and can be awaited from any thread
+	 * 
+	 * @warning The Callable must be thread-safe if executed on AsyncThread.
+	 * Game and Render thread callables have single-threaded execution guarantees.
+	 */
 	template<typename CallableType>
 	static auto DoOnAllowedThread(ERealtimeMeshThreadType AllowedThreads, CallableType Callable)
 	{
@@ -187,7 +179,7 @@ namespace RealtimeMesh
 			Func();			
 		}
 		else if (EnumHasAllFlags(AllowedThreads, ERealtimeMeshThreadType::AsyncThread))
-		{
+		{			
 			// TODO: Make this work with the optional interface 
 			//URealtimeMeshThreadingSubsystem* ThreadingSubsystem = URealtimeMeshThreadingSubsystem::Get();
 			FQueuedThreadPool& ThreadPool = /*ThreadingSubsystem? ThreadingSubsystem->GetThreadPool() :*/ *GThreadPool;
@@ -324,7 +316,7 @@ namespace RealtimeMesh
 			using Type = typename TTupleElement<ArgToCompare, TTuple<Types...>>::Type;
 			Futures.template Get<ArgToCompare>().Then([State](TFuture<Type>&& Result)
 			{
-			    State->EmplaceValue<ArgToCompare>(ConsumeFuture(MoveTemp(Result)));
+			    State->EmplaceValue<ArgToCompare>(Result.Consume());
 			});
 			
 			FFutureAggregationHelper<ArgCount, ArgToCompare + 1>::Bind(State, Futures);
@@ -352,21 +344,27 @@ namespace RealtimeMesh
 	}
 
 	
-	template<typename Type>
-	TFuture<TArray<Type>> WaitForAll(TArray<TFuture<Type>>&& Futures)
-	{
-		struct FState
-		{
-			TArray<Type> Values;
-			FThreadSafeCounter RemainingFutures;
-			TPromise<TArray<Type>> Promise;
-			bool bHasFiredPromise = false;
+    template<typename Type>
+    TFuture<TArray<Type>> WaitForAll(TArray<TFuture<Type>>&& Futures)
+    {
+        if (Futures.Num() == 0)
+        {
+            return MakeFulfilledPromise<TArray<Type>>(TArray<Type>()).GetFuture();
+        }
 
-			~FState()
-			{
-				checkf(RemainingFutures.GetValue() == 0 && bHasFiredPromise, TEXT("Not all futures have been resolved somehow."));
-			}
-		};
+        struct FState
+        {
+            TArray<Type> Values;
+            FThreadSafeCounter RemainingFutures;
+            TPromise<TArray<Type>> Promise;
+            bool bHasFiredPromise = false;
+
+            ~FState()
+            {
+                    checkf(RemainingFutures.GetValue() == 0 && bHasFiredPromise, TEXT("Not all futures have been resolved somehow."));
+            }
+        };
+		
 		TSharedRef<FState> State = MakeShared<FState>();
 		State->RemainingFutures.Set(Futures.Num());
 		State->Values.SetNum(Futures.Num());
@@ -473,6 +471,18 @@ namespace RealtimeMesh
 	/**
 	 * Create a SharedPointer to a TStrongObjectPtr, so you can pass this across
 	 * threads and assure a UObject stays alive at least as long as this pointer.
+	 * 
+	 * @param InObject UObject to keep alive across threads
+	 * @return Thread-safe shared pointer that maintains object lifetime
+	 * 
+	 * @note THREAD SAFETY: This function provides safe cross-thread UObject access.
+	 * - The returned TSharedRef can be safely copied/passed between threads
+	 * - The TStrongObjectPtr prevents GC collection while any thread holds a reference
+	 * - Destruction is automatically dispatched to the Game Thread (required for UObjects)
+	 * - Multiple threads can safely access the shared pointer simultaneously
+	 * 
+	 * @warning The UObject itself may not be thread-safe. Always check UObject documentation
+	 * and use appropriate synchronization when calling UObject methods from non-game threads.
 	 */
 	template<typename ObjectType>
 	TSharedRef<TStrongObjectPtr<ObjectType>> MakeSharedObjectPtr(ObjectType* InObject)

@@ -51,6 +51,22 @@ static void AppendTransformedTangentArray(TArray<FVector>& Destination, const TA
 void URealtimeMeshBasicShapeTools::AppendBoxMesh(FRealtimeMeshStreamSet& StreamSet, FVector3f BoxRadius, FTransform3f BoxTransform, int32 NewMaterialGroup, FColor Color)
 {
 	TRealtimeMeshBuilderLocal<void, void, void, 1, void> Builder(StreamSet);
+
+	if (!Builder.HasTangents())
+	{
+		Builder.EnableTangents();
+	}
+
+	if (!Builder.HasVertexColors())
+	{
+		Builder.EnableColors();
+	}
+	
+	if (!Builder.HasTexCoords())
+	{
+		Builder.EnableTexCoords();
+	}
+
 	
 	FVector3f BoxVerts[8];
 	BoxVerts[0] = BoxTransform.TransformPosition(FVector3f(-BoxRadius.X, BoxRadius.Y, BoxRadius.Z));

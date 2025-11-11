@@ -24,6 +24,13 @@ public:
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "RealtimeMesh")
 	bool KeepMomentumOnCollisionUpdate = false;
 
+private:
+	FDelegateHandle BoundsChangedHandle;
+	FDelegateHandle RenderDataChangedHandle;
+	FDelegateHandle CollisionBodyUpdatedHandle;
+
+public:
+
 	URealtimeMeshComponent();
 
 	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMeshComponent")
@@ -40,9 +47,9 @@ public:
 
 	/** Clears the geometry for ALL collision only sections */
 	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMeshComponent")
-	FORCEINLINE URealtimeMesh* GetRealtimeMesh() const
+	URealtimeMesh* GetRealtimeMesh() const
 	{
-		if (RealtimeMesh && RealtimeMesh->IsValidLowLevel())
+		if (IsValid(RealtimeMesh))
 		{
 			return RealtimeMesh;
 		}
@@ -50,9 +57,9 @@ public:
 	}
 
 	template<typename RealtimeMeshType>
-	FORCEINLINE RealtimeMeshType* GetRealtimeMeshAs() const
+	RealtimeMeshType* GetRealtimeMeshAs() const
 	{
-		if (RealtimeMesh && RealtimeMesh->IsValidLowLevel())
+		if (IsValid(RealtimeMesh))
 		{
 			return CastChecked<RealtimeMeshType>(RealtimeMesh);
 		}

@@ -1,343 +1,1047 @@
-﻿// Copyright (c) 2015-2025 TriAxis Games, L.L.C. All Rights Reserved.
+// Copyright (c) 2015-2025 TriAxis Games, L.L.C. All Rights Reserved.
 
-#include "Core/RealtimeMeshBuilder.h"
 #include "Misc/AutomationTest.h"
-#include "Core//RealtimeMeshDataStream.h"
-#include "Templates/AreTypesEqual.h"
-
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(RealtimeMeshBuilderTests, "RealtimeMeshComponent.RealtimeMeshBuilder",
-                                 EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+#include "Interface/Core/RealtimeMeshBuilder.h"
+#include "Interface/Core/RealtimeMeshDataStream.h"
+#include "Interface/Core/RealtimeMeshDataTypes.h"
 
 using namespace RealtimeMesh;
 
-namespace RealtimeMesh
+// =====================================================================================================================
+// Stream Data Accessor Tests - Static Type Conversion
+// =====================================================================================================================
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FStreamDataAccessorStaticConversionTest,
+	"RealtimeMeshComponent.Builder.StreamDataAccessor.StaticConversion",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FStreamDataAccessorStaticConversionTest::RunTest(const FString& Parameters)
 {
-	struct FPackedNormalQuad
-	{
-		FPackedNormal A;
-		FPackedNormal B;
-		FPackedNormal C;
-		FPackedNormal D;
+	// Test static conversion between FVector3f and FVector3f (AccessType and BufferType same)
+	FRealtimeMeshStream Stream(FRealtimeMeshStreamKey(ERealtimeMeshStreamType::Vertex, TEXT("TestStream")), GetRealtimeMeshBufferLayout<FVector3f>());
+	Stream.SetNumUninitialized(3);
 
-		FPackedNormalQuad(FPackedNormal InA, FPackedNormal InB, FPackedNormal InC, FPackedNormal InD)
-			: A(InA), B(InB), C(InC), D(InD) { }
+	// Create accessor for FVector3f -> FVector3f
+	using AccessorType = TRealtimeMeshStreamDataAccessor<FVector3f, FVector3f, false>;
+	auto Context = AccessorType::InitializeContext(Stream, 0);
 
-		FORCEINLINE friend bool operator ==(const FPackedNormalQuad& Left, const FPackedNormalQuad& Right)
-		{
-			return Left.A == Right.A && Left.B == Right.B && Left.C == Right.C && Left.D == Right.D;
-		}
+	// Test SetBufferValue and GetBufferValue
+	FVector3f TestValue(1.0f, 2.0f, 3.0f);
+	AccessorType::SetBufferValue(Context, 0, TestValue);
+	FVector3f ReadValue = AccessorType::GetBufferValue(Context, 0);
 
-		FORCEINLINE friend bool operator !=(const FPackedNormalQuad& Left, const FPackedNormalQuad& Right)
-		{
-			return !(Left == Right);
-		}
-	};
+	TestEqual(TEXT("Static conversion should preserve value"), ReadValue, TestValue);
 
-	struct FPackedRGBA16NQuad
-	{
-		FPackedRGBA16N A;
-		FPackedRGBA16N B;
-		FPackedRGBA16N C;
-		FPackedRGBA16N D;
+	// Test another value
+	FVector3f TestValue2(10.0f, 20.0f, 30.0f);
+	AccessorType::SetBufferValue(Context, 1, TestValue2);
+	FVector3f ReadValue2 = AccessorType::GetBufferValue(Context, 1);
 
-		FPackedRGBA16NQuad(FPackedRGBA16N InA, FPackedRGBA16N InB, FPackedRGBA16N InC, FPackedRGBA16N InD)
-			: A(InA), B(InB), C(InC), D(InD) { }
+	TestEqual(TEXT("Second value should be preserved"), ReadValue2, TestValue2);
 
-		FORCEINLINE friend bool operator ==(const FPackedRGBA16NQuad& Left, const FPackedRGBA16NQuad& Right)
-		{
-			return Left.A == Right.A && Left.B == Right.B && Left.C == Right.C && Left.D == Right.D;
-		}
-
-		FORCEINLINE friend bool operator !=(const FPackedRGBA16NQuad& Left, const FPackedRGBA16NQuad& Right)
-		{
-			return !(Left == Right);
-		}
-	};
-
-	
-	template<> inline FPackedRGBA16NQuad ConvertRealtimeMeshType<FPackedNormalQuad, FPackedRGBA16NQuad>(const FPackedNormalQuad& Source)
-	{
-		return FPackedRGBA16NQuad(ConvertRealtimeMeshType<FPackedNormal, FPackedRGBA16N>(Source.A),
-		                          ConvertRealtimeMeshType<FPackedNormal, FPackedRGBA16N>(Source.B),
-		                          ConvertRealtimeMeshType<FPackedNormal, FPackedRGBA16N>(Source.C),
-		                          ConvertRealtimeMeshType<FPackedNormal, FPackedRGBA16N>(Source.D));
-	}	
-	template<> inline FPackedNormalQuad ConvertRealtimeMeshType<FPackedRGBA16NQuad, FPackedNormalQuad>(const FPackedRGBA16NQuad& Source)
-	{
-		return FPackedNormalQuad(ConvertRealtimeMeshType<FPackedRGBA16N, FPackedNormal>(Source.A),
-		                         ConvertRealtimeMeshType<FPackedRGBA16N, FPackedNormal>(Source.B),
-		                         ConvertRealtimeMeshType<FPackedRGBA16N, FPackedNormal>(Source.C),
-		                         ConvertRealtimeMeshType<FPackedRGBA16N, FPackedNormal>(Source.D));
-	}
-
-	template <>
-	struct FRealtimeMeshBufferTypeTraits<FPackedNormalQuad>
-	{
-		using ElementType = FPackedNormal;
-		static constexpr int32 NumElements = 4;
-		static constexpr bool IsValid = true;
-	};
-
-	template <>
-	struct FRealtimeMeshBufferTypeTraits<FPackedRGBA16NQuad>
-	{
-		using ElementType = FPackedRGBA16N;
-		static constexpr int32 NumElements = 4;
-		static constexpr bool IsValid = true;
-	};
-	
+	return true;
 }
 
-bool RealtimeMeshBuilderTests::RunTest(const FString& Parameters)
+// =====================================================================================================================
+// Stream Data Accessor Tests - Same Type Specialization
+// =====================================================================================================================
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FStreamDataAccessorSameTypeTest,
+	"RealtimeMeshComponent.Builder.StreamDataAccessor.SameType",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FStreamDataAccessorSameTypeTest::RunTest(const FString& Parameters)
 {
-	static_assert(std::is_same_v<FRealtimeMeshBufferTypeTraits<FPackedNormalQuad>::ElementType, FPackedNormal>);
-	static_assert(std::is_same_v<TRealtimeMeshElementAccessor<FPackedNormalQuad, FPackedNormalQuad>::AccessElementType, FPackedNormal>);
+	// Test the optimized same-type accessor
+	FRealtimeMeshStream Stream(FRealtimeMeshStreamKey(ERealtimeMeshStreamType::Vertex, TEXT("TestStream")), GetRealtimeMeshBufferLayout<FVector2f>());
+	Stream.SetNumUninitialized(2);
 
+	using AccessorType = TRealtimeMeshStreamDataAccessor<FVector2f, FVector2f, false>;
+	auto Context = AccessorType::InitializeContext(Stream, 0);
 
-	{ // Direct access test
-		FRealtimeMeshStream TestStream = FRealtimeMeshStream::Create<FPackedNormalQuad>(FRealtimeMeshStreams::Position);
-		auto Context = TRealtimeMeshStreamDataAccessor<FPackedNormalQuad, FPackedNormalQuad, false>::InitializeContext(TestStream, 0);
-		TestStream.AddZeroed(8);
-		TRealtimeMeshElementAccessor<FPackedNormalQuad, FPackedNormalQuad> ElementAccessor(Context, 2, 3);
-		TRealtimeMeshElementAccessor<FPackedNormalQuad, FPackedNormalQuad> ElementAccessor2(Context, 5, 1);
-		
-		TestTrue(TEXT("ElementAccessor Get(2,3)"), ElementAccessor == FPackedNormal());
-		TestTrue(TEXT("ElementAccessor2 Get(5,1)"), ElementAccessor2 == FPackedNormal());
-		ElementAccessor = FPackedNormal(FVector4f(1, 0, 1, 0));
-		ElementAccessor2 = FPackedNormal(FVector4f(1, 0, 0, 1));
-		TestTrue(TEXT("ElementAccessor Get(2,3) AfterSet"), ElementAccessor == FPackedNormal(FVector4f(1, 0, 1, 0)));
-		TestFalse(TEXT("ElementAccessor Get(2,3) AfterSet"), ElementAccessor == FPackedNormal(FVector4f(1, 1, 0, 0)));
-		TestTrue(TEXT("ElementAccessor2 Get(5,1) AfterSet"), ElementAccessor2 == FPackedNormal(FVector4f(1, 0, 0, 1)));
-		TestFalse(TEXT("ElementAccessor2 Get(5,1) AfterSet"), ElementAccessor2 == FPackedNormal(FVector4f(1, 1, 0, 0)));		
-	}
+	// Test direct access without conversion
+	FVector2f TestUV(0.5f, 0.75f);
+	AccessorType::SetBufferValue(Context, 0, TestUV);
+	FVector2f ReadUV = AccessorType::GetBufferValue(Context, 0);
 
-	{ // Dynamic conversion test
-		FRealtimeMeshStream TestStream = FRealtimeMeshStream::Create<FPackedNormalQuad>(FRealtimeMeshStreams::Position);
-		auto Context = TRealtimeMeshStreamDataAccessor<FPackedRGBA16NQuad, void, false>::InitializeContext(TestStream, 0);
-		TestStream.AddZeroed(8);
-		TRealtimeMeshElementAccessor<FPackedRGBA16NQuad, void> ElementAccessor(Context, 2, 3);
-		TRealtimeMeshElementAccessor<FPackedRGBA16NQuad, void> ElementAccessor2(Context, 5, 1);
-		
-		TestTrue(TEXT("ElementAccessor Get(2,3)"), ElementAccessor == FPackedRGBA16N());
-		TestTrue(TEXT("ElementAccessor2 Get(5,1)"), ElementAccessor2 == FPackedRGBA16N());
-		ElementAccessor = FPackedRGBA16N(FVector4f(1, 0, 1, 0));
-		ElementAccessor2 = FPackedRGBA16N(FVector4f(1, 0, 0, 1));
-		TestTrue(TEXT("ElementAccessor Get(2,3) AfterSet"), ElementAccessor == FPackedRGBA16N(FVector4f(1, 0, 1, 0)));
-		TestFalse(TEXT("ElementAccessor Get(2,3) AfterSet"), ElementAccessor == FPackedRGBA16N(FVector4f(1, 1, 0, 0)));
-		TestTrue(TEXT("ElementAccessor2 Get(5,1) AfterSet"), ElementAccessor2 == FPackedRGBA16N(FVector4f(1, 0, 0, 1)));
-		TestFalse(TEXT("ElementAccessor2 Get(5,1) AfterSet"), ElementAccessor2 == FPackedRGBA16N(FVector4f(1, 1, 0, 0)));		
-	}
-	
-	{ // Static conversion test
-		FRealtimeMeshStream TestStream = FRealtimeMeshStream::Create<FPackedNormalQuad>(FRealtimeMeshStreams::Position);
-		auto Context = TRealtimeMeshStreamDataAccessor<FPackedRGBA16NQuad, FPackedNormalQuad, false>::InitializeContext(TestStream, 0);
-		TestStream.AddZeroed(8);
-		TRealtimeMeshIndexedBufferAccessor<FPackedRGBA16NQuad, FPackedNormalQuad> RowAccessor(Context, 2);
-		TRealtimeMeshIndexedBufferAccessor<FPackedRGBA16NQuad, FPackedNormalQuad> RowAccessor2(Context, 5);
+	TestEqual(TEXT("Same-type accessor should preserve UV value"), ReadUV, TestUV);
 
-		FPackedRGBA16NQuad TestA
-		{
-			FPackedRGBA16N(FVector3f::ZAxisVector),
-			FPackedRGBA16N(FVector3f::XAxisVector),
-			FPackedRGBA16N(FVector3f::YAxisVector),
-			FPackedRGBA16N(FVector3f::OneVector)
-		};
-		FPackedRGBA16NQuad TestB
-		{
-			FPackedRGBA16N(FVector3f::YAxisVector),
-			FPackedRGBA16N(FVector3f::XAxisVector),
-			FPackedRGBA16N(FVector3f::OneVector),
-			FPackedRGBA16N(FVector3f::ZAxisVector)
-		};
+	// Test another UV value
+	FVector2f TestUV2(0.25f, 0.9f);
+	AccessorType::SetBufferValue(Context, 1, TestUV2);
+	FVector2f ReadUV2 = AccessorType::GetBufferValue(Context, 1);
 
-		FPackedRGBA16NQuad TestEmpty { FPackedRGBA16N(), FPackedRGBA16N(), FPackedRGBA16N(), FPackedRGBA16N() };
+	TestEqual(TEXT("Second UV value should be preserved"), ReadUV2, TestUV2);
 
-		TestTrue(TEXT("RowAccessor Get(2)"), RowAccessor == TestEmpty);
-		TestTrue(TEXT("RowAccessor2 Get(5)"), RowAccessor2 == TestEmpty);
-		RowAccessor = TestA;
-		RowAccessor2 = TestB;
-		TestTrue(TEXT("RowAccessor Get(2) AfterSet TestTrue"), RowAccessor == TestA);
-		TestFalse(TEXT("RowAccessor Get(2) AfterSet TestFalse"), RowAccessor == TestB);
-		TestTrue(TEXT("RowAccessor2 Get(5) AfterSet TestTrue"), RowAccessor2 == TestB);
-		TestFalse(TEXT("RowAccessor2 Get(5) AfterSet TestFalse"), RowAccessor2 == TestA);
-	}
+	return true;
+}
 
-	
+// =====================================================================================================================
+// Element Accessor Tests
+// =====================================================================================================================
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FElementAccessorBasicTest,
+	"RealtimeMeshComponent.Builder.ElementAccessor.Basic",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
+bool FElementAccessorBasicTest::RunTest(const FString& Parameters)
+{
+	// Create an interleaved stream with multiple FVector2f elements per row (like UVs with 2 channels)
+	// Buffer layout: 2 FVector2DHalf per row (4 half-floats total per row)
+	FRealtimeMeshStream Stream(FRealtimeMeshStreamKey(ERealtimeMeshStreamType::Vertex, TEXT("TestStream")),
+		GetRealtimeMeshBufferLayout<FVector2DHalf>(2));  // 2 UV channels
+	Stream.SetNumUninitialized(1);
 
+	// Access the first UV channel (element 0) as FVector2f with conversion from FVector2DHalf
+	using StreamAccessor = TRealtimeMeshStreamDataAccessor<FVector2f, FVector2DHalf, true>;
+	auto Context = StreamAccessor::InitializeContext(Stream, 0);  // ElementOffset 0 = first UV channel
 
+	using ElementAccessor = TRealtimeMeshElementAccessor<FVector2f, FVector2DHalf, true>;
 
+	// Access row 0, element index 0 (which accesses the first UV channel as a whole FVector2f)
+	ElementAccessor UV0Accessor(Context, 0, 0);
+	FVector2f TestUV(0.5f, 0.75f);
+	UV0Accessor.SetValue(TestUV);
+	TestTrue(TEXT("Element accessor should set UV value"), UV0Accessor.GetValue().Equals(TestUV, 0.01f));
 
+	// Test implicit conversion
+	FVector2f ReadUV = UV0Accessor;
+	TestTrue(TEXT("Element accessor should implicitly convert to FVector2f"), ReadUV.Equals(TestUV, 0.01f));
 
+	// Test assignment operator
+	FVector2f NewUV(0.25f, 0.9f);
+	UV0Accessor = NewUV;
+	TestTrue(TEXT("Assignment operator should work"), UV0Accessor.GetValue().Equals(NewUV, 0.01f));
 
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FElementAccessorOperatorsTest,
+	"RealtimeMeshComponent.Builder.ElementAccessor.Operators",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FElementAccessorOperatorsTest::RunTest(const FString& Parameters)
+{
+	// Test with float elements to test arithmetic operators
+	// Create stream with 2 floats per row
+	FRealtimeMeshStream Stream(FRealtimeMeshStreamKey(ERealtimeMeshStreamType::Vertex, TEXT("TestStream")),
+		GetRealtimeMeshBufferLayout<float>(2));
+	Stream.SetNumUninitialized(1);
+
+	// Access first float element
+	using StreamAccessor = TRealtimeMeshStreamDataAccessor<float, float, true>;
+	auto Context = StreamAccessor::InitializeContext(Stream, 0);
+
+	using ElementAccessor = TRealtimeMeshElementAccessor<float, float, true>;
+	ElementAccessor Elem(Context, 0, 0);
+	Elem.SetValue(10.0f);
+
+	// Test arithmetic operators
+	Elem += 5.0f;
+	TestEqual(TEXT("Operator += should work"), Elem.GetValue(), 15.0f);
+
+	Elem -= 3.0f;
+	TestEqual(TEXT("Operator -= should work"), Elem.GetValue(), 12.0f);
+
+	Elem *= 2.0f;
+	TestEqual(TEXT("Operator *= should work"), Elem.GetValue(), 24.0f);
+
+	Elem /= 4.0f;
+	TestEqual(TEXT("Operator /= should work"), Elem.GetValue(), 6.0f);
+
+	// Test comparison operators
+	TestTrue(TEXT("Operator == should work"), Elem == 6.0f);
+	TestTrue(TEXT("Operator != should work"), Elem != 5.0f);
+	TestTrue(TEXT("Operator > should work"), Elem > 5.0f);
+	TestTrue(TEXT("Operator < should work"), Elem < 7.0f);
+
+	return true;
+}
+
+// =====================================================================================================================
+// Indexed Buffer Accessor Tests
+// =====================================================================================================================
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FIndexedBufferAccessorBasicTest,
+	"RealtimeMeshComponent.Builder.IndexedBufferAccessor.Basic",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FIndexedBufferAccessorBasicTest::RunTest(const FString& Parameters)
+{
+	// Create stream with FVector3f
+	FRealtimeMeshStream Stream(FRealtimeMeshStreamKey(ERealtimeMeshStreamType::Vertex, TEXT("TestStream")), GetRealtimeMeshBufferLayout<FVector3f>());
+	Stream.SetNumUninitialized(2);
+
+	using StreamAccessor = TRealtimeMeshStreamDataAccessor<FVector3f, FVector3f, false>;
+	auto Context = StreamAccessor::InitializeContext(Stream, 0);
+
+	using RowAccessor = TRealtimeMeshIndexedBufferAccessor<FVector3f, FVector3f, false>;
+
+	// Test Get and Set
+	RowAccessor Row0(Context, 0);
+	FVector3f TestVec(1.0f, 2.0f, 3.0f);
+	Row0.Set(TestVec);
+
+	TestEqual(TEXT("Row accessor Get should return set value"), Row0.Get(), TestVec);
+
+	// Test implicit conversion to AccessType
+	FVector3f ImplicitVec = Row0;
+	TestEqual(TEXT("Row accessor should implicitly convert"), ImplicitVec, TestVec);
+
+	// Test assignment operator
+	RowAccessor Row1(Context, 1);
+	Row1 = FVector3f(4.0f, 5.0f, 6.0f);
+	TestEqual(TEXT("Assignment operator should work"), Row1.Get(), FVector3f(4.0f, 5.0f, 6.0f));
+
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FIndexedBufferAccessorElementAccessTest,
+	"RealtimeMeshComponent.Builder.IndexedBufferAccessor.ElementAccess",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FIndexedBufferAccessorElementAccessTest::RunTest(const FString& Parameters)
+{
+	// Create an interleaved stream with 3 FVector3f per row (e.g., position, normal, tangent)
+	FRealtimeMeshStream Stream(FRealtimeMeshStreamKey(ERealtimeMeshStreamType::Vertex, TEXT("TestStream")),
+		GetRealtimeMeshBufferLayout<FVector3f>(3));  // 3 elements per row
+	Stream.SetNumUninitialized(1);
+
+	// Access the first element (element 0) in the interleaved stream
+	using StreamAccessor = TRealtimeMeshStreamDataAccessor<FVector3f, FVector3f, true>;
+	auto Context = StreamAccessor::InitializeContext(Stream, 0);  // ElementOffset 0
+
+	using RowAccessor = TRealtimeMeshIndexedBufferAccessor<FVector3f, FVector3f, true>;
+	RowAccessor Row(Context, 0);
+
+	// Test GetElement to access different FVector3f elements in the interleaved row
+	FVector3f Position(10.0f, 20.0f, 30.0f);
+	FVector3f Normal(0.0f, 0.0f, 1.0f);
+	FVector3f Tangent(1.0f, 0.0f, 0.0f);
+
+	Row.GetElement(0).SetValue(Position);  // Element 0 = position
+	Row.GetElement(1).SetValue(Normal);    // Element 1 = normal
+	Row.GetElement(2).SetValue(Tangent);   // Element 2 = tangent
+
+	TestEqual(TEXT("GetElement(0) should be position"), Row.GetElement(0).GetValue(), Position);
+	TestEqual(TEXT("GetElement(1) should be normal"), Row.GetElement(1).GetValue(), Normal);
+	TestEqual(TEXT("GetElement(2) should be tangent"), Row.GetElement(2).GetValue(), Tangent);
+
+	// Test operator[] (which is same as GetElement)
+	FVector3f NewPosition(100.0f, 200.0f, 300.0f);
+	Row[0] = NewPosition;  // Set element 0
+
+	TestEqual(TEXT("operator[0] should return element 0"), Row[0].GetValue(), NewPosition);
+
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FIndexedBufferAccessorSetRangeTest,
+	"RealtimeMeshComponent.Builder.IndexedBufferAccessor.SetRange",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FIndexedBufferAccessorSetRangeTest::RunTest(const FString& Parameters)
+{
+	// Create a stream with a buffer type that holds 3 FVector2f per row as a single unit
+	// This uses TRealtimeMeshTexCoords<FVector2f, 3> to treat all 3 UV channels as one AccessType
+	FRealtimeMeshStream Stream(FRealtimeMeshStreamKey(ERealtimeMeshStreamType::Vertex, TEXT("TestStream")),
+		GetRealtimeMeshBufferLayout<FVector2f>(3));  // 3 FVector2f elements per row
+	Stream.SetNumUninitialized(1);
+
+	// When accessing with substream access enabled and matching buffer/access types,
+	// SetRange/SetAll work on individual scalar elements (FVector2f) within the row
+	using StreamAccessor = TRealtimeMeshStreamDataAccessor<TRealtimeMeshTexCoords<FVector2f, 3>, TRealtimeMeshTexCoords<FVector2f, 3>, false>;
+	auto Context = StreamAccessor::InitializeContext(Stream, 0);
+
+	using RowAccessor = TRealtimeMeshIndexedBufferAccessor<TRealtimeMeshTexCoords<FVector2f, 3>, TRealtimeMeshTexCoords<FVector2f, 3>, false>;
+	RowAccessor Row(Context, 0);
+
+	// Test SetRange by setting all 3 UV channels at once using TRealtimeMeshTexCoords
+	TRealtimeMeshTexCoords<FVector2f, 3> UVSet;
+	UVSet[0] = FVector2f(0.0f, 0.0f);
+	UVSet[1] = FVector2f(0.5f, 0.5f);
+	UVSet[2] = FVector2f(1.0f, 1.0f);
+	Row.Set(UVSet);
+
+	// Verify the values were set correctly
+	TRealtimeMeshTexCoords<FVector2f, 3> ReadUVs = Row.Get();
+	TestTrue(TEXT("UV channel 0"), ReadUVs[0].Equals(FVector2f(0.0f, 0.0f), 0.01f));
+	TestTrue(TEXT("UV channel 1"), ReadUVs[1].Equals(FVector2f(0.5f, 0.5f), 0.01f));
+	TestTrue(TEXT("UV channel 2"), ReadUVs[2].Equals(FVector2f(1.0f, 1.0f), 0.01f));
+
+	// Test accessing individual elements within the row
+	TestTrue(TEXT("GetElement(0)"), Row.GetElement(0).GetValue().Equals(FVector2f(0.0f, 0.0f), 0.01f));
+	TestTrue(TEXT("GetElement(1)"), Row.GetElement(1).GetValue().Equals(FVector2f(0.5f, 0.5f), 0.01f));
+	TestTrue(TEXT("GetElement(2)"), Row.GetElement(2).GetValue().Equals(FVector2f(1.0f, 1.0f), 0.01f));
+
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FIndexedBufferAccessorSetRangeBoundsTest,
+	"RealtimeMeshComponent.Builder.IndexedBufferAccessor.SetRangeBounds",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FIndexedBufferAccessorSetRangeBoundsTest::RunTest(const FString& Parameters)
+{
+	// Create a stream with 3 FVector2f elements per row
+	FRealtimeMeshStream Stream(FRealtimeMeshStreamKey(ERealtimeMeshStreamType::Vertex, TEXT("TestStream")),
+		GetRealtimeMeshBufferLayout<FVector2f>(3));
+	Stream.SetNumUninitialized(1);
+
+	// Access using a compound type with 3 elements
+	using StreamAccessor = TRealtimeMeshStreamDataAccessor<TRealtimeMeshTexCoords<FVector2f, 3>, TRealtimeMeshTexCoords<FVector2f, 3>, false>;
+	auto Context = StreamAccessor::InitializeContext(Stream, 0);
+
+	using RowAccessor = TRealtimeMeshIndexedBufferAccessor<TRealtimeMeshTexCoords<FVector2f, 3>, TRealtimeMeshTexCoords<FVector2f, 3>, false>;
+	RowAccessor Row(Context, 0);
+
+	// Test 1: SetRange with too many elements should clamp to available space
+	// The row has 3 elements (NumElements = 3), so trying to set 5 elements starting at index 0
+	// should only set the first 3 elements without overwriting past the end
+	TArray<FVector2f> TooManyElements = {
+		FVector2f(1.0f, 1.0f),
+		FVector2f(2.0f, 2.0f),
+		FVector2f(3.0f, 3.0f),
+		FVector2f(4.0f, 4.0f),  // This should be ignored
+		FVector2f(5.0f, 5.0f)   // This should be ignored
+	};
+
+	Row.SetRange(0, MakeArrayView(TooManyElements));
+
+	// Verify only the first 3 were set
+	TRealtimeMeshTexCoords<FVector2f, 3> ReadUVs = Row.Get();
+	TestTrue(TEXT("Element 0 set correctly"), ReadUVs[0].Equals(FVector2f(1.0f, 1.0f), 0.01f));
+	TestTrue(TEXT("Element 1 set correctly"), ReadUVs[1].Equals(FVector2f(2.0f, 2.0f), 0.01f));
+	TestTrue(TEXT("Element 2 set correctly"), ReadUVs[2].Equals(FVector2f(3.0f, 3.0f), 0.01f));
+
+	// Test 2: SetRange with start offset + count exceeding NumElements should clamp
+	// Starting at element 2, we only have room for 1 element (NumElements=3, so indices 0,1,2)
+	TArray<FVector2f> OffsetElements = {
+		FVector2f(10.0f, 10.0f),
+		FVector2f(20.0f, 20.0f),  // This should be ignored
+		FVector2f(30.0f, 30.0f)   // This should be ignored
+	};
+
+	Row.SetRange(2, MakeArrayView(OffsetElements));
+
+	// Verify only element 2 was updated, elements 0 and 1 remain unchanged
+	ReadUVs = Row.Get();
+	TestTrue(TEXT("Element 0 unchanged after offset SetRange"), ReadUVs[0].Equals(FVector2f(1.0f, 1.0f), 0.01f));
+	TestTrue(TEXT("Element 1 unchanged after offset SetRange"), ReadUVs[1].Equals(FVector2f(2.0f, 2.0f), 0.01f));
+	TestTrue(TEXT("Element 2 updated correctly"), ReadUVs[2].Equals(FVector2f(10.0f, 10.0f), 0.01f));
+
+	// Test 3: SetAll with too many elements should clamp
+	Row.SetAll({
+		FVector2f(100.0f, 100.0f),
+		FVector2f(200.0f, 200.0f),
+		FVector2f(300.0f, 300.0f),
+		FVector2f(400.0f, 400.0f),  // Should be ignored
+	});
+
+	ReadUVs = Row.Get();
+	TestTrue(TEXT("SetAll element 0"), ReadUVs[0].Equals(FVector2f(100.0f, 100.0f), 0.01f));
+	TestTrue(TEXT("SetAll element 1"), ReadUVs[1].Equals(FVector2f(200.0f, 200.0f), 0.01f));
+	TestTrue(TEXT("SetAll element 2"), ReadUVs[2].Equals(FVector2f(300.0f, 300.0f), 0.01f));
+
+	return true;
+}
+
+// =====================================================================================================================
+// Stream Builder Base Tests
+// =====================================================================================================================
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FStreamBuilderBasicOperationsTest,
+	"RealtimeMeshComponent.Builder.StreamBuilder.BasicOperations",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FStreamBuilderBasicOperationsTest::RunTest(const FString& Parameters)
+{
+	FRealtimeMeshStream Stream(FRealtimeMeshStreamKey(ERealtimeMeshStreamType::Vertex, TEXT("TestStream")), GetRealtimeMeshBufferLayout<FVector3f>());
+
+	using StreamBuilder = TRealtimeMeshStreamBuilder<FVector3f, FVector3f>;
+	StreamBuilder Builder(Stream);
+
+	// Test initial state
+	TestEqual(TEXT("Initial Num should be 0"), Builder.Num(), 0);
+	TestTrue(TEXT("Initial stream should be empty"), Builder.IsEmpty());
+
+	// Test Reserve
+	Builder.Reserve(10);
+	TestTrue(TEXT("After reserve, GetSlack should be >= 10"), Builder.GetSlack() >= 10);
+
+	// Test AddUninitialized
+	auto Index = Builder.AddUninitialized(1);
+	TestEqual(TEXT("AddUninitialized should return 0"), Index, 0);
+	TestEqual(TEXT("After AddUninitialized, Num should be 1"), Builder.Num(), 1);
+
+	// Test AddZeroed
+	Builder.AddZeroed(2);
+	TestEqual(TEXT("After AddZeroed(2), Num should be 3"), Builder.Num(), 3);
+
+	// Test SetNumUninitialized
+	Builder.SetNumUninitialized(5);
+	TestEqual(TEXT("After SetNumUninitialized(5), Num should be 5"), Builder.Num(), 5);
+
+	// Test Empty
+	Builder.Empty();
+	TestEqual(TEXT("After Empty, Num should be 0"), Builder.Num(), 0);
+
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FStreamBuilderAddGetTest,
+	"RealtimeMeshComponent.Builder.StreamBuilder.AddGet",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FStreamBuilderAddGetTest::RunTest(const FString& Parameters)
+{
+	FRealtimeMeshStream Stream(FRealtimeMeshStreamKey(ERealtimeMeshStreamType::Vertex, TEXT("TestStream")), GetRealtimeMeshBufferLayout<FVector3f>());
+
+	using StreamBuilder = TRealtimeMeshStreamBuilder<FVector3f, FVector3f>;
+	StreamBuilder Builder(Stream);
+
+	// Test Add with value
+	FVector3f Vec1(1.0f, 2.0f, 3.0f);
+	int32 Index1 = Builder.Add(Vec1);
+	TestEqual(TEXT("First Add should return index 0"), Index1, 0);
+
+	FVector3f Vec2(4.0f, 5.0f, 6.0f);
+	int32 Index2 = Builder.Add(Vec2);
+	TestEqual(TEXT("Second Add should return index 1"), Index2, 1);
+
+	// Test Get
+	FVector3f Read1 = Builder.Get(0).Get();
+	FVector3f Read2 = Builder.Get(1).Get();
+
+	TestEqual(TEXT("Get(0) should return Vec1"), Read1, Vec1);
+	TestEqual(TEXT("Get(1) should return Vec2"), Read2, Vec2);
+
+	// Test GetValue
+	FVector3f DirectRead = Builder.GetValue(0);
+	TestEqual(TEXT("GetValue should return Vec1"), DirectRead, Vec1);
+
+	// Test operator[]
+	FVector3f BracketRead = Builder[1];
+	TestEqual(TEXT("operator[] should return Vec2"), BracketRead, Vec2);
+
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FStreamBuilderSetOperationsTest,
+	"RealtimeMeshComponent.Builder.StreamBuilder.SetOperations",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FStreamBuilderSetOperationsTest::RunTest(const FString& Parameters)
+{
+	FRealtimeMeshStream Stream(FRealtimeMeshStreamKey(ERealtimeMeshStreamType::Vertex, TEXT("TestStream")), GetRealtimeMeshBufferLayout<FVector3f>());
+
+	using StreamBuilder = TRealtimeMeshStreamBuilder<FVector3f, FVector3f>;
+	StreamBuilder Builder(Stream);
+
+	Builder.SetNumUninitialized(5);
+
+	// Test Set with whole FVector3f values
+	Builder.Set(0, FVector3f(1.0f, 2.0f, 3.0f));
+	TestEqual(TEXT("Set should update value"), Builder.GetValue(0), FVector3f(1.0f, 2.0f, 3.0f));
+
+	Builder.Set(1, FVector3f(10.0f, 20.0f, 30.0f));
+	TestEqual(TEXT("Set should update second value"), Builder.GetValue(1), FVector3f(10.0f, 20.0f, 30.0f));
+
+	Builder.Set(2, FVector3f(100.0f, 200.0f, 300.0f));
+	TestEqual(TEXT("Set should update third value"), Builder.GetValue(2), FVector3f(100.0f, 200.0f, 300.0f));
+
+	// Test SetRange with multiple FVector3f values
+	TArray<FVector3f> RangeVecs = {
+		FVector3f(1.0f, 1.0f, 1.0f),
+		FVector3f(2.0f, 2.0f, 2.0f)
+	};
+	Builder.SetRange(3, RangeVecs);
+	TestEqual(TEXT("SetRange index 3"), Builder.GetValue(3), RangeVecs[0]);
+	TestEqual(TEXT("SetRange index 4"), Builder.GetValue(4), RangeVecs[1]);
+
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FStreamBuilderAppendTest,
+	"RealtimeMeshComponent.Builder.StreamBuilder.Append",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FStreamBuilderAppendTest::RunTest(const FString& Parameters)
+{
+	FRealtimeMeshStream Stream(FRealtimeMeshStreamKey(ERealtimeMeshStreamType::Vertex, TEXT("TestStream")), GetRealtimeMeshBufferLayout<FVector3f>());
+
+	using StreamBuilder = TRealtimeMeshStreamBuilder<FVector3f, FVector3f>;
+	StreamBuilder Builder(Stream);
+
+	// Test Append with TArray
+	TArray<FVector3f> VecsToAppend = {
+		FVector3f(1.0f, 2.0f, 3.0f),
+		FVector3f(4.0f, 5.0f, 6.0f),
+		FVector3f(7.0f, 8.0f, 9.0f)
+	};
+
+	Builder.Append(VecsToAppend);
+	TestEqual(TEXT("After Append, Num should be 3"), Builder.Num(), 3);
+	TestEqual(TEXT("Appended value 0"), Builder.GetValue(0), VecsToAppend[0]);
+	TestEqual(TEXT("Appended value 1"), Builder.GetValue(1), VecsToAppend[1]);
+	TestEqual(TEXT("Appended value 2"), Builder.GetValue(2), VecsToAppend[2]);
+
+	// Test Append with initializer list
+	Builder.Append({FVector3f(10.0f, 11.0f, 12.0f), FVector3f(13.0f, 14.0f, 15.0f)});
+	TestEqual(TEXT("After second Append, Num should be 5"), Builder.Num(), 5);
+	TestEqual(TEXT("Appended value 3"), Builder.GetValue(3), FVector3f(10.0f, 11.0f, 12.0f));
+	TestEqual(TEXT("Appended value 4"), Builder.GetValue(4), FVector3f(13.0f, 14.0f, 15.0f));
+
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FStreamBuilderGeneratorTest,
+	"RealtimeMeshComponent.Builder.StreamBuilder.Generator",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FStreamBuilderGeneratorTest::RunTest(const FString& Parameters)
+{
+	FRealtimeMeshStream Stream(FRealtimeMeshStreamKey(ERealtimeMeshStreamType::Vertex, TEXT("TestStream")), GetRealtimeMeshBufferLayout<FVector3f>());
+
+	using StreamBuilder = TRealtimeMeshStreamBuilder<FVector3f, FVector3f>;
+	StreamBuilder Builder(Stream);
+
+	Builder.SetNumUninitialized(3);
+
+	// Test SetGenerator
+	Builder.SetGenerator(0, 3, [](int32 RelativeIndex, int32 AbsoluteIndex) -> FVector3f
 	{
-		/*const FPackedNormal Val0 = FPackedNormal(FVector4f(0, 1, 1, 0));
-		const FPackedNormal Val1 = FPackedNormal(FVector4f(1, 0, 1, 0));
-		const FPackedNormal Val2 = FPackedNormal(FVector4f(1, 0.5, 1, 0.5));
-		const FPackedNormal Val3 = FPackedNormal(FVector4f(0, 0.5, 1, 0.5));
-		const FPackedNormal Val4 = FPackedNormal(FVector4f(1, 0, 1, 0.5));
+		return FVector3f(AbsoluteIndex * 10.0f, AbsoluteIndex * 20.0f, AbsoluteIndex * 30.0f);
+	});
 
-		FRealtimeMeshStream TestStream = FRealtimeMeshStream::Create<FPackedNormalQuad>(FRealtimeMeshStreams::Position);
-		TRealtimeMeshStreamBuilder<FPackedNormalQuad> TestStreamBuilder(TestStream);
-		TestStreamBuilder.Add(Val0, Val1, Val2, Val3);
+	TestEqual(TEXT("Generated value 0"), Builder.GetValue(0), FVector3f(0.0f, 0.0f, 0.0f));
+	TestEqual(TEXT("Generated value 1"), Builder.GetValue(1), FVector3f(10.0f, 20.0f, 30.0f));
+	TestEqual(TEXT("Generated value 2"), Builder.GetValue(2), FVector3f(20.0f, 40.0f, 60.0f));
 
-		TRealtimeMeshIndexedBufferAccessor<FPackedNormalQuad> Row = TestStreamBuilder[0];
-		TRealtimeMeshElementAccessor<FPackedNormalQuad> Cell = Row[0];
-	
-	
-		TestTrue(TEXT("TestRow Initial Get(0)"), Cell == Val0);
-		TestTrue(TEXT("TestRow Initial Get(1)"), TestStreamBuilder[0][1] == Val1);
-		TestTrue(TEXT("TestRow Initial Get(2)"), TestStreamBuilder[0][2] == Val2);
-		TestTrue(TEXT("TestRow Initial Get(3)"), TestStreamBuilder[0][3] == Val3);
+	return true;
+}
 
-		TestStreamBuilder.Edit(0).SetAll(Val1, Val2, Val3, Val4);
-	
-		TestTrue(TEXT("TestRow AfterSetAll Get(0)"), TestStreamBuilder[0][0] == Val1);
-		TestTrue(TEXT("TestRow AfterSetAll Get(1)"), TestStreamBuilder[0][1] == Val2);
-		TestTrue(TEXT("TestRow AfterSetAll Get(2)"), TestStreamBuilder[0][2] == Val3);
-		TestTrue(TEXT("TestRow AfterSetAll Get(3)"), TestStreamBuilder[0][3] == Val4);
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FStreamBuilderAppendGeneratorTest,
+	"RealtimeMeshComponent.Builder.StreamBuilder.AppendGenerator",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
-	
-		TestStreamBuilder.Empty();
+bool FStreamBuilderAppendGeneratorTest::RunTest(const FString& Parameters)
+{
+	FRealtimeMeshStream Stream(FRealtimeMeshStreamKey(ERealtimeMeshStreamType::Vertex, TEXT("TestStream")), GetRealtimeMeshBufferLayout<FVector3f>());
 
-		TestStreamBuilder.Add(Val0);
-		TestStreamBuilder.Add(Val1.ToFVector4f());
-		TestStreamBuilder.Add(Val2.ToFVector4());
-		TestStreamBuilder.Add(Val3);
-		TestStreamBuilder.Add(Val4);
-		TestStreamBuilder.RemoveAt(2);
+	using StreamBuilder = TRealtimeMeshStreamBuilder<FVector3f, FVector3f>;
+	StreamBuilder Builder(Stream);
 
-		TestTrue(TEXT("TestBuilder Get(1)"), TestStreamBuilder.Get(1)[0] == Val1);
-		TestTrue(TEXT("TestBuilder Get(2)"), TestStreamBuilder.Get(2)[0] == Val3);
-		TestStreamBuilder.SetElement(2, 0, Val4);
-		TestTrue(TEXT("TestBuilder Get(2)"), TestStreamBuilder.Get(2)[0] == Val4);
-
-		TestStreamBuilder.Empty();
-		FPackedNormalQuad TempData(Val3, Val1, Val2, Val0);
-
-		TestStreamBuilder.Add(Val0, Val1);
-		TestStreamBuilder.Add(Val1.ToFVector4f(), Val2.ToFVector4f());
-		TestStreamBuilder.Add(Val2, Val2);
-		TestStreamBuilder.Add(TempData);
-		TestStreamBuilder.RemoveAt(2);
-
-
-		auto T = TestStreamBuilder[2].Get();
-
-		TestStreamBuilder[0][0] = FPackedNormal();
-	
-	
-
-		TestTrue(TEXT("TestBuilder Get(2)"), TestStreamBuilder[2] == TempData);
-		TestTrue(TEXT("TestBuilder GetElement(0, 1)"), TestStreamBuilder.GetElementValue(0, 1) == Val1);
-		TempData.C = Val4;
-		TestStreamBuilder.Set(2, TempData);
-		TestTrue(TEXT("TestBuilder Get(2) after Set"), TestStreamBuilder.Get(2) == TempData);
-
-
-		TestStreamBuilder.Add().SetElement(0, Val3).SetElement(1, Val2);
-		TestTrue(TEXT("TestBuilder GetElement(3, 0)"), TestStreamBuilder.GetElementValue(3, 0) == Val3);
-		TestTrue(TEXT("TestBuilder GetElement(3, 1)"), TestStreamBuilder.GetElementValue(3, 1) == Val2);
-	
-		TestStreamBuilder.Edit(3).SetRange(1, Val0);
-		TestTrue(TEXT("TestBuilder GetElement(3, 1)"), TestStreamBuilder.GetElementValue(3, 1) == Val0);
-		*/
-
-
-
-	
-	}
-
-
-
-	/*FRealtimeMeshStream TestStreamPackedNormal = FRealtimeMeshStream::Create<FPackedNormal[4]>(FRealtimeMeshStreams::Position);
-	TRealtimeMeshStreamBuilder<FVector4f, FRealtimeMeshStreamElementDirectRead<FVector4f, FPackedNormal>> TestStreamBuilderStaticConversion(TestStreamPackedNormal);
-	TestStreamBuilder.Add(FVector4f(1, 0, 0, 0), FVector4f(0, 1, 0, 0), FVector4f(0, 0, 1, 0), FVector4f(0, 0, 0, 1));
-
-	TestTrue(TEXT("TestRow Initial Get(0)"), TestStreamBuilderStaticConversion[0][0] == FVector4f(1, 0, 0, 0));
-	TestTrue(TEXT("TestRow Initial Get(1)"), TestStreamBuilderStaticConversion[0][1] == FVector4f(0, 1, 0, 0));
-	TestTrue(TEXT("TestRow Initial Get(2)"), TestStreamBuilderStaticConversion[0][2] == FVector4f(0, 0, 1, 0));
-	TestTrue(TEXT("TestRow Initial Get(3)"), TestStreamBuilderStaticConversion[0][3] == FVector4f(0, 0, 0, 1));*/
-
-	
-	/*
-	//const auto Builder = MakeShared<RealtimeMesh::FRealtimeMeshVertexDataBuilder>();
-
-	constexpr int32 TestDataNum = 128;
-	FVector3f TestData[TestDataNum];
-	const FRandomStream RandomStream(19385823);
-	
-	for (int32 Index = 0; Index < TestDataNum; Index++)
+	// Test AppendGenerator
+	Builder.AppendGenerator(3, [](int32 RelativeIndex, int32 AbsoluteIndex) -> FVector3f
 	{
-		TestData[Index] = FVector3f(RandomStream.VRand());
-	}
+		return FVector3f(RelativeIndex * 1.0f, RelativeIndex * 2.0f, RelativeIndex * 3.0f);
+	});
 
+	TestEqual(TEXT("After AppendGenerator, Num should be 3"), Builder.Num(), 3);
+	TestEqual(TEXT("Generated append value 0"), Builder.GetValue(0), FVector3f(0.0f, 0.0f, 0.0f));
+	TestEqual(TEXT("Generated append value 1"), Builder.GetValue(1), FVector3f(1.0f, 2.0f, 3.0f));
+	TestEqual(TEXT("Generated append value 2"), Builder.GetValue(2), FVector3f(2.0f, 4.0f, 6.0f));
 
-	RealtimeMesh::TRealtimeMeshStreamBuilder<FVector3f> Vertices("Vertices");
-	
-	Vertices.Append(TestData);
-	TestTrue(TEXT("Vertices Length"), Vertices.Num() == TestDataNum);
-	TestTrue(TEXT("Vertices ByteCount"), Vertices.Num() * Vertices.GetStream()->GetStride() == TestDataNum * sizeof(FVector3f));
-	TestTrue(TEXT("Vertices Data"), !FMemory::Memcmp(Vertices.GetStream()->GetData(), &TestData, Vertices.Num() * Vertices.GetStream()->GetStride()));
+	return true;
+}
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FStreamBuilderRemoveTest,
+	"RealtimeMeshComponent.Builder.StreamBuilder.Remove",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
-	
-	RealtimeMesh::TRealtimeMeshStreamBuilder<RealtimeMesh::FRealtimeMeshTangentsHighPrecision> TestSimpleArray2("Tangents");
-	TestSimpleArray2.Emplace(FVector3f(), FVector3f());
-	FVector3f Normal;
-	int32 VertIdx = TestSimpleArray2.Add().Set(0, FVector3f());
+bool FStreamBuilderRemoveTest::RunTest(const FString& Parameters)
+{
+	FRealtimeMeshStream Stream(FRealtimeMeshStreamKey(ERealtimeMeshStreamType::Vertex, TEXT("TestStream")), GetRealtimeMeshBufferLayout<FVector3f>());
 
-	TestSimpleArray2.Edit(0).SetRange(0, FVector3f(), FVector3f());
+	using StreamBuilder = TRealtimeMeshStreamBuilder<FVector3f, FVector3f>;
+	StreamBuilder Builder(Stream);
 
-	RealtimeMesh::TRealtimeMeshStreamBuilder<RealtimeMesh::FIndex3UI> TestTriangles("Triangles");
-	TestTriangles.Emplace(0, 1, 2);
-	TestTriangles.Emplace(0, 2, 3);
+	// Add 5 elements
+	Builder.Append({
+		FVector3f(0.0f, 0.0f, 0.0f),
+		FVector3f(1.0f, 1.0f, 1.0f),
+		FVector3f(2.0f, 2.0f, 2.0f),
+		FVector3f(3.0f, 3.0f, 3.0f),
+		FVector3f(4.0f, 4.0f, 4.0f)
+	});
 
+	TestEqual(TEXT("Before remove, Num should be 5"), Builder.Num(), 5);
 
-	TestTrue(TEXT("Triangle 0"), TestTriangles.Get(0) == RealtimeMesh::FIndex3UI(0, 1, 2));
-	TestTrue(TEXT("Triangle 1"), TestTriangles.Get(1) == RealtimeMesh::FIndex3UI(0, 2, 3));
+	// Remove index 2
+	Builder.RemoveAt(2, 1);
 
+	TestEqual(TEXT("After RemoveAt, Num should be 4"), Builder.Num(), 4);
+	TestEqual(TEXT("After remove, index 0 unchanged"), Builder.GetValue(0), FVector3f(0.0f, 0.0f, 0.0f));
+	TestEqual(TEXT("After remove, index 1 unchanged"), Builder.GetValue(1), FVector3f(1.0f, 1.0f, 1.0f));
+	TestEqual(TEXT("After remove, index 2 is now what was 3"), Builder.GetValue(2), FVector3f(3.0f, 3.0f, 3.0f));
+	TestEqual(TEXT("After remove, index 3 is now what was 4"), Builder.GetValue(3), FVector3f(4.0f, 4.0f, 4.0f));
 
-	RealtimeMesh::TRealtimeMeshBuilderLocal<> Builder;
+	return true;
+}
 
-	int32 Vert0 = Builder.AddVertex()
-		.SetPosition(FVector3f())
-		.SetTangents(FVector3f(), FVector3f(), FVector3f())
-		.SetTexCoord(FVector2f());
-	
-	int32 Vert1 = Builder.AddVertex()
-		.SetPosition(FVector3f())
-		.SetTangents(FVector3f(), FVector3f(), FVector3f())
-		.SetTexCoord(FVector2f());
-	
-	int32 Vert2 = Builder.AddVertex()
-		.SetPosition(FVector3f())
-		.SetTangents(FVector3f(), FVector3f(), FVector3f())
-		.SetTexCoord(FVector2f());
-		*/
+// =====================================================================================================================
+// Mesh Builder Local Tests
+// =====================================================================================================================
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMeshBuilderBasicConstructionTest,
+	"RealtimeMeshComponent.Builder.MeshBuilder.BasicConstruction",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
+bool FMeshBuilderBasicConstructionTest::RunTest(const FString& Parameters)
+{
+	FRealtimeMeshStreamSet StreamSet;
 
-	
+	// Create basic builder with defaults (uint32 indices, FPackedNormal tangents, FVector2DHalf UVs, 1 UV channel, uint16 polygroups)
+	using MeshBuilder = TRealtimeMeshBuilderLocal<>;
+	MeshBuilder Builder(StreamSet);
 
-	/*
-	auto TestBuffer = Builder->CreateVertexStream<FVector3f>(FName(TEXT("TestStream")));
-	
-	TestTrue(TEXT("Stride"), TestBuffer->GetStride() == sizeof(FVector3f));
-	
-	const auto ValidateBufferData = [&](FString BufferTestName)
-	{
-		TestTrue(BufferTestName + TEXT(" Length"), TestBuffer->Num() == TestDataNum);
-		TestTrue(BufferTestName + TEXT(" ByteCount"), TestBuffer->Num() * TestBuffer->GetStride() == TestDataNum * sizeof(FVector3f));
-		TestTrue(BufferTestName + TEXT(" Data"), !FMemory::Memcmp(TestBuffer->GetData(), &TestData, TestBuffer->Num() * TestBuffer->GetStride()));
-	};	
-	
-	TestBuffer->Append(MakeArrayView(TestData));
-	ValidateBufferData(TEXT("Append ArrayView"));
-	*/
-	
+	// Test initial state
+	TestEqual(TEXT("Initial NumVertices should be 0"), Builder.NumVertices(), 0);
+	TestEqual(TEXT("Initial NumTriangles should be 0"), Builder.NumTriangles(), 0);
+	TestFalse(TEXT("Tangents should not be enabled initially"), Builder.HasTangents());
+	TestFalse(TEXT("TexCoords should not be enabled initially"), Builder.HasTexCoords());
+	TestFalse(TEXT("Colors should not be enabled initially"), Builder.HasVertexColors());
+	TestFalse(TEXT("PolyGroups should not be enabled initially"), Builder.HasPolyGroups());
 
-	
+	// Verify position and triangle streams exist
+	TestTrue(TEXT("Position stream should exist"), StreamSet.Contains(FRealtimeMeshStreams::Position));
+	TestTrue(TEXT("Triangle stream should exist"), StreamSet.Contains(FRealtimeMeshStreams::Triangles));
+
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMeshBuilderEnableStreamsTest,
+	"RealtimeMeshComponent.Builder.MeshBuilder.EnableStreams",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FMeshBuilderEnableStreamsTest::RunTest(const FString& Parameters)
+{
+	FRealtimeMeshStreamSet StreamSet;
+
+	using MeshBuilder = TRealtimeMeshBuilderLocal<>;
+	MeshBuilder Builder(StreamSet);
+
+	// Test EnableTangents
+	Builder.EnableTangents();
+	TestTrue(TEXT("After EnableTangents, HasTangents should be true"), Builder.HasTangents());
+	TestTrue(TEXT("Tangents stream should exist"), StreamSet.Contains(FRealtimeMeshStreams::Tangents));
+
+	// Test EnableTexCoords
+	Builder.EnableTexCoords(1);
+	TestTrue(TEXT("After EnableTexCoords, HasTexCoords should be true"), Builder.HasTexCoords());
+	TestTrue(TEXT("TexCoords stream should exist"), StreamSet.Contains(FRealtimeMeshStreams::TexCoords));
+	TestEqual(TEXT("NumTexCoordChannels should be 1"), Builder.NumTexCoordChannels(), 1);
+
+	// Test EnableColors
+	Builder.EnableColors();
+	TestTrue(TEXT("After EnableColors, HasVertexColors should be true"), Builder.HasVertexColors());
+	TestTrue(TEXT("Color stream should exist"), StreamSet.Contains(FRealtimeMeshStreams::Color));
+
+	// Test EnablePolyGroups
+	Builder.EnablePolyGroups();
+	TestTrue(TEXT("After EnablePolyGroups, HasPolyGroups should be true"), Builder.HasPolyGroups());
+	TestTrue(TEXT("PolyGroups stream should exist"), StreamSet.Contains(FRealtimeMeshStreams::PolyGroups));
+
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMeshBuilderDisableStreamsTest,
+	"RealtimeMeshComponent.Builder.MeshBuilder.DisableStreams",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FMeshBuilderDisableStreamsTest::RunTest(const FString& Parameters)
+{
+	FRealtimeMeshStreamSet StreamSet;
+
+	using MeshBuilder = TRealtimeMeshBuilderLocal<>;
+	MeshBuilder Builder(StreamSet);
+
+	// Enable all streams
+	Builder.EnableTangents();
+	Builder.EnableTexCoords(1);
+	Builder.EnableColors();
+	Builder.EnablePolyGroups();
+
+	// Disable tangents with stream removal
+	Builder.DisableTangents(true);
+	TestFalse(TEXT("After DisableTangents, HasTangents should be false"), Builder.HasTangents());
+	TestFalse(TEXT("Tangents stream should be removed"), StreamSet.Contains(FRealtimeMeshStreams::Tangents));
+
+	// Disable colors without stream removal
+	Builder.DisableColors(false);
+	TestFalse(TEXT("After DisableColors(false), HasVertexColors should be false"), Builder.HasVertexColors());
+	TestTrue(TEXT("Color stream should still exist"), StreamSet.Contains(FRealtimeMeshStreams::Color));
+
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMeshBuilderVertexOperationsTest,
+	"RealtimeMeshComponent.Builder.MeshBuilder.VertexOperations",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FMeshBuilderVertexOperationsTest::RunTest(const FString& Parameters)
+{
+	FRealtimeMeshStreamSet StreamSet;
+
+	using MeshBuilder = TRealtimeMeshBuilderLocal<>;
+	MeshBuilder Builder(StreamSet);
+
+	Builder.EnableTangents();
+	Builder.EnableTexCoords(1);
+	Builder.EnableColors();
+
+	// Test AddVertex with position
+	auto VertIdx = Builder.AddVertex(FVector3f(10.0f, 20.0f, 30.0f));
+	TestEqual(TEXT("First vertex should have index 0"), int32(VertIdx), 0);
+	TestEqual(TEXT("NumVertices should be 1"), Builder.NumVertices(), 1);
+
+	// Test GetPosition
+	FVector3f ReadPos = Builder.GetPosition(0);
+	TestEqual(TEXT("GetPosition should return added position"), ReadPos, FVector3f(10.0f, 20.0f, 30.0f));
+
+	// Test SetPosition
+	Builder.SetPosition(0, FVector3f(100.0f, 200.0f, 300.0f));
+	TestEqual(TEXT("SetPosition should update position"), Builder.GetPosition(0), FVector3f(100.0f, 200.0f, 300.0f));
+
+	// Test SetNormal and GetNormal
+	Builder.SetNormal(0, FVector3f(0.0f, 0.0f, 1.0f));
+	FVector3f ReadNormal = Builder.GetNormal(0);
+	TestTrue(TEXT("GetNormal should return set normal"), ReadNormal.Equals(FVector3f(0.0f, 0.0f, 1.0f), 0.01f));
+
+	// Test SetTangent and GetTangent
+	Builder.SetTangent(0, FVector3f(1.0f, 0.0f, 0.0f));
+	FVector3f ReadTangent = Builder.GetTangent(0);
+	TestTrue(TEXT("GetTangent should return set tangent"), ReadTangent.Equals(FVector3f(1.0f, 0.0f, 0.0f), 0.01f));
+
+	// Test SetTexCoord and GetTexCoord
+	Builder.SetTexCoord(0, 0, FVector2f(0.5f, 0.75f));
+	FVector2f ReadUV = Builder.GetTexCoord(0, 0);
+	TestTrue(TEXT("GetTexCoord should return set UV"), ReadUV.Equals(FVector2f(0.5f, 0.75f), 0.01f));
+
+	// Test SetColor and GetColor
+	Builder.SetColor(0, FColor::Red);
+	FColor ReadColor = Builder.GetColor(0);
+	TestEqual(TEXT("GetColor should return set color"), ReadColor, FColor::Red);
+
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMeshBuilderTriangleOperationsTest,
+	"RealtimeMeshComponent.Builder.MeshBuilder.TriangleOperations",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FMeshBuilderTriangleOperationsTest::RunTest(const FString& Parameters)
+{
+	FRealtimeMeshStreamSet StreamSet;
+
+	using MeshBuilder = TRealtimeMeshBuilderLocal<>;
+	MeshBuilder Builder(StreamSet);
+
+	// Add some vertices
+	Builder.AddVertex(FVector3f(0.0f, 0.0f, 0.0f));
+	Builder.AddVertex(FVector3f(1.0f, 0.0f, 0.0f));
+	Builder.AddVertex(FVector3f(0.0f, 1.0f, 0.0f));
+
+	// Test AddTriangle with uint32 indices
+	auto TriIdx = Builder.AddTriangle(0, 1, 2);
+	TestEqual(TEXT("First triangle should have index 0"), TriIdx, 0);
+	TestEqual(TEXT("NumTriangles should be 1"), Builder.NumTriangles(), 1);
+
+	// Test GetTriangle
+	TIndex3<uint32> ReadTri = Builder.GetTriangle(0);
+	TestEqual(TEXT("Triangle V0"), ReadTri.V0, 0u);
+	TestEqual(TEXT("Triangle V1"), ReadTri.V1, 1u);
+	TestEqual(TEXT("Triangle V2"), ReadTri.V2, 2u);
+
+	// Test SetTriangle
+	Builder.SetTriangle(0, 2, 1, 0);
+	TIndex3<uint32> UpdatedTri = Builder.GetTriangle(0);
+	TestEqual(TEXT("Updated Triangle V0"), UpdatedTri.V0, 2u);
+	TestEqual(TEXT("Updated Triangle V1"), UpdatedTri.V1, 1u);
+	TestEqual(TEXT("Updated Triangle V2"), UpdatedTri.V2, 0u);
+
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMeshBuilderPolyGroupsTest,
+	"RealtimeMeshComponent.Builder.MeshBuilder.PolyGroups",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FMeshBuilderPolyGroupsTest::RunTest(const FString& Parameters)
+{
+	FRealtimeMeshStreamSet StreamSet;
+
+	using MeshBuilder = TRealtimeMeshBuilderLocal<>;
+	MeshBuilder Builder(StreamSet);
+
+	Builder.EnablePolyGroups();
+
+	// Add vertices
+	Builder.AddVertex(FVector3f(0.0f, 0.0f, 0.0f));
+	Builder.AddVertex(FVector3f(1.0f, 0.0f, 0.0f));
+	Builder.AddVertex(FVector3f(0.0f, 1.0f, 0.0f));
+
+	// Test AddTriangle with material index
+	auto TriIdx = Builder.AddTriangle(0, 1, 2, 5);
+	TestEqual(TEXT("Triangle should be added"), TriIdx, 0);
+
+	// Test GetMaterialIndex
+	uint32 MatIdx = Builder.GetMaterialIndex(0);
+	TestEqual(TEXT("Material index should be 5"), MatIdx, 5u);
+
+	// Test SetTriangle with material index
+	Builder.SetTriangle(0, TIndex3<uint32>(0, 1, 2), 10);
+	uint32 UpdatedMatIdx = Builder.GetMaterialIndex(0);
+	TestEqual(TEXT("Updated material index should be 10"), UpdatedMatIdx, 10u);
+
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMeshBuilderReserveTest,
+	"RealtimeMeshComponent.Builder.MeshBuilder.Reserve",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FMeshBuilderReserveTest::RunTest(const FString& Parameters)
+{
+	FRealtimeMeshStreamSet StreamSet;
+
+	using MeshBuilder = TRealtimeMeshBuilderLocal<>;
+	MeshBuilder Builder(StreamSet);
+
+	// Test ReserveNumVertices
+	Builder.ReserveNumVertices(100);
+	// We can't directly test capacity, but we can verify it doesn't crash
+
+	// Test ReserveAdditionalVertices
+	Builder.ReserveAdditionalVertices(50);
+
+	// Test SetNumVertices
+	Builder.SetNumVertices(10);
+	TestEqual(TEXT("After SetNumVertices(10), NumVertices should be 10"), Builder.NumVertices(), 10);
+
+	// Test EmptyVertices
+	Builder.EmptyVertices();
+	TestEqual(TEXT("After EmptyVertices, NumVertices should be 0"), Builder.NumVertices(), 0);
+
+	// Test ReserveNumTriangles
+	Builder.ReserveNumTriangles(200);
+
+	// Test SetNumTriangles
+	Builder.SetNumTriangles(15);
+	TestEqual(TEXT("After SetNumTriangles(15), NumTriangles should be 15"), Builder.NumTriangles(), 15);
+
+	// Test EmptyTriangles
+	Builder.EmptyTriangles();
+	TestEqual(TEXT("After EmptyTriangles, NumTriangles should be 0"), Builder.NumTriangles(), 0);
+
+	return true;
+}
+
+// =====================================================================================================================
+// Vertex Builder Local Tests
+// =====================================================================================================================
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVertexBuilderBasicTest,
+	"RealtimeMeshComponent.Builder.VertexBuilder.Basic",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FVertexBuilderBasicTest::RunTest(const FString& Parameters)
+{
+	FRealtimeMeshStreamSet StreamSet;
+
+	using MeshBuilder = TRealtimeMeshBuilderLocal<>;
+	MeshBuilder Builder(StreamSet);
+
+	Builder.EnableTangents();
+	Builder.EnableTexCoords(1);
+	Builder.EnableColors();
+
+	// Test AddVertex returns VertexBuilder
+	auto VertBuilder = Builder.AddVertex(FVector3f(0.0f, 0.0f, 0.0f));
+
+	// Test GetIndex
+	TestEqual(TEXT("GetIndex should return 0"), VertBuilder.GetIndex(), 0);
+
+	// Test implicit conversion to index
+	int32 Index = VertBuilder;
+	TestEqual(TEXT("Implicit conversion to index should work"), Index, 0);
+
+	// Test HasTangents, HasTexCoords, HasVertexColors
+	TestTrue(TEXT("VertexBuilder.HasTangents should be true"), VertBuilder.HasTangents());
+	TestTrue(TEXT("VertexBuilder.HasTexCoords should be true"), VertBuilder.HasTexCoords());
+	TestTrue(TEXT("VertexBuilder.HasVertexColors should be true"), VertBuilder.HasVertexColors());
+	TestEqual(TEXT("VertexBuilder.NumTexCoordChannels should be 1"), VertBuilder.NumTexCoordChannels(), 1);
+
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVertexBuilderChainedCallsTest,
+	"RealtimeMeshComponent.Builder.VertexBuilder.ChainedCalls",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FVertexBuilderChainedCallsTest::RunTest(const FString& Parameters)
+{
+	FRealtimeMeshStreamSet StreamSet;
+
+	using MeshBuilder = TRealtimeMeshBuilderLocal<>;
+	MeshBuilder Builder(StreamSet);
+
+	Builder.EnableTangents();
+	Builder.EnableTexCoords(1);
+	Builder.EnableColors();
+
+	// Test chained calls
+	auto VertIdx = Builder.AddVertex()
+		.SetPosition(FVector3f(10.0f, 20.0f, 30.0f))
+		.SetNormal(FVector3f(0.0f, 0.0f, 1.0f))
+		.SetTangent(FVector3f(1.0f, 0.0f, 0.0f))
+		.SetTexCoord(FVector2f(0.5f, 0.5f))
+		.SetColor(FColor::Blue)
+		.GetIndex();
+
+	// Verify all values were set
+	TestEqual(TEXT("Chained position"), Builder.GetPosition(VertIdx), FVector3f(10.0f, 20.0f, 30.0f));
+	TestTrue(TEXT("Chained normal"), Builder.GetNormal(VertIdx).Equals(FVector3f(0.0f, 0.0f, 1.0f), 0.01f));
+	TestTrue(TEXT("Chained tangent"), Builder.GetTangent(VertIdx).Equals(FVector3f(1.0f, 0.0f, 0.0f), 0.01f));
+	TestTrue(TEXT("Chained UV"), Builder.GetTexCoord(VertIdx, 0).Equals(FVector2f(0.5f, 0.5f), 0.01f));
+	TestEqual(TEXT("Chained color"), Builder.GetColor(VertIdx), FColor::Blue);
+
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVertexBuilderEditTest,
+	"RealtimeMeshComponent.Builder.VertexBuilder.Edit",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FVertexBuilderEditTest::RunTest(const FString& Parameters)
+{
+	FRealtimeMeshStreamSet StreamSet;
+
+	using MeshBuilder = TRealtimeMeshBuilderLocal<>;
+	MeshBuilder Builder(StreamSet);
+
+	Builder.EnableTangents();
+	Builder.EnableTexCoords(1);
+
+	// Add initial vertex
+	Builder.AddVertex(FVector3f(0.0f, 0.0f, 0.0f));
+
+	// Edit the vertex
+	Builder.EditVertex(0)
+		.SetPosition(FVector3f(100.0f, 200.0f, 300.0f))
+		.SetNormal(FVector3f(0.0f, 1.0f, 0.0f))
+		.SetTexCoord(FVector2f(0.25f, 0.75f));
+
+	// Verify edits
+	TestEqual(TEXT("Edited position"), Builder.GetPosition(0), FVector3f(100.0f, 200.0f, 300.0f));
+	TestTrue(TEXT("Edited normal"), Builder.GetNormal(0).Equals(FVector3f(0.0f, 1.0f, 0.0f), 0.01f));
+	TestTrue(TEXT("Edited UV"), Builder.GetTexCoord(0, 0).Equals(FVector2f(0.25f, 0.75f), 0.01f));
+
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVertexBuilderGettersTest,
+	"RealtimeMeshComponent.Builder.VertexBuilder.Getters",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FVertexBuilderGettersTest::RunTest(const FString& Parameters)
+{
+	FRealtimeMeshStreamSet StreamSet;
+
+	using MeshBuilder = TRealtimeMeshBuilderLocal<>;
+	MeshBuilder Builder(StreamSet);
+
+	Builder.EnableTangents();
+	Builder.EnableTexCoords(1);
+	Builder.EnableColors();
+
+	// Set up vertex
+	Builder.AddVertex(FVector3f(5.0f, 10.0f, 15.0f));
+	Builder.SetNormal(0, FVector3f(0.0f, 0.0f, 1.0f));
+	Builder.SetTangent(0, FVector3f(1.0f, 0.0f, 0.0f));
+	Builder.SetTexCoord(0, 0, FVector2f(0.3f, 0.7f));
+	Builder.SetColor(0, FColor::Green);
+
+	// Test getters through VertexBuilder
+	auto VertBuilder = Builder.EditVertex(0);
+
+	FVector3f Pos = VertBuilder.GetPosition();
+	TestEqual(TEXT("VertexBuilder GetPosition"), Pos, FVector3f(5.0f, 10.0f, 15.0f));
+
+	FVector3f Normal = VertBuilder.GetNormal();
+	TestTrue(TEXT("VertexBuilder GetNormal"), Normal.Equals(FVector3f(0.0f, 0.0f, 1.0f), 0.01f));
+
+	FVector3f Tangent = VertBuilder.GetTangent();
+	TestTrue(TEXT("VertexBuilder GetTangent"), Tangent.Equals(FVector3f(1.0f, 0.0f, 0.0f), 0.01f));
+
+	FVector2f UV = VertBuilder.GetTexCoord(0);
+	TestTrue(TEXT("VertexBuilder GetTexCoord"), UV.Equals(FVector2f(0.3f, 0.7f), 0.01f));
+
+	FColor Color = VertBuilder.GetColor();
+	TestEqual(TEXT("VertexBuilder GetColor"), Color, FColor::Green);
+
+	FLinearColor LinearColor = VertBuilder.GetLinearColor();
+	TestTrue(TEXT("VertexBuilder GetLinearColor should be greenish"), LinearColor.G > 0.5f);
+
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVertexBuilderSetNormalAndTangentTest,
+	"RealtimeMeshComponent.Builder.VertexBuilder.SetNormalAndTangent",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FVertexBuilderSetNormalAndTangentTest::RunTest(const FString& Parameters)
+{
+	FRealtimeMeshStreamSet StreamSet;
+
+	using MeshBuilder = TRealtimeMeshBuilderLocal<>;
+	MeshBuilder Builder(StreamSet);
+
+	Builder.EnableTangents();
+
+	// Add vertex and set normal/tangent together
+	Builder.AddVertex(FVector3f(0.0f, 0.0f, 0.0f))
+		.SetNormalAndTangent(FVector3f(0.0f, 0.0f, 1.0f), FVector3f(1.0f, 0.0f, 0.0f));
+
+	// Verify both were set
+	FVector3f Normal = Builder.GetNormal(0);
+	FVector3f Tangent = Builder.GetTangent(0);
+
+	TestTrue(TEXT("SetNormalAndTangent normal"), Normal.Equals(FVector3f(0.0f, 0.0f, 1.0f), 0.01f));
+	TestTrue(TEXT("SetNormalAndTangent tangent"), Tangent.Equals(FVector3f(1.0f, 0.0f, 0.0f), 0.01f));
+
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVertexBuilderSetTangentsTest,
+	"RealtimeMeshComponent.Builder.VertexBuilder.SetTangents",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FVertexBuilderSetTangentsTest::RunTest(const FString& Parameters)
+{
+	FRealtimeMeshStreamSet StreamSet;
+
+	using MeshBuilder = TRealtimeMeshBuilderLocal<>;
+	MeshBuilder Builder(StreamSet);
+
+	Builder.EnableTangents();
+
+	// Add vertex and set all tangents (normal, binormal, tangent)
+	Builder.AddVertex(FVector3f(0.0f, 0.0f, 0.0f))
+		.SetTangents(
+			FVector3f(0.0f, 0.0f, 1.0f),  // Normal
+			FVector3f(0.0f, 1.0f, 0.0f),  // Binormal
+			FVector3f(1.0f, 0.0f, 0.0f)   // Tangent
+		);
+
+	// Verify they were set
+	FVector3f Normal = Builder.GetNormal(0);
+	FVector3f Tangent = Builder.GetTangent(0);
+
+	TestTrue(TEXT("SetTangents normal"), Normal.Equals(FVector3f(0.0f, 0.0f, 1.0f), 0.01f));
+	TestTrue(TEXT("SetTangents tangent"), Tangent.Equals(FVector3f(1.0f, 0.0f, 0.0f), 0.01f));
+	// Note: Binormal is derived from Normal and Tangent, so we don't test it directly here
+
 	return true;
 }

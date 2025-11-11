@@ -27,6 +27,7 @@ namespace RealtimeMesh
 		using TaskFunctionType = TUniqueFunction<void(FRHICommandListBase&, FRealtimeMeshProxy&)>;
 	private:
 		TArray<TaskFunctionType> Tasks;
+		TOptional<bool> bNewHasNaniteData;
 		uint32 bRequiresProxyRecreate : 1;
 		uint32 bIsIgnoringCommands : 1;
 	public:
@@ -43,6 +44,8 @@ namespace RealtimeMesh
 
 		void MarkForProxyRecreate() { bRequiresProxyRecreate = true; }
 		void ClearProxyRecreate() { bRequiresProxyRecreate = false; }
+
+		void SetHasNaniteData(bool bHasNaniteData) { bNewHasNaniteData = bHasNaniteData; }
 
 		void AddMeshTask(TUniqueFunction<void(FRHICommandListBase&, FRealtimeMeshProxy&)>&& Function, bool bInRequiresProxyRecreate = true);
 

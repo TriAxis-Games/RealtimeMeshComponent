@@ -2,6 +2,7 @@
 
 
 #include "Mesh/RealtimeMeshCardRepresentation.h"
+#include "MeshCardBuild.h"
 
 
 FRealtimeMeshCardRepresentation::FRealtimeMeshCardRepresentation()
@@ -12,9 +13,7 @@ FRealtimeMeshCardRepresentation::FRealtimeMeshCardRepresentation()
 
 FRealtimeMeshCardRepresentation::FRealtimeMeshCardRepresentation(const FCardRepresentationData& Src)
 	: Bounds(Src.MeshCardsBuildData.Bounds)
-#if RMC_ENGINE_ABOVE_5_2
 	, bMostlyTwoSided(Src.MeshCardsBuildData.bMostlyTwoSided)
-#endif
 	, CardBuildData(Src.MeshCardsBuildData.CardBuildData)
 {
 }
@@ -57,9 +56,7 @@ FCardRepresentationData FRealtimeMeshCardRepresentation::CreateRenderingData() c
 	FCardRepresentationData RenderingData;
 	RenderingData.CardRepresentationDataId.Value = NextCardRepresentationId--;
 	RenderingData.MeshCardsBuildData.Bounds = Bounds;
-#if RMC_ENGINE_ABOVE_5_2
 	RenderingData.MeshCardsBuildData.bMostlyTwoSided = bMostlyTwoSided;
-#endif
 	RenderingData.MeshCardsBuildData.CardBuildData = CardBuildData;
 	return RenderingData;
 }
@@ -69,9 +66,7 @@ FCardRepresentationData FRealtimeMeshCardRepresentation::MoveToRenderingData()
 	FCardRepresentationData RenderingData;
 	RenderingData.CardRepresentationDataId.Value = NextCardRepresentationId--;
 	RenderingData.MeshCardsBuildData.Bounds = MoveTemp(Bounds);
-#if RMC_ENGINE_ABOVE_5_2
 	RenderingData.MeshCardsBuildData.bMostlyTwoSided = MoveTemp(bMostlyTwoSided);
-#endif
 	RenderingData.MeshCardsBuildData.CardBuildData = MoveTemp(CardBuildData);
 	return RenderingData;
 }

@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "RealtimeMeshCore.h"
+#include "Modules/ModuleManager.h"
 
 #if RMC_ENGINE_ABOVE_5_4
 struct FRealtimeMeshEditorSettings

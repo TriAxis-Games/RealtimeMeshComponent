@@ -3,6 +3,8 @@
 #pragma once
 
 #include "RealtimeMeshInterface.h"
+#include "RealtimeMeshDataStream.h"
+#include "RealtimeMeshSectionGroupConfig.h"
 
 namespace RealtimeMesh
 {
@@ -14,9 +16,15 @@ namespace RealtimeMesh
 			static FName FeatureName = TEXT("IRealtimeMeshSimple_v0");
 			return FeatureName;
 		}
-		
-		virtual TFuture<ERealtimeMeshProxyUpdateStatus> CreateSectionGroup(const FRealtimeMeshSectionGroupKey& Key, const FRealtimeMeshStreamSet& Streams, const FRealtimeMeshSectionGroupConfig& InConfig = FRealtimeMeshSectionGroupConfig(), bool bShouldAutoCreateSectionsForPolyGroups = true) = 0;
-		virtual TFuture<ERealtimeMeshProxyUpdateStatus> CreateSectionGroup(const FRealtimeMeshSectionGroupKey& Key, FRealtimeMeshStreamSet&& Streams, const FRealtimeMeshSectionGroupConfig& InConfig = FRealtimeMeshSectionGroupConfig(), bool bShouldAutoCreateSectionsForPolyGroups = true) = 0;
+
+		virtual TFuture<ERealtimeMeshProxyUpdateStatus> CreateSectionGroup(const FRealtimeMeshSectionGroupKey& Key,
+			const FRealtimeMeshStreamSet& Streams,
+			const FRealtimeMeshSectionGroupConfig& InConfig = FRealtimeMeshSectionGroupConfig(),
+			bool bShouldAutoCreateSectionsForPolyGroups = true) = 0;
+		virtual TFuture<ERealtimeMeshProxyUpdateStatus> CreateSectionGroup(const FRealtimeMeshSectionGroupKey& Key,
+			FRealtimeMeshStreamSet&& Streams,
+			const FRealtimeMeshSectionGroupConfig& InConfig = FRealtimeMeshSectionGroupConfig(),
+			bool bShouldAutoCreateSectionsForPolyGroups = true) = 0;
 
 		virtual TFuture<ERealtimeMeshProxyUpdateStatus> Reset(bool bShouldRecreate) = 0;
 	};
@@ -32,7 +40,7 @@ namespace RealtimeMesh
 			return FeatureName;
 		}
 
-	
+
 		virtual TSharedRef<IRealtimeMeshSimple_v0> InitializeMesh(UMeshComponent* MeshComponent) const = 0;
 		virtual TSharedRef<IRealtimeMeshSimple_v0> GetMesh(UMeshComponent* MeshComponent) const = 0;
 	};

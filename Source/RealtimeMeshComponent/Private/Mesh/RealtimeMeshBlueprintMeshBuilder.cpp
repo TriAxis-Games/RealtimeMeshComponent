@@ -5,9 +5,7 @@
 #include "Engine/Engine.h"
 #include "RealtimeMeshComponentModule.h"
 #include "Core/RealtimeMeshDataStream.h"
-#if RMC_ENGINE_ABOVE_5_2
 #include "Logging/MessageLog.h"
-#endif
 
 #define LOCTEXT_NAMESPACE "RealtimeMesh"
 
@@ -1116,7 +1114,7 @@ URealtimeMeshStreamSet* URealtimeMeshStreamPool::RequestStreamSet()
 {	
 	if (CachedStreamSets.Num() > 0)
 	{
-		return CachedStreamSets.Pop(false);
+		return CachedStreamSets.Pop(EAllowShrinking::No);
 	}
 	
 	URealtimeMeshStreamSet* NewStreamSet = NewObject<URealtimeMeshStreamSet>();
@@ -1150,7 +1148,7 @@ URealtimeMeshLocalBuilder* URealtimeMeshStreamPool::RequestMeshBuilder()
 {
 	if (CachedBuilders.Num() > 0)
 	{
-		return CachedBuilders.Pop(false);
+		return CachedBuilders.Pop(EAllowShrinking::No);
 	}
 	
 	URealtimeMeshLocalBuilder* NewBuilder = NewObject<URealtimeMeshLocalBuilder>();

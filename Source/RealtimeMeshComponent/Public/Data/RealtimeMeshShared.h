@@ -34,6 +34,8 @@ namespace RealtimeMesh
 		bool HasBounds() const { return UserSetBounds.IsSet() || CalculatedBounds.IsSet(); }
 		const FBoxSphereBounds3f& GetBounds() const { check(HasBounds()); return UserSetBounds.IsSet()? UserSetBounds.GetValue() : CalculatedBounds.GetValue(); }
 
+		const FBoxSphereBounds3f& GetComputedBounds() const { check(HasComputedBounds()); return CalculatedBounds.GetValue(); }
+
 		TOptional<FBoxSphereBounds3f> Get() const { return UserSetBounds.IsSet() ? UserSetBounds : CalculatedBounds; }
 		
 		void Reset()

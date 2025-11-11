@@ -117,6 +117,10 @@ namespace RealtimeMesh
 		
 		auto ThreadState = MakeShared<FRealtimeMeshCommandBatchIntermediateFuture>();
 
+		if (bNewHasNaniteData.IsSet())
+		{
+			Proxy->SetHasNaniteData_GT(bNewHasNaniteData.GetValue());
+		}
 		Proxy->EnqueueCommandBatch(MoveTemp(Tasks), ThreadState);
 
 		DoOnGameThread([ThreadState, MeshWeak = Mesh.ToWeakPtr(), bRecreateProxies = static_cast<bool>(bRequiresProxyRecreate)]()

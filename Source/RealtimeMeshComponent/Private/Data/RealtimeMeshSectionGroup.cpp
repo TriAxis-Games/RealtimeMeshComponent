@@ -7,9 +7,7 @@
 #include "RenderProxy/RealtimeMeshGPUBuffer.h"
 #include "RenderProxy/RealtimeMeshProxyCommandBatch.h"
 #include "RenderProxy/RealtimeMeshSectionGroupProxy.h"
-#if RMC_ENGINE_ABOVE_5_2
 #include "Logging/MessageLog.h"
-#endif
 
 #define LOCTEXT_NAMESPACE "RealtimeMesh"
 

@@ -5,7 +5,7 @@
 #include "CoreMinimal.h"
 #include "RealtimeMeshCore.h"
 
-#if RMC_ENGINE_ABOVE_5_2
+/*#if RMC_ENGINE_BELOW_5_5
 // This works around a compile issue in 5.2+ where there's invalid code at the bottom of MeshCardRepresentation.h
 // TODO: I think this is still a bug to this day, so could submit a bug fix for it.
 UE_PUSH_MACRO("UE_ENABLE_INCLUDE_ORDER_DEPRECATED_IN_5_2")
@@ -16,8 +16,9 @@ UE_PUSH_MACRO("UE_ENABLE_INCLUDE_ORDER_DEPRECATED_IN_5_2")
 #include "MeshCardBuild.h"
 UE_POP_MACRO("UE_ENABLE_INCLUDE_ORDER_DEPRECATED_IN_5_2")
 #else
+#endif*/
 #include "MeshCardRepresentation.h"
-#endif
+#include "MeshCardBuild.h"
 
 #include "RealtimeMeshCardRepresentation.generated.h"
 

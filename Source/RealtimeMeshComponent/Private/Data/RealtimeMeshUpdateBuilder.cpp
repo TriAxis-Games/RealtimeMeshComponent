@@ -170,7 +170,7 @@ namespace RealtimeMesh
 
 				FMessageLog("RealtimeMesh").Error(
 				FText::Format(LOCTEXT("RealtimeMeshUpdate_Section", "RealtimeMeshUpdate_Section: Failed to find Section {0}"),
-					FText::FromString(SectionKey.ToString())));	
+					FText::FromString(SectionKey.ToString())));
 			}
 		});
 	}

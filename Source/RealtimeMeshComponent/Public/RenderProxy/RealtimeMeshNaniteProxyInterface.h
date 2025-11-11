@@ -12,13 +12,10 @@ class URealtimeMeshComponent;
 
 namespace RealtimeMesh
 {
-	struct FRealtimeMeshStreamSet;
-
-
-	struct IRealtimeMeshNaniteSceneProxy : public Nanite::FSceneProxyBase
+	struct IRealtimeMeshNaniteSceneProxy : public ::Nanite::FSceneProxyBase
 	{
 		explicit IRealtimeMeshNaniteSceneProxy(const UPrimitiveComponent* Component)
-			: Nanite::FSceneProxyBase((UPrimitiveComponent*)Component)
+			: ::Nanite::FSceneProxyBase(Component)
 		{
 		}
 	};
@@ -37,11 +34,8 @@ namespace RealtimeMesh
 			return IModularFeatures::Get().GetModularFeature<IRealtimeMeshNaniteSceneProxyManager>(GetModularFeatureName());
 		}
 		
-		virtual TSharedRef<IRealtimeMeshNaniteResources> CreateNewResources(const Nanite::FResources& InResources) = 0;
 		virtual bool ShouldUseNanite(URealtimeMeshComponent* RealtimeMeshComponent) = 0;
 		virtual IRealtimeMeshNaniteSceneProxy* CreateNewSceneProxy(URealtimeMeshComponent* Component, const RealtimeMesh::FRealtimeMeshProxyRef& InRealtimeMeshProxy) = 0;
-
-		virtual bool BuildRealtimeMeshNaniteData(Nanite::FResources& Resources, const FMeshNaniteSettings& Settings, const RealtimeMesh::FRealtimeMeshStreamSet& Streams) = 0;
 	};
 	
 }

@@ -210,7 +210,7 @@ FArchive& operator<<(FArchive& Ar, FRealtimeMeshSimpleGeometry& SimpleGeometry)
 
 
 // This is added in 5.4 but only for editor use, so we add it any other time.
-#if RMC_ENGINE_BELOW_5_4 || !WITH_EDITORONLY_DATA
+#if !WITH_EDITORONLY_DATA
 static FArchive& operator<<(FArchive& Ar, FTriIndices& Indices)
 {
 	Ar << Indices.v0 << Indices.v1 << Indices.v2;

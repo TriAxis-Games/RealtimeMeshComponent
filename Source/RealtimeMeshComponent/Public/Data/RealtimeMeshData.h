@@ -13,6 +13,7 @@
 #include "Core/RealtimeMeshMaterial.h"
 #include "Mesh/RealtimeMeshCardRepresentation.h"
 #include "Mesh/RealtimeMeshDistanceField.h"
+#include "Mesh/RealtimeMeshNaniteResourcesInterface.h"
 
 struct FTriMeshCollisionData;
 class URealtimeMesh;
@@ -20,7 +21,7 @@ class URealtimeMesh;
 namespace RealtimeMesh
 {
 	struct FRealtimeMeshUpdateContext;
-	struct IRealtimeMeshNaniteResources;
+	struct IRealtimeMeshNaniteMeshResourcesImplementation;
 
 
 	class REALTIMEMESHCOMPONENT_API FRealtimeMesh : public TSharedFromThis<FRealtimeMesh>//, public FGCObject
@@ -32,14 +33,13 @@ namespace RealtimeMesh
 		FRealtimeMeshConfig Config;
 		FRealtimeMeshBounds Bounds;
 
-		TSharedPtr<IRealtimeMeshNaniteResources> NaniteResources;
 
 		
 		/* Counter for generating version identifier for collision updates */
 		FThreadSafeCounter CollisionUpdateVersionCounter;
 	public:
 		FRealtimeMesh(const FRealtimeMeshSharedResourcesRef& InSharedResources);
-		virtual ~FRealtimeMesh() = default;
+		virtual ~FRealtimeMesh();
 
 		const FRealtimeMeshSharedResourcesRef& GetSharedResources() const { return SharedResources; }
 
@@ -97,14 +97,13 @@ namespace RealtimeMesh
 		virtual void RemoveTrailingLOD(FRealtimeMeshUpdateContext& UpdateContext, FRealtimeMeshLODKey* OutNewLastLODKey = nullptr);
 
 		
-		virtual void SetNaniteResources(FRealtimeMeshUpdateContext& UpdateContext, const TSharedRef<IRealtimeMeshNaniteResources>& InNaniteResources);
+		virtual void SetNaniteResources(FRealtimeMeshUpdateContext& UpdateContext, FRealtimeMeshNaniteResourcesPtr&& InNaniteResources);
 		virtual void ClearNaniteResources(FRealtimeMeshUpdateContext& UpdateContext);
 		
 		virtual void SetDistanceField(FRealtimeMeshUpdateContext& UpdateContext, FRealtimeMeshDistanceField&& InDistanceField);
 		virtual void ClearDistanceField(FRealtimeMeshUpdateContext& UpdateContext);
 
-		virtual void SetCardRepresentation(FRealtimeMeshUpdateContext& UpdateContext, FRealtimeMeshCardRepresentation&& InCardRepresentation);
-		
+		virtual void SetCardRepresentation(FRealtimeMeshUpdateContext& UpdateContext, FRealtimeMeshCardRepresentation&& InCardRepresentation);		
 		virtual void ClearCardRepresentation(FRealtimeMeshUpdateContext& UpdateContext);
 
 		/**

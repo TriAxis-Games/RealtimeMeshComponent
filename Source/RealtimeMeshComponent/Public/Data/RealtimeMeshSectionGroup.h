@@ -44,6 +44,27 @@ namespace RealtimeMesh
 
 		FRealtimeMeshSectionPtr GetSection(const FRealtimeMeshLockContext& LockContext, const FRealtimeMeshSectionKey& SectionKey) const;
 
+		template<typename SectionType, typename FuncType>
+		void ProcessSectionsAs(const FRealtimeMeshLockContext& LockContext, FuncType ProcessFunc) const
+		{
+			FRealtimeMeshScopeGuardRead ScopeGuard(SharedResources->GetGuard());
+			for (FRealtimeMeshSectionRef Section : Sections)
+			{
+				::Invoke(ProcessFunc, *StaticCastSharedPtr<const SectionType>(Section));
+			}
+		}
+		
+		template<typename FuncType>
+		void ProcessSections(const FRealtimeMeshLockContext& LockContext, FuncType ProcessFunc) const
+		{
+			FRealtimeMeshScopeGuardRead ScopeGuard(SharedResources->GetGuard());
+			for (FRealtimeMeshSectionRef Section : Sections)
+			{
+				::Invoke(ProcessFunc, *Section);
+			}
+		}
+
+		
 
 		virtual void Initialize(FRealtimeMeshUpdateContext& UpdateContext, const FRealtimeMeshSectionGroupConfig& InConfig);
 		virtual void Reset(FRealtimeMeshUpdateContext& UpdateContext);

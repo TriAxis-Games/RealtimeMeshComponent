@@ -6,9 +6,8 @@
 #include "Data/RealtimeMeshData.h"
 #include "RealtimeMeshCollisionLibrary.h"
 #include "Interfaces/Interface_CollisionDataProvider.h"
-#if RMC_ENGINE_ABOVE_5_2
+#include "Templates/Function.h"
 #include "Tickable.h"
-#endif
 #include "RealtimeMesh.generated.h"
 
 
@@ -35,8 +34,10 @@ public:
 
 protected:
 	void BroadcastBoundsChangedEvent();
-	void BroadcastRenderDataChangedEvent(bool bShouldRecreateProxies, int32 CommandsVersion = INDEX_NONE);
+	void BroadcastRenderDataChangedEvent(bool bShouldRecreateProxies);
 	void BroadcastCollisionBodyUpdatedEvent(UBodySetup* NewBodySetup);
+
+	void DispatchToGameThread(TUniqueFunction<void(URealtimeMesh*)>&& Func);
 
 	void Initialize(const TSharedRef<RealtimeMesh::FRealtimeMeshSharedResources>& InSharedResources);
 

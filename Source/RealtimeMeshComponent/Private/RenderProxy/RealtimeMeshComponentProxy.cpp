@@ -1,6 +1,8 @@
 // Copyright (c) 2015-2025 TriAxis Games, L.L.C. All Rights Reserved.
 
 #include "RenderProxy/RealtimeMeshComponentProxy.h"
+
+#include "MaterialDomain.h"
 #include "RenderProxy/RealtimeMeshProxy.h"
 #include "RealtimeMeshComponent.h"
 #include "Materials/Material.h"
@@ -12,11 +14,14 @@
 #include "RealtimeMeshComponentModule.h"
 #include "RealtimeMeshSceneViewExtension.h"
 #include "RenderProxy/RealtimeMeshLODProxy.h"
-#if RMC_ENGINE_ABOVE_5_2
+#include "RenderProxy/RealtimeMeshSectionGroupProxy.h"
+#include "RenderProxy/RealtimeMeshDebugVertexFactory.h"
+#include "Data/RealtimeMeshShared.h"
+#include "Materials/MaterialInterface.h"
+#include "Materials/MaterialRenderProxy.h"
 #include "MaterialDomain.h"
 #include "Materials/MaterialRenderProxy.h"
 #include "SceneInterface.h"
-#endif
 
 DECLARE_CYCLE_STAT(TEXT("RealtimeMeshComponentSceneProxy - Create Mesh Batch"), STAT_RealtimeMeshComponentSceneProxy_CreateMeshBatch, STATGROUP_RealtimeMesh);
 DECLARE_CYCLE_STAT(TEXT("RealtimeMeshComponentSceneProxy - Get Dynamic Mesh Elements"), STAT_RealtimeMeshComponentSceneProxy_GetDynamicMeshElements, STATGROUP_RealtimeMesh);
@@ -28,6 +33,32 @@ static TAutoConsoleVariable<int32> CVarRayTracingRealtimeMesh(
 	TEXT("r.RayTracing.Geometry.RealtimeMeshes"),
 	1,
 	TEXT("Include realtime meshes in ray tracing effects (default = 1 (realtime meshes enabled in ray tracing))"));
+
+// Debug visualization console variables
+TAutoConsoleVariable<int32> CVarRealtimeMeshShowNormals(
+	TEXT("r.RealtimeMesh.ShowNormals"),
+	0,
+	TEXT("Show normals for realtime meshes (0 = off, 1 = on)"));
+
+TAutoConsoleVariable<int32> CVarRealtimeMeshShowTangents(
+	TEXT("r.RealtimeMesh.ShowTangents"),
+	0,
+	TEXT("Show tangents for realtime meshes (0 = off, 1 = on)"));
+
+TAutoConsoleVariable<int32> CVarRealtimeMeshShowBinormals(
+	TEXT("r.RealtimeMesh.ShowBinormals"),
+	0,
+	TEXT("Show binormals for realtime meshes (0 = off, 1 = on)"));
+
+static TAutoConsoleVariable<int32> CVarRealtimeMeshShowVertexColors(
+	TEXT("r.RealtimeMesh.ShowVertexColors"),
+	0,
+	TEXT("Show vertex colors for realtime meshes (0 = off, 1 = on)"));
+
+TAutoConsoleVariable<float> CVarRealtimeMeshDebugLineLength(
+	TEXT("r.RealtimeMesh.DebugLineLength"),
+	5.0f,
+	TEXT("Length of debug lines for normals/tangents/binormals"));
 
 namespace RealtimeMesh
 {	
@@ -72,73 +103,24 @@ namespace RealtimeMesh
 #if RHI_RAYTRACING
 		bSupportsRayTracing = true; //InRealtimeMeshProxy->HasRayTracingGeometry()
 		//bDynamicRayTracingGeometry = false;
-
-#if RMC_ENGINE_BELOW_5_4
-#if RMC_ENGINE_ABOVE_5_2
-		if (IsRayTracingAllowed() && bSupportsRayTracing)
-#elif RMC_ENGINE_ABOVE_5_1
-		if (IsRayTracingEnabled(GetScene().GetShaderPlatform()) && bSupportsRayTracing)
-#else
-		if (IsRayTracingEnabled() && bSupportsRayTracing)		
-#endif
-		{			
-			RayTracingGeometries.SetNum(InRealtimeMeshProxy->GetNumLODs());
-			for (int32 LODIndex = 0; LODIndex < RealtimeMeshProxy->GetNumLODs(); LODIndex++)
-			{
-				if (FRayTracingGeometry* RayTracingGeo = RealtimeMeshProxy->GetLOD(LODIndex)->GetStaticRayTracingGeometry())
-				{
-					RayTracingGeometries[LODIndex] = RayTracingGeo;
-				}
-			}
-			
-			/*
-			const bool bWantsRayTracingWPO = MaterialRelevance.bUsesWorldPositionOffset && InComponent->bEvaluateWorldPositionOffsetInRayTracing;
-			
-			// r.RayTracing.Geometry.StaticMeshes.WPO is handled in the following way:
-			// 0 - mark ray tracing geometry as dynamic but don't create any dynamic geometries since it won't be included in ray tracing scene
-			// 1 - mark ray tracing geometry as dynamic and create dynamic geometries
-			// 2 - don't mark ray tracing geometry as dynamic nor create any dynamic geometries since WPO evaluation is disabled
-
-			// if r.RayTracing.Geometry.StaticMeshes.WPO == 2, WPO evaluation is disabled so don't need to mark geometry as dynamic
-			if (bWantsRayTracingWPO && CVarRayTracingStaticMeshesWPO.GetValueOnAnyThread() != 2)
-			{
-				bDynamicRayTracingGeometry = true;
-
-				// only need dynamic geometries when r.RayTracing.Geometry.StaticMeshes.WPO == 1
-				bNeedsDynamicRayTracingGeometries = CVarRayTracingStaticMeshesWPO.GetValueOnAnyThread() == 1;
-			}
-			*/
-		}
-#endif
 #endif
 
-#if RMC_ENGINE_ABOVE_5_2
 		if (MaterialRelevance.bOpaque && !MaterialRelevance.bUsesSingleLayerWaterMaterial)
 		{
 			UpdateVisibleInLumenScene();
-		}
-#endif
-		
+		}		
 	}
 
 	FRealtimeMeshComponentSceneProxy::~FRealtimeMeshComponentSceneProxy()
 	{
 	}
 
-#if RMC_ENGINE_ABOVE_5_4
 	void FRealtimeMeshComponentSceneProxy::CreateRenderThreadResources(FRHICommandListBase& RHICmdList)
 	{
 		MeshReferencingHandle = RealtimeMeshProxy->GetReferencingHandle();		
 		RealtimeMeshProxy->ProcessCommands(RHICmdList);
 		FPrimitiveSceneProxy::CreateRenderThreadResources(RHICmdList);
 	}
-#else
-	void FRealtimeMeshComponentSceneProxy::CreateRenderThreadResources()
-	{		
-		RealtimeMeshProxy->ProcessCommands(GRHICommandList.GetImmediateCommandList());
-		FPrimitiveSceneProxy::CreateRenderThreadResources();
-	}
-#endif
 
 	bool FRealtimeMeshComponentSceneProxy::CanBeOccluded() const
 	{
@@ -157,10 +139,17 @@ namespace RealtimeMesh
 		Result.bDrawRelevance = IsShown(View);
 		Result.bShadowRelevance = IsShadowCast(View);
 
+		// Check if debug visualization is enabled to ensure we have dynamic relevance for debug drawing
+		const bool bShowNormals = CVarRealtimeMeshShowNormals.GetValueOnRenderThread() != 0;
+		const bool bShowTangents = CVarRealtimeMeshShowTangents.GetValueOnRenderThread() != 0;
+		const bool bShowBinormals = CVarRealtimeMeshShowBinormals.GetValueOnRenderThread() != 0;
+		const bool bShowVertexColors = CVarRealtimeMeshShowVertexColors.GetValueOnRenderThread() != 0;
+		const bool bDebugVisualizationActive = bShowNormals || bShowTangents || bShowBinormals || bShowVertexColors;
+		
 		const bool bForceDynamicPath = IsRichView(*View->Family) || IsSelected() || View->Family->EngineShowFlags.Wireframe;
 
 		Result.bStaticRelevance = !bForceDynamicPath && RealtimeMeshProxy->GetDrawMask().IsSet(ERealtimeMeshDrawMask::DrawStatic);
-		Result.bDynamicRelevance = bForceDynamicPath || RealtimeMeshProxy->GetDrawMask().IsSet(ERealtimeMeshDrawMask::DrawDynamic);
+		Result.bDynamicRelevance = bForceDynamicPath || RealtimeMeshProxy->GetDrawMask().IsSet(ERealtimeMeshDrawMask::DrawDynamic) || bDebugVisualizationActive;
 
 		Result.bRenderInMainPass = ShouldRenderInMainPass();
 		Result.bUsesLightingChannels = GetLightingChannelMask() != GetDefaultLightingChannelMask();
@@ -266,6 +255,135 @@ namespace RealtimeMesh
 				}
 			}			
 		}
+
+	}
+
+	void FRealtimeMeshComponentSceneProxy::DrawDebugVectorsDynamic(const TArray<const FSceneView*>& Views, const FSceneViewFamily& ViewFamily, uint32 VisibilityMap, FMeshElementCollector& Collector) const
+	{
+		const float LineLength = CVarRealtimeMeshDebugLineLength.GetValueOnRenderThread();
+		const bool bShowNormals = CVarRealtimeMeshShowNormals.GetValueOnRenderThread() != 0;
+		const bool bShowTangents = CVarRealtimeMeshShowTangents.GetValueOnRenderThread() != 0;
+		const bool bShowBinormals = CVarRealtimeMeshShowBinormals.GetValueOnRenderThread() != 0;
+		// Create debug modes bitmask (only TBN, vertex colors handled separately)
+		uint32 DebugMode = 0;
+		if (bShowNormals) DebugMode |= FRealtimeMeshDebugVertexFactory::Normals;
+		if (bShowTangents) DebugMode |= FRealtimeMeshDebugVertexFactory::Tangents;
+		if (bShowBinormals) DebugMode |= FRealtimeMeshDebugVertexFactory::Binormals;
+
+		// Use vertex color material that respects interpolated vertex colors
+		FMaterialRenderProxy* DebugMaterial = nullptr;
+		
+		// First try the engine's vertex color material which should respect vertex colors
+		if (GEngine->VertexColorViewModeMaterial_ColorOnly)
+		{
+			DebugMaterial = GEngine->VertexColorViewModeMaterial_ColorOnly->GetRenderProxy();
+		}
+		// Fallback to unlit vertex color material
+		else if (GEngine->VertexColorMaterial)
+		{
+			DebugMaterial = GEngine->VertexColorMaterial->GetRenderProxy();
+		}
+		// Last resort fallback
+		else 
+		{
+			DebugMaterial = new FColoredMaterialRenderProxy(
+				GEngine->WireframeMaterial ? GEngine->WireframeMaterial->GetRenderProxy() : nullptr,
+				FLinearColor(0.0f, 0.8f, 1.0f)
+			);
+			Collector.RegisterOneFrameMaterialProxy(DebugMaterial);
+		}		
+
+		// Walk active LODs
+		for (auto LodIt = RealtimeMeshProxy->GetActiveStaticLODMaskIter(); LodIt; ++LodIt)
+		{
+			const FRealtimeMeshLODProxy* LOD = *LodIt;
+
+			// Walk all section groups within the LOD
+			for (auto SectionGroupIt = LOD->GetActiveSectionGroupMaskIter(); SectionGroupIt; ++SectionGroupIt)
+			{
+				const FRealtimeMeshSectionGroupProxy* SectionGroup = *SectionGroupIt;
+
+				// Skip if we don't have the required streams
+				if (!SectionGroup->GetStream(FRealtimeMeshStreams::Position) ||
+					!SectionGroup->GetStream(FRealtimeMeshStreams::Tangents))
+				{
+					continue;
+				}
+
+				// Get or create cached debug vertex factory
+				TSharedPtr<FRealtimeMeshDebugVertexFactory> DebugVertexFactory = GetOrCreateDebugVertexFactory(SectionGroup, DebugMode, LineLength, Collector.GetRHICommandList());
+				
+				// Skip if vertex factory is not valid
+				if (!DebugVertexFactory.IsValid() || !DebugVertexFactory->IsInitialized() || DebugVertexFactory->GetValidRange().NumVertices() == 0)
+				{
+					continue;
+				}
+				
+				// Create debug mesh batches for each view
+				for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
+				{
+					if (VisibilityMap & (1 << ViewIndex))
+					{
+						// Pre-calculate if we have anything to render
+						FRealtimeMeshStreamRange ValidRange = DebugVertexFactory->GetValidRange();
+						uint32 ActiveDebugModes = 0;
+						if (bShowNormals) ActiveDebugModes++;
+						if (bShowTangents) ActiveDebugModes++;
+						if (bShowBinormals) ActiveDebugModes++;
+						
+						// Only proceed if we have vertices and debug modes active
+						if (ValidRange.NumVertices() > 0 && ActiveDebugModes > 0 && DebugVertexFactory->IsInitialized())
+						{
+							// Calculate lines: multiply by number of active debug channels
+							// Each vertex gets one line per active debug mode
+							uint32 NumLines = ValidRange.NumVertices() * ActiveDebugModes;
+							
+							// Only create mesh batch if we have valid primitives
+							if (NumLines > 0)
+							{
+								// Create mesh batch for debug lines
+								FMeshBatch& DebugMeshBatch = Collector.AllocateMesh();
+								DebugMeshBatch.MaterialRenderProxy = DebugMaterial;
+								DebugMeshBatch.VertexFactory = DebugVertexFactory.Get();
+								DebugMeshBatch.Type = PT_LineList;
+								DebugMeshBatch.DepthPriorityGroup = SDPG_World;
+								DebugMeshBatch.bCanApplyViewModeOverrides = false;
+								DebugMeshBatch.bUseWireframeSelectionColoring = false;
+								DebugMeshBatch.bWireframe = false;
+
+								// Set up mesh batch element
+								FMeshBatchElement& BatchElement = DebugMeshBatch.Elements[0];
+								
+								// Use our debug index buffer for line pairs
+								FRealtimeMeshResourceReferenceList DebugResources;
+								bool bDepthOnly = false;
+								bool bMatrixInverted = false;
+								BatchElement.IndexBuffer = &DebugVertexFactory->GetIndexBuffer(bDepthOnly, bMatrixInverted, DebugResources);
+								BatchElement.FirstIndex = 0;
+								BatchElement.NumPrimitives = NumLines;
+								BatchElement.MinVertexIndex = 0;
+								BatchElement.MaxVertexIndex = ValidRange.NumVertices() - 1; // Max vertex in the vertex buffer
+								
+								// Initialize other required fields
+								BatchElement.BaseVertexIndex = 0;
+								BatchElement.NumInstances = 1;
+								BatchElement.InstancedLODIndex = 0;
+								BatchElement.InstancedLODRange = 0;
+								
+								// Set up primitive uniform buffer (required for GPU Scene)
+								BatchElement.PrimitiveUniformBuffer = GetUniformBuffer();
+
+								if (BatchElement.NumPrimitives > 0)
+								{									
+									// Add the debug mesh batch
+									Collector.AddMesh(ViewIndex, DebugMeshBatch);
+								}
+							}
+						}
+					}
+				}
+			}
+		}
 	}
 
 	void FRealtimeMeshComponentSceneProxy::GetDynamicMeshElements(const TArray<const FSceneView*>& Views, const FSceneViewFamily& ViewFamily, uint32 VisibilityMap,
@@ -275,6 +393,9 @@ namespace RealtimeMesh
 	
 		// Set up wireframe material (if needed)
 		const bool bWireframe = AllowDebugViewmodes() && ViewFamily.EngineShowFlags.Wireframe;
+		
+		// Check if we should show vertex colors via material swap
+		const bool bShowVertexColors = CVarRealtimeMeshShowVertexColors.GetValueOnRenderThread() != 0;
 
 		/*FColoredMaterialRenderProxy* WireframeMaterialInstance = nullptr;
 		if (bWireframe)
@@ -335,6 +456,17 @@ namespace RealtimeMesh
 								FMeshBatch& MeshBatch = Collector.AllocateMesh();
 
 								MeshBatch.MaterialRenderProxy = MaterialProxy? MaterialProxy : UMaterial::GetDefaultMaterial(MD_Surface)->GetRenderProxy();
+								
+								// Override with vertex color material if debug mode is enabled
+								if (bShowVertexColors)
+								{
+									UMaterialInterface* VertexColorMaterial = GEngine->VertexColorViewModeMaterial_ColorOnly;
+									if (VertexColorMaterial)
+									{
+										MeshBatch.MaterialRenderProxy = VertexColorMaterial->GetRenderProxy();
+									}
+								}
+								
 								MeshBatch.bWireframe = bWireframe;
 
 								// Let SectionGroup do initial setup
@@ -372,6 +504,17 @@ namespace RealtimeMesh
 			}
 		}
 		
+		// Debug rendering for normals, tangents, and binormals
+		const bool bShowNormals = CVarRealtimeMeshShowNormals.GetValueOnRenderThread() != 0;
+		const bool bShowTangents = CVarRealtimeMeshShowTangents.GetValueOnRenderThread() != 0;
+		const bool bShowBinormals = CVarRealtimeMeshShowBinormals.GetValueOnRenderThread() != 0;
+
+		if (bShowNormals || bShowTangents || bShowBinormals)
+		{
+			
+			DrawDebugVectorsDynamic(Views, ViewFamily, VisibilityMap, Collector);
+		}
+		
 		// Draw bounds
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 		for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
@@ -400,6 +543,7 @@ namespace RealtimeMesh
 		SelfShadowBias = DistanceFieldSelfShadowBias;
 	}
 
+#if RMC_ENGINE_BELOW_5_6
 	void FRealtimeMeshComponentSceneProxy::GetDistanceFieldInstanceData(TArray<FRenderTransform>& InstanceLocalToPrimitiveTransforms) const
 	{
 		check(InstanceLocalToPrimitiveTransforms.IsEmpty());
@@ -409,6 +553,7 @@ namespace RealtimeMesh
 			InstanceLocalToPrimitiveTransforms.Add(FRenderTransform::Identity);
 		}
 	}
+#endif
 
 	bool FRealtimeMeshComponentSceneProxy::HasDistanceFieldRepresentation() const
 	{
@@ -438,7 +583,6 @@ namespace RealtimeMesh
 		return false && RealtimeMeshProxy->GetDrawMask().CanRenderInStaticRayTracing();
 	}
 	
-#if RMC_ENGINE_ABOVE_5_4
 
 	TArray<FRayTracingGeometry*> FRealtimeMeshComponentSceneProxy::GetStaticRayTracingGeometries() const
 	{
@@ -456,7 +600,8 @@ namespace RealtimeMesh
 				RayTracingGeometries[LODIndex] = RealtimeMeshProxy->GetLOD(LODIndex)->GetStaticRayTracingGeometry();
 			}
 
-			const int32 IndexOfFirstNull = RayTracingGeometries.IndexOfByPredicate([](FRayTracingGeometry* RayTracingGeometry) { return !RayTracingGeometry; });
+			const int32 IndexOfFirstNull = RayTracingGeometries.IndexOfByPredicate([](const FRayTracingGeometry* RayTracingGeometry)
+				{ return !RayTracingGeometry || !RayTracingGeometry->IsValid(); });
 
 			// TODO: Should we inject blank ones or duplicate a valid one instead of doing this?
 			// We strip to valid range with no nulls.
@@ -469,7 +614,6 @@ namespace RealtimeMesh
 		}
 		return {};
 	}
-#endif // RMC_ENGINE_ABOVE_5_4
 	
 
 #if RMC_ENGINE_ABOVE_5_5
@@ -575,10 +719,6 @@ namespace RealtimeMesh
 				}
 			}
 			
-#if RMC_ENGINE_BELOW_5_2
-			RayTracingInstance.BuildInstanceMaskAndFlags(GetScene().GetFeatureLevel());
-#endif
-
 #if RMC_ENGINE_ABOVE_5_5				
 			Collector.AddRayTracingInstance(MoveTemp(RayTracingInstance));
 #endif
@@ -691,7 +831,52 @@ namespace RealtimeMesh
 	SIZE_T FRealtimeMeshComponentSceneProxy::GetAllocatedSize() const
 	{
 		return (FPrimitiveSceneProxy::GetAllocatedSize());
-	}	
+	}
+
+	TSharedPtr<FRealtimeMeshDebugVertexFactory> FRealtimeMeshComponentSceneProxy::GetOrCreateDebugVertexFactory(const FRealtimeMeshSectionGroupProxy* SectionGroup, uint32 DebugMode, float LineLength, FRHICommandList& RHICmdList) const
+	{
+		// Check if we already have a cached vertex factory for this section group
+		if (TSharedPtr<FRealtimeMeshDebugVertexFactory>* ExistingVF = DebugVertexFactoryCache.Find(SectionGroup))
+		{
+			if (ExistingVF->IsValid())
+			{
+				// Update debug mode and line length in case they changed
+				(*ExistingVF)->SetDebugMode(DebugMode);
+				(*ExistingVF)->SetLineLength(LineLength);
+				return *ExistingVF;
+			}
+		}
+
+		// Create new debug vertex factory
+		TSharedPtr<FRealtimeMeshDebugVertexFactory> DebugVertexFactory = MakeShared<FRealtimeMeshDebugVertexFactory>(GetScene().GetFeatureLevel());
+		DebugVertexFactory->SetDebugMode(DebugMode);
+		DebugVertexFactory->SetLineLength(LineLength);
+
+		// Get the buffers from the section group and initialize the debug vertex factory
+		TMap<FRealtimeMeshStreamKey, TSharedPtr<FRealtimeMeshGPUBuffer>> BufferMap;
+		
+		// Collect required streams
+		if (auto PositionBuffer = SectionGroup->GetStream(FRealtimeMeshStreams::Position))
+		{
+			BufferMap.Add(FRealtimeMeshStreams::Position, PositionBuffer);
+		}
+		if (auto TangentBuffer = SectionGroup->GetStream(FRealtimeMeshStreams::Tangents))
+		{
+			BufferMap.Add(FRealtimeMeshStreams::Tangents, TangentBuffer);
+		}
+		if (auto ColorBuffer = SectionGroup->GetStream(FRealtimeMeshStreams::Color))
+		{
+			BufferMap.Add(FRealtimeMeshStreams::Color, ColorBuffer);
+		}
+
+		// Initialize the debug vertex factory
+		DebugVertexFactory->Initialize(RHICmdList, BufferMap);
+
+		// Cache it for future use
+		DebugVertexFactoryCache.Add(SectionGroup, DebugVertexFactory);
+
+		return DebugVertexFactory;
+	}
 }
 
 #undef RMC_LOG_VERBOSE

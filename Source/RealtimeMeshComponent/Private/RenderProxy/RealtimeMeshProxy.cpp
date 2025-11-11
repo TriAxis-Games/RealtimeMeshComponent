@@ -4,7 +4,9 @@
 
 #include "RealtimeMeshComponentModule.h"
 #include "RealtimeMeshSceneViewExtension.h"
+#include "Core/RealtimeMeshFuture.h"
 #include "Data/RealtimeMeshShared.h"
+#include "Mesh/RealtimeMeshNaniteResourcesInterface.h"
 #include "RenderProxy/RealtimeMeshLODProxy.h"
 
 namespace RealtimeMesh
@@ -53,20 +55,7 @@ namespace RealtimeMesh
 		}
 		
 		// Find previous active lod
-#if RMC_ENGINE_ABOVE_5_3
 		const int32 NextActive = ScreenPercentageNextLODMask.FindFrom(true, REALTIME_MESH_MAX_LOD_INDEX - (LODIndex - 1));
-#else
-		int32 NextActive = INDEX_NONE;
-
-		for (int32 Index = REALTIME_MESH_MAX_LOD_INDEX - (LODIndex - 1); Index < REALTIME_MESH_MAX_LODS; Index++)
-		{
-			if (ScreenPercentageNextLODMask[Index])
-			{
-				NextActive = Index;
-				break;
-			}
-		}		
-#endif
 		
 		// If there is no valid lod higher than us, then we just use max value for the upper end
 		if (NextActive == INDEX_NONE)
@@ -75,6 +64,60 @@ namespace RealtimeMesh
 		}		
 		
 		return TRange<float>(GetLOD(LODIndex)->GetScreenSize(), GetLOD(REALTIME_MESH_MAX_LOD_INDEX - NextActive)->GetScreenSize());
+	}
+
+	void FRealtimeMeshProxy::SetNaniteResources_RT(FRealtimeMeshNaniteResourcesPtr&& InNaniteResources)
+	{
+		check(IsInRenderingThread());
+
+		if (InNaniteResources.IsValid())
+		{
+			UE_LOG(LogRealtimeMesh, Verbose, TEXT("SetNaniteResources_RT: Setting new Nanite resources (HasValidData: %s)"), 
+				InNaniteResources->HasValidData() ? TEXT("true") : TEXT("false"));
+			
+			// Validate the incoming resources
+			if (!InNaniteResources->HasValidData())
+			{
+				UE_LOG(LogRealtimeMesh, Warning, TEXT("SetNaniteResources_RT: Incoming Nanite resources have no valid data"));
+			}
+			
+			// Clear existing resources if any
+			if (NaniteResources.IsValid())
+			{
+				UE_LOG(LogRealtimeMesh, VeryVerbose, TEXT("SetNaniteResources_RT: Replacing existing Nanite resources"));
+			}
+			
+			// We convert this to a shared ptr so that we can reference it from all the scene proxies using it,
+			// and then only release it when all the proxies have dropped reference to it
+			NaniteResources = MakeShareable(InNaniteResources.Release(), [](FRealtimeMeshNaniteResources* Resources)
+			{
+				if (Resources)
+				{
+					UE_LOG(LogRealtimeMesh, VeryVerbose, TEXT("Shared Nanite resources deleter called"));
+					FRealtimeMeshNaniteResourcesDeleter::Destroy(Resources);
+				}
+			});
+		}
+		else
+		{
+			UE_LOG(LogRealtimeMesh, Verbose, TEXT("SetNaniteResources_RT: Clearing Nanite resources"));
+			NaniteResources.Reset();
+		}
+	}
+
+	bool FRealtimeMeshProxy::HasNaniteResources_GT() const
+	{
+		return bHasNaniteData;
+	}
+
+	bool FRealtimeMeshProxy::HasNaniteResources_RT() const
+	{
+		return NaniteResources.IsValid();
+	}
+
+	void FRealtimeMeshProxy::ClearNaniteResources_RT()
+	{
+		NaniteResources.Reset();
 	}
 
 	void FRealtimeMeshProxy::SetDistanceField(FRealtimeMeshDistanceField&& InDistanceField)
@@ -86,23 +129,7 @@ namespace RealtimeMesh
 
 	bool FRealtimeMeshProxy::HasDistanceFieldData() const
 	{
-#if RMC_ENGINE_ABOVE_5_2
-		return DistanceField.IsValid() && DistanceField->IsValid();
-#else
 		return DistanceField.IsValid();
-#endif
-	}
-
-	void FRealtimeMeshProxy::SetNaniteResources(const TSharedPtr<IRealtimeMeshNaniteResources>& InNaniteResources)
-	{
-		check(IsInRenderingThread());
-
-		NaniteResources = InNaniteResources;
-	}
-
-	bool FRealtimeMeshProxy::HasNaniteResources() const
-	{
-		return NaniteResources.IsValid();
 	}
 
 	void FRealtimeMeshProxy::SetCardRepresentation(FRealtimeMeshCardRepresentation&& InCardRepresentation)
@@ -158,8 +185,6 @@ namespace RealtimeMesh
 		CachedAggGeom = InAggGeom;
 		CollisionTraceFlag = InCollisionTraceFlag;
 		CollisionResponse = InCollisionResponse;
-			
-		//bOwnerIsNull = ParentBaseComponent->GetOwner() == nullptr;
 	}
 #endif
 
@@ -239,6 +264,7 @@ namespace RealtimeMesh
 		
 		LODs.Empty();
 
+		NaniteResources.Reset();
 		DrawMask = FRealtimeMeshDrawMask();
 		ActiveLODMask.SetRange(0, REALTIME_MESH_MAX_LODS, false);
 		ScreenPercentageNextLODMask.SetRange(0, REALTIME_MESH_MAX_LODS, false);

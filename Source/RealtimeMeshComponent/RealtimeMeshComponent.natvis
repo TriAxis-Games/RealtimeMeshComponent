@@ -83,5 +83,45 @@
 
 
 	</Type>
-	
+
+	<Type Name="FRealtimeMeshStreamRange">
+			<DisplayString Condition="Vertices.IsEmpty() && Indices.IsEmpty()">Empty</DisplayString>
+			<DisplayString>V[{GetMinVertex()}..{GetMaxVertex()}] I[{GetMinIndex()}..{GetMaxIndex()}]</DisplayString>
+	</Type>
+
+	<Type Name="RealtimeMesh::FRealtimeMeshBounds">
+			<DisplayString Condition="!HasBounds()">Invalid</DisplayString>
+			<DisplayString>Origin:{GetBounds().Origin} Extent:{GetBounds().BoxExtent}</DisplayString>
+	</Type>
+
+	<Type Name="FRealtimeMeshLODKey">
+			<DisplayString Condition="Index() &lt; 0">Invalid</DisplayString>
+			<DisplayString>{ToString()}</DisplayString>
+	</Type>
+
+	<Type Name="FRealtimeMeshSectionGroupKey">
+			<DisplayString Condition="!IsValid()">Invalid</DisplayString>
+			<DisplayString>{ToString()}</DisplayString>
+	</Type>
+
+	<Type Name="FRealtimeMeshSectionKey">
+			<DisplayString Condition="!IsValid()">Invalid</DisplayString>
+			<DisplayString>{ToString()}</DisplayString>
+	</Type>
+
+	<Type Name="RealtimeMesh::FRealtimeMeshSection">
+			<DisplayString>{Key.ToString()} Range:{StreamRange}</DisplayString>
+	</Type>
+
+	<Type Name="RealtimeMesh::FRealtimeMeshSectionGroup">
+			<DisplayString>{Key.ToString()} Streams:{Streams.Num()} Sections:{Sections.Num()}</DisplayString>
+	</Type>
+
+	<Type Name="RealtimeMesh::FRealtimeMeshLOD">
+			<DisplayString>{Key.ToString()} SectionGroups:{SectionGroups.Num()}</DisplayString>
+	</Type>
+
+	<Type Name="RealtimeMesh::FRealtimeMesh">
+			<DisplayString>LODs:{LODs.Num()}</DisplayString>
+	</Type>	
 </AutoVisualizer>

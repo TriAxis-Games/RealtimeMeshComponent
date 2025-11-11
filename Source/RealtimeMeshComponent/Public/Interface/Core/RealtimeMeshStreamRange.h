@@ -17,7 +17,7 @@ enum class ERealtimeMeshStreamType : uint8
 struct FRealtimeMeshStreamKey
 {
 private:
-	ERealtimeMeshStreamType StreamType;	
+	ERealtimeMeshStreamType StreamType;
 	FName StreamName;
 
 public:
@@ -42,7 +42,7 @@ public:
 
 	friend inline uint32 GetTypeHash(const FRealtimeMeshStreamKey& StreamKey)
 	{
-		return GetTypeHashHelper(StreamKey.StreamType) + 23 * GetTypeHashHelper(StreamKey.StreamName);
+		return HashCombine(GetTypeHashHelper(StreamKey.StreamType), GetTypeHashHelper(StreamKey.StreamName));
 	}
 
 	FString ToString() const
@@ -98,7 +98,7 @@ struct FRealtimeMeshStreamRange
 
 	int32 NumVertices() const
 	{
-		if (!Vertices.HasLowerBound() || !Vertices.HasUpperBound() || Vertices.IsDegenerate())
+		if (!Vertices.HasLowerBound() || !Vertices.HasUpperBound() || Vertices.IsDegenerate() || Vertices.IsEmpty())
 		{
 			return 0;
 		}

@@ -33,6 +33,10 @@ public class RealtimeMeshEditor : ModuleRules
                 "PluginWarden",
                 "RenderCore",
                 "RHI",
+                "PropertyEditor",
+                "EditorStyle",
+                "EditorWidgets",
+                "ContentBrowser",
             }
         );
     }

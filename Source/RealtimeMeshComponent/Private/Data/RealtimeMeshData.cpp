@@ -12,9 +12,7 @@
 #include "Mesh/RealtimeMeshNaniteResourcesInterface.h"
 #include "RenderProxy/RealtimeMeshProxy.h"
 #include "RenderProxy/RealtimeMeshProxyCommandBatch.h"
-#if RMC_ENGINE_ABOVE_5_2
 #include "Logging/MessageLog.h"
-#endif
 
 #define LOCTEXT_NAMESPACE "RealtimeMesh"
 
@@ -23,6 +21,10 @@ namespace RealtimeMesh
 	FRealtimeMesh::FRealtimeMesh(const FRealtimeMeshSharedResourcesRef& InSharedResources)
 		: SharedResources(InSharedResources)
 		, CollisionUpdateVersionCounter(0)
+	{
+	}
+
+	FRealtimeMesh::~FRealtimeMesh()
 	{
 	}
 
@@ -214,16 +216,20 @@ namespace RealtimeMesh
 		}
 	}
 
-	void FRealtimeMesh::SetNaniteResources(FRealtimeMeshUpdateContext& UpdateContext, const TSharedRef<IRealtimeMeshNaniteResources>& InNaniteResources)
-	{		
+	void FRealtimeMesh::SetNaniteResources(FRealtimeMeshUpdateContext& UpdateContext, FRealtimeMeshNaniteResourcesPtr&& InNaniteResources)
+	{
 		// Create the update data for the GPU
 		if (auto ProxyBuilder = UpdateContext.GetProxyBuilder())
 		{
+			FGCScopeGuard GCGuard;
+			
 			InNaniteResources->InitResources(SharedResources->GetOwningMesh());
 			
-			ProxyBuilder->AddMeshTask([InNaniteResources](FRHICommandListBase& RHICmdList, FRealtimeMeshProxy& Proxy) mutable
+			ProxyBuilder->SetHasNaniteData(InNaniteResources.IsValid() && InNaniteResources->HasValidData());
+			
+			ProxyBuilder->AddMeshTask([NaniteResources = MoveTemp(InNaniteResources)](FRHICommandListBase& RHICmdList, FRealtimeMeshProxy& Proxy) mutable
 			{
-				Proxy.SetNaniteResources(InNaniteResources);
+				Proxy.SetNaniteResources_RT(MoveTemp(NaniteResources));
 			}, true);
 		}
 	}
@@ -233,12 +239,15 @@ namespace RealtimeMesh
 		// Create the update data for the GPU
 		if (auto ProxyBuilder = UpdateContext.GetProxyBuilder())
 		{
+			ProxyBuilder->SetHasNaniteData(false);
+			
 			ProxyBuilder->AddMeshTask([](FRHICommandListBase& RHICmdList, FRealtimeMeshProxy& Proxy) mutable
 			{
-				Proxy.SetNaniteResources(nullptr);
+				Proxy.ClearNaniteResources_RT();
 			}, true);
 		}
 	}
+
 
 	void FRealtimeMesh::SetDistanceField(FRealtimeMeshUpdateContext& UpdateContext, FRealtimeMeshDistanceField&& InDistanceField)
 	{		
@@ -253,13 +262,13 @@ namespace RealtimeMesh
 	}
 
 	void FRealtimeMesh::ClearDistanceField(FRealtimeMeshUpdateContext& UpdateContext)
-	{		
+	{
 		// Create the update data for the GPU
 		if (auto ProxyBuilder = UpdateContext.GetProxyBuilder())
 		{
 			ProxyBuilder->AddMeshTask([](FRHICommandListBase& RHICmdList, FRealtimeMeshProxy& Proxy) mutable
 			{
-				Proxy.SetDistanceField(FRealtimeMeshDistanceField());
+				Proxy.ClearDistanceFieldData();
 			}, true);
 		}
 	}
@@ -401,6 +410,8 @@ namespace RealtimeMesh
 	{
 		FRealtimeMeshScopeGuardWriteCheck LockCheck(SharedResources);
 
+		ClearNaniteResources(UpdateContext);
+		
 		if (RenderProxy)
 		{
 			if (bRemoveRenderProxy)

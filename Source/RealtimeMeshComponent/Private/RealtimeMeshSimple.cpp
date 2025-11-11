@@ -14,9 +14,7 @@
 #include "Mesh/RealtimeMeshAlgo.h"
 #include "Mesh/RealtimeMeshBlueprintMeshBuilder.h"
 #include "RenderProxy/RealtimeMeshProxy.h"
-#if RMC_ENGINE_ABOVE_5_2
 #include "Logging/MessageLog.h"
-#endif
 
 #define LOCTEXT_NAMESPACE "RealtimeMeshSimple"
 
@@ -540,6 +538,39 @@ namespace RealtimeMesh
 		return MarkCollisionDirty();
 	}
 
+	bool FRealtimeMeshSimple::HasNaniteResources(const FRealtimeMeshLockContext& LockContext) const
+	{
+		return NaniteResources && NaniteResources->HasValidData();
+	}
+
+	void FRealtimeMeshSimple::SetNaniteResources(FRealtimeMeshUpdateContext& UpdateContext,
+		FRealtimeMeshNaniteResourcesPtr&& InNaniteResources)
+	{
+		NaniteResources = MoveTemp(InNaniteResources);
+
+		MarkBoundsDirtyIfNotOverridden(UpdateContext);
+		
+		// Create the update data for the GPU
+		if (NaniteResources->HasValidData())
+		{
+			FRealtimeMeshNaniteResourcesPtr TempResources = NaniteResources->Clone();
+			FRealtimeMesh::SetNaniteResources(UpdateContext, MoveTemp(TempResources));
+		}
+		else
+		{
+			FRealtimeMesh::ClearNaniteResources(UpdateContext);
+		}
+	}
+
+	void FRealtimeMeshSimple::ClearNaniteResources(FRealtimeMeshUpdateContext& UpdateContext)
+	{
+		NaniteResources.Reset();
+
+		MarkBoundsDirtyIfNotOverridden(UpdateContext);
+
+		FRealtimeMesh::ClearNaniteResources(UpdateContext);
+	}
+
 	const FRealtimeMeshDistanceField& FRealtimeMeshSimple::GetDistanceField() const
 	{
 		FRealtimeMeshScopeGuardRead ScopeGuard(SharedResources->GetGuard());
@@ -610,6 +641,19 @@ namespace RealtimeMesh
 					Proxy.SetCardRepresentation(MoveTemp(CardRepresentation));
 				});
 			}
+			
+			// Create the update data for the GPU
+			if (NaniteResources && NaniteResources->HasValidData())
+			{
+				FGCScopeGuard GCGuard;
+				FRealtimeMeshNaniteResourcesPtr TempResources = NaniteResources->Clone();
+				TempResources->InitResources(SharedResources->GetOwningMesh());
+				ProxyBuilder->SetHasNaniteData(TempResources.IsValid() && TempResources->HasValidData());
+				ProxyBuilder->AddMeshTask([NaniteResources = MoveTemp(TempResources)](FRHICommandListBase& RHICmdList, FRealtimeMeshProxy& Proxy) mutable
+				{
+					Proxy.SetNaniteResources_RT(MoveTemp(NaniteResources));
+				}, true);
+			}
 		}
 	}
 
@@ -632,6 +676,29 @@ namespace RealtimeMesh
 		if (UpdateContext.GetState<FRealtimeMeshSimpleUpdateState>().CollisionGroupDirtySet.HasAnyDirty())
 		{
 			MarkCollisionDirtyNoCallback();
+		}
+
+		// Update bounds
+		if (UpdateContext.GetState().bNeedsBoundsUpdate && !Bounds.HasUserSetBounds())
+		{
+			TOptional<FBoxSphereBounds3f> NewBounds;
+
+			// Get nanite bounds
+			if (NaniteResources && NaniteResources->HasValidData())
+			{
+				NewBounds = FBoxSphereBounds3f(NaniteResources->GetBounds());
+			}
+
+			// Add existing computed bounds
+			if (NewBounds && Bounds.HasComputedBounds())
+			{
+				NewBounds = *NewBounds + Bounds.GetComputedBounds();				
+			}
+
+			if (NewBounds)
+			{
+				Bounds.SetComputedBounds(*NewBounds);
+			}
 		}
 	}
 
@@ -916,6 +983,28 @@ TArray<FRealtimeMeshSectionGroupKey> URealtimeMeshSimple::GetSectionGroups(const
 	Accessor.Execute(GetMeshData());
 	
 	return SectionGroups;
+}
+
+TArray<FRealtimeMeshLODKey> URealtimeMeshSimple::GetLODs() const
+{
+	FRealtimeMeshAccessor Accessor;
+
+	TArray<FRealtimeMeshLODKey> LODKeys;
+	
+	Accessor.AddMeshTask([&LODKeys](const FRealtimeMeshLockContext& LockContext, const FRealtimeMesh& Mesh)
+	{
+		const int32 NumLODs = Mesh.GetNumLODs(LockContext);
+		LODKeys.Reserve(NumLODs);
+		
+		for (int32 LODIndex = 0; LODIndex < NumLODs; LODIndex++)
+		{
+			LODKeys.Add(FRealtimeMeshLODKey(LODIndex));
+		}
+	});
+
+	Accessor.Execute(GetMeshData());
+	
+	return LODKeys;
 }
 
 TSharedPtr<FRealtimeMeshSectionGroupSimple> URealtimeMeshSimple::GetSectionGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey) const

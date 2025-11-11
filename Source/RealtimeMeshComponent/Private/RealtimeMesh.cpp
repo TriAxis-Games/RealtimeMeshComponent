@@ -8,12 +8,12 @@
 #include "Chaos/TriangleMeshImplicitObject.h"
 #include "Core/RealtimeMeshFuture.h"
 #include "Data/RealtimeMeshUpdateBuilder.h"
+#include "Async/Async.h"
+#include "Templates/Function.h"
 #include "Misc/LazySingleton.h"
 #include "PhysicsEngine/BodySetup.h"
 #include "Logging/MessageLog.h"
-#if RMC_ENGINE_ABOVE_5_2
 #include "Engine/World.h"
-#endif
 
 #define LOCTEXT_NAMESPACE "RealtimeMesh"
 
@@ -39,61 +39,47 @@ URealtimeMesh::URealtimeMesh(const FObjectInitializer& ObjectInitializer)
 
 }
 
-void URealtimeMesh::BroadcastBoundsChangedEvent()
+void URealtimeMesh::DispatchToGameThread(TUniqueFunction<void(URealtimeMesh*)>&& Func)
 {
-	if (!IsInGameThread())
+	if (IsInGameThread())
 	{
-		TWeakObjectPtr<URealtimeMesh> WeakThis(this);
-		AsyncTask(ENamedThreads::GameThread, [WeakThis]()
-		{
-			if (const auto Mesh = WeakThis.Get())
-			{
-				Mesh->BoundsChangedEvent.Broadcast(Mesh);
-			}
-		});
+		Func(this);
 	}
 	else
 	{
-		BoundsChangedEvent.Broadcast(this);
+		TWeakObjectPtr<URealtimeMesh> WeakThis(this);
+		AsyncTask(ENamedThreads::GameThread, [WeakThis, Func = MoveTemp(Func)]() mutable
+		{
+		if (const auto Mesh = WeakThis.Get())
+		{
+		Func(Mesh);
+		}
+		});
 	}
 }
 
-void URealtimeMesh::BroadcastRenderDataChangedEvent(bool bShouldRecreateProxies, int32 CommandsVersion)
+void URealtimeMesh::BroadcastBoundsChangedEvent()
 {
-	if (!IsInGameThread())
+	DispatchToGameThread([](URealtimeMesh* Mesh)
 	{
-		TWeakObjectPtr<URealtimeMesh> WeakThis(this);
-		AsyncTask(ENamedThreads::GameThread, [WeakThis, bShouldRecreateProxies, CommandsVersion]()
-		{
-			if (const auto Mesh = WeakThis.Get())
-			{
-				Mesh->RenderDataChangedEvent.Broadcast(Mesh, bShouldRecreateProxies);
-			}
-		});
-	}
-	else
+		Mesh->BoundsChangedEvent.Broadcast(Mesh);
+	});
+}
+
+void URealtimeMesh::BroadcastRenderDataChangedEvent(bool bShouldRecreateProxies)
+{
+	DispatchToGameThread([bShouldRecreateProxies](URealtimeMesh* Mesh)
 	{
-		RenderDataChangedEvent.Broadcast(this, bShouldRecreateProxies);
-	}
+		Mesh->RenderDataChangedEvent.Broadcast(Mesh, bShouldRecreateProxies);
+	});
 }
 
 void URealtimeMesh::BroadcastCollisionBodyUpdatedEvent(UBodySetup* NewBodySetup)
 {
-	if (!IsInGameThread())
+	DispatchToGameThread([NewBodySetup](URealtimeMesh* Mesh)
 	{
-		TWeakObjectPtr<URealtimeMesh> WeakThis(this);
-		AsyncTask(ENamedThreads::GameThread, [WeakThis, NewBodySetup]()
-		{
-			if (const auto Mesh = WeakThis.Get())
-			{
-				Mesh->CollisionBodyUpdatedEvent.Broadcast(Mesh, NewBodySetup);
-			}
-		});
-	}
-	else
-	{
-		CollisionBodyUpdatedEvent.Broadcast(this, NewBodySetup);
-	}
+		Mesh->CollisionBodyUpdatedEvent.Broadcast(Mesh, NewBodySetup);
+	});
 }
 
 void URealtimeMesh::Initialize(const TSharedRef<RealtimeMesh::FRealtimeMeshSharedResources>& InSharedResources)
@@ -319,8 +305,15 @@ void URealtimeMesh::PostInitProperties()
 
 void URealtimeMesh::BeginDestroy()
 {
+
+	if (SharedResources)
+	{
+		SharedResources->OnRenderProxyRequiresUpdate().RemoveAll(this);
+		SharedResources->OnBoundsChanged().RemoveAll(this);
+	}
+
 	Reset();
-	
+
 	Super::BeginDestroy();
 }
 
@@ -357,7 +350,7 @@ void URealtimeMesh::PostDuplicate(bool bDuplicateForPIE)
 }
 
 /*void URealtimeMesh::InitiateCollisionUpdate(const TSharedRef<TPromise<ERealtimeMeshCollisionUpdateResult>>& Promise, const TSharedRef<FRealtimeMeshCollisionInfo>& CollisionUpdate,
-                                            bool bForceSyncUpdate)
+		bool bForceSyncUpdate)
 {
 	check(IsInGameThread());
 	check(SharedResources && MeshRef);
@@ -546,7 +539,7 @@ void URealtimeMesh::HandleBoundsUpdated()
 void URealtimeMesh::HandleRenderProxyRequiresUpdate()
 {
 	Modify(true);
-	BroadcastRenderDataChangedEvent(true, INDEX_NONE);
+	BroadcastRenderDataChangedEvent(true);
 }
 
 

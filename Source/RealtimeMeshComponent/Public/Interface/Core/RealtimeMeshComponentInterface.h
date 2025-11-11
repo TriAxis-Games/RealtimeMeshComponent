@@ -23,6 +23,7 @@ namespace RealtimeMesh
 
 		virtual bool IsRealtimeMesh(UMeshComponent* MeshComponent) const = 0;
 		virtual UMeshComponent* CreateRealtimeMeshComponent(AActor* Owner, FName Name = NAME_None, EObjectFlags Flags = RF_NoFlags) const = 0;
+		virtual void SetRealtimeMesh(UMeshComponent* MeshComponent, UObject* Mesh) const = 0;
 		/*virtual TSharedRef<IRealtimeMesh_v0> GetRealtimeMesh(UMeshComponent* MeshComponent) const = 0;*/
 	
 	};

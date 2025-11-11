@@ -4,15 +4,15 @@
 
 #include "CoreMinimal.h"
 #include "RealtimeMeshSectionProxy.h"
-#if RMC_ENGINE_ABOVE_5_2
 #include "PrimitiveSceneProxy.h"
-#endif
 
 class UBodySetup;
 class URealtimeMeshComponent;
 
 namespace RealtimeMesh
 {
+	class FRealtimeMeshDebugVertexFactory;
+
 	/** Runtime mesh scene proxy */
 	class REALTIMEMESHCOMPONENT_API FRealtimeMeshComponentSceneProxy : public FPrimitiveSceneProxy
 	{
@@ -44,11 +44,7 @@ namespace RealtimeMesh
 
 		virtual ~FRealtimeMeshComponentSceneProxy() override;
 
-#if RMC_ENGINE_ABOVE_5_4
 		virtual void CreateRenderThreadResources(FRHICommandListBase& RHICmdList) override;
-#else
-		virtual void CreateRenderThreadResources() override;
-#endif
 
 		virtual bool CanBeOccluded() const override;
 
@@ -68,7 +64,9 @@ namespace RealtimeMesh
 		                                    FMeshElementCollector& Collector) const override;
 
 		virtual void GetDistanceFieldAtlasData(const FDistanceFieldVolumeData*& OutDistanceFieldData, float& SelfShadowBias) const override;
+#if RMC_ENGINE_BELOW_5_6
 		virtual void GetDistanceFieldInstanceData(TArray<FRenderTransform>& InstanceLocalToPrimitiveTransforms) const override;
+#endif
 		virtual bool HasDistanceFieldRepresentation() const override;
 		virtual bool HasDynamicIndirectShadowCasterRepresentation() const override;
 
@@ -79,9 +77,7 @@ namespace RealtimeMesh
 		virtual bool HasRayTracingRepresentation() const override { return bSupportsRayTracing; }
 		virtual bool IsRayTracingStaticRelevant() const override;
 
-#if RMC_ENGINE_ABOVE_5_4
 		virtual TArray<FRayTracingGeometry*> GetStaticRayTracingGeometries() const override;
-#endif
 		
 		/** Gathers dynamic ray tracing instances from this proxy. */
 #if RMC_ENGINE_ABOVE_5_5
@@ -95,6 +91,16 @@ namespace RealtimeMesh
 		SIZE_T GetAllocatedSize(void) const;
 
 		int8 GetCurrentFirstLOD() const;
+		
+		void DrawDebugVectors(FStaticPrimitiveDrawInterface* PDI) const;
+		void DrawDebugVectorsDynamic(const TArray<const FSceneView*>& Views, const FSceneViewFamily& ViewFamily, uint32 VisibilityMap, FMeshElementCollector& Collector) const;
+		
+	private:
+		// Cache debug vertex factories to avoid recreating them every frame
+		mutable TMap<const FRealtimeMeshSectionGroupProxy*, TSharedPtr<FRealtimeMeshDebugVertexFactory>> DebugVertexFactoryCache;
+		
+		// Helper function to get or create cached debug vertex factory
+		TSharedPtr<FRealtimeMeshDebugVertexFactory> GetOrCreateDebugVertexFactory(const FRealtimeMeshSectionGroupProxy* SectionGroup, uint32 DebugMode, float LineLength, FRHICommandList& RHICmdList) const;
 
 		int8 ComputeTemporalStaticMeshLOD(const FVector4& Origin, const float SphereRadius, const FSceneView& View, int32 MinLOD, float FactorScale, int32 SampleIndex) const;
 		int8 ComputeStaticMeshLOD(const FVector4& Origin, const float SphereRadius, const FSceneView& View, int32 MinLOD, float FactorScale) const;

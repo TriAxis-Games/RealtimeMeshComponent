@@ -7,10 +7,44 @@ namespace RealtimeMesh
 {
 	void FRealtimeMeshSectionGroupStreamUpdateData::CreateBufferAsyncIfPossible(FRealtimeMeshUpdateContext& UpdateContext)
 	{
-		if (GRHISupportsAsyncTextureCreation)
+		if (false && GRHISupportsAsyncTextureCreation)
 		{
 			auto& RHICmdList = UpdateContext.GetRHICmdList();
 
+#if RMC_ENGINE_ABOVE_5_6
+			FRHIBufferCreateDesc BufferDesc;
+
+			if (Stream.Num() > 0 && Stream.GetStride() > 0)
+			{
+				if (GetStreamKey().IsVertexStream())
+				{
+					BufferDesc = FRHIBufferCreateDesc::CreateVertex(TEXT("RealtimeMeshBuffer-Temp"))
+						.SetSize(Stream.GetResourceDataSize())
+						.SetStride(Stream.GetStride())
+						.SetUsage(UsageFlags | BUF_VertexBuffer | BUF_ShaderResource)
+						.SetInitialState(ERHIAccess::VertexOrIndexBuffer | ERHIAccess::SRVMask)
+						.SetInitActionResourceArray(&Stream);
+				}
+				else
+				{
+					check(GetStreamKey().IsIndexStream());
+					BufferDesc = FRHIBufferCreateDesc::CreateVertex(TEXT("RealtimeMeshBuffer-Temp"))
+						.SetSize(Stream.GetResourceDataSize())
+						.SetStride(Stream.GetElementStride())
+						.SetUsage(UsageFlags | BUF_IndexBuffer | BUF_ShaderResource)
+						.SetInitialState(ERHIAccess::VertexOrIndexBuffer | ERHIAccess::SRVMask)
+						.SetInitActionResourceArray(&Stream);
+				}
+			}
+			else
+			{
+				BufferDesc = FRHIBufferCreateDesc::CreateNull(TEXT("RealtimeMeshBuffer-Temp"));
+			}
+
+			Buffer = RHICmdList.CreateBuffer(BufferDesc);
+			
+#else
+			
 			FRHIResourceCreateInfo CreateInfo(TEXT("RealtimeMeshBuffer-Temp"), &Stream);
 			CreateInfo.bWithoutNativeResource = Stream.Num() == 0 || Stream.GetStride() == 0;
 				
@@ -34,7 +68,9 @@ namespace RealtimeMesh
 				Buffer = RHICmdList->CreateBuffer(Stream.GetResourceDataSize(), UsageFlags | BUF_IndexBuffer | BUF_ShaderResource,
 					Stream.GetElementStride(), ERHIAccess::SRVMask, CreateInfo);
 #endif
-			}				
+			}
+			
+#endif			
 		}
 	}
 
@@ -44,10 +80,43 @@ namespace RealtimeMesh
 		{
 			check(Stream.GetResourceDataSize());
 				
+#if RMC_ENGINE_ABOVE_5_6
+			FRHIBufferCreateDesc BufferDesc;
+			
+			if (Stream.Num() > 0 && Stream.GetStride() > 0)
+			{
+				if (GetStreamKey().IsVertexStream())
+				{
+					BufferDesc = FRHIBufferCreateDesc::CreateVertex(TEXT("RealtimeMeshBuffer-Temp"))
+						.SetSize(Stream.GetResourceDataSize())
+						.SetStride(Stream.GetStride())
+						.SetUsage(UsageFlags | BUF_VertexBuffer | BUF_ShaderResource)
+						.SetInitialState(ERHIAccess::VertexOrIndexBuffer | ERHIAccess::SRVMask)
+						.SetInitActionResourceArray(&Stream);
+				}
+				else
+				{
+					check(GetStreamKey().IsIndexStream());
+					BufferDesc = FRHIBufferCreateDesc::CreateVertex(TEXT("RealtimeMeshBuffer-Temp"))
+						.SetSize(Stream.GetResourceDataSize())
+						.SetStride(Stream.GetElementStride())
+						.SetUsage(UsageFlags | BUF_IndexBuffer | BUF_ShaderResource)
+						.SetInitialState(ERHIAccess::VertexOrIndexBuffer | ERHIAccess::SRVMask)
+						.SetInitActionResourceArray(&Stream);
+				}
+			}
+			else
+			{
+				BufferDesc = FRHIBufferCreateDesc::CreateNull(TEXT("RealtimeMeshBuffer-Temp"));
+			}
+
+			Buffer = RHICmdList.CreateBuffer(BufferDesc);
+			
+#else
+			
 			FRHIResourceCreateInfo CreateInfo(TEXT("RealtimeMeshBuffer-Temp"), &Stream);
 			CreateInfo.bWithoutNativeResource = Stream.Num() == 0 || Stream.GetStride() == 0;
 
-#if RMC_ENGINE_ABOVE_5_3
 			if (GetStreamKey().IsVertexStream())
 			{
 				Buffer = RHICmdList.CreateVertexBuffer(Stream.GetResourceDataSize(), UsageFlags | BUF_VertexBuffer | BUF_ShaderResource, CreateInfo);
@@ -57,16 +126,6 @@ namespace RealtimeMesh
 				check(GetStreamKey().IsIndexStream());
 				Buffer =  RHICmdList.CreateIndexBuffer(Stream.GetElementStride(), Stream.GetResourceDataSize(), UsageFlags | BUF_IndexBuffer | BUF_ShaderResource, CreateInfo);
 			}
-#else
-				if (GetStreamKey().IsVertexStream())
-				{
-					Buffer = RHICreateVertexBuffer(Stream.GetResourceDataSize(), UsageFlags | BUF_VertexBuffer | BUF_ShaderResource, CreateInfo);
-				}
-				else
-				{
-					check(GetStreamKey().IsIndexStream());
-					Buffer = RHICreateIndexBuffer(Stream.GetElementStride(), Stream.GetResourceDataSize(), UsageFlags | BUF_IndexBuffer | BUF_ShaderResource, CreateInfo);
-				}
 #endif
 		}
 	}
