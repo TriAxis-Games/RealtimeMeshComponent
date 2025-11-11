@@ -316,7 +316,7 @@ namespace RealtimeMesh
 			using Type = typename TTupleElement<ArgToCompare, TTuple<Types...>>::Type;
 			Futures.template Get<ArgToCompare>().Then([State](TFuture<Type>&& Result)
 			{
-			    State->EmplaceValue<ArgToCompare>(Result.Consume());
+			    State->template EmplaceValue<ArgToCompare>(Result.Consume());
 			});
 			
 			FFutureAggregationHelper<ArgCount, ArgToCompare + 1>::Bind(State, Futures);

@@ -41,15 +41,15 @@ private:
 	FText GetTriangleCountText() const;
 	FText GetMemoryUsageText() const;
 
-	/*/** Handle create static mesh button click #1#
+	/*// Handle create static mesh button click
 	FReply OnCreateStaticMesh();
 	
-	/** Check if create static mesh button should be enabled #1#
+	// Check if create static mesh button should be enabled
 	bool IsCreateStaticMeshEnabled() const;
 
-	/** Show dialog to choose static mesh path and name #1#
+	// Show dialog to choose static mesh path and name
 	bool ShowCreateStaticMeshDialog(FString& OutPackagePath, FString& OutAssetName) const;*/
 
-	/** Weak reference to the component being customized */
+	// Weak reference to the component being customized
 	TWeakObjectPtr<URealtimeMeshComponent> ComponentPtr;
 };

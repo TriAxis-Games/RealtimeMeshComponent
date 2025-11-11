@@ -22,6 +22,9 @@
 #include "MaterialDomain.h"
 #include "Materials/MaterialRenderProxy.h"
 #include "SceneInterface.h"
+#if RMC_ENGINE_ABOVE_5_6
+#include "SceneView.h"
+#endif
 
 DECLARE_CYCLE_STAT(TEXT("RealtimeMeshComponentSceneProxy - Create Mesh Batch"), STAT_RealtimeMeshComponentSceneProxy_CreateMeshBatch, STATGROUP_RealtimeMesh);
 DECLARE_CYCLE_STAT(TEXT("RealtimeMeshComponentSceneProxy - Get Dynamic Mesh Elements"), STAT_RealtimeMeshComponentSceneProxy_GetDynamicMeshElements, STATGROUP_RealtimeMesh);

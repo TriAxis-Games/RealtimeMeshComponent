@@ -103,15 +103,12 @@ namespace RealtimeMesh
 
 		TSharedRef<uint8> ReferencingHandle;
 
-#if UE_ENABLE_DEBUG_DRAWING
-		// If debug drawing is enabled, we store collision data here so that collision shapes can be rendered when requested by showflags
-
-		bool bOwnerIsNull = true;
-		/** Whether the collision data has been set up for rendering */
-		bool bHasCollisionData = false;
-
 		/* Tracks whether we have nanite data set/pending, so that the GT side can know what type of render proxy to use. */
 		bool bHasNaniteData = false;
+		
+#if UE_ENABLE_DEBUG_DRAWING		
+		/** Whether the collision data has been set up for rendering */
+		bool bHasCollisionData = false;
 
 		/** Collision trace flags */
 		ECollisionTraceFlag		CollisionTraceFlag;
@@ -119,8 +116,8 @@ namespace RealtimeMesh
 		FCollisionResponseContainer CollisionResponse;
 		/** Cached AggGeom holding the collision shapes to render */
 		FKAggregateGeom CachedAggGeom;
-
 #endif
+		
 	public:
 		FRealtimeMeshProxy(const FRealtimeMeshSharedResourcesRef& InSharedResources);
 		virtual ~FRealtimeMeshProxy();

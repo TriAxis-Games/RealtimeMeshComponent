@@ -321,18 +321,20 @@ namespace RealtimeMesh
 			ShaderBindings.Add(Shader->GetUniformBufferParameter<FLocalVertexFactoryUniformShaderParameters>(), VertexFactoryUniformBuffer);
 		}
 	}
-
-	IMPLEMENT_TYPE_LAYOUT(FRealtimeMeshDebugVertexFactoryShaderParameters);
-
-	// Register the vertex factory parameter type for proper uniform buffer binding
-	IMPLEMENT_VERTEX_FACTORY_PARAMETER_TYPE(FRealtimeMeshDebugVertexFactory, SF_Vertex, FRealtimeMeshDebugVertexFactoryShaderParameters);
-
-	// Register the vertex factory type
-	IMPLEMENT_VERTEX_FACTORY_TYPE(FRealtimeMeshDebugVertexFactory, "/Plugin/RealtimeMeshComponent/RealtimeMeshDebugVertexFactory.ush",
-		EVertexFactoryFlags::UsedWithMaterials
-		| EVertexFactoryFlags::SupportsDynamicLighting
-		| EVertexFactoryFlags::SupportsPositionOnly
-		| EVertexFactoryFlags::SupportsPrimitiveIdStream
-		| EVertexFactoryFlags::SupportsManualVertexFetch
-	);
 }
+
+using namespace RealtimeMesh;
+
+IMPLEMENT_TYPE_LAYOUT(FRealtimeMeshDebugVertexFactoryShaderParameters);
+
+// Register the vertex factory parameter type for proper uniform buffer binding
+IMPLEMENT_VERTEX_FACTORY_PARAMETER_TYPE(FRealtimeMeshDebugVertexFactory, SF_Vertex, FRealtimeMeshDebugVertexFactoryShaderParameters);
+
+// Register the vertex factory type
+IMPLEMENT_VERTEX_FACTORY_TYPE(FRealtimeMeshDebugVertexFactory, "/Plugin/RealtimeMeshComponent/RealtimeMeshDebugVertexFactory.ush",
+	EVertexFactoryFlags::UsedWithMaterials
+	| EVertexFactoryFlags::SupportsDynamicLighting
+	| EVertexFactoryFlags::SupportsPositionOnly
+	| EVertexFactoryFlags::SupportsPrimitiveIdStream
+	| EVertexFactoryFlags::SupportsManualVertexFetch
+);
