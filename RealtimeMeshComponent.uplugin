@@ -1,7 +1,7 @@
 {
 	"FileVersion": 3,
 	"Version": 50,
-	"VersionName": "5.3",
+	"VersionName": "5.3.1",
 	"FriendlyName": "Realtime Mesh Component",
 	"Description": "A component allowing for rendering and interacting with runtime generated geometry.",
 	"Category": "Rendering",

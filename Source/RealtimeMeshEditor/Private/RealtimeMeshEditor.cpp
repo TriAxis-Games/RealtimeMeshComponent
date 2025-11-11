@@ -16,6 +16,8 @@
 #include "Interfaces/IPluginManager.h"
 #include "Widgets/Notifications/SNotificationList.h"
 #include "PropertyEditorModule.h"
+#include "SceneInterface.h"
+#include "Misc/ConfigCacheIni.h"
 
 #define LOCTEXT_NAMESPACE "RealtimeMeshEditorModule"
 

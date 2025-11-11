@@ -3,6 +3,9 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Styling/AppStyle.h"
+#include "Templates/SharedPointer.h"
+#include "Framework/Commands/Commands.h"
 
 class FRealtimeMeshEditorStyle
 {

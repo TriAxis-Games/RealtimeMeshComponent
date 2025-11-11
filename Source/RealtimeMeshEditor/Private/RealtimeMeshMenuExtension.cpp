@@ -7,6 +7,7 @@
 #include "Slate/SlateGameResources.h"
 #include "Interfaces/IPluginManager.h"
 #include "Styling/SlateStyleMacros.h"
+#include "Framework/Commands/Commands.h"
 
 #define LOCTEXT_NAMESPACE "RealtimeMeshEditorModule"
 
