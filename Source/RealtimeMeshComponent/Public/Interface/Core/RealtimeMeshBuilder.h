@@ -11,10 +11,6 @@
 #include "Traits/IsVoidType.h"
 #endif
 
-#if RMC_ENGINE_ABOVE_5_4
-#include "Templates/ChooseClass.h"
-#endif
-
 struct FRealtimeMeshSimpleMeshData;
 
 // ReSharper disable CppMemberFunctionMayBeConst
@@ -73,7 +69,7 @@ namespace RealtimeMesh
 			int32 ElementOffset;
 		};
 
-		using TContext = typename TChooseClass<bAllowSubstreamAccess, TContextWithSubstream, TContextWithoutSubstream>::Result;
+		using TContext = std::conditional_t<bAllowSubstreamAccess, TContextWithSubstream, TContextWithoutSubstream>;
 		
 		static TContext InitializeContext(typename TCopyQualifiersFromTo<InAccessType, FRealtimeMeshStream>::Type& Stream, int32 ElementOffset)
 		{
@@ -168,7 +164,7 @@ namespace RealtimeMesh
 			int32 ElementOffset;
 		};
 
-		using TContext = typename TChooseClass<bAllowSubstreamAccess, TContextWithSubstream, TContextWithoutSubstream>::Result;
+		using TContext = std::conditional_t<bAllowSubstreamAccess, TContextWithSubstream, TContextWithoutSubstream>;
 		
 		static TContext InitializeContext(typename TCopyQualifiersFromTo<InStreamType, FRealtimeMeshStream>::Type& Stream, int32 ElementOffset)
 		{			
@@ -255,7 +251,7 @@ namespace RealtimeMesh
 			int32 ElementOffset;
 		};
 
-		using TContext = typename TChooseClass<bAllowSubstreamAccess, TContextWithSubstream, TContextWithoutSubstream>::Result;
+		using TContext = std::conditional_t<bAllowSubstreamAccess, TContextWithSubstream, TContextWithoutSubstream>;
 		
 		static TContext InitializeContext(typename TCopyQualifiersFromTo<InAccessType, FRealtimeMeshStream>::Type& Stream, int32 ElementOffset)
 		{			

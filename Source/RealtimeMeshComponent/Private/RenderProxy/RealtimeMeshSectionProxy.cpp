@@ -63,7 +63,9 @@ namespace RealtimeMesh
 		BatchElement.InstancedLODIndex = 0;
 		BatchElement.InstancedLODRange = 0;
 		BatchElement.bUserDataIsColorVertexBuffer = false;
+#if !RMC_ENGINE_ABOVE_5_7
 		BatchElement.bIsSplineProxy = false;
+#endif
 		BatchElement.bIsInstanceRuns = false;
 		BatchElement.bForceInstanceCulling = false;
 		BatchElement.bPreserveInstanceOrder = false;

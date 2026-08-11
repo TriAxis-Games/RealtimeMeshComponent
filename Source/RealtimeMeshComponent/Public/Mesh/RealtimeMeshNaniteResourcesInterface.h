@@ -146,7 +146,9 @@ namespace RealtimeMesh
 			RuntimeResourceID = NullResources.RuntimeResourceID;
 			HierarchyOffset = NullResources.HierarchyOffset;
 			RootPageIndex = NullResources.RootPageIndex;
+#if !RMC_ENGINE_ABOVE_5_7
 			ImposterIndex = NullResources.ImposterIndex;
+#endif
 			NumHierarchyNodes = NullResources.NumHierarchyNodes;
 			NumResidentClusters = NullResources.NumResidentClusters;
 			PersistentHash = NullResources.PersistentHash;
