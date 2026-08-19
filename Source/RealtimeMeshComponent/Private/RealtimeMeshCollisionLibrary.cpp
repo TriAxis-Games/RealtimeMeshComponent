@@ -88,6 +88,7 @@ void URealtimeMeshCollisionTools::CookComplexMesh(FRealtimeMeshCollisionMesh& Co
 	if(CollisionMesh.Vertices.Num() == 0)
 	{
 		CollisionMesh.Cooked = MakeShared<FRealtimeMeshCookedTriMeshData>();
+		return;
 	}
 
 	TArray<FVector3f> FinalVerts = CollisionMesh.Vertices;
