@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2015-2025 TriAxis Games, L.L.C. All Rights Reserved.
+﻿// Copyright (c) 2015-2026 TriAxis Games, L.L.C. All Rights Reserved.
 
 
 #include "RealtimeMeshCollisionLibrary.h"
@@ -43,11 +43,7 @@ void URealtimeMeshCollisionTools::CookConvexHull(FRealtimeMeshCollisionConvex& C
 		const int32 NumHullVerts = ConvexHull.Vertices.Num();
 		if(NumHullVerts == 0)
 		{
-#if RMC_ENGINE_ABOVE_5_4
 			return Chaos::FConvexPtr(nullptr);
-#else
-			return TSharedPtr<FConvex>(nullptr);
-#endif
 		}
 
 		// Calculate the margin to apply to the convex - it depends on overall dimensions
@@ -70,11 +66,7 @@ void URealtimeMeshCollisionTools::CookConvexHull(FRealtimeMeshCollisionConvex& C
 
 		// Margin is always zero on convex shapes - they are intended to be instanced
 		
-#if RMC_ENGINE_ABOVE_5_4
 		return Chaos::FConvexPtr(new FConvex(ConvexVertices, 0.0f));
-#else
-		return MakeShared<FConvex>(ConvexVertices, 0.0f).ToSharedPtr();
-#endif
 	};
 
 	auto NonMirrored = BuildConvexFromVerts(false);
@@ -83,11 +75,10 @@ void URealtimeMeshCollisionTools::CookConvexHull(FRealtimeMeshCollisionConvex& C
 
 void URealtimeMeshCollisionTools::CookComplexMesh(FRealtimeMeshCollisionMesh& CollisionMesh)
 {
-	constexpr bool EnableMeshClean = false;
-	
 	if(CollisionMesh.Vertices.Num() == 0)
 	{
 		CollisionMesh.Cooked = MakeShared<FRealtimeMeshCookedTriMeshData>();
+		return;
 	}
 
 	TArray<FVector3f> FinalVerts = CollisionMesh.Vertices;
@@ -105,11 +96,6 @@ void URealtimeMeshCollisionTools::CookComplexMesh(FRealtimeMeshCollisionMesh& Co
 		FinalIndices.Add(Tri.V2);
 	}
 
-	/*if(EnableMeshClean)
-	{
-		Chaos::CleanTrimesh(FinalVerts, FinalIndices, &OutFaceRemap, &OutVertexRemap);
-	}*/
-
 	// Build particle list #BG Maybe allow TParticles to copy vectors?
 	Chaos::FTriangleMeshImplicitObject::ParticlesType TriMeshParticles;
 	TriMeshParticles.AddParticles(FinalVerts.Num());
@@ -117,11 +103,7 @@ void URealtimeMeshCollisionTools::CookComplexMesh(FRealtimeMeshCollisionMesh& Co
 	const int32 NumVerts = FinalVerts.Num();
 	for(int32 VertIndex = 0; VertIndex < NumVerts; ++VertIndex)
 	{
-#if RMC_ENGINE_ABOVE_5_4
 		TriMeshParticles.SetX(VertIndex, FinalVerts[VertIndex]);
-#else
-		TriMeshParticles.X(VertIndex) = FinalVerts[VertIndex];
-#endif
 	}
 
 	TArray<int32> OutVertexRemap;
@@ -162,29 +144,6 @@ void URealtimeMeshCollisionTools::CookComplexMesh(FRealtimeMeshCollisionMesh& Co
 
 				if(bHasMaterials)
 				{
-					/*if(EnableMeshClean)
-					{
-						if(!ensure(OldFaceRemap.IsValidIndex(TriangleIndex)))
-						{
-							MaterialIndices.Empty();
-							bHasMaterials = false;
-						}
-						else
-						{
-							const int32 OriginalIndex = OldFaceRemap[TriangleIndex];
-
-							if(ensure(Materials.IsValidIndex(OriginalIndex)))
-							{
-								MaterialIndices.Add(Materials[OriginalIndex]);
-							}
-							else
-							{
-								MaterialIndices.Empty();
-								bHasMaterials = false;
-							}
-						}
-					}
-					else*/
 					{
 						if(ensure(CollisionMesh.Materials.IsValidIndex(TriangleIndex)))
 						{
@@ -204,12 +163,8 @@ void URealtimeMeshCollisionTools::CookComplexMesh(FRealtimeMeshCollisionMesh& Co
 		TUniquePtr<TArray<int32>> OutVertexRemapPtr = Chaos::TriMeshPerPolySupport ? MakeUnique<TArray<int32>>(OutVertexRemap) : nullptr;
 		
 		
-#if RMC_ENGINE_ABOVE_5_4
 		auto* RawMesh = new Chaos::FTriangleMeshImplicitObject(MoveTemp(TriMeshParticles), MoveTemp(Triangles), MoveTemp(MaterialIndices), MoveTemp(OutFaceRemapPtr), MoveTemp(OutVertexRemapPtr));
 		auto CookedMesh = Chaos::FTriangleMeshImplicitObjectPtr(RawMesh);
-#else
-		TSharedPtr<Chaos::FTriangleMeshImplicitObject> CookedMesh = MakeShared<Chaos::FTriangleMeshImplicitObject>(MoveTemp(TriMeshParticles), MoveTemp(Triangles), MoveTemp(MaterialIndices), MoveTemp(OutFaceRemapPtr), MoveTemp(OutVertexRemapPtr));
-#endif
 		
 		// Propagate remapped indices from the FTriangleMeshImplicitObject back to the remap array
 		//const auto& TriangleMeshRef = *CookedMesh.GetReference();
@@ -299,11 +254,7 @@ void URealtimeMeshCollisionTools::CopySimpleGeometryToBodySetup(const FRealtimeM
 		{
 			const auto CookedMeshData = Convex.GetCooked();
 			auto MeshData = CookedMeshData->GetNonMirrored();
-#if RMC_ENGINE_ABOVE_5_4
 			BodyConvex.SetConvexMeshObject(MoveTemp(MeshData));
-#else
-			BodyConvex.SetChaosConvexMesh(MoveTemp(MeshData));
-#endif
 		}
 	}
 }
@@ -317,14 +268,7 @@ void URealtimeMeshCollisionTools::CopyComplexGeometryToBodySetup(const FRealtime
 			const auto CookedMeshData = Mesh.GetCooked();
 			auto MeshData = CookedMeshData->GetMesh();
 
-#if RMC_ENGINE_ABOVE_5_4
 			BodySetup->TriMeshGeometries.Add(MeshData);
-#else
-			BodySetup->ChaosTriMeshes.Add(MeshData);
-#endif
-			/*NewBodySetup->bSupportUVsAndFaceRemap;
-				NewBodySetup->FaceRemap = PendingCollisionUpdate->TriMeshData.Cook();
-				NewBodySetup->UVInfo;*/
 			BodySetup->bCreatedPhysicsMeshes = true;
 
 			OutUVData.Add(CookedMeshData->GetUVInfo());
@@ -332,29 +276,56 @@ void URealtimeMeshCollisionTools::CopyComplexGeometryToBodySetup(const FRealtime
 	}	
 }
 
+namespace
+{
+	// DUP-003: validation preamble shared verbatim between the ranged and non-ranged
+	// AppendStreamsToCollisionMesh overloads. Finds the position/triangle/texcoord streams and applies the
+	// identical accept/reject/log checks both overloads previously inlined. Returns true (and fills the
+	// out-params) when the stream set is usable; otherwise logs the same warning and returns false. The
+	// observable accept/reject/log behavior of each overload is unchanged.
+	bool ValidateCollisionAppendStreams(const RealtimeMesh::FRealtimeMeshStreamSet& Streams,
+		const RealtimeMesh::FRealtimeMeshStream*& OutPositionStream,
+		const RealtimeMesh::FRealtimeMeshStream*& OutTriangleStream,
+		const RealtimeMesh::FRealtimeMeshStream*& OutTexCoordsStream)
+	{
+		using namespace RealtimeMesh;
+
+		OutPositionStream = Streams.Find(FRealtimeMeshStreams::Position);
+		OutTriangleStream = Streams.Find(FRealtimeMeshStreams::Triangles);
+		OutTexCoordsStream = Streams.Find(FRealtimeMeshStreamKey(FRealtimeMeshStreams::TexCoords));
+
+		if (!OutPositionStream || !OutTriangleStream)
+		{
+			UE_LOG(LogRealtimeMeshInterface, Warning, TEXT("Unable to append collision vertices: missing position or triangle stream."));
+			return false;
+		}
+
+		if (OutPositionStream->Num() < 3 || (OutTriangleStream->Num() * OutTriangleStream->GetNumElements()) < 3)
+		{
+			UE_LOG(LogRealtimeMeshInterface, Warning, TEXT("Unable to append collision vertices: not enough elements in streams."));
+			return false;
+		}
+
+		if (!OutPositionStream->CanConvertTo<FVector3f>())
+		{
+			UE_LOG(LogRealtimeMeshInterface, Warning, TEXT("Unable to append collision vertices: position stream not convertible to FVector3f"));
+			return false;
+		}
+
+		return true;
+	}
+}
+
 bool URealtimeMeshCollisionTools::AppendStreamsToCollisionMesh(FRealtimeMeshCollisionMesh& CollisionMesh, const RealtimeMesh::FRealtimeMeshStreamSet& Streams, int32 MaterialIndex)
 {
 	using namespace RealtimeMesh;
 
-	const auto PositionStream = Streams.Find(FRealtimeMeshStreams::Position);
-	const auto TriangleStream = Streams.Find(FRealtimeMeshStreams::Triangles);
-	const auto TexCoordsStream = Streams.Find(FRealtimeMeshStreamKey(FRealtimeMeshStreams::TexCoords));
-
-	if (!PositionStream || !TriangleStream)
+	// DUP-003: validation preamble shared with the ranged overload.
+	const FRealtimeMeshStream* PositionStream = nullptr;
+	const FRealtimeMeshStream* TriangleStream = nullptr;
+	const FRealtimeMeshStream* TexCoordsStream = nullptr;
+	if (!ValidateCollisionAppendStreams(Streams, PositionStream, TriangleStream, TexCoordsStream))
 	{
-		UE_LOG(LogRealtimeMeshInterface, Warning, TEXT("Unable to append collision vertices: missing position or triangle stream."));
-		return false;
-	}
-
-	if (PositionStream->Num() < 3 || (TriangleStream->Num() * TriangleStream->GetNumElements()) < 3)
-	{
-		UE_LOG(LogRealtimeMeshInterface, Warning, TEXT("Unable to append collision vertices: not enough elements in streams."));
-		return false;
-	}
-
-	if (!PositionStream->CanConvertTo<FVector3f>())
-	{
-		UE_LOG(LogRealtimeMeshInterface, Warning, TEXT("Unable to append collision vertices: position stream not convertible to FVector3f"));
 		return false;
 	}
 
@@ -381,19 +352,19 @@ bool URealtimeMeshCollisionTools::AppendStreamsToCollisionMesh(FRealtimeMeshColl
 			for (int32 ChannelIndex = 0; ChannelIndex < TexCoordsStream->GetNumElements(); ChannelIndex++)
 			{
 				TRealtimeMeshStridedStreamBuilder<const FVector2f, void> UVData(*TexCoordsStream, ChannelIndex);
-				const int32 NumUVsToCopy = FMath::Min(UVData.Num(), PositionStream->Num());
 				auto& CollisionUVChannel = CollisionMesh.TexCoords[ChannelIndex];
-				CollisionUVChannel.SetNumUninitialized(NumUVsToCopy);
-			
-				for (int32 TexCoordIdx = 0; TexCoordIdx < NumUVsToCopy; TexCoordIdx++)
-				{
-					CollisionUVChannel[TexCoordIdx] = UVData[TexCoordIdx];
-				}
+				// Size to cover every appended vertex so all writes are in-bounds and prior UVs are preserved.
+				// Zero-fill so vertices without a corresponding UV get a default (zero) UV. Never shrink below Vertices.Num().
+				CollisionUVChannel.SetNumZeroed(CollisionMesh.Vertices.Num());
 
-				// Make sure the uv data is the same length as the position data
-				if (PositionStream->Num() > UVData.Num())
+				if (UVData.Num() > 0)
 				{
-					CollisionUVChannel.SetNumZeroed(PositionStream->Num());
+					// Vertices append at StartVertexIndex, so source UV TexCoordIdx aligns to collision vertex StartVertexIndex + TexCoordIdx.
+					const int32 NumUVsToCopy = FMath::Min(UVData.Num(), PositionStream->Num());
+					for (int32 TexCoordIdx = 0; TexCoordIdx < NumUVsToCopy; TexCoordIdx++)
+					{
+						CollisionUVChannel[StartVertexIndex + TexCoordIdx] = UVData[TexCoordIdx];
+					}
 				}
 			}
 		}
@@ -414,7 +385,7 @@ bool URealtimeMeshCollisionTools::AppendStreamsToCollisionMesh(FRealtimeMeshColl
 
 	TRealtimeMeshStreamBuilder<const TIndex3<uint32>, void> TrianglesData(*TriangleStream);
 	CollisionMesh.Triangles.Reserve(CollisionMesh.Triangles.Num() + TrianglesData.Num());
-	CollisionMesh.Materials.Reserve(CollisionMesh.Triangles.Num());
+	CollisionMesh.Materials.Reserve(CollisionMesh.Triangles.Num() + TrianglesData.Num());
 
 	for (int32 TriIdx = 0; TriIdx < TrianglesData.Num(); TriIdx++)
 	{
@@ -434,25 +405,12 @@ bool URealtimeMeshCollisionTools::AppendStreamsToCollisionMesh(FRealtimeMeshColl
 {
 	using namespace RealtimeMesh;
 
-	const auto PositionStream = Streams.Find(FRealtimeMeshStreams::Position);
-	const auto TriangleStream = Streams.Find(FRealtimeMeshStreams::Triangles);
-	const auto TexCoordsStream = Streams.Find(FRealtimeMeshStreamKey(FRealtimeMeshStreams::TexCoords));
-
-	if (!PositionStream || !TriangleStream)
+	// DUP-003: validation preamble shared with the non-ranged overload.
+	const FRealtimeMeshStream* PositionStream = nullptr;
+	const FRealtimeMeshStream* TriangleStream = nullptr;
+	const FRealtimeMeshStream* TexCoordsStream = nullptr;
+	if (!ValidateCollisionAppendStreams(Streams, PositionStream, TriangleStream, TexCoordsStream))
 	{
-		UE_LOG(LogRealtimeMeshInterface, Warning, TEXT("Unable to append collision vertices: missing position or triangle stream."));
-		return false;
-	}
-
-	if (PositionStream->Num() < 3 || (TriangleStream->Num() * TriangleStream->GetNumElements()) < 3)
-	{
-		UE_LOG(LogRealtimeMeshInterface, Warning, TEXT("Unable to append collision vertices: not enough elements in streams."));
-		return false;
-	}
-
-	if (!PositionStream->CanConvertTo<FVector3f>())
-	{
-		UE_LOG(LogRealtimeMeshInterface, Warning, TEXT("Unable to append collision vertices: position stream not convertible to FVector3f"));
 		return false;
 	}
 
@@ -462,6 +420,22 @@ bool URealtimeMeshCollisionTools::AppendStreamsToCollisionMesh(FRealtimeMeshColl
 	const int32 OriginalVertexCount = CollisionMesh.Vertices.Num();
 	
 	TRealtimeMeshStreamBuilder<const TIndex3<uint32>, void> TrianglesData(*TriangleStream);
+
+	// Validate the requested [FirstTriangle, FirstTriangle + TriangleCount) range against the
+	// actual triangle stream size. Internal callers pass safe ranges today, but a stale or
+	// out-of-range request must be clamped (not trusted) to keep TrianglesData[] indexing in
+	// bounds below. FirstTriangle is clamped into the stream; TriangleCount is clamped so the
+	// range never runs past the end. An empty/inverted range yields TriangleCount == 0 (no-op).
+	const int32 NumAvailableTriangles = TrianglesData.Num();
+	if (FirstTriangle < 0 || TriangleCount < 0 || FirstTriangle > NumAvailableTriangles)
+	{
+		UE_LOG(LogRealtimeMeshInterface, Warning,
+			TEXT("AppendStreamsToCollisionMesh: triangle range [%d, %d) out of bounds for stream of %d triangles; clamping."),
+			FirstTriangle, FirstTriangle + TriangleCount, NumAvailableTriangles);
+	}
+	FirstTriangle = FMath::Clamp(FirstTriangle, 0, NumAvailableTriangles);
+	TriangleCount = FMath::Clamp(TriangleCount, 0, NumAvailableTriangles - FirstTriangle);
+
 	CollisionMesh.Triangles.Reserve(CollisionMesh.Triangles.Num() + TriangleCount);
 	CollisionMesh.Materials.Reserve(CollisionMesh.Triangles.Num() + TriangleCount);
 
@@ -529,62 +503,29 @@ bool URealtimeMeshCollisionTools::AppendStreamsToCollisionMesh(FRealtimeMeshColl
 			
 			for (int32 ChannelIndex = 0; ChannelIndex < TexCoordsStream->GetNumElements(); ChannelIndex++)
 			{				
-				if (TexCoordsStream->GetElementType() == GetRealtimeMeshDataElementType<FVector2f>())
 				{
-					TRealtimeMeshStridedStreamBuilder<const FVector2f, FVector2f> UVData(*TexCoordsStream, ChannelIndex);
-					auto& CollisionUVChannel = CollisionMesh.TexCoords[ChannelIndex];
-					CollisionUVChannel.SetNumUninitialized(OriginalVertexCount + FMath::Min(VertexRemap.Num(), UVData.Num()));
-
-					for (const auto& Pair : VertexRemap)
-					{
-						//checkSlow(Pair.Value >= OriginalVertexCount && Pair.Value < CurrentVertexIndex);
-			
-						CollisionUVChannel[Pair.Value] = UVData[Pair.Key % UVData.Num()];
-					}
-
-					// Make sure the uv data is the same length as the position data
-					if (PositionStream->Num() > UVData.Num())
-					{
-						CollisionUVChannel.SetNumZeroed(PositionStream->Num());
-					}
-				}
-				else if (TexCoordsStream->GetElementType() == GetRealtimeMeshDataElementType<FVector2DHalf>())
-				{
-					TRealtimeMeshStridedStreamBuilder<const FVector2f, FVector2DHalf> UVData(*TexCoordsStream, ChannelIndex);
-					auto& CollisionUVChannel = CollisionMesh.TexCoords[ChannelIndex];
-					CollisionUVChannel.SetNumUninitialized(OriginalVertexCount + FMath::Min(VertexRemap.Num(), UVData.Num()));
-
-					for (const auto& Pair : VertexRemap)
-					{
-						//checkSlow(Pair.Value >= OriginalVertexCount && Pair.Value < CurrentVertexIndex);
-			
-						CollisionUVChannel[Pair.Value] = UVData[Pair.Key % UVData.Num()];
-					}
-
-					// Make sure the uv data is the same length as the position data
-					if (PositionStream->Num() > UVData.Num())
-					{
-						CollisionUVChannel.SetNumZeroed(PositionStream->Num());
-					}
-				}
-				else
-				{
+					// DUP-003: single conversion-aware path. The type-erased strided builder converts any stored
+					// UV element type (FVector2f / FVector2DHalf / other) to FVector2f, so the former per-type
+					// branches collapse onto this one - the same void path the non-ranged overload already uses.
 					TRealtimeMeshStridedStreamBuilder<const FVector2f, void> UVData(*TexCoordsStream, ChannelIndex);
 					auto& CollisionUVChannel = CollisionMesh.TexCoords[ChannelIndex];
-					CollisionUVChannel.SetNumUninitialized(OriginalVertexCount + FMath::Min(VertexRemap.Num(), UVData.Num()));
+					// Size to cover every remapped vertex index so all Pair.Value writes are in-bounds.
+					// Zero-fill so vertices without a corresponding UV get a default (zero) UV.
+					CollisionUVChannel.SetNumZeroed(OriginalVertexCount + VertexRemap.Num());
 
-					for (const auto& Pair : VertexRemap)
+					if (UVData.Num() > 0)
 					{
-						//checkSlow(Pair.Value >= OriginalVertexCount && Pair.Value < CurrentVertexIndex);
-			
-						CollisionUVChannel[Pair.Value] = UVData[Pair.Key % UVData.Num()];
+						for (const auto& Pair : VertexRemap)
+						{
+							//checkSlow(Pair.Value >= OriginalVertexCount && Pair.Value < CurrentVertexIndex);
+
+							// Skip source vertices with no corresponding UV; leave them zeroed rather than wrapping.
+							if (static_cast<int32>(Pair.Key) < UVData.Num())
+							{
+								CollisionUVChannel[Pair.Value] = UVData[Pair.Key];
+							}
+						}
 					}
-
-					// Make sure the uv data is the same length as the position data
-					if (PositionStream->Num() > UVData.Num())
-					{
-						CollisionUVChannel.SetNumZeroed(PositionStream->Num());
-					}	
 				}
 			}
 

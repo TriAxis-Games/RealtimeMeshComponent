@@ -1,4 +1,4 @@
-// Copyright (c) 2015-2025 TriAxis Games, L.L.C. All Rights Reserved.
+// Copyright (c) 2015-2026 TriAxis Games, L.L.C. All Rights Reserved.
 
 #include "RealtimeMeshComponent.h"
 
@@ -13,6 +13,7 @@
 #include "NavigationSystem.h"
 #include "RenderProxy/RealtimeMeshNaniteProxyInterface.h"
 #include "RenderProxy/RealtimeMeshProxy.h"
+#include "RenderProxy/RealtimeMeshVertexFactory.h"
 #include "Net/UnrealNetwork.h"
 
 
@@ -23,6 +24,24 @@ URealtimeMeshComponent::URealtimeMeshComponent()
 {
 	SetNetAddressable();
 	SetIsReplicatedByDefault(true);
+}
+
+URealtimeMeshComponent::FRealtimeMeshComponentSyncCandidateEvent& URealtimeMeshComponent::OnMeshSyncCandidateChanged()
+{
+	static FRealtimeMeshComponentSyncCandidateEvent Event;
+	return Event;
+}
+
+void URealtimeMeshComponent::SetReplicateMeshData(bool bNewReplicateMeshData)
+{
+	if (bReplicateMeshData != bNewReplicateMeshData)
+	{
+		bReplicateMeshData = bNewReplicateMeshData;
+		if (IsRegistered())
+		{
+			OnMeshSyncCandidateChanged().Broadcast(this, bReplicateMeshData);
+		}
+	}
 }
 
 void URealtimeMeshComponent::SetRealtimeMesh(URealtimeMesh* NewMesh)
@@ -37,8 +56,6 @@ void URealtimeMeshComponent::SetRealtimeMesh(URealtimeMesh* NewMesh)
 	// Unlink from any existing runtime mesh
 	if (IsValid(RealtimeMesh))
 	{
-		///RemoveReplicatedSubObject(RealtimeMesh);
-		
 		UnbindFromEvents(RealtimeMesh);
 		RealtimeMesh = nullptr;
 		bUpdatedMesh = true;
@@ -49,15 +66,22 @@ void URealtimeMeshComponent::SetRealtimeMesh(URealtimeMesh* NewMesh)
 		RealtimeMesh = NewMesh;
 		BindToEvents(RealtimeMesh);
 		bUpdatedMesh = true;
-
-		//AddReplicatedSubObject(RealtimeMesh);
 	}
 
 	if (bUpdatedMesh)
 	{
+		// The mesh (and thus its local bounds) changed; force CalcBounds to re-query on next use.
+		bCachedLocalBoundsValid = false;
 		UpdateBounds();
 		UpdateCollision();
 		MarkRenderStateDirty();
+
+		// A mesh swap changes what (if anything) a sync layer should replicate for this
+		// component; re-offer it so sessions rebind to the new mesh.
+		if (IsRegistered())
+		{
+			OnMeshSyncCandidateChanged().Broadcast(this, true);
+		}
 	}
 }
 
@@ -106,6 +130,8 @@ void URealtimeMeshComponent::OnRegister()
 		BindToEvents(RealtimeMesh);
 		UpdateCollision();
 	}
+
+	OnMeshSyncCandidateChanged().Broadcast(this, true);
 }
 
 void URealtimeMeshComponent::OnUnregister()
@@ -116,14 +142,23 @@ void URealtimeMeshComponent::OnUnregister()
 	{
 		UnbindFromEvents(RealtimeMesh);
 	}
+
+	OnMeshSyncCandidateChanged().Broadcast(this, false);
 }
 
 FBoxSphereBounds URealtimeMeshComponent::CalcBounds(const FTransform& LocalToWorld) const
 {
-	if (GetRealtimeMesh())
+	if (URealtimeMesh* Mesh = GetRealtimeMesh())
 	{
-		const FBoxSphereBounds TempBounds = FBoxSphereBounds(GetRealtimeMesh()->GetLocalBounds());
-		return TempBounds.TransformBy(LocalToWorld);
+		// Only take the whole-mesh read lock (via GetLocalBounds) when the cache is stale. The cache is
+		// invalidated on mesh swap and on OnBoundsChanged, so per-frame CalcBounds calls from moving/
+		// physics components just re-transform the cached mesh-space bounds without contending the lock.
+		if (!bCachedLocalBoundsValid)
+		{
+			CachedLocalBounds = FBoxSphereBounds(Mesh->GetLocalBounds());
+			bCachedLocalBoundsValid = true;
+		}
+		return CachedLocalBounds.TransformBy(LocalToWorld);
 	}
 
 	return FBoxSphereBounds(FSphere(FVector::ZeroVector, 1));
@@ -165,12 +200,6 @@ UBodySetup* URealtimeMeshComponent::GetBodySetup()
 
 	return nullptr;
 }
-
-bool URealtimeMeshComponent::UseNaniteOverrideMaterials() const
-{
-	return Super::UseNaniteOverrideMaterials();
-}
-
 
 int32 URealtimeMeshComponent::GetMaterialIndex(FName MaterialSlotName) const
 {
@@ -251,48 +280,42 @@ UMaterialInterface* URealtimeMeshComponent::GetMaterial(int32 ElementIndex) cons
 	return nullptr;
 }
 
-#if RMC_ENGINE_ABOVE_5_4
 void URealtimeMeshComponent::CollectPSOPrecacheData(const FPSOPrecacheParams& BasePrecachePSOParams, FMaterialInterfacePSOPrecacheParamsList& OutParams)
 {
-	FPSOPrecacheVertexFactoryDataList VFDataList;
-	const FVertexFactoryType* VFType = nullptr;
-
 	if (RealtimeMesh)
 	{
 		if (const auto MeshRenderProxy = RealtimeMesh->GetMesh()->GetRenderProxy(true))
 		{
+			// Collect the vertex-factory types this mesh can be drawn with so their PSOs precache
+			// ahead of first draw instead of hitching when procedural content first appears.
+			FPSOPrecacheVertexFactoryDataList VFDataList;
+
 			if (RealtimeMesh::IRealtimeMeshNaniteSceneProxyManager::IsNaniteSupportAvailable() && MeshRenderProxy->HasNaniteResources_GT())
 			{
-#if RMC_ENGINE_BELOW_5_5
-				if (NaniteLegacyMaterialsSupported())
-				{
-					VFDataList.Add(FPSOPrecacheVertexFactoryData(&Nanite::FVertexFactory::StaticType));
-				}
+				VFDataList.Add(FPSOPrecacheVertexFactoryData(&FNaniteVertexFactory::StaticType));
+			}
+			else
+			{
+				VFDataList.Add(FPSOPrecacheVertexFactoryData(&RealtimeMesh::FRealtimeMeshLocalVertexFactory::StaticType));
+			}
 
-				if (NaniteComputeMaterialsSupported())
+			const int32 NumMaterials = GetNumMaterials();
+			for (int32 MaterialId = 0; MaterialId < NumMaterials; MaterialId++)
+			{
+				if (UMaterialInterface* MaterialInterface = GetMaterial(MaterialId))
 				{
-					VFDataList.Add(FPSOPrecacheVertexFactoryData(&FNaniteVertexFactory::StaticType));
+					FMaterialInterfacePSOPrecacheParams& ComponentParams = OutParams.AddDefaulted_GetRef();
+					ComponentParams.Priority = EPSOPrecachePriority::Medium;
+					ComponentParams.MaterialInterface = MaterialInterface;
+					ComponentParams.VertexFactoryDataList = VFDataList;
+					ComponentParams.PSOPrecacheParams = BasePrecachePSOParams;
 				}
-#endif
-
-				for (int32 MaterialId = 0; MaterialId < GetNumMaterials(); MaterialId++)
-				{
-					if (UMaterialInterface* MaterialInterface = GetMaterial(MaterialId))
-					{					
-						FMaterialInterfacePSOPrecacheParams& ComponentParams = OutParams.AddDefaulted_GetRef();
-						ComponentParams.Priority = EPSOPrecachePriority::Medium;
-						ComponentParams.MaterialInterface = MaterialInterface;
-						ComponentParams.VertexFactoryDataList = VFDataList;
-						ComponentParams.PSOPrecacheParams = BasePrecachePSOParams;
-					}				
-				}			
 			}
 		}
 	}
-	
+
 	Super::CollectPSOPrecacheData(BasePrecachePSOParams, OutParams);
 }
-#endif
 
 void URealtimeMeshComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
@@ -303,6 +326,14 @@ void URealtimeMeshComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty
 
 void URealtimeMeshComponent::BindToEvents(URealtimeMesh* InRealtimeMesh)
 {
+	// Guard against double-binding. If we're already bound (e.g. SetRealtimeMesh was called
+	// while unregistered, then OnRegister runs BindToEvents again), unbind the existing
+	// handles first so we don't leak a duplicate delegate set and fire each handler N times.
+	if (BoundsChangedHandle.IsValid() || RenderDataChangedHandle.IsValid() || CollisionBodyUpdatedHandle.IsValid())
+	{
+		UnbindFromEvents(InRealtimeMesh);
+	}
+
 	BoundsChangedHandle = InRealtimeMesh->OnBoundsChanged().AddUObject(this, &URealtimeMeshComponent::HandleBoundsUpdated);
 	RenderDataChangedHandle = InRealtimeMesh->OnRenderDataChanged().AddUObject(this, &URealtimeMeshComponent::HandleMeshRenderingDataChanged);
 	CollisionBodyUpdatedHandle = InRealtimeMesh->OnCollisionBodyUpdated().AddUObject(this, &URealtimeMeshComponent::HandleCollisionBodyUpdated);
@@ -312,29 +343,40 @@ void URealtimeMeshComponent::UnbindFromEvents(URealtimeMesh* InRealtimeMesh)
 {
 	if (BoundsChangedHandle.IsValid())
 	{
-	       InRealtimeMesh->OnBoundsChanged().Remove(BoundsChangedHandle);
-	       BoundsChangedHandle.Reset();
+		InRealtimeMesh->OnBoundsChanged().Remove(BoundsChangedHandle);
+		BoundsChangedHandle.Reset();
 	}
 	if (RenderDataChangedHandle.IsValid())
 	{
-	       InRealtimeMesh->OnRenderDataChanged().Remove(RenderDataChangedHandle);
-	       RenderDataChangedHandle.Reset();
+		InRealtimeMesh->OnRenderDataChanged().Remove(RenderDataChangedHandle);
+		RenderDataChangedHandle.Reset();
 	}
 	if (CollisionBodyUpdatedHandle.IsValid())
 	{
-	       InRealtimeMesh->OnCollisionBodyUpdated().Remove(CollisionBodyUpdatedHandle);
-	       CollisionBodyUpdatedHandle.Reset();
+		InRealtimeMesh->OnCollisionBodyUpdated().Remove(CollisionBodyUpdatedHandle);
+		CollisionBodyUpdatedHandle.Reset();
 	}
 }
 
 
 void URealtimeMeshComponent::HandleBoundsUpdated(URealtimeMesh* InRealtimeMesh)
 {
+	// The mesh's local bounds changed; drop the cache so the next CalcBounds re-queries them.
+	bCachedLocalBoundsValid = false;
 	UpdateBounds();
 }
 
 void URealtimeMeshComponent::HandleMeshRenderingDataChanged(URealtimeMesh* InRealtimeMesh, bool bShouldProxyRecreate)
 {
+	// A render-data change means the geometry — and therefore the computed local bounds — may have
+	// changed. CalcBounds caches the mesh-space bounds and is otherwise only invalidated on mesh swap
+	// and OnBoundsChanged, but the core update path never broadcasts OnBoundsChanged (only the Ext
+	// Constructed provider does). Without refreshing here the scene proxy keeps the first-computed
+	// bounds, so the mesh flickers as it is frustum-culled against a box that no longer matches the
+	// geometry. Movement-only updates don't raise this event, so the cache still spares them the lock.
+	bCachedLocalBoundsValid = false;
+	UpdateBounds();
+
 	if (bShouldProxyRecreate)
 	{
 		PrecachePSOs();
@@ -351,23 +393,25 @@ void URealtimeMeshComponent::UpdateCollision()
 {
 	if (KeepMomentumOnCollisionUpdate)
 	{
-		// First Store Velocities
+		// RecreatePhysicsState resets velocity, so save and restore it to keep momentum.
 		const FVector PrevLinearVelocity = GetPhysicsLinearVelocity();
 		const FVector PrevAngularVelocity = GetPhysicsAngularVelocityInDegrees();
 
-		// Recreate the physics state
 		RecreatePhysicsState();
 
-		// Apply Velocities
 		SetPhysicsLinearVelocity(PrevLinearVelocity, false);
 		SetPhysicsAngularVelocityInDegrees(PrevAngularVelocity, false);
 	}
 	else
 	{
-		//First recreate the physics state
 		RecreatePhysicsState();
 	}
 
-	// Now update the navigation.
-	FNavigationSystem::UpdateComponentData(*this);
+	// Now update the navigation, unless it's been opted out of or this component can never affect
+	// navigation anyway. This avoids continuous navmesh tile rebuilds for per-frame deformable
+	// collision that has no navigation relevance.
+	if (bUpdateNavigationOnCollisionUpdate && CanEverAffectNavigation())
+	{
+		FNavigationSystem::UpdateComponentData(*this);
+	}
 }

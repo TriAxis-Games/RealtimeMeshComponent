@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2015-2025 TriAxis Games, L.L.C. All Rights Reserved.
+﻿// Copyright (c) 2015-2026 TriAxis Games, L.L.C. All Rights Reserved.
 
 #pragma once
 
@@ -6,6 +6,7 @@
 #include "ShaderParameters.h"
 #include "Components.h"
 #include "VertexFactory.h"
+#include "GPUSkinVertexFactory.h" // FGPUSkinPassThroughFactoryLooseParameters (prev-position / motion vectors)
 #include "Core/RealtimeMeshStreamRange.h"
 
 
@@ -268,12 +269,6 @@ namespace RealtimeMesh
 		
 		static void GetVertexElements(ERHIFeatureLevel::Type FeatureLevel, EVertexInputStreamType InputStreamType, bool bSupportsManualVertexFetch, FDataType& Data, FVertexDeclarationElementList& Elements);
 
-		
-		/**
-		* Copy the data from another vertex factory
-		* @param Other - factory to copy from
-		*/
-		void Copy(const FRealtimeMeshLocalVertexFactory& Other);
 
 		virtual EPrimitiveType GetPrimitiveType() const override { return PT_TriangleList; }
 
@@ -341,6 +336,23 @@ namespace RealtimeMesh
 			return UniformBuffer.GetReference();
 		}
 
+		// ===== Previous-position / motion vectors =====
+		// When the section group has a PositionPrev stream this factory feeds the engine's
+		// prev-position path (reused from GPU skin passthrough) so the velocity pass produces correct
+		// motion vectors for the deforming surface. Source-agnostic: the PositionPrev buffer can be
+		// written by a compute provider or a CPU update.
+		bool HasPrevPosition() const { return bHasPrevPosition; }
+#if RMC_ENGINE_ABOVE_5_6 // FGPUSkinPassThroughFactoryLooseParameters is 5.6+; motion-vector velocity path compiles out on 5.5
+		const TUniformBufferRef<FGPUSkinPassThroughFactoryLooseParameters>& GetPrevPositionLooseUniformBuffer() const { return PrevPositionLooseUniformBuffer; }
+#endif
+		FRHIShaderResourceView* GetCurrentPositionSRVForVelocity() const { return CurrentPositionSRV.GetReference(); }
+		FRHIShaderResourceView* GetPrevPositionSRVForVelocity() const { return PrevPositionSRV.GetReference(); }
+
+		// Refresh the loose uniform buffer's frame number (and SRVs) so the velocity pass uses the
+		// prev positions this frame. Called by the compute driver after positions are written; the
+		// gate (FrameNumber == View.FrameCounter) auto-suppresses stale velocity on idle frames.
+		void UpdatePrevPositionFrame(FRHICommandListBase& RHICmdList, uint32 FrameCounter);
+
 	protected:
 		const FDataType& GetData() const { return Data; }
 
@@ -367,6 +379,16 @@ namespace RealtimeMesh
 		FRealtimeMeshStreamRange ValidRange;
 
 		int32 ColorStreamIndex;
+
+		// Prev-position state. The loose UB is always created (with null SRVs / FrameNumber=-1) so the
+		// SUPPORT_GPUSKIN_PASSTHROUGH shader path always has a valid binding; it only carries real data
+		// when a PositionPrev stream is present.
+		bool bHasPrevPosition = false;
+		FShaderResourceViewRHIRef CurrentPositionSRV;
+		FShaderResourceViewRHIRef PrevPositionSRV;
+#if RMC_ENGINE_ABOVE_5_6 // FGPUSkinPassThroughFactoryLooseParameters is 5.6+; motion-vector velocity path compiles out on 5.5
+		TUniformBufferRef<FGPUSkinPassThroughFactoryLooseParameters> PrevPositionLooseUniformBuffer;
+#endif
 	};
 
 
@@ -387,5 +409,8 @@ namespace RealtimeMesh
 
 		// True if LODParameter is bound, which puts us on the slow path in GetElementShaderBindings
 		LAYOUT_FIELD(bool, bAnySpeedTreeParamIsBound);
+
+		// "bIsGPUSkinPassThrough" loose param gating the prev-position (motion vector) path.
+		LAYOUT_FIELD(FShaderParameter, GPUSkinPassThroughParameter);
 	};
 }

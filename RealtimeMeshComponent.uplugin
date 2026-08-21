@@ -1,13 +1,13 @@
 {
 	"FileVersion": 3,
-	"Version": 50,
-	"VersionName": "5.3.2",
+	"Version": 54,
+	"VersionName": "5.4",
 	"FriendlyName": "Realtime Mesh Component",
 	"Description": "A component allowing for rendering and interacting with runtime generated geometry.",
 	"Category": "Rendering",
 	"CreatedBy": "Chris Conway (Koderz)",
 	"CreatedByURL": "https://github.com/Koderz",
-	"DocsURL": "https://realtimemesh.koderz.io/",
+	"DocsURL": "https://triaxis.games/realtime-mesh/",
 	"MarketplaceURL": "com.epicgames.launcher://ue/marketplace/content/ad0b45a6a31e462aba7cf7c790a9c125",
 	"SupportURL": "https://github.com/TriAxis-Games/RealtimeMeshComponent/issues",
 	"EnabledByDefault": true,
@@ -19,12 +19,6 @@
 			"Name": "RealtimeMeshComponent",
 			"Type": "Runtime",
 			"LoadingPhase": "PostConfigInit",
-			"PlatformDenyList": []
-		},
-		{
-			"Name": "RealtimeMeshTests",
-			"Type": "Editor",
-			"LoadingPhase": "Default",
 			"PlatformDenyList": []
 		},
 		{

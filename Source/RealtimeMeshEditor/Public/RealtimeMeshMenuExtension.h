@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2015-2025 TriAxis Games, L.L.C. All Rights Reserved.
+﻿// Copyright (c) 2015-2026 TriAxis Games, L.L.C. All Rights Reserved.
 
 #pragma once
 
@@ -18,7 +18,7 @@ public:
 	/** reloads textures used by slate renderer */
 	static void ReloadTextures();
 
-	/** @return The Slate style set for the Shooter game */
+	/** @return The Slate style set for the RealtimeMesh editor */
 	static const ISlateStyle& Get();
 
 	static FName GetStyleSetName();

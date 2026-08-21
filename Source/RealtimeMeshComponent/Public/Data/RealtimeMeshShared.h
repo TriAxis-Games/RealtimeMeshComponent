@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2015-2025 TriAxis Games, L.L.C. All Rights Reserved.
+﻿// Copyright (c) 2015-2026 TriAxis Games, L.L.C. All Rights Reserved.
 
 #pragma once
 
@@ -15,6 +15,40 @@ enum class ERealtimeMeshCollisionUpdateResult : uint8;
 
 namespace RealtimeMesh
 {
+	struct FRealtimeMeshUpdateContext;
+
+	// DUP-027: Shared KeyFuncs for TSet<TSharedRef<InElementType>> indexed by a key retrieved
+	// via InElementType::GetKey_AssumesLocked(). The owning element type must befriend the
+	// concrete specialization so this template can read its (protected) key accessor.
+	template <typename InElementType, typename InKeyType>
+	struct TRealtimeMeshRefKeyFuncs : BaseKeyFuncs<TSharedRef<InElementType>, InKeyType, false>
+	{
+		using ElementInitType = typename BaseKeyFuncs<TSharedRef<InElementType>, InKeyType, false>::ElementInitType;
+		using KeyInitType = typename BaseKeyFuncs<TSharedRef<InElementType>, InKeyType, false>::KeyInitType;
+
+		/**
+		 * @return The key used to index the given element.
+		 */
+		static KeyInitType GetSetKey(ElementInitType Element)
+		{
+			return Element->GetKey_AssumesLocked();
+		}
+
+		/**
+		 * @return True if the keys match.
+		 */
+		static bool Matches(KeyInitType A, KeyInitType B)
+		{
+			return A == B;
+		}
+
+		/** Calculates a hash index for a key. */
+		static uint32 GetKeyHash(KeyInitType Key)
+		{
+			return GetTypeHash(Key);
+		}
+	};
+
 	// ReSharper disable CppExpressionWithoutSideEffects
 	struct FRealtimeMeshBounds
 	{
@@ -64,6 +98,54 @@ namespace RealtimeMesh
 	// ReSharper restore CppExpressionWithoutSideEffects
 
 
+	// DUP-008: shared accumulate-hull of child bounds. FRealtimeMesh (over its LODs),
+	// FRealtimeMeshLOD (over its section groups), and FRealtimeMeshBufferSet (over its
+	// sections) folded their children's bounds with a verbatim-identical loop in their
+	// FinalizeUpdate paths. The iteration order and the left-folded `+` sequence are
+	// preserved exactly (the first set child seeds, each subsequent set child is added as
+	// `*NewBounds + *ChildBounds`, unset children are skipped) so the accumulated
+	// floating-point bounds stay bit-identical to the pre-collapse loops.
+	template <typename RangeType, typename ProjectionType>
+	TOptional<FBoxSphereBounds3f> AccumulateBounds(const RangeType& Elements, ProjectionType Projection)
+	{
+		TOptional<FBoxSphereBounds3f> NewBounds;
+		for (const auto& Element : Elements)
+		{
+			const TOptional<FBoxSphereBounds3f> ElementBounds = Projection(Element);
+			if (ElementBounds.IsSet())
+			{
+				if (!NewBounds.IsSet())
+				{
+					NewBounds = *ElementBounds;
+					continue;
+				}
+				NewBounds = *NewBounds + *ElementBounds;
+			}
+		}
+		return NewBounds;
+	}
+
+	// DUP-008: separate overload for the hull variant used by
+	// FRealtimeMeshBufferSet::GetInUseRange. Unlike AccumulateBounds this folds plain
+	// (never-unset) stream ranges with `Hull` rather than `+`, so it is kept distinct per
+	// the §3 duplication map. The first element seeds; each subsequent element is folded as
+	// `NewRange->Hull(Projection(Element))`, preserving the exact call order and fold shape.
+	template <typename RangeType, typename ProjectionType>
+	TOptional<FRealtimeMeshStreamRange> AccumulateStreamRangeHull(const RangeType& Elements, ProjectionType Projection)
+	{
+		TOptional<FRealtimeMeshStreamRange> NewRange;
+		for (const auto& Element : Elements)
+		{
+			if (!NewRange.IsSet())
+			{
+				NewRange = Projection(Element);
+				continue;
+			}
+			NewRange = NewRange->Hull(Projection(Element));
+		}
+		return NewRange;
+	}
+
 
 	enum class ERealtimeMeshChangeType
 	{
@@ -73,14 +155,14 @@ namespace RealtimeMesh
 		Removed
 	};
 
-	DECLARE_MULTICAST_DELEGATE_ThreeParams(FRealtimeMeshStreamChangedEvent, const FRealtimeMeshSectionGroupKey&, const FRealtimeMeshStreamKey&, ERealtimeMeshChangeType);
-	DECLARE_MULTICAST_DELEGATE_TwoParams(FRealtimeMeshStreamPropertyChangedEvent, const FRealtimeMeshSectionGroupKey&, const FRealtimeMeshStreamKey&);
+	DECLARE_MULTICAST_DELEGATE_ThreeParams(FRealtimeMeshStreamChangedEvent, const FRealtimeMeshBufferSetKey&, const FRealtimeMeshStreamKey&, ERealtimeMeshChangeType);
+	DECLARE_MULTICAST_DELEGATE_TwoParams(FRealtimeMeshStreamPropertyChangedEvent, const FRealtimeMeshBufferSetKey&, const FRealtimeMeshStreamKey&);
 
 	DECLARE_MULTICAST_DELEGATE_TwoParams(FRealtimeMeshSectionChangedEvent, const FRealtimeMeshSectionKey&, ERealtimeMeshChangeType);
 	DECLARE_MULTICAST_DELEGATE_OneParam(FRealtimeMeshSectionPropertyChangedEvent, const FRealtimeMeshSectionKey&);
 
-	DECLARE_MULTICAST_DELEGATE_TwoParams(FRealtimeMeshSectionGroupChangedEvent, const FRealtimeMeshSectionGroupKey&, ERealtimeMeshChangeType);
-	DECLARE_MULTICAST_DELEGATE_OneParam(FRealtimeMeshSectionGroupPropertyChangedEvent, const FRealtimeMeshSectionGroupKey&);
+	DECLARE_MULTICAST_DELEGATE_TwoParams(FRealtimeMeshSectionGroupChangedEvent, const FRealtimeMeshBufferSetKey&, ERealtimeMeshChangeType);
+	DECLARE_MULTICAST_DELEGATE_OneParam(FRealtimeMeshSectionGroupPropertyChangedEvent, const FRealtimeMeshBufferSetKey&);
 
 	DECLARE_MULTICAST_DELEGATE_TwoParams(FRealtimeMeshLODChangedEvent, const FRealtimeMeshLODKey&, ERealtimeMeshChangeType);
 	DECLARE_MULTICAST_DELEGATE_OneParam(FRealtimeMeshLODPropertyChangedEvent, const FRealtimeMeshLODKey&);
@@ -95,7 +177,25 @@ namespace RealtimeMesh
 
 	DECLARE_MULTICAST_DELEGATE(FRealtimeMeshSimpleEvent);
 
-	class REALTIMEMESHCOMPONENT_API FRealtimeMeshSharedResources : public TSharedFromThis<FRealtimeMeshSharedResources>
+	/**
+	 * Broadcast by FRealtimeMeshUpdateContext::Commit after FinalizeUpdate, while the mesh
+	 * write lock is still held, on whichever thread committed the batch. The update context's
+	 * GetState() dirty trees describe exactly what this batch touched. Subscribers must copy
+	 * out whatever they need and return quickly: no mesh write/edit calls, no blocking, no
+	 * assumption of the game thread. Used by optional layers (e.g. net sync) to observe
+	 * per-LOD/section-group/stream change granularity that is otherwise discarded.
+	 */
+	DECLARE_MULTICAST_DELEGATE_OneParam(FRealtimeMeshUpdateCommittedEvent, FRealtimeMeshUpdateContext&);
+
+	/**
+	 * Per-mesh shared state: lock, name, weak back-pointers to the UObject layer
+	 * and the render-thread proxy, and the mesh-level event broker. No factory
+	 * methods — type-tier construction lives on FRealtimeMesh (data side) and
+	 * FRealtimeMeshProxy (render side), where the leaf type info actually exists.
+	 *
+	 * Holds no virtuals; concrete leaves don't subclass this.
+	 */
+	class REALTIMEMESHCOMPONENT_API FRealtimeMeshContext : public TSharedFromThis<FRealtimeMeshContext>
 	{
 		mutable FRealtimeMeshGuard Guard;
 		FName MeshName;
@@ -106,28 +206,17 @@ namespace RealtimeMesh
 
 		FRealtimeMeshSimpleEvent OnRenderProxyRequiresUpdateEvent;
 		FRealtimeMeshSimpleEvent OnBoundsChangedEvent;
+		FRealtimeMeshUpdateCommittedEvent OnUpdateCommittedEvent;
 
 	public:
-		virtual ~FRealtimeMeshSharedResources() = default;
+		~FRealtimeMeshContext() = default;
 
-		FRealtimeMeshSharedResources()
+		FRealtimeMeshContext()
 		{
 		}
 
-		template <typename SharedResourcesType>
-		const SharedResourcesType& As() const
-		{
-			return *static_cast<SharedResourcesType*>(this);
-		}
-
-		template <typename SharedResourcesType>
-		SharedResourcesType& As()
-		{
-			return *static_cast<SharedResourcesType*>(this);
-		}
-
-		virtual void SetOwnerMesh(URealtimeMesh* InOwningMesh, const FRealtimeMeshRef& InOwner);
-		virtual void SetProxy(const FRealtimeMeshProxyRef& InProxy) { Proxy = InProxy; }
+		void SetOwnerMesh(URealtimeMesh* InOwningMesh, const FRealtimeMeshRef& InOwner);
+		void SetProxy(const FRealtimeMeshProxyRef& InProxy) { Proxy = InProxy; }
 
 		FRealtimeMeshGuard& GetGuard() const { return Guard; }
 		FName GetMeshName() const { return MeshName; }
@@ -139,8 +228,8 @@ namespace RealtimeMesh
 
 		ERHIFeatureLevel::Type GetFeatureLevel() const;
 
-		virtual bool WantsStreamOnGPU(const FRealtimeMeshStreamKey& StreamKey) const
-		{ 
+		bool WantsStreamOnGPU(const FRealtimeMeshStreamKey& StreamKey) const
+		{
 			static const TSet WantedStreams =
 			{
 				FRealtimeMeshStreams::Position,
@@ -155,190 +244,23 @@ namespace RealtimeMesh
 
 		FRealtimeMeshSimpleEvent& OnRenderProxyRequiresUpdate() { return OnRenderProxyRequiresUpdateEvent; }
 		FRealtimeMeshSimpleEvent& OnBoundsChanged() { return OnBoundsChangedEvent; }
-
-		
-		/*
-		FRealtimeMeshSectionChangedEvent& OnSectionChanged() { return SectionChangedEvent; }
-		void BroadcastSectionChanged(const FRealtimeMeshSectionKey& SectionKey, ERealtimeMeshChangeType Type) const
-		{
-			SectionChangedEvent.Broadcast(SectionKey, Type);
-		}
-
-		void BroadcastSectionChanged(const TSet<FRealtimeMeshSectionKey>& SectionKeys, ERealtimeMeshChangeType Type) const
-		{
-			for (const auto& SectionKey : SectionKeys) { SectionChangedEvent.Broadcast(SectionKey, Type); }
-		}
-
-		FRealtimeMeshSectionPropertyChangedEvent& OnSectionConfigChanged() { return SectionConfigChangedEvent; }
-
-		void BroadcastSectionConfigChanged(const FRealtimeMeshSectionKey& SectionKey) const
-		{
-			SectionConfigChangedEvent.Broadcast(SectionKey);
-			SectionChangedEvent.Broadcast(SectionKey, ERealtimeMeshChangeType::Updated);
-		}
-
-		FRealtimeMeshSectionPropertyChangedEvent& OnSectionStreamRangeChanged() { return SectionStreamRangeChangedEvent; }
-
-		void BroadcastSectionStreamRangeChanged(const FRealtimeMeshSectionKey& SectionKey) const
-		{
-			SectionStreamRangeChangedEvent.Broadcast(SectionKey);
-			SectionChangedEvent.Broadcast(SectionKey, ERealtimeMeshChangeType::Updated);
-		}
-
-		FRealtimeMeshSectionPropertyChangedEvent& OnSectionBoundsChanged() { return SectionBoundsChangedEvent; }
-
-		void BroadcastSectionBoundsChanged(const FRealtimeMeshSectionKey& SectionKey) const
-		{
-			SectionBoundsChangedEvent.Broadcast(SectionKey);
-			SectionChangedEvent.Broadcast(SectionKey, ERealtimeMeshChangeType::Updated);
-		}
+		FRealtimeMeshUpdateCommittedEvent& OnUpdateCommitted() { return OnUpdateCommittedEvent; }
 
 
-		FRealtimeMeshStreamChangedEvent& OnStreamChanged() { return StreamChangedEvent; }
+		// Non-virtual forwarders. The polymorphic dispatch lives on FRealtimeMesh
+		// (data side) and FRealtimeMeshProxy (render side); these are thin
+		// conveniences so children can still write `Context->CreateX(K)`
+		// without manually pinning the back-reference. All cold-path; the Pin
+		// cost is negligible vs. the construction itself.
+		FRealtimeMeshSectionRef     CreateSection(const FRealtimeMeshSectionKey& InKey) const;
+		FRealtimeMeshSectionGroupRef CreateSectionGroup(const FRealtimeMeshBufferSetKey& InKey) const;
+		FRealtimeMeshLODRef         CreateLOD(const FRealtimeMeshLODKey& InKey) const;
+		FRealtimeMeshUpdateStateRef CreateUpdateState() const;
 
-		void BroadcastStreamChanged(const FRealtimeMeshSectionGroupKey& SectionGroupKey, const FRealtimeMeshStreamKey& StreamKey, ERealtimeMeshChangeType Type) const
-		{
-			StreamChangedEvent.Broadcast(SectionGroupKey, StreamKey, Type);
-		}
+		FRealtimeMeshSectionProxyRef     CreateSectionProxy(const FRealtimeMeshSectionKey& InKey) const;
+		FRealtimeMeshSectionGroupProxyRef CreateSectionGroupProxy(const FRealtimeMeshBufferSetKey& InKey) const;
+		FRealtimeMeshLODProxyRef         CreateLODProxy(const FRealtimeMeshLODKey& InKey) const;
+		FRealtimeMeshVertexFactoryRef    CreateVertexFactory() const;
 
-		void BroadcastStreamChanged(const FRealtimeMeshSectionGroupKey& SectionGroupKey, const TSet<FRealtimeMeshStreamKey>& StreamKeys, ERealtimeMeshChangeType Type) const
-		{
-			for (const auto& StreamKey : StreamKeys) { StreamChangedEvent.Broadcast(SectionGroupKey, StreamKey, Type); }
-		}
-
-		FRealtimeMeshStreamPropertyChangedEvent& OnStreamRangeChanged() { return StreamRangeChangedEvent; }
-
-		void BroadcastStreamRangeChanged(const FRealtimeMeshSectionGroupKey& SectionGroupKey, const FRealtimeMeshStreamKey& StreamKey) const
-		{
-			StreamRangeChangedEvent.Broadcast(SectionGroupKey, StreamKey);
-			StreamChangedEvent.Broadcast(SectionGroupKey, StreamKey, ERealtimeMeshChangeType::Updated);
-		}
-
-
-		FRealtimeMeshSectionGroupChangedEvent& OnSectionGroupChanged() { return SectionGroupChangedEvent; }
-
-		void BroadcastSectionGroupChanged(const FRealtimeMeshSectionGroupKey& SectionGroupKey, ERealtimeMeshChangeType Type) const
-		{
-			SectionGroupChangedEvent.Broadcast(SectionGroupKey, Type);
-		}
-
-		void BroadcastSectionGroupChanged(const TSet<FRealtimeMeshSectionGroupKey>& SectionGroupKeys, ERealtimeMeshChangeType Type) const
-		{
-			for (const auto& SectionGroup : SectionGroupKeys) SectionGroupChangedEvent.Broadcast(SectionGroup, Type);
-		}
-
-		FRealtimeMeshSectionGroupPropertyChangedEvent& OnSectionGroupInUseRangeChanged() { return SectionGroupInUseRangeChangedEvent; }
-
-		void BroadcastSectionGroupInUseRangeChanged(const FRealtimeMeshSectionGroupKey& SectionGroupKey) const
-		{
-			SectionGroupInUseRangeChangedEvent.Broadcast(SectionGroupKey);
-			SectionGroupChangedEvent.Broadcast(SectionGroupKey, ERealtimeMeshChangeType::Updated);
-		}
-
-		FRealtimeMeshSectionGroupPropertyChangedEvent& OnSectionGroupBoundsChanged() { return SectionGroupBoundsChangedEvent; }
-
-		void BroadcastSectionGroupBoundsChanged(const FRealtimeMeshSectionGroupKey& SectionGroupKey) const
-		{
-			SectionGroupBoundsChangedEvent.Broadcast(SectionGroupKey);
-			SectionGroupChangedEvent.Broadcast(SectionGroupKey, ERealtimeMeshChangeType::Updated);
-		}
-
-
-		FRealtimeMeshLODChangedEvent& OnLODChanged() { return LODChangedEvent; }
-		void BroadcastLODChanged(const FRealtimeMeshLODKey& LODKey, ERealtimeMeshChangeType Type) const { LODChangedEvent.Broadcast(LODKey, Type); }
-
-		FRealtimeMeshLODPropertyChangedEvent& OnLODConfigChanged() { return LODConfigChangedEvent; }
-
-		void BroadcastLODConfigChanged(const FRealtimeMeshLODKey& LODKey) const
-		{
-			LODConfigChangedEvent.Broadcast(LODKey);
-			LODChangedEvent.Broadcast(LODKey, ERealtimeMeshChangeType::Updated);
-		}
-
-		FRealtimeMeshLODPropertyChangedEvent& OnLODBoundsChanged() { return LODBoundsChangedEvent; }
-
-		void BroadcastLODBoundsChanged(const FRealtimeMeshLODKey& LODKey) const
-		{
-			LODBoundsChangedEvent.Broadcast(LODKey);
-			LODChangedEvent.Broadcast(LODKey, ERealtimeMeshChangeType::Updated);
-		}
-
-
-		FRealtimeMeshRenderDataChangedEvent& OnMeshRenderDataChanged() { return MeshRenderDataChangedEvent; }
-		void BroadcastMeshRenderDataChanged(bool bShouldRecreateProxies, int32 CommandsVersion) const
-		{
-			if (IsInGameThread())
-			{
-				MeshRenderDataChangedEvent.Broadcast(bShouldRecreateProxies, CommandsVersion);
-			}
-			else
-			{
-				AsyncTask(ENamedThreads::GameThread, [ThisWeak = this->AsWeak(), bShouldRecreateProxies, CommandsVersion]()
-				{
-					if (const auto Pinned = ThisWeak.Pin())
-					{
-						Pinned->MeshRenderDataChangedEvent.Broadcast(bShouldRecreateProxies, CommandsVersion);
-					}
-				});
-			}
-		}
-
-		FRealtimeMeshPropertyChangedEvent& OnMeshConfigChanged() { return MeshConfigChangedEvent; }
-		void BroadcastMeshConfigChanged() const
-		{
-			if (IsInGameThread())
-			{
-				MeshConfigChangedEvent.Broadcast();
-			}
-			else
-			{
-				AsyncTask(ENamedThreads::GameThread, [ThisWeak = this->AsWeak()]()
-				{
-					if (const auto Pinned = ThisWeak.Pin())
-					{
-						Pinned->MeshConfigChangedEvent.Broadcast();
-					}
-				});
-			}
-		}
-
-		FRealtimeMeshPropertyChangedEvent& OnMeshBoundsChanged() { return MeshBoundsChangedEvent; }
-		void BroadcastMeshBoundsChanged() const
-		{
-			if (IsInGameThread())
-			{
-				MeshBoundsChangedEvent.Broadcast();
-			}
-			else
-			{
-				AsyncTask(ENamedThreads::GameThread, [ThisWeak = this->AsWeak()]()
-				{
-					if (const auto Pinned = ThisWeak.Pin())
-					{
-						Pinned->MeshBoundsChangedEvent.Broadcast();
-					}
-				});
-			}
-		}
-
-		FRealtimeMeshRequestEndOfFrameUpdateDelegate& GetEndOfFrameRequestHandler() { return EndOfFrameRequestHandler; }
-		FRealtimeMeshCollisionUpdateDelegate& GetCollisionUpdateHandler() { return CollisionUpdateHandler; }*/
-
-	public:
-		virtual FRealtimeMeshUpdateStateRef CreateUpdateState() const;
-		
-		virtual FRealtimeMeshVertexFactoryRef CreateVertexFactory() const;
-		virtual FRealtimeMeshSectionProxyRef CreateSectionProxy(const FRealtimeMeshSectionKey& InKey) const;
-		virtual FRealtimeMeshSectionGroupProxyRef CreateSectionGroupProxy(const FRealtimeMeshSectionGroupKey& InKey) const;
-		virtual FRealtimeMeshLODProxyRef CreateLODProxy(const FRealtimeMeshLODKey& InKey) const;
-		virtual FRealtimeMeshProxyRef CreateRealtimeMeshProxy() const;
-
-		virtual FRealtimeMeshSectionRef CreateSection(const FRealtimeMeshSectionKey& InKey) const;
-		virtual FRealtimeMeshSectionGroupRef CreateSectionGroup(const FRealtimeMeshSectionGroupKey& InKey) const;
-		virtual FRealtimeMeshLODRef CreateLOD(const FRealtimeMeshLODKey& InKey) const;
-
-		virtual FRealtimeMeshRef CreateRealtimeMesh() const;
-
-		virtual FRealtimeMeshSharedResourcesRef CreateSharedResources() const;
 	};
 }

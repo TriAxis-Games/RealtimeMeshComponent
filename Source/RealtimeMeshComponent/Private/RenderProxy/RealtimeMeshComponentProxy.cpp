@@ -1,4 +1,4 @@
-// Copyright (c) 2015-2025 TriAxis Games, L.L.C. All Rights Reserved.
+// Copyright (c) 2015-2026 TriAxis Games, L.L.C. All Rights Reserved.
 
 #include "RenderProxy/RealtimeMeshComponentProxy.h"
 
@@ -14,7 +14,7 @@
 #include "RealtimeMeshComponentModule.h"
 #include "RealtimeMeshSceneViewExtension.h"
 #include "RenderProxy/RealtimeMeshLODProxy.h"
-#include "RenderProxy/RealtimeMeshSectionGroupProxy.h"
+#include "RenderProxy/RealtimeMeshBufferSetProxy.h"
 #include "RenderProxy/RealtimeMeshDebugVertexFactory.h"
 #include "Data/RealtimeMeshShared.h"
 #include "Materials/MaterialInterface.h"
@@ -65,7 +65,7 @@ TAutoConsoleVariable<float> CVarRealtimeMeshDebugLineLength(
 
 namespace RealtimeMesh
 {	
-	FRealtimeMeshComponentSceneProxy::FRealtimeMeshComponentSceneProxy(URealtimeMeshComponent* Component, const FRealtimeMeshProxyRef& InRealtimeMeshProxy)
+	FRealtimeMeshComponentSceneProxy::FRealtimeMeshComponentSceneProxy(URealtimeMeshComponent* Component, const TSharedRef<const FRealtimeMeshProxy>& InRealtimeMeshProxy)
 		: FPrimitiveSceneProxy(Component)
 		  , RealtimeMeshProxy(InRealtimeMeshProxy)
 		  , BodySetup(Component->GetBodySetup())
@@ -82,8 +82,13 @@ namespace RealtimeMesh
 			}
 			MaterialMap.SetMaterial(MaterialIndex, Mat->GetRenderProxy());
 			MaterialMap.SetMaterialSupportsDither(MaterialIndex, Mat->IsDitheredLODTransition());
+#if RMC_ENGINE_ABOVE_5_7
+			// 5.7 deprecated the ERHIFeatureLevel overload in favor of EShaderPlatform.
+			MaterialRelevance |= Mat->GetRelevance_Concurrent(GetScene().GetShaderPlatform());
+#else
 			MaterialRelevance |= Mat->GetRelevance_Concurrent(GetScene().GetFeatureLevel());
-			bAnyMaterialUsesDithering = Mat->IsDitheredLODTransition();
+#endif
+			bAnyMaterialUsesDithering |= Mat->IsDitheredLODTransition();
 		}
 
 		// Disable shadow casting if no section has it enabled.
@@ -97,6 +102,32 @@ namespace RealtimeMesh
 		bStaticElementsAlwaysUseProxyPrimitiveUniformBuffer = true;
 		bVerifyUsedMaterials = false;
 		
+		// If any section carries a PositionPrev stream the geometry deforms with a static transform, so
+		// force velocity output (motion vectors) — otherwise TAA/TSR ghosts the moving surface.
+		{
+			bool bHasVelocityStreams = false;
+			for (int32 LODIndex = 0; LODIndex < RealtimeMeshProxy->GetNumLODs() && !bHasVelocityStreams; ++LODIndex)
+			{
+				const FRealtimeMeshLODProxyConstPtr LOD = RealtimeMeshProxy->GetLOD(FRealtimeMeshLODKey(LODIndex));
+				if (!LOD.IsValid())
+				{
+					continue;
+				}
+				for (const TCowPtr<FRealtimeMeshBufferSetProxy>& BufferSet : LOD->GetBufferSets())
+				{
+					if (BufferSet.IsValid() && BufferSet->GetStream(FRealtimeMeshStreams::PositionPrev).IsValid())
+					{
+						bHasVelocityStreams = true;
+						break;
+					}
+				}
+			}
+			if (bHasVelocityStreams)
+			{
+				bAlwaysHasVelocity = true;
+			}
+		}
+
 		bSupportsDistanceFieldRepresentation = MaterialRelevance.bOpaque && !MaterialRelevance.bUsesSingleLayerWaterMaterial && RealtimeMeshProxy->HasDistanceFieldData();
 		
 		bCastsDynamicIndirectShadow = Component->bCastDynamicShadow && Component->CastShadow && Component->Mobility != EComponentMobility::Static;
@@ -120,8 +151,9 @@ namespace RealtimeMesh
 
 	void FRealtimeMeshComponentSceneProxy::CreateRenderThreadResources(FRHICommandListBase& RHICmdList)
 	{
-		MeshReferencingHandle = RealtimeMeshProxy->GetReferencingHandle();		
-		RealtimeMeshProxy->ProcessCommands(RHICmdList);
+		// Nothing to drain — this scene proxy renders against the immutable
+		// version captured at construction. Future updates publish new versions
+		// that go to freshly-recreated scene proxies.
 		FPrimitiveSceneProxy::CreateRenderThreadResources(RHICmdList);
 	}
 
@@ -174,91 +206,88 @@ namespace RealtimeMesh
 	}
 
 	
+	// DUP-028: tail shared verbatim by DrawStaticElements and GetDynamicMeshElements
+	// after each path builds its FMeshBatch. Only this side-effect-free suffix is
+	// collapsed here; the preceding bDitheredLODTransition line stays inline at both
+	// sites because its && chain short-circuits member calls (IsMovable(),
+	// MaterialMap.GetMaterialSupportsDither(...)) whose lazy evaluation would be lost
+	// if precomputed into helper arguments.
+	inline void ApplySharedMeshBatchShadowAndScreenSize(FMeshBatch& MeshBatch, bool bCastDynamicShadow, const TRange<float>& LODScreenSizes)
+	{
+		MeshBatch.CastShadow &= bCastDynamicShadow;
+#if RHI_RAYTRACING
+		MeshBatch.CastRayTracedShadow &= bCastDynamicShadow;
+#endif
+		FMeshBatchElement& BatchElement = MeshBatch.Elements[0];
+		BatchElement.MinScreenSize = LODScreenSizes.GetLowerBoundValue();
+		BatchElement.MaxScreenSize = LODScreenSizes.GetUpperBoundValue();
+	}
+
 	void FRealtimeMeshComponentSceneProxy::DrawStaticElements(FStaticPrimitiveDrawInterface* PDI)
 	{
 		SCOPE_CYCLE_COUNTER(STAT_RealtimeMeshComponentSceneProxy_DrawStaticMeshElements);
-	
-		// Walk active LODs
-		for (auto LodIt = RealtimeMeshProxy->GetActiveStaticLODMaskIter(); LodIt; ++LodIt)
+
+		for (const int32 LODIndex : RealtimeMeshProxy->GetActiveStaticLODIndices())
 		{
-			const FRealtimeMeshLODProxy* LOD = *LodIt;
-			check(LOD->GetDrawMask().ShouldRenderStaticPath());
-			
+			const auto& LODSlot = RealtimeMeshProxy->GetLODs()[LODIndex];
+			if (!LODSlot.IsValid())
+			{
+				continue;
+			}
+			const FRealtimeMeshLODProxy* LOD = LODSlot.Get();
+
 			FLODMask LODMask;
-			LODMask.SetLOD(LodIt.GetIndex());
+			LODMask.SetLOD(LODIndex);
 
-			const auto LODScreenSizes = RealtimeMeshProxy->GetScreenSizeRangeForLOD(LodIt.GetIndex());
+			const auto LODScreenSizes = RealtimeMeshProxy->GetScreenSizeRangeForLOD(LODIndex);
+			const auto& BufferSets = LOD->GetSectionGroups();
+			const auto& Sections = LOD->GetSections();
 
-			// Walk all section groups within the LOD
-			for (auto SectionGroupIt = LOD->GetActiveSectionGroupMaskIter(); SectionGroupIt; ++SectionGroupIt)
-			{				
-				const FRealtimeMeshSectionGroupProxy* SectionGroup = *SectionGroupIt;
-				if (!SectionGroup->GetDrawMask().ShouldRenderStaticPath())
+			for (const FRealtimeMeshRenderEntry& Entry : LOD->GetStaticRenderEntries())
+			{
+				const FRealtimeMeshBufferSetProxy* SectionGroup = BufferSets[Entry.BufferSetIndex].Get();
+				const FRealtimeMeshSectionProxy* Section = Sections[Entry.SectionIndex].Get();
+
+				const auto VertexFactory = SectionGroup->GetVertexFactory();
+				check(VertexFactory && VertexFactory.IsValid() && VertexFactory->IsInitialized());
+
+				FMaterialRenderProxy* MaterialProxy = MaterialMap.GetMaterial(Section->GetMaterialSlot());
+
+				FMeshBatch MeshBatch;
+				MeshBatch.MaterialRenderProxy = MaterialProxy ? MaterialProxy : UMaterial::GetDefaultMaterial(MD_Surface)->GetRenderProxy();
+				MeshBatch.bWireframe = false;
+
+				bool bIsValid = SectionGroup->InitializeMeshBatch(MeshBatch, StaticResources, IsLocalToWorldDeterminantNegative(), false);
+				bIsValid = bIsValid && Section->InitializeMeshBatch(MeshBatch, GetUniformBuffer());
+
+				check(MeshBatch.VertexFactory == VertexFactory.Get());
+				check(MeshBatch.VertexFactory && MeshBatch.VertexFactory->IsInitialized());
+
+				if (!bIsValid)
 				{
 					continue;
 				}
 
-				auto VertexFactory = SectionGroup->GetVertexFactory();
-				check(VertexFactory && VertexFactory.IsValid() && VertexFactory->IsInitialized());
+				MeshBatch.bDitheredLODTransition &= bAnyMaterialUsesDithering && !IsMovable() && LODMask.IsDithered() &&
+					MaterialMap.GetMaterialSupportsDither(Section->GetMaterialSlot());
 
-				check(SectionGroup->GetStream(FRealtimeMeshStreams::Triangles)->IsResourceInitialized());
+				// DUP-028: shared shadow-flag + screen-size tail (see helper above).
+				ApplySharedMeshBatchShadowAndScreenSize(MeshBatch, bCastDynamicShadow, LODScreenSizes);
 
-				for (auto SectionIt = SectionGroup->GetActiveSectionMaskIter(); SectionIt; ++SectionIt)
+				if (RuntimeVirtualTextureMaterialTypes.Num() > 0)
 				{
-					const FRealtimeMeshSectionProxy* Section = *SectionIt;
-
-					FMaterialRenderProxy* MaterialProxy = MaterialMap.GetMaterial(Section->GetMaterialSlot());
-					
-					FMeshBatch MeshBatch;
-
-					MeshBatch.MaterialRenderProxy = MaterialProxy? MaterialProxy : UMaterial::GetDefaultMaterial(MD_Surface)->GetRenderProxy();
-					MeshBatch.bWireframe = false;
-
-					// Let SectionGroup do initial setup
-					bool bIsValid = SectionGroup->InitializeMeshBatch(MeshBatch, StaticResources, IsLocalToWorldDeterminantNegative(), false);
-
-					// Let Section finish setup
-					bIsValid = bIsValid && Section->InitializeMeshBatch(MeshBatch, GetUniformBuffer());
-
-					check(MeshBatch.VertexFactory == VertexFactory.Get());
-					check(MeshBatch.VertexFactory && MeshBatch.VertexFactory->IsInitialized());
-
-					if (bIsValid)
-					{						
-						// TODO: Should this check material?
-						MeshBatch.bDitheredLODTransition &= bAnyMaterialUsesDithering && !IsMovable() && LODMask.IsDithered() &&
-							MaterialMap.GetMaterialSupportsDither(Section->GetMaterialSlot());
-						MeshBatch.CastShadow &= bCastDynamicShadow;
-#if RHI_RAYTRACING
-						MeshBatch.CastRayTracedShadow &= bCastDynamicShadow;
-#endif
-
-						auto& BatchElement = MeshBatch.Elements[0];
-
-						// Setup LOD screen sizes
-						BatchElement.MinScreenSize = LODScreenSizes.GetLowerBoundValue();
-						BatchElement.MaxScreenSize = LODScreenSizes.GetUpperBoundValue();
-
-						//check(MeshBatch.Validate(this, GetScene().GetFeatureLevel()));
-
-						if (RuntimeVirtualTextureMaterialTypes.Num() > 0)
-						{
-							// Runtime virtual texture mesh elements.
-							FMeshBatch RVTMeshBatch(MeshBatch);
-							SetupMeshBatchForRuntimeVirtualTexture(RVTMeshBatch);
-							for (ERuntimeVirtualTextureMaterialType MaterialType : RuntimeVirtualTextureMaterialTypes)
-							{
-								RVTMeshBatch.RuntimeVirtualTextureMaterialType = (uint32)MaterialType;
-								PDI->DrawMesh(RVTMeshBatch, LODScreenSizes.GetLowerBoundValue());
-							}
-						}
-
-						PDI->DrawMesh(MeshBatch, LODScreenSizes.GetLowerBoundValue());						
+					FMeshBatch RVTMeshBatch(MeshBatch);
+					SetupMeshBatchForRuntimeVirtualTexture(RVTMeshBatch);
+					for (ERuntimeVirtualTextureMaterialType MaterialType : RuntimeVirtualTextureMaterialTypes)
+					{
+						RVTMeshBatch.RuntimeVirtualTextureMaterialType = (uint32)MaterialType;
+						PDI->DrawMesh(RVTMeshBatch, LODScreenSizes.GetLowerBoundValue());
 					}
 				}
-			}			
-		}
 
+				PDI->DrawMesh(MeshBatch, LODScreenSizes.GetLowerBoundValue());
+			}
+		}
 	}
 
 	void FRealtimeMeshComponentSceneProxy::DrawDebugVectorsDynamic(const TArray<const FSceneView*>& Views, const FSceneViewFamily& ViewFamily, uint32 VisibilityMap, FMeshElementCollector& Collector) const
@@ -267,26 +296,22 @@ namespace RealtimeMesh
 		const bool bShowNormals = CVarRealtimeMeshShowNormals.GetValueOnRenderThread() != 0;
 		const bool bShowTangents = CVarRealtimeMeshShowTangents.GetValueOnRenderThread() != 0;
 		const bool bShowBinormals = CVarRealtimeMeshShowBinormals.GetValueOnRenderThread() != 0;
-		// Create debug modes bitmask (only TBN, vertex colors handled separately)
+		// TBN bitmask only; vertex colors are handled on their own path.
 		uint32 DebugMode = 0;
 		if (bShowNormals) DebugMode |= FRealtimeMeshDebugVertexFactory::Normals;
 		if (bShowTangents) DebugMode |= FRealtimeMeshDebugVertexFactory::Tangents;
 		if (bShowBinormals) DebugMode |= FRealtimeMeshDebugVertexFactory::Binormals;
 
-		// Use vertex color material that respects interpolated vertex colors
+		// Prefer a material that renders interpolated vertex colors, falling back to a wireframe-tinted proxy.
 		FMaterialRenderProxy* DebugMaterial = nullptr;
-		
-		// First try the engine's vertex color material which should respect vertex colors
 		if (GEngine->VertexColorViewModeMaterial_ColorOnly)
 		{
 			DebugMaterial = GEngine->VertexColorViewModeMaterial_ColorOnly->GetRenderProxy();
 		}
-		// Fallback to unlit vertex color material
 		else if (GEngine->VertexColorMaterial)
 		{
 			DebugMaterial = GEngine->VertexColorMaterial->GetRenderProxy();
 		}
-		// Last resort fallback
 		else 
 		{
 			DebugMaterial = new FColoredMaterialRenderProxy(
@@ -296,55 +321,58 @@ namespace RealtimeMesh
 			Collector.RegisterOneFrameMaterialProxy(DebugMaterial);
 		}		
 
-		// Walk active LODs
-		for (auto LodIt = RealtimeMeshProxy->GetActiveStaticLODMaskIter(); LodIt; ++LodIt)
+		// Walk per-BS for the debug visualization paths — each BS is rendered once
+		// with its own debug vertex factory, regardless of how many sections it has.
+		for (const int32 LODIndex : RealtimeMeshProxy->GetActiveStaticLODIndices())
 		{
-			const FRealtimeMeshLODProxy* LOD = *LodIt;
+			const auto& LODSlot = RealtimeMeshProxy->GetLODs()[LODIndex];
+			if (!LODSlot.IsValid()) continue;
+			const FRealtimeMeshLODProxy* LOD = LODSlot.Get();
+			const auto& BufferSets = LOD->GetSectionGroups();
 
-			// Walk all section groups within the LOD
-			for (auto SectionGroupIt = LOD->GetActiveSectionGroupMaskIter(); SectionGroupIt; ++SectionGroupIt)
+			for (const int32 BufferSetIndex : LOD->GetActiveBufferSetIndices())
 			{
-				const FRealtimeMeshSectionGroupProxy* SectionGroup = *SectionGroupIt;
+				const FRealtimeMeshBufferSetProxy* SectionGroup = BufferSets[BufferSetIndex].Get();
 
-				// Skip if we don't have the required streams
 				if (!SectionGroup->GetStream(FRealtimeMeshStreams::Position) ||
 					!SectionGroup->GetStream(FRealtimeMeshStreams::Tangents))
 				{
 					continue;
 				}
 
-				// Get or create cached debug vertex factory
 				TSharedPtr<FRealtimeMeshDebugVertexFactory> DebugVertexFactory = GetOrCreateDebugVertexFactory(SectionGroup, DebugMode, LineLength, Collector.GetRHICommandList());
-				
-				// Skip if vertex factory is not valid
+
 				if (!DebugVertexFactory.IsValid() || !DebugVertexFactory->IsInitialized() || DebugVertexFactory->GetValidRange().NumVertices() == 0)
 				{
 					continue;
 				}
-				
-				// Create debug mesh batches for each view
+
 				for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
 				{
 					if (VisibilityMap & (1 << ViewIndex))
 					{
-						// Pre-calculate if we have anything to render
 						FRealtimeMeshStreamRange ValidRange = DebugVertexFactory->GetValidRange();
 						uint32 ActiveDebugModes = 0;
 						if (bShowNormals) ActiveDebugModes++;
 						if (bShowTangents) ActiveDebugModes++;
 						if (bShowBinormals) ActiveDebugModes++;
-						
-						// Only proceed if we have vertices and debug modes active
+
 						if (ValidRange.NumVertices() > 0 && ActiveDebugModes > 0 && DebugVertexFactory->IsInitialized())
 						{
-							// Calculate lines: multiply by number of active debug channels
-							// Each vertex gets one line per active debug mode
+							// One line per vertex per active debug channel.
 							uint32 NumLines = ValidRange.NumVertices() * ActiveDebugModes;
-							
-							// Only create mesh batch if we have valid primitives
+
+							// PROXY-F15: the shared debug line index buffer holds only
+							// MaxDebugVertices * 2 = 65536 uint16 indices (i.e. MaxDebugVertices
+							// line primitives). Drawing NumLines primitives reads NumLines * 2
+							// indices from FirstIndex 0, so a mesh with > 32k verts (or > 16k with
+							// two debug modes active) would walk off the end of the buffer. Clamp so
+							// we never index past what's allocated — surplus verts just go
+							// unvisualized rather than causing an OOB read.
+							NumLines = FMath::Min(NumLines, FRealtimeMeshDebugLineIndexBuffer::MaxDebugVertices);
+
 							if (NumLines > 0)
 							{
-								// Create mesh batch for debug lines
 								FMeshBatch& DebugMeshBatch = Collector.AllocateMesh();
 								DebugMeshBatch.MaterialRenderProxy = DebugMaterial;
 								DebugMeshBatch.VertexFactory = DebugVertexFactory.Get();
@@ -354,10 +382,8 @@ namespace RealtimeMesh
 								DebugMeshBatch.bUseWireframeSelectionColoring = false;
 								DebugMeshBatch.bWireframe = false;
 
-								// Set up mesh batch element
 								FMeshBatchElement& BatchElement = DebugMeshBatch.Elements[0];
-								
-								// Use our debug index buffer for line pairs
+
 								FRealtimeMeshResourceReferenceList DebugResources;
 								bool bDepthOnly = false;
 								bool bMatrixInverted = false;
@@ -365,20 +391,24 @@ namespace RealtimeMesh
 								BatchElement.FirstIndex = 0;
 								BatchElement.NumPrimitives = NumLines;
 								BatchElement.MinVertexIndex = 0;
-								BatchElement.MaxVertexIndex = ValidRange.NumVertices() - 1; // Max vertex in the vertex buffer
-								
-								// Initialize other required fields
+								// PROXY-F15: MaxVertexIndex must be derived from the SAME clamped
+								// NumLines that bounds the draw. The linear index buffer emits 2 verts
+								// per line, so this draw references vertex indices 0..2*NumLines-1 and
+								// MaxVertexIndex must be 2*NumLines-1 (not the source vertex count).
+								// NumLines is guaranteed >= 1 here (inside the NumLines > 0 guard),
+								// so 2*NumLines-1 cannot underflow.
+								BatchElement.MaxVertexIndex = 2 * NumLines - 1; // Max vertex referenced by the clamped line draw
+
 								BatchElement.BaseVertexIndex = 0;
 								BatchElement.NumInstances = 1;
 								BatchElement.InstancedLODIndex = 0;
 								BatchElement.InstancedLODRange = 0;
-								
-								// Set up primitive uniform buffer (required for GPU Scene)
+
+								// Required for GPU Scene.
 								BatchElement.PrimitiveUniformBuffer = GetUniformBuffer();
 
 								if (BatchElement.NumPrimitives > 0)
 								{									
-									// Add the debug mesh batch
 									Collector.AddMesh(ViewIndex, DebugMeshBatch);
 								}
 							}
@@ -393,20 +423,29 @@ namespace RealtimeMesh
 	                                                              FMeshElementCollector& Collector) const
 	{
 		SCOPE_CYCLE_COUNTER(STAT_RealtimeMeshComponentSceneProxy_GetDynamicMeshElements);
-	
-		// Set up wireframe material (if needed)
+
 		const bool bWireframe = AllowDebugViewmodes() && ViewFamily.EngineShowFlags.Wireframe;
-		
-		// Check if we should show vertex colors via material swap
 		const bool bShowVertexColors = CVarRealtimeMeshShowVertexColors.GetValueOnRenderThread() != 0;
 
-		/*FColoredMaterialRenderProxy* WireframeMaterialInstance = nullptr;
+		// PROXY-F18: allocate the wireframe material proxy once per GetDynamicMeshElements
+		// call (not per render entry per view). The collector takes ownership and frees it
+		// at the end of the frame via RegisterOneFrameMaterialProxy.
+		FColoredMaterialRenderProxy* WireframeMaterialInstance = nullptr;
 		if (bWireframe)
 		{
 			WireframeMaterialInstance = new FColoredMaterialRenderProxy(GEngine->WireframeMaterial ? GEngine->WireframeMaterial->GetRenderProxy() : nullptr,
 			                                                            FLinearColor(0.0f, 0.16f, 1.0f));
 			Collector.RegisterOneFrameMaterialProxy(WireframeMaterialInstance);
-		}*/
+		}
+
+		// PROXY-F19: pin buffer resources once per call rather than per render entry.
+		// The scene proxy's snapshot ref (RealtimeMeshProxy, held for its full lifetime)
+		// transitively pins each buffer set's Streams map — the strong owner of the
+		// GPU buffers the vertex factory references weakly — for the entire draw, so
+		// the list contents are redundant for lifetime; hoisting simply avoids the
+		// per-entry TSet allocation. InitializeMeshBatch requires a mutable list arg,
+		// so we keep one and reuse it.
+		FRealtimeMeshResourceReferenceList DynamicResources;
 
 
 		for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
@@ -414,95 +453,89 @@ namespace RealtimeMesh
 			const FSceneView* View = Views[ViewIndex];
 			const bool bForceDynamicPath = IsRichView(*Views[ViewIndex]->Family) || bWireframe || IsSelected();
 
-			if (IsShown(View) && (VisibilityMap & (1 << ViewIndex)))
+			if (!IsShown(View) || !(VisibilityMap & (1 << ViewIndex)))
 			{
-				FFrozenSceneViewMatricesGuard FrozenMatricesGuard(*const_cast<FSceneView*>(Views[ViewIndex]));
-				FLODMask LODMask = GetLODMask(View);
+				continue;
+			}
 
-				// Walk active LODs
-				for (auto LodIt = bForceDynamicPath? RealtimeMeshProxy->GetActiveLODMaskIter() : RealtimeMeshProxy->GetActiveDynamicLODMaskIter(); LodIt; ++LodIt)
-				{
-					if (LODMask.ContainsLOD(LodIt.GetIndex()))
-					{
-						const FRealtimeMeshLODProxy* LOD = *LodIt;
-						check(LOD->GetDrawMask().ShouldRenderDynamicPath() || (bForceDynamicPath && LOD->GetDrawMask().ShouldRenderStaticPath()));
-						
-						const auto LODScreenSizes = RealtimeMeshProxy->GetScreenSizeRangeForLOD(LodIt.GetIndex());
-
-						// Walk all section groups within the LOD
-						for (auto SectionGroupIt = bForceDynamicPath? LOD->GetActiveSectionGroupMaskIter() : LOD->GetActiveSectionGroupMaskIter(); SectionGroupIt; ++SectionGroupIt)
-						{
-							const FRealtimeMeshSectionGroupProxy* SectionGroup = *SectionGroupIt;
-							if (!bForceDynamicPath && !SectionGroup->GetDrawMask().ShouldRenderDynamicPath())
-							{
-								continue;
-							}
-
-							auto VertexFactory = SectionGroup->GetVertexFactory();
-							check(VertexFactory && VertexFactory.IsValid() && VertexFactory->IsInitialized());
-
-							for (auto SectionIt = bForceDynamicPath? SectionGroup->GetActiveSectionMaskIter() : SectionGroup->GetActiveSectionMaskIter(); SectionIt; ++SectionIt)
-							{
-								const FRealtimeMeshSectionProxy* Section = *SectionIt;
-
-								FMaterialRenderProxy* MaterialProxy = MaterialMap.GetMaterial(Section->GetMaterialSlot());
-								
-								//const bool bWireframe = AllowDebugViewmodes() && ViewFamily.EngineShowFlags.Wireframe;
-
-								if (bWireframe)
-								{
-									MaterialProxy = new FColoredMaterialRenderProxy(GEngine->WireframeMaterial ? GEngine->WireframeMaterial->GetRenderProxy() : nullptr,
-																								FLinearColor(0.0f, 0.16f, 1.0f));
-									Collector.RegisterOneFrameMaterialProxy(MaterialProxy);
-								}
-
-								FMeshBatch& MeshBatch = Collector.AllocateMesh();
-
-								MeshBatch.MaterialRenderProxy = MaterialProxy? MaterialProxy : UMaterial::GetDefaultMaterial(MD_Surface)->GetRenderProxy();
-								
-								// Override with vertex color material if debug mode is enabled
-								if (bShowVertexColors)
-								{
-									UMaterialInterface* VertexColorMaterial = GEngine->VertexColorViewModeMaterial_ColorOnly;
-									if (VertexColorMaterial)
-									{
-										MeshBatch.MaterialRenderProxy = VertexColorMaterial->GetRenderProxy();
-									}
-								}
-								
-								MeshBatch.bWireframe = bWireframe;
-
-								// Let SectionGroup do initial setup
-								FRealtimeMeshResourceReferenceList DynamicResources;
-								bool bIsValid = SectionGroup->InitializeMeshBatch(MeshBatch, DynamicResources, IsLocalToWorldDeterminantNegative(), false);
-
-								// Let Section finish setup
-								bIsValid = bIsValid && Section->InitializeMeshBatch(MeshBatch, GetUniformBuffer());
-
-								check(MeshBatch.VertexFactory && MeshBatch.VertexFactory->IsInitialized());
-								check(MeshBatch.Elements[0].IndexBuffer && MeshBatch.Elements[0].IndexBuffer->IsInitialized());
-								
-								if (bIsValid)
-								{						
-									// TODO: Should this check material?
-									MeshBatch.bDitheredLODTransition &= bAnyMaterialUsesDithering && !IsMovable() && LODMask.IsDithered() &&
-										MaterialMap.GetMaterialSupportsDither(Section->GetMaterialSlot());
-									MeshBatch.CastShadow &= bCastDynamicShadow;
-#if RHI_RAYTRACING
-									MeshBatch.CastRayTracedShadow &= bCastDynamicShadow;
+#if RMC_ENGINE_BELOW_5_7
+			// FFrozenSceneViewMatricesGuard is deprecated and no longer used as of 5.7.
+			FFrozenSceneViewMatricesGuard FrozenMatricesGuard(*const_cast<FSceneView*>(Views[ViewIndex]));
 #endif
+			FLODMask LODMask = GetLODMask(View);
 
-									auto& BatchElement = MeshBatch.Elements[0];
+			const TArrayView<const int32> LODIndices = bForceDynamicPath
+				? RealtimeMeshProxy->GetActiveLODIndices()
+				: RealtimeMeshProxy->GetActiveDynamicLODIndices();
 
-									// Setup LOD screen sizes
-									BatchElement.MinScreenSize = LODScreenSizes.GetLowerBoundValue();
-									BatchElement.MaxScreenSize = LODScreenSizes.GetUpperBoundValue();
-									
-									Collector.AddMesh(ViewIndex, MeshBatch);
-								}
-							}
-						}		
+			for (const int32 LODIndex : LODIndices)
+			{
+				if (!LODMask.ContainsLOD(LODIndex))
+				{
+					continue;
+				}
+				const auto& LODSlot = RealtimeMeshProxy->GetLODs()[LODIndex];
+				if (!LODSlot.IsValid())
+				{
+					continue;
+				}
+				const FRealtimeMeshLODProxy* LOD = LODSlot.Get();
+
+				const auto LODScreenSizes = RealtimeMeshProxy->GetScreenSizeRangeForLOD(LODIndex);
+				const auto& BufferSets = LOD->GetSectionGroups();
+				const auto& Sections = LOD->GetSections();
+				const TArray<FRealtimeMeshRenderEntry>& Entries = bForceDynamicPath
+					? LOD->GetAllRenderEntries()
+					: LOD->GetDynamicRenderEntries();
+
+				for (const FRealtimeMeshRenderEntry& Entry : Entries)
+				{
+					const FRealtimeMeshBufferSetProxy* SectionGroup = BufferSets[Entry.BufferSetIndex].Get();
+					const FRealtimeMeshSectionProxy* Section = Sections[Entry.SectionIndex].Get();
+
+					const auto VertexFactory = SectionGroup->GetVertexFactory();
+					check(VertexFactory && VertexFactory.IsValid() && VertexFactory->IsInitialized());
+
+					FMaterialRenderProxy* MaterialProxy = MaterialMap.GetMaterial(Section->GetMaterialSlot());
+
+					if (bWireframe)
+					{
+						MaterialProxy = WireframeMaterialInstance;
 					}
+
+					FMeshBatch& MeshBatch = Collector.AllocateMesh();
+					MeshBatch.MaterialRenderProxy = MaterialProxy ? MaterialProxy : UMaterial::GetDefaultMaterial(MD_Surface)->GetRenderProxy();
+
+					if (bShowVertexColors)
+					{
+						UMaterialInterface* VertexColorMaterial = GEngine->VertexColorViewModeMaterial_ColorOnly;
+						if (VertexColorMaterial)
+						{
+							MeshBatch.MaterialRenderProxy = VertexColorMaterial->GetRenderProxy();
+						}
+					}
+
+					MeshBatch.bWireframe = bWireframe;
+
+					// PROXY-F19: reuse the once-per-call DynamicResources list (see above).
+					bool bIsValid = SectionGroup->InitializeMeshBatch(MeshBatch, DynamicResources, IsLocalToWorldDeterminantNegative(), false);
+					bIsValid = bIsValid && Section->InitializeMeshBatch(MeshBatch, GetUniformBuffer());
+
+					check(MeshBatch.VertexFactory && MeshBatch.VertexFactory->IsInitialized());
+					check(MeshBatch.Elements[0].IndexBuffer && MeshBatch.Elements[0].IndexBuffer->IsInitialized());
+
+					if (!bIsValid)
+					{
+						continue;
+					}
+
+					MeshBatch.bDitheredLODTransition &= bAnyMaterialUsesDithering && !IsMovable() && LODMask.IsDithered() &&
+						MaterialMap.GetMaterialSupportsDither(Section->GetMaterialSlot());
+
+					// DUP-028: shared shadow-flag + screen-size tail (see helper above).
+					ApplySharedMeshBatchShadowAndScreenSize(MeshBatch, bCastDynamicShadow, LODScreenSizes);
+
+					Collector.AddMesh(ViewIndex, MeshBatch);
 				}
 			}
 		}
@@ -581,9 +614,11 @@ namespace RealtimeMesh
 #if RHI_RAYTRACING
 	bool FRealtimeMeshComponentSceneProxy::IsRayTracingStaticRelevant() const
 	{
-		// Still some work to finish for static ray tracing to behave correctly as it's initialized on the GT before
-		// the 
-		return false && RealtimeMeshProxy->GetDrawMask().CanRenderInStaticRayTracing();
+		// PROXY-F24: static ray tracing is intentionally disabled. It is initialized on the
+		// game thread before the proxy's draw mask is ready, so it does not yet behave
+		// correctly. When that ordering is resolved this should return
+		// RealtimeMeshProxy->GetDrawMask().CanRenderInStaticRayTracing().
+		return false;
 	}
 	
 
@@ -606,7 +641,6 @@ namespace RealtimeMesh
 			const int32 IndexOfFirstNull = RayTracingGeometries.IndexOfByPredicate([](const FRayTracingGeometry* RayTracingGeometry)
 				{ return !RayTracingGeometry || !RayTracingGeometry->IsValid(); });
 
-			// TODO: Should we inject blank ones or duplicate a valid one instead of doing this?
 			// We strip to valid range with no nulls.
 			if (IndexOfFirstNull >= 0 && IndexOfFirstNull < RayTracingGeometries.Num())
 			{
@@ -619,12 +653,7 @@ namespace RealtimeMesh
 	}
 	
 
-#if RMC_ENGINE_ABOVE_5_5
 	void FRealtimeMeshComponentSceneProxy::GetDynamicRayTracingInstances(class FRayTracingInstanceCollector& Collector)
-#else
-	void FRealtimeMeshComponentSceneProxy::GetDynamicRayTracingInstances(struct FRayTracingMaterialGatheringContext& Context,
-	                                                                     TArray<struct FRayTracingInstance>& OutRayTracingInstances)
-#endif
 	{
 		SCOPE_CYCLE_COUNTER(STAT_RealtimeMeshComponentSceneProxy_GetDynamicRayTracingInstances);
 
@@ -633,98 +662,122 @@ namespace RealtimeMesh
 			return;
 		}
 
-#if RMC_ENGINE_ABOVE_5_5
-		const uint32 LODIndex = FMath::Max(GetLOD(Collector.GetReferenceView()), (int32)GetCurrentFirstLODIdx_RenderThread());
+#if RMC_ENGINE_ABOVE_5_7
+		// 5.7 moved ray tracing to per-view collection: GetReferenceView() is deprecated.
+		// Derive the reference view from the first active view in the visibility map, the
+		// same approach the engine's own scene proxies use.
+		const TConstArrayView<const FSceneView*> RayTracingViews = Collector.GetViews();
+		const uint32 RayTracingVisibilityMap = Collector.GetVisibilityMap();
+		const int32 FirstActiveViewIndex = FMath::CountTrailingZeros(RayTracingVisibilityMap);
+		checkf(RayTracingViews.IsValidIndex(FirstActiveViewIndex), TEXT("GetDynamicRayTracingInstances called with no active view."));
+		const FSceneView* ReferenceView = RayTracingViews[FirstActiveViewIndex];
 #else
-		const uint32 LODIndex = FMath::Max(GetLOD(Context.ReferenceView), (int32)GetCurrentFirstLODIdx_RenderThread());
+		const FSceneView* ReferenceView = Collector.GetReferenceView();
 #endif
+		const uint32 LODIndex = FMath::Max(GetLOD(ReferenceView), (int32)GetCurrentFirstLODIdx_RenderThread());
 
-		auto LOD = RealtimeMeshProxy->GetLOD(LODIndex);
-		if (!LOD || !LOD->GetDrawMask().ShouldRenderInRayTracing())
+		const auto& LODsView = RealtimeMeshProxy->GetLODs();
+		if (!LODsView.IsValidIndex(LODIndex) || !LODsView[LODIndex].IsValid())
 		{
 			return;
 		}
-		
-		TMap<const FRayTracingGeometry*, int32> CurrentRayTracingGeometries;		
+		const FRealtimeMeshLODProxy* LOD = LODsView[LODIndex].Get();
+		if (!LOD->GetDrawMask().ShouldRenderInRayTracing())
+		{
+			return;
+		}
 
 		const auto LODScreenSizes = RealtimeMeshProxy->GetScreenSizeRangeForLOD(LODIndex);
+		const auto& BufferSets = LOD->GetSectionGroups();
+		const auto& Sections = LOD->GetSections();
+		const TArray<FRealtimeMeshRenderEntry>& RTEntries = LOD->GetRayTracingRenderEntries();
 
-		// Walk all section groups within the LOD
-		for (auto SectionGroupIt = LOD->GetActiveSectionGroupMaskIter(); SectionGroupIt; ++SectionGroupIt)
-		{			
-			const FRealtimeMeshSectionGroupProxy* SectionGroup = *SectionGroupIt;
-			check(SectionGroup->GetDrawMask().ShouldRenderDynamicPath() || LOD->GetDrawMask().ShouldRenderStaticPath());
+		// PROXY-F19: pin buffer resources once per call rather than per render entry.
+		// The snapshot ref keeps the buffer sets' Streams (strong owners) alive for the
+		// whole draw, so the list is redundant for lifetime; hoisting it out of the loop
+		// avoids the per-entry TSet allocation. InitializeMeshBatch needs a mutable arg.
+		FRealtimeMeshResourceReferenceList DynamicResources;
 
-			if (!SectionGroup->GetDrawMask().ShouldRenderInRayTracing())
-			{
-				continue;
-			}
+		// Entries are emitted in BufferSet order by UpdateCachedState — scan and
+		// group consecutive entries that share the same BufferSetIndex into one
+		// FRayTracingInstance with all those sections as materials.
+		int32 Cursor = 0;
+		while (Cursor < RTEntries.Num())
+		{
+			const int32 GroupBufferSetIndex = RTEntries[Cursor].BufferSetIndex;
+			const FRealtimeMeshBufferSetProxy* SectionGroup = BufferSets[GroupBufferSetIndex].Get();
 
-			auto VertexFactory = SectionGroup->GetVertexFactory();
+			const auto VertexFactory = SectionGroup->GetVertexFactory();
 			check(VertexFactory && VertexFactory.IsValid() && VertexFactory->IsInitialized());
 
 			const FRayTracingGeometry* RayTracingGeometry = SectionGroup->GetRayTracingGeometry();
-			
-			check(RayTracingGeometry->Initializer.TotalPrimitiveCount > 0);
+			check(RayTracingGeometry && RayTracingGeometry->Initializer.TotalPrimitiveCount > 0);
 			check(RayTracingGeometry->Initializer.IndexBuffer.IsValid());
-			
-#if RMC_ENGINE_ABOVE_5_5
+
 			checkf(RayTracingGeometry->GetRHI(), TEXT("Ray tracing instance must have a valid geometry."));
 			FRayTracingInstance RayTracingInstance;
-#else
-			checkf(RayTracingGeometry->RayTracingGeometryRHI, TEXT("Ray tracing instance must have a valid geometry."));
-			FRayTracingInstance& RayTracingInstance = OutRayTracingInstances.AddDefaulted_GetRef();
-#endif
-			
 			RayTracingInstance.Geometry = RayTracingGeometry;
 			RayTracingInstance.InstanceTransforms.Add(GetLocalToWorld());
-			
+
 			if (RayTracingGeometry->IsValid() && RayTracingGeometry->IsInitialized())
 			{
-				for (auto SectionIt = SectionGroup->GetActiveSectionMaskIter(); SectionIt; ++SectionIt)
+				while (Cursor < RTEntries.Num() && RTEntries[Cursor].BufferSetIndex == GroupBufferSetIndex)
 				{
-					const FRealtimeMeshSectionProxy* Section = *SectionIt;
-					check(Section->GetDrawMask().ShouldRenderDynamicPath() || Section->GetDrawMask().ShouldRenderStaticPath());
+					const FRealtimeMeshSectionProxy* Section = Sections[RTEntries[Cursor].SectionIndex].Get();
 
 					FMaterialRenderProxy* MaterialProxy = MaterialMap.GetMaterial(Section->GetMaterialSlot());
 
 					FMeshBatch MeshBatch;
-
-					MeshBatch.MaterialRenderProxy = MaterialProxy? MaterialProxy : UMaterial::GetDefaultMaterial(MD_Surface)->GetRenderProxy();
+					MeshBatch.MaterialRenderProxy = MaterialProxy ? MaterialProxy : UMaterial::GetDefaultMaterial(MD_Surface)->GetRenderProxy();
 					MeshBatch.bWireframe = false;
 
-					// Let SectionGroup do initial setup
-					FRealtimeMeshResourceReferenceList DynamicResources;					
+					// PROXY-F19: reuse the once-per-call DynamicResources list (see above).
 					bool bIsValid = SectionGroup->InitializeMeshBatch(MeshBatch, DynamicResources, IsLocalToWorldDeterminantNegative(), false);
-
-					// Let Section finish setup
 					bIsValid = bIsValid && Section->InitializeMeshBatch(MeshBatch, GetUniformBuffer());
 
 					if (bIsValid)
-					{						
-						// TODO: Should this check material?
+					{
 						MeshBatch.bDitheredLODTransition &= false;
 						MeshBatch.CastShadow &= bCastDynamicShadow;
-#if RMC_ENGINE_ABOVE_5_5
-						MeshBatch.CastShadow &= IsShadowCast(Collector.GetReferenceView());
-#endif
+						MeshBatch.CastShadow &= IsShadowCast(ReferenceView);
 						MeshBatch.CastRayTracedShadow &= bCastDynamicShadow;
 
 						auto& BatchElement = MeshBatch.Elements[0];
-
-						// Setup LOD screen sizes
 						BatchElement.MinScreenSize = LODScreenSizes.GetLowerBoundValue();
 						BatchElement.MaxScreenSize = LODScreenSizes.GetUpperBoundValue();
 
 						MeshBatch.SegmentIndex = RayTracingInstance.Materials.Num();
 						RayTracingInstance.Materials.Add(MeshBatch);
 					}
+					++Cursor;
 				}
 			}
-			
-#if RMC_ENGINE_ABOVE_5_5				
-			Collector.AddRayTracingInstance(MoveTemp(RayTracingInstance));
+			else
+			{
+				// Skip this BS — advance past all its entries without emitting a batch.
+				while (Cursor < RTEntries.Num() && RTEntries[Cursor].BufferSetIndex == GroupBufferSetIndex)
+				{
+					++Cursor;
+				}
+			}
+
+			// Only emit an instance with valid geometry and at least one material —
+			// an empty/mismatched Materials array trips engine asserts downstream.
+			if (RayTracingInstance.Materials.Num() > 0)
+			{
+#if RMC_ENGINE_ABOVE_5_7
+				// 5.7 per-view ray tracing API: emit the instance for every active view.
+				for (int32 ViewIndex = 0; ViewIndex < RayTracingViews.Num(); ++ViewIndex)
+				{
+					if ((RayTracingVisibilityMap & (1u << ViewIndex)) != 0)
+					{
+						Collector.AddRayTracingInstance(ViewIndex, RayTracingInstance);
+					}
+				}
+#else
+				Collector.AddRayTracingInstance(MoveTemp(RayTracingInstance));
 #endif
+			}
 		}
 	}
 #endif
@@ -737,7 +790,9 @@ namespace RealtimeMesh
 	int8 FRealtimeMeshComponentSceneProxy::ComputeTemporalStaticMeshLOD(const FVector4& Origin, const float SphereRadius, const FSceneView& View, int32 MinLOD, float FactorScale,
 	                                                                    int32 SampleIndex) const
 	{
-		const int32 NumLODs = REALTIME_MESH_MAX_LODS;
+		// PROXY-F21: iterate only actual LODs, matching ComputeStaticMeshLOD, rather than
+		// the fixed REALTIME_MESH_MAX_LODS upper bound.
+		const int32 NumLODs = RealtimeMeshProxy->GetNumLODs();
 
 		const float ScreenRadiusSquared = ComputeBoundsScreenRadiusSquared(Origin, SphereRadius, View.GetTemporalLODOrigin(SampleIndex), View.ViewMatrices.GetProjectionMatrix())
 			* FactorScale * FactorScale * View.LODDistanceFactor * View.LODDistanceFactor;
@@ -836,16 +891,24 @@ namespace RealtimeMesh
 		return (FPrimitiveSceneProxy::GetAllocatedSize());
 	}
 
-	TSharedPtr<FRealtimeMeshDebugVertexFactory> FRealtimeMeshComponentSceneProxy::GetOrCreateDebugVertexFactory(const FRealtimeMeshSectionGroupProxy* SectionGroup, uint32 DebugMode, float LineLength, FRHICommandList& RHICmdList) const
+	TSharedPtr<FRealtimeMeshDebugVertexFactory> FRealtimeMeshComponentSceneProxy::GetOrCreateDebugVertexFactory(const FRealtimeMeshBufferSetProxy* SectionGroup, uint32 DebugMode, float LineLength, FRHICommandList& RHICmdList) const
 	{
-		// Check if we already have a cached vertex factory for this section group
+		// Check if we already have a cached vertex factory for this buffer set
 		if (TSharedPtr<FRealtimeMeshDebugVertexFactory>* ExistingVF = DebugVertexFactoryCache.Find(SectionGroup))
 		{
 			if (ExistingVF->IsValid())
 			{
-				// Update debug mode and line length in case they changed
-				(*ExistingVF)->SetDebugMode(DebugMode);
-				(*ExistingVF)->SetLineLength(LineLength);
+				// PROXY-F16: the uniform buffer bakes the debug params from the CVars at
+				// creation time. If the params changed since we cached this VF, refresh
+				// the uniform buffer so toggling r.RealtimeMesh.ShowTangents (etc.) or the
+				// line length actually takes effect — SetDebugMode/SetLineLength alone only
+				// write members that nothing downstream consumes.
+				if ((*ExistingVF)->GetDebugMode() != DebugMode || (*ExistingVF)->GetLineLength() != LineLength)
+				{
+					(*ExistingVF)->SetDebugMode(DebugMode);
+					(*ExistingVF)->SetLineLength(LineLength);
+					(*ExistingVF)->RefreshUniformBuffer();
+				}
 				return *ExistingVF;
 			}
 		}
@@ -855,7 +918,7 @@ namespace RealtimeMesh
 		DebugVertexFactory->SetDebugMode(DebugMode);
 		DebugVertexFactory->SetLineLength(LineLength);
 
-		// Get the buffers from the section group and initialize the debug vertex factory
+		// Get the buffers from the buffer set and initialize the debug vertex factory
 		TMap<FRealtimeMeshStreamKey, TSharedPtr<FRealtimeMeshGPUBuffer>> BufferMap;
 		
 		// Collect required streams
@@ -881,5 +944,3 @@ namespace RealtimeMesh
 		return DebugVertexFactory;
 	}
 }
-
-#undef RMC_LOG_VERBOSE

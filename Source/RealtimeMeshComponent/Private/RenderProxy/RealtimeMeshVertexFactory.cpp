@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2015-2025 TriAxis Games, L.L.C. All Rights Reserved.
+﻿// Copyright (c) 2015-2026 TriAxis Games, L.L.C. All Rights Reserved.
 
 /*=============================================================================
 	RealtimeMeshVertexFactory.cpp: Local vertex factory implementation
@@ -43,27 +43,41 @@ namespace RealtimeMesh
 
 	static TGlobalResource<FRealtimeMeshSpeedTreeWindNullUniformBuffer> GSpeedTreeWindNullUniformBuffer;
 
-	void FRealtimeMeshNullColorVertexBuffer::InitRHI(FRHICommandListBase& RHICmdList)
+	// DUP-028: shared body for the three FRealtimeMeshNull*VertexBuffer::InitRHI
+	// implementations below. The per-class differences — element type, debug name,
+	// pixel format, and the single element written at index 0 — are passed
+	// explicitly at each call site. The base FVertexBuffer::InitRHI() call stays in
+	// each override (it is a member call, not part of the shared body).
+	template <typename VertexType>
+	static void InitNullVertexBuffer(FRHICommandListBase& RHICmdList, FBufferRHIRef& VertexBufferRHI, FShaderResourceViewRHIRef& VertexBufferSRV,
+		const TCHAR* DebugName, EPixelFormat PixelFormat, const VertexType& InitialValue)
 	{
 #if RMC_ENGINE_ABOVE_5_6
-		FRHIBufferCreateDesc VertexBufferDesc = FRHIBufferCreateDesc::CreateVertex(TEXT("FRealtimeMeshNullColorVertexBuffer"))
+		FRHIBufferCreateDesc VertexBufferDesc = FRHIBufferCreateDesc::CreateVertex(DebugName)
 			.SetStride(0)
-			.SetSize(sizeof(FColor))
+			.SetSize(sizeof(VertexType))
 			.SetUsage(BUF_Static | BUF_VertexBuffer | BUF_ShaderResource)
 			.SetInitialState(ERHIAccess::VertexOrIndexBuffer | ERHIAccess::SRVMask);
 		VertexBufferRHI = RHICmdList.CreateBuffer(VertexBufferDesc);
-#else		
-		FRHIResourceCreateInfo CreateInfo(TEXT("FRealtimeMeshNullColorVertexBuffer"));
-		VertexBufferRHI = RHICmdList.CreateBuffer(sizeof(FColor), BUF_Static | BUF_VertexBuffer | BUF_ShaderResource, 0, ERHIAccess::VertexOrIndexBuffer | ERHIAccess::SRVMask, CreateInfo);
+#else
+		FRHIResourceCreateInfo CreateInfo(DebugName);
+		VertexBufferRHI = RHICmdList.CreateBuffer(sizeof(VertexType), BUF_Static | BUF_VertexBuffer | BUF_ShaderResource, 0, ERHIAccess::VertexOrIndexBuffer | ERHIAccess::SRVMask, CreateInfo);
 #endif
-		
-		FColor* Vertices = static_cast<FColor*>(RHICmdList.LockBuffer(VertexBufferRHI, 0, sizeof(FColor), RLM_WriteOnly));
-		Vertices[0] = FColor(255, 255, 255, 255);
+
+		VertexType* Vertices = static_cast<VertexType*>(RHICmdList.LockBuffer(VertexBufferRHI, 0, sizeof(VertexType), RLM_WriteOnly));
+		Vertices[0] = InitialValue;
 		RHICmdList.UnlockBuffer(VertexBufferRHI);
 
-		VertexBufferSRV = RHICmdList.CreateShaderResourceView(FShaderResourceViewInitializer(VertexBufferRHI, PF_R8G8B8A8));
-		// VertexBufferSRV = RHICmdList.CreateShaderResourceView(VertexBufferRHI, sizeof(FColor), PF_R8G8B8A8);
-		
+		VertexBufferSRV = RHICmdList.CreateShaderResourceView(FShaderResourceViewInitializer(VertexBufferRHI, PixelFormat));
+		// VertexBufferSRV = RHICmdList.CreateShaderResourceView(VertexBufferRHI, sizeof(VertexType), PixelFormat);
+	}
+
+	void FRealtimeMeshNullColorVertexBuffer::InitRHI(FRHICommandListBase& RHICmdList)
+	{
+		// DUP-028: per-class bits — FColor / PF_R8G8B8A8 / opaque white default.
+		InitNullVertexBuffer<FColor>(RHICmdList, VertexBufferRHI, VertexBufferSRV,
+			TEXT("FRealtimeMeshNullColorVertexBuffer"), PF_R8G8B8A8, FColor(255, 255, 255, 255));
+
 		FVertexBuffer::InitRHI(RHICmdList);
 	}
 
@@ -75,25 +89,11 @@ namespace RealtimeMesh
 
 	void FRealtimeMeshNullTangentVertexBuffer::InitRHI(FRHICommandListBase& RHICmdList)
 	{
-#if RMC_ENGINE_ABOVE_5_6
-		FRHIBufferCreateDesc VertexBufferDesc = FRHIBufferCreateDesc::CreateVertex(TEXT("FRealtimeMeshNullTangentVertexBuffer"))
-			.SetStride(0)
-			.SetSize(sizeof(TRealtimeMeshTangents<FPackedRGBA16N>))
-			.SetUsage(BUF_Static | BUF_VertexBuffer | BUF_ShaderResource)
-			.SetInitialState(ERHIAccess::VertexOrIndexBuffer | ERHIAccess::SRVMask);
-		VertexBufferRHI = RHICmdList.CreateBuffer(VertexBufferDesc);
-#else		
-		FRHIResourceCreateInfo CreateInfo(TEXT("FRealtimeMeshNullTangentVertexBuffer"));
-		VertexBufferRHI = RHICmdList.CreateBuffer(sizeof(TRealtimeMeshTangents<FPackedRGBA16N>), BUF_Static | BUF_VertexBuffer | BUF_ShaderResource, 0, ERHIAccess::VertexOrIndexBuffer | ERHIAccess::SRVMask, CreateInfo);
-#endif
+		// DUP-028: per-class bits — TRealtimeMeshTangents<FPackedRGBA16N> / PF_R16G16B16A16_SINT / Z,Y,X basis default.
+		InitNullVertexBuffer<TRealtimeMeshTangents<FPackedRGBA16N>>(RHICmdList, VertexBufferRHI, VertexBufferSRV,
+			TEXT("FRealtimeMeshNullTangentVertexBuffer"), PF_R16G16B16A16_SINT,
+			TRealtimeMeshTangents<FPackedRGBA16N>(FVector3f::ZAxisVector, FVector3f::YAxisVector, FVector3f::XAxisVector));
 
-		TRealtimeMeshTangents<FPackedRGBA16N>* Vertices = static_cast<TRealtimeMeshTangents<FPackedRGBA16N>*>(RHICmdList.LockBuffer(VertexBufferRHI, 0, sizeof(TRealtimeMeshTangents<FPackedRGBA16N>), RLM_WriteOnly));
-		Vertices[0] = TRealtimeMeshTangents<FPackedRGBA16N>(FVector3f::ZAxisVector, FVector3f::YAxisVector, FVector3f::XAxisVector);
-		RHICmdList.UnlockBuffer(VertexBufferRHI);
-		
-		VertexBufferSRV = RHICmdList.CreateShaderResourceView(FShaderResourceViewInitializer(VertexBufferRHI, PF_R16G16B16A16_SINT));
-		// VertexBufferSRV = RHICmdList.CreateShaderResourceView(VertexBufferRHI, sizeof(FPackedRGBA16N), PF_R16G16B16A16_SINT);
-		
 		FVertexBuffer::InitRHI(RHICmdList);
 	}
 
@@ -105,25 +105,10 @@ namespace RealtimeMesh
 
 	void FRealtimeMeshNullTexCoordVertexBuffer::InitRHI(FRHICommandListBase& RHICmdList)
 	{
-#if RMC_ENGINE_ABOVE_5_6
-		FRHIBufferCreateDesc VertexBufferDesc = FRHIBufferCreateDesc::CreateVertex(TEXT("FRealtimeMeshNullTexCoordVertexBuffer"))
-			.SetStride(0)
-			.SetSize(sizeof(FVector2f))
-			.SetUsage(BUF_Static | BUF_VertexBuffer | BUF_ShaderResource)
-			.SetInitialState(ERHIAccess::VertexOrIndexBuffer | ERHIAccess::SRVMask);
-		VertexBufferRHI = RHICmdList.CreateBuffer(VertexBufferDesc);
-#else		
-		FRHIResourceCreateInfo CreateInfo(TEXT("FRealtimeMeshNullTexCoordVertexBuffer"));
-		VertexBufferRHI = RHICmdList.CreateBuffer(sizeof(FVector2f), BUF_Static | BUF_VertexBuffer | BUF_ShaderResource, 0, ERHIAccess::VertexOrIndexBuffer | ERHIAccess::SRVMask, CreateInfo);
-#endif
+		// DUP-028: per-class bits — FVector2f / PF_G32R32F / zero default.
+		InitNullVertexBuffer<FVector2f>(RHICmdList, VertexBufferRHI, VertexBufferSRV,
+			TEXT("FRealtimeMeshNullTexCoordVertexBuffer"), PF_G32R32F, FVector2f::ZeroVector);
 
-		FVector2f* Vertices = static_cast<FVector2f*>(RHICmdList.LockBuffer(VertexBufferRHI, 0, sizeof(FVector2f), RLM_WriteOnly));
-		Vertices[0] = FVector2f::ZeroVector;
-		RHICmdList.UnlockBuffer(VertexBufferRHI);
-		
-		VertexBufferSRV = RHICmdList.CreateShaderResourceView(FShaderResourceViewInitializer(VertexBufferRHI, PF_G32R32F));
-		// VertexBufferSRV = RHICmdList.CreateShaderResourceView(VertexBufferRHI, sizeof(FVector2f), PF_G32R32F);
-		
 		FVertexBuffer::InitRHI(RHICmdList);
 	}
 
@@ -256,6 +241,27 @@ namespace RealtimeMesh
 		                 FRealtimeMeshStreams::PositionStreamName, EVertexStreamUsage::Default);
 		BindVertexBufferSRV(bIsValid, DataType.PositionComponentSRV, Buffers, FRealtimeMeshStreams::PositionStreamName);
 
+		// Prev-position (motion vectors): if a PositionPrev stream is present, capture its SRV (and the
+		// current Position SRV) for the loose uniform buffer the velocity pass reads. Reset each call.
+		bHasPrevPosition = false;
+		CurrentPositionSRV = nullptr;
+		PrevPositionSRV = nullptr;
+		{
+			const TSharedPtr<FRealtimeMeshGPUBuffer> PrevPosBuffer = Buffers.FindRef(FRealtimeMeshStreams::PositionPrev);
+			const TSharedPtr<FRealtimeMeshGPUBuffer> PosBuffer = Buffers.FindRef(FRealtimeMeshStreams::Position);
+			if (PrevPosBuffer && PrevPosBuffer->Num() > 0 && PosBuffer)
+			{
+				const FRealtimeMeshVertexBuffer* PrevVB = static_cast<const FRealtimeMeshVertexBuffer*>(PrevPosBuffer.Get());
+				const FRealtimeMeshVertexBuffer* PosVB = static_cast<const FRealtimeMeshVertexBuffer*>(PosBuffer.Get());
+				if (PrevVB && PrevVB->ShaderResourceViewRHI.IsValid() && PosVB)
+				{
+					PrevPositionSRV = PrevVB->ShaderResourceViewRHI;
+					CurrentPositionSRV = PosVB->ShaderResourceViewRHI;
+					bHasPrevPosition = true;
+				}
+			}
+		}
+
 		// Bind Tangents
 
 		const TSharedPtr<FRealtimeMeshGPUBuffer> TangentBuffer = Buffers.FindRef(FRealtimeMeshStreams::Tangents);
@@ -355,6 +361,7 @@ namespace RealtimeMesh
 	{
 		LODParameter.Bind(ParameterMap, TEXT("SpeedTreeLODInfo"));
 		bAnySpeedTreeParamIsBound = LODParameter.IsBound() || ParameterMap.ContainsParameterAllocation(TEXT("SpeedTreeData"));
+		GPUSkinPassThroughParameter.Bind(ParameterMap, TEXT("bIsGPUSkinPassThrough"));
 	}
 
 	void FRealtimeMeshVertexFactoryShaderParameters::GetElementShaderBindings(
@@ -384,6 +391,23 @@ namespace RealtimeMesh
 
 			ShaderBindings.Add(Shader->GetUniformBufferParameter<FLocalVertexFactoryUniformShaderParameters>(), VertexFactoryUniformBuffer);
 		}
+
+		// Prev-position / motion vectors: enable the passthrough velocity path only when this section
+		// has a PositionPrev stream. Always bind the *persistent* loose UB (created in InitRHI, so it is
+		// valid on every draw). It is stamped once per frame via UpdatePrevPositionFrame() from the
+		// per-frame compute-registry pass, so its FrameNumber holds THIS frame's View.Family->FrameCounter
+		// and the shader's gate (ResolvedView.FrameCounter == FrameNumber) matches — without allocating a
+		// single-frame UB per element/pass/view, and without baking a stale frame into cached static draws.
+		// Non-prev sections keep the gate closed (the buffer's FrameNumber stays ~0u until stamped).
+		const bool bUsePrevPosition = LocalVertexFactory->HasPrevPosition() && View != nullptr;
+		ShaderBindings.Add(GPUSkinPassThroughParameter, bUsePrevPosition ? 1u : 0u);
+#if RMC_ENGINE_ABOVE_5_6 // FGPUSkinPassThroughFactoryLooseParameters is 5.6+; motion-vector velocity path compiles out on 5.5
+		if (LocalVertexFactory->GetPrevPositionLooseUniformBuffer().IsValid())
+		{
+			ShaderBindings.Add(Shader->GetUniformBufferParameter<FGPUSkinPassThroughFactoryLooseParameters>(),
+				LocalVertexFactory->GetPrevPositionLooseUniformBuffer());
+		}
+#endif
 
 		//@todo - allow FMeshBatch to supply vertex streams (instead of requiring that they come from the vertex factory), and this userdata hack will no longer be needed for override vertex color
 		if (BatchElement.bUserDataIsColorVertexBuffer)
@@ -444,6 +468,11 @@ namespace RealtimeMesh
 			Parameters.Platform, GetMaxSupportedFeatureLevel(Parameters.Platform));
 		OutEnvironment.SetDefine(TEXT("VF_SUPPORTS_PRIMITIVE_SCENE_DATA"), bVFSupportsPrimtiveSceneData);
 		OutEnvironment.SetDefine(TEXT("RAY_TRACING_DYNAMIC_MESH_IN_LOCAL_SPACE"), TEXT("1"));
+
+		// Compile in the prev-position path so a section with a PositionPrev stream produces motion
+		// vectors (reuses the engine's GPU-skin-passthrough velocity path; gated at runtime by
+		// bIsGPUSkinPassThrough so it's inert for normal sections).
+		OutEnvironment.SetDefine(TEXT("SUPPORT_GPUSKIN_PASSTHROUGH"), 1);
 	}
 
 	void FRealtimeMeshLocalVertexFactory::ValidateCompiledResult(const FVertexFactoryType* Type, EShaderPlatform Platform, const FShaderParameterMap& ParameterMap,
@@ -500,22 +529,6 @@ namespace RealtimeMesh
 		Elements.Add(FVertexElement(VertexStreams.Num(), 0, VET_UInt, 13, 0, true));
 	}
 
-	/**
-	* Copy the data from another vertex factory
-	* @param Other - factory to copy from
-	*/
-	void FRealtimeMeshLocalVertexFactory::Copy(const FRealtimeMeshLocalVertexFactory& Other)
-	{
-		FRealtimeMeshLocalVertexFactory* VertexFactory = this;
-		const FDataType* DataCopy = &Other.Data;
-		ENQUEUE_RENDER_COMMAND(FRealtimeMeshVertexFactoryCopyData)(
-			[VertexFactory, DataCopy](FRHICommandListImmediate& RHICmdList)
-			{
-				VertexFactory->Data = *DataCopy;
-			});
-		BeginUpdateResourceRHI(this);
-	}
-	
 	void FRealtimeMeshLocalVertexFactory::InitRHI(FRHICommandListBase& RHICmdList)
 	{
 		SCOPED_LOADTIMER(FLocalVertexFactory_InitRHI);
@@ -567,7 +580,37 @@ namespace RealtimeMesh
 			UniformBuffer = CreateRealtimeMeshVFUniformBuffer(this, Data.LODLightmapDataIndex);
 		}
 
+		// Always create the prev-position loose UB so the SUPPORT_GPUSKIN_PASSTHROUGH path has a valid
+		// binding on every draw. FrameNumber = -1 keeps the velocity gate closed until a PositionPrev
+		// stream is present and the driver stamps the current frame.
+#if RMC_ENGINE_ABOVE_5_6 // FGPUSkinPassThroughFactoryLooseParameters is 5.6+; motion-vector velocity path compiles out on 5.5
+		{
+			FGPUSkinPassThroughFactoryLooseParameters LooseParams;
+			LooseParams.FrameNumber = ~0u;
+			LooseParams.PositionBuffer = CurrentPositionSRV.IsValid() ? CurrentPositionSRV.GetReference() : GNullVertexBuffer.VertexBufferSRV.GetReference();
+			LooseParams.PreviousPositionBuffer = PrevPositionSRV.IsValid() ? PrevPositionSRV.GetReference() : GNullVertexBuffer.VertexBufferSRV.GetReference();
+			LooseParams.PreSkinnedTangentBuffer = GNullVertexBuffer.VertexBufferSRV.GetReference();
+			PrevPositionLooseUniformBuffer = TUniformBufferRef<FGPUSkinPassThroughFactoryLooseParameters>::CreateUniformBufferImmediate(LooseParams, UniformBuffer_MultiFrame);
+		}
+#endif
+
 		check(IsValidRef(GetDeclaration()));
+	}
+
+	void FRealtimeMeshLocalVertexFactory::UpdatePrevPositionFrame(FRHICommandListBase& RHICmdList, uint32 FrameCounter)
+	{
+#if RMC_ENGINE_ABOVE_5_6 // FGPUSkinPassThroughFactoryLooseParameters is 5.6+; on 5.5 this is a no-op (no motion vectors)
+		if (!bHasPrevPosition || !PrevPositionLooseUniformBuffer.IsValid())
+		{
+			return;
+		}
+		FGPUSkinPassThroughFactoryLooseParameters LooseParams;
+		LooseParams.FrameNumber = FrameCounter;
+		LooseParams.PositionBuffer = CurrentPositionSRV.IsValid() ? CurrentPositionSRV.GetReference() : GNullVertexBuffer.VertexBufferSRV.GetReference();
+		LooseParams.PreviousPositionBuffer = PrevPositionSRV.IsValid() ? PrevPositionSRV.GetReference() : GNullVertexBuffer.VertexBufferSRV.GetReference();
+		LooseParams.PreSkinnedTangentBuffer = GNullVertexBuffer.VertexBufferSRV.GetReference();
+		RHICmdList.UpdateUniformBuffer(PrevPositionLooseUniformBuffer.GetReference(), &LooseParams);
+#endif
 	}
 
 	void FRealtimeMeshLocalVertexFactory::GetVertexElements(ERHIFeatureLevel::Type VFFeatureLevel, EVertexInputStreamType InputStreamType, bool bSupportsManualVertexFetch,
@@ -651,6 +694,12 @@ namespace RealtimeMesh
 	void FRealtimeMeshLocalVertexFactory::ReleaseRHI()
 	{
 		UniformBuffer.SafeRelease();
+#if RMC_ENGINE_ABOVE_5_6 // FGPUSkinPassThroughFactoryLooseParameters is 5.6+; motion-vector velocity path compiles out on 5.5
+		PrevPositionLooseUniformBuffer.SafeRelease();
+#endif
+		CurrentPositionSRV.SafeRelease();
+		PrevPositionSRV.SafeRelease();
+		bHasPrevPosition = false;
 		FVertexFactory::ReleaseRHI();
 	}
 

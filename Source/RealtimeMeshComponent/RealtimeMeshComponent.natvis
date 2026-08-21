@@ -99,7 +99,7 @@
 			<DisplayString>{ToString()}</DisplayString>
 	</Type>
 
-	<Type Name="FRealtimeMeshSectionGroupKey">
+	<Type Name="FRealtimeMeshBufferSetKey">
 			<DisplayString Condition="!IsValid()">Invalid</DisplayString>
 			<DisplayString>{ToString()}</DisplayString>
 	</Type>

@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2015-2025 TriAxis Games, L.L.C. All Rights Reserved.
+﻿// Copyright (c) 2015-2026 TriAxis Games, L.L.C. All Rights Reserved.
 
 #include "RealtimeMeshGuard.h"
 
@@ -8,8 +8,14 @@
 namespace RealtimeMesh
 {
 	namespace Threading::Private
-	{		
+	{
 		static thread_local TMap<FRealtimeMeshGuard*, FRealtimeMeshGuardThreadState> ActiveThreadLocks;
+
+		// Zero-depth entries are kept alive across lock cycles to avoid per-cycle insert/remove
+		// churn, but a destroyed guard leaves a dead key behind. Cap how many entries a thread
+		// retains so workloads that churn through many transient meshes can't grow the TLS map
+		// without bound.
+		constexpr int32 PersistentLockEntryBudget = 64;
 	}
 	
 	void FRealtimeMeshGuard::ReadLock()
@@ -45,19 +51,23 @@ namespace RealtimeMesh
 	
 	void FRealtimeMeshGuard::ReadUnlock()
 	{
-		checkf(Threading::Private::ActiveThreadLocks.Contains(this), TEXT("ReadUnlock called when the thread doesn't hold the lock."));
-		Threading::Private::FRealtimeMeshGuardThreadState& State = Threading::Private::ActiveThreadLocks.FindChecked(this);
-		checkf(State.ReadDepth > 0, TEXT("ReadUnlock called when the thread doesn't hold the lock."));
-		State.ReadDepth--;
+		// Single lookup: resolve the TLS entry once rather than Contains()+FindChecked().
+		Threading::Private::FRealtimeMeshGuardThreadState* State = Threading::Private::ActiveThreadLocks.Find(this);
+		checkf(State != nullptr, TEXT("ReadUnlock called when the thread doesn't hold the lock."));
+		checkf(State->ReadDepth > 0, TEXT("ReadUnlock called when the thread doesn't hold the lock."));
+		State->ReadDepth--;
 
 		const uint32 ThisThreadId = FPlatformTLS::GetCurrentThreadId();
 
-		if (CurrentWriterThreadId.Load() != ThisThreadId && State.ReadDepth == 0)
+		if (CurrentWriterThreadId.Load() != ThisThreadId && State->ReadDepth == 0)
 		{
 			InnerLock.ReadUnlock();
 		}
 
-		if (State.ReadDepth == 0 && State.WriteDepth == 0)
+		// The zero-depth entry is deliberately left in the map: removing it here and
+		// re-inserting it on the next lock is pure per-cycle churn, and IsRead/WriteLocked
+		// already treat a zero-depth entry as "not held". Evict only past the budget.
+		if (State->ReadDepth == 0 && State->WriteDepth == 0 && Threading::Private::ActiveThreadLocks.Num() > Threading::Private::PersistentLockEntryBudget)
 		{
 			Threading::Private::ActiveThreadLocks.Remove(this);
 		}
@@ -69,21 +79,36 @@ namespace RealtimeMesh
 
 		if (CurrentWriterThreadId.Load() == ThisThreadId)
 		{
-			checkf(Threading::Private::ActiveThreadLocks.Contains(this), TEXT("WriteUnlock called when the thread doesn't hold the lock."));
-			Threading::Private::FRealtimeMeshGuardThreadState& State = Threading::Private::ActiveThreadLocks.FindChecked(this);
-			checkf(State.WriteDepth > 0, TEXT("WriteUnlock called when the thread doesn't hold the lock."));
-			State.WriteDepth--;
+			// Single lookup: resolve the TLS entry once rather than Contains()+FindChecked().
+			Threading::Private::FRealtimeMeshGuardThreadState* State = Threading::Private::ActiveThreadLocks.Find(this);
+			checkf(State != nullptr, TEXT("WriteUnlock called when the thread doesn't hold the lock."));
+			checkf(State->WriteDepth > 0, TEXT("WriteUnlock called when the thread doesn't hold the lock."));
+			State->WriteDepth--;
 
-			if (State.WriteDepth == 0)
+			if (State->WriteDepth == 0)
 			{
 				CurrentWriterThreadId.Store(0);
 				InnerLock.WriteUnlock();
+
+				// Write->read downgrade (non-LIFO release): if this thread still holds read
+				// locks that were taken while it was the writer, they never actually acquired
+				// InnerLock.ReadLock() (the exclusive write lock covered them). Genuinely
+				// acquire the shared read lock now so the eventual ReadUnlock has real
+				// ownership and doesn't call FRWLock::ReadUnlock() without holding it (UB).
+				// This must happen after releasing the write lock: FRWLock (SRWLOCK /
+				// pthread_rwlock) does not permit the same thread to hold the write lock and
+				// then take a read lock, so an acquire-before-release would deadlock.
+				if (State->ReadDepth > 0)
+				{
+					InnerLock.ReadLock();
+				}
 			}
 
-			if (State.ReadDepth == 0 && State.WriteDepth == 0)
+			// The zero-depth entry is deliberately left in the map (see ReadUnlock).
+			if (State->ReadDepth == 0 && State->WriteDepth == 0 && Threading::Private::ActiveThreadLocks.Num() > Threading::Private::PersistentLockEntryBudget)
 			{
 				Threading::Private::ActiveThreadLocks.Remove(this);
-			}			
+			}
 		}
 		else
 		{
@@ -93,16 +118,19 @@ namespace RealtimeMesh
 
 	bool FRealtimeMeshGuard::IsWriteLocked()
 	{
-		Threading::Private::FRealtimeMeshGuardThreadState& State = Threading::Private::ActiveThreadLocks.FindOrAdd(this);		
+		// Query only: use Find so we never insert a zero-depth TLS entry for a guard this
+		// thread doesn't currently hold (FindOrAdd would leave dangling keys behind).
+		const Threading::Private::FRealtimeMeshGuardThreadState* State = Threading::Private::ActiveThreadLocks.Find(this);
 		const uint32 ThisThreadId = FPlatformTLS::GetCurrentThreadId();
-		return State.WriteDepth > 0 && CurrentWriterThreadId.Load() == ThisThreadId;
+		return State != nullptr && State->WriteDepth > 0 && CurrentWriterThreadId.Load() == ThisThreadId;
 	}
 
 	bool FRealtimeMeshGuard::IsReadLocked()
 	{
-		Threading::Private::FRealtimeMeshGuardThreadState& State = Threading::Private::ActiveThreadLocks.FindOrAdd(this);
+		// Query only: use Find so we never insert a zero-depth TLS entry (see IsWriteLocked).
+		const Threading::Private::FRealtimeMeshGuardThreadState* State = Threading::Private::ActiveThreadLocks.Find(this);
 		const uint32 ThisThreadId = FPlatformTLS::GetCurrentThreadId();
-		return State.ReadDepth > 0 || (State.WriteDepth > 0 && CurrentWriterThreadId.Load() == ThisThreadId);
+		return State != nullptr && (State->ReadDepth > 0 || (State->WriteDepth > 0 && CurrentWriterThreadId.Load() == ThisThreadId));
 	}
 
 
@@ -117,12 +145,12 @@ namespace RealtimeMesh
 		}
 	}
 
-	FRealtimeMeshScopeGuardRead::FRealtimeMeshScopeGuardRead(const FRealtimeMeshSharedResourcesRef& InSharedResources, bool bLockImmediately)
-		: FRealtimeMeshScopeGuardRead(InSharedResources->GetGuard(), bLockImmediately)
+	FRealtimeMeshScopeGuardRead::FRealtimeMeshScopeGuardRead(const FRealtimeMeshContextRef& InContext, bool bLockImmediately)
+		: FRealtimeMeshScopeGuardRead(InContext->GetGuard(), bLockImmediately)
 	{ }
 
 	FRealtimeMeshScopeGuardRead::FRealtimeMeshScopeGuardRead(const FRealtimeMeshPtr& InMesh, bool bLockImmediately)
-		: FRealtimeMeshScopeGuardRead(InMesh->GetSharedResources(), bLockImmediately)
+		: FRealtimeMeshScopeGuardRead(InMesh->GetContext(), bLockImmediately)
 	{ }
 
 
@@ -137,19 +165,19 @@ namespace RealtimeMesh
 		}
 	}
 
-	FRealtimeMeshScopeGuardWrite::FRealtimeMeshScopeGuardWrite(const FRealtimeMeshSharedResourcesRef& InSharedResources, bool bLockImmediately)
-		: FRealtimeMeshScopeGuardWrite(InSharedResources->GetGuard(), bLockImmediately)
+	FRealtimeMeshScopeGuardWrite::FRealtimeMeshScopeGuardWrite(const FRealtimeMeshContextRef& InContext, bool bLockImmediately)
+		: FRealtimeMeshScopeGuardWrite(InContext->GetGuard(), bLockImmediately)
 	{ }
 	
 	FRealtimeMeshScopeGuardWrite::FRealtimeMeshScopeGuardWrite(const FRealtimeMeshPtr& InMesh, bool bLockImmediately)
-		: FRealtimeMeshScopeGuardWrite(InMesh->GetSharedResources(), bLockImmediately)
+		: FRealtimeMeshScopeGuardWrite(InMesh->GetContext(), bLockImmediately)
 	{ }
 
-	FRealtimeMeshScopeGuardWriteCheck::FRealtimeMeshScopeGuardWriteCheck(const FRealtimeMeshSharedResourcesRef& SharedResources): FRealtimeMeshScopeGuardWriteCheck(SharedResources->GetGuard())
+	FRealtimeMeshScopeGuardWriteCheck::FRealtimeMeshScopeGuardWriteCheck(const FRealtimeMeshContextRef& Context): FRealtimeMeshScopeGuardWriteCheck(Context->GetGuard())
 	{
 	}
 
-	FRealtimeMeshScopeGuardReadCheck::FRealtimeMeshScopeGuardReadCheck(const FRealtimeMeshSharedResourcesRef& SharedResources): FRealtimeMeshScopeGuardReadCheck(SharedResources->GetGuard())
+	FRealtimeMeshScopeGuardReadCheck::FRealtimeMeshScopeGuardReadCheck(const FRealtimeMeshContextRef& Context): FRealtimeMeshScopeGuardReadCheck(Context->GetGuard())
 	{
 	}
 }

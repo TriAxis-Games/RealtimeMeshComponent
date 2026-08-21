@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2015-2025 TriAxis Games, L.L.C. All Rights Reserved.
+﻿// Copyright (c) 2015-2026 TriAxis Games, L.L.C. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -7,16 +7,12 @@ public class RealtimeMeshExamples : ModuleRules
     public RealtimeMeshExamples(ReadOnlyTargetRules Target) : base(Target)
     {
         PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
-#if UE_5_1_OR_LATER
         IncludeOrderVersion = EngineIncludeOrderVersion.Latest;
-#endif
 
         PublicDependencyModuleNames.AddRange(
             new string[]
             {
                 "Core",
-                
-                // Add RealtimeMeshComponent support to C++
                 "RealtimeMeshComponent"
             }
         );
@@ -28,6 +24,10 @@ public class RealtimeMeshExamples : ModuleRules
                 "Engine",
                 "Slate",
                 "SlateCore",
+
+                // Pulled in by RealtimeMesh's async helpers (ENQUEUE_RENDER_COMMAND path) used in the AsyncBuild example
+                "RenderCore",
+                "RHI",
             }
         );
     }

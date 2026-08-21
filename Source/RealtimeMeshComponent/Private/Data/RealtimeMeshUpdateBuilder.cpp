@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2015-2025 TriAxis Games, L.L.C. All Rights Reserved.
+// Copyright (c) 2015-2026 TriAxis Games, L.L.C. All Rights Reserved.
 
 #include "Data/RealtimeMeshUpdateBuilder.h"
 #include "RealtimeMeshComponentModule.h"
@@ -9,83 +9,73 @@
 namespace RealtimeMesh
 {
 	FRealtimeMeshAccessContext::FRealtimeMeshAccessContext(const TSharedRef<const FRealtimeMesh>& InMesh)
-		: ReadGuard(InMesh->GetSharedResources()->GetGuard())
-		, Resources(InMesh->GetSharedResources())
+		: ReadGuard(InMesh->GetContext()->GetGuard())
+		, Resources(InMesh->GetContext())
 	{ }
 
-	FRealtimeMeshAccessContext::FRealtimeMeshAccessContext(const FRealtimeMeshSharedResourcesRef& InResources)
+	FRealtimeMeshAccessContext::FRealtimeMeshAccessContext(const FRealtimeMeshContextRef& InResources)
 		: ReadGuard(InResources->GetGuard())
 		, Resources(InResources)
 	{ }
 
 	FRealtimeMeshUpdateContext::FRealtimeMeshUpdateContext(const TSharedRef<FRealtimeMesh>& InMesh)
-		: WriteGuard(InMesh->GetSharedResources()->GetGuard())
+		: WriteGuard(InMesh->GetContext()->GetGuard())
 		, ProxyBuilder(!InMesh->GetRenderProxy().IsValid())
-		, Resources(InMesh->GetSharedResources())
+		, Resources(InMesh->GetContext())
 		, UpdateState(Resources->CreateUpdateState())
-#if RMC_ENGINE_ABOVE_5_5
-		, RHICmdList(MakeUnique<FRHICommandList>())
-#else
-		, RHICmdList(InPlace)
-#endif
+		, bCommitted(false)
 	{
-#if RMC_ENGINE_ABOVE_5_5		
-		RHICmdList->SwitchPipeline(ERHIPipeline::Graphics);
-#endif
 	}
 
-	FRealtimeMeshUpdateContext::FRealtimeMeshUpdateContext(const FRealtimeMeshSharedResourcesRef& InResources)
+	FRealtimeMeshUpdateContext::FRealtimeMeshUpdateContext(const FRealtimeMeshContextRef& InResources)
 		: FRealtimeMeshUpdateContext(InResources->GetOwner().ToSharedRef()) { }
 
 	FRealtimeMeshUpdateContext::~FRealtimeMeshUpdateContext()
 	{
-#if RMC_ENGINE_ABOVE_5_5
-		if (RHICmdList.IsValid())
-#else
-		if (RHICmdList.IsSet())
-#endif
+		if (!bCommitted)
 		{
 			Commit();
-		}		
+		}
 	}
 
-#if RMC_ENGINE_ABOVE_5_5
 	FRHICommandList& FRealtimeMeshUpdateContext::GetRHICmdList()
 	{
-		check(RHICmdList.IsValid());
-		return *RHICmdList;
-	}	
-#else
-	FRHIAsyncCommandList& FRealtimeMeshUpdateContext::GetRHICmdList()
-	{
-		check(RHICmdList.IsSet());
+		// Lazy creation: the command list is only allocated the first time something needs
+		// to record onto it (async buffer creation). Config-only updates never get here and
+		// so never pay for a command list or its submission.
+		if (!RHICmdList.IsValid())
+		{
+			RHICmdList = MakeUnique<FRHICommandList>();
+			RHICmdList->SwitchPipeline(ERHIPipeline::Graphics);
+		}
 		return *RHICmdList;
 	}
-#endif
 
 	TFuture<ERealtimeMeshProxyUpdateStatus> FRealtimeMeshUpdateContext::Commit()
 	{
+		bCommitted = true;
+
 		auto SendCmdListIfReady = [&]()
 		{
 			if (RHICmdList)
 			{
-#if RMC_ENGINE_ABOVE_5_5
 				RHICmdList->FinishRecording();
 
 				ENQUEUE_RENDER_COMMAND(RealtimeMeshAsyncSubmission)(
-					[this, RHIAsyncCmdList = RHICmdList.Release()](FRHICommandListImmediate& CmdList)
+					[RHIAsyncCmdList = RHICmdList.Release()](FRHICommandListImmediate& CmdList)
 					{
 						CmdList.QueueAsyncCommandListSubmit(RHIAsyncCmdList);
 					});
-#else
-				RHICmdList.Reset();				
-#endif				
 			}
 		};
-		
+
 		if (auto Mesh = Resources->GetOwner())
 		{
 			Mesh->FinalizeUpdate(*this);
+
+			// Write lock still held, committing thread. Subscribers copy dirty state out
+			// and defer real work (see FRealtimeMeshUpdateCommittedEvent contract).
+			Resources->OnUpdateCommitted().Broadcast(*this);
 
 			SendCmdListIfReady();
 			return ProxyBuilder.Commit(Mesh.ToSharedRef());
@@ -95,112 +85,28 @@ namespace RealtimeMesh
 		return MakeFulfilledPromise<ERealtimeMeshProxyUpdateStatus>(ERealtimeMeshProxyUpdateStatus::NoProxy).GetFuture();
 	}
 
-	TFuture<ERealtimeMeshProxyUpdateStatus> FRealtimeMeshUpdateBuilder::Commit(const TSharedRef<FRealtimeMesh>& Mesh)
-	{
-		FRealtimeMeshUpdateContext UpdateContext(Mesh);
 
+	// -------- FRealtimeMeshTaskBuilderBase --------
+
+	void FRealtimeMeshTaskBuilderBase::RunTasks(FRealtimeMeshLockContext& LockContext, const FRealtimeMesh& Mesh)
+	{
 		for (auto& Task : Tasks)
 		{
-			Task(UpdateContext, *Mesh);
+			Task(LockContext, Mesh);
 		}
-
-		return UpdateContext.Commit();		
+		// Clear the queue so a subsequent Execute/Commit on the same builder
+		// doesn't re-run tasks that already applied.
+		Tasks.Empty();
 	}
 
-	void FRealtimeMeshUpdateBuilder::AddMeshTask(TUniqueFunction<void(FRealtimeMeshUpdateContext&, FRealtimeMesh&)>&& Function)
+	void FRealtimeMeshTaskBuilderBase::AddMeshTask(TaskFunctionType&& Function)
 	{
 		Tasks.Add(MoveTemp(Function));
 	}
 
-	void FRealtimeMeshUpdateBuilder::AddLODTask(const FRealtimeMeshLODKey& LODKey, TUniqueFunction<void(FRealtimeMeshUpdateContext&, FRealtimeMeshLOD&)>&& Function)
+	void FRealtimeMeshTaskBuilderBase::AddLODTask(const FRealtimeMeshLODKey& LODKey, TUniqueFunction<void(FRealtimeMeshLockContext&, const FRealtimeMeshLOD&)>&& Function)
 	{
-		AddMeshTask([LODKey, Func = MoveTemp(Function)](FRealtimeMeshUpdateContext& UpdateContext, const FRealtimeMesh& Mesh)
-		{
-			const FRealtimeMeshLODPtr LOD = Mesh.GetLOD(UpdateContext, LODKey);
-
-			if (ensure(LOD.IsValid()))
-			{
-				Func(UpdateContext, *LOD.Get());
-			}
-			else
-			{
-				UE_LOG(LogRealtimeMesh, Error, TEXT("Failed to find LOD %s"), *LODKey.ToString());
-
-				FMessageLog("RealtimeMesh").Error(
-				FText::Format(LOCTEXT("RealtimeMeshUpdate_LODTask", "RealtimeMeshUpdate_LODTask: Failed to find LOD {0}"),
-					FText::FromString(LODKey.ToString())));				
-			}
-		});
-	}
-
-	void FRealtimeMeshUpdateBuilder::AddSectionGroupTask(const FRealtimeMeshSectionGroupKey& SectionGroupKey, TUniqueFunction<void(FRealtimeMeshUpdateContext&, FRealtimeMeshSectionGroup&)>&& Function)
-	{
-		AddLODTask(SectionGroupKey.LOD(), [SectionGroupKey, Func = MoveTemp(Function)](FRealtimeMeshUpdateContext& UpdateContext, const FRealtimeMeshLOD& LOD)
-		{
-			const FRealtimeMeshSectionGroupPtr SectionGroup = LOD.GetSectionGroup(UpdateContext, SectionGroupKey);
-
-			if (ensure(SectionGroup.IsValid()))
-			{
-				Func(UpdateContext, *SectionGroup.Get());
-			}
-			else
-			{
-				UE_LOG(LogRealtimeMesh, Error, TEXT("Failed to find SectionGroup %s"), *SectionGroupKey.ToString());
-
-				FMessageLog("RealtimeMesh").Error(
-				FText::Format(LOCTEXT("RealtimeMeshUpdate_SectionGroupTask", "RealtimeMeshUpdate_SectionGroupTask: Failed to find SectionGroup {0}"),
-					FText::FromString(SectionGroupKey.ToString())));				
-			}
-		});
-	}
-
-	void FRealtimeMeshUpdateBuilder::AddSectionTask(const FRealtimeMeshSectionKey& SectionKey, TUniqueFunction<void(FRealtimeMeshUpdateContext&, FRealtimeMeshSection&)>&& Function)
-	{
-		AddSectionGroupTask(SectionKey.SectionGroup(), [SectionKey, Func = MoveTemp(Function)](FRealtimeMeshUpdateContext& UpdateContext, const FRealtimeMeshSectionGroup& SectionGroup)
-		{
-			const FRealtimeMeshSectionPtr Section = SectionGroup.GetSection(UpdateContext, SectionKey);
-
-			if (ensure(Section.IsValid()))
-			{
-				Func(UpdateContext, *Section.Get());
-			}
-			else
-			{
-				UE_LOG(LogRealtimeMesh, Error, TEXT("Failed to find Section %s"), *SectionKey.ToString());
-
-				FMessageLog("RealtimeMesh").Error(
-				FText::Format(LOCTEXT("RealtimeMeshUpdate_Section", "RealtimeMeshUpdate_Section: Failed to find Section {0}"),
-					FText::FromString(SectionKey.ToString())));
-			}
-		});
-	}
-
-
-
-
-
-
-
-
-
-	void FRealtimeMeshAccessor::Execute(const TSharedRef<const FRealtimeMesh>& Mesh)
-	{
-		FRealtimeMeshAccessContext LockContext(Mesh);
-		
-		for (auto& Task : Tasks)
-		{
-			Task(LockContext, *Mesh);
-		}	
-	}
-
-	void FRealtimeMeshAccessor::AddMeshTask(TUniqueFunction<void(const FRealtimeMeshAccessContext&, const FRealtimeMesh&)>&& Function)
-	{
-		Tasks.Add(MoveTemp(Function));
-	}
-
-	void FRealtimeMeshAccessor::AddLODTask(const FRealtimeMeshLODKey& LODKey, TUniqueFunction<void(const FRealtimeMeshAccessContext&, const FRealtimeMeshLOD&)>&& Function)
-	{
-		AddMeshTask([LODKey, Func = MoveTemp(Function)](const FRealtimeMeshAccessContext& LockContext, const FRealtimeMesh& Mesh)
+		AddMeshTask([LODKey, Func = MoveTemp(Function)](FRealtimeMeshLockContext& LockContext, const FRealtimeMesh& Mesh)
 		{
 			const FRealtimeMeshLODPtr LOD = Mesh.GetLOD(LockContext, LODKey);
 
@@ -213,15 +119,15 @@ namespace RealtimeMesh
 				UE_LOG(LogRealtimeMesh, Error, TEXT("Failed to find LOD %s"), *LODKey.ToString());
 
 				FMessageLog("RealtimeMesh").Error(
-				FText::Format(LOCTEXT("RealtimeMeshAccessor_LODTask", "RealtimeMeshAccessor_LODTask: Failed to find LOD {0}"),
-					FText::FromString(LODKey.ToString())));				
+				FText::Format(LOCTEXT("RealtimeMeshTaskBuilder_LODTask", "RealtimeMeshTaskBuilder_LODTask: Failed to find LOD {0}"),
+					FText::FromString(LODKey.ToString())));
 			}
 		});
 	}
 
-	void FRealtimeMeshAccessor::AddSectionGroupTask(const FRealtimeMeshSectionGroupKey& SectionGroupKey, TUniqueFunction<void(const FRealtimeMeshAccessContext&, const FRealtimeMeshSectionGroup&)>&& Function)
+	void FRealtimeMeshTaskBuilderBase::AddSectionGroupTask(const FRealtimeMeshBufferSetKey& SectionGroupKey, TUniqueFunction<void(FRealtimeMeshLockContext&, const FRealtimeMeshBufferSet&)>&& Function)
 	{
-		AddLODTask(SectionGroupKey.LOD(), [SectionGroupKey, Func = MoveTemp(Function)](const FRealtimeMeshAccessContext& LockContext, const FRealtimeMeshLOD& LOD)
+		AddLODTask(SectionGroupKey.LOD(), [SectionGroupKey, Func = MoveTemp(Function)](FRealtimeMeshLockContext& LockContext, const FRealtimeMeshLOD& LOD)
 		{
 			const FRealtimeMeshSectionGroupPtr SectionGroup = LOD.GetSectionGroup(LockContext, SectionGroupKey);
 
@@ -234,15 +140,15 @@ namespace RealtimeMesh
 				UE_LOG(LogRealtimeMesh, Error, TEXT("Failed to find SectionGroup %s"), *SectionGroupKey.ToString());
 
 				FMessageLog("RealtimeMesh").Error(
-				FText::Format(LOCTEXT("RealtimeMeshAccessor_SectionGroupTask", "RealtimeMeshAccessor_SectionGroupTask: Failed to find SectionGroup {0}"),
-					FText::FromString(SectionGroupKey.ToString())));				
+				FText::Format(LOCTEXT("RealtimeMeshTaskBuilder_SectionGroupTask", "RealtimeMeshTaskBuilder_SectionGroupTask: Failed to find SectionGroup {0}"),
+					FText::FromString(SectionGroupKey.ToString())));
 			}
 		});
 	}
 
-	void FRealtimeMeshAccessor::AddSectionTask(const FRealtimeMeshSectionKey& SectionKey, TUniqueFunction<void(const FRealtimeMeshAccessContext&, const FRealtimeMeshSection&)>&& Function)
+	void FRealtimeMeshTaskBuilderBase::AddSectionTask(const FRealtimeMeshSectionKey& SectionKey, TUniqueFunction<void(FRealtimeMeshLockContext&, const FRealtimeMeshSection&)>&& Function)
 	{
-		AddSectionGroupTask(SectionKey.SectionGroup(), [SectionKey, Func = MoveTemp(Function)](const FRealtimeMeshAccessContext& LockContext, const FRealtimeMeshSectionGroup& SectionGroup)
+		AddSectionGroupTask(SectionKey.SectionGroup(), [SectionKey, Func = MoveTemp(Function)](FRealtimeMeshLockContext& LockContext, const FRealtimeMeshBufferSet& SectionGroup)
 		{
 			const FRealtimeMeshSectionPtr Section = SectionGroup.GetSection(LockContext, SectionKey);
 
@@ -255,9 +161,70 @@ namespace RealtimeMesh
 				UE_LOG(LogRealtimeMesh, Error, TEXT("Failed to find Section %s"), *SectionKey.ToString());
 
 				FMessageLog("RealtimeMesh").Error(
-				FText::Format(LOCTEXT("RealtimeMeshAccessor_Section", "RealtimeMeshAccessor_Section: Failed to find Section {0}"),
-					FText::FromString(SectionKey.ToString())));	
+				FText::Format(LOCTEXT("RealtimeMeshTaskBuilder_Section", "RealtimeMeshTaskBuilder_Section: Failed to find Section {0}"),
+					FText::FromString(SectionKey.ToString())));
 			}
 		});
 	}
+
+
+	// -------- FRealtimeMeshAccessor --------
+
+	void FRealtimeMeshAccessor::Execute(const TSharedRef<const FRealtimeMesh>& Mesh)
+	{
+		FRealtimeMeshAccessContext LockContext(Mesh);
+		RunTasks(LockContext, *Mesh);
+	}
+
+
+	// -------- FRealtimeMeshUpdateBuilder --------
+	//
+	// Write-flavored Add*Task overloads each wrap the caller's mutable-task
+	// into the base's `void(FRealtimeMeshLockContext&, const FRealtimeMesh&)`
+	// shape. The runtime casts (LockContext -> UpdateContext, const Element ->
+	// mutable Element) are safe: Commit always constructs an UpdateContext
+	// (the static_cast target), and the const-narrowing at the base layer is
+	// purely a signature-unification trick — the underlying element
+	// shared_ptr is mutable regardless of how it was navigated.
+
+	void FRealtimeMeshUpdateBuilder::AddMeshTask(TUniqueFunction<void(FRealtimeMeshUpdateContext&, FRealtimeMesh&)>&& Function)
+	{
+		FRealtimeMeshTaskBuilderBase::AddMeshTask([Func = MoveTemp(Function)](FRealtimeMeshLockContext& LockContext, const FRealtimeMesh& Mesh)
+		{
+			Func(static_cast<FRealtimeMeshUpdateContext&>(LockContext), const_cast<FRealtimeMesh&>(Mesh));
+		});
+	}
+
+	void FRealtimeMeshUpdateBuilder::AddLODTask(const FRealtimeMeshLODKey& LODKey, TUniqueFunction<void(FRealtimeMeshUpdateContext&, FRealtimeMeshLOD&)>&& Function)
+	{
+		FRealtimeMeshTaskBuilderBase::AddLODTask(LODKey, [Func = MoveTemp(Function)](FRealtimeMeshLockContext& LockContext, const FRealtimeMeshLOD& LOD)
+		{
+			Func(static_cast<FRealtimeMeshUpdateContext&>(LockContext), const_cast<FRealtimeMeshLOD&>(LOD));
+		});
+	}
+
+	void FRealtimeMeshUpdateBuilder::AddSectionGroupTask(const FRealtimeMeshBufferSetKey& SectionGroupKey, TUniqueFunction<void(FRealtimeMeshUpdateContext&, FRealtimeMeshBufferSet&)>&& Function)
+	{
+		FRealtimeMeshTaskBuilderBase::AddSectionGroupTask(SectionGroupKey, [Func = MoveTemp(Function)](FRealtimeMeshLockContext& LockContext, const FRealtimeMeshBufferSet& SectionGroup)
+		{
+			Func(static_cast<FRealtimeMeshUpdateContext&>(LockContext), const_cast<FRealtimeMeshBufferSet&>(SectionGroup));
+		});
+	}
+
+	void FRealtimeMeshUpdateBuilder::AddSectionTask(const FRealtimeMeshSectionKey& SectionKey, TUniqueFunction<void(FRealtimeMeshUpdateContext&, FRealtimeMeshSection&)>&& Function)
+	{
+		FRealtimeMeshTaskBuilderBase::AddSectionTask(SectionKey, [Func = MoveTemp(Function)](FRealtimeMeshLockContext& LockContext, const FRealtimeMeshSection& Section)
+		{
+			Func(static_cast<FRealtimeMeshUpdateContext&>(LockContext), const_cast<FRealtimeMeshSection&>(Section));
+		});
+	}
+
+	TFuture<ERealtimeMeshProxyUpdateStatus> FRealtimeMeshUpdateBuilder::Commit(const TSharedRef<FRealtimeMesh>& Mesh)
+	{
+		FRealtimeMeshUpdateContext UpdateContext(Mesh);
+		RunTasks(UpdateContext, *Mesh);
+		return UpdateContext.Commit();
+	}
 }
+
+#undef LOCTEXT_NAMESPACE

@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2015-2025 TriAxis Games, L.L.C. All Rights Reserved.
+﻿// Copyright (c) 2015-2026 TriAxis Games, L.L.C. All Rights Reserved.
 
 #include "RealtimeMeshEditor.h"
 
@@ -8,7 +8,6 @@
 #include "IAssetTools.h"
 #include "Editor.h"
 #include "ToolMenus.h"
-#include "IPluginWardenModule.h"
 #include "RealtimeMeshComponent.h"
 #include "RealtimeMeshMenuExtension.h"
 #include "RealtimeMeshComponentDetailsCustomization.h"
@@ -30,15 +29,11 @@ static FAutoConsoleVariableRef CVarRealtimeMeshNotifyLumenUseInCore(
 	
 void FRealtimeMeshEditorModule::StartupModule()
 {
-#if RMC_ENGINE_ABOVE_5_4
 	LoadSettings();
-	CheckUserOwnsPro();
-#endif
 	FRealtimeMeshEditorStyle::Initialize();
 	FRealtimeMeshEditorStyle::ReloadTextures();
 	FRealtimeMeshEditorCommands::Register();
 
-	// Register details customizations
 	FPropertyEditorModule& PropertyModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
 	PropertyModule.RegisterCustomClassLayout(
 		URealtimeMeshComponent::StaticClass()->GetFName(),
@@ -71,7 +66,6 @@ void FRealtimeMeshEditorModule::StartupModule()
 	UToolMenus::RegisterStartupCallback(FSimpleMulticastDelegate::FDelegate::CreateRaw(this, &FRealtimeMeshEditorModule::RegisterMenus));
 
 
-#if RMC_ENGINE_ABOVE_5_4
 	FEditorDelegates::OnMapOpened.AddLambda([this](const FString&, bool)
 	{
 		SetupEditorTimer();
@@ -80,23 +74,18 @@ void FRealtimeMeshEditorModule::StartupModule()
 	{		
 		SetupEditorTimer();
 	});
-#endif
 }
 
 void FRealtimeMeshEditorModule::ShutdownModule()
 {	
-#if RMC_ENGINE_ABOVE_5_4
 	if (GEditor && LumenUseCheckHandle.IsValid())
 	{
-		// In editor use the editor manager
 		if (GEditor->IsTimerManagerValid())
 		{
 			GEditor->GetTimerManager().Get().ClearTimer(LumenUseCheckHandle);
 		}
 	}
-#endif
 
-	// Unregister details customizations
 	if (FModuleManager::Get().IsModuleLoaded("PropertyEditor"))
 	{
 		FPropertyEditorModule& PropertyModule = FModuleManager::GetModuleChecked<FPropertyEditorModule>("PropertyEditor");
@@ -178,12 +167,12 @@ void FRealtimeMeshEditorModule::MarketplaceCoreButtonClicked()
 
 void FRealtimeMeshEditorModule::DiscordButtonClicked()
 {
-	FPlatformProcess::LaunchURL(TEXT("https://discord.gg/KGvBBTv"), nullptr, nullptr);
+	FPlatformProcess::LaunchURL(TEXT("https://discord.gg/WCgffd3h6r"), nullptr, nullptr);
 }
 
 void FRealtimeMeshEditorModule::DocumentationButtonClicked()
 {
-	FPlatformProcess::LaunchURL(TEXT("https://rmc.triaxis.games/"), nullptr, nullptr);
+	FPlatformProcess::LaunchURL(TEXT("https://triaxis.games/realtime-mesh/"), nullptr, nullptr);
 }
 
 void FRealtimeMeshEditorModule::IssuesButtonClicked()
@@ -191,7 +180,6 @@ void FRealtimeMeshEditorModule::IssuesButtonClicked()
 	FPlatformProcess::LaunchURL(TEXT("https://github.com/TriAxis-Games/RealtimeMeshComponent/issues"), nullptr, nullptr);
 }
 
-#if RMC_ENGINE_ABOVE_5_4
 bool FRealtimeMeshEditorModule::IsProVersion()
 {
 	// Detect the RealtimeMeshExt module to tell if this is the pro version.
@@ -204,11 +192,6 @@ bool FRealtimeMeshEditorModule::IsProVersion()
 			});
 	}
 	return false;
-}
-
-bool FRealtimeMeshEditorModule::UserOwnsPro()
-{
-	return bUserOwnsPro;
 }
 
 void FRealtimeMeshEditorModule::SetupEditorTimer()
@@ -231,14 +214,12 @@ void FRealtimeMeshEditorModule::ShowLumenNotification()
 {
 	const int64 DayStartTimestamp = FDateTime::Today().ToUnixTimestamp();
 	const bool bHasBeenAWhileSinceLastNotification = DayStartTimestamp > Settings.LastLumenNotificationTime;
-	
-	// Bail if we somehow already have this up, or if this is the pro version.
+
 	if (LumenNotification.Pin() || Settings.bShouldIgnoreLumenNotification || !bHasBeenAWhileSinceLastNotification || IsProVersion())
 	{
 		return;
 	}
 
-	// Bail if this is disabled by CVar.
 	if (!GRealtimeMeshNotifyLumenUseInCore)
 	{
 		return;
@@ -246,7 +227,6 @@ void FRealtimeMeshEditorModule::ShowLumenNotification()
 
 	FNotificationInfo Notification(LOCTEXT("RealtimeMeshToast", "For Lumen support in the RealtimeMesh, please considering purchasing the Pro version!"));
 
-	// Add the buttons with text, tooltip and callback
 	Notification.ButtonDetails.Add(FNotificationButtonInfo(
 		LOCTEXT("BuyPro", "Buy Pro!"),
 		LOCTEXT("BuyProTooltip", "Open the Unreal Engine Marketplace to purchase the Pro version of the RealtimeMesh Component"),
@@ -279,71 +259,45 @@ void FRealtimeMeshEditorModule::ShowLumenNotification()
 	}
 }
 
-void FRealtimeMeshEditorModule::HandleLumenNotificationBuyNowClicked()
+// Shared by the notification handlers below: stamps the dismiss time, saves settings,
+// and fades out the notification. Each handler adds its own distinct action on top
+// (open URL / set the ignore flag) before calling this.
+void FRealtimeMeshEditorModule::DismissLumenNotification()
 {
-	MarketplaceProButtonClicked();
-	
 	Settings.LastLumenNotificationTime = FDateTime::Today().ToUnixTimestamp();
 	SaveSettings();
-	
+
 	if (auto Notification = LumenNotification.Pin())
 	{
 		Notification->SetCompletionState(SNotificationItem::CS_Success);
 		Notification->SetExpireDuration(0.0f);
 		Notification->ExpireAndFadeout();
 	}
+}
+
+void FRealtimeMeshEditorModule::HandleLumenNotificationBuyNowClicked()
+{
+	MarketplaceProButtonClicked();
+
+	DismissLumenNotification();
 }
 
 void FRealtimeMeshEditorModule::HandleLumenNotificationLaterClicked()
 {
-	Settings.LastLumenNotificationTime = FDateTime::Today().ToUnixTimestamp();
-	SaveSettings();
-	
-	if (auto Notification = LumenNotification.Pin())
-	{
-		Notification->SetCompletionState(SNotificationItem::CS_Success);
-		Notification->SetExpireDuration(0.0f);
-		Notification->ExpireAndFadeout();
-	}
+	DismissLumenNotification();
 }
 
 void FRealtimeMeshEditorModule::HandleLumenNotificationIgnoreClicked()
 {
-	Settings.LastLumenNotificationTime = FDateTime::Today().ToUnixTimestamp();
+	// Set the ignore flag before the shared save so it is persisted.
 	Settings.bShouldIgnoreLumenNotification = true;
-	SaveSettings();
 
-	if (auto Notification = LumenNotification.Pin())
-	{
-		Notification->SetCompletionState(SNotificationItem::CS_Success);
-		Notification->SetExpireDuration(0.0f);
-		Notification->ExpireAndFadeout();
-	}
-}
-
-void FRealtimeMeshEditorModule::CheckUserOwnsPro()
-{
-	if (IPluginWardenModule::IsAvailable())
-	{
-		IPluginWardenModule::Get().CheckEntitlementForPlugin(
-			LOCTEXT("RealtimeMeshComponentPro", "Realtime Mesh Component Pro"),
-			"b8fb43b8e89648fbb44797b3851317fb",
-			"b8fb43b8e89648fbb44797b3851317fb",
-			LOCTEXT("UnauthorizedPro", "You must own the Realtime Mesh Component Pro to use this feature!"),
-			IPluginWardenModule::EUnauthorizedErrorHandling::Silent, [&]()
-			{
-				if (auto* Module = FModuleManager::GetModulePtr<FRealtimeMeshEditorModule>("RealtimeMeshEditor"))
-				{
-					Module->bUserOwnsPro = true;
-				}
-			});
-	}
+	DismissLumenNotification();
 }
 
 void FRealtimeMeshEditorModule::CheckLumenUseTimer()
 {
-	// Does world have an RMC in it?  Does that world also have Lumen enabled?
-	// If so, show the notification.
+	// Shows the notification if any editor world has both Lumen enabled and an active RMC.
 	bool bHasActiveRMC = false;
 	FGCScopeGuard GCGuard;
 	for (TObjectIterator<AActor> It; It; ++It)
@@ -402,10 +356,8 @@ void FRealtimeMeshEditorModule::LoadSettings()
 		const FConfigSection* NotificationSection = ConfigFile.FindOrAddConfigSection(TEXT("Notifications"));
 
 		Settings.bShouldIgnoreLumenNotification = ReadBool(NotificationSection, TEXT("bShouldIgnoreLumenNotification"));
-		Settings.bShouldIgnoreGeneralNotification = ReadBool(NotificationSection, TEXT("bShouldIgnoreGeneralNotification"));
 
 		Settings.LastLumenNotificationTime = ReadInt(NotificationSection, TEXT("LastLumenNotificationTime"));
-		Settings.LastGeneralNotificationTime = ReadInt(NotificationSection, TEXT("LastGeneralNotificationTime"));
 	}
 }
 
@@ -417,15 +369,12 @@ void FRealtimeMeshEditorModule::SaveSettings()
 
 	{
 		ConfigFile.AddToSection(TEXT("Notifications"), TEXT("bShouldIgnoreLumenNotification"), Settings.bShouldIgnoreLumenNotification ? TEXT("True") : TEXT("False"));
-		ConfigFile.AddToSection(TEXT("Notifications"), TEXT("bShouldIgnoreGeneralNotification"), Settings.bShouldIgnoreGeneralNotification ? TEXT("True") : TEXT("False"));
 
 		ConfigFile.AddToSection(TEXT("Notifications"), TEXT("LastLumenNotificationTime"), FString::FromInt(Settings.LastLumenNotificationTime));
-		ConfigFile.AddToSection(TEXT("Notifications"), TEXT("LastGeneralNotificationTime"), FString::FromInt(Settings.LastGeneralNotificationTime));
 	}
 
 	ConfigFile.Write(ConfigPath);
 }
-#endif
 
 
 #undef LOCTEXT_NAMESPACE

@@ -1,4 +1,4 @@
-// Copyright (c) 2015-2025 TriAxis Games, L.L.C. All Rights Reserved.
+// Copyright (c) 2015-2026 TriAxis Games, L.L.C. All Rights Reserved.
 
 #pragma once
 
@@ -94,7 +94,7 @@ namespace RealtimeMesh
 
 		static void ModifyCompilationEnvironment(const FVertexFactoryShaderPermutationParameters& Parameters, FShaderCompilerEnvironment& OutEnvironment);
 
-	static void ValidateCompiledResult(const FVertexFactoryType* Type, EShaderPlatform Platform, const FShaderParameterMap& ParameterMap, TArray<FString>& OutErrors);
+		static void ValidateCompiledResult(const FVertexFactoryType* Type, EShaderPlatform Platform, const FShaderParameterMap& ParameterMap, TArray<FString>& OutErrors);
 
 		/**
 		 * Initialize the vertex factory with GPU buffers for debug rendering
@@ -118,6 +118,12 @@ namespace RealtimeMesh
 		// Getters for shader parameter access
 		uint32 GetDebugMode() const { return DebugMode; }
 		float GetLineLength() const { return LineLength; }
+
+		// PROXY-F16: rebuild the uniform buffer from the current debug CVars/params.
+		// The uniform buffer bakes the debug mode bitmask + line length at creation
+		// time, so a cached VF that outlives a CVar change must be refreshed for the
+		// change to take effect. Render thread only.
+		void RefreshUniformBuffer();
 
 	private:
 		// Create uniform buffer specific to debug vertex factory needs

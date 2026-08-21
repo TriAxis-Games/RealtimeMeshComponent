@@ -1,4 +1,4 @@
-// Copyright (c) 2015-2025 TriAxis Games, L.L.C. All Rights Reserved.
+// Copyright (c) 2015-2026 TriAxis Games, L.L.C. All Rights Reserved.
 
 #include "RenderProxy/RealtimeMeshDebugVertexFactory.h"
 #include "Engine/Engine.h"
@@ -23,8 +23,6 @@ namespace RealtimeMesh
 
 	void FRealtimeMeshDebugLineIndexBuffer::InitRHI(FRHICommandListBase& RHICmdList)
 	{
-		// Create linear index buffer [0, 1, 2, 3, 4, 5, ...]
-		// Shader will use math to determine vertex index and start/end
 		const uint32 NumIndices = MaxDebugVertices * 2;
 
 #if RMC_ENGINE_ABOVE_5_6
@@ -38,7 +36,7 @@ namespace RealtimeMesh
 		IndexBufferRHI = RHICmdList.CreateIndexBuffer(sizeof(uint16), NumIndices * sizeof(uint16), BUF_Static, CreateInfo);
 #endif
 		
-		// Fill with linear indices
+		// Linear indices [0, 1, 2, ...]; the shader derives each line's start/end vertex.
 		uint16* IndexData = static_cast<uint16*>(RHICmdList.LockBuffer(IndexBufferRHI, 0, NumIndices * sizeof(uint16), RLM_WriteOnly));
 		for (uint32 i = 0; i < NumIndices; ++i)
 		{
@@ -55,13 +53,11 @@ namespace RealtimeMesh
 
 	FRealtimeMeshDebugVertexFactory::~FRealtimeMeshDebugVertexFactory()
 	{
-		// Release resources on the render thread before destruction
 		FRenderResource::ReleaseResource();
 	}
 
 	bool FRealtimeMeshDebugVertexFactory::ShouldCompilePermutation(const FVertexFactoryShaderPermutationParameters& Parameters)
 	{
-		// Only compile for appropriate shader types and platforms that support debug rendering
 		return (Parameters.MaterialParameters.MaterialDomain == MD_Surface ||
 			    Parameters.MaterialParameters.MaterialDomain == MD_DeferredDecal) &&
 		       Parameters.MaterialParameters.bIsUsedWithStaticLighting == false &&
@@ -70,30 +66,26 @@ namespace RealtimeMesh
 
 	void FRealtimeMeshDebugVertexFactory::ModifyCompilationEnvironment(const FVertexFactoryShaderPermutationParameters& Parameters, FShaderCompilerEnvironment& OutEnvironment)
 	{
-		// Enable manual vertex fetch if platform supports it (following UE5 pattern)
 		if (RHISupportsManualVertexFetch(Parameters.Platform))
 		{
 			OutEnvironment.SetDefineIfUnset(TEXT("MANUAL_VERTEX_FETCH"), TEXT("1"));
 		}
-		
-		// CRITICAL: Set primitive scene data support based on VF capabilities and platform (UE5 pattern)
+
+		// Must match the scene proxy's bVFRequiresPrimitiveUniformBuffer decision or GPUScene binding breaks.
 		const bool bVFSupportsPrimitiveSceneData = Parameters.VertexFactoryType->SupportsPrimitiveIdStream() && UseGPUScene(Parameters.Platform, GetMaxSupportedFeatureLevel(Parameters.Platform));
 		OutEnvironment.SetDefine(TEXT("VF_SUPPORTS_PRIMITIVE_SCENE_DATA"), bVFSupportsPrimitiveSceneData);
-		
-		// Debug-specific defines for shader compilation
+
 		OutEnvironment.SetDefine(TEXT("REALTIME_MESH_DEBUG_VERTEX_FACTORY"), 1);
 		OutEnvironment.SetDefine(TEXT("SHOW_NORMALS"), 1);
 		OutEnvironment.SetDefine(TEXT("SHOW_TANGENTS"), 1);
 		OutEnvironment.SetDefine(TEXT("SHOW_BINORMALS"), 1);
 		OutEnvironment.SetDefine(TEXT("DEBUG_LINE_LENGTH"), 10.0f);
-		
-		// Call parent implementation (important for proper inheritance)
+
 		FRealtimeMeshVertexFactory::ModifyCompilationEnvironment(Parameters, OutEnvironment);
 	}
 
 	void FRealtimeMeshDebugVertexFactory::ValidateCompiledResult(const FVertexFactoryType* Type, EShaderPlatform Platform, const FShaderParameterMap& ParameterMap, TArray<FString>& OutErrors)
 	{
-		// Following UE5 pattern from LocalVertexFactory
 		if (Type->SupportsPrimitiveIdStream() 
 			&& UseGPUScene(Platform, GetMaxSupportedFeatureLevel(Platform)) 
 			&& !IsMobilePlatform(Platform) // On mobile VS may use PrimitiveUB while GPUScene is enabled
@@ -110,12 +102,11 @@ namespace RealtimeMesh
 
 		FInt32Range ValidVertexRange(0, TNumericLimits<int32>::Max());
 
-		// Bind Position - required for debug rendering
+		// Position is required; tangents/color fall back to null buffers when absent.
 		BindVertexBuffer(bIsValid, ValidVertexRange, InUseVertexBuffers, Data.PositionComponent, Buffers,
 		                 FRealtimeMeshStreams::PositionStreamName, EVertexStreamUsage::Default);
 		BindVertexBufferSRV(bIsValid, Data.PositionComponentSRV, Buffers, FRealtimeMeshStreams::PositionStreamName);
 
-		// Bind Tangents - required for normal/tangent/binormal debug
 		const TSharedPtr<FRealtimeMeshGPUBuffer> TangentBuffer = Buffers.FindRef(FRealtimeMeshStreams::Tangents);
 		if (TangentBuffer && TangentBuffer->Num() > 0)
 		{
@@ -132,7 +123,6 @@ namespace RealtimeMesh
 			Data.TangentsSRV = GRealtimeMeshNullTangentVertexBuffer.VertexBufferSRV;
 		}
 
-		// Bind Color for vertex color debug mode
 		const TSharedPtr<FRealtimeMeshGPUBuffer> ColorBuffer = Buffers.FindRef(FRealtimeMeshStreams::Color);
 		if (ColorBuffer && ColorBuffer->Num() > 0)
 		{
@@ -146,7 +136,6 @@ namespace RealtimeMesh
 			Data.ColorComponentsSRV = GRealtimeMeshNullColorVertexBuffer.VertexBufferSRV;			
 		}
 
-		// Set valid range
 		if (bIsValid && ValidVertexRange.GetLowerBoundValue() < ValidVertexRange.GetUpperBoundValue())
 		{
 			ValidRange = FRealtimeMeshStreamRange(ValidVertexRange, ValidVertexRange);
@@ -156,10 +145,9 @@ namespace RealtimeMesh
 			ValidRange = FRealtimeMeshStreamRange::Empty();
 		}
 
-		// Create uniform buffer specifically for debug vertex factory
 		UniformBuffer = CreateDebugVertexFactoryUniformBuffer();
 
-		// Get shared reference to debug index buffer and initialize if needed
+		// Shared across all debug factories; lazily initialized on first use.
 		DebugIndexBuffer = FRealtimeMeshDebugLineIndexBuffer::Get();
 		if (!DebugIndexBuffer->IsInitialized())
 		{
@@ -171,34 +159,29 @@ namespace RealtimeMesh
 
 	void FRealtimeMeshDebugVertexFactory::InitRHI(FRHICommandListBase& RHICmdList)
 	{
-		// Create vertex declaration from the initialized data
 		FVertexDeclarationElementList Elements;
-		
-		// Add position stream
+
 		if (Data.PositionComponent.VertexBuffer)
 		{
 			Elements.Add(AccessStreamComponent(Data.PositionComponent, 0));
 		}
 
-		// Add tangent streams for normal/tangent/binormal generation
 		if (Data.TangentBasisComponents[0].VertexBuffer)
 		{
 			Elements.Add(AccessStreamComponent(Data.TangentBasisComponents[0], 1));
 		}
-		
+
 		if (Data.TangentBasisComponents[1].VertexBuffer)
 		{
 			Elements.Add(AccessStreamComponent(Data.TangentBasisComponents[1], 2));
 		}
 
-		// Add color stream for vertex color debugging
 		if (Data.ColorComponent.VertexBuffer)
 		{
 			Elements.Add(AccessStreamComponent(Data.ColorComponent, 3));
 		}
 
-		// Set up primitive ID stream if GPU Scene is enabled
-		// This is required to match the scene proxy's bVFRequiresPrimitiveUniformBuffer setting
+		// Primitive ID stream must match the scene proxy's bVFRequiresPrimitiveUniformBuffer setting.
 		if (GetType()->SupportsPrimitiveIdStream() && UseGPUScene(GMaxRHIShaderPlatform, GetFeatureLevel()))
 		{
 			AddPrimitiveIdStreamElement(EVertexInputStreamType::Default, Elements, 13, 13);
@@ -233,21 +216,18 @@ namespace RealtimeMesh
 
 	FIndexBuffer& FRealtimeMeshDebugVertexFactory::GetIndexBuffer(bool& bDepthOnly, bool& bMatrixInverted, struct FRealtimeMeshResourceReferenceList& ActiveResources) const
 	{
-		// Use our custom debug line index buffer with linear indices pattern
 		bDepthOnly = false;
 		bMatrixInverted = false;
-		
-		// The debug index buffer should already be initialized when this vertex factory was created
-		check(DebugIndexBuffer.IsValid() && DebugIndexBuffer->IsInitialized()); // Should be initialized by now
-		
+
+		check(DebugIndexBuffer.IsValid() && DebugIndexBuffer->IsInitialized());
+
 		return *DebugIndexBuffer;
 	}
 
 	TUniformBufferRef<FLocalVertexFactoryUniformShaderParameters> FRealtimeMeshDebugVertexFactory::CreateDebugVertexFactoryUniformBuffer() const
 	{
 		FLocalVertexFactoryUniformShaderParameters UniformParameters;
-		
-		// Get current debug mode settings from console variables
+
 		const bool bShowNormals = CVarRealtimeMeshShowNormals.GetValueOnRenderThread() != 0;
 		const bool bShowTangents = CVarRealtimeMeshShowTangents.GetValueOnRenderThread() != 0;
 		const bool bShowBinormals = CVarRealtimeMeshShowBinormals.GetValueOnRenderThread() != 0;
@@ -271,18 +251,13 @@ namespace RealtimeMesh
 			NumActiveChannels // w = number of active channels
 		);
 		
-		// Set shader resource views based on our debug vertex factory data
 		UniformParameters.VertexFetch_PositionBuffer = Data.PositionComponentSRV ? Data.PositionComponentSRV : GNullColorVertexBuffer.VertexBufferSRV.GetReference();
 		UniformParameters.VertexFetch_PreSkinPositionBuffer = Data.PositionComponentSRV ? Data.PositionComponentSRV : GNullColorVertexBuffer.VertexBufferSRV.GetReference();
 		UniformParameters.VertexFetch_PackedTangentsBuffer = Data.TangentsSRV ? Data.TangentsSRV : GNullColorVertexBuffer.VertexBufferSRV.GetReference();
 		UniformParameters.VertexFetch_TexCoordBuffer = GNullColorVertexBuffer.VertexBufferSRV.GetReference(); // Debug doesn't use tex coords
 		UniformParameters.VertexFetch_ColorComponentsBuffer = Data.ColorComponentsSRV ? Data.ColorComponentsSRV : GNullColorVertexBuffer.VertexBufferSRV.GetReference();
-		
-		// Set additional parameters specific to our debug needs
+
 		UniformParameters.LODLightmapDataIndex = 0;
-		
-		// Important: Set primitive uniform buffer parameters to avoid the "No primitive uniform buffer" error
-		// For debug rendering, we don't need complex primitive data
 		UniformParameters.PreSkinBaseVertexIndex = 0;
 		
 		return TUniformBufferRef<FLocalVertexFactoryUniformShaderParameters>::CreateUniformBufferImmediate(UniformParameters, UniformBuffer_MultiFrame);
@@ -291,6 +266,16 @@ namespace RealtimeMesh
 	FRHIUniformBuffer* FRealtimeMeshDebugVertexFactory::GetUniformBuffer() const
 	{
 		return UniformBuffer.GetReference();
+	}
+
+	void FRealtimeMeshDebugVertexFactory::RefreshUniformBuffer()
+	{
+		// PROXY-F16: the uniform buffer packs the debug params (mode bitmask + line
+		// length) read from the debug CVars at build time. When a cached VF is reused
+		// after those params change, rebuild it so the new params are actually
+		// consumed (SetDebugMode/SetLineLength alone only update members nothing
+		// reads). Same construction as Initialize (see CreateDebugVertexFactoryUniformBuffer).
+		UniformBuffer = CreateDebugVertexFactoryUniformBuffer();
 	}
 
 	//////////////////////////////////////////////////////////////////////////

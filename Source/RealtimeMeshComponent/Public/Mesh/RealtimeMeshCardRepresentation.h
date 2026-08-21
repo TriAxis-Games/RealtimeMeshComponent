@@ -1,22 +1,10 @@
-﻿// Copyright (c) 2015-2025 TriAxis Games, L.L.C. All Rights Reserved.
+﻿// Copyright (c) 2015-2026 TriAxis Games, L.L.C. All Rights Reserved.
 
 #pragma once
 
 #include "CoreMinimal.h"
 #include "RealtimeMeshCore.h"
 
-/*#if RMC_ENGINE_BELOW_5_5
-// This works around a compile issue in 5.2+ where there's invalid code at the bottom of MeshCardRepresentation.h
-// TODO: I think this is still a bug to this day, so could submit a bug fix for it.
-UE_PUSH_MACRO("UE_ENABLE_INCLUDE_ORDER_DEPRECATED_IN_5_2")
-#ifdef UE_ENABLE_INCLUDE_ORDER_DEPRECATED_IN_5_2
-#undef UE_ENABLE_INCLUDE_ORDER_DEPRECATED_IN_5_2
-#endif
-#define UE_ENABLE_INCLUDE_ORDER_DEPRECATED_IN_5_2 0
-#include "MeshCardBuild.h"
-UE_POP_MACRO("UE_ENABLE_INCLUDE_ORDER_DEPRECATED_IN_5_2")
-#else
-#endif*/
 #include "MeshCardRepresentation.h"
 #include "MeshCardBuild.h"
 

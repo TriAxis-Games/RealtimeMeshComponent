@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2015-2025 TriAxis Games, L.L.C. All Rights Reserved.
+﻿// Copyright (c) 2015-2026 TriAxis Games, L.L.C. All Rights Reserved.
 
 #include "Core/RealtimeMeshKeys.h"
 #include "Core/RealtimeMeshCollision.h"
@@ -7,8 +7,33 @@
 #include "Core/RealtimeMeshConfig.h"
 #include "Core/RealtimeMeshLODConfig.h"
 #include "Core/RealtimeMeshSectionConfig.h"
-#include "Core/RealtimeMeshSectionGroupConfig.h"
+#include "Core/RealtimeMeshBufferSetConfig.h"
 #include "Interfaces/Interface_CollisionDataProvider.h"
+
+#include <cstddef>
+
+// PT-5 / GUARD-001 (ND-3): characterization asserts pinning struct layouts the explicit
+// field-by-field serializers below depend on. (These once also guarded the NoExport UHT mirrors,
+// since retired — the structs are now reflected directly at their native declarations.) If one of
+// these fires, a field was added/moved: update the corresponding operator<< and bump the version.
+
+// FRealtimeMeshSectionConfig: int32 MaterialSlot + 4 contiguous bools (mirror UPROPERTY order).
+static_assert(sizeof(FRealtimeMeshSectionConfig) == 8, "FRealtimeMeshSectionConfig layout changed; update its serializer and bump the version");
+static_assert(offsetof(FRealtimeMeshSectionConfig, MaterialSlot) == 0, "FRealtimeMeshSectionConfig::MaterialSlot moved; update its serializer");
+static_assert(offsetof(FRealtimeMeshSectionConfig, bIsVisible) == 4, "FRealtimeMeshSectionConfig::bIsVisible moved; update its serializer");
+static_assert(offsetof(FRealtimeMeshSectionConfig, bCastsShadow) == 5, "FRealtimeMeshSectionConfig::bCastsShadow moved; update its serializer");
+static_assert(offsetof(FRealtimeMeshSectionConfig, bIsMainPassRenderable) == 6, "FRealtimeMeshSectionConfig::bIsMainPassRenderable moved; update its serializer");
+static_assert(offsetof(FRealtimeMeshSectionConfig, bForceOpaque) == 7, "FRealtimeMeshSectionConfig::bForceOpaque moved; update its serializer");
+
+// FRealtimeMeshBufferSetConfig: uint8 DrawType + bool bComputeWritable (mirror UPROPERTY order).
+static_assert(sizeof(FRealtimeMeshBufferSetConfig) == 2, "FRealtimeMeshBufferSetConfig layout changed; update its serializer and bump the version");
+static_assert(offsetof(FRealtimeMeshBufferSetConfig, DrawType) == 0, "FRealtimeMeshBufferSetConfig::DrawType moved; update its serializer");
+static_assert(offsetof(FRealtimeMeshBufferSetConfig, bComputeWritable) == 1, "FRealtimeMeshBufferSetConfig::bComputeWritable moved; update its serializer");
+
+// FRealtimeMeshComplexGeometry: exactly one member, FSimpleShapeSet<FRealtimeMeshCollisionMesh> Meshes
+// (Meshes is private, so pin via size equality rather than offsetof — proves the single-member layout).
+static_assert(sizeof(FRealtimeMeshComplexGeometry) == sizeof(FSimpleShapeSet<FRealtimeMeshCollisionMesh>),
+	"FRealtimeMeshComplexGeometry is no longer exactly one FSimpleShapeSet<FRealtimeMeshCollisionMesh>; update its serializer");
 
 FArchive& operator<<(FArchive& Ar, FRealtimeMeshLODKey& Key)
 {		
@@ -25,8 +50,22 @@ FArchive& operator<<(FArchive& Ar, FRealtimeMeshLODKey& Key)
 	return Ar;
 }
 
-FArchive& operator<<(FArchive& Ar, FRealtimeMeshSectionGroupKey& Key)
+FArchive& operator<<(FArchive& Ar, FRealtimeMeshBufferSetKey& Key)
 {
+	// Serialization format history (mirrors the FRealtimeMeshSectionKey history):
+	//  - Pre-DataRestructure: uint8 LODIndex + uint8 GroupIndex. SlotIndex is derived
+	//    from the synthesized legacy group name's CRC32.
+	//  - DataRestructure .. SerializeSectionGroupKeySlotIndex: LODIndex + GroupName only.
+	//    SlotIndex was derived from FCrc::StrCrc32(GroupName). Group-key identity is
+	//    (LODIndex, SlotIndex), so distinct groups sharing a name (e.g. every procedural
+	//    group is named "PMC") collapsed to one identical key across save/load — silent
+	//    data loss.
+	//  - SerializeSectionGroupKeySlotIndex and later: LODIndex + GroupName + SlotIndex
+	//    written directly, so the SlotIndex round-trips faithfully and distinct groups
+	//    keep distinct keys.
+	const bool bHasDirectSlotIndex =
+		Ar.CustomVer(RealtimeMesh::FRealtimeMeshVersion::GUID) >= RealtimeMesh::FRealtimeMeshVersion::SerializeSectionGroupKeySlotIndex;
+
 	if (Ar.CustomVer(RealtimeMesh::FRealtimeMeshVersion::GUID) < RealtimeMesh::FRealtimeMeshVersion::DataRestructure)
 	{
 		uint8 OldLODIndex;
@@ -34,19 +73,46 @@ FArchive& operator<<(FArchive& Ar, FRealtimeMeshSectionGroupKey& Key)
 		Key.LODIndex = OldLODIndex;
 		uint8 OldGroupIndex;
 		Ar << OldGroupIndex;
-		Key.GroupName = FName("RM-Legacy-Group", OldGroupIndex);
+		Key.SlotName = FName("RM-Legacy-Group", OldGroupIndex);
+	}
+	else if (!bHasDirectSlotIndex)
+	{
+		Ar << Key.LODIndex;
+		Ar << Key.SlotName;
 	}
 	else
 	{
 		Ar << Key.LODIndex;
-		Ar << Key.GroupName;
+		Ar << Key.SlotName;
+		Ar << Key.SlotIndex;
 	}
+
+	if (Ar.IsLoading() && !bHasDirectSlotIndex)
+	{
+		const FString NameString = Key.SlotName.ToString();
+		Key.SlotIndex = static_cast<int32>(FCrc::StrCrc32(*NameString));
+	}
+	// else: SlotIndex was read directly above.
 
 	return Ar;
 }
 
 FArchive& operator<<(FArchive& Ar, FRealtimeMeshSectionKey& Key)
 {
+	// Serialization format history:
+	//  - Pre-DataRestructure: uint8 LODIndex + uint8 GroupIndex + uint16 SectionIndex.
+	//    BufferSetSlotIndex is derived from the synthesized legacy group name's CRC32.
+	//  - DataRestructure .. SerializeSectionKeyBufferSlotAndStreamType: LODIndex +
+	//    GroupName + SectionName. Historically the GroupName was written as NAME_None
+	//    on save (a bug), so BufferSetSlotIndex loaded as INDEX_NONE for these assets.
+	//    We still read the (legacy) group name and derive BufferSetSlotIndex from it so
+	//    any archive that happened to store a real name keeps working.
+	//  - SerializeSectionKeyBufferSlotAndStreamType and later: LODIndex + SectionName +
+	//    BufferSetSlotIndex written directly, so it round-trips faithfully.
+	const bool bHasDirectBufferSlot =
+		Ar.CustomVer(RealtimeMesh::FRealtimeMeshVersion::GUID) >= RealtimeMesh::FRealtimeMeshVersion::SerializeSectionKeyBufferSlotAndStreamType;
+
+	FName LegacyGroupName = NAME_None;
 	if (Ar.CustomVer(RealtimeMesh::FRealtimeMeshVersion::GUID) < RealtimeMesh::FRealtimeMeshVersion::DataRestructure)
 	{
 		uint8 OldLODIndex;
@@ -54,16 +120,37 @@ FArchive& operator<<(FArchive& Ar, FRealtimeMeshSectionKey& Key)
 		Key.LODIndex = OldLODIndex;
 		uint8 OldGroupIndex;
 		Ar << OldGroupIndex;
-		Key.GroupName = FName("RM-Legacy-Group", OldGroupIndex);
+		LegacyGroupName = FName("RM-Legacy-Group", OldGroupIndex);
 		uint16 OldSectionIndex;
 		Ar << OldSectionIndex;
-		Key.SectionName = FName("RM-Legacy-Section", OldSectionIndex);
+		Key.SlotName = FName("RM-Legacy-Section", OldSectionIndex);
+	}
+	else if (!bHasDirectBufferSlot)
+	{
+		Ar << Key.LODIndex;
+		Ar << LegacyGroupName;
+		Ar << Key.SlotName;
 	}
 	else
 	{
 		Ar << Key.LODIndex;
-		Ar << Key.GroupName;
-		Ar << Key.SectionName;
+		Ar << Key.SlotName;
+		Ar << Key.BufferSetSlotIndex;
+	}
+
+	if (Ar.IsLoading())
+	{
+		const FString SlotNameString = Key.SlotName.ToString();
+		Key.SlotIndex = static_cast<int32>(FCrc::StrCrc32(*SlotNameString));
+
+		if (!bHasDirectBufferSlot)
+		{
+			const FString GroupNameString = LegacyGroupName.ToString();
+			Key.BufferSetSlotIndex = LegacyGroupName != NAME_None
+				? static_cast<int32>(FCrc::StrCrc32(*GroupNameString))
+				: INDEX_NONE;
+		}
+		// else: BufferSetSlotIndex was read directly above.
 	}
 
 	return Ar;
@@ -86,11 +173,15 @@ FArchive& operator<<(FArchive& Ar, FRealtimeMeshSectionConfig& Config)
 	return Ar;
 }
 	
-FArchive& operator<<(FArchive& Ar, FRealtimeMeshSectionGroupConfig& Config)
+FArchive& operator<<(FArchive& Ar, FRealtimeMeshBufferSetConfig& Config)
 {
 	if (Ar.CustomVer(RealtimeMesh::FRealtimeMeshVersion::GUID) >= RealtimeMesh::FRealtimeMeshVersion::DrawTypeMovedToSectionGroup)
 	{
 		Ar << Config.DrawType;
+	}
+	if (Ar.CustomVer(RealtimeMesh::FRealtimeMeshVersion::GUID) >= RealtimeMesh::FRealtimeMeshVersion::SectionGroupComputeWritable)
+	{
+		Ar << Config.bComputeWritable;
 	}
 	return Ar;
 }
@@ -175,19 +266,6 @@ FArchive& operator<<(FArchive& Ar, FRealtimeMeshCollisionConvex& Shape)
 	return Ar;
 }
 
-template<typename ShapeType>
-FArchive& operator<<(FArchive& Ar, FSimpleShapeSet<ShapeType>& ShapeSet)
-{
-	Ar << ShapeSet.Shapes;
-
-	if (Ar.IsLoading())
-	{
-		ShapeSet.RebuildNameMap();
-	}
-	
-	return Ar;
-}
-
 FArchive& operator<<(FArchive& Ar, FRealtimeMeshSimpleGeometry& SimpleGeometry)
 {
 	Ar << SimpleGeometry.Spheres.Shapes;
@@ -263,16 +341,17 @@ FArchive& operator<<(FArchive& Ar, FRealtimeMeshCollisionMesh& MeshData)
 
 FArchive& operator<<(FArchive& Ar, FRealtimeMeshComplexGeometry& ComplexGeometry)
 {
-	Ar << ComplexGeometry.Meshes;
+	// DUP-002: ComplexGeometry now stores its meshes in an FSimpleShapeSet<FRealtimeMeshCollisionMesh>.
+	// The bytes on the wire are unchanged: `Meshes.Shapes` is the same TSparseArray<FRealtimeMeshCollisionMesh>
+	// that was serialized directly before the convergence. On load, RebuildNameMap() runs the identical
+	// Empty()+iterate+AddToNameMap loop this function used to inline (mesh Name is not serialized, so every
+	// loaded mesh is NAME_None and the map rebuilds empty).
+	Ar << ComplexGeometry.Meshes.Shapes;
 
 	// Rebuild name maps on load
 	if (Ar.IsLoading())
 	{
-		ComplexGeometry.NameMap.Empty();
-		for (TSparseArray<FRealtimeMeshCollisionMesh>::TConstIterator It(ComplexGeometry.Meshes); It; ++It)
-		{
-			ComplexGeometry.AddToNameMap(It->Name, It.GetIndex());
-		}
+		ComplexGeometry.Meshes.RebuildNameMap();
 	}
 
 	return Ar;
@@ -297,6 +376,12 @@ namespace RealtimeMesh
 		}
 		else
 		{
+			// ND-8: The pre-StreamsNowHoldEntireKey key format is load-only. Saves always occur at the
+			// latest version, so an old-version save is impossible; the checkf documents that and keeps
+			// the old write-broken save path (which serialized a default-constructed StreamName and
+			// clobbered Stream.StreamKey) from ever executing.
+			checkf(Ar.IsLoading(), TEXT("Cannot save FRealtimeMeshStream at a pre-StreamsNowHoldEntireKey version"));
+
 			FName StreamName;
 			Ar << StreamName;
 			Stream.StreamKey = FRealtimeMeshStreamKey(ERealtimeMeshStreamType::Unknown, StreamName);
@@ -315,13 +400,13 @@ namespace RealtimeMesh
 					Stream.Layout == GetRealtimeMeshBufferLayout<uint16>())
 					? ERealtimeMeshStreamType::Index
 					: ERealtimeMeshStreamType::Vertex;
-				Stream.StreamKey = FRealtimeMeshStreamKey(ERealtimeMeshStreamType::Unknown, Stream.StreamKey.GetName());
+				Stream.StreamKey = FRealtimeMeshStreamKey(StreamType, Stream.StreamKey.GetName());
 			}
 		}
 
 		Stream.CountBytes(Ar);
 
-		FRealtimeMeshStream::SizeType SerializedNum = Ar.IsLoading() ? 0 : Stream.ArrayNum;;
+		FRealtimeMeshStream::SizeType SerializedNum = Ar.IsLoading() ? 0 : Stream.ArrayNum;
 		Ar << SerializedNum;
 
 		if (SerializedNum > 0)
@@ -334,8 +419,53 @@ namespace RealtimeMesh
 				Stream.ResizeAllocation(SerializedNum);
 			}
 
-			// TODO: This will not handle endianness of the vertex data for say a network archive.
-			Ar.Serialize(Stream.GetData(), SerializedNum * Stream.GetStride());
+			// A raw byte copy is correct for a same-endian archive (the only kind any shipping
+			// UE platform produces). For a byte-swapping archive (cross-endian cooked data),
+			// each primitive datum must be reversed so typed values survive the round trip:
+			// on load, swap after reading; on save, swap to foreign endianness, write, then
+			// swap back so the live in-memory stream isn't left corrupted.
+			const int64 TotalBytes = static_cast<int64>(SerializedNum) * Stream.GetStride();
+
+			if (Ar.IsByteSwapping() && TotalBytes > 0)
+			{
+				const FRealtimeMeshElementType ElementType = Stream.GetLayout().GetElementType();
+				const FRealtimeMeshElementTypeDetails Details = FRealtimeMeshBufferLayoutUtilities::GetElementTypeDetails(ElementType);
+				const int32 NumDatums = ElementType.GetNumDatums();
+				const int32 DatumSize = NumDatums > 0 ? (Details.GetStride() / NumDatums) : 0;
+
+				auto SwapDatumsInPlace = [DatumSize, TotalBytes](uint8* Bytes)
+				{
+					if (DatumSize <= 1)
+					{
+						return; // single-byte datums (e.g. FColor channels) need no swapping
+					}
+					for (int64 ByteOffset = 0; ByteOffset + DatumSize <= TotalBytes; ByteOffset += DatumSize)
+					{
+						for (int32 Low = 0, High = DatumSize - 1; Low < High; ++Low, --High)
+						{
+							Swap(Bytes[ByteOffset + Low], Bytes[ByteOffset + High]);
+						}
+					}
+				};
+
+				uint8* DataBytes = reinterpret_cast<uint8*>(Stream.GetData());
+				if (Ar.IsLoading())
+				{
+					Ar.Serialize(DataBytes, TotalBytes);
+					SwapDatumsInPlace(DataBytes);
+				}
+				else
+				{
+					SwapDatumsInPlace(DataBytes);
+					Ar.Serialize(DataBytes, TotalBytes);
+					SwapDatumsInPlace(DataBytes);
+				}
+			}
+			else
+			{
+				Ar.Serialize(Stream.GetData(), TotalBytes);
+			}
+
 			Stream.ArrayNum = SerializedNum;
 
 			if (Ar.IsLoading())

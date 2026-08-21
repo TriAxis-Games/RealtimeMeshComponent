@@ -1,20 +1,18 @@
-﻿// Copyright (c) 2015-2025 TriAxis Games, L.L.C. All Rights Reserved.
+﻿// Copyright (c) 2015-2026 TriAxis Games, L.L.C. All Rights Reserved.
 
 #include "Data/RealtimeMeshLOD.h"
 #include "Data/RealtimeMeshShared.h"
-#include "Data/RealtimeMeshSectionGroup.h"
+#include "Data/RealtimeMeshBufferSet.h"
 #include "Core/RealtimeMeshLODConfig.h"
 #include "Data/RealtimeMeshUpdateBuilder.h"
 #include "RenderProxy/RealtimeMeshLODProxy.h"
 #include "RenderProxy/RealtimeMeshProxyCommandBatch.h"
 #include "Logging/MessageLog.h"
 
-#define LOCTEXT_NAMESPACE "RealtimeMesh"
-
 namespace RealtimeMesh
 {
-	FRealtimeMeshLOD::FRealtimeMeshLOD(const FRealtimeMeshSharedResourcesRef& InSharedResources, const FRealtimeMeshLODKey& InKey)
-		: SharedResources(InSharedResources)
+	FRealtimeMeshLOD::FRealtimeMeshLOD(const FRealtimeMeshContextRef& InContext, const FRealtimeMeshLODKey& InKey)
+		: Context(InContext)
 		, Key(InKey)
 	{
 	}
@@ -24,9 +22,13 @@ namespace RealtimeMesh
 		return SectionGroups.Num() > 0;
 	}
 
-	FRealtimeMeshSectionGroupPtr FRealtimeMeshLOD::GetSectionGroup(const FRealtimeMeshLockContext& LockContext, const FRealtimeMeshSectionGroupKey& SectionGroupKey) const
+	FRealtimeMeshSectionGroupPtr FRealtimeMeshLOD::GetSectionGroup(const FRealtimeMeshLockContext& LockContext, const FRealtimeMeshBufferSetKey& SectionGroupKey) const
 	{
-		return SectionGroups.Contains(SectionGroupKey) ? *SectionGroups.Find(SectionGroupKey) : FRealtimeMeshSectionGroupPtr();
+		if (const FRealtimeMeshSectionGroupRef* Found = SectionGroups.Find(SectionGroupKey))
+		{
+			return *Found;
+		}
+		return FRealtimeMeshSectionGroupPtr();
 	}
 
 	TOptional<FBoxSphereBounds3f> FRealtimeMeshLOD::GetLocalBounds(const FRealtimeMeshLockContext& LockContext) const
@@ -50,6 +52,19 @@ namespace RealtimeMesh
 		SectionGroups.Empty();
 		Bounds.Reset();
 
+		// Queue removal of the now-orphaned section groups from the render proxy,
+		// otherwise the proxy keeps their stale buffer sets until an unrelated recreate.
+		if (auto ProxyBuilder = UpdateContext.GetProxyBuilder())
+		{
+			for (const FRealtimeMeshBufferSetKey& SectionGroupKey : SectionGroupsToRemove)
+			{
+				ProxyBuilder->AddLODTask(Key, [SectionGroupKey](FRHICommandListBase& RHICmdList, FRealtimeMeshLODProxy& Proxy)
+				{
+					Proxy.RemoveSectionGroup(SectionGroupKey);
+				}, true);
+			}
+		}
+
 		InitializeProxy(UpdateContext);
 
 		UpdateContext.GetState().ConfigDirtyTree.Flag(Key);
@@ -65,17 +80,17 @@ namespace RealtimeMesh
 			ProxyBuilder->AddLODTask(Key, [Config = Config](FRHICommandListBase& RHICmdList, FRealtimeMeshLODProxy& Proxy)
 			{
 				Proxy.UpdateConfig(Config);
-			}, ShouldRecreateProxyOnChange(UpdateContext));
+			}, true);
 		}
 
 		UpdateContext.GetState().ConfigDirtyTree.Flag(Key);
 	}
 	
-	void FRealtimeMeshLOD::CreateOrUpdateSectionGroup(FRealtimeMeshUpdateContext& UpdateContext, const FRealtimeMeshSectionGroupKey& SectionGroupKey, const FRealtimeMeshSectionGroupConfig& InConfig)
+	void FRealtimeMeshLOD::CreateOrUpdateSectionGroup(FRealtimeMeshUpdateContext& UpdateContext, const FRealtimeMeshBufferSetKey& SectionGroupKey, const FRealtimeMeshBufferSetConfig& InConfig)
 	{
 		if (!SectionGroups.Contains(SectionGroupKey))
 		{
-			SectionGroups.Add(SharedResources->CreateSectionGroup(SectionGroupKey));
+			SectionGroups.Add(Context->CreateSectionGroup(SectionGroupKey));
 
 			if (auto ProxyBuilder = UpdateContext.GetProxyBuilder())
 			{
@@ -90,7 +105,7 @@ namespace RealtimeMesh
 		SectionGroup->Initialize(UpdateContext, InConfig);
 	}
 
-	void FRealtimeMeshLOD::RemoveSectionGroup(FRealtimeMeshUpdateContext& UpdateContext, const FRealtimeMeshSectionGroupKey& SectionGroupKey)
+	void FRealtimeMeshLOD::RemoveSectionGroup(FRealtimeMeshUpdateContext& UpdateContext, const FRealtimeMeshBufferSetKey& SectionGroupKey)
 	{
 		if (SectionGroups.Remove(SectionGroupKey))
 		{
@@ -99,7 +114,7 @@ namespace RealtimeMesh
 				ProxyBuilder->AddLODTask(Key, [SectionGroupKey](FRHICommandListBase& RHICmdList, FRealtimeMeshLODProxy& Proxy)
 				{
 					Proxy.RemoveSectionGroup(SectionGroupKey);
-				}, ShouldRecreateProxyOnChange(UpdateContext));
+				}, true);
 			}
 		}
 	}
@@ -118,32 +133,55 @@ namespace RealtimeMesh
 				int32 SectionGroupIndex;
 				Ar << SectionGroupIndex;
 
-				FRealtimeMeshSectionGroupKey SectionGroupKey = FRealtimeMeshSectionGroupKey::Create(Key, SectionGroupIndex);
-				auto SectionGroup = SharedResources->CreateSectionGroup(SectionGroupKey);
+				FRealtimeMeshBufferSetKey SectionGroupKey = FRealtimeMeshBufferSetKey::Create(Key, SectionGroupIndex);
+				auto SectionGroup = Context->CreateSectionGroup(SectionGroupKey);
 				SectionGroup->Serialize(Ar);
 				SectionGroups.Add(SectionGroup);
 			}
 		}
 		else if (Ar.IsLoading())
 		{
+			// Group-key identity is (LODIndex, SlotIndex); the friendly Name is metadata.
+			// Pre-SerializeSectionGroupKeySlotIndex assets stored only the Name, and the
+			// SlotIndex was re-derived from FCrc::StrCrc32(Name) via the FName Create factory.
+			// That silently collapsed distinct groups that shared a name (e.g. every procedural
+			// group is named "PMC") down to one identical key, so the TSet kept only the last.
+			// From v16 on we also read the SlotIndex directly so distinct groups keep distinct
+			// keys and survive the round trip.
+			const bool bHasDirectSlotIndex =
+				Ar.CustomVer(RealtimeMesh::FRealtimeMeshVersion::GUID) >= FRealtimeMeshVersion::SerializeSectionGroupKeySlotIndex;
+
 			SectionGroups.Empty();
 			for (int32 Index = 0; Index < NumSectionGroups; Index++)
 			{
 				FName SectionGroupName;
 				Ar << SectionGroupName;
 
-				FRealtimeMeshSectionGroupKey SectionGroupKey = FRealtimeMeshSectionGroupKey::Create(Key, SectionGroupName);
-				auto SectionGroup = SharedResources->CreateSectionGroup(SectionGroupKey);
+				FRealtimeMeshBufferSetKey SectionGroupKey = FRealtimeMeshBufferSetKey::Create(Key, SectionGroupName);
+				if (bHasDirectSlotIndex)
+				{
+					int32 SectionGroupSlotIndex;
+					Ar << SectionGroupSlotIndex;
+					SectionGroupKey = FRealtimeMeshBufferSetKey::Create(Key, SectionGroupSlotIndex, SectionGroupName);
+				}
+
+				auto SectionGroup = Context->CreateSectionGroup(SectionGroupKey);
 				SectionGroup->Serialize(Ar);
 				SectionGroups.Add(SectionGroup);
 			}
 		}
 		else
 		{
+			// Always write the SlotIndex directly (this save path is only reached at the
+			// current version, which is >= SerializeSectionGroupKeySlotIndex). See the load
+			// branch for why name-only would collapse same-named groups.
 			for (const auto& SectionGroup : SectionGroups)
 			{
-				FName SectionGroupName = SectionGroup->GetKey_AssumesLocked().Name();
+				const FRealtimeMeshBufferSetKey SectionGroupKey = SectionGroup->GetKey_AssumesLocked();
+				FName SectionGroupName = SectionGroupKey.Name();
 				Ar << SectionGroupName;
+				int32 SectionGroupSlotIndex = SectionGroupKey.Index();
+				Ar << SectionGroupSlotIndex;
 				SectionGroup->Serialize(Ar);
 			}
 		}
@@ -160,14 +198,14 @@ namespace RealtimeMesh
 			ProxyBuilder->AddLODTask(Key, [Config = Config](FRHICommandListBase& RHICmdList, FRealtimeMeshLODProxy& Proxy)
 			{
 				Proxy.UpdateConfig(Config);
-			}, ShouldRecreateProxyOnChange(UpdateContext));
+			}, true);
 		
 			for (const auto& SectionGroup : SectionGroups)
 			{
 				ProxyBuilder->AddLODTask(Key, [SectionGroupKey = SectionGroup->GetKey(UpdateContext)](FRHICommandListBase& RHICmdList, FRealtimeMeshLODProxy& Proxy)
 				{
 					Proxy.CreateSectionGroupIfNotExists(SectionGroupKey);
-				}, ShouldRecreateProxyOnChange(UpdateContext));
+				}, true);
 
 				SectionGroup->InitializeProxy(UpdateContext);
 			}
@@ -175,9 +213,9 @@ namespace RealtimeMesh
 	}
 
 
-	TSet<FRealtimeMeshSectionGroupKey> FRealtimeMeshLOD::GetSectionGroupKeys(const FRealtimeMeshLockContext& LockContext) const
+	TSet<FRealtimeMeshBufferSetKey> FRealtimeMeshLOD::GetSectionGroupKeys(const FRealtimeMeshLockContext& LockContext) const
 	{
-		TSet<FRealtimeMeshSectionGroupKey> SectionGroupKeys;
+		TSet<FRealtimeMeshBufferSetKey> SectionGroupKeys;
 		for (const auto& SectionGroup : SectionGroups)
 		{
 			SectionGroupKeys.Add(SectionGroup->GetKey(LockContext));
@@ -187,28 +225,24 @@ namespace RealtimeMesh
 
 	void FRealtimeMeshLOD::FinalizeUpdate(FRealtimeMeshUpdateContext& UpdateContext)
 	{
+		// Only descend into section groups the update touched (see FRealtimeMesh::FinalizeUpdate).
+		// A group with only stream edits doesn't flag the bounds tree, so consult both.
+		FRealtimeMeshUpdateState& State = UpdateContext.GetState();
 		for (const auto& SectionGroup : SectionGroups)
 		{
-			SectionGroup->FinalizeUpdate(UpdateContext);
+			const FRealtimeMeshBufferSetKey SectionGroupKey = SectionGroup->GetKey(UpdateContext);
+			if (State.BoundsDirtyTree.IsDirty(SectionGroupKey) || State.StreamRangeDirtyTree.IsDirty(SectionGroupKey) || State.StreamDirtyTree.HasDirtyStreams(SectionGroupKey))
+			{
+				SectionGroup->FinalizeUpdate(UpdateContext);
+			}
 		}
-		
+
 		// Update bounds
 		if (UpdateContext.GetState().BoundsDirtyTree.IsDirty(Key) && !Bounds.HasUserSetBounds())
 		{
-			TOptional<FBoxSphereBounds3f> NewBounds;
-			for (const auto& SectionGroup : SectionGroups)
-			{
-				auto SectionGroupBounds = SectionGroup->GetLocalBounds(UpdateContext);
-				if (SectionGroupBounds.IsSet())
-				{
-					if (!NewBounds.IsSet())
-					{
-						NewBounds = *SectionGroupBounds;
-						continue;
-					}
-					NewBounds = *NewBounds + *SectionGroupBounds;
-				}
-			}
+			// DUP-008: shared accumulate-hull helper (RealtimeMeshShared.h).
+			const TOptional<FBoxSphereBounds3f> NewBounds = AccumulateBounds(SectionGroups,
+				[&UpdateContext](const FRealtimeMeshSectionGroupRef& SectionGroup) { return SectionGroup->GetLocalBounds(UpdateContext); });
 
 			if (NewBounds)
 			{
@@ -234,5 +268,3 @@ namespace RealtimeMesh
 
 
 }
-
-#undef LOCTEXT_NAMESPACE

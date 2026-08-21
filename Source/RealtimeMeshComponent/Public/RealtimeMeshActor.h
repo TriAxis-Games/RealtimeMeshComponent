@@ -1,4 +1,4 @@
-// Copyright (c) 2015-2025 TriAxis Games, L.L.C. All Rights Reserved.
+// Copyright (c) 2015-2026 TriAxis Games, L.L.C. All Rights Reserved.
 
 #pragma once
 
@@ -80,6 +80,16 @@ public:
 	 */
 	virtual void ExecuteRebuildGeneratedMeshIfPending();
 
+	/**
+	 * Returns true if this actor still has a deferred-generation rebuild queued that it is able to
+	 * carry out. Used by the generation subsystem to decide whether to keep the actor on its
+	 * per-frame pending list.
+	 */
+	bool WantsGeneratedMeshRebuild() const
+	{
+		return bDeferGeneration && bGeneratedMeshRebuildPending && IsValid(RealtimeMeshComponent);
+	}
+
 public:
 	//~ Begin UObject/AActor Interface
 	virtual void BeginPlay() override;
@@ -107,4 +117,8 @@ protected:
 
 	void RegisterWithGenerationManager();
 	void UnregisterWithGenerationManager();
+
+	// Marks a deferred-generation rebuild as pending and notifies the generation subsystem so this
+	// actor is placed on its per-frame pending list.
+	void MarkGeneratedMeshRebuildPending();
 };

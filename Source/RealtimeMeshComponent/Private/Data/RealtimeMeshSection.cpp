@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2015-2025 TriAxis Games, L.L.C. All Rights Reserved.
+﻿// Copyright (c) 2015-2026 TriAxis Games, L.L.C. All Rights Reserved.
 
 #include "Data/RealtimeMeshSection.h"
 #include "Data/RealtimeMeshShared.h"
@@ -10,15 +10,15 @@
 
 namespace RealtimeMesh
 {
-	FRealtimeMeshSection::FRealtimeMeshSection(const FRealtimeMeshSharedResourcesRef& InSharedResources, const FRealtimeMeshSectionKey& InKey)
-		: SharedResources(InSharedResources)
+	FRealtimeMeshSection::FRealtimeMeshSection(const FRealtimeMeshContextRef& InContext, const FRealtimeMeshSectionKey& InKey)
+		: Context(InContext)
 		, Key(InKey)
 	{
 	}
 
 	FRealtimeMeshSectionGroupPtr FRealtimeMeshSection::GetSectionGroup(const FRealtimeMeshLockContext& LockContext) const
 	{
-		if (const auto Mesh = SharedResources->GetOwner())
+		if (const auto Mesh = Context->GetOwner())
 		{
 			return Mesh->GetSectionGroup(LockContext, Key);
 		}
@@ -77,9 +77,12 @@ namespace RealtimeMesh
 
 	void FRealtimeMeshSection::UpdateConfig(FRealtimeMeshUpdateContext& UpdateContext, TFunction<void(FRealtimeMeshSectionConfig&)> EditFunc)
 	{
-		bool bShouldRecreateProxy = ShouldRecreateProxyOnChange(UpdateContext);
 		EditFunc(Config);
-		bShouldRecreateProxy |= ShouldRecreateProxyOnChange(UpdateContext);
+
+		// ShouldRecreateProxyOnChange delegates to the parent section group and does not depend on
+		// this section's config, so editing Config cannot change its result — evaluate it once
+		// rather than pinning the mesh weak-ptr and re-navigating the tree twice.
+		const bool bShouldRecreateProxy = ShouldRecreateProxyOnChange(UpdateContext);
 
 		if (auto ProxyBuilder = UpdateContext.GetProxyBuilder())
 		{
@@ -92,8 +95,13 @@ namespace RealtimeMesh
 		UpdateContext.GetState().ConfigDirtyTree.Flag(Key);
 	}
 
-	void FRealtimeMeshSection::UpdateStreamRange(FRealtimeMeshUpdateContext& UpdateContext, const FRealtimeMeshStreamRange& InRange)
+	bool FRealtimeMeshSection::UpdateStreamRange(FRealtimeMeshUpdateContext& UpdateContext, const FRealtimeMeshStreamRange& InRange)
 	{
+		if (StreamRange == InRange)
+		{
+			return false;
+		}
+
 		StreamRange = InRange;
 
 		if (auto ProxyBuilder = UpdateContext.GetProxyBuilder())
@@ -106,6 +114,7 @@ namespace RealtimeMesh
 
 		UpdateContext.GetState().StreamRangeDirtyTree.Flag(Key);
 		MarkBoundsDirtyIfNotOverridden(UpdateContext);
+		return true;
 	}
 
 	void FRealtimeMeshSection::SetVisibility(FRealtimeMeshUpdateContext& UpdateContext, bool bIsVisible)

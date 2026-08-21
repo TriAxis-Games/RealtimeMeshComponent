@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2015-2025 TriAxis Games, L.L.C. All Rights Reserved.
+﻿// Copyright (c) 2015-2026 TriAxis Games, L.L.C. All Rights Reserved.
 
 #pragma once
 
@@ -34,26 +34,37 @@ public:
 
 
 	UFUNCTION(BlueprintPure, Category = "RealtimeMesh|Key")
-	static FRealtimeMeshSectionGroupKey MakeSectionGroupKeyUnique(const FRealtimeMeshLODKey& LODKey);
+	static FRealtimeMeshBufferSetKey MakeBufferSetKeyUnique(const FRealtimeMeshLODKey& LODKey);
 
 	UFUNCTION(BlueprintPure, Category = "RealtimeMesh|Key")
-	static FRealtimeMeshSectionGroupKey MakeSectionGroupKeyIndexed(const FRealtimeMeshLODKey& LODKey, int32 SectionGroupIndex);
+	static FRealtimeMeshBufferSetKey MakeBufferSetKeyIndexed(const FRealtimeMeshLODKey& LODKey, int32 BufferSetIndex);
 
 	UFUNCTION(BlueprintPure, Category = "RealtimeMesh|Key")
-	static FRealtimeMeshSectionGroupKey MakeSectionGroupKeyNamed(const FRealtimeMeshLODKey& LODKey, FName GroupName);
+	static FRealtimeMeshBufferSetKey MakeBufferSetKeyNamed(const FRealtimeMeshLODKey& LODKey, FName GroupName);
+
+	// --- Deprecated SectionGroup-terminology aliases (use the MakeBufferSetKey* forms) ---
+
+	UFUNCTION(BlueprintPure, Category = "RealtimeMesh|Key", meta = (DeprecatedFunction, DeprecationMessage = "Use MakeBufferSetKeyUnique"))
+	static FRealtimeMeshBufferSetKey MakeSectionGroupKeyUnique(const FRealtimeMeshLODKey& LODKey);
+
+	UFUNCTION(BlueprintPure, Category = "RealtimeMesh|Key", meta = (DeprecatedFunction, DeprecationMessage = "Use MakeBufferSetKeyIndexed"))
+	static FRealtimeMeshBufferSetKey MakeSectionGroupKeyIndexed(const FRealtimeMeshLODKey& LODKey, int32 SectionGroupIndex);
+
+	UFUNCTION(BlueprintPure, Category = "RealtimeMesh|Key", meta = (DeprecatedFunction, DeprecationMessage = "Use MakeBufferSetKeyNamed"))
+	static FRealtimeMeshBufferSetKey MakeSectionGroupKeyNamed(const FRealtimeMeshLODKey& LODKey, FName GroupName);
 
 
 	UFUNCTION(BlueprintPure, Category = "RealtimeMesh|Key")
-	static FRealtimeMeshSectionKey MakeSectionKeyUnique(const FRealtimeMeshSectionGroupKey& SectionGroupKey);
+	static FRealtimeMeshSectionKey MakeSectionKeyUnique(const FRealtimeMeshBufferSetKey& SectionGroupKey);
 
 	UFUNCTION(BlueprintPure, Category = "RealtimeMesh|Key")
-	static FRealtimeMeshSectionKey MakeSectionKeyIndexed(const FRealtimeMeshSectionGroupKey& SectionGroupKey, int32 SectionIndex);
+	static FRealtimeMeshSectionKey MakeSectionKeyIndexed(const FRealtimeMeshBufferSetKey& SectionGroupKey, int32 SectionIndex);
 
 	UFUNCTION(BlueprintPure, Category = "RealtimeMesh|Key")
-	static FRealtimeMeshSectionKey MakeSectionKeyNamed(const FRealtimeMeshSectionGroupKey& SectionGroupKey, FName SectionName);
+	static FRealtimeMeshSectionKey MakeSectionKeyNamed(const FRealtimeMeshBufferSetKey& SectionGroupKey, FName SectionName);
 
 	UFUNCTION(BlueprintPure, Category = "RealtimeMesh|Stream")
-	static FRealtimeMeshSectionKey MakeSectionKeyForPolygonGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey, int32 PolygonGroup);
+	static FRealtimeMeshSectionKey MakeSectionKeyForPolygonGroup(const FRealtimeMeshBufferSetKey& SectionGroupKey, int32 PolygonGroup);
 
 	
 	UFUNCTION(BlueprintPure, Category = "RealtimeMesh|Key")

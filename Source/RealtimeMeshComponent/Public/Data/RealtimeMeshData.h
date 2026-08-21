@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2015-2025 TriAxis Games, L.L.C. All Rights Reserved.
+﻿// Copyright (c) 2015-2026 TriAxis Games, L.L.C. All Rights Reserved.
 
 #pragma once
 
@@ -6,6 +6,7 @@
 #include "RealtimeMeshLOD.h"
 #include "RealtimeMeshCollisionLibrary.h"
 #include "RealtimeMeshUpdateBuilder.h"
+#include "RenderProxy/RealtimeMeshProxyCommandBatch.h"
 #include "Data/RealtimeMeshShared.h"
 #include "Async/Async.h"
 #include "Core/RealtimeMeshConfig.h"
@@ -27,25 +28,31 @@ namespace RealtimeMesh
 	class REALTIMEMESHCOMPONENT_API FRealtimeMesh : public TSharedFromThis<FRealtimeMesh>//, public FGCObject
 	{
 	protected:
-		const FRealtimeMeshSharedResourcesRef SharedResources;
+		const FRealtimeMeshContextRef Context;
+
+		// Latest-published render-thread proxy version. Replaced wholesale on
+		// every Commit; older versions stay alive while scene proxies pin them.
+		// Guarded by RenderProxyLock for cross-thread (GT/RT) access.
 		mutable FRealtimeMeshProxyPtr RenderProxy;
+		mutable FCriticalSection RenderProxyLock;
+
 		TFixedLODArray<FRealtimeMeshLODRef> LODs;
 		FRealtimeMeshConfig Config;
 		FRealtimeMeshBounds Bounds;
 
 
-		
+
 		/* Counter for generating version identifier for collision updates */
 		FThreadSafeCounter CollisionUpdateVersionCounter;
 	public:
-		FRealtimeMesh(const FRealtimeMeshSharedResourcesRef& InSharedResources);
+		FRealtimeMesh(const FRealtimeMeshContextRef& InContext);
 		virtual ~FRealtimeMesh();
 
-		const FRealtimeMeshSharedResourcesRef& GetSharedResources() const { return SharedResources; }
+		const FRealtimeMeshContextRef& GetContext() const { return Context; }
 
 		int32 GetNumLODs(const FRealtimeMeshLockContext& LockContext) const;
 
-		virtual TOptional<FBoxSphereBounds3f> GetLocalBounds(const FRealtimeMeshLockContext& LockContext) const;
+		TOptional<FBoxSphereBounds3f> GetLocalBounds(const FRealtimeMeshLockContext& LockContext) const;
 
 		FRealtimeMeshLODPtr GetLOD(const FRealtimeMeshLockContext& LockContext, FRealtimeMeshLODKey LODKey) const;
 
@@ -58,7 +65,9 @@ namespace RealtimeMesh
 		template<typename LODType, typename FuncType>
 		void ProcessLODsAs(const FRealtimeMeshLockContext& LockContext, FuncType ProcessFunc) const
 		{
-			FRealtimeMeshScopeGuardRead ScopeGuard(SharedResources);
+			// The LockContext parameter's contract is that the guard is already held, so this
+			// only asserts it (debug builds) rather than re-acquiring the recursive lock.
+			FRealtimeMeshScopeGuardReadCheck LockCheck(Context);
 			for (TSharedPtr<const FRealtimeMeshLOD> LOD : LODs)
 			{
 				::Invoke(ProcessFunc, *StaticCastSharedPtr<const LODType>(LOD));
@@ -68,7 +77,7 @@ namespace RealtimeMesh
 		template<typename FuncType>
 		void ProcessLODs(const FRealtimeMeshLockContext& LockContext, FuncType ProcessFunc) const
 		{
-			FRealtimeMeshScopeGuardRead ScopeGuard(SharedResources);
+			FRealtimeMeshScopeGuardReadCheck LockCheck(Context);
 			for (TSharedPtr<const FRealtimeMeshLOD> LOD : LODs)
 			{
 				::Invoke(ProcessFunc, *LOD);
@@ -78,10 +87,10 @@ namespace RealtimeMesh
 
 
 		
-		FRealtimeMeshSectionGroupPtr GetSectionGroup(const FRealtimeMeshLockContext& LockContext, FRealtimeMeshSectionGroupKey SectionGroupKey) const;
+		FRealtimeMeshSectionGroupPtr GetSectionGroup(const FRealtimeMeshLockContext& LockContext, FRealtimeMeshBufferSetKey SectionGroupKey) const;
 		
 		template <typename SectionGroupType>
-		TSharedPtr<SectionGroupType> GetSectionGroupAs(const FRealtimeMeshLockContext& LockContext, const FRealtimeMeshSectionGroupKey& SectionGroupKey) const
+		TSharedPtr<SectionGroupType> GetSectionGroupAs(const FRealtimeMeshLockContext& LockContext, const FRealtimeMeshBufferSetKey& SectionGroupKey) const
 		{
 			return StaticCastSharedPtr<SectionGroupType>(GetSectionGroup(LockContext, SectionGroupKey));
 		}
@@ -92,9 +101,18 @@ namespace RealtimeMesh
 			return StaticCastSharedPtr<SectionType>(GetSection(LockContext, SectionKey));
 		}
 
-		auto InitializeLODs(FRealtimeMeshUpdateContext& UpdateContext, const TFixedLODArray<FRealtimeMeshLODConfig>& InLODConfigs) -> void;
-		virtual void AddLOD(FRealtimeMeshUpdateContext& UpdateContext, const FRealtimeMeshLODConfig& LODConfig, FRealtimeMeshLODKey* OutLODKey = nullptr);
-		virtual void RemoveTrailingLOD(FRealtimeMeshUpdateContext& UpdateContext, FRealtimeMeshLODKey* OutNewLastLODKey = nullptr);
+		void InitializeLODs(FRealtimeMeshUpdateContext& UpdateContext, const TFixedLODArray<FRealtimeMeshLODConfig>& InLODConfigs);
+		void AddLOD(FRealtimeMeshUpdateContext& UpdateContext, const FRealtimeMeshLODConfig& LODConfig, FRealtimeMeshLODKey* OutLODKey = nullptr);
+		void RemoveTrailingLOD(FRealtimeMeshUpdateContext& UpdateContext, FRealtimeMeshLODKey* OutNewLastLODKey = nullptr);
+
+
+		// Type-tier factories. Leaves override to return their concrete types.
+		// Callers reach these via the mesh weak-pin in Context (cold path —
+		// only invoked when a new Section/SectionGroup/LOD is added).
+		virtual FRealtimeMeshSectionRef     CreateSection(const FRealtimeMeshSectionKey& InKey) const;
+		virtual FRealtimeMeshSectionGroupRef CreateSectionGroup(const FRealtimeMeshBufferSetKey& InKey) const;
+		virtual FRealtimeMeshLODRef         CreateLOD(const FRealtimeMeshLODKey& InKey) const;
+		virtual FRealtimeMeshUpdateStateRef CreateUpdateState() const;
 
 		
 		virtual void SetNaniteResources(FRealtimeMeshUpdateContext& UpdateContext, FRealtimeMeshNaniteResourcesPtr&& InNaniteResources);
@@ -177,12 +195,43 @@ namespace RealtimeMesh
 
 	
 		
-		virtual void Reset(FRealtimeMeshUpdateContext& UpdateContext, bool bRemoveRenderProxy = false);
+		// Named ResetInternal, not Reset, to avoid name-hiding against
+		// URealtimeMesh::Reset() (the UObject-layer no-arg UFUNCTION). Subclasses
+		// override this directly; the UObject-layer Reset is wired up separately.
+		virtual void ResetInternal(FRealtimeMeshUpdateContext& UpdateContext, bool bRemoveRenderProxy);
 
 		virtual bool Serialize(FArchive& Ar, URealtimeMesh* Owner);
 
 		bool HasRenderProxy(const FRealtimeMeshLockContext& LockContext) const;
 		FRealtimeMeshProxyPtr GetRenderProxy(bool bCreateIfNotExists = false) const;
+
+		/**
+		 * Render-thread: apply a batch of tasks to a draft cloned from the latest
+		 * published proxy, finalize it (UpdatedCachedState), and atomically swap
+		 * it in as the new latest. Old versions stay alive while scene proxies
+		 * pin them.
+		 *
+		 * Called by FRealtimeMeshProxyUpdateBuilder::Commit via
+		 * ENQUEUE_RENDER_COMMAND. Returns false if there is no published proxy to
+		 * clone from (i.e. proxy never bootstrapped) — caller should treat as
+		 * NoProxy.
+		 */
+		bool ApplyAndPublish_RenderThread(
+			FRHICommandListBase& RHICmdList,
+			TArray<FRealtimeMeshProxyUpdateBuilder::TaskFunctionType>& InTasks);
+
+		/**
+		 * Render-thread fast path for batches consisting solely of in-place stream updates
+		 * (see FRealtimeMeshInPlaceStreamUpdate). If every target buffer set's proxy node is
+		 * uniquely owned, the GPU buffer contents are overwritten in place on the CURRENT
+		 * published version — no clone, no new version, no vertex-factory reinit. If any
+		 * target is shared with a live snapshot (or is no longer eligible, e.g. its element
+		 * count changed), it falls back to a normal clone + reallocating update + publish so
+		 * the result is still correct. Returns which of those happened.
+		 */
+		ERealtimeMeshInPlaceApplyResult ApplyInPlace_RenderThread(
+			FRHICommandListBase& RHICmdList,
+			TArray<FRealtimeMeshInPlaceStreamUpdate>& InUpdates);
 
 		virtual void InitializeProxy(FRealtimeMeshUpdateContext& UpdateContext) const;
 
@@ -199,7 +248,6 @@ namespace RealtimeMesh
 
 		void MarkForEndOfFrameUpdate() const;
 		void MarkBoundsDirtyIfNotOverridden(FRealtimeMeshUpdateContext& UpdateContext);
-		virtual bool ShouldRecreateProxyOnChange(const FRealtimeMeshLockContext& LockContext) { return true; }
 
 		friend class URealtimeMesh;
 	};

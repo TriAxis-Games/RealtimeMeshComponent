@@ -1,4 +1,4 @@
-// Copyright (c) 2015-2025 TriAxis Games, L.L.C. All Rights Reserved.
+// Copyright (c) 2015-2026 TriAxis Games, L.L.C. All Rights Reserved.
 
 #pragma once
 
@@ -20,14 +20,55 @@ private:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Replicated, Category = RealtimeMesh, Meta = (AllowPrivateAccess = "true", DisplayName = "RealtimeMesh", ReplicatedUsing="OnRep_RealtimeMesh"))
 	TObjectPtr<URealtimeMesh> RealtimeMesh;
 
+	/**
+	 * Allow this component's managed mesh geometry to auto-replicate server->clients when an
+	 * optional mesh-sync layer (RealtimeMeshNetSync + the UnrealNet plugin) is available. Inert
+	 * when that layer is absent: this flag only gates whether the component is offered to it.
+	 * Effective only when the owner actor replicates and the mesh is a URealtimeMeshManaged type.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "RealtimeMesh|Replication", Meta = (AllowPrivateAccess = "true"))
+	bool bReplicateMeshData = true;
+
 public:
+	DECLARE_MULTICAST_DELEGATE_TwoParams(FRealtimeMeshComponentSyncCandidateEvent, URealtimeMeshComponent*, bool /*bCandidate*/);
+
+	/**
+	 * Fires when a component becomes (bCandidate=true) or stops being (false) a potential
+	 * mesh-sync candidate: register/unregister, mesh assignment changes, and
+	 * SetReplicateMeshData. Subscribers (the optional net-sync module) evaluate their own
+	 * activation gates; the core module has no subscribers of its own. Game thread only.
+	 */
+	static FRealtimeMeshComponentSyncCandidateEvent& OnMeshSyncCandidateChanged();
+
+	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMeshComponent")
+	bool ShouldReplicateMeshData() const { return bReplicateMeshData; }
+
+	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMeshComponent")
+	void SetReplicateMeshData(bool bNewReplicateMeshData);
+
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "RealtimeMesh")
 	bool KeepMomentumOnCollisionUpdate = false;
+
+	/**
+	 * If true (default), each collision update refreshes the navigation system for this component.
+	 * Disable for frequently-updated deformable collision meshes to avoid continuous navmesh tile
+	 * rebuilds. The navigation update is also skipped automatically when CanEverAffectNavigation()
+	 * is false regardless of this flag.
+	 */
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "RealtimeMesh")
+	bool bUpdateNavigationOnCollisionUpdate = true;
 
 private:
 	FDelegateHandle BoundsChangedHandle;
 	FDelegateHandle RenderDataChangedHandle;
 	FDelegateHandle CollisionBodyUpdatedHandle;
+
+	// Cached mesh-space local bounds. CalcBounds is called every UpdateBounds (per movement/physics
+	// tick) and otherwise takes the whole-mesh read lock via URealtimeMesh::GetLocalBounds. The cache
+	// is refreshed lazily and invalidated whenever the mesh's bounds actually change (OnBoundsChanged)
+	// or the mesh is swapped, so the read lock is only taken when the bounds genuinely change.
+	mutable FBoxSphereBounds CachedLocalBounds = FBoxSphereBounds(FSphere(FVector::ZeroVector, 1));
+	mutable bool bCachedLocalBoundsValid = false;
 
 public:
 
@@ -45,7 +86,7 @@ public:
 		return CastChecked<MeshType>(InitializeRealtimeMesh(MeshClass));
 	}
 
-	/** Clears the geometry for ALL collision only sections */
+	/** Returns the RealtimeMesh associated with this component, or nullptr if none is set. */
 	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMeshComponent")
 	URealtimeMesh* GetRealtimeMesh() const
 	{
@@ -70,9 +111,11 @@ public:
 	void OnRep_RealtimeMesh(class URealtimeMesh *OldRealtimeMesh);
 
 public:
-	void GetStreamingRenderAssetInfo(FStreamingTextureLevelContext& LevelContext, TArray<FStreamingRenderAssetPrimitiveInfo>& OutStreamingRenderAssets) const
+	void GetStreamingRenderAssetInfo(FStreamingTextureLevelContext& LevelContext, TArray<FStreamingRenderAssetPrimitiveInfo>& OutStreamingRenderAssets) const override
 	{
-		//@TODO: Need to support this for proper texture streaming
+		// NOTE (IDIOM-008): RealtimeMesh does not register per-asset texture-streaming
+		// info; it defers to the base PrimitiveComponent implementation. Proper texture
+		// streaming would populate OutStreamingRenderAssets from the mesh's materials here.
 		return Super::GetStreamingRenderAssetInfo(LevelContext, OutStreamingRenderAssets);
 	}
 
@@ -93,8 +136,6 @@ public:
 	//~ Begin UPrimitiveComponent Interface.
 	virtual FPrimitiveSceneProxy* CreateSceneProxy() override;
 	virtual class UBodySetup* GetBodySetup() override;
-	
-	virtual bool UseNaniteOverrideMaterials() const override;
 	//~ End UPrimitiveComponent Interface.
 public:
 	//~ Begin UMeshComponent Interface
@@ -108,9 +149,7 @@ public:
 	//~ Being UPrimitiveComponent Interface
 	virtual int32 GetNumMaterials() const override;
 	virtual UMaterialInterface* GetMaterial(int32 ElementIndex) const override;
-#if RMC_ENGINE_ABOVE_5_4
 	virtual void CollectPSOPrecacheData(const FPSOPrecacheParams& BasePrecachePSOParams, FMaterialInterfacePSOPrecacheParamsList& OutParams) override;
-#endif
 	//~ End UPrimitiveComponent Interface
 
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;

@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2015-2025 TriAxis Games, L.L.C. All Rights Reserved.
+﻿// Copyright (c) 2015-2026 TriAxis Games, L.L.C. All Rights Reserved.
 
 #pragma once
 
@@ -68,7 +68,7 @@ namespace RealtimeMesh
 	{
 	public:
 		UE_NODISCARD_CTOR explicit FRealtimeMeshScopeGuardRead(FRealtimeMeshGuard& InGuard, bool bLockImmediately = true);
-		UE_NODISCARD_CTOR explicit FRealtimeMeshScopeGuardRead(const FRealtimeMeshSharedResourcesRef& InSharedResources, bool bLockImmediately = true);
+		UE_NODISCARD_CTOR explicit FRealtimeMeshScopeGuardRead(const FRealtimeMeshContextRef& InContext, bool bLockImmediately = true);
 		UE_NODISCARD_CTOR explicit FRealtimeMeshScopeGuardRead(const FRealtimeMeshPtr& InMesh, bool bLockImmediately = true);
 
 		void Lock()
@@ -105,7 +105,7 @@ namespace RealtimeMesh
 	{
 	public:
 		UE_NODISCARD_CTOR explicit FRealtimeMeshScopeGuardWrite(FRealtimeMeshGuard& InGuard, bool bLockImmediately = true);
-		UE_NODISCARD_CTOR explicit FRealtimeMeshScopeGuardWrite(const FRealtimeMeshSharedResourcesRef& InSharedResources, bool bLockImmediately = true);
+		UE_NODISCARD_CTOR explicit FRealtimeMeshScopeGuardWrite(const FRealtimeMeshContextRef& InContext, bool bLockImmediately = true);
 		UE_NODISCARD_CTOR explicit FRealtimeMeshScopeGuardWrite(const FRealtimeMeshPtr& InMesh, bool bLockImmediately = true);
 
 		void Lock()
@@ -137,66 +137,6 @@ namespace RealtimeMesh
 		UE_NONCOPYABLE(FRealtimeMeshScopeGuardWrite);
 	};
 
-	enum class ERealtimeMeshGuardLockType
-	{
-		Unlocked,
-		Read,
-		Write
-	};
-
-	struct REALTIMEMESHCOMPONENT_API FRealtimeMeshScopeGuardReadWrite
-	{
-	public:
-		UE_NODISCARD_CTOR explicit FRealtimeMeshScopeGuardReadWrite(FRealtimeMeshGuard& InGuard, ERealtimeMeshGuardLockType InLockType)
-			: Guard(InGuard)
-			  , LockType(ERealtimeMeshGuardLockType::Unlocked)
-		{
-			Lock(InLockType);
-		}
-
-		void Lock(ERealtimeMeshGuardLockType InLockType)
-		{
-			check(LockType == ERealtimeMeshGuardLockType::Unlocked);
-			LockType = InLockType;
-			if (LockType == ERealtimeMeshGuardLockType::Write)
-			{
-				Guard.WriteLock();
-			}
-			else if (LockType == ERealtimeMeshGuardLockType::Read)
-			{
-				Guard.ReadLock();
-			}
-		}
-
-		void Unlock()
-		{
-			if (LockType == ERealtimeMeshGuardLockType::Write)
-			{
-				Guard.WriteUnlock();
-			}
-			else if (LockType == ERealtimeMeshGuardLockType::Read)
-			{
-				Guard.ReadUnlock();
-			}
-			LockType = ERealtimeMeshGuardLockType::Unlocked;
-		}
-
-		~FRealtimeMeshScopeGuardReadWrite()
-		{
-			Unlock();
-		}
-
-	private:
-		UE_NONCOPYABLE(FRealtimeMeshScopeGuardReadWrite);
-
-		FRealtimeMeshGuard& Guard;
-		ERealtimeMeshGuardLockType LockType;
-	};
-
-
-	
-	
-
 	struct REALTIMEMESHCOMPONENT_API FRealtimeMeshScopeGuardWriteCheck
 	{		
 		UE_NODISCARD_CTOR explicit FRealtimeMeshScopeGuardWriteCheck(FRealtimeMeshGuard& InGuard)
@@ -204,7 +144,7 @@ namespace RealtimeMesh
 		{
 			check(Guard.IsWriteLocked());
 		}
-		UE_NODISCARD_CTOR explicit FRealtimeMeshScopeGuardWriteCheck(const FRealtimeMeshSharedResourcesRef& SharedResources);
+		UE_NODISCARD_CTOR explicit FRealtimeMeshScopeGuardWriteCheck(const FRealtimeMeshContextRef& Context);
 
 		~FRealtimeMeshScopeGuardWriteCheck()
 		{
@@ -224,7 +164,7 @@ namespace RealtimeMesh
 		{
 			check(Guard.IsReadLocked());
 		}
-		UE_NODISCARD_CTOR explicit FRealtimeMeshScopeGuardReadCheck(const FRealtimeMeshSharedResourcesRef& SharedResources);
+		UE_NODISCARD_CTOR explicit FRealtimeMeshScopeGuardReadCheck(const FRealtimeMeshContextRef& Context);
 
 		~FRealtimeMeshScopeGuardReadCheck()
 		{

@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2015-2025 TriAxis Games, L.L.C. All Rights Reserved.
+﻿// Copyright (c) 2015-2026 TriAxis Games, L.L.C. All Rights Reserved.
 
 #include "RealtimeMeshLibrary.h"
 #include "RealtimeMeshSimple.h"
@@ -16,37 +16,52 @@ FRealtimeMeshLODKey URealtimeMeshBlueprintFunctionLibrary::MakeLODKey(int32 LODI
 	return FRealtimeMeshLODKey(LODIndex);
 }
 
-FRealtimeMeshSectionGroupKey URealtimeMeshBlueprintFunctionLibrary::MakeSectionGroupKeyUnique(const FRealtimeMeshLODKey& LODKey)
+FRealtimeMeshBufferSetKey URealtimeMeshBlueprintFunctionLibrary::MakeBufferSetKeyUnique(const FRealtimeMeshLODKey& LODKey)
 {
-	return FRealtimeMeshSectionGroupKey::CreateUnique(LODKey);
+	return FRealtimeMeshBufferSetKey::CreateUnique(LODKey);
 }
 
-FRealtimeMeshSectionGroupKey URealtimeMeshBlueprintFunctionLibrary::MakeSectionGroupKeyIndexed(const FRealtimeMeshLODKey& LODKey, int32 SectionGroupIndex)
+FRealtimeMeshBufferSetKey URealtimeMeshBlueprintFunctionLibrary::MakeBufferSetKeyIndexed(const FRealtimeMeshLODKey& LODKey, int32 BufferSetIndex)
 {
-	return FRealtimeMeshSectionGroupKey::Create(LODKey, SectionGroupIndex);
+	return FRealtimeMeshBufferSetKey::Create(LODKey, BufferSetIndex);
 }
 
-FRealtimeMeshSectionGroupKey URealtimeMeshBlueprintFunctionLibrary::MakeSectionGroupKeyNamed(const FRealtimeMeshLODKey& LODKey, FName GroupName)
+FRealtimeMeshBufferSetKey URealtimeMeshBlueprintFunctionLibrary::MakeBufferSetKeyNamed(const FRealtimeMeshLODKey& LODKey, FName GroupName)
 {
-	return FRealtimeMeshSectionGroupKey::Create(LODKey, GroupName);
+	return FRealtimeMeshBufferSetKey::Create(LODKey, GroupName);
 }
 
-FRealtimeMeshSectionKey URealtimeMeshBlueprintFunctionLibrary::MakeSectionKeyUnique(const FRealtimeMeshSectionGroupKey& SectionGroupKey)
+FRealtimeMeshBufferSetKey URealtimeMeshBlueprintFunctionLibrary::MakeSectionGroupKeyUnique(const FRealtimeMeshLODKey& LODKey)
+{
+	return MakeBufferSetKeyUnique(LODKey);
+}
+
+FRealtimeMeshBufferSetKey URealtimeMeshBlueprintFunctionLibrary::MakeSectionGroupKeyIndexed(const FRealtimeMeshLODKey& LODKey, int32 SectionGroupIndex)
+{
+	return MakeBufferSetKeyIndexed(LODKey, SectionGroupIndex);
+}
+
+FRealtimeMeshBufferSetKey URealtimeMeshBlueprintFunctionLibrary::MakeSectionGroupKeyNamed(const FRealtimeMeshLODKey& LODKey, FName GroupName)
+{
+	return MakeBufferSetKeyNamed(LODKey, GroupName);
+}
+
+FRealtimeMeshSectionKey URealtimeMeshBlueprintFunctionLibrary::MakeSectionKeyUnique(const FRealtimeMeshBufferSetKey& SectionGroupKey)
 {
 	return FRealtimeMeshSectionKey::CreateUnique(SectionGroupKey);
 }
 
-FRealtimeMeshSectionKey URealtimeMeshBlueprintFunctionLibrary::MakeSectionKeyIndexed(const FRealtimeMeshSectionGroupKey& SectionGroupKey, int32 SectionIndex)
+FRealtimeMeshSectionKey URealtimeMeshBlueprintFunctionLibrary::MakeSectionKeyIndexed(const FRealtimeMeshBufferSetKey& SectionGroupKey, int32 SectionIndex)
 {
 	return FRealtimeMeshSectionKey::Create(SectionGroupKey, SectionIndex);
 }
 
-FRealtimeMeshSectionKey URealtimeMeshBlueprintFunctionLibrary::MakeSectionKeyNamed(const FRealtimeMeshSectionGroupKey& SectionGroupKey, FName SectionName)
+FRealtimeMeshSectionKey URealtimeMeshBlueprintFunctionLibrary::MakeSectionKeyNamed(const FRealtimeMeshBufferSetKey& SectionGroupKey, FName SectionName)
 {
 	return FRealtimeMeshSectionKey::Create(SectionGroupKey, SectionName);
 }
 
-FRealtimeMeshSectionKey URealtimeMeshBlueprintFunctionLibrary::MakeSectionKeyForPolygonGroup(const FRealtimeMeshSectionGroupKey& SectionGroupKey, int32 PolygonGroup)
+FRealtimeMeshSectionKey URealtimeMeshBlueprintFunctionLibrary::MakeSectionKeyForPolygonGroup(const FRealtimeMeshBufferSetKey& SectionGroupKey, int32 PolygonGroup)
 {
 	return FRealtimeMeshSectionKey::CreateForPolyGroup(SectionGroupKey, PolygonGroup);
 }

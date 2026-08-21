@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2015-2025 TriAxis Games, L.L.C. All Rights Reserved.
+// Copyright (c) 2015-2026 TriAxis Games, L.L.C. All Rights Reserved.
 
 
 #include "RealtimeMeshSceneViewExtension.h"
@@ -6,18 +6,8 @@
 #include "RealtimeMeshComponentModule.h"
 #include "RenderGraphBuilder.h"
 #include "RenderProxy/RealtimeMeshProxy.h"
-
-TSet<RealtimeMesh::FRealtimeMeshProxyWeakPtr> FRealtimeMeshSceneViewExtension::ActiveProxies;
-
-void FRealtimeMeshSceneViewExtension::RegisterProxy(const RealtimeMesh::FRealtimeMeshProxyPtr& Proxy)
-{
-	ActiveProxies.Add(Proxy);
-}
-
-void FRealtimeMeshSceneViewExtension::UnregisterProxy(const RealtimeMesh::FRealtimeMeshProxyPtr& Proxy)
-{
-	ActiveProxies.Remove(Proxy);
-}
+#include "RealtimeMeshRenderHooks.h"
+#include "SceneView.h"
 
 void FRealtimeMeshSceneViewExtension::SetupViewFamily(FSceneViewFamily& InViewFamily)
 {
@@ -33,21 +23,17 @@ void FRealtimeMeshSceneViewExtension::BeginRenderViewFamily(FSceneViewFamily& In
 
 void FRealtimeMeshSceneViewExtension::PreRenderViewFamily_RenderThread(FRDGBuilder& GraphBuilder, FSceneViewFamily& InViewFamily)
 {
-	for (auto It = ActiveProxies.CreateIterator(); It; ++It)
+	// Broadcast the pre-render extension point inside this frame's RDG graph, before the base pass
+	// that consumes RMC geometry. External modules (e.g. RealtimeMeshCompute's provider driver)
+	// register hooks here to record RDG passes that write compute-writable mesh streams.
+	if (RealtimeMesh::OnRealtimeMeshPreRenderFrame().IsBound())
 	{
-		if (auto Pinned = It->Pin())
-		{
-			// We only process commands if there are no components using it, this allows syncing to
-			// the render thread, but without causing issues with existing components.
-			if (!Pinned->HasAnyReferencingComponents())
-			{
-				Pinned->ProcessCommands(GraphBuilder.RHICmdList);
-			}
-		}
-		else
-		{
-			It.RemoveCurrent();
-		}
+		RealtimeMesh::FRealtimeMeshRenderFrameInfo Frame;
+		Frame.TimeSeconds = static_cast<float>(InViewFamily.Time.GetWorldTimeSeconds());
+		Frame.DeltaSeconds = InViewFamily.Time.GetDeltaWorldTimeSeconds();
+		Frame.FrameNumber = InViewFamily.FrameNumber;
+		Frame.FrameCounter = static_cast<uint32>(InViewFamily.FrameCounter);
+		RealtimeMesh::OnRealtimeMeshPreRenderFrame().Broadcast(GraphBuilder, Frame);
 	}
 }
 

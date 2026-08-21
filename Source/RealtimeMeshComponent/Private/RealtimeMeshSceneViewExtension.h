@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2015-2025 TriAxis Games, L.L.C. All Rights Reserved.
+﻿// Copyright (c) 2015-2026 TriAxis Games, L.L.C. All Rights Reserved.
 
 #pragma once
 
@@ -13,12 +13,7 @@ class UWorld;
  */
 class FRealtimeMeshSceneViewExtension final : public FWorldSceneViewExtension
 {
-private:
-	static TSet<RealtimeMesh::FRealtimeMeshProxyWeakPtr> ActiveProxies;
 public:
-	static void RegisterProxy(const RealtimeMesh::FRealtimeMeshProxyPtr& Proxy);
-	static void UnregisterProxy(const RealtimeMesh::FRealtimeMeshProxyPtr& Proxy);
-
 	FRealtimeMeshSceneViewExtension(const FAutoRegister& AutoReg, UWorld* InWorld)
 		: FWorldSceneViewExtension(AutoReg, InWorld)
 	{

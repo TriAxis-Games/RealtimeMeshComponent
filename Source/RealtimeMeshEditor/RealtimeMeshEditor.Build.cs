@@ -1,5 +1,6 @@
-﻿// Copyright (c) 2015-2025 TriAxis Games, L.L.C. All Rights Reserved.
+﻿// Copyright (c) 2015-2026 TriAxis Games, L.L.C. All Rights Reserved.
 
+using System.IO;
 using UnrealBuildTool;
 
 public class RealtimeMeshEditor : ModuleRules
@@ -8,9 +9,7 @@ public class RealtimeMeshEditor : ModuleRules
     {
         PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
         //bUseUnity = false;
-#if UE_5_1_OR_LATER
         IncludeOrderVersion = EngineIncludeOrderVersion.Latest;
-#endif
 
         PublicDependencyModuleNames.AddRange(
             new string[]
@@ -25,12 +24,10 @@ public class RealtimeMeshEditor : ModuleRules
                 "CoreUObject",
                 "Engine",
                 "Slate",
-                "SlateCore", 
-                "RealtimeMeshComponent",
+                "SlateCore",
                 "UnrealEd",
                 "ToolMenus",
-                "Projects", 
-                "PluginWarden",
+                "Projects",
                 "RenderCore",
                 "RHI",
                 "PropertyEditor",
@@ -39,5 +36,6 @@ public class RealtimeMeshEditor : ModuleRules
                 "ContentBrowser",
             }
         );
+
     }
 }

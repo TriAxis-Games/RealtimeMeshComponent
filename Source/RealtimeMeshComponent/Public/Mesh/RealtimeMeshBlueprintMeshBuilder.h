@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2015-2025 TriAxis Games, L.L.C. All Rights Reserved.
+﻿// Copyright (c) 2015-2026 TriAxis Games, L.L.C. All Rights Reserved.
 
 #pragma once
 
@@ -6,6 +6,7 @@
 #include "Core/RealtimeMeshBuilder.h"
 #include "Core/RealtimeMeshDataStream.h"
 #include "Core/RealtimeMeshDataTypes.h"
+#include "Core/RealtimeMeshDynamicBuilder.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "RealtimeMeshBlueprintMeshBuilder.generated.h"
 
@@ -131,6 +132,7 @@ public:
 	void Reset()
 	{
 		Stream.Reset();
+		ClearAccessors();
 	}
 
 	UFUNCTION(BlueprintCallable, Category="RealtimeMesh|MeshData")
@@ -246,25 +248,16 @@ class REALTIMEMESHCOMPONENT_API URealtimeMeshLocalBuilder : public URealtimeMesh
 {
 	GENERATED_BODY()
 protected:
-	TUniquePtr<RealtimeMesh::TRealtimeMeshBuilderLocal<void, void, void, 1, void>> MeshBuilder;
-	TUniquePtr<RealtimeMesh::TRealtimeMeshStridedStreamBuilder<FVector2D, void>> UV1Builder;
-	TUniquePtr<RealtimeMesh::TRealtimeMeshStridedStreamBuilder<FVector2D, void>> UV2Builder;
-	TUniquePtr<RealtimeMesh::TRealtimeMeshStridedStreamBuilder<FVector2D, void>> UV3Builder;
-	virtual void EnsureInitialized() override;
+	// Single non-templated builder with native N-channel UV support.
+	TUniquePtr<RealtimeMesh::FRealtimeMeshDynamicBuilder> Builder;
 public:
 	URealtimeMeshLocalBuilder() = default;
 
 	void Initialize(TUniquePtr<RealtimeMesh::FRealtimeMeshStreamSet>&& InStreams,
-		TUniquePtr<RealtimeMesh::TRealtimeMeshBuilderLocal<void, void, void, 1, void>>&& InBuilder,
-		TUniquePtr<RealtimeMesh::TRealtimeMeshStridedStreamBuilder<FVector2D, void>>&& InUV1Builder,
-		TUniquePtr<RealtimeMesh::TRealtimeMeshStridedStreamBuilder<FVector2D, void>>&& InUV2Builder,
-		TUniquePtr<RealtimeMesh::TRealtimeMeshStridedStreamBuilder<FVector2D, void>>&& InUV3Builder)
+		TUniquePtr<RealtimeMesh::FRealtimeMeshDynamicBuilder>&& InBuilder)
 	{
 		Streams = MakeShared<RealtimeMesh::FRealtimeMeshStreamSet>(MoveTemp(*InStreams));
-		MeshBuilder = MoveTemp(InBuilder);
-		UV1Builder = MoveTemp(InUV1Builder);
-		UV2Builder = MoveTemp(InUV2Builder);
-		UV3Builder = MoveTemp(InUV3Builder);
+		Builder = MoveTemp(InBuilder);
 	}
 	
 	UFUNCTION(BlueprintCallable, Category="RealtimeMesh|MeshData")
@@ -275,7 +268,6 @@ public:
 		bool bWantsColors = true, int32 WantedTexCoordChannels = 1, bool bKeepExistingData = true);
 	
 
-	virtual void AddStream(URealtimeMeshStream* Stream) override;
 	virtual void RemoveStream(const FRealtimeMeshStreamKey& StreamKey) override;
 	virtual void Reset() override;
 

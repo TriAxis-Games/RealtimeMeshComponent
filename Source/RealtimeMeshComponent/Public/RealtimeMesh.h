@@ -1,4 +1,4 @@
-// Copyright (c) 2015-2025 TriAxis Games, L.L.C. All Rights Reserved.
+// Copyright (c) 2015-2026 TriAxis Games, L.L.C. All Rights Reserved.
 
 #pragma once
 
@@ -39,11 +39,11 @@ protected:
 
 	void DispatchToGameThread(TUniqueFunction<void(URealtimeMesh*)>&& Func);
 
-	void Initialize(const TSharedRef<RealtimeMesh::FRealtimeMeshSharedResources>& InSharedResources);
+	void Initialize(const TSharedRef<RealtimeMesh::FRealtimeMeshContext>& InContext,
+	                const RealtimeMesh::FRealtimeMeshRef& InMesh);
 
 protected:
-	// Class factory to use to create all the 
-	RealtimeMesh::FRealtimeMeshSharedResourcesPtr SharedResources;
+	RealtimeMesh::FRealtimeMeshContextPtr Context;
 	RealtimeMesh::FRealtimeMeshPtr MeshRef;
 
 	UPROPERTY()
@@ -56,39 +56,15 @@ protected:
 	TObjectPtr<UBodySetup> BodySetup;
 	TArray<FRealtimeMeshCollisionMeshCookedUVData> UVData;
 
-	/* Collision data that is pending async cook */
-	//UPROPERTY(Transient)
-	//TObjectPtr<UBodySetup> PendingBodySetup;
-
-	/* Collision data to cook for any pending async cook */
-	//TOptional<FRealtimeMeshCollisionUpdate> PendingCollisionUpdate;
-
-
 	/* Currently applied collision version, used for ignoring old cooks in async */
 	int32 CurrentCollisionVersion;
 
-	/* Should we serialize the mesh data when we're saving in editor/package */
-	uint32 bShouldSerializeMeshData : 1;
-
 public:
-	/**
-	 * @brief GetMesh returns the FRealtimeMesh data container.
-	 *
-	 * @details This method provides access to the RealtimeMesh object that is held by the current instance of the RealtimeMesh class.
-	 *
-	 * @return A shared reference to the RealtimeMesh object.
-	 */
+	/** The FRealtimeMesh data container backing this object. */
 	RealtimeMesh::FRealtimeMeshRef GetMesh() const { return MeshRef.ToSharedRef(); }
 
+	/** GetMesh() static-cast to a concrete FRealtimeMesh subclass. */
 	template <typename MeshType>
-	/**
-	 * @brief Get the mesh as a shared reference to a specific type.
-	 *
-	 * This method returns the mesh as a shared reference to a specific type by performing a static cast.
-	 *
-	 * @tparam MeshType The type of mesh to cast the mesh to.
-	 * @return A shared reference to the mesh as the specified type.
-	 */
 	TSharedRef<MeshType> GetMeshAs() const { return StaticCastSharedRef<MeshType>(MeshRef.ToSharedRef()); }
 
 	/**
@@ -108,9 +84,7 @@ public:
 
 
 	/**
-	 * Reset the RealtimeMesh.
-	 *
-	 * @param bCreateNewMeshData If true, create new mesh data. If false, reset the existing mesh data.
+	 * Reset the RealtimeMesh, clearing its geometry, material slots, collision and UV data.
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh")
 	virtual void Reset();
@@ -124,15 +98,10 @@ public:
 	virtual FBoxSphereBounds GetLocalBounds() const;
 
 	/**
-	 * @brief Triggered when a mesh generation event occurs.
+	 * Implement in Blueprint or a subclass to populate TargetMesh's geometry. Called when the
+	 * mesh is (re)generated.
 	 *
-	 * This method is called when a mesh is being generated for a RealtimeMesh component.
-	 * Developers can implement this method in their Blueprint or C++ code to customize the generation process.
-	 *
-	 * @param TargetMesh The RealtimeMesh component that is generating the mesh.
-	 *
-	 * @note This method is a BlueprintCallable and BlueprintImplementableEvent, meaning it can be called from Blueprint code and overridden in Blueprint subclasses.
-	 *       It is also categorized under "Components|RealtimeMesh|Events" in Blueprint.
+	 * @param TargetMesh The RealtimeMesh being generated.
 	 */
 	UFUNCTION(BlueprintCallable, BlueprintImplementableEvent, Category = "Components|RealtimeMesh|Events")
 	void OnGenerateMesh(URealtimeMesh* TargetMesh);
@@ -169,6 +138,23 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh")
 	void SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial = nullptr);
+
+	/**
+	 * Set the number of material slots for the Realtime Mesh.
+	 *
+	 * When NewNumSlots is less than the current count, the trailing slots are trimmed and any of
+	 * their names are removed from the slot-name lookup. When greater, the list is grown with empty
+	 * (unnamed/None) slots for symmetry.
+	 *
+	 * Note: any sections that still reference a material slot trimmed away by a shrink will render
+	 * with the engine default material (UMaterial::GetDefaultMaterial) rather than error out. This
+	 * graceful fallback is intentional, so shrinking the slot count below a live section's slot
+	 * index degrades that section's appearance instead of breaking rendering.
+	 *
+	 * @param NewNumSlots The desired number of material slots.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh")
+	void SetNumMaterialSlots(int32 NewNumSlots);
 
 	/**
 	 * Get the index of a material slot by its name.
@@ -238,28 +224,12 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh")
 	UMaterialInterface* GetMaterial(int32 SlotIndex) const;
 
-	/**
-	 * Should we serialize the mesh data while we're serializing in editor/package?
-	 * @return Whether we should serialize the mesh data.
-	 */
-	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh")
-	bool ShouldSerializeMeshData() const { return bShouldSerializeMeshData; }
-
-	/**
-	 * Set whether we should serialize the mesh data while we're serializing in editor/package.
-	 * @param bNewShouldSerializeMeshData New value for whether we should serialize the mesh data.
-	 */
-	UFUNCTION(BlueprintCallable, Category = "Components|RealtimeMesh")
-	void SetShouldSerializeMeshData(bool bNewShouldSerializeMeshData) { bShouldSerializeMeshData = bNewShouldSerializeMeshData; }
-
 public:
 	//	Begin UObject interface
-	virtual UWorld* GetWorld() const override;
 	virtual bool IsSupportedForNetworking() const override { return true; }
 	virtual void PostInitProperties() override;
 	virtual void BeginDestroy() override;
 	virtual void Serialize(FArchive& Ar) override;
-	virtual void PostDuplicate(bool bDuplicateForPIE) override;
 	//	End UObject interface
 
 protected:

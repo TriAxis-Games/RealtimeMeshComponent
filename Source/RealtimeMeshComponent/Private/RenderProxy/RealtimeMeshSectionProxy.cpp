@@ -1,21 +1,28 @@
-﻿// Copyright (c) 2015-2025 TriAxis Games, L.L.C. All Rights Reserved.
+﻿// Copyright (c) 2015-2026 TriAxis Games, L.L.C. All Rights Reserved.
 
 #include "RenderProxy/RealtimeMeshSectionProxy.h"
-#include "RenderProxy/RealtimeMeshSectionGroupProxy.h"
+#include "RenderProxy/RealtimeMeshBufferSetProxy.h"
 #include "RenderProxy/RealtimeMeshVertexFactory.h"
 
 namespace RealtimeMesh
 {
-	FRealtimeMeshSectionProxy::FRealtimeMeshSectionProxy(const FRealtimeMeshSharedResourcesRef& InSharedResources, const FRealtimeMeshSectionKey InKey)
-		: SharedResources(InSharedResources)
+	FRealtimeMeshSectionProxy::FRealtimeMeshSectionProxy(const FRealtimeMeshContextRef& InContext, const FRealtimeMeshSectionKey InKey)
+		: Context(InContext)
 		, Key(InKey)
+		, BufferSetIndex(INDEX_NONE)
 		, bRangeChanged(false)
+		, IndirectArgsOffset(0)
 	{
 	}
 
 	FRealtimeMeshSectionProxy::~FRealtimeMeshSectionProxy()
 	{
 		check(IsInRenderingThread());
+	}
+
+	TSharedRef<FRealtimeMeshSectionProxy> FRealtimeMeshSectionProxy::Clone() const
+	{
+		return MakeShared<FRealtimeMeshSectionProxy>(*this);
 	}
 
 	void FRealtimeMeshSectionProxy::UpdateConfig(const FRealtimeMeshSectionConfig& NewConfig)
@@ -46,12 +53,16 @@ namespace RealtimeMesh
 		//BatchElement.UserData = nullptr;
 		//BatchElement.VertexFactoryUserData = nullptr;
 
-		//BatchElement.IndirectArgsBuffer = nullptr;
-		//BatchElement.IndirectArgsOffset = 0;
+		// GPU-driven indirect draw: NumPrimitives==0 tells the engine to source the index count
+		// from IndirectArgsBuffer. The vertex/index range still bounds the draw to the allocated
+		// capacity (StreamRange), the args buffer just decides how much of it is drawn this frame.
+		const bool bIndirect = IndirectArgsBuffer.IsValid();
+		BatchElement.IndirectArgsBuffer = bIndirect ? IndirectArgsBuffer.GetReference() : nullptr;
+		BatchElement.IndirectArgsOffset = bIndirect ? IndirectArgsOffset : 0;
 
 		BatchElement.FirstIndex = StreamRange.GetMinIndex();
-		BatchElement.NumPrimitives = StreamRange.NumPrimitives(REALTIME_MESH_NUM_INDICES_PER_PRIMITIVE);
-		
+		BatchElement.NumPrimitives = bIndirect ? 0 : StreamRange.NumPrimitives(REALTIME_MESH_NUM_INDICES_PER_PRIMITIVE);
+
 		//BatchElement.NumInstances = 1;
 		//BatchElement.BaseVertexIndex = 0;
 		BatchElement.MinVertexIndex = StreamRange.GetMinVertex();
@@ -63,13 +74,13 @@ namespace RealtimeMesh
 		BatchElement.InstancedLODIndex = 0;
 		BatchElement.InstancedLODRange = 0;
 		BatchElement.bUserDataIsColorVertexBuffer = false;
+#if RMC_ENGINE_BELOW_5_8 // 5.8 removed FMeshBatchElement::bIsSplineProxy
 		BatchElement.bIsSplineProxy = false;
+#endif
 		BatchElement.bIsInstanceRuns = false;
 		BatchElement.bForceInstanceCulling = false;
 		BatchElement.bPreserveInstanceOrder = false;
-#if RMC_ENGINE_ABOVE_5_4
 		BatchElement.bFetchInstanceCountFromScene = false;
-#endif
 		
 #if UE_ENABLE_DEBUG_DRAWING
 		BatchElement.VisualizeElementIndex = INDEX_NONE;
@@ -82,25 +93,23 @@ namespace RealtimeMesh
 		return true;
 	}
 
-	void FRealtimeMeshSectionProxy::UpdateCachedState(FRealtimeMeshSectionGroupProxy& ParentGroup)
+	void FRealtimeMeshSectionProxy::UpdateCachedState(FRealtimeMeshBufferSetProxy& ParentGroup)
 	{
 		TRACE_CPUPROFILER_EVENT_SCOPE(FRealtimeMeshSectionProxy::UpdateCachedState);
 
 		bRangeChanged = false;
-		
-		// First evaluate whether we have valid mesh data to render			
+
 		bool bHasValidMeshData = StreamRange.NumPrimitives(REALTIME_MESH_NUM_INDICES_PER_PRIMITIVE) > 0 &&
 			StreamRange.NumVertices() >= REALTIME_MESH_NUM_INDICES_PER_PRIMITIVE;
 
 		if (bHasValidMeshData)
 		{
-			// Flip it here so if we don't get this series for whatever reason we're invalid after.
+			// The range must also be one the bound vertex factory can actually serve.
 			bHasValidMeshData = ParentGroup.GetVertexFactory().IsValid() && ParentGroup.GetVertexFactory()->IsValidStreamRange(StreamRange);
 		}
 
 		DrawMask = FRealtimeMeshDrawMask();
 
-		// Then build the draw mask if it is valid
 		if (bHasValidMeshData)
 		{
 			if (Config.bIsVisible)

@@ -1,4 +1,4 @@
-// Copyright (c) 2015-2025 TriAxis Games, L.L.C. All Rights Reserved.
+// Copyright (c) 2015-2026 TriAxis Games, L.L.C. All Rights Reserved.
 
 #include "RealtimeMesh.h"
 #include "RealtimeMeshComponent.h"
@@ -34,7 +34,6 @@ URealtimeMesh::URealtimeMesh(const FObjectInitializer& ObjectInitializer)
 	: UObject(ObjectInitializer)
 	, BodySetup(nullptr)
 	, CurrentCollisionVersion(0)
-	, bShouldSerializeMeshData(true)
 {
 
 }
@@ -76,33 +75,29 @@ void URealtimeMesh::BroadcastRenderDataChangedEvent(bool bShouldRecreateProxies)
 
 void URealtimeMesh::BroadcastCollisionBodyUpdatedEvent(UBodySetup* NewBodySetup)
 {
-	DispatchToGameThread([NewBodySetup](URealtimeMesh* Mesh)
+	TWeakObjectPtr<UBodySetup> WeakBodySetup(NewBodySetup);
+	DispatchToGameThread([WeakBodySetup](URealtimeMesh* Mesh)
 	{
-		Mesh->CollisionBodyUpdatedEvent.Broadcast(Mesh, NewBodySetup);
+		Mesh->CollisionBodyUpdatedEvent.Broadcast(Mesh, WeakBodySetup.Get());
 	});
 }
 
-void URealtimeMesh::Initialize(const TSharedRef<RealtimeMesh::FRealtimeMeshSharedResources>& InSharedResources)
+void URealtimeMesh::Initialize(const TSharedRef<RealtimeMesh::FRealtimeMeshContext>& InContext,
+                               const RealtimeMesh::FRealtimeMeshRef& InMesh)
 {
-	if (SharedResources)
+	if (Context)
 	{
-		SharedResources->OnRenderProxyRequiresUpdate().RemoveAll(this);
-		SharedResources->OnBoundsChanged().RemoveAll(this);
+		Context->OnRenderProxyRequiresUpdate().RemoveAll(this);
+		Context->OnBoundsChanged().RemoveAll(this);
 	}
 
-	SharedResources = InSharedResources;
+	Context = InContext;
 
-	SharedResources->OnRenderProxyRequiresUpdate().AddUObject(this, &URealtimeMesh::HandleRenderProxyRequiresUpdate);
-	SharedResources->OnBoundsChanged().AddUObject(this, &URealtimeMesh::HandleBoundsUpdated);
+	Context->OnRenderProxyRequiresUpdate().AddUObject(this, &URealtimeMesh::HandleRenderProxyRequiresUpdate);
+	Context->OnBoundsChanged().AddUObject(this, &URealtimeMesh::HandleBoundsUpdated);
 
-	/*SharedResources->OnMeshBoundsChanged().AddUObject(this, &URealtimeMesh::HandleBoundsUpdated);
-	SharedResources->OnMeshRenderDataChanged().AddUObject(this, &URealtimeMesh::HandleMeshRenderingDataChanged);
-
-	SharedResources->GetEndOfFrameRequestHandler() = RealtimeMesh::FRealtimeMeshRequestEndOfFrameUpdateDelegate::CreateUObject(this, &URealtimeMesh::MarkForEndOfFrameUpdate);
-	SharedResources->GetCollisionUpdateHandler() = RealtimeMesh::FRealtimeMeshCollisionUpdateDelegate::CreateUObject(this, &URealtimeMesh::InitiateCollisionUpdate);*/
-
-	MeshRef = SharedResources->CreateRealtimeMesh();
-	SharedResources->SetOwnerMesh(this, MeshRef.ToSharedRef());
+	MeshRef = InMesh;
+	Context->SetOwnerMesh(this, MeshRef.ToSharedRef());
 }
 
 bool URealtimeMesh::CalcTexCoordAtLocation(const FVector& BodySpaceLocation, int32 ElementIndex, int32 FaceIndex, int32 UVChannel, FVector2D& UV) const
@@ -127,10 +122,8 @@ bool URealtimeMesh::CalcTexCoordAtLocation(const FVector& BodySpaceLocation, int
 			FVector2D UV1 = FVector2D(UVInfo.TexCoords[UVChannel][Index1]);
 			FVector2D UV2 = FVector2D(UVInfo.TexCoords[UVChannel][Index2]);
 
-			// Transform hit location from world to local space.
-			// Find barycentric coords
+			// Blend the triangle's UVs by the hit's barycentric coordinates.
 			const FVector BaryCoords = FMath::ComputeBaryCentric2D(BodySpaceLocation, Pos0, Pos1, Pos2);
-			// Use to blend UVs
 			UV = (BaryCoords.X * UV0) + (BaryCoords.Y * UV1) + (BaryCoords.Z * UV2);
 
 			bSuccess = true;
@@ -145,7 +138,7 @@ void URealtimeMesh::Reset()
 	if (MeshRef.IsValid())
 	{
 		RealtimeMesh::FRealtimeMeshUpdateContext UpdateContext(GetMesh());
-		GetMesh()->Reset(UpdateContext);
+		GetMesh()->ResetInternal(UpdateContext, false);
 	
 		BroadcastBoundsChangedEvent();
 		//BroadcastRenderDataChangedEvent(true);
@@ -201,35 +194,82 @@ void URealtimeMesh::RemoveTrailingLOD()
 
 void URealtimeMesh::SetupMaterialSlot(int32 MaterialSlot, FName SlotName, UMaterialInterface* InMaterial)
 {
-	RealtimeMesh::FRealtimeMeshScopeGuardWrite ScopeGuard(SharedResources->GetGuard());
-	
-	// Does this slot already exist?
-	if (SlotNameLookup.Contains(SlotName))
 	{
-		// If the indices match then just go with it
-		if (SlotNameLookup[SlotName] == MaterialSlot)
+		RealtimeMesh::FRealtimeMeshScopeGuardWrite ScopeGuard(Context->GetGuard());
+
+		// Does this slot already exist?
+		if (SlotNameLookup.Contains(SlotName))
 		{
-			MaterialSlots[SlotNameLookup[SlotName]].Material = InMaterial;
+			// If the indices match then just go with it
+			if (SlotNameLookup[SlotName] == MaterialSlot)
+			{
+				MaterialSlots[SlotNameLookup[SlotName]].Material = InMaterial;
+			}
+			else
+			{
+				MaterialSlots[SlotNameLookup[SlotName]].SlotName = NAME_None;
+			}
+		}
+
+		if (!MaterialSlots.IsValidIndex(MaterialSlot))
+		{
+			MaterialSlots.SetNum(MaterialSlot + 1);
 		}
 		else
 		{
-			MaterialSlots[SlotNameLookup[SlotName]].SlotName = NAME_None;
+			// We're overwriting an existing slot; drop its old name from the lookup so it
+			// doesn't keep resolving to this index after we rename the slot.
+			SlotNameLookup.Remove(MaterialSlots[MaterialSlot].SlotName);
 		}
+		MaterialSlots[MaterialSlot] = FRealtimeMeshMaterialSlot(SlotName, InMaterial);
+		SlotNameLookup.Add(SlotName, MaterialSlot);
 	}
 
-	if (!MaterialSlots.IsValidIndex(MaterialSlot))
+	// Broadcast outside the write guard so user handlers don't run under the mesh lock.
+	BroadcastRenderDataChangedEvent(true);
+}
+
+void URealtimeMesh::SetNumMaterialSlots(int32 NewNumSlots)
+{
+	NewNumSlots = FMath::Max(0, NewNumSlots);
+
 	{
-		MaterialSlots.SetNum(MaterialSlot + 1);
-	}
-	MaterialSlots[MaterialSlot] = FRealtimeMeshMaterialSlot(SlotName, InMaterial);
-	SlotNameLookup.Add(SlotName, MaterialSlots.Num() - 1);
+		RealtimeMesh::FRealtimeMeshScopeGuardWrite ScopeGuard(Context->GetGuard());
 
+		if (NewNumSlots == MaterialSlots.Num())
+		{
+			return;
+		}
+
+		// When shrinking, drop any name lookup entries that resolve to a trimmed index so
+		// GetMaterialIndex/IsMaterialSlotNameValid can't keep pointing past the end of the array.
+		if (NewNumSlots < MaterialSlots.Num())
+		{
+			TArray<FName> NamesToRemove;
+			for (const TPair<FName, int32>& Pair : SlotNameLookup)
+			{
+				if (Pair.Value >= NewNumSlots)
+				{
+					NamesToRemove.Add(Pair.Key);
+				}
+			}
+			for (const FName& Name : NamesToRemove)
+			{
+				SlotNameLookup.Remove(Name);
+			}
+		}
+
+		// Trims trailing slots when shrinking; grows with empty/None slots when growing.
+		MaterialSlots.SetNum(NewNumSlots);
+	}
+
+	// Broadcast outside the write guard so user handlers don't run under the mesh lock.
 	BroadcastRenderDataChangedEvent(true);
 }
 
 int32 URealtimeMesh::GetMaterialIndex(FName MaterialSlotName) const
 {
-	RealtimeMesh::FRealtimeMeshScopeGuardRead ScopeGuard(SharedResources->GetGuard());
+	RealtimeMesh::FRealtimeMeshScopeGuardRead ScopeGuard(Context->GetGuard());
 	
 	const int32* SlotIndex = SlotNameLookup.Find(MaterialSlotName);
 	return SlotIndex ? *SlotIndex : INDEX_NONE;
@@ -237,7 +277,7 @@ int32 URealtimeMesh::GetMaterialIndex(FName MaterialSlotName) const
 
 FName URealtimeMesh::GetMaterialSlotName(int32 Index) const
 {
-	RealtimeMesh::FRealtimeMeshScopeGuardRead ScopeGuard(SharedResources->GetGuard());
+	RealtimeMesh::FRealtimeMeshScopeGuardRead ScopeGuard(Context->GetGuard());
 
 	if (MaterialSlots.IsValidIndex(Index))
 	{
@@ -248,25 +288,29 @@ FName URealtimeMesh::GetMaterialSlotName(int32 Index) const
 
 bool URealtimeMesh::IsMaterialSlotNameValid(FName MaterialSlotName) const
 {
-	RealtimeMesh::FRealtimeMeshScopeGuardRead ScopeGuard(SharedResources->GetGuard());
+	RealtimeMesh::FRealtimeMeshScopeGuardRead ScopeGuard(Context->GetGuard());
 	return SlotNameLookup.Contains(MaterialSlotName);
 }
 
 FRealtimeMeshMaterialSlot URealtimeMesh::GetMaterialSlot(int32 SlotIndex) const
 {
-	RealtimeMesh::FRealtimeMeshScopeGuardRead ScopeGuard(SharedResources->GetGuard());
+	RealtimeMesh::FRealtimeMeshScopeGuardRead ScopeGuard(Context->GetGuard());
+	if (!MaterialSlots.IsValidIndex(SlotIndex))
+	{
+		return FRealtimeMeshMaterialSlot();
+	}
 	return MaterialSlots[SlotIndex];
 }
 
 int32 URealtimeMesh::GetNumMaterials() const
 {
-	RealtimeMesh::FRealtimeMeshScopeGuardRead ScopeGuard(SharedResources->GetGuard());
+	RealtimeMesh::FRealtimeMeshScopeGuardRead ScopeGuard(Context->GetGuard());
 	return MaterialSlots.Num();
 }
 
 TArray<FName> URealtimeMesh::GetMaterialSlotNames() const
 {
-	RealtimeMesh::FRealtimeMeshScopeGuardRead ScopeGuard(SharedResources->GetGuard());
+	RealtimeMesh::FRealtimeMeshScopeGuardRead ScopeGuard(Context->GetGuard());
 	TArray<FName> OutNames;
 	SlotNameLookup.GetKeys(OutNames);
 	return OutNames;
@@ -274,13 +318,13 @@ TArray<FName> URealtimeMesh::GetMaterialSlotNames() const
 
 TArray<FRealtimeMeshMaterialSlot> URealtimeMesh::GetMaterialSlots() const
 {
-	RealtimeMesh::FRealtimeMeshScopeGuardRead ScopeGuard(SharedResources->GetGuard());
+	RealtimeMesh::FRealtimeMeshScopeGuardRead ScopeGuard(Context->GetGuard());
 	return MaterialSlots;
 }
 
 UMaterialInterface* URealtimeMesh::GetMaterial(int32 SlotIndex) const
 {
-	RealtimeMesh::FRealtimeMeshScopeGuardRead ScopeGuard(SharedResources->GetGuard());
+	RealtimeMesh::FRealtimeMeshScopeGuardRead ScopeGuard(Context->GetGuard());
 	if (MaterialSlots.IsValidIndex(SlotIndex))
 	{
 		return MaterialSlots[SlotIndex].Material;
@@ -288,28 +332,23 @@ UMaterialInterface* URealtimeMesh::GetMaterial(int32 SlotIndex) const
 	return nullptr;
 }
 
-UWorld* URealtimeMesh::GetWorld() const
-{
-	return Super::GetWorld();
-}
-
 void URealtimeMesh::PostInitProperties()
 {
 	UObject::PostInitProperties();
 
-	if (!IsTemplate() && SharedResources)
+	if (!IsTemplate() && Context)
 	{
-		SharedResources->SetMeshName(this->GetFName());
+		Context->SetMeshName(this->GetFName());
 	}
 }
 
 void URealtimeMesh::BeginDestroy()
 {
 
-	if (SharedResources)
+	if (Context)
 	{
-		SharedResources->OnRenderProxyRequiresUpdate().RemoveAll(this);
-		SharedResources->OnBoundsChanged().RemoveAll(this);
+		Context->OnRenderProxyRequiresUpdate().RemoveAll(this);
+		Context->OnBoundsChanged().RemoveAll(this);
 	}
 
 	Reset();
@@ -325,159 +364,11 @@ void URealtimeMesh::Serialize(FArchive& Ar)
 	{
 		Ar.UsingCustomVersion(RealtimeMesh::FRealtimeMeshVersion::GUID);
 
-		bool bShouldSerializeData = bShouldSerializeMeshData;
-		// Supporting optional serialization from editor.
-		if (Ar.CustomVer(RealtimeMesh::FRealtimeMeshVersion::GUID) >= RealtimeMesh::FRealtimeMeshVersion::SupportOptionalDataSerialization)
-		{
-			Ar << bShouldSerializeData;
-		}
-		else
-		{
-			bShouldSerializeData = true;
-		}
-
-		if (bShouldSerializeData)
-		{
-			// Serialize the mesh data
-			GetMesh()->Serialize(Ar, this);
-		}
+		// Subclasses (URealtimeMeshManaged in particular) may want to gate this
+		// on a "serialize my data?" flag; the base path always serializes.
+		GetMesh()->Serialize(Ar, this);
 	}
 }
-
-void URealtimeMesh::PostDuplicate(bool bDuplicateForPIE)
-{
-	UObject::PostDuplicate(bDuplicateForPIE);
-}
-
-/*void URealtimeMesh::InitiateCollisionUpdate(const TSharedRef<TPromise<ERealtimeMeshCollisionUpdateResult>>& Promise, const TSharedRef<FRealtimeMeshCollisionInfo>& CollisionUpdate,
-		bool bForceSyncUpdate)
-{
-	check(IsInGameThread());
-	check(SharedResources && MeshRef);
-
-	RealtimeMesh::FRealtimeMeshScopeGuardWrite Guard(SharedResources->GetGuard());
-
-	const int32 UpdateKey = CollisionUpdateVersionCounter++;
-
-	// TODO: We can skip cook based on simpleascomplex or complexassimple
-	TArray<int32> MeshesNeedingCook = CollisionUpdate->ComplexGeometry.GetMeshIDsNeedingCook();
-	TArray<int32> ConvexObjectsNeedingCook = CollisionUpdate->SimpleGeometry.GetMeshIDsNeedingCook();
-	const bool bNeedsCookAnything = MeshesNeedingCook.Num() > 0 || ConvexObjectsNeedingCook.Num() > 0;
-	const bool bShouldAsyncCook = !bForceSyncUpdate && GetWorld() && GetWorld()->IsGameWorld() && CollisionUpdate->Configuration.bUseAsyncCook;
-
-	struct FCollisionUpdateState
-	{
-		TSharedRef<TPromise<ERealtimeMeshCollisionUpdateResult>> Promise;
-		TSharedRef<FRealtimeMeshCollisionInfo> CollisionInfo;
-		int32 UpdateKey;
-		bool bForceSyncUpdate;
-
-		FCollisionUpdateState(const TSharedRef<TPromise<ERealtimeMeshCollisionUpdateResult>>& InPromise, const TSharedRef<FRealtimeMeshCollisionInfo>& InCollisionInfo, int32 InUpdateKey, bool bInForceSyncUpdate)
-			: Promise(InPromise)
-			, CollisionInfo(InCollisionInfo)
-			, UpdateKey(InUpdateKey)
-			, bForceSyncUpdate(bInForceSyncUpdate)
-		{
-		}
-	};
-
-	TSharedRef<FCollisionUpdateState> UpdateState = MakeShared<FCollisionUpdateState>(Promise, CollisionUpdate, UpdateKey, bForceSyncUpdate);
-
-	TUniqueFunction<TSharedRef<FCollisionUpdateState>()> CookFunction =
-		[UpdateState, MeshesNeedingCook = MoveTemp(MeshesNeedingCook), ConvexObjectsNeedingCook = MoveTemp(ConvexObjectsNeedingCook)]() 
-		{			
-			ParallelForTemplate(MeshesNeedingCook.Num() + ConvexObjectsNeedingCook.Num(), [UpdateState, &MeshesNeedingCook, &ConvexObjectsNeedingCook](int32 Index)
-			{
-				if (Index < MeshesNeedingCook.Num())
-				{
-					URealtimeMeshCollisionTools::CookComplexMesh(UpdateState->CollisionInfo->ComplexGeometry.GetByIndex(Index));
-				}
-				else
-				{
-					URealtimeMeshCollisionTools::CookConvexHull(UpdateState->CollisionInfo->SimpleGeometry.ConvexHulls.GetByIndex(Index - MeshesNeedingCook.Num()));
-				}
-			});			
-					
-			return UpdateState;
-		};
-
-	TUniqueFunction<ERealtimeMeshCollisionUpdateResult(const TSharedRef<FCollisionUpdateState>&)> ApplyCollisionFunction =
-		[ThisWeak = TWeakObjectPtr<URealtimeMesh>(this)](const TSharedRef<FCollisionUpdateState>& CollisionState) -> ERealtimeMeshCollisionUpdateResult
-		{
-			check(IsInGameThread());
-
-			if (!ThisWeak.IsValid() || ThisWeak->CurrentCollisionVersion > CollisionState->UpdateKey)
-			{
-				return ERealtimeMeshCollisionUpdateResult::Ignored;
-			}
-
-			URealtimeMesh* ThisPtr = ThisWeak.Get();
-			check(ThisPtr);
-				
-
-			UBodySetup* NewBodySetup = NewObject<UBodySetup>(ThisPtr, NAME_None, (ThisPtr->IsTemplate() ? RF_Public : RF_NoFlags));
-			NewBodySetup->BodySetupGuid = FGuid::NewGuid();
-			NewBodySetup->bGenerateMirroredCollision = false;
-			NewBodySetup->bDoubleSidedGeometry = true;
-			NewBodySetup->bCreatedPhysicsMeshes = true;
-			NewBodySetup->bSupportUVsAndFaceRemap = true;
-			NewBodySetup->CollisionTraceFlag = CollisionState->CollisionInfo->Configuration.bUseComplexAsSimpleCollision ? CTF_UseComplexAsSimple : CTF_UseDefault;
-
-			if (NewBodySetup->CollisionTraceFlag != CTF_UseComplexAsSimple)
-			{
-				URealtimeMeshCollisionTools::CopySimpleGeometryToBodySetup(CollisionState->CollisionInfo->SimpleGeometry, NewBodySetup);
-				for (auto& Convex : NewBodySetup->AggGeom.ConvexElems)
-				{
-					Convex.GetChaosConvexMesh()->SetDoCollide(false);				
-#if TRACK_CHAOS_GEOMETRY
-					Convex.GetChaosConvexMesh()->Track(Chaos::MakeSerializable(Convex.GetChaosConvexMesh()), "Realtime Mesh");
-#endif
-				}
-			}
-
-			TArray<FRealtimeMeshCollisionMeshCookedUVData> NewUVData;
-			if (NewBodySetup->CollisionTraceFlag != CTF_UseSimpleAsComplex)
-			{
-				URealtimeMeshCollisionTools::CopyComplexGeometryToBodySetup(CollisionState->CollisionInfo->ComplexGeometry, NewBodySetup, NewUVData);
-#if RMC_ENGINE_ABOVE_5_4
-				for (auto& Mesh : NewBodySetup->TriMeshGeometries)
-#else
-				for (auto& Mesh : NewBodySetup->ChaosTriMeshes)
-#endif
-				{
-					Mesh->SetDoCollide(false);
-#if TRACK_CHAOS_GEOMETRY
-					Mesh->Track(Chaos::MakeSerializable(Mesh), "Realtime Mesh");
-#endif
-				}
-			}
-
-			ThisPtr->BodySetup = NewBodySetup;
-			ThisPtr->UVData = MoveTemp(NewUVData);
-			ThisPtr->CurrentCollisionVersion = CollisionState->UpdateKey;
-			
-			ThisPtr->BroadcastCollisionBodyUpdatedEvent(NewBodySetup);
-
-			return ERealtimeMeshCollisionUpdateResult::Updated;
-		};
-	
-
-	// Cook if we need to cook
-	TFuture<TSharedRef<FCollisionUpdateState>> CookFuture = bNeedsCookAnything
-		? bShouldAsyncCook
-			? Async(EAsyncExecution::TaskGraph, MoveTemp(CookFunction))
-			: MakeFulfilledPromise<TSharedRef<FCollisionUpdateState>>(CookFunction()).GetFuture()
-		: MakeFulfilledPromise<TSharedRef<FCollisionUpdateState>>(UpdateState).GetFuture();
-
-	// Finalize collision update
-	CookFuture.Then([Promise, ApplyCollisionFunction = MoveTemp(ApplyCollisionFunction)](TFuture<TSharedRef<FCollisionUpdateState>>&& Future) mutable
-	{
-		AsyncTask(ENamedThreads::GameThread, [Promise, ApplyCollisionFunction = MoveTemp(ApplyCollisionFunction), CollisionState = Future.Get()]() mutable
-		{
-			Promise->EmplaceValue(ApplyCollisionFunction(CollisionState));
-		});
-	});
-}*/
 
 ERealtimeMeshCollisionUpdateResult URealtimeMesh::ApplyCollisionUpdate(FRealtimeMeshCollisionInfo&& InCollisionData, int32 NewCollisionKey)
 {
@@ -507,11 +398,7 @@ ERealtimeMeshCollisionUpdateResult URealtimeMesh::ApplyCollisionUpdate(FRealtime
 		if (NewBodySetup->CollisionTraceFlag != CTF_UseSimpleAsComplex)
 		{
 			URealtimeMeshCollisionTools::CopyComplexGeometryToBodySetup(InCollisionData.ComplexGeometry, NewBodySetup, NewUVData);
-#if RMC_ENGINE_ABOVE_5_4
 			for (auto& Mesh : NewBodySetup->TriMeshGeometries)
-#else
-			for (auto& Mesh : NewBodySetup->ChaosTriMeshes)
-#endif
 			{
 				Mesh->SetDoCollide(false);
 #if TRACK_CHAOS_GEOMETRY
@@ -538,7 +425,25 @@ void URealtimeMesh::HandleBoundsUpdated()
 
 void URealtimeMesh::HandleRenderProxyRequiresUpdate()
 {
-	Modify(true);
+	// Only dirty the package / snapshot into the transaction buffer for editor meshes whose
+	// data is actually serialized. Procedural meshes updated every editor tick (or any mesh
+	// running in a PIE/game world) would otherwise pay a per-frame Modify() -> package dirty
+	// plus a full transaction snapshot on every render-data change. HasAnyFlags(RF_Transactional)
+	// gates out transient/non-serialized meshes; the world-type check gates out PIE/game.
+	bool bShouldModify = HasAnyFlags(RF_Transactional) && GetPackage() != GetTransientPackage();
+	if (bShouldModify)
+	{
+		if (const UWorld* World = GetWorld())
+		{
+			bShouldModify = World->WorldType == EWorldType::Editor || World->WorldType == EWorldType::EditorPreview;
+		}
+	}
+
+	if (bShouldModify)
+	{
+		Modify();
+	}
+
 	BroadcastRenderDataChangedEvent(true);
 }
 

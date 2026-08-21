@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2015-2025 TriAxis Games, L.L.C. All Rights Reserved.
+﻿// Copyright (c) 2015-2026 TriAxis Games, L.L.C. All Rights Reserved.
 
 #pragma once
 
@@ -6,15 +6,11 @@
 #include "RealtimeMeshCore.h"
 #include "Modules/ModuleManager.h"
 
-#if RMC_ENGINE_ABOVE_5_4
 struct FRealtimeMeshEditorSettings
 {
 	bool bShouldIgnoreLumenNotification = false;
-	bool bShouldIgnoreGeneralNotification = false;
 	int64 LastLumenNotificationTime = 0;
-	int64 LastGeneralNotificationTime = 0;
 };
-#endif
 
 
 class FRealtimeMeshEditorModule : public IModuleInterface
@@ -22,13 +18,10 @@ class FRealtimeMeshEditorModule : public IModuleInterface
 private:
 	TSharedPtr<class FUICommandList> PluginCommands;
 
-#if RMC_ENGINE_ABOVE_5_4
 	FRealtimeMeshEditorSettings Settings;	
 	
-	TWeakPtr<SNotificationItem> LumenNotification;	
+	TWeakPtr<SNotificationItem> LumenNotification;
 	FTimerHandle LumenUseCheckHandle;
-	bool bUserOwnsPro = false;
-#endif
 	
 public:
     virtual void StartupModule() override;
@@ -45,22 +38,20 @@ private:
 	void DocumentationButtonClicked();
 	void IssuesButtonClicked();
 
-#if RMC_ENGINE_ABOVE_5_4
 	bool IsProVersion();
-	bool UserOwnsPro();
 
 	void SetupEditorTimer();
 	
 	void ShowLumenNotification();
+	// Shared stamp-time + save + expire/fadeout body for the notification handlers below.
+	void DismissLumenNotification();
 	void HandleLumenNotificationBuyNowClicked();
 	void HandleLumenNotificationLaterClicked();
 	void HandleLumenNotificationIgnoreClicked();
 	
-	void CheckUserOwnsPro();
 	void CheckLumenUseTimer();
 
 	void LoadSettings();
 	void SaveSettings();
-#endif
 };
 

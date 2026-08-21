@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2015-2025 TriAxis Games, L.L.C. All Rights Reserved.
+﻿// Copyright (c) 2015-2026 TriAxis Games, L.L.C. All Rights Reserved.
 
 #pragma once
 
@@ -21,7 +21,7 @@ namespace RealtimeMesh
 	{
 	protected:
 		// Reference to the shared resources
-		const FRealtimeMeshSharedResourcesRef SharedResources;
+		const FRealtimeMeshContextRef Context;
 
 		// Key used to identify this section
 		const FRealtimeMeshSectionKey Key;
@@ -37,7 +37,7 @@ namespace RealtimeMesh
 		FRealtimeMeshBounds Bounds;
 
 	public:
-		FRealtimeMeshSection(const FRealtimeMeshSharedResourcesRef& InSharedResources, const FRealtimeMeshSectionKey& InKey);
+		FRealtimeMeshSection(const FRealtimeMeshContextRef& InContext, const FRealtimeMeshSectionKey& InKey);
 		virtual ~FRealtimeMeshSection() = default;
 
 		/**
@@ -101,7 +101,7 @@ namespace RealtimeMesh
 		 * @param InConfig Initial config for this section
 		 * @param InRange Initial stream range to render for this section
 		 */
-		virtual void Initialize(FRealtimeMeshUpdateContext& UpdateContext, const FRealtimeMeshSectionConfig& InConfig, const FRealtimeMeshStreamRange& InRange);
+		void Initialize(FRealtimeMeshUpdateContext& UpdateContext, const FRealtimeMeshSectionConfig& InConfig, const FRealtimeMeshStreamRange& InRange);
 
 		/**
 		 * @brief Resets the section to a default state
@@ -133,35 +133,36 @@ namespace RealtimeMesh
 		 * @param UpdateContext Update context used for this operation
 		 * @param InConfig New section config
 		 */
-		virtual void UpdateConfig(FRealtimeMeshUpdateContext& UpdateContext, const FRealtimeMeshSectionConfig& InConfig);
+		void UpdateConfig(FRealtimeMeshUpdateContext& UpdateContext, const FRealtimeMeshSectionConfig& InConfig);
 
 		/**
 		 * @brief Edits the config for this section using the specified function
 		 * @param UpdateContext Update context used for this operation
 		 * @param EditFunc Function to call to edit the config
 		 */
-		virtual void UpdateConfig(FRealtimeMeshUpdateContext& UpdateContext, TFunction<void(FRealtimeMeshSectionConfig&)> EditFunc);
+		void UpdateConfig(FRealtimeMeshUpdateContext& UpdateContext, TFunction<void(FRealtimeMeshSectionConfig&)> EditFunc);
 
 		/**
 		 * @brief Update the stream range for this section
 		 * @param UpdateContext Update context used for this operation
 		 * @param InRange New section stream range
+		 * @return True if the range changed, false if it already matched InRange (no work done)
 		 */
-		virtual void UpdateStreamRange(FRealtimeMeshUpdateContext& UpdateContext, const FRealtimeMeshStreamRange& InRange);
+		virtual bool UpdateStreamRange(FRealtimeMeshUpdateContext& UpdateContext, const FRealtimeMeshStreamRange& InRange);
 
 		/**
 		 * @brief Update the visibility for the section
 		 * @param UpdateContext Update context used for this operation
 		 * @param bIsVisible New visibility for section
 		 */
-		virtual void SetVisibility(FRealtimeMeshUpdateContext& UpdateContext, bool bIsVisible);
+		void SetVisibility(FRealtimeMeshUpdateContext& UpdateContext, bool bIsVisible);
 
 		/**
 		 * @brief Update the shadow casting state for the section
 		 * @param UpdateContext Update context used for this operation
 		 * @param bCastShadow New shadow casting state for section
 		 */
-		virtual void SetCastShadow(FRealtimeMeshUpdateContext& UpdateContext, bool bCastShadow);
+		void SetCastShadow(FRealtimeMeshUpdateContext& UpdateContext, bool bCastShadow);
 
 		/**
 		 * @brief Serializes this section to the running archive.
@@ -174,16 +175,17 @@ namespace RealtimeMesh
 		 * @brief Initializes the proxy, adding all the necessary commands to initialize the state to the supplied CommandBatch
 		 * @param UpdateContext Update context used for this operation
 		 */
-		virtual void InitializeProxy(FRealtimeMeshUpdateContext& UpdateContext);
+		void InitializeProxy(FRealtimeMeshUpdateContext& UpdateContext);
 
 
 		virtual void FinalizeUpdate(FRealtimeMeshUpdateContext& UpdateContext);
 
-		virtual bool ShouldRecreateProxyOnChange(const FRealtimeMeshLockContext& LockContext) const;
+		bool ShouldRecreateProxyOnChange(const FRealtimeMeshLockContext& LockContext) const;
 	protected:
 		const FRealtimeMeshSectionKey& GetKey_AssumesLocked() const { return Key; }
-		friend struct FRealtimeMeshSectionRefKeyFuncs;
-		friend class FRealtimeMeshSectionGroup;
+		// DUP-027: befriend the shared KeyFuncs specialization so it can read GetKey_AssumesLocked().
+		friend struct TRealtimeMeshRefKeyFuncs<FRealtimeMeshSection, FRealtimeMeshSectionKey>;
+		friend class FRealtimeMeshBufferSet;
 		
 		void MarkBoundsDirtyIfNotOverridden(FRealtimeMeshUpdateContext& UpdateContext);
 		void UpdateCalculatedBounds(FRealtimeMeshUpdateContext& UpdateContext, TOptional<FBoxSphereBounds3f>& CalculatedBounds);
@@ -193,28 +195,6 @@ namespace RealtimeMesh
 	/**
 	 * @brief Custom KeyFuncs used to index the section set by the section key.
 	 */
-	struct FRealtimeMeshSectionRefKeyFuncs : BaseKeyFuncs<TSharedRef<FRealtimeMeshSection>, FRealtimeMeshSectionKey, false>
-	{
-		/**
-		 * @return The key used to index the given element.
-		 */
-		static KeyInitType GetSetKey(ElementInitType Element)
-		{
-			return Element->GetKey_AssumesLocked();
-		}
-
-		/**
-		 * @return True if the keys match.
-		 */
-		static bool Matches(KeyInitType A, KeyInitType B)
-		{
-			return A == B;
-		}
-
-		/** Calculates a hash index for a key. */
-		static uint32 GetKeyHash(KeyInitType Key)
-		{
-			return GetTypeHash(Key);
-		}
-	};
+	// DUP-027: converged onto the shared TRealtimeMeshRefKeyFuncs template (Data/RealtimeMeshShared.h).
+	using FRealtimeMeshSectionRefKeyFuncs = TRealtimeMeshRefKeyFuncs<FRealtimeMeshSection, FRealtimeMeshSectionKey>;
 }

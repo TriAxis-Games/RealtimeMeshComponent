@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2015-2025 TriAxis Games, L.L.C. All Rights Reserved.
+﻿// Copyright (c) 2015-2026 TriAxis Games, L.L.C. All Rights Reserved.
 
 
 #include "Mesh/RealtimeMeshDistanceField.h"
@@ -66,7 +66,6 @@ void FRealtimeMeshDistanceField::Serialize(FArchive& Ar, UObject* Owner)
 	Ar << Bounds;
 	Ar << bMostlyTwoSided;
 
-#if RMC_ENGINE_ABOVE_5_4
 	if (Ar.EngineVer().GetMajor() == 5 && Ar.EngineVer().GetMinor() < 4)
 	{
 		TStaticArray<FSparseDistanceFieldMip_OLD, DistanceField::NumMips> OldMips;
@@ -84,7 +83,6 @@ void FRealtimeMeshDistanceField::Serialize(FArchive& Ar, UObject* Owner)
 		}		
 	}
 	else
-#endif
 	{
 		Ar << Mips;
 	}
@@ -103,11 +101,7 @@ bool FRealtimeMeshDistanceField::IsValid() const
 FDistanceFieldVolumeData FRealtimeMeshDistanceField::CreateRenderingData() const
 {
 	FDistanceFieldVolumeData RenderingData;
-#if RMC_ENGINE_ABOVE_5_4
 	RenderingData.LocalSpaceMeshBounds = Bounds;
-#else
-	RenderingData.LocalSpaceMeshBounds = FBox(Bounds);
-#endif
 	RenderingData.bMostlyTwoSided = bMostlyTwoSided;
 	RenderingData.Mips = Mips;
 	RenderingData.AlwaysLoadedMip = AlwaysLoadedMip;
@@ -118,12 +112,7 @@ FDistanceFieldVolumeData FRealtimeMeshDistanceField::CreateRenderingData() const
 FDistanceFieldVolumeData FRealtimeMeshDistanceField::MoveToRenderingData()
 {
 	FDistanceFieldVolumeData RenderingData;
-#if RMC_ENGINE_ABOVE_5_4
 	RenderingData.LocalSpaceMeshBounds = MoveTemp(Bounds);
-#else
-	RenderingData.LocalSpaceMeshBounds = FBox(Bounds);
-	Bounds.Init();
-#endif
 	RenderingData.bMostlyTwoSided = MoveTemp(bMostlyTwoSided);
 	RenderingData.Mips = MoveTemp(Mips);
 	RenderingData.AlwaysLoadedMip = MoveTemp(AlwaysLoadedMip);

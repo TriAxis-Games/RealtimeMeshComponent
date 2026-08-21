@@ -1,12 +1,16 @@
-// Copyright (c) 2015-2025 TriAxis Games, L.L.C. All Rights Reserved.
+// Copyright (c) 2015-2026 TriAxis Games, L.L.C. All Rights Reserved.
 
 #include "RealtimeMeshComponentDetailsCustomization.h"
 #include "RealtimeMeshComponent.h"
 #include "RealtimeMesh.h"
 #include "RealtimeMeshSimple.h"
+#include "RealtimeMeshStaticMeshConverter.h"
+#include "Editor.h"
+#include "Widgets/SWindow.h"
 #include "DetailLayoutBuilder.h"
 #include "DetailCategoryBuilder.h"
 #include "DetailWidgetRow.h"
+#include "IDetailGroup.h"
 #include "Widgets/Text/STextBlock.h"
 #include "Widgets/Input/SButton.h"
 #include "Widgets/Layout/SBorder.h"
@@ -16,7 +20,7 @@
 #include "Styling/SlateColor.h"
 #include "Styling/AppStyle.h"
 #include "Core/RealtimeMeshDataTypes.h"
-#include "Interface/Core/RealtimeMeshDataStream.h"
+#include "Core/RealtimeMeshDataStream.h"
 #include "PhysicsEngine/BodySetup.h"
 #include "Components/PrimitiveComponent.h"
 #include "Engine/StaticMesh.h"
@@ -40,29 +44,75 @@ TSharedRef<IDetailCustomization> FRealtimeMeshComponentDetailsCustomization::Mak
 
 void FRealtimeMeshComponentDetailsCustomization::CustomizeDetails(IDetailLayoutBuilder& DetailBuilder)
 {
-	// Get the object being customized
 	TArray<TWeakObjectPtr<UObject>> ObjectsBeingCustomized;
 	DetailBuilder.GetObjectsBeingCustomized(ObjectsBeingCustomized);
-	
+
 	if (ObjectsBeingCustomized.Num() > 0)
 	{
 		ComponentPtr = Cast<URealtimeMeshComponent>(ObjectsBeingCustomized[0].Get());
 	}
 
-	// Add a new category for mesh state information
-	IDetailCategoryBuilder& MeshStateCategory = DetailBuilder.EditCategory("Mesh State", LOCTEXT("MeshStateCategory", "Mesh State"));
-	
-	// Add mesh state widget as full width
-	MeshStateCategory.AddCustomRow(LOCTEXT("MeshStateRow", "Mesh State"))
-		.WholeRowContent()
-		[
-			CreateMeshStateWidget()
-		];
+	// Native-style details layout: each section is an IDetailGroup with
+	// NameContent/ValueContent rows. Looks and styles like the engine's own
+	// StaticMesh / Component panels — uniform alignment, hover, expand/collapse,
+	// no custom border or hand-built Slate grid.
+	IDetailCategoryBuilder& MeshStateCategory = DetailBuilder.EditCategory("Mesh Stats", LOCTEXT("MeshStatsCategory", "Mesh Stats"));
 
-	// Add Create Static Mesh button to RealtimeMesh category
+	const auto AddRow = [this](IDetailGroup& Group, FName RowId, const FText& Label,
+		FText (FRealtimeMeshComponentDetailsCustomization::*Getter)() const,
+		TAttribute<EVisibility> Visibility = EVisibility::Visible)
+	{
+		FDetailWidgetRow& Row = Group.AddWidgetRow();
+		Row.FilterString(Label);
+		Row.Visibility(Visibility);
+		Row.NameContent()
+		[
+			SNew(STextBlock)
+			.Text(Label)
+			.Font(IDetailLayoutBuilder::GetDetailFont())
+		];
+		Row.ValueContent()
+		.MinDesiredWidth(180.0f)
+		[
+			SNew(STextBlock)
+			.Text(TAttribute<FText>::CreateRaw(this, Getter))
+			.Font(IDetailLayoutBuilder::GetDetailFont())
+		];
+	};
+
+	// Component group (always shown).
+	IDetailGroup& ComponentGroup = MeshStateCategory.AddGroup(TEXT("Component"), LOCTEXT("ComponentGroup", "Component"), false, true);
+	AddRow(ComponentGroup, TEXT("MeshType"),     LOCTEXT("MeshTypeLabel",      "Mesh Type"),     &FRealtimeMeshComponentDetailsCustomization::GetMeshTypeText);
+	AddRow(ComponentGroup, TEXT("Bounds"),       LOCTEXT("BoundsLabel",        "Bounds"),        &FRealtimeMeshComponentDetailsCustomization::GetBoundsText);
+	AddRow(ComponentGroup, TEXT("Visible"),      LOCTEXT("VisibleLabel",       "Visible"),       &FRealtimeMeshComponentDetailsCustomization::GetVisibilityText);
+	AddRow(ComponentGroup, TEXT("CastShadow"),   LOCTEXT("CastShadowLabel",    "Cast Shadow"),   &FRealtimeMeshComponentDetailsCustomization::GetCastShadowText);
+	AddRow(ComponentGroup, TEXT("Materials"),    LOCTEXT("MaterialSlotsLabel", "Materials"),     &FRealtimeMeshComponentDetailsCustomization::GetMaterialSlotsText);
+
+	// Geometry / Nanite groups are conditional on the current mesh state. Header
+	// visibility is bound so the group folds out of the layout when its rows don't
+	// apply — toggling Nanite on the mesh at runtime takes effect on next reselect.
+	IDetailGroup& GeometryGroup = MeshStateCategory.AddGroup(TEXT("Geometry"), LOCTEXT("GeometryGroup", "Geometry"), false, true);
+	GeometryGroup.HeaderRow().Visibility(TAttribute<EVisibility>::CreateRaw(this, &FRealtimeMeshComponentDetailsCustomization::GetStandardSectionVisibility));
+	const TAttribute<EVisibility> StandardVis = TAttribute<EVisibility>::CreateRaw(this, &FRealtimeMeshComponentDetailsCustomization::GetStandardSectionVisibility);
+	AddRow(GeometryGroup, TEXT("LODs"),          LOCTEXT("LODsLabel",         "LODs"),              &FRealtimeMeshComponentDetailsCustomization::GetLODCountText,      StandardVis);
+	AddRow(GeometryGroup, TEXT("Vertices"),      LOCTEXT("VerticesLabel",     "Vertices (LOD 0)"),  &FRealtimeMeshComponentDetailsCustomization::GetVertexCountText,   StandardVis);
+	AddRow(GeometryGroup, TEXT("Triangles"),     LOCTEXT("TrianglesLabel",    "Triangles (LOD 0)"), &FRealtimeMeshComponentDetailsCustomization::GetTriangleCountText, StandardVis);
+
+	IDetailGroup& NaniteGroup = MeshStateCategory.AddGroup(TEXT("Nanite"), LOCTEXT("NaniteGroup", "Nanite"), false, true);
+	NaniteGroup.HeaderRow().Visibility(TAttribute<EVisibility>::CreateRaw(this, &FRealtimeMeshComponentDetailsCustomization::GetNaniteSectionVisibility));
+	const TAttribute<EVisibility> NaniteVis = TAttribute<EVisibility>::CreateRaw(this, &FRealtimeMeshComponentDetailsCustomization::GetNaniteSectionVisibility);
+	AddRow(NaniteGroup, TEXT("NaniteTris"),     LOCTEXT("NaniteTrisLabel",     "Triangles"),         &FRealtimeMeshComponentDetailsCustomization::GetNaniteInputTrianglesText, NaniteVis);
+	AddRow(NaniteGroup, TEXT("NaniteVerts"),    LOCTEXT("NaniteVertsLabel",    "Vertices"),          &FRealtimeMeshComponentDetailsCustomization::GetNaniteInputVerticesText,  NaniteVis);
+	AddRow(NaniteGroup, TEXT("NaniteClusters"), LOCTEXT("NaniteClustersLabel", "Clusters"),          &FRealtimeMeshComponentDetailsCustomization::GetNaniteClustersText,       NaniteVis);
+	AddRow(NaniteGroup, TEXT("NaniteHierNodes"),LOCTEXT("NaniteHierNodesLabel","Hierarchy Nodes"),   &FRealtimeMeshComponentDetailsCustomization::GetNaniteHierarchyNodesText, NaniteVis);
+	AddRow(NaniteGroup, TEXT("NaniteHierDepth"),LOCTEXT("NaniteHierDepthLabel","Max Depth"),         &FRealtimeMeshComponentDetailsCustomization::GetNaniteHierarchyDepthText, NaniteVis);
+	AddRow(NaniteGroup, TEXT("NanitePages"),    LOCTEXT("NanitePagesLabel",    "Pages"),             &FRealtimeMeshComponentDetailsCustomization::GetNanitePagesText,          NaniteVis);
+	AddRow(NaniteGroup, TEXT("NaniteRoot"),     LOCTEXT("NaniteRootLabel",     "Root Data"),         &FRealtimeMeshComponentDetailsCustomization::GetNaniteRootDataText,       NaniteVis);
+	AddRow(NaniteGroup, TEXT("NaniteStream"),   LOCTEXT("NaniteStreamLabel",   "Streaming Data"),    &FRealtimeMeshComponentDetailsCustomization::GetNaniteStreamingDataText,  NaniteVis);
+
 	IDetailCategoryBuilder& RealtimeMeshCategory = DetailBuilder.EditCategory("RealtimeMesh", LOCTEXT("RealtimeMeshCategory", "Realtime Mesh"));
-	
-	/*RealtimeMeshCategory.AddCustomRow(LOCTEXT("CreateStaticMeshRow", "Create Static Mesh"))
+
+	RealtimeMeshCategory.AddCustomRow(LOCTEXT("CreateStaticMeshRow", "Create Static Mesh"))
 		.WholeRowContent()
 		[
 			SNew(SHorizontalBox)
@@ -87,271 +137,6 @@ void FRealtimeMeshComponentDetailsCustomization::CustomizeDetails(IDetailLayoutB
 				.Font(FCoreStyle::GetDefaultFontStyle("Regular", 8))
 				.ColorAndOpacity(FSlateColor::UseSubduedForeground())
 				.Justification(ETextJustify::Left)
-			]
-		];*/
-}
-
-TSharedRef<SWidget> FRealtimeMeshComponentDetailsCustomization::CreateMeshStateWidget()
-{
-	return SNew(SBorder)
-		.BorderImage(FCoreStyle::Get().GetBrush("ToolPanel.GroupBorder"))
-		.Padding(8.0f)
-		[
-			SNew(SHorizontalBox)
-			
-			// Left Column
-			+ SHorizontalBox::Slot()
-			.HAlign(HAlign_Fill)
-			.VAlign(VAlign_Top)
-			.FillWidth(0.5f)
-			[
-				SNew(SVerticalBox)
-				
-				// Bounds
-				+ SVerticalBox::Slot()
-				.AutoHeight()
-				.Padding(0, 2)
-				[
-					SNew(SHorizontalBox)
-					+ SHorizontalBox::Slot()
-					.AutoWidth()
-					.VAlign(VAlign_Center)
-					[
-						SNew(STextBlock)
-						.Text(LOCTEXT("BoundsLabel", "Bounds:"))
-						.Font(FCoreStyle::GetDefaultFontStyle("Bold", 9))
-						.ColorAndOpacity(FSlateColor::UseForeground())
-					]
-					+ SHorizontalBox::Slot()
-					.FillWidth(1.0f)
-					.Padding(8, 0, 0, 0)
-					.VAlign(VAlign_Center)
-					[
-						SNew(STextBlock)
-						.Text(this, &FRealtimeMeshComponentDetailsCustomization::GetBoundsText)
-						.Font(FCoreStyle::GetDefaultFontStyle("Regular", 9))
-						.AutoWrapText(true)
-					]
-				]
-				
-				// Visibility
-				+ SVerticalBox::Slot()
-				.AutoHeight()
-				.Padding(0, 2)
-				[
-					SNew(SHorizontalBox)
-					+ SHorizontalBox::Slot()
-					.AutoWidth()
-					.VAlign(VAlign_Center)
-					[
-						SNew(STextBlock)
-						.Text(LOCTEXT("VisibleLabel", "Visible:"))
-						.Font(FCoreStyle::GetDefaultFontStyle("Bold", 9))
-						.ColorAndOpacity(FSlateColor::UseForeground())
-					]
-					+ SHorizontalBox::Slot()
-					.FillWidth(1.0f)
-					.Padding(8, 0, 0, 0)
-					.VAlign(VAlign_Center)
-					[
-						SNew(STextBlock)
-						.Text(this, &FRealtimeMeshComponentDetailsCustomization::GetVisibilityText)
-						.Font(FCoreStyle::GetDefaultFontStyle("Regular", 9))
-					]
-				]
-				
-				// Cast Shadow
-				+ SVerticalBox::Slot()
-				.AutoHeight()
-				.Padding(0, 2)
-				[
-					SNew(SHorizontalBox)
-					+ SHorizontalBox::Slot()
-					.AutoWidth()
-					.VAlign(VAlign_Center)
-					[
-						SNew(STextBlock)
-						.Text(LOCTEXT("CastShadowLabel", "Cast Shadow:"))
-						.Font(FCoreStyle::GetDefaultFontStyle("Bold", 9))
-						.ColorAndOpacity(FSlateColor::UseForeground())
-					]
-					+ SHorizontalBox::Slot()
-					.FillWidth(1.0f)
-					.Padding(8, 0, 0, 0)
-					.VAlign(VAlign_Center)
-					[
-						SNew(STextBlock)
-						.Text(this, &FRealtimeMeshComponentDetailsCustomization::GetCastShadowText)
-						.Font(FCoreStyle::GetDefaultFontStyle("Regular", 9))
-					]
-				]
-			]
-			
-			// Right Column
-			+ SHorizontalBox::Slot()
-			.HAlign(HAlign_Fill)
-			.VAlign(VAlign_Top)
-			.FillWidth(0.5f)
-			.Padding(16, 0, 0, 0)
-			[
-				SNew(SVerticalBox)
-				
-				// Nanite
-				+ SVerticalBox::Slot()
-				.AutoHeight()
-				.Padding(0, 2)
-				[
-					SNew(SHorizontalBox)
-					+ SHorizontalBox::Slot()
-					.AutoWidth()
-					.VAlign(VAlign_Center)
-					[
-						SNew(STextBlock)
-						.Text(LOCTEXT("NaniteLabel", "Nanite:"))
-						.Font(FCoreStyle::GetDefaultFontStyle("Bold", 9))
-						.ColorAndOpacity(FSlateColor::UseForeground())
-					]
-					+ SHorizontalBox::Slot()
-					.FillWidth(1.0f)
-					.Padding(8, 0, 0, 0)
-					.VAlign(VAlign_Center)
-					[
-						SNew(STextBlock)
-						.Text(this, &FRealtimeMeshComponentDetailsCustomization::GetNaniteText)
-						.Font(FCoreStyle::GetDefaultFontStyle("Regular", 9))
-					]
-				]
-
-				// Nanite Stats
-				+ SVerticalBox::Slot()
-				.AutoHeight()
-				.Padding(0, 2)
-				[
-					SNew(SHorizontalBox)
-					+ SHorizontalBox::Slot()
-					.AutoWidth()
-					.VAlign(VAlign_Center)
-					[
-						SNew(STextBlock)
-						.Text(LOCTEXT("NaniteStatsLabel", "Nanite Stats:"))
-						.Font(FCoreStyle::GetDefaultFontStyle("Bold", 9))
-						.ColorAndOpacity(FSlateColor::UseForeground())
-					]
-					+ SHorizontalBox::Slot()
-					.FillWidth(1.0f)
-					.Padding(8, 0, 0, 0)
-					.VAlign(VAlign_Center)
-					[
-						SNew(STextBlock)
-						.Text(this, &FRealtimeMeshComponentDetailsCustomization::GetNaniteStatsText)
-						.Font(FCoreStyle::GetDefaultFontStyle("Regular", 9))
-						.AutoWrapText(true)
-					]
-				]
-				
-				// Material Slots
-				+ SVerticalBox::Slot()
-				.AutoHeight()
-				.Padding(0, 2)
-				[
-					SNew(SHorizontalBox)
-					+ SHorizontalBox::Slot()
-					.AutoWidth()
-					.VAlign(VAlign_Center)
-					[
-						SNew(STextBlock)
-						.Text(LOCTEXT("MaterialSlotsLabel", "Material Slots:"))
-						.Font(FCoreStyle::GetDefaultFontStyle("Bold", 9))
-						.ColorAndOpacity(FSlateColor::UseForeground())
-					]
-					+ SHorizontalBox::Slot()
-					.FillWidth(1.0f)
-					.Padding(8, 0, 0, 0)
-					.VAlign(VAlign_Center)
-					[
-						SNew(STextBlock)
-						.Text(this, &FRealtimeMeshComponentDetailsCustomization::GetMaterialSlotsText)
-						.Font(FCoreStyle::GetDefaultFontStyle("Regular", 9))
-					]
-				]
-				
-				// Vertex Count
-				+ SVerticalBox::Slot()
-				.AutoHeight()
-				.Padding(0, 2)
-				[
-					SNew(SHorizontalBox)
-					+ SHorizontalBox::Slot()
-					.AutoWidth()
-					.VAlign(VAlign_Center)
-					[
-						SNew(STextBlock)
-						.Text(LOCTEXT("VertexCountLabel", "Vertices:"))
-						.Font(FCoreStyle::GetDefaultFontStyle("Bold", 9))
-						.ColorAndOpacity(FSlateColor::UseForeground())
-					]
-					+ SHorizontalBox::Slot()
-					.FillWidth(1.0f)
-					.Padding(8, 0, 0, 0)
-					.VAlign(VAlign_Center)
-					[
-						SNew(STextBlock)
-						.Text(this, &FRealtimeMeshComponentDetailsCustomization::GetVertexCountText)
-						.Font(FCoreStyle::GetDefaultFontStyle("Regular", 9))
-					]
-				]
-				
-				// Triangle Count
-				+ SVerticalBox::Slot()
-				.AutoHeight()
-				.Padding(0, 2)
-				[
-					SNew(SHorizontalBox)
-					+ SHorizontalBox::Slot()
-					.AutoWidth()
-					.VAlign(VAlign_Center)
-					[
-						SNew(STextBlock)
-						.Text(LOCTEXT("TriangleCountLabel", "Triangles:"))
-						.Font(FCoreStyle::GetDefaultFontStyle("Bold", 9))
-						.ColorAndOpacity(FSlateColor::UseForeground())
-					]
-					+ SHorizontalBox::Slot()
-					.FillWidth(1.0f)
-					.Padding(8, 0, 0, 0)
-					.VAlign(VAlign_Center)
-					[
-						SNew(STextBlock)
-						.Text(this, &FRealtimeMeshComponentDetailsCustomization::GetTriangleCountText)
-						.Font(FCoreStyle::GetDefaultFontStyle("Regular", 9))
-					]
-				]
-				
-				// Memory Usage
-				+ SVerticalBox::Slot()
-				.AutoHeight()
-				.Padding(0, 2)
-				[
-					SNew(SHorizontalBox)
-					+ SHorizontalBox::Slot()
-					.AutoWidth()
-					.VAlign(VAlign_Center)
-					[
-						SNew(STextBlock)
-						.Text(LOCTEXT("MemoryUsageLabel", "Memory Usage:"))
-						.Font(FCoreStyle::GetDefaultFontStyle("Bold", 9))
-						.ColorAndOpacity(FSlateColor::UseForeground())
-					]
-					+ SHorizontalBox::Slot()
-					.FillWidth(1.0f)
-					.Padding(8, 0, 0, 0)
-					.VAlign(VAlign_Center)
-					[
-						SNew(STextBlock)
-						.Text(this, &FRealtimeMeshComponentDetailsCustomization::GetMemoryUsageText)
-						.Font(FCoreStyle::GetDefaultFontStyle("Regular", 9))
-					]
-				]
 			]
 		];
 }
@@ -394,72 +179,216 @@ FText FRealtimeMeshComponentDetailsCustomization::GetCastShadowText() const
 	return Component->CastShadow ? LOCTEXT("Yes", "Yes") : LOCTEXT("No", "No");
 }
 
-FText FRealtimeMeshComponentDetailsCustomization::GetNaniteText() const
+bool FRealtimeMeshComponentDetailsCustomization::IsNaniteActive() const
 {
 	if (!ComponentPtr.IsValid())
 	{
-		return LOCTEXT("NoComponent", "N/A");
+		return false;
 	}
-
 	URealtimeMeshComponent* Component = ComponentPtr.Get();
-	URealtimeMesh* Mesh = Component->GetRealtimeMesh();
-
-	if (!IsValid(Mesh))
+	URealtimeMeshSimple* RealtimeMeshSimple = Cast<URealtimeMeshSimple>(Component->GetRealtimeMesh());
+	if (!RealtimeMeshSimple)
 	{
-		return LOCTEXT("NoMesh", "N/A");
+		return false;
 	}
-
-	// Check if this is a RealtimeMeshSimple with Nanite resources
-	if (URealtimeMeshSimple* RealtimeMeshSimple = Cast<URealtimeMeshSimple>(Mesh))
-	{
-		RealtimeMesh::FRealtimeMeshAccessContext LockContext(RealtimeMeshSimple->GetMesh()->GetSharedResources());
-		bool bHasNanite = RealtimeMeshSimple->GetMeshData()->HasNaniteResources(LockContext);
-		return bHasNanite ? LOCTEXT("Active", "Active") : LOCTEXT("Inactive", "Inactive");
-	}
-
-	return LOCTEXT("NotSupported", "Not Supported");
+	RealtimeMesh::FRealtimeMeshAccessContext LockContext(RealtimeMeshSimple->GetMesh()->GetContext());
+	return RealtimeMeshSimple->GetMeshData()->HasNaniteResources(LockContext);
 }
 
-FText FRealtimeMeshComponentDetailsCustomization::GetNaniteStatsText() const
+EVisibility FRealtimeMeshComponentDetailsCustomization::GetNaniteSectionVisibility() const
+{
+	return IsNaniteActive() ? EVisibility::Visible : EVisibility::Collapsed;
+}
+
+EVisibility FRealtimeMeshComponentDetailsCustomization::GetStandardSectionVisibility() const
+{
+	return IsNaniteActive() ? EVisibility::Collapsed : EVisibility::Visible;
+}
+
+FText FRealtimeMeshComponentDetailsCustomization::GetMeshTypeText() const
 {
 	if (!ComponentPtr.IsValid())
 	{
 		return LOCTEXT("NoComponent", "N/A");
 	}
-
 	URealtimeMeshComponent* Component = ComponentPtr.Get();
 	URealtimeMesh* Mesh = Component->GetRealtimeMesh();
-
 	if (!IsValid(Mesh))
+	{
+		return LOCTEXT("NoMesh", "No Mesh");
+	}
+	if (Cast<URealtimeMeshSimple>(Mesh))
+	{
+		return IsNaniteActive()
+			? LOCTEXT("MeshTypeNanite",   "Nanite (RealtimeMeshSimple)")
+			: LOCTEXT("MeshTypeStandard", "Standard (RealtimeMeshSimple)");
+	}
+	return LOCTEXT("MeshTypeOther", "Custom URealtimeMesh");
+}
+
+namespace
+{
+	// Pretty-print a byte count as B / KB / MB.
+	FString FormatBytes(int64 Bytes)
+	{
+		if (Bytes <= 0)
+		{
+			return TEXT("0 B");
+		}
+		const double KB = 1024.0;
+		const double MB = 1024.0 * 1024.0;
+		if (Bytes >= static_cast<int64>(MB))
+		{
+			return FString::Printf(TEXT("%.2f MB"), static_cast<double>(Bytes) / MB);
+		}
+		if (Bytes >= static_cast<int64>(KB))
+		{
+			return FString::Printf(TEXT("%.1f KB"), static_cast<double>(Bytes) / KB);
+		}
+		return FString::Printf(TEXT("%lld B"), Bytes);
+	}
+}
+
+// Resolve the active Nanite resource pointer (polymorphic). Returns nullptr if the component isn't
+// backed by a RealtimeMeshSimple with Nanite enabled — callers surface "N/A" in that case.
+static const RealtimeMesh::FRealtimeMeshNaniteEngineResources* ResolveNaniteResources(URealtimeMeshComponent* Component)
+{
+	if (!Component) { return nullptr; }
+	URealtimeMeshSimple* RealtimeMeshSimple = Cast<URealtimeMeshSimple>(Component->GetRealtimeMesh());
+	if (!RealtimeMeshSimple) { return nullptr; }
+	RealtimeMesh::FRealtimeMeshAccessContext LockContext(RealtimeMeshSimple->GetMesh()->GetContext());
+	const RealtimeMesh::FRealtimeMeshNaniteResources* NaniteResources = RealtimeMeshSimple->GetMeshData()->GetNaniteResources(LockContext);
+	if (!NaniteResources)
+	{
+		return nullptr;
+	}
+	// GetNaniteProvider() here resolves to the const overload, returning a const provider off the
+	// live, initialized managed-mesh instance — RuntimeResourceID / residency values are real.
+	return NaniteResources->GetNaniteProvider();
+}
+
+// Provision-array accessors that work across build tiers: on the fork the arrays are behind the provider's
+// const getters; on a stock engine they are plain fields on FResources. Identity scalars (NumRootPages,
+// NumInputTriangles, ...) are fields on both types, so those reads need no branch.
+namespace
+{
+	using FNaniteResObj = RealtimeMesh::FRealtimeMeshNaniteEngineResources;
+#if RMC_NANITE_ENGINE_PROVIDER
+	static TConstArrayView<uint8>							NaniteRootDataView(const FNaniteResObj* R)			{ return R->GetRootData(); }
+	static TConstArrayView<::Nanite::FPackedHierarchyNode>	NaniteHierarchyNodesView(const FNaniteResObj* R)	{ return R->GetHierarchyNodes(); }
+	static TConstArrayView<::Nanite::FPageStreamingState>	NanitePageStatesView(const FNaniteResObj* R)		{ return R->GetPageStreamingStates(); }
+#else
+	static TConstArrayView<uint8>							NaniteRootDataView(const FNaniteResObj* R)			{ return R->RootData; }
+	static TConstArrayView<::Nanite::FPackedHierarchyNode>	NaniteHierarchyNodesView(const FNaniteResObj* R)	{ return R->HierarchyNodes; }
+	static TConstArrayView<::Nanite::FPageStreamingState>	NanitePageStatesView(const FNaniteResObj* R)		{ return R->PageStreamingStates; }
+#endif
+}
+
+FText FRealtimeMeshComponentDetailsCustomization::GetLODCountText() const
+{
+	if (!ComponentPtr.IsValid())
+	{
+		return LOCTEXT("NoComponent", "N/A");
+	}
+	URealtimeMeshSimple* RealtimeMeshSimple = Cast<URealtimeMeshSimple>(ComponentPtr->GetRealtimeMesh());
+	if (!RealtimeMeshSimple)
 	{
 		return LOCTEXT("NoMesh", "N/A");
 	}
+	return FText::AsNumber(RealtimeMeshSimple->GetLODs().Num());
+}
 
-	// Check if this is a RealtimeMeshSimple with Nanite resources
-	if (URealtimeMeshSimple* RealtimeMeshSimple = Cast<URealtimeMeshSimple>(Mesh))
+FText FRealtimeMeshComponentDetailsCustomization::GetNaniteInputTrianglesText() const
+{
+	if (const RealtimeMesh::FRealtimeMeshNaniteEngineResources* R = ResolveNaniteResources(ComponentPtr.Get()))
 	{
-		RealtimeMesh::FRealtimeMeshAccessContext LockContext(RealtimeMeshSimple->GetMesh()->GetSharedResources());
-
-		if (!RealtimeMeshSimple->GetMeshData()->HasNaniteResources(LockContext))
-		{
-			return LOCTEXT("NoNaniteData", "N/A");
-		}
-
-		const RealtimeMesh::FRealtimeMeshNaniteResources& NaniteResources = RealtimeMeshSimple->GetMeshData()->GetNaniteResources();
-
-		// Access Nanite stats from the resources (inherited from ::Nanite::FResources)
-		const ::Nanite::FResources* NanitePtr = const_cast<RealtimeMesh::FRealtimeMeshNaniteResources&>(NaniteResources).GetNanitePtr();
-
-		if (NanitePtr)
-		{
-			FString StatsText = FString::Printf(TEXT("Clusters: %d, Nodes: %d"),
-				NanitePtr->NumClusters,
-				NanitePtr->HierarchyNodes.Num());
-			return FText::FromString(StatsText);
-		}
+		return FText::AsNumber(R->NumInputTriangles);
 	}
+	return LOCTEXT("NoNanite", "—");
+}
 
-	return LOCTEXT("NoNaniteStats", "N/A");
+FText FRealtimeMeshComponentDetailsCustomization::GetNaniteInputVerticesText() const
+{
+	if (const RealtimeMesh::FRealtimeMeshNaniteEngineResources* R = ResolveNaniteResources(ComponentPtr.Get()))
+	{
+		return FText::AsNumber(R->NumInputVertices);
+	}
+	return LOCTEXT("NoNanite", "—");
+}
+
+FText FRealtimeMeshComponentDetailsCustomization::GetNaniteClustersText() const
+{
+	if (const RealtimeMesh::FRealtimeMeshNaniteEngineResources* R = ResolveNaniteResources(ComponentPtr.Get()))
+	{
+		return FText::AsNumber(R->NumClusters);
+	}
+	return LOCTEXT("NoNanite", "—");
+}
+
+FText FRealtimeMeshComponentDetailsCustomization::GetNaniteHierarchyNodesText() const
+{
+	if (const RealtimeMesh::FRealtimeMeshNaniteEngineResources* R = ResolveNaniteResources(ComponentPtr.Get()))
+	{
+		return FText::AsNumber(NaniteHierarchyNodesView(R).Num());
+	}
+	return LOCTEXT("NoNanite", "—");
+}
+
+FText FRealtimeMeshComponentDetailsCustomization::GetNaniteHierarchyDepthText() const
+{
+	const RealtimeMesh::FRealtimeMeshNaniteEngineResources* R = ResolveNaniteResources(ComponentPtr.Get());
+	if (!R)
+	{
+		return LOCTEXT("NoNanite", "—");
+	}
+	// PageStreamingState.MaxHierarchyDepth is the deepest BVH path each page can
+	// reach; the deepest across all pages is the mesh's overall hierarchy depth.
+	uint8 MaxDepth = 0;
+	for (const ::Nanite::FPageStreamingState& Pss : NanitePageStatesView(R))
+	{
+		MaxDepth = FMath::Max(MaxDepth, Pss.MaxHierarchyDepth);
+	}
+	return FText::AsNumber(static_cast<uint32>(MaxDepth));
+}
+
+FText FRealtimeMeshComponentDetailsCustomization::GetNanitePagesText() const
+{
+	const RealtimeMesh::FRealtimeMeshNaniteEngineResources* R = ResolveNaniteResources(ComponentPtr.Get());
+	if (!R)
+	{
+		return LOCTEXT("NoNanite", "—");
+	}
+	const uint32 NumPages = static_cast<uint32>(NanitePageStatesView(R).Num());
+	const uint32 NumRoot = R->NumRootPages;
+	const uint32 NumStream = NumPages > NumRoot ? NumPages - NumRoot : 0u;
+	return FText::FromString(FString::Printf(TEXT("%u total  (%u root + %u streaming)"),
+		NumPages, NumRoot, NumStream));
+}
+
+FText FRealtimeMeshComponentDetailsCustomization::GetNaniteRootDataText() const
+{
+	if (const RealtimeMesh::FRealtimeMeshNaniteEngineResources* R = ResolveNaniteResources(ComponentPtr.Get()))
+	{
+		return FText::FromString(FormatBytes(NaniteRootDataView(R).Num()));
+	}
+	return LOCTEXT("NoNanite", "—");
+}
+
+FText FRealtimeMeshComponentDetailsCustomization::GetNaniteStreamingDataText() const
+{
+	if (const RealtimeMesh::FRealtimeMeshNaniteEngineResources* R = ResolveNaniteResources(ComponentPtr.Get()))
+	{
+		// Sum BulkSize across streaming pages (indices >= NumRootPages); polymorphic, doesn't depend on
+		// the cooked FByteBulkData being present.
+		const TConstArrayView<::Nanite::FPageStreamingState> Pages = NanitePageStatesView(R);
+		int64 StreamingBytes = 0;
+		for (int32 i = static_cast<int32>(R->NumRootPages); i < Pages.Num(); ++i)
+		{
+			StreamingBytes += Pages[i].BulkSize;
+		}
+		return FText::FromString(FormatBytes(StreamingBytes));
+	}
+	return LOCTEXT("NoNanite", "—");
 }
 
 FText FRealtimeMeshComponentDetailsCustomization::GetMaterialSlotsText() const
@@ -474,7 +403,9 @@ FText FRealtimeMeshComponentDetailsCustomization::GetMaterialSlotsText() const
 	return FText::AsNumber(MaterialCount);
 }
 
-FText FRealtimeMeshComponentDetailsCustomization::GetVertexCountText() const
+// Shared by GetVertexCountText/GetTriangleCountText, which differ only in the stream
+// key and the per-element divisor.
+FText FRealtimeMeshComponentDetailsCustomization::SumLOD0StreamElements(const FRealtimeMeshStreamKey& StreamKey, int32 Divisor) const
 {
 	if (!ComponentPtr.IsValid())
 	{
@@ -483,115 +414,51 @@ FText FRealtimeMeshComponentDetailsCustomization::GetVertexCountText() const
 
 	URealtimeMeshComponent* Component = ComponentPtr.Get();
 	URealtimeMesh* Mesh = Component->GetRealtimeMesh();
-	
+
 	if (!IsValid(Mesh))
 	{
 		return LOCTEXT("NoMesh", "N/A");
 	}
 
-	// Try to cast to URealtimeMeshSimple to get mesh data
 	if (URealtimeMeshSimple* RealtimeMeshSimple = Cast<URealtimeMeshSimple>(Mesh))
 	{
-		int32 TotalVertices = 0;
+		int32 TotalElements = 0;
 		TArray<FRealtimeMeshLODKey> LODs = RealtimeMeshSimple->GetLODs();
-		
-		for (const FRealtimeMeshLODKey& LODKey : LODs)
+
+		// Only count LOD 0 for now
+		if (LODs.Num() > 0)
 		{
-			TArray<FRealtimeMeshSectionGroupKey> SectionGroups = RealtimeMeshSimple->GetSectionGroups(LODKey);
-			
-			for (const FRealtimeMeshSectionGroupKey& SectionGroupKey : SectionGroups)
+			TArray<FRealtimeMeshBufferSetKey> SectionGroups = RealtimeMeshSimple->GetBufferSets(LODs[0]);
+
+			for (const FRealtimeMeshBufferSetKey& SectionGroupKey : SectionGroups)
 			{
 				RealtimeMeshSimple->ProcessMesh(SectionGroupKey, [&](const RealtimeMesh::FRealtimeMeshStreamSet& StreamSet)
 				{
-					if (const auto* PositionStream = StreamSet.Find(RealtimeMesh::FRealtimeMeshStreams::Position))
+					if (const auto* Stream = StreamSet.Find(StreamKey))
 					{
-						TotalVertices += PositionStream->Num();
+						TotalElements += Stream->Num() / Divisor;
 					}
 				});
 			}
-			break; // Only count LOD 0 for now
 		}
-		
-		return FText::AsNumber(TotalVertices);
+
+		return FText::AsNumber(TotalElements);
 	}
-	
+
 	return LOCTEXT("UnsupportedMeshType", "N/A");
+}
+
+FText FRealtimeMeshComponentDetailsCustomization::GetVertexCountText() const
+{
+	return SumLOD0StreamElements(RealtimeMesh::FRealtimeMeshStreams::Position, 1);
 }
 
 FText FRealtimeMeshComponentDetailsCustomization::GetTriangleCountText() const
 {
-	if (!ComponentPtr.IsValid())
-	{
-		return LOCTEXT("NoComponent", "N/A");
-	}
-
-	URealtimeMeshComponent* Component = ComponentPtr.Get();
-	URealtimeMesh* Mesh = Component->GetRealtimeMesh();
-	
-	if (!IsValid(Mesh))
-	{
-		return LOCTEXT("NoMesh", "N/A");
-	}
-
-	// Try to cast to URealtimeMeshSimple to get mesh data
-	if (URealtimeMeshSimple* RealtimeMeshSimple = Cast<URealtimeMeshSimple>(Mesh))
-	{
-		int32 TotalTriangles = 0;
-		TArray<FRealtimeMeshLODKey> LODs = RealtimeMeshSimple->GetLODs();
-		
-		for (const FRealtimeMeshLODKey& LODKey : LODs)
-		{
-			TArray<FRealtimeMeshSectionGroupKey> SectionGroups = RealtimeMeshSimple->GetSectionGroups(LODKey);
-			
-			for (const FRealtimeMeshSectionGroupKey& SectionGroupKey : SectionGroups)
-			{
-				RealtimeMeshSimple->ProcessMesh(SectionGroupKey, [&](const RealtimeMesh::FRealtimeMeshStreamSet& StreamSet)
-				{
-					if (const auto* TriangleStream = StreamSet.Find(RealtimeMesh::FRealtimeMeshStreams::Triangles))
-					{
-						TotalTriangles += TriangleStream->Num() / 3; // 3 indices per triangle
-					}
-				});
-			}
-			break; // Only count LOD 0 for now
-		}
-		
-		return FText::AsNumber(TotalTriangles);
-	}
-	
-	return LOCTEXT("UnsupportedMeshType", "N/A");
+	return SumLOD0StreamElements(RealtimeMesh::FRealtimeMeshStreams::Triangles, 3); // 3 indices per triangle
 }
 
-FText FRealtimeMeshComponentDetailsCustomization::GetMemoryUsageText() const
-{
-	if (!ComponentPtr.IsValid())
-	{
-		return LOCTEXT("NoComponent", "N/A");
-	}
-
-	URealtimeMeshComponent* Component = ComponentPtr.Get();
-	SIZE_T ComponentSize = Component->GetResourceSizeBytes(EResourceSizeMode::EstimatedTotal);
-	
-	if (ComponentSize > 0)
-	{
-		if (ComponentSize > 1024 * 1024)
-		{
-			return FText::FromString(FString::Printf(TEXT("%.1f MB"), ComponentSize / (1024.0f * 1024.0f)));
-		}
-		else if (ComponentSize > 1024)
-		{
-			return FText::FromString(FString::Printf(TEXT("%.1f KB"), ComponentSize / 1024.0f));
-		}
-		else
-		{
-			return FText::FromString(FString::Printf(TEXT("%d B"), (int32)ComponentSize));
-		}
-	}
-	
-	return LOCTEXT("MemoryNA", "N/A");
-}
-
-/*FReply FRealtimeMeshComponentDetailsCustomization::OnCreateStaticMesh()
+FReply FRealtimeMeshComponentDetailsCustomization::OnCreateStaticMesh()
 {
 	if (!ComponentPtr.IsValid())
 	{
@@ -606,19 +473,16 @@ FText FRealtimeMeshComponentDetailsCustomization::GetMemoryUsageText() const
 		return FReply::Handled();
 	}
 
-	// Try to cast to URealtimeMeshSimple for conversion
 	URealtimeMeshSimple* RealtimeMeshSimple = Cast<URealtimeMeshSimple>(RealtimeMesh);
 	if (!RealtimeMeshSimple)
 	{
-		// Show notification that this RealtimeMesh type is not supported
-		FNotificationInfo NotificationInfo(LOCTEXT("UnsupportedMeshType", "Static Mesh creation is currently only supported for RealtimeMeshSimple"));
+		FNotificationInfo NotificationInfo(LOCTEXT("StaticMeshCreationUnsupported", "Static Mesh creation is currently only supported for RealtimeMeshSimple"));
 		NotificationInfo.ExpireDuration = 5.0f;
 		NotificationInfo.bUseLargeFont = false;
 		FSlateNotificationManager::Get().AddNotification(NotificationInfo);
 		return FReply::Handled();
 	}
 
-	// Show dialog to choose path and name
 	FString PackagePath;
 	FString AssetName;
 	if (!ShowCreateStaticMeshDialog(PackagePath, AssetName))
@@ -626,14 +490,12 @@ FText FRealtimeMeshComponentDetailsCustomization::GetMemoryUsageText() const
 		return FReply::Handled(); // User cancelled
 	}
 
-	// Get asset tools for creating the static mesh
 	FAssetToolsModule& AssetToolsModule = FModuleManager::GetModuleChecked<FAssetToolsModule>("AssetTools");
 	IAssetTools& AssetTools = AssetToolsModule.Get();
 
 	FString FinalPackageName = PackagePath + TEXT("/") + AssetName;
 	FString FinalMeshName = AssetName;
 
-	// Create the static mesh asset
 	UStaticMesh* StaticMesh = Cast<UStaticMesh>(AssetTools.CreateAsset(FinalMeshName, FPaths::GetPath(FinalPackageName), UStaticMesh::StaticClass(), nullptr));
 	
 	if (!StaticMesh)
@@ -645,7 +507,6 @@ FText FRealtimeMeshComponentDetailsCustomization::GetMemoryUsageText() const
 		return FReply::Handled();
 	}
 
-	// Convert RealtimeMesh to StaticMesh
 	FRealtimeMeshStaticMeshConversionOptions ConversionOptions;
 	ConversionOptions.bWantTangents = true;
 	ConversionOptions.bWantUVs = true;
@@ -665,10 +526,8 @@ FText FRealtimeMeshComponentDetailsCustomization::GetMemoryUsageText() const
 
 	if (Outcome == ERealtimeMeshOutcomePins::Success)
 	{
-		// Mark the package as dirty and save
 		StaticMesh->MarkPackageDirty();
-		
-		// Show success notification
+
 		FNotificationInfo NotificationInfo(FText::Format(
 			LOCTEXT("StaticMeshCreated", "Static Mesh '{0}' created successfully!"),
 			FText::FromString(FinalMeshName)
@@ -677,7 +536,6 @@ FText FRealtimeMeshComponentDetailsCustomization::GetMemoryUsageText() const
 		NotificationInfo.bUseLargeFont = false;
 		FSlateNotificationManager::Get().AddNotification(NotificationInfo);
 
-		// Open content browser and select the new asset
 		FContentBrowserModule& ContentBrowserModule = FModuleManager::LoadModuleChecked<FContentBrowserModule>("ContentBrowser");
 		TArray<FAssetData> AssetsToSync;
 		AssetsToSync.Add(FAssetData(StaticMesh));
@@ -685,7 +543,6 @@ FText FRealtimeMeshComponentDetailsCustomization::GetMemoryUsageText() const
 	}
 	else
 	{
-		// Show failure notification
 		FNotificationInfo NotificationInfo(LOCTEXT("ConversionFailed", "Failed to convert RealtimeMesh to Static Mesh"));
 		NotificationInfo.ExpireDuration = 5.0f;
 		NotificationInfo.bUseLargeFont = false;
@@ -704,14 +561,12 @@ bool FRealtimeMeshComponentDetailsCustomization::IsCreateStaticMeshEnabled() con
 
 	URealtimeMeshComponent* Component = ComponentPtr.Get();
 	URealtimeMesh* RealtimeMesh = Component->GetRealtimeMesh();
-	
-	// Only enable if we have a valid RealtimeMesh assigned
+
 	return IsValid(RealtimeMesh);
 }
 
 bool FRealtimeMeshComponentDetailsCustomization::ShowCreateStaticMeshDialog(FString& OutPackagePath, FString& OutAssetName) const
 {
-	// Default values
 	FString DefaultPath = TEXT("/Game/GeneratedMeshes");
 	FString DefaultName = TEXT("RealtimeMeshComponent_StaticMesh");
 	
@@ -721,7 +576,6 @@ bool FRealtimeMeshComponentDetailsCustomization::ShowCreateStaticMeshDialog(FStr
 		DefaultName = FString::Printf(TEXT("%s_StaticMesh"), *Component->GetName());
 	}
 
-	// Create dialog content
 	TSharedPtr<SEditableTextBox> PackagePathTextBox;
 	TSharedPtr<SEditableTextBox> AssetNameTextBox;
 
@@ -777,7 +631,6 @@ bool FRealtimeMeshComponentDetailsCustomization::ShowCreateStaticMeshDialog(FStr
 			]
 		];
 
-	// Show modal dialog
 	TSharedRef<SWindow> DialogWindow = SNew(SWindow)
 		.Title(LOCTEXT("CreateStaticMeshDialogWindowTitle", "Create Static Mesh"))
 		.SizingRule(ESizingRule::UserSized)
@@ -809,17 +662,10 @@ bool FRealtimeMeshComponentDetailsCustomization::ShowCreateStaticMeshDialog(FStr
 		+ SHorizontalBox::Slot()
 		.AutoWidth()
 		[
+			// No OnClicked here: the live handler is installed below via
+			// CancelButton->SetOnClicked(), once DialogWindow exists to capture by reference.
 			SAssignNew(CancelButton, SButton)
 			.Text(LOCTEXT("Cancel", "Cancel"))
-			.OnClicked_Lambda([&DialogWindow]() -> FReply
-			{
-				DialogWindow->SetRequestDestroyWindowOverride(FRequestDestroyWindowOverride::CreateLambda([](const TSharedRef<SWindow>&)
-				{
-					// Set a flag or return value to indicate cancellation
-				}));
-				DialogWindow->RequestDestroyWindow();
-				return FReply::Handled();
-			})
 		];
 
 	TSharedRef<SVerticalBox> FullContent = SNew(SVerticalBox)
@@ -838,17 +684,16 @@ bool FRealtimeMeshComponentDetailsCustomization::ShowCreateStaticMeshDialog(FStr
 
 	DialogWindow->SetContent(FullContent);
 
+	// bUserConfirmed defaults to true: closing the dialog via the window's X (rather than
+	// Cancel) is intentionally treated as OK/confirm. Do not change this to default-false.
 	bool bUserConfirmed = true;
-	bool bDialogClosed = false;
 
-	DialogWindow->SetOnWindowClosed(FOnWindowClosed::CreateLambda([&bDialogClosed, &bUserConfirmed](const TSharedRef<SWindow>& Window)
+	DialogWindow->SetOnWindowClosed(FOnWindowClosed::CreateLambda([&bUserConfirmed](const TSharedRef<SWindow>& Window)
 	{
-		bDialogClosed = true;
-		// If the dialog was closed without clicking OK, treat as cancel
-		// This is a simplified approach - in practice you'd want more robust state tracking
+		// Intentional no-op: closing via the window's X leaves bUserConfirmed at its
+		// default of true (see note above).
 	}));
 
-	// Override for cancel button
 	CancelButton->SetOnClicked(FOnClicked::CreateLambda([&DialogWindow, &bUserConfirmed]() -> FReply
 	{
 		bUserConfirmed = false;
@@ -866,6 +711,6 @@ bool FRealtimeMeshComponentDetailsCustomization::ShowCreateStaticMeshDialog(FStr
 	}
 
 	return false;
-}*/
+}
 
 #undef LOCTEXT_NAMESPACE

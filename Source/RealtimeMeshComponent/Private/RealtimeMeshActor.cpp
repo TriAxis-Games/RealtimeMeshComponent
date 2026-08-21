@@ -1,4 +1,4 @@
-// Copyright (c) 2015-2025 TriAxis Games, L.L.C. All Rights Reserved.
+// Copyright (c) 2015-2026 TriAxis Games, L.L.C. All Rights Reserved.
 
 #include "RealtimeMeshActor.h"
 #include "RealtimeMeshComponent.h"
@@ -7,12 +7,9 @@
 #include "Mesh/RealtimeMeshBlueprintMeshBuilder.h"
 #include "Engine/Level.h"
 
-#define LOCTEXT_NAMESPACE "ARealtimeMeshActor"
-
 URealtimeMeshStream* ARealtimeMeshActor::MakeStream(const FRealtimeMeshStreamKey& StreamKey, ERealtimeMeshSimpleStreamType StreamType, int32 NumElements)
 {
 	auto Stream = NewObject<URealtimeMeshStream>(this);
-	check(IsValid(Stream));
 	Stream->Initialize(StreamKey, StreamType, NumElements);
 	return Stream;
 }
@@ -20,7 +17,6 @@ URealtimeMeshStream* ARealtimeMeshActor::MakeStream(const FRealtimeMeshStreamKey
 URealtimeMeshStreamSet* ARealtimeMeshActor::MakeStreamSet()
 {
 	auto StreamSet = NewObject<URealtimeMeshStreamSet>(this);
-	check(IsValid(StreamSet));
 	return StreamSet;
 }
 
@@ -28,25 +24,26 @@ URealtimeMeshLocalBuilder* ARealtimeMeshActor::MakeMeshBuilder(ERealtimeMeshSimp
 	bool bWants32BitIndices, ERealtimeMeshSimpleStreamConfig WantedPolyGroupType, bool bWantsColors, int32 WantedTexCoordChannels, bool bKeepExistingData)
 {
 	auto Builder = NewObject<URealtimeMeshLocalBuilder>(this);
-	check(IsValid(Builder));
 	Builder->Initialize(WantedTangents, WantedTexCoords, bWants32BitIndices, WantedPolyGroupType, bWantsColors, WantedTexCoordChannels, bKeepExistingData);
 	return Builder;
 }
 
 void ARealtimeMeshActor::BeginPlay()
 {
-	if (GetLocalRole() == ROLE_Authority)
+	// Replication is opt-in: respect the configured/archetype bReplicates value rather than
+	// forcing every RealtimeMesh actor into the replication graph. Only wire up the remote
+	// role and physics replication mode when the user actually enabled replication.
+	if (bReplicates && GetLocalRole() == ROLE_Authority)
 	{
-		bReplicates = true;
 		SetRemoteRoleForBackwardsCompat(ROLE_SimulatedProxy);
 		SetReplicates(true);
+
+		if (RealtimeMeshComponent && RealtimeMeshComponent->BodyInstance.bSimulatePhysics)
+		{
+			SetPhysicsReplicationMode(EPhysicsReplicationMode::Resimulation);
+		}
 	}
 
-	if (RealtimeMeshComponent && RealtimeMeshComponent->BodyInstance.bSimulatePhysics)
-	{
-		SetPhysicsReplicationMode(EPhysicsReplicationMode::Resimulation);
-	}
-	
 	Super::BeginPlay();
 }
 
@@ -57,8 +54,6 @@ ARealtimeMeshActor::ARealtimeMeshActor()
 	RealtimeMeshComponent->SetGenerateOverlapEvents(false);
 	RealtimeMeshComponent->SetCollisionProfileName(UCollisionProfile::BlockAll_ProfileName);
 
-	//RealtimeMeshComponent->CollisionType = ECollisionTraceFlag::CTF_UseDefault;
-
 	SetRootComponent(RealtimeMeshComponent);
 
 }
@@ -66,15 +61,18 @@ ARealtimeMeshActor::ARealtimeMeshActor()
 
 ARealtimeMeshActor::~ARealtimeMeshActor()
 {
-	// Ensure we're unregistered on destruction
-	UnregisterWithGenerationManager();
+	// Deliberately do NOT unregister here. Walking the outer chain (GetWorld()->GetSubsystem)
+	// during GC teardown is UB because the outers may already be destructed. Unregistration is
+	// handled by Destroyed() (and PostUnregisterAllComponents on level disassociation, plus
+	// PostEditUndo in-editor) while the actor is still live, and the subsystem prunes stale
+	// weak pointers on tick (API-H3), so a destructor-time unregister is unnecessary.
 }
 
 
 void ARealtimeMeshActor::OnConstruction(const FTransform& Transform)
 {
 	Super::OnConstruction(Transform);
-	bGeneratedMeshRebuildPending = true;
+	MarkGeneratedMeshRebuildPending();
 }
 
 void ARealtimeMeshActor::PostLoad()
@@ -178,6 +176,24 @@ void ARealtimeMeshActor::UnregisterWithGenerationManager()
 }
 
 
+void ARealtimeMeshActor::MarkGeneratedMeshRebuildPending()
+{
+	bGeneratedMeshRebuildPending = true;
+
+	// Place the actor on the subsystem's per-frame pending list so it (and only actors with pending
+	// work) get visited by Tick. Only queue actors that are actually registered with the generation
+	// manager, keeping registration the single gate for participation. Non-deferred actors are
+	// dropped again by the subsystem after the first visit since WantsGeneratedMeshRebuild() is false.
+	if (bIsRegisteredWithGenerationManager)
+	{
+		if (URealtimeMeshSubsystem* Subsystem = URealtimeMeshSubsystem::GetInstance(GetWorld()))
+		{
+			Subsystem->MarkActorRebuildPending(this);
+		}
+	}
+}
+
+
 void ARealtimeMeshActor::ExecuteRebuildGeneratedMeshIfPending()
 {
 	if (!bDeferGeneration || bFrozen ||
@@ -199,8 +215,6 @@ void ARealtimeMeshActor::ExecuteRebuildGeneratedMeshIfPending()
 	bGeneratedMeshRebuildPending = false;
 }
 
-
-#undef LOCTEXT_NAMESPACE
 
 
 

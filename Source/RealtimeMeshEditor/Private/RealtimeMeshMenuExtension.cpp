@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2015-2025 TriAxis Games, L.L.C. All Rights Reserved.
+﻿// Copyright (c) 2015-2026 TriAxis Games, L.L.C. All Rights Reserved.
 
 
 #include "RealtimeMeshMenuExtension.h"
@@ -65,8 +65,8 @@ const ISlateStyle& FRealtimeMeshEditorStyle::Get()
 
 void FRealtimeMeshEditorCommands::RegisterCommands()
 {	
-	UI_COMMAND(MarketplaceCoreAction, "RMC-Core Marketplace", "Get the core version of the RMC on the Unreal Engine Marketplace!", EUserInterfaceActionType::Button, FInputChord());
-	UI_COMMAND(MarketplaceProAction, "RMC-Pro Marketplace", "Get the pro version, with advanced features, of the RMC on the Unreal Engine Marketplace!", EUserInterfaceActionType::Button, FInputChord());
+	UI_COMMAND(MarketplaceCoreAction, "Get RMC-Core on Fab", "Get the core version of the RMC on Fab!", EUserInterfaceActionType::Button, FInputChord());
+	UI_COMMAND(MarketplaceProAction, "Get RMC-Pro on Fab", "Get the pro version, with advanced features, of the RMC on Fab!", EUserInterfaceActionType::Button, FInputChord());
 	UI_COMMAND(DiscordAction, "Join RMC Discord", "Join the RMC Discord community to find inspiration or help from like minded users!", EUserInterfaceActionType::Button, FInputChord());
 	UI_COMMAND(DocumentationAction, "Open Documentation", "Open the RMC documentation in your web browser!", EUserInterfaceActionType::Button, FInputChord());
 	UI_COMMAND(IssuesAction, "Open RMC Issue Tracker", "Open the RMC issue tracker on GitHub if you have found a bug and want to report it!", EUserInterfaceActionType::Button, FInputChord());

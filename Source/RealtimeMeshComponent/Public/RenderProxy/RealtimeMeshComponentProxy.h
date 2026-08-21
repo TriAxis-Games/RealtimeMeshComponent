@@ -1,4 +1,4 @@
-// Copyright (c) 2015-2025 TriAxis Games, L.L.C. All Rights Reserved.
+// Copyright (c) 2015-2026 TriAxis Games, L.L.C. All Rights Reserved.
 
 #pragma once
 
@@ -17,9 +17,10 @@ namespace RealtimeMesh
 	class REALTIMEMESHCOMPONENT_API FRealtimeMeshComponentSceneProxy : public FPrimitiveSceneProxy
 	{
 	private:
-		// THis is the proxy we're rendering
-		FRealtimeMeshProxyRef RealtimeMeshProxy;
-		TSharedPtr<uint8> MeshReferencingHandle;
+		// Captured at construction; this scene proxy reads through this exact
+		// version for its entire lifetime. Newer published versions go to
+		// freshly-recreated scene proxies; this one never observes them.
+		TSharedRef<const FRealtimeMeshProxy> RealtimeMeshProxy;
 
 		// All the in use materials
 		FRealtimeMeshMaterialProxyMap MaterialMap;
@@ -39,8 +40,9 @@ namespace RealtimeMesh
 		uint32 bSupportsRayTracing : 1;
 
 	public:
-		/*Constructor, copies the whole mesh data to feed to UE */
-		FRealtimeMeshComponentSceneProxy(URealtimeMeshComponent* Component, const FRealtimeMeshProxyRef& InRealtimeMeshProxy);
+		/*Constructor: captures the published proxy version this scene proxy will
+		  render against for its entire lifetime. */
+		FRealtimeMeshComponentSceneProxy(URealtimeMeshComponent* Component, const TSharedRef<const FRealtimeMeshProxy>& InRealtimeMeshProxy);
 
 		virtual ~FRealtimeMeshComponentSceneProxy() override;
 
@@ -80,11 +82,7 @@ namespace RealtimeMesh
 		virtual TArray<FRayTracingGeometry*> GetStaticRayTracingGeometries() const override;
 		
 		/** Gathers dynamic ray tracing instances from this proxy. */
-#if RMC_ENGINE_ABOVE_5_5
 		virtual void GetDynamicRayTracingInstances(class FRayTracingInstanceCollector& Collector) override;
-#else
-		virtual void GetDynamicRayTracingInstances(struct FRayTracingMaterialGatheringContext& Context, TArray<struct FRayTracingInstance>& OutRayTracingInstances) override;
-#endif
 #endif // RHI_RAYTRACING
 
 	protected:
@@ -97,10 +95,10 @@ namespace RealtimeMesh
 		
 	private:
 		// Cache debug vertex factories to avoid recreating them every frame
-		mutable TMap<const FRealtimeMeshSectionGroupProxy*, TSharedPtr<FRealtimeMeshDebugVertexFactory>> DebugVertexFactoryCache;
+		mutable TMap<const FRealtimeMeshBufferSetProxy*, TSharedPtr<FRealtimeMeshDebugVertexFactory>> DebugVertexFactoryCache;
 		
 		// Helper function to get or create cached debug vertex factory
-		TSharedPtr<FRealtimeMeshDebugVertexFactory> GetOrCreateDebugVertexFactory(const FRealtimeMeshSectionGroupProxy* SectionGroup, uint32 DebugMode, float LineLength, FRHICommandList& RHICmdList) const;
+		TSharedPtr<FRealtimeMeshDebugVertexFactory> GetOrCreateDebugVertexFactory(const FRealtimeMeshBufferSetProxy* SectionGroup, uint32 DebugMode, float LineLength, FRHICommandList& RHICmdList) const;
 
 		int8 ComputeTemporalStaticMeshLOD(const FVector4& Origin, const float SphereRadius, const FSceneView& View, int32 MinLOD, float FactorScale, int32 SampleIndex) const;
 		int8 ComputeStaticMeshLOD(const FVector4& Origin, const float SphereRadius, const FSceneView& View, int32 MinLOD, float FactorScale) const;
