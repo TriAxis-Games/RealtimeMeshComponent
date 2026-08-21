@@ -963,7 +963,7 @@ namespace RealtimeMesh
 		template <typename SourceType>
 		void Append(TArrayView<SourceType> NewElements)
 		{
-			Append(GetRealtimeMeshBufferLayout<SourceType>(), NewElements.GetData(), NewElements.Num());
+			Append(GetRealtimeMeshBufferLayout<SourceType>(), reinterpret_cast<const uint8*>(NewElements.GetData()), NewElements.Num());
 		}
 
 		template <typename VertexType, typename InAllocatorType = FDefaultAllocator>
@@ -975,13 +975,13 @@ namespace RealtimeMesh
 		template <typename VertexType>
 		void Append(std::initializer_list<VertexType> NewElements)
 		{
-			Append(GetRealtimeMeshBufferLayout<VertexType>(), NewElements.begin(), NewElements.size());
+			Append(GetRealtimeMeshBufferLayout<VertexType>(), reinterpret_cast<const uint8*>(NewElements.begin()), NewElements.size());
 		}
 
 		template <typename VertexType>
-		void Append(int32 Count, VertexType* NewElements)
+		void Append(int32 Count, const VertexType* NewElements)
 		{
-			Append(GetRealtimeMeshBufferLayout<VertexType>(), NewElements, Count);
+			Append(GetRealtimeMeshBufferLayout<VertexType>(), reinterpret_cast<const uint8*>(NewElements), Count);
 		}
 
 		template <typename VertexType, typename GeneratorFunc>
