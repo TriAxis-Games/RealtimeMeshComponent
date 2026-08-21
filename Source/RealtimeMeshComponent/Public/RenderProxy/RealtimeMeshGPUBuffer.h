@@ -206,7 +206,10 @@ namespace RealtimeMesh
 				return false;
 			}
 			const uint32 Stride = GetStride();
-			if (Stride == 0 || ElementOffset < 0 || NumElements <= 0 || ElementOffset + NumElements > BufferNum)
+			// int64 on both sides: BufferNum is uint32, so a signed/unsigned compare here is both an
+			// MSVC C4018 and a real hazard if ElementOffset + NumElements overflows int32.
+			if (Stride == 0 || ElementOffset < 0 || NumElements <= 0 ||
+				static_cast<int64>(ElementOffset) + NumElements > static_cast<int64>(BufferNum))
 			{
 				return false;
 			}

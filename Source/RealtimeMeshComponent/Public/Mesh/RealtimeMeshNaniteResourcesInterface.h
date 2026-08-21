@@ -2,12 +2,16 @@
 
 #pragma once
 
-#include <atomic>
-
 #include "RealtimeMeshCore.h"
 #include "Rendering/NaniteResources.h"
 #include "Rendering/NaniteStreamingManager.h"
 #include "RealtimeMeshComponentModule.h"
+
+// Standard library last: on MSVC, pulling <atomic> in before the engine's platform
+// headers poisons the compiler-intrinsic setup that FWindowsPlatformAtomics relies on,
+// surfacing as "'_InterlockedIncrement': is not a member of 'FWindowsPlatformAtomics'"
+// from deep inside engine headers such as IO/IoBuffer.h.
+#include <atomic>
 
 // ================================================================================================
 // FRealtimeMeshNaniteResources — the RMC runtime Nanite resource, in three build tiers (see

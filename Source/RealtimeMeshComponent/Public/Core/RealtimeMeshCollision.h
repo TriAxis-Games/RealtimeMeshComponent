@@ -410,7 +410,7 @@ public:
 	auto end() const  { return Shapes.end(); }
 
 	friend REALTIMEMESHCOMPONENT_API FArchive& operator<<(FArchive& Ar, struct FRealtimeMeshSimpleGeometry& SimpleGeometry);
-	friend FArchive& operator<<(FArchive& Ar, struct FRealtimeMeshComplexGeometry& ComplexGeometry);
+	friend REALTIMEMESHCOMPONENT_API FArchive& operator<<(FArchive& Ar, struct FRealtimeMeshComplexGeometry& ComplexGeometry);
 };
 
 USTRUCT(BlueprintType)
@@ -593,7 +593,7 @@ public:
 
 	TArray<int32> GetMeshIDsNeedingCook() const { return Meshes.GetMeshIDsNeedingCook(); }
 
-	friend FArchive& operator<<(FArchive& Ar, FRealtimeMeshComplexGeometry& ComplexGeometry);
+	friend REALTIMEMESHCOMPONENT_API FArchive& operator<<(FArchive& Ar, FRealtimeMeshComplexGeometry& ComplexGeometry);
 	friend class URealtimeMeshCollisionTools;
 };
 

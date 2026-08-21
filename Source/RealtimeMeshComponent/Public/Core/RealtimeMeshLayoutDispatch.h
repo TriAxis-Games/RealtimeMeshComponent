@@ -69,7 +69,10 @@ namespace RealtimeMesh
 			{
 				return VisitImpl<FnType, Rest...>(Stream, Forward<FnType>(Fn));
 			}
-			return false;
+			else
+			{
+				return false;
+			}
 		}
 
 		template <typename FnType, typename First, typename... Rest>
@@ -87,7 +90,10 @@ namespace RealtimeMesh
 			{
 				return VisitImplMutable<FnType, Rest...>(Stream, Forward<FnType>(Fn));
 			}
-			return false;
+			else
+			{
+				return false;
+			}
 		}
 	};
 
@@ -131,7 +137,10 @@ namespace RealtimeMesh
 			{
 				return VisitImpl<FnType, Rest...>(Stream, Forward<FnType>(Fn));
 			}
-			return false;
+			else
+			{
+				return false;
+			}
 		}
 
 		template <typename FnType, typename First, typename... Rest>
@@ -148,7 +157,10 @@ namespace RealtimeMesh
 			{
 				return VisitImplMutable<FnType, Rest...>(Stream, Forward<FnType>(Fn));
 			}
-			return false;
+			else
+			{
+				return false;
+			}
 		}
 	};
 }
