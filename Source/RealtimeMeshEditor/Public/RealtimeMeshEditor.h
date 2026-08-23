@@ -6,20 +6,11 @@
 #include "RealtimeMeshCore.h"
 #include "Modules/ModuleManager.h"
 
-struct FRealtimeMeshEditorSettings
-{
-	bool bShouldIgnoreLumenNotification = false;
-	int64 LastLumenNotificationTime = 0;
-};
-
-
 class FRealtimeMeshEditorModule : public IModuleInterface
 {
 private:
 	TSharedPtr<class FUICommandList> PluginCommands;
 
-	FRealtimeMeshEditorSettings Settings;	
-	
 	TWeakPtr<SNotificationItem> LumenNotification;
 	FTimerHandle LumenUseCheckHandle;
 	
@@ -44,14 +35,11 @@ private:
 	
 	void ShowLumenNotification();
 	// Shared stamp-time + save + expire/fadeout body for the notification handlers below.
-	void DismissLumenNotification();
+	void DismissLumenNotification(int32 DeferDays, bool bSuppressPermanently);
 	void HandleLumenNotificationBuyNowClicked();
 	void HandleLumenNotificationLaterClicked();
 	void HandleLumenNotificationIgnoreClicked();
 	
 	void CheckLumenUseTimer();
-
-	void LoadSettings();
-	void SaveSettings();
 };
 

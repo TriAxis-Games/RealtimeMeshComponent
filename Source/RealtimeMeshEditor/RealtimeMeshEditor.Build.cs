@@ -34,6 +34,7 @@ public class RealtimeMeshEditor : ModuleRules
                 "EditorStyle",
                 "EditorWidgets",
                 "ContentBrowser",
+                "DeveloperSettings",
             }
         );
 

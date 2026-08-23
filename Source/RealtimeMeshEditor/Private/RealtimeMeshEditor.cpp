@@ -16,20 +16,32 @@
 #include "Widgets/Notifications/SNotificationList.h"
 #include "PropertyEditorModule.h"
 #include "SceneInterface.h"
-#include "Misc/ConfigCacheIni.h"
+#include "RealtimeMeshEditorSettings.h"
 
 #define LOCTEXT_NAMESPACE "RealtimeMeshEditorModule"
 
+// How long "Later" defers the upgrade notification, and the hard ceiling on how many
+// times it may ever be shown. Both are deliberately conservative: this is an upsell,
+// not a warning, and it must never become background noise.
+static constexpr int32 GRealtimeMeshProNotificationDeferDays = 30;
+static constexpr int32 GRealtimeMeshProNotificationMaxShows = 3;
+
 static bool GRealtimeMeshNotifyLumenUseInCore = true;
-static FAutoConsoleVariableRef CVarRealtimeMeshNotifyLumenUseInCore(
+static FAutoConsoleVariableRef CVarRealtimeMeshEnableProUpgradeNotifications(
+	TEXT("RealtimeMesh.EnableProUpgradeNotifications"),
+	GRealtimeMeshNotifyLumenUseInCore,
+	TEXT("Show the editor notification pointing Core users at RMC-Pro for runtime Lumen support. No effect when Pro is installed."),
+	ECVF_Default);
+// Legacy spelling, kept so existing ini/console settings keep working. The old name was
+// misleading: it gates the notification shown in Core, not anything in Pro.
+static FAutoConsoleVariableRef CVarRealtimeMeshNotifyLumenUseInCore_Legacy(
 	TEXT("RealtimeMesh.EnableNotificationsForLumenSupportInPro"),
 	GRealtimeMeshNotifyLumenUseInCore,
-	TEXT("Should we notify the user when they have an RMC in a scene with Lumen active but don't have RMC-Pro."),
+	TEXT("Deprecated alias for RealtimeMesh.EnableProUpgradeNotifications."),
 	ECVF_Default);
 	
 void FRealtimeMeshEditorModule::StartupModule()
 {
-	LoadSettings();
 	FRealtimeMeshEditorStyle::Initialize();
 	FRealtimeMeshEditorStyle::ReloadTextures();
 	FRealtimeMeshEditorCommands::Register();
@@ -111,8 +123,13 @@ void FRealtimeMeshEditorModule::RegisterMenus()
 		FToolMenuSection& Section = Menu->FindOrAddSection("Tools");
 
 		{
-			Section.AddMenuEntryWithCommandList(FRealtimeMeshEditorCommands::Get().MarketplaceProAction, PluginCommands);
-			Section.AddMenuEntryWithCommandList(FRealtimeMeshEditorCommands::Get().MarketplaceCoreAction, PluginCommands);
+			// Store links are for people who don't already own Pro; showing "Get RMC-Pro on Fab"
+			// to a Pro user is just noise in their menu.
+			if (!IsProVersion())
+			{
+				Section.AddMenuEntryWithCommandList(FRealtimeMeshEditorCommands::Get().MarketplaceProAction, PluginCommands);
+				Section.AddMenuEntryWithCommandList(FRealtimeMeshEditorCommands::Get().MarketplaceCoreAction, PluginCommands);
+			}
 			Section.AddMenuEntryWithCommandList(FRealtimeMeshEditorCommands::Get().DiscordAction, PluginCommands);
 			Section.AddMenuEntryWithCommandList(FRealtimeMeshEditorCommands::Get().DocumentationAction, PluginCommands);
 			Section.AddMenuEntryWithCommandList(FRealtimeMeshEditorCommands::Get().IssuesAction, PluginCommands);
@@ -182,7 +199,16 @@ void FRealtimeMeshEditorModule::IssuesButtonClicked()
 
 bool FRealtimeMeshEditorModule::IsProVersion()
 {
-	// Detect the RealtimeMeshExt module to tell if this is the pro version.
+	// Primary check: is the Pro-only Ext module actually present in this build? Both tiers ship a
+	// file named RealtimeMeshComponent.uplugin, so a name-based FindPlugin can resolve to a stale
+	// Core copy (e.g. left in Engine/Plugins/Marketplace after upgrading) and wrongly report Core.
+	if (FModuleManager::Get().IsModuleLoaded(TEXT("RealtimeMeshExt")) ||
+		FModuleManager::Get().ModuleExists(TEXT("RealtimeMeshExt")))
+	{
+		return true;
+	}
+
+	// Fallback: inspect the descriptor.
 	if (auto Plugin = IPluginManager::Get().FindPlugin(TEXT("RealtimeMeshComponent")))
 	{
 		return Plugin->GetDescriptor().FriendlyName.Contains(TEXT("Pro")) ||
@@ -212,20 +238,35 @@ void FRealtimeMeshEditorModule::SetupEditorTimer()
 
 void FRealtimeMeshEditorModule::ShowLumenNotification()
 {
-	const int64 DayStartTimestamp = FDateTime::Today().ToUnixTimestamp();
-	const bool bHasBeenAWhileSinceLastNotification = DayStartTimestamp > Settings.LastLumenNotificationTime;
-
-	if (LumenNotification.Pin() || Settings.bShouldIgnoreLumenNotification || !bHasBeenAWhileSinceLastNotification || IsProVersion())
+	if (LumenNotification.Pin() || IsProVersion() || !GRealtimeMeshNotifyLumenUseInCore)
 	{
 		return;
 	}
 
-	if (!GRealtimeMeshNotifyLumenUseInCore)
+	const URealtimeMeshEditorSettings* EditorSettings = GetDefault<URealtimeMeshEditorSettings>();
+	if (!EditorSettings->bEnableProUpgradeNotifications || EditorSettings->bSuppressProUpgradeNotification)
 	{
 		return;
 	}
 
-	FNotificationInfo Notification(LOCTEXT("RealtimeMeshToast", "For Lumen support in the RealtimeMesh, please considering purchasing the Pro version!"));
+	// Hard ceiling, independent of the defer window: after this many showings we stop for good.
+	if (EditorSettings->ProUpgradeNotificationShowCount >= GRealtimeMeshProNotificationMaxShows)
+	{
+		return;
+	}
+
+	if (FDateTime::UtcNow().ToUnixTimestamp() < EditorSettings->NextProUpgradeNotificationTime)
+	{
+		return;
+	}
+
+	{
+		URealtimeMeshEditorSettings* MutableSettings = GetMutableDefault<URealtimeMeshEditorSettings>();
+		MutableSettings->ProUpgradeNotificationShowCount++;
+		MutableSettings->SaveConfig();
+	}
+
+	FNotificationInfo Notification(LOCTEXT("RealtimeMeshToast", "Realtime Mesh Pro adds runtime Lumen and distance field support for dynamic meshes."));
 
 	Notification.ButtonDetails.Add(FNotificationButtonInfo(
 		LOCTEXT("BuyPro", "Buy Pro!"),
@@ -259,13 +300,18 @@ void FRealtimeMeshEditorModule::ShowLumenNotification()
 	}
 }
 
-// Shared by the notification handlers below: stamps the dismiss time, saves settings,
-// and fades out the notification. Each handler adds its own distinct action on top
-// (open URL / set the ignore flag) before calling this.
-void FRealtimeMeshEditorModule::DismissLumenNotification()
+// Shared by the notification handlers below: records when (or whether) the notification may
+// appear again, persists that, and fades the toast out.
+void FRealtimeMeshEditorModule::DismissLumenNotification(int32 DeferDays, bool bSuppressPermanently)
 {
-	Settings.LastLumenNotificationTime = FDateTime::Today().ToUnixTimestamp();
-	SaveSettings();
+	URealtimeMeshEditorSettings* EditorSettings = GetMutableDefault<URealtimeMeshEditorSettings>();
+	EditorSettings->NextProUpgradeNotificationTime =
+		(FDateTime::UtcNow() + FTimespan::FromDays(DeferDays)).ToUnixTimestamp();
+	if (bSuppressPermanently)
+	{
+		EditorSettings->bSuppressProUpgradeNotification = true;
+	}
+	EditorSettings->SaveConfig();
 
 	if (auto Notification = LumenNotification.Pin())
 	{
@@ -279,20 +325,18 @@ void FRealtimeMeshEditorModule::HandleLumenNotificationBuyNowClicked()
 {
 	MarketplaceProButtonClicked();
 
-	DismissLumenNotification();
+	// They followed the link; do not ask again regardless of whether they complete the purchase.
+	DismissLumenNotification(GRealtimeMeshProNotificationDeferDays, /*bSuppressPermanently*/ true);
 }
 
 void FRealtimeMeshEditorModule::HandleLumenNotificationLaterClicked()
 {
-	DismissLumenNotification();
+	DismissLumenNotification(GRealtimeMeshProNotificationDeferDays, /*bSuppressPermanently*/ false);
 }
 
 void FRealtimeMeshEditorModule::HandleLumenNotificationIgnoreClicked()
 {
-	// Set the ignore flag before the shared save so it is persisted.
-	Settings.bShouldIgnoreLumenNotification = true;
-
-	DismissLumenNotification();
+	DismissLumenNotification(GRealtimeMeshProNotificationDeferDays, /*bSuppressPermanently*/ true);
 }
 
 void FRealtimeMeshEditorModule::CheckLumenUseTimer()
@@ -323,59 +367,6 @@ void FRealtimeMeshEditorModule::CheckLumenUseTimer()
 		ShowLumenNotification();
 	}
 }
-
-void FRealtimeMeshEditorModule::LoadSettings()
-{
-	const FString ConfigPath = FPaths::EngineUserDir() / TEXT("Saved") / TEXT("RealtimeMesh.ini");
-
-	FConfigFile ConfigFile;
-	ConfigFile.Read(ConfigPath);
-
-
-	const auto ReadBool = [](const FConfigSection* Section, const TCHAR* Key)
-	{
-		if (const auto* T = Section->Find(Key))
-		{
-			return FCString::ToBool(*T->GetValue());
-		}
-		return false;
-	};
-	const auto ReadInt = [](const FConfigSection* Section, const TCHAR* Key)
-	{
-		if (const auto* T = Section->Find(Key))
-		{
-			if (FCString::IsNumeric(*T->GetValue()))
-			{
-				return FCString::Atoi64(*T->GetValue());
-			}
-		}
-		return 0ll;
-	};
-
-	{
-		const FConfigSection* NotificationSection = ConfigFile.FindOrAddConfigSection(TEXT("Notifications"));
-
-		Settings.bShouldIgnoreLumenNotification = ReadBool(NotificationSection, TEXT("bShouldIgnoreLumenNotification"));
-
-		Settings.LastLumenNotificationTime = ReadInt(NotificationSection, TEXT("LastLumenNotificationTime"));
-	}
-}
-
-void FRealtimeMeshEditorModule::SaveSettings()
-{
-	const FString ConfigPath = FPaths::EngineUserDir() / TEXT("Saved") / TEXT("RealtimeMesh.ini");
-
-	FConfigFile ConfigFile;
-
-	{
-		ConfigFile.AddToSection(TEXT("Notifications"), TEXT("bShouldIgnoreLumenNotification"), Settings.bShouldIgnoreLumenNotification ? TEXT("True") : TEXT("False"));
-
-		ConfigFile.AddToSection(TEXT("Notifications"), TEXT("LastLumenNotificationTime"), FString::FromInt(Settings.LastLumenNotificationTime));
-	}
-
-	ConfigFile.Write(ConfigPath);
-}
-
 
 #undef LOCTEXT_NAMESPACE
 
