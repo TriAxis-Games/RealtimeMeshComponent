@@ -72,3 +72,7 @@ Plugins/*/Intermediate/*
 
 # Cache files for the editor to use
 DerivedDataCache/*
+
+# Python bytecode cache (Packaging/package_plugin.py)
+__pycache__/
+*.py[cod]

@@ -6,6 +6,8 @@
 #include "UObject/ObjectMacros.h"
 #include "RealtimeMeshMaterial.generated.h"
 
+class UMaterialInterface;
+
 /* Material slot, including an optional name, and the material reference
  * that a section can then index to set the material on a mesh section
  */
