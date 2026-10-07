@@ -33,6 +33,7 @@ namespace RealtimeMesh
 			SectionGroupComputeWritable = 14,
 			SerializeSectionKeyBufferSlotAndStreamType = 15,
 			SerializeSectionGroupKeySlotIndex = 16,
+			BufferSetRayTracingOptOut = 17,
 
 			// -----<new versions can be added above this line>-------------------------------------------------
 			VersionPlusOne,

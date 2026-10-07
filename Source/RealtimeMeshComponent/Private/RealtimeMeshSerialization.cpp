@@ -25,10 +25,11 @@ static_assert(offsetof(FRealtimeMeshSectionConfig, bCastsShadow) == 5, "FRealtim
 static_assert(offsetof(FRealtimeMeshSectionConfig, bIsMainPassRenderable) == 6, "FRealtimeMeshSectionConfig::bIsMainPassRenderable moved; update its serializer");
 static_assert(offsetof(FRealtimeMeshSectionConfig, bForceOpaque) == 7, "FRealtimeMeshSectionConfig::bForceOpaque moved; update its serializer");
 
-// FRealtimeMeshBufferSetConfig: uint8 DrawType + bool bComputeWritable (mirror UPROPERTY order).
-static_assert(sizeof(FRealtimeMeshBufferSetConfig) == 2, "FRealtimeMeshBufferSetConfig layout changed; update its serializer and bump the version");
+// FRealtimeMeshBufferSetConfig: uint8 DrawType + bool bComputeWritable + bool bGenerateRayTracingGeometry (mirror UPROPERTY order).
+static_assert(sizeof(FRealtimeMeshBufferSetConfig) == 3, "FRealtimeMeshBufferSetConfig layout changed; update its serializer and bump the version");
 static_assert(offsetof(FRealtimeMeshBufferSetConfig, DrawType) == 0, "FRealtimeMeshBufferSetConfig::DrawType moved; update its serializer");
 static_assert(offsetof(FRealtimeMeshBufferSetConfig, bComputeWritable) == 1, "FRealtimeMeshBufferSetConfig::bComputeWritable moved; update its serializer");
+static_assert(offsetof(FRealtimeMeshBufferSetConfig, bGenerateRayTracingGeometry) == 2, "FRealtimeMeshBufferSetConfig::bGenerateRayTracingGeometry moved; update its serializer");
 
 // FRealtimeMeshComplexGeometry: exactly one member, FSimpleShapeSet<FRealtimeMeshCollisionMesh> Meshes
 // (Meshes is private, so pin via size equality rather than offsetof — proves the single-member layout).
@@ -182,6 +183,10 @@ FArchive& operator<<(FArchive& Ar, FRealtimeMeshBufferSetConfig& Config)
 	if (Ar.CustomVer(RealtimeMesh::FRealtimeMeshVersion::GUID) >= RealtimeMesh::FRealtimeMeshVersion::SectionGroupComputeWritable)
 	{
 		Ar << Config.bComputeWritable;
+	}
+	if (Ar.CustomVer(RealtimeMesh::FRealtimeMeshVersion::GUID) >= RealtimeMesh::FRealtimeMeshVersion::BufferSetRayTracingOptOut)
+	{
+		Ar << Config.bGenerateRayTracingGeometry;
 	}
 	return Ar;
 }

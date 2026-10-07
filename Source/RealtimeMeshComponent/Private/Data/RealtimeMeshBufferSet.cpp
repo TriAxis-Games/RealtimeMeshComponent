@@ -362,13 +362,20 @@ namespace RealtimeMesh
 	{
 		if (auto ProxyBuilder = UpdateContext.GetProxyBuilder())
 		{
+			// The config goes to the proxy even when there are no sections yet: Initialize empties them before calling this, so
+			// a buffer set created through CreateBufferSet (sections come with the streams afterwards) otherwise kept the proxy's
+			// default config, Static with ray tracing geometry, whatever config it was created with.
+			ProxyBuilder->AddSectionGroupTask(Key, [Config = Config](FRHICommandListBase& RHICmdList, FRealtimeMeshBufferSetProxy& Proxy)
+			{
+				Proxy.UpdateConfig(Config);
+			}, ShouldRecreateProxyOnChange(UpdateContext));
+
 			// We only send sections here, we rely on the derived to setup the streams
 			for (const auto& Section : Sections)
 			{
-				ProxyBuilder->AddSectionGroupTask(Key, [SectionKey = Section->GetKey(UpdateContext), Config = Config](FRHICommandListBase& RHICmdList, FRealtimeMeshBufferSetProxy& Proxy)
+				ProxyBuilder->AddSectionGroupTask(Key, [SectionKey = Section->GetKey(UpdateContext)](FRHICommandListBase& RHICmdList, FRealtimeMeshBufferSetProxy& Proxy)
 				{
 					Proxy.CreateSectionIfNotExists(SectionKey);
-					Proxy.UpdateConfig(Config);
 				}, ShouldRecreateProxyOnChange(UpdateContext));
 
 				Section->InitializeProxy(UpdateContext);

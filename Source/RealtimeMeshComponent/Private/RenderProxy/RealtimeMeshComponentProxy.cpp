@@ -714,6 +714,25 @@ namespace RealtimeMesh
 			check(RayTracingGeometry && RayTracingGeometry->Initializer.TotalPrimitiveCount > 0);
 			check(RayTracingGeometry->Initializer.IndexBuffer.IsValid());
 
+#if RMC_ENGINE_ABOVE_5_5
+			// Reference-based residency (5.5+) evicts geometry the TLAS doesn't reference, e.g. while this component was
+			// hidden: it stays IsValid() with no RHI object. Reference it so the geometry manager makes it resident again,
+			// and skip it this frame, as the engine's own proxies do.
+			if (RayTracingGeometry->IsEvicted() || !RayTracingGeometry->GetRHI())
+			{
+#if RMC_ENGINE_ABOVE_5_7
+				if (RayTracingGeometry->IsEvicted())
+				{
+					Collector.AddReferencedGeometry(RayTracingGeometry->GetGeometryHandle());
+				}
+#endif
+				while (Cursor < RTEntries.Num() && RTEntries[Cursor].BufferSetIndex == GroupBufferSetIndex)
+				{
+					++Cursor;
+				}
+				continue;
+			}
+#endif
 			checkf(RayTracingGeometry->GetRHI(), TEXT("Ray tracing instance must have a valid geometry."));
 			FRayTracingInstance RayTracingInstance;
 			RayTracingInstance.Geometry = RayTracingGeometry;

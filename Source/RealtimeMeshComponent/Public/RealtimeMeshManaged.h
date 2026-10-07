@@ -286,6 +286,9 @@ public:
 															const FRealtimeMeshStreamRange& StreamRange, bool bShouldCreateCollision = false);
 
 	TFuture<ERealtimeMeshProxyUpdateStatus> UpdateSectionConfig(const FRealtimeMeshSectionKey& SectionKey, const FRealtimeMeshSectionConfig& Config, bool bShouldCreateCollision = false);
+
+	/* Replaces a buffer set's config (draw type, compute-writable, ray tracing geometry). A draw-type change recreates the proxy. */
+	TFuture<ERealtimeMeshProxyUpdateStatus> UpdateBufferSetConfig(const FRealtimeMeshBufferSetKey& BufferSetKey, const FRealtimeMeshBufferSetConfig& Config);
 	TFuture<ERealtimeMeshProxyUpdateStatus> UpdateSectionRange(const FRealtimeMeshSectionKey& SectionKey, const FRealtimeMeshStreamRange& StreamRange);
 
 

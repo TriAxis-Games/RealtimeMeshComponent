@@ -835,6 +835,20 @@ TFuture<ERealtimeMeshProxyUpdateStatus> URealtimeMeshManaged::UpdateSectionConfi
 	return UpdateBuilder.Commit(GetManagedMeshData());
 }
 
+TFuture<ERealtimeMeshProxyUpdateStatus> URealtimeMeshManaged::UpdateBufferSetConfig(const FRealtimeMeshBufferSetKey& BufferSetKey,
+	const FRealtimeMeshBufferSetConfig& Config)
+{
+	FRealtimeMeshUpdateBuilder UpdateBuilder;
+
+	UpdateBuilder.AddSectionGroupTask<FRealtimeMeshBufferSetManaged>(BufferSetKey,
+	[Config](FRealtimeMeshUpdateContext& UpdateContext, FRealtimeMeshBufferSetManaged& BufferSet)
+	{
+		BufferSet.UpdateConfig(UpdateContext, Config);
+	});
+
+	return UpdateBuilder.Commit(GetManagedMeshData());
+}
+
 TFuture<ERealtimeMeshProxyUpdateStatus> URealtimeMeshManaged::UpdateSectionRange(const FRealtimeMeshSectionKey& SectionKey, const FRealtimeMeshStreamRange& StreamRange)
 {
 	FRealtimeMeshUpdateBuilder UpdateBuilder;

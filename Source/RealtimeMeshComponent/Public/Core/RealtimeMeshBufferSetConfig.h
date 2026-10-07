@@ -32,14 +32,23 @@ struct FRealtimeMeshBufferSetConfig
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="RealtimeMesh|SectionGroup|Config", AdvancedDisplay)
 	bool bComputeWritable;
 
-	FRealtimeMeshBufferSetConfig(ERealtimeMeshSectionDrawType InDrawType = ERealtimeMeshSectionDrawType::Static, bool bInComputeWritable = false)
+	/* When false, no ray tracing geometry (BLAS) is built for this buffer set, and an existing one is released. Every
+	 * buffer set otherwise keeps a BLAS while ray tracing is on, whether or not any component shows it in ray tracing;
+	 * meshes that are hidden or not visible in ray tracing can turn it off to save that memory. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="RealtimeMesh|SectionGroup|Config", AdvancedDisplay)
+	bool bGenerateRayTracingGeometry;
+
+	FRealtimeMeshBufferSetConfig(ERealtimeMeshSectionDrawType InDrawType = ERealtimeMeshSectionDrawType::Static, bool bInComputeWritable = false,
+		bool bInGenerateRayTracingGeometry = true)
 		: DrawType(InDrawType)
 		, bComputeWritable(bInComputeWritable)
+		, bGenerateRayTracingGeometry(bInGenerateRayTracingGeometry)
 	{ }
 
 	bool operator==(const FRealtimeMeshBufferSetConfig& Other) const
 	{
-		return DrawType == Other.DrawType && bComputeWritable == Other.bComputeWritable;
+		return DrawType == Other.DrawType && bComputeWritable == Other.bComputeWritable
+			&& bGenerateRayTracingGeometry == Other.bGenerateRayTracingGeometry;
 	}
 
 	bool operator!=(const FRealtimeMeshBufferSetConfig& Other) const

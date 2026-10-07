@@ -421,7 +421,8 @@ namespace RealtimeMesh
 		Plan.Signature.StreamGeneration = StreamGeneration;
 		Plan.Signature.bRayTracingEnabled = IsRayTracingEnabled();
 
-		bool bShouldGenerateRayTracingGeometry = DrawMask.HasAnyFlags() && VertexFactory.IsValid() && Plan.Signature.bRayTracingEnabled;
+		bool bShouldGenerateRayTracingGeometry = DrawMask.HasAnyFlags() && VertexFactory.IsValid() && Plan.Signature.bRayTracingEnabled
+			&& Config.bGenerateRayTracingGeometry;
 
 		// We need to check if the sections are contiguous with no gaps and using the entire index buffer...
 		// If it is not then we'd need to allocate a ray tracing index buffer and pack the active sections down into it.
